@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { applySearch } from '../utils/search-filter';
 
 interface TDSCreateInput {
   invoiceId?: string;
@@ -54,11 +55,7 @@ class TDSService {
 
     const where: any = {};
     if (search) {
-      where.OR = [
-        { deductorName: { contains: search, mode: 'insensitive' } },
-        { tdsSection: { contains: search, mode: 'insensitive' } },
-        { certificateNo: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['deductorName', 'tdsSection', 'certificateNo']);
     }
     if (financialYear) where.financialYear = financialYear;
     if (quarter) where.quarter = quarter;

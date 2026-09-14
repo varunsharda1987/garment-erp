@@ -64,11 +64,19 @@ export function buildSearchWhere(
  * around them: a status or customer filter set elsewhere on the same `where` must still narrow the
  * result, not be ORed away.
  */
-export function applySearch(where: WhereFragment, search: string | null | undefined, fields: readonly string[]): void {
+export function applySearch<T extends object>(
+  where: T,
+  search: string | null | undefined,
+  fields: readonly string[]
+): void {
   const filter = buildSearchWhere(search, fields);
   if (!filter) return;
 
-  const existing = where.AND;
-  const existingClauses = Array.isArray(existing) ? existing : existing ? [existing] : [];
-  where.AND = [...existingClauses, ...filter.AND];
+  // Generic over the caller's own where type: several controllers declare a local where-clause
+  // interface with no `AND` and no index signature, and demanding either bought casts at the call
+  // sites rather than safety. All this function touches is `AND`.
+  const target = where as { AND?: unknown };
+  const existing = target.AND;
+  const existingClauses: unknown[] = Array.isArray(existing) ? existing : existing ? [existing] : [];
+  target.AND = [...existingClauses, ...filter.AND];
 }

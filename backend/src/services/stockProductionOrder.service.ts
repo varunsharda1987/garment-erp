@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { Prisma, StockProductionOrderStatus, Priority, OrderStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 interface SPOCreateInput {
   styleId: string;
@@ -90,12 +91,7 @@ export class StockProductionOrderService {
     const where: Prisma.stock_production_ordersWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { spoNumber: { contains: search, mode: 'insensitive' } },
-        { style: { styleCode: { contains: search, mode: 'insensitive' } } },
-        { style: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
-        { style: { styleName: { contains: search, mode: 'insensitive' } } },
-      ];
+      applySearch(where, search, ['spoNumber', 'style.styleCode', 'style.buyerStyleRef', 'style.styleName']);
     }
 
     if (status) {
@@ -322,12 +318,7 @@ export class StockProductionOrderService {
     };
 
     if (search) {
-      where.OR = [
-        { spoNumber: { contains: search, mode: 'insensitive' } },
-        { style: { styleCode: { contains: search, mode: 'insensitive' } } },
-        { style: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
-        { style: { styleName: { contains: search, mode: 'insensitive' } } },
-      ];
+      applySearch(where, search, ['spoNumber', 'style.styleCode', 'style.buyerStyleRef', 'style.styleName']);
     }
 
     return prisma.stock_production_orders.findMany({

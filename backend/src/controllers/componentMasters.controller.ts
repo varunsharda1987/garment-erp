@@ -18,6 +18,7 @@ import { Prisma } from '@prisma/client';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { assignPatternPartsToComponent } from '../services/componentPatternParts.service';
 import { UnauthorizedError, ValidationError, NotFoundError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Create new component master
@@ -164,10 +165,7 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
   }
 
   if (search) {
-    where.OR = [
-      { name: { contains: search as string, mode: 'insensitive' } },
-      { description: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['name', 'description']);
   }
 
   // Support both old (componentCategory) and new (componentGroupId) filters

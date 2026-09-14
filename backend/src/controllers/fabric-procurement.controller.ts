@@ -13,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import type { CreateProcurementInput, UpdateProcurementInput } from '../schemas/fabricProcurement.schema';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types for Fabric Procurement Controller
@@ -61,7 +62,7 @@ export const getProcurements = async (req: Request, res: Response) => {
   const where: Prisma.fabric_procurementWhereInput = {};
 
   if (search) {
-    where.OR = [{ purchaseOrderNumber: { contains: search as string, mode: 'insensitive' } }];
+    applySearch(where, search as string, ['purchaseOrderNumber']);
   }
 
   if (procurementType) {

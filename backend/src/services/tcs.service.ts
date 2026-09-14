@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { applySearch } from '../utils/search-filter';
 
 interface TCSCreateInput {
   invoiceId?: string;
@@ -50,10 +51,7 @@ class TCSService {
 
     const where: any = {};
     if (search) {
-      where.OR = [
-        { customerName: { contains: search, mode: 'insensitive' } },
-        { tcsSection: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['customerName', 'tcsSection']);
     }
     if (financialYear) where.financialYear = financialYear;
     if (quarter) where.quarter = quarter;

@@ -11,6 +11,7 @@ import { systemSettingsService } from '../services/system-settings.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { generateStyleLinkedFabricCode, peekNextStyleLinkedFabricCode } from '../utils/fabric-code-generator';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Fabric Master Controller
@@ -48,11 +49,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
 
   // Search filter (code, name, color)
   if (search) {
-    where.OR = [
-      { fabricCode: { contains: search as string, mode: 'insensitive' } },
-      { fabricName: { contains: search as string, mode: 'insensitive' } },
-      { colorName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['fabricCode', 'fabricName', 'colorName']);
   }
 
   // Greige filter

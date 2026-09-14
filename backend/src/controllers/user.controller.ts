@@ -6,6 +6,7 @@ import { BCRYPT_ROUNDS } from '../config/security.config';
 import { UserRole, Prisma } from '@prisma/client';
 import { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError, UnauthorizedError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Get all users (paginated)
@@ -21,11 +22,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
   // Build search filter
   const whereClause: Prisma.usersWhereInput = {};
   if (search) {
-    whereClause.OR = [
-      { firstName: { contains: search, mode: 'insensitive' } },
-      { lastName: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-    ];
+    applySearch(whereClause, search, ['firstName', 'lastName', 'email']);
   }
 
   // Get total count

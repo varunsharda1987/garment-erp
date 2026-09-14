@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { applySearch } from '../utils/search-filter';
 
 // Type for supplier input
 interface MachinePartSupplierInput {
@@ -131,12 +132,7 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { partName: { contains: String(search), mode: 'insensitive' } },
-      { partCode: { contains: String(search), mode: 'insensitive' } },
-      { partNumber: { contains: String(search), mode: 'insensitive' } },
-      { category: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['partName', 'partCode', 'partNumber', 'category']);
   }
 
   // Filter by supplier via junction table

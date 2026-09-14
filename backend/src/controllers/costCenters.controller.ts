@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 export const createCostCenter = async (req: Request, res: Response): Promise<void> => {
   const { costCenterCode, costCenterName, costCenterType, departmentId, locationId, budgetAmount, description } =
@@ -43,10 +44,7 @@ export const getAllCostCenters = async (req: Request, res: Response): Promise<vo
   const where: Prisma.cost_centersWhereInput = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { costCenterCode: { contains: search as string, mode: 'insensitive' } },
-      { costCenterName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['costCenterCode', 'costCenterName']);
   }
 
   if (costCenterType) where.costCenterType = costCenterType as string;

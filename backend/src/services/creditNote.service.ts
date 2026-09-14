@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { generateAtomicCreditNoteNumber } from '../utils/atomicCodeGenerator';
 import { roundToCent, multiplyCurrency, addCurrency, subtractCurrency, toCurrency } from '../utils/currency';
 import { deriveInvoiceStatus } from './helpers/invoice-status.helper';
+import { applySearch } from '../utils/search-filter';
 
 interface CreditNoteCreateInput {
   invoiceId: string;
@@ -242,10 +243,7 @@ export class CreditNoteService {
     const where: Prisma.credit_notesWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { creditNoteNumber: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
-      ];
+      applySearch(where, search, ['creditNoteNumber', 'customer.name']);
     }
 
     if (status) {

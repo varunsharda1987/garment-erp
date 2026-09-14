@@ -88,6 +88,20 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
   protected get model(): any {
     return this.prisma.fabric_master;
   }
+  /**
+   * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
+   * a code and a name together narrow instead of finding nothing. The phrase-only
+   * buildSearchFilter below stays only because BaseService declares it abstract.
+   */
+  protected readonly searchFields = [
+    'fabricCode',
+    'fabricName',
+    'colorName',
+    'colorCode',
+    'greigeName',
+    'composition',
+    'printDesign',
+  ] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [

@@ -78,7 +78,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 
 1. Open **Pre-Production → Cost Sheets** in the sidebar.
 2. Click **+ New Cost Sheet**. The page **Create Cost Sheet** opens.
-3. In **Search Style**, type the style code and pick the style. It is required. **Customer** fills itself and stays read-only.
+3. In **Search Style**, type the style code and pick the style. It is required. You can also type the style name, the customer, or the buyer's own style code, and several words together narrow it — "kasya LNG229" finds that one style. **Customer** fills itself and stays read-only.
 4. Picking the style fills the form by itself — fabrics come from the approved fabric costings, and trims, lace, embroidery and accessories come from the style's BOM. There is no button to press for this. Nothing is saved yet.
 5. Choose **Fabric Costing Mode**: **Costing (Buyer Quotation)**, **Raw Material Calculation** or **Production**. Only approved costing options from that mode are used for fabric rates, and changing the mode refills the fabric rows. The system remembers your last choice.
 6. If **Costing Run** chips appear and you want that specific run's fabrics instead, just click the chip — it loads straight away and the chip shows **✓ fabric rows loaded from this run**. A green tick on the chip means all its costs are complete; a warning sign means some are missing. Clicking a different chip switches to that run. This replaces the fabric rows only; trims, lace, embroidery and accessories are untouched.

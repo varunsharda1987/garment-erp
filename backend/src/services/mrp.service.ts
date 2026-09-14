@@ -58,6 +58,7 @@ import logger, { logWarn } from '../utils/logger';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * All master FK fields derived from MASTER_CONFIG (single source of truth).
@@ -2577,15 +2578,15 @@ export async function getRequirements(
   }
 
   if (search) {
-    where.OR = [
-      { requirementNumber: { contains: search, mode: 'insensitive' } },
-      { materials: { code: { contains: search, mode: 'insensitive' } } },
-      { materials: { name: { contains: search, mode: 'insensitive' } } },
-      { orders: { orderNumber: { contains: search, mode: 'insensitive' } } },
-      { order_items: { styles: { styleCode: { contains: search, mode: 'insensitive' } } } },
-      { order_items: { styles: { buyerStyleRef: { contains: search, mode: 'insensitive' } } } },
-      { order_items: { styles: { styleName: { contains: search, mode: 'insensitive' } } } },
-    ];
+    applySearch(where, search, [
+      'requirementNumber',
+      'materials.code',
+      'materials.name',
+      'orders.orderNumber',
+      'order_items.styles.styleCode',
+      'order_items.styles.buyerStyleRef',
+      'order_items.styles.styleName',
+    ]);
   }
 
   const [data, total] = await Promise.all([

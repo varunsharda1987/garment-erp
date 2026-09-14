@@ -3,6 +3,7 @@ import logger from '../utils/logger';
 import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
 import { InternalError } from '../errors';
 import { systemSettingsService } from './system-settings.service';
+import { applySearch } from '../utils/search-filter';
 
 // Types for order production status
 interface OrderProductionStatusQueryOptions {
@@ -88,14 +89,14 @@ class OrderProductionStatusService {
       }
 
       if (search) {
-        orderItemWhere.OR = [
-          { styles: { styleCode: { contains: search, mode: 'insensitive' } } },
-          { styles: { styleName: { contains: search, mode: 'insensitive' } } },
-          { styles: { internalCode: { contains: search, mode: 'insensitive' } } },
-          { styles: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
-          { orders: { orderNumber: { contains: search, mode: 'insensitive' } } },
-          { orders: { customers: { name: { contains: search, mode: 'insensitive' } } } },
-        ];
+        applySearch(orderItemWhere, search, [
+          'styles.styleCode',
+          'styles.styleName',
+          'styles.internalCode',
+          'styles.buyerStyleRef',
+          'orders.orderNumber',
+          'orders.customers.name',
+        ]);
       }
 
       if (brand) {

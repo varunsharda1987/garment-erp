@@ -22,6 +22,7 @@ import prisma from '../config/database';
 import { processThreadQuantityInput, calculateReorderQuantity } from './thread-conversion.service';
 import { createUnifiedPO, UnifiedPOCreationInput } from './unified-po-creation.service';
 import { materialService } from './material.service';
+import { applySearch } from '../utils/search-filter';
 
 // ==================== TYPES ====================
 
@@ -492,12 +493,7 @@ export async function getAllRequirements(params: ThreadRequirementQueryParams) {
   }
 
   if (params.search) {
-    where.OR = [
-      { thread: { threadCode: { contains: params.search, mode: 'insensitive' } } },
-      { thread: { threadName: { contains: params.search, mode: 'insensitive' } } },
-      { colorName: { contains: params.search, mode: 'insensitive' } },
-      { order: { orderNumber: { contains: params.search, mode: 'insensitive' } } },
-    ];
+    applySearch(where, params.search, ['thread.threadCode', 'thread.threadName', 'colorName', 'order.orderNumber']);
   }
 
   const [requirements, total] = await Promise.all([

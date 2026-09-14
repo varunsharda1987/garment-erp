@@ -4,6 +4,7 @@ import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { generateAtomicDebitNoteNumber } from '../utils/atomicCodeGenerator';
 import { roundToCent, multiplyCurrency, addCurrency, toCurrency, subtractCurrency } from '../utils/currency';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -263,10 +264,7 @@ export class DebitNoteService {
     const where: Prisma.debit_notesWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { debitNoteNumber: { contains: search, mode: 'insensitive' } },
-        { supplier: { name: { contains: search, mode: 'insensitive' } } },
-      ];
+      applySearch(where, search, ['debitNoteNumber', 'supplier.name']);
     }
 
     if (status) {

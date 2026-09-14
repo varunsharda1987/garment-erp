@@ -111,6 +111,19 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
   protected get model(): any {
     return this.prisma.greige_master;
   }
+  /**
+   * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
+   * a code and a name together narrow instead of finding nothing. The phrase-only
+   * buildSearchFilter below stays only because BaseService declares it abstract.
+   */
+  protected readonly searchFields = [
+    'greigeCode',
+    'greigeName',
+    'composition',
+    'yarnCount',
+    'construction',
+    'weaver',
+  ] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [

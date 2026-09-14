@@ -18,6 +18,7 @@ import type {
 } from '../types/season.types';
 import { SEASON_TYPE_NAMES } from '../types/season.types';
 import type { CreateSeasonInput, UpdateSeasonInput, SeasonSearchInput } from '../schemas/season.schema';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Season Service Class
@@ -43,6 +44,12 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
       count: (args: { where?: Record<string, unknown> }) => Promise<number>;
     };
   }
+  /**
+   * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
+   * a code and a name together narrow instead of finding nothing. The phrase-only
+   * buildSearchFilter below stays only because BaseService declares it abstract.
+   */
+  protected readonly searchFields = ['code', 'name'] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [{ code: { contains: search, mode: 'insensitive' } }, { name: { contains: search, mode: 'insensitive' } }];
@@ -234,10 +241,7 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
       }
 
       if (search) {
-        where.OR = [
-          { code: { contains: search, mode: 'insensitive' } },
-          { name: { contains: search, mode: 'insensitive' } },
-        ];
+        applySearch(where, search, ['code', 'name']);
       }
 
       const seasons = await prisma.season_master.findMany({

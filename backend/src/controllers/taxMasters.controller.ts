@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { TaxType, Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError, UnauthorizedError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Create new tax
@@ -76,11 +77,7 @@ export const getAllTaxes = async (req: Request, res: Response): Promise<void> =>
   where.isActive = isActive === undefined ? true : (isActive as unknown) === true || isActive === 'true';
 
   if (search) {
-    where.OR = [
-      { taxCode: { contains: search as string, mode: 'insensitive' } },
-      { taxName: { contains: search as string, mode: 'insensitive' } },
-      { hsnSacCode: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['taxCode', 'taxName', 'hsnSacCode']);
   }
 
   if (taxType) {

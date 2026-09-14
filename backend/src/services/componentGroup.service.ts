@@ -6,6 +6,7 @@ import {
   ComponentGroupResponse,
   ComponentGroupListResponse,
 } from '../types/componentGroup.types';
+import { applySearch } from '../utils/search-filter';
 
 export class ComponentGroupService {
   /**
@@ -52,11 +53,7 @@ export class ComponentGroupService {
     const where: any = {};
 
     if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['code', 'name', 'description']);
     }
 
     if (isActive !== undefined) {

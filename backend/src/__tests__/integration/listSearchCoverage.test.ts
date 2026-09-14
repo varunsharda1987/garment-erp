@@ -35,6 +35,59 @@ const LIST_ENDPOINTS: Array<{ label: string; path: string }> = [
   { label: 'delivery notes', path: '/api/dispatch/delivery-notes' },
   { label: 'ASN', path: '/api/dispatch/asn' },
   { label: 'styles', path: '/api/styles' },
+
+  // 2026-09-14 sweep: the rest of the lists and every master a picker reads. Owner: "this
+  // problem i have faced at other search bars as well".
+  { label: 'customers', path: '/api/customers' },
+  { label: 'suppliers', path: '/api/suppliers' },
+  { label: 'materials', path: '/api/materials' },
+  { label: 'colours', path: '/api/colors' },
+  { label: 'colour typeahead', path: '/api/colors/search' },
+  { label: 'agents', path: '/api/agents' },
+  { label: 'agencies', path: '/api/agencies' },
+  { label: 'seasons', path: '/api/seasons' },
+  { label: 'product categories', path: '/api/product-categories' },
+  { label: 'warehouses', path: '/api/warehouses' },
+  { label: 'component masters', path: '/api/component-masters' },
+  { label: 'component groups', path: '/api/component-groups' },
+  { label: 'size categories', path: '/api/size-categories' },
+  // Manufacturing
+  { label: 'cutting batches', path: '/api/cutting/batches' },
+  { label: 'stitching issues', path: '/api/stitching/issues' },
+  { label: 'finishing issues', path: '/api/finishing/issues' },
+  { label: 'samples', path: '/api/samples' },
+  { label: 'cost sheets', path: '/api/style-costing' },
+  // Stock
+  { label: 'finished goods stock', path: '/api/fg-stock' },
+  { label: 'lace stock', path: '/api/lace-stock' },
+  { label: 'lace issue notes', path: '/api/lace-issue-notes' },
+  { label: 'lace defects', path: '/api/lace-defects' },
+  // Trim + fabric masters
+  { label: 'lace master', path: '/api/materials/lace' },
+  { label: 'button master', path: '/api/materials/button' },
+  { label: 'thread master', path: '/api/materials/thread' },
+  { label: 'zipper master', path: '/api/materials/zipper' },
+  { label: 'elastic master', path: '/api/materials/elastic' },
+  { label: 'machine part master', path: '/api/materials/machine-part' },
+  { label: 'other material master', path: '/api/materials/other' },
+  { label: 'embroidery master', path: '/api/embroidery' },
+  // Finance
+  { label: 'credit notes', path: '/api/credit-notes' },
+  { label: 'debit notes', path: '/api/debit-notes' },
+  { label: 'chart of accounts', path: '/api/chart-of-accounts' },
+  { label: 'bank accounts', path: '/api/bank-accounts' },
+  { label: 'cost centres', path: '/api/cost-centers' },
+  { label: 'expense types', path: '/api/expense-types' },
+  { label: 'payment terms', path: '/api/payment-terms' },
+  { label: 'tax masters', path: '/api/tax-masters' },
+  { label: 'HSN/SAC masters', path: '/api/hsn-sac-masters' },
+  { label: 'TDS', path: '/api/tds' },
+  { label: 'TCS', path: '/api/tcs' },
+  // Testing
+  { label: 'testing labs', path: '/api/testing-labs' },
+  { label: 'test templates', path: '/api/test-templates' },
+  { label: 'fabric physical tests', path: '/api/fabric-physical-tests' },
+  { label: 'garment physical tests', path: '/api/garment-physical-tests' },
 ];
 
 beforeAll(async () => {
@@ -252,5 +305,62 @@ describe('the style picker: what typing reaches, and how the list is ordered', (
     expect(all).toContain(codes.draft);
     expect(activeOnly).not.toContain(codes.draft);
     expect(activeOnly).toContain(codes.active);
+  });
+});
+
+describe('the master pickers search word by word, not by phrase', () => {
+  // The endpoints above only prove the field paths are valid Prisma. This proves the SEMANTICS
+  // the 2026-09-14 sweep was for, on a master the Customer picker reads: words in any order,
+  // each matching a different field, and a word that matches nothing excludes the row.
+  let customerId: string;
+
+  beforeAll(async () => {
+    const customer = await prisma.customers.create({
+      data: {
+        code: `${RUN}-WORDS`,
+        name: `${RUN} Northern Mills`,
+        billingName: `${RUN} Northern Mills Private Limited`,
+        type: 'BUYER',
+        category: 'DOMESTIC',
+        createdById: testUserId,
+      },
+    });
+    customerId = customer.id;
+  });
+
+  afterAll(async () => {
+    try {
+      await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+    } catch (err) {
+      console.error('[listSearchCoverage teardown] could not clean word-search customer:', err);
+    }
+  });
+
+  const findsIt = async (term: string) => {
+    const res = await request(app)
+      .get(`/api/customers?search=${encodeURIComponent(term)}&limit=100`)
+      .set(authHeader)
+      .expect(200);
+    return res.body.data.some((row: { id: string }) => row.id === customerId);
+  };
+
+  it('finds it by a code word and a name word together', async () => {
+    expect(await findsIt(`WORDS Northern`)).toBe(true);
+  });
+
+  it('finds it with the words in the other order', async () => {
+    expect(await findsIt(`Northern WORDS`)).toBe(true);
+  });
+
+  it('finds it when a word is skipped from the middle of the name', async () => {
+    expect(await findsIt(`${RUN} Mills`)).toBe(true);
+  });
+
+  it('still finds it by one word alone, as phrase search did', async () => {
+    expect(await findsIt(`${RUN}-WORDS`)).toBe(true);
+  });
+
+  it('excludes it as soon as one word matches nothing', async () => {
+    expect(await findsIt(`Northern ${RUN}-NOTHING-MATCHES`)).toBe(false);
   });
 });

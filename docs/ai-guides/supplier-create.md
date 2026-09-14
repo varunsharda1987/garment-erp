@@ -32,7 +32,7 @@ route: /suppliers/new
 
 ## Steps
 
-1. Open **Materials & Masters → Suppliers** in the sidebar.
+1. Open **Materials & Masters → Suppliers** in the sidebar. To check whether the supplier already exists, type into the search box — it matches the code, name, contact person, email and phone, and several words each have to match.
 2. Click **+ Add New Supplier** at the top right. The **Create New Supplier** form opens.
 3. **Supplier Code** is filled automatically and is read-only. Do not try to type it.
 4. Type the **Supplier Name**. It must be at least 2 characters. Trailing commas or dots are removed automatically when saved.

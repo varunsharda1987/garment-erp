@@ -8,6 +8,7 @@ import {
   TestingLabResponse,
 } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 class TestingLabsService {
   /**
@@ -72,11 +73,7 @@ class TestingLabsService {
     const where: Prisma.testing_labsWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { labCode: { contains: search, mode: 'insensitive' } },
-        { labName: { contains: search, mode: 'insensitive' } },
-        { contactPerson: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['labCode', 'labName', 'contactPerson']);
     }
 
     if (isActive !== undefined) {

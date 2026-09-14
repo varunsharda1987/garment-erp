@@ -11,6 +11,7 @@ import { TallySettings, tallySettingsService } from './tally-settings.service';
 import { xmlEscape, xmlUnescape, firstTag, xe } from '../utils/tally-xml';
 import { logError } from '../utils/logger';
 import prisma from '../config/database';
+import { applySearch } from '../utils/search-filter';
 
 // Mutex for single-threaded Tally gateway access
 class Mutex {
@@ -634,13 +635,7 @@ export async function getCustomersWithTallyStatus(
   };
 
   if (params.search) {
-    where.OR = [
-      { code: { contains: params.search, mode: 'insensitive' } },
-      { name: { contains: params.search, mode: 'insensitive' } },
-      { billingName: { contains: params.search, mode: 'insensitive' } },
-      { gstNumber: { contains: params.search, mode: 'insensitive' } },
-      { tallyLedgerName: { contains: params.search, mode: 'insensitive' } },
-    ];
+    applySearch(where, params.search, ['code', 'name', 'billingName', 'gstNumber', 'tallyLedgerName']);
   }
 
   if (params.matchStatus === 'matched') {
@@ -1195,10 +1190,7 @@ export async function getInvoicesWithTallyStatus(params: {
   const where: any = {};
 
   if (params.search) {
-    where.OR = [
-      { invoiceNumber: { contains: params.search, mode: 'insensitive' } },
-      { customers: { name: { contains: params.search, mode: 'insensitive' } } },
-    ];
+    applySearch(where, params.search, ['invoiceNumber', 'customers.name']);
   }
 
   if (params.pushStatus === 'pushed') {
@@ -1609,11 +1601,7 @@ export async function getCreditNotesWithTallyStatus(params: {
 
   // Search filter
   if (params.search) {
-    where.OR = [
-      { creditNoteNumber: { contains: params.search, mode: 'insensitive' } },
-      { customer: { name: { contains: params.search, mode: 'insensitive' } } },
-      { invoice: { invoiceNumber: { contains: params.search, mode: 'insensitive' } } },
-    ];
+    applySearch(where, params.search, ['creditNoteNumber', 'customer.name', 'invoice.invoiceNumber']);
   }
 
   // Push status filter
@@ -1826,11 +1814,7 @@ export async function getSuppliersWithTallyStatus(
   const where: any = { isActive: true };
 
   if (params.search) {
-    where.OR = [
-      { code: { contains: params.search, mode: 'insensitive' } },
-      { name: { contains: params.search, mode: 'insensitive' } },
-      { tallyLedgerName: { contains: params.search, mode: 'insensitive' } },
-    ];
+    applySearch(where, params.search, ['code', 'name', 'tallyLedgerName']);
   }
 
   if (params.matchStatus === 'matched') {
@@ -2719,11 +2703,7 @@ export async function getDebitNotesWithTallyStatus(params: {
   const where: any = {};
 
   if (params.search) {
-    where.OR = [
-      { debitNoteNumber: { contains: params.search, mode: 'insensitive' } },
-      { supplier: { name: { contains: params.search, mode: 'insensitive' } } },
-      { purchaseOrder: { poNumber: { contains: params.search, mode: 'insensitive' } } },
-    ];
+    applySearch(where, params.search, ['debitNoteNumber', 'supplier.name', 'purchaseOrder.poNumber']);
   }
 
   if (params.pushStatus === 'pushed') {
@@ -2991,11 +2971,7 @@ export async function getPaymentsWithTallyStatus(params: {
   const where: any = {};
 
   if (params.search) {
-    where.OR = [
-      { referenceNumber: { contains: params.search, mode: 'insensitive' } },
-      { invoices: { invoiceNumber: { contains: params.search, mode: 'insensitive' } } },
-      { invoices: { customers: { name: { contains: params.search, mode: 'insensitive' } } } },
-    ];
+    applySearch(where, params.search, ['referenceNumber', 'invoices.invoiceNumber', 'invoices.customers.name']);
   }
 
   if (params.pushStatus === 'pushed') {

@@ -20,6 +20,7 @@ import { productionBlockingValidationService } from '../services/productionBlock
 // BUG-CUT5 fix: Import decimal.js utilities for precision calculations
 import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils/currency';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import { applySearch } from '../utils/search-filter';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -95,13 +96,13 @@ export const getAllCuttingBatches = async (req: Request, res: Response) => {
   const where: Prisma.cutting_batchesWhereInput = {};
 
   if (search) {
-    where.OR = [
-      { batchNumber: { contains: String(search), mode: 'insensitive' } },
-      { workOrder: { workOrderNumber: { contains: String(search), mode: 'insensitive' } } },
-      { workOrder: { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } } },
-      { workOrder: { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } } },
-      { workOrder: { styles: { styleName: { contains: String(search), mode: 'insensitive' } } } },
-    ];
+    applySearch(where, String(search), [
+      'batchNumber',
+      'workOrder.workOrderNumber',
+      'workOrder.styles.styleCode',
+      'workOrder.styles.buyerStyleRef',
+      'workOrder.styles.styleName',
+    ]);
   }
 
   if (status) {

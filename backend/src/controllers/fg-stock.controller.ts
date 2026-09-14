@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * @route GET /api/fg-stock
@@ -15,14 +16,14 @@ export const getAllFGStock = async (req: Request, res: Response) => {
   const where: Prisma.finished_goods_stockWhereInput = {};
 
   if (search) {
-    where.OR = [
-      { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } },
-      { styles: { styleName: { contains: String(search), mode: 'insensitive' } } },
-      { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } },
-      { color_options: { colorName: { contains: String(search), mode: 'insensitive' } } },
-      { size_options: { sizeName: { contains: String(search), mode: 'insensitive' } } },
-      { work_orders: { workOrderNumber: { contains: String(search), mode: 'insensitive' } } },
-    ];
+    applySearch(where, String(search), [
+      'styles.styleCode',
+      'styles.styleName',
+      'styles.buyerStyleRef',
+      'color_options.colorName',
+      'size_options.sizeName',
+      'work_orders.workOrderNumber',
+    ]);
   }
 
   if (styleId) where.styleId = String(styleId);
@@ -168,11 +169,7 @@ export const getFGStockSummary = async (req: Request, res: Response) => {
   const where: Prisma.finished_goods_stockWhereInput = {};
 
   if (search) {
-    where.OR = [
-      { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } },
-      { styles: { styleName: { contains: String(search), mode: 'insensitive' } } },
-      { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } },
-    ];
+    applySearch(where, String(search), ['styles.styleCode', 'styles.styleName', 'styles.buyerStyleRef']);
   }
 
   if (locationId) where.locationId = String(locationId);

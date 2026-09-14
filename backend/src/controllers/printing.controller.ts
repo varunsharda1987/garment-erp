@@ -45,6 +45,7 @@ import {
   toProcessPOEnvelope,
   resolveProcessJwo,
 } from '../services/helpers/process-po-envelope.helper';
+import { applySearch } from '../utils/search-filter';
 
 // Helper to transform relations for response
 const transformLabDip = (item: any) => ({
@@ -235,12 +236,7 @@ export const getAllLabDips = async (req: Request, res: Response, _next: NextFunc
   };
 
   if (search) {
-    where.OR = [
-      { labDipNumber: { contains: search as string, mode: 'insensitive' } },
-      { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
-      { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
-      { style: { styleName: { contains: search as string, mode: 'insensitive' } } },
-    ];
+    applySearch(where, search as string, ['labDipNumber', 'style.styleCode', 'style.buyerStyleRef', 'style.styleName']);
   }
 
   if (status) {
@@ -755,12 +751,7 @@ export const getAllPrintJobs = async (req: Request, res: Response, _next: NextFu
   };
 
   if (search) {
-    where.OR = [
-      { jobWorkNumber: { contains: search as string, mode: 'insensitive' } },
-      { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
-      { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
-      { challanNumber: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['jobWorkNumber', 'style.styleCode', 'style.buyerStyleRef', 'challanNumber']);
   }
 
   if (status) {

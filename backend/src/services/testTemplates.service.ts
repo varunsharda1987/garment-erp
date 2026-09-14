@@ -3,6 +3,7 @@ import logger from '../utils/logger';
 import { Prisma } from '@prisma/client';
 import { CreateTestTemplateInput, UpdateTestTemplateInput, TestTemplateQueryOptions } from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 class TestTemplatesService {
   /**
@@ -64,10 +65,7 @@ class TestTemplatesService {
     const where: Prisma.test_templatesWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { templateCode: { contains: search, mode: 'insensitive' } },
-        { templateName: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['templateCode', 'templateName']);
     }
 
     if (templateType) {

@@ -13,6 +13,7 @@ import { getIrpProvider } from './einvoice/irp-provider';
 import { NicIrpError } from './einvoice/nic-irp-provider';
 import { preflightInvoice, PreflightResult } from './einvoice/einvoice-preflight';
 import { logError, logInfo } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
 
 const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -60,11 +61,7 @@ class EInvoiceService {
     const where: Prisma.invoicesWhereInput = {};
     if (params.search?.trim()) {
       const search = params.search.trim();
-      where.OR = [
-        { invoiceNumber: { contains: search, mode: 'insensitive' } },
-        { customers: { name: { contains: search, mode: 'insensitive' } } },
-        { eInvoiceIrn: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['invoiceNumber', 'customers.name', 'eInvoiceIrn']);
     }
     switch (params.irnStatus) {
       case 'generated':

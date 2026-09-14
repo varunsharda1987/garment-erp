@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { applySearch } from '../utils/search-filter';
 
 // Type for supplier input
 interface ButtonSupplierInput {
@@ -179,11 +180,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { buttonName: { contains: String(search), mode: 'insensitive' } },
-      { buttonCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['buttonName', 'buttonCode', 'color']);
   }
 
   // Filter by supplier via junction table

@@ -10,6 +10,7 @@ import stockMovementService from './stockMovement.service';
 import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 // BUG-CHN5 fix: Use decimal.js for quantity calculations to avoid floating-point errors
 import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // TYPES
@@ -590,12 +591,7 @@ export async function getChallans(filters: ChallanFilters) {
   }
 
   if (filters.search) {
-    where.OR = [
-      { challanNumber: { contains: filters.search, mode: 'insensitive' } },
-      { fromName: { contains: filters.search, mode: 'insensitive' } },
-      { toName: { contains: filters.search, mode: 'insensitive' } },
-      { remarks: { contains: filters.search, mode: 'insensitive' } },
-    ];
+    applySearch(where, filters.search, ['challanNumber', 'fromName', 'toName', 'remarks']);
   }
 
   const [challans, total] = await Promise.all([

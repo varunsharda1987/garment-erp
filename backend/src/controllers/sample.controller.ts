@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import * as wa from '../services/whatsapp.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Sample Controller
@@ -370,13 +371,13 @@ export const getAllSamples = async (req: Request, res: Response) => {
 
   // Search filter
   if (search) {
-    where.OR = [
-      { sampleNumber: { contains: search as string, mode: 'insensitive' } },
-      { customers: { name: { contains: search as string, mode: 'insensitive' } } },
-      { styles: { styleCode: { contains: search as string, mode: 'insensitive' } } },
-      { styles: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
-      { styles: { styleName: { contains: search as string, mode: 'insensitive' } } },
-    ];
+    applySearch(where, search as string, [
+      'sampleNumber',
+      'customers.name',
+      'styles.styleCode',
+      'styles.buyerStyleRef',
+      'styles.styleName',
+    ]);
   }
 
   // Sample type filter (can be array)
@@ -1321,12 +1322,12 @@ export const searchSamples = async (req: Request, res: Response) => {
   const where: any = {};
 
   if (search) {
-    where.OR = [
-      { sampleNumber: { contains: search as string, mode: 'insensitive' } },
-      { styles: { styleCode: { contains: search as string, mode: 'insensitive' } } },
-      { styles: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
-      { styles: { styleName: { contains: search as string, mode: 'insensitive' } } },
-    ];
+    applySearch(where, search as string, [
+      'sampleNumber',
+      'styles.styleCode',
+      'styles.buyerStyleRef',
+      'styles.styleName',
+    ]);
   }
 
   if (sampleType) {

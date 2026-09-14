@@ -29,6 +29,7 @@ import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { multiplyCurrency, toNumber } from '../utils/currency';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { systemSettingsService } from './system-settings.service';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Deduplicate Style Fabrics Helper
@@ -913,12 +914,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     };
 
     if (options.search) {
-      where.OR = [
-        { styleCode: { contains: options.search, mode: 'insensitive' } },
-        { buyerStyleRef: { contains: options.search, mode: 'insensitive' } },
-        { styleName: { contains: options.search, mode: 'insensitive' } },
-        { customerName: { contains: options.search, mode: 'insensitive' } },
-      ];
+      applySearch(where, options.search, ['styleCode', 'buyerStyleRef', 'styleName', 'customerName']);
     }
 
     const [data, total] = await Promise.all([

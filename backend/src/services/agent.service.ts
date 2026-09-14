@@ -9,6 +9,7 @@ import { NotFoundError, ConflictError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { SearchFilter, OrderByClause } from '../types/prisma.types';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Agent type definition
@@ -86,6 +87,12 @@ class AgentServiceClass extends BaseService<Agent, CreateAgentInput, UpdateAgent
       count: (args: { where?: Record<string, unknown> }) => Promise<number>;
     };
   }
+  /**
+   * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
+   * a code and a name together narrow instead of finding nothing. The phrase-only
+   * buildSearchFilter below stays only because BaseService declares it abstract.
+   */
+  protected readonly searchFields = ['code', 'name', 'phone', 'email', 'agency.name'] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [
@@ -256,11 +263,7 @@ class AgentServiceClass extends BaseService<Agent, CreateAgentInput, UpdateAgent
       }
 
       if (search) {
-        where.OR = [
-          { code: { contains: search, mode: 'insensitive' } },
-          { name: { contains: search, mode: 'insensitive' } },
-          { phone: { contains: search, mode: 'insensitive' } },
-        ];
+        applySearch(where, search, ['code', 'name', 'phone']);
       }
 
       const agents = await prisma.agents.findMany({

@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { threadStockService } from '../services/thread-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { applySearch } from '../utils/search-filter';
 
 // Type for supplier input
 interface ThreadSupplierInput {
@@ -192,12 +193,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { threadName: { contains: String(search), mode: 'insensitive' } },
-      { threadCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-      { colorCode: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['threadName', 'threadCode', 'color', 'colorCode']);
   }
 
   // Filter by supplier via junction table

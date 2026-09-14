@@ -13,6 +13,7 @@ import {
   ComponentPatternPartResponse,
   PatternPartGroupResponse,
 } from '../types/patternPart.types';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Prisma type for pattern_part_master with standard includes.
@@ -114,11 +115,7 @@ export class PatternPartService {
     const where: Prisma.pattern_part_masterWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['code', 'name', 'description']);
     }
 
     if (isActive !== undefined) {

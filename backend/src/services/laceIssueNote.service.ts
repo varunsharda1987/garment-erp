@@ -11,6 +11,7 @@ import prisma from '../config/database';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -424,12 +425,7 @@ export async function getIssueNotes(filters: LaceIssueNoteFilters) {
   if (status) where.status = status;
 
   if (search) {
-    where.OR = [
-      { issueNumber: { contains: search, mode: 'insensitive' } },
-      { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
-      { style: { styleCode: { contains: search, mode: 'insensitive' } } },
-      { style: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
-    ];
+    applySearch(where, search, ['issueNumber', 'order.orderNumber', 'style.styleCode', 'style.buyerStyleRef']);
   }
 
   const [issueNotes, total] = await Promise.all([

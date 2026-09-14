@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { applySearch } from '../utils/search-filter';
 
 // Type for supplier input
 interface ElasticSupplierInput {
@@ -135,11 +136,7 @@ export const getAllElastic = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { elasticName: { contains: String(search), mode: 'insensitive' } },
-      { elasticCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['elasticName', 'elasticCode', 'color']);
   }
 
   // Filter by supplier via junction table

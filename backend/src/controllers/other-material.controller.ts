@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { applySearch } from '../utils/search-filter';
 
 // Type for supplier input
 interface OtherMaterialSupplierInput {
@@ -120,11 +121,7 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { materialName: { contains: String(search), mode: 'insensitive' } },
-      { materialCode: { contains: String(search), mode: 'insensitive' } },
-      { category: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['materialName', 'materialCode', 'category']);
   }
 
   // Filter by supplier via junction table

@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { AccountType, AccountGroup, Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Create new account
@@ -97,10 +98,7 @@ export const getAllAccounts = async (req: Request, res: Response): Promise<void>
   const where: Prisma.chart_of_accountsWhereInput = { isActive: isActiveFilter };
 
   if (search) {
-    where.OR = [
-      { accountCode: { contains: search as string, mode: 'insensitive' } },
-      { accountName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['accountCode', 'accountName']);
   }
 
   if (accountType) {

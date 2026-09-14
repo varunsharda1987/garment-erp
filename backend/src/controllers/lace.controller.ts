@@ -8,6 +8,7 @@ import { materialService } from '../services/material.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { deleteLaceImageFile } from '../middleware/upload.middleware';
 import { logInfo } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -481,11 +482,7 @@ export const getAllLace = async (req: Request, res: Response) => {
   }
 
   if (search) {
-    where.OR = [
-      { laceName: { contains: String(search), mode: 'insensitive' } },
-      { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['laceName', 'laceCode', 'color']);
   }
 
   // Filter by supplier via junction table
@@ -1177,11 +1174,7 @@ export const getGreigeLace = async (req: Request, res: Response) => {
   };
 
   if (search) {
-    where.OR = [
-      { laceName: { contains: String(search), mode: 'insensitive' } },
-      { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { composition: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['laceName', 'laceCode', 'composition']);
   }
 
   const total = await prisma.lace_master.count({ where });
@@ -1236,11 +1229,7 @@ export const getFinishedLace = async (req: Request, res: Response) => {
   };
 
   if (search) {
-    where.OR = [
-      { laceName: { contains: String(search), mode: 'insensitive' } },
-      { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['laceName', 'laceCode', 'color']);
   }
 
   if (color) {
@@ -1301,11 +1290,7 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
   const where: any = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { laceName: { contains: String(search), mode: 'insensitive' } },
-      { laceCode: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-    ];
+    applySearch(where, String(search), ['laceName', 'laceCode', 'color']);
   }
 
   // Get all active lace items with stock info

@@ -13,6 +13,7 @@ import prisma from '../config/database';
 import { Prisma, StockEntryType, StockStatus } from '@prisma/client';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { toCurrency, multiplyCurrency, toNumber, roundToCent, Decimal } from '../utils/currency'; // BUG-LAC8 fix
+import { applySearch } from '../utils/search-filter';
 
 // ============================================================================
 // INTERFACES
@@ -290,13 +291,13 @@ export async function getAllLaceStock(filters: LaceStockFilters = {}) {
   }
 
   if (filterValues.search) {
-    where.OR = [
-      { lotNumber: { contains: filterValues.search, mode: 'insensitive' } },
-      { dyeLotNumber: { contains: filterValues.search, mode: 'insensitive' } },
-      { originStyleCode: { contains: filterValues.search, mode: 'insensitive' } },
-      { laceMaster: { laceName: { contains: filterValues.search, mode: 'insensitive' } } },
-      { laceMaster: { laceCode: { contains: filterValues.search, mode: 'insensitive' } } },
-    ];
+    applySearch(where, filterValues.search, [
+      'lotNumber',
+      'dyeLotNumber',
+      'originStyleCode',
+      'laceMaster.laceName',
+      'laceMaster.laceCode',
+    ]);
   }
 
   const [total, stocks] = await Promise.all([

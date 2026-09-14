@@ -23,6 +23,7 @@ import { jobWorkOrderService } from './job-work-order.service';
 import { updateWosrReceivedQuantity } from './work-order-service-requirement.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { setJwoStatus } from './helpers/jwo-status.helper';
+import { applySearch } from '../utils/search-filter';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -813,11 +814,7 @@ class ExternalProcessService {
     }
 
     if (filters?.search) {
-      where.OR = [
-        { batchNumber: { contains: filters.search, mode: 'insensitive' } },
-        { supplier: { name: { contains: filters.search, mode: 'insensitive' } } },
-        { workOrder: { workOrderNumber: { contains: filters.search, mode: 'insensitive' } } },
-      ];
+      applySearch(where, filters.search, ['batchNumber', 'supplier.name', 'workOrder.workOrderNumber']);
     }
 
     const [data, total] = await Promise.all([

@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { dedupeSkuRows } from './cutting.utils';
 import workOrderService from '../services/workOrder.service';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Helper Functions
@@ -217,13 +218,13 @@ export const getAllFinishingIssues = async (req: Request, res: Response) => {
   const where: Prisma.finishing_issuesWhereInput = {};
 
   if (search) {
-    where.OR = [
-      { issueNumber: { contains: String(search), mode: 'insensitive' } },
-      { workOrder: { workOrderNumber: { contains: String(search), mode: 'insensitive' } } },
-      { workOrder: { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } } },
-      { workOrder: { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } } },
-      { workOrder: { styles: { styleName: { contains: String(search), mode: 'insensitive' } } } },
-    ];
+    applySearch(where, String(search), [
+      'issueNumber',
+      'workOrder.workOrderNumber',
+      'workOrder.styles.styleCode',
+      'workOrder.styles.buyerStyleRef',
+      'workOrder.styles.styleName',
+    ]);
   }
 
   if (status) {

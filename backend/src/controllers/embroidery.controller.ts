@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Embroidery Master Controller
@@ -144,11 +145,7 @@ export const getAllEmbroidery = async (req: Request, res: Response) => {
 
   // Search filter
   if (search) {
-    where.OR = [
-      { embroideryCode: { contains: search as string, mode: 'insensitive' } },
-      { designName: { contains: search as string, mode: 'insensitive' } },
-      { description: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['embroideryCode', 'designName', 'description']);
   }
 
   // Supplier filter
@@ -403,10 +400,7 @@ export const searchEmbroidery = async (req: Request, res: Response) => {
   };
 
   if (search) {
-    where.OR = [
-      { embroideryCode: { contains: search as string, mode: 'insensitive' } },
-      { designName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['embroideryCode', 'designName']);
   }
 
   const embroideryItems = await prisma.embroidery_master.findMany({

@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { HSNSACType, Prisma } from '@prisma/client';
+import { applySearch } from '../utils/search-filter';
 
 interface HSNSACCreateInput {
   code: string;
@@ -79,12 +80,7 @@ export class HSNSACMasterService {
     }
 
     if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { chapter: { contains: search, mode: 'insensitive' } },
-        { section: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['code', 'description', 'chapter', 'section']);
     }
 
     const [data, total] = await Promise.all([
@@ -168,10 +164,7 @@ export class HSNSACMasterService {
     }
 
     if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['code', 'description']);
     }
 
     return prisma.hsn_sac_masters.findMany({

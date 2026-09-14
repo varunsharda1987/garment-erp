@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ExpenseCategory, Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 export const createExpenseType = async (req: Request, res: Response): Promise<void> => {
   const { expenseCode, expenseName, expenseCategory, accountId, isRecurring, description } = req.body;
@@ -41,10 +42,7 @@ export const getAllExpenseTypes = async (req: Request, res: Response): Promise<v
   const where: Prisma.expense_typesWhereInput = { isActive: true };
 
   if (search) {
-    where.OR = [
-      { expenseCode: { contains: search as string, mode: 'insensitive' } },
-      { expenseName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['expenseCode', 'expenseName']);
   }
 
   if (expenseCategory) where.expenseCategory = expenseCategory as ExpenseCategory;

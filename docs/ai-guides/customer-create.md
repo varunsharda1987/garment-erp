@@ -56,7 +56,7 @@ route: /customers/new
 
 ## Steps
 
-1. Open **Materials & Masters → Customers** in the sidebar. The page is titled **Customer Management**.
+1. Open **Materials & Masters → Customers** in the sidebar. The page is titled **Customer Management**. To check whether the customer is already there, type into the search box — it matches the code, name, billing name, brand, contact person, email, phone and GST number, and several words each have to match, so a name and a city together narrow the list.
 2. Click **+ Add Customer** at the top right. The **Create New Customer** form opens.
 3. **Customer Code** is filled automatically and is read-only. Do not try to type it. It changes when you change Business Type or Market.
 4. Choose **Business Type** (B2B or B2C) and **Market** (Domestic or International). These two build the code.

@@ -13,6 +13,7 @@ import { ValidationError, NotFoundError } from '../errors';
 import { generateCode } from '../utils/code-generator';
 import { materialService } from '../services/material.service';
 import { ensureMaterialRecord, syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Greige Master Controller
@@ -58,11 +59,7 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
 
   // Search filter (code, name, composition)
   if (search) {
-    where.OR = [
-      { greigeCode: { contains: search as string, mode: 'insensitive' } },
-      { greigeName: { contains: search as string, mode: 'insensitive' } },
-      { composition: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['greigeCode', 'greigeName', 'composition']);
   }
 
   // Supplier filter (via junction table)

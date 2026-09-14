@@ -8,6 +8,7 @@ import {
   type StringDefaultKey,
   type BooleanDefaultKey,
 } from '../config/defaults.registry';
+import { applySearch } from '../utils/search-filter';
 
 interface CachedSetting {
   value: string;
@@ -134,10 +135,7 @@ class SystemSettingsService {
     const where: Record<string, unknown> = {};
     if (category) where.category = category;
     if (search) {
-      where.OR = [
-        { key: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['key', 'description']);
     }
 
     const [data, total] = await Promise.all([

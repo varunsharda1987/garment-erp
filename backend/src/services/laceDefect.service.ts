@@ -10,6 +10,7 @@
 
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -302,10 +303,7 @@ export async function getDefects(filters: DefectFilters) {
   if (discoveredAt) where.discoveredAt = discoveredAt;
 
   if (search) {
-    where.OR = [
-      { defectDescription: { contains: search, mode: 'insensitive' } },
-      { claimReference: { contains: search, mode: 'insensitive' } },
-    ];
+    applySearch(where, search, ['defectDescription', 'claimReference']);
   }
 
   const [defects, total] = await Promise.all([

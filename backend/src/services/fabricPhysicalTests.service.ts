@@ -10,6 +10,7 @@ import {
 } from '../types/testing.types';
 import { AppError, NotFoundError, ValidationError, InternalError } from '../errors';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 class FabricPhysicalTestsService {
   /**
@@ -110,7 +111,7 @@ class FabricPhysicalTestsService {
     const where: Prisma.fabric_physical_testsWhereInput = {};
 
     if (search) {
-      where.OR = [{ testNumber: { contains: search, mode: 'insensitive' } }];
+      applySearch(where, search, ['testNumber']);
     }
 
     if (styleId) {

@@ -23,6 +23,7 @@ import {
 import { syncBomFabricId } from '../services/order-bom.service';
 import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Get all styles pending CAD approval
@@ -4226,13 +4227,13 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
 
   // Add search filter
   if (search) {
-    where.OR = [
-      { styleCode: { contains: search as string, mode: 'insensitive' } },
-      { buyerStyleRef: { contains: search as string, mode: 'insensitive' } },
-      { styleName: { contains: search as string, mode: 'insensitive' } },
-      { customerName: { contains: search as string, mode: 'insensitive' } },
-      { brand_categories: { brandName: { contains: search as string, mode: 'insensitive' } } },
-    ];
+    applySearch(where, search as string, [
+      'styleCode',
+      'buyerStyleRef',
+      'styleName',
+      'customerName',
+      'brand_categories.brandName',
+    ]);
   }
 
   const [styles, total] = await Promise.all([

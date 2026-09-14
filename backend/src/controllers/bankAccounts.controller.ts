@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { BankAccountType, Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 export const createBankAccount = async (req: Request, res: Response): Promise<void> => {
   const {
@@ -71,11 +72,7 @@ export const getAllBankAccounts = async (req: Request, res: Response): Promise<v
   where.isActive = isActive === undefined ? true : (isActive as unknown) === true || isActive === 'true';
 
   if (search) {
-    where.OR = [
-      { accountNumber: { contains: search as string, mode: 'insensitive' } },
-      { bankName: { contains: search as string, mode: 'insensitive' } },
-      { accountHolderName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['accountNumber', 'bankName', 'accountHolderName']);
   }
 
   if (accountType) where.accountType = accountType as BankAccountType;

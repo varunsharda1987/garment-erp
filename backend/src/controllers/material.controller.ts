@@ -26,6 +26,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
 import { normalizeId, isUUID } from '../utils/id-helper';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types for Material Controller
@@ -168,27 +169,16 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
 
   // Search filter - includes customer name search via linked master tables
   if (search) {
-    whereClause.OR = [
-      { code: { contains: search, mode: 'insensitive' } },
-      { name: { contains: search, mode: 'insensitive' } },
-      { description: { contains: search, mode: 'insensitive' } },
-      // Search by customer name via label_master
-      {
-        label_master: {
-          customer: {
-            name: { contains: search, mode: 'insensitive' },
-          },
-        },
-      },
-      // Search by customer name via packaging_master
-      {
-        packaging_master: {
-          customer: {
-            name: { contains: search, mode: 'insensitive' },
-          },
-        },
-      },
-    ];
+    applySearch(whereClause, search, [
+      'code',
+      'name',
+      'description',
+      'hsnCode',
+      // The picker's placeholder says "code, name, category" — so category must actually match
+      'material_categories.name',
+      'label_master.customer.name',
+      'packaging_master.customer.name',
+    ]);
   }
 
   // Category filter
@@ -197,19 +187,14 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   }
 
   // Supplier + materialType filter with OR logic
-  // When both are present: show materials linked to this supplier OR matching these material types
+  // When both are present: show materials linked to this supplier OR matching these material types.
+  // The search lives under AND (applySearch), so this OR can never collide with it — the earlier
+  // hand-off between the two is gone.
   if (supplierId && materialTypes.length > 0) {
-    const supplierOrTypeConditions: Prisma.materialsWhereInput[] = [
+    whereClause.OR = [
       { suppliers: { some: { supplierId, isActive: true } } },
       { materialType: { in: materialTypes as any[] } },
     ];
-    if (whereClause.OR) {
-      // Search OR already exists — combine with AND
-      whereClause.AND = [{ OR: whereClause.OR }, { OR: supplierOrTypeConditions }];
-      delete whereClause.OR;
-    } else {
-      whereClause.OR = supplierOrTypeConditions;
-    }
   } else if (supplierId) {
     whereClause.suppliers = {
       some: {

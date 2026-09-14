@@ -3,6 +3,7 @@ import { WarehouseType, Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { getDerivedStock, getDerivedValuation } from './helpers/derived-stock.helper';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 export interface CreateWarehouseDTO {
   warehouseCode: string;
@@ -116,11 +117,7 @@ class WarehouseService {
     }
 
     if (filters?.search) {
-      where.OR = [
-        { warehouseCode: { contains: filters.search, mode: 'insensitive' } },
-        { warehouseName: { contains: filters.search, mode: 'insensitive' } },
-        { city: { contains: filters.search, mode: 'insensitive' } },
-      ];
+      applySearch(where, filters.search, ['warehouseCode', 'warehouseName', 'city']);
     }
 
     const warehouses = await prisma.warehouses.findMany({

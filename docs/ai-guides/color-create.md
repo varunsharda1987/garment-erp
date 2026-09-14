@@ -32,7 +32,7 @@ route: /colors/new
 ## Steps
 
 1. Open **Materials & Masters → Colors** in the sidebar. The **Colors** link sits under the **Configuration** sub-heading, which is collapsed by default — click **Configuration** first to open it. You can also reach it from **Materials & Masters → All Masters**, then the **Configuration** section, then **Colors**.
-2. The page is titled **Color Master**. Before adding, type the colour name in **Search colors...** to check it does not already exist.
+2. The page is titled **Color Master**. Before adding, type the colour name in **Search colors...** to check it does not already exist. The search matches the colour code, name and family, and several words each have to match — so "navy blue" finds a colour only if both words appear somewhere on it.
 3. Click **Add Color** (top right). The form opens as **Add New Color**.
 4. Fill **Color Name** — this is the only required field. It must be at least 2 characters and no more than 100.
 5. Optional: fill **Hex Code**. It must start with `#` and be 3 or 6 characters after it, for example `#000080`. You can instead click the small square colour picker next to the box and the hex code fills itself. The swatch on the left previews the colour.

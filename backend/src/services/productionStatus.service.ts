@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import logger from '../utils/logger';
 import { Prisma, ProductionStage, CADStatus, SampleStatus, OrderStatus } from '@prisma/client';
 import { InternalError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 // Types for production status
 interface ProductionStatusQueryOptions {
@@ -65,13 +66,7 @@ class ProductionStatusService {
       };
 
       if (search) {
-        styleWhere.OR = [
-          { styleCode: { contains: search, mode: 'insensitive' } },
-          { buyerStyleRef: { contains: search, mode: 'insensitive' } },
-          { styleName: { contains: search, mode: 'insensitive' } },
-          { internalCode: { contains: search, mode: 'insensitive' } },
-          { customerName: { contains: search, mode: 'insensitive' } },
-        ];
+        applySearch(styleWhere, search, ['styleCode', 'buyerStyleRef', 'styleName', 'internalCode', 'customerName']);
       }
 
       if (brand) {

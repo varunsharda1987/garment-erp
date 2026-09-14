@@ -12,6 +12,7 @@ import type { CreateColorInput, UpdateColorInput, ColorSearchInput } from '../sc
 import type { ColorMaster, ColorSearchResult, ColorBulkImportResult, ColorImportRow } from '../types/color.types';
 import { COLOR_FAMILIES } from '../types/color.types';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Color Service Class
@@ -37,6 +38,12 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
       count: (args: { where?: Record<string, unknown> }) => Promise<number>;
     };
   }
+  /**
+   * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
+   * a code and a name together narrow instead of finding nothing. The phrase-only
+   * buildSearchFilter below stays only because BaseService declares it abstract.
+   */
+  protected readonly searchFields = ['colorCode', 'colorName', 'colorFamily', 'description'] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [
@@ -229,10 +236,7 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
       }
 
       if (search) {
-        where.OR = [
-          { colorName: { contains: search, mode: 'insensitive' } },
-          { colorCode: { contains: search, mode: 'insensitive' } },
-        ];
+        applySearch(where, search, ['colorName', 'colorCode']);
       }
 
       const colors = await prisma.color_master.findMany({

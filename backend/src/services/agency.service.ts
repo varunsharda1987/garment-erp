@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 interface AgencyCreateInput {
   name: string;
@@ -71,12 +72,7 @@ export class AgencyService {
     const where: Prisma.agenciesWhereInput = {};
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['name', 'code', 'phone', 'email']);
     }
 
     if (isActive !== undefined) {
@@ -200,10 +196,7 @@ export class AgencyService {
     };
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-      ];
+      applySearch(where, search, ['name', 'code']);
     }
 
     return prisma.agencies.findMany({

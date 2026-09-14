@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError, ConflictError, UnauthorizedError } from '../errors';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Create new payment term
@@ -73,10 +74,7 @@ export const getAllPaymentTerms = async (req: Request, res: Response): Promise<v
   where.isActive = isActive === undefined ? true : (isActive as unknown) === true || isActive === 'true';
 
   if (search) {
-    where.OR = [
-      { termCode: { contains: search as string, mode: 'insensitive' } },
-      { termName: { contains: search as string, mode: 'insensitive' } },
-    ];
+    applySearch(where, search as string, ['termCode', 'termName']);
   }
 
   const [terms, total] = await Promise.all([

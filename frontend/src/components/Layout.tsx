@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import CommandPalette from './CommandPalette';
+import StuckNudge from './StuckNudge';
 import { recordPage } from '@/lib/session-trail';
 
 export default function Layout() {
@@ -21,6 +22,9 @@ export default function Layout() {
 
       {/* Global Command Palette (Ctrl+K) */}
       <CommandPalette />
+
+      {/* "Stuck? Ask the assistant" after repeated empty searches or errors on a page */}
+      <StuckNudge />
 
       <div className="flex pt-16">
         {/* Sidebar */}

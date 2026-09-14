@@ -23,6 +23,20 @@ export interface AiInsightsSummary {
   withPageRoute: number;
   /** Assistant turns answered while the guide feature was switched off */
   knowledgeDisabled: number;
+  /** Distinct searches that returned nothing */
+  searchMisses: number;
+}
+
+export interface SearchMissGroup {
+  term: string;
+  endpoint: string;
+  samplePageRoute: string | null;
+  sampleFilters: Record<string, string> | null;
+  /** How many times anyone typed this and got nothing */
+  count: number;
+  users: number;
+  roles: string[];
+  lastAt: string;
 }
 
 export interface UnansweredQuestion {

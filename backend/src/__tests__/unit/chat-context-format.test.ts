@@ -2,7 +2,7 @@
  * Prompt section formatters for the session trail.
  */
 
-import { formatPageContext, formatRecentErrors } from '../../services/ai/chat-context.format';
+import { formatPageContext, formatRecentErrors, formatRecentSearchMisses } from '../../services/ai/chat-context.format';
 
 describe('formatPageContext', () => {
   it('is empty without a page', () => {
@@ -55,5 +55,22 @@ describe('formatRecentErrors', () => {
       .split('\n')
       .filter((line) => line.startsWith('- '));
     expect(lines).toHaveLength(10);
+  });
+});
+
+describe('formatRecentSearchMisses', () => {
+  it('is empty without misses', () => {
+    expect(formatRecentSearchMisses(undefined)).toBe('');
+    expect(formatRecentSearchMisses([])).toBe('');
+  });
+
+  it('names the screen, the term and the endpoint, and tells the model not to guess', () => {
+    const text = formatRecentSearchMisses([
+      { at: '2026-09-14T08:32:00.000Z', endpoint: '/styles', term: 'kasya lng182', pageRoute: '/sale-orders/new' },
+    ]);
+    expect(text).toContain('on /sale-orders/new');
+    expect(text).toContain('"kasya lng182"');
+    expect(text).toContain('/styles → 0 results');
+    expect(text).toContain('never claim the record exists');
   });
 });

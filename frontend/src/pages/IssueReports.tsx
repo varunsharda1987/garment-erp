@@ -289,6 +289,22 @@ export default function IssueReports() {
                   <p className="text-xs text-muted-foreground">No page history was recorded.</p>
                 )}
               </div>
+              <div>
+                <div className="font-medium mb-1">Searches that found nothing (newest first)</div>
+                {trailReport.contextJson.recentSearchMisses?.length ? (
+                  <ul className="space-y-1 font-mono text-xs">
+                    {trailReport.contextJson.recentSearchMisses.map((miss, index) => (
+                      <li key={index}>
+                        <span className="text-muted-foreground">{formatDate(miss.at)}</span> "{miss.term}" in{' '}
+                        {miss.endpoint}
+                        {miss.pageRoute && <span className="text-muted-foreground"> (on {miss.pageRoute})</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No empty searches were recorded.</p>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>

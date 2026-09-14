@@ -9,6 +9,7 @@
 
 import prisma from '../../config/database';
 import type { AssistantMessageMetadata } from './conversation.service';
+import { searchMissService } from '../search-miss.service';
 
 export interface InsightsRange {
   from: Date;
@@ -62,6 +63,8 @@ export interface InsightsSummary {
   positiveFeedback: number;
   withPageRoute: number;
   knowledgeDisabled: number;
+  /** Distinct searches that returned nothing (search_misses rows) */
+  searchMisses: number;
 }
 
 const MAX_ROWS = 5000;
@@ -193,7 +196,9 @@ class AiInsightsService {
   async getSummary(range: InsightsRange): Promise<InsightsSummary> {
     const rows = await this.loadAssistant(range);
     const withMeta = rows.filter(hasMetadata);
+    const searchMisses = await searchMissService.count(range);
     return {
+      searchMisses,
       from: range.from.toISOString(),
       to: range.to.toISOString(),
       totalQuestions: withMeta.length,

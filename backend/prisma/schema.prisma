@@ -10627,6 +10627,27 @@ model issue_reports {
   @@map("issue_reports")
 }
 
+/// Search misses - a search that returned nothing is a 200 nobody else records, yet it is how
+/// users most often get stuck ("I can't find the style"). Written by transform.middleware.ts
+/// via search-miss.service.ts; read by AI Insights and backend/scripts/ai-gaps.ts.
+model search_misses {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  userRole  String?  @map("user_role")
+  endpoint  String // req.baseUrl + req.path, e.g. /api/styles
+  term      String // normalised search text, <= 200 chars
+  filters   Json? // other query params (status...) minus paging/sort keys
+  pageRoute String?  @map("page_route") // screen the request came from (X-Page-Route header)
+  hits      Int      @default(1)
+  firstAt   DateTime @default(now()) @map("first_at")
+  lastAt    DateTime @default(now()) @map("last_at")
+
+  @@index([lastAt])
+  @@index([userId])
+  @@index([endpoint])
+  @@map("search_misses")
+}
+
 /// AI Knowledge Guides - step-by-step how-to guides authored from the real UI code.
 /// Retrieved by keyword at chat time and injected into the AI system prompt so the
 /// assistant answers with real menu/button names instead of generic guesses.

@@ -3,7 +3,7 @@
  * system-prompt sections. Kept separate from the route so they can be unit-tested.
  */
 
-import type { TrailError } from '../../schemas/ai.schema';
+import type { TrailError, TrailSearchMiss } from '../../schemas/ai.schema';
 
 export function formatPageContext(pageRoute?: string, pageGuide?: { slug: string; title: string }): string {
   if (!pageRoute) return '';
@@ -18,6 +18,19 @@ function formatTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '--:--';
   return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+export function formatRecentSearchMisses(misses?: TrailSearchMiss[]): string {
+  if (!misses || misses.length === 0) return '';
+  const lines = misses.slice(0, 10).map((miss) => {
+    const where = miss.pageRoute ? ` on ${miss.pageRoute}` : '';
+    return `- ${formatTime(miss.at)}${where} typed "${miss.term}" into ${miss.endpoint} → 0 results`;
+  });
+  return (
+    `\nRECENT SEARCHES THAT FOUND NOTHING (newest first):\n${lines.join('\n')}\n` +
+    `If the question is about not finding something, explain what that screen's search matches ` +
+    `(from the guide) and how to search for it — never claim the record exists or does not exist.\n`
+  );
 }
 
 export function formatRecentErrors(errors?: TrailError[]): string {

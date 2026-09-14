@@ -20,6 +20,7 @@
 import prisma from '../src/config/database';
 import { aiInsightsService, resolveRange } from '../src/services/ai/ai-insights.service';
 import { knowledgeService, rankGuides } from '../src/services/ai/knowledge.service';
+import { searchMissService } from '../src/services/search-miss.service';
 
 function readArg(name: string): string | undefined {
   const index = process.argv.indexOf(name);
@@ -56,16 +57,17 @@ async function report() {
   const top = Number(readArg('--top') ?? 25);
   const includeData = hasFlag('--include-data');
 
-  const [summary, unanswered, weak, negative, usage] = await Promise.all([
+  const [summary, unanswered, weak, negative, usage, misses] = await Promise.all([
     aiInsightsService.getSummary(range),
     aiInsightsService.getUnanswered(range, { includeData, limit: top }),
     aiInsightsService.getWeakMatches(range, { limit: top }),
     aiInsightsService.getNegativeFeedback(range, { limit: top }),
     aiInsightsService.getGuideUsage(range),
+    searchMissService.listGrouped(range, { limit: top }),
   ]);
 
   if (hasFlag('--json')) {
-    console.log(JSON.stringify({ summary, unanswered, weak, negative, usage }, null, 2));
+    console.log(JSON.stringify({ summary, unanswered, weak, negative, usage, misses }, null, 2));
     return;
   }
 
@@ -73,9 +75,24 @@ async function report() {
   console.log(`range: ${day(summary.from)} → ${day(summary.to)}`);
   console.log(
     `questions: ${summary.totalQuestions}   no guide: ${summary.zeroMatch}   weak: ${summary.weak}   ` +
-      `thumbs down: ${summary.negativeFeedback}   thumbs up: ${summary.positiveFeedback}` +
+      `thumbs down: ${summary.negativeFeedback}   thumbs up: ${summary.positiveFeedback}   ` +
+      `searched-nothing: ${summary.searchMisses}` +
       (summary.knowledgeDisabled ? `   (guides OFF for ${summary.knowledgeDisabled})` : '')
   );
+
+  console.log('\n--- Searched, found nothing (what users typed that returned no results) ---');
+  if (misses.length === 0) console.log('none');
+  else {
+    console.log(`${pad('times', 6)}${pad('users', 6)}${pad('last', 11)}${pad('screen', 26)}${pad('endpoint', 28)}term`);
+    console.log('-'.repeat(120));
+    for (const row of misses) {
+      console.log(
+        `${pad(row.count, 6)}${pad(row.users, 6)}${pad(day(row.lastAt), 11)}${pad(clip(row.samplePageRoute ?? '-', 25), 26)}` +
+          `${pad(clip(row.endpoint, 27), 28)}"${clip(row.term, 40)}"` +
+          (row.sampleFilters ? `  filters=${clip(JSON.stringify(row.sampleFilters), 40)}` : '')
+      );
+    }
+  }
 
   console.log(`\n--- Unanswered (no guide matched${includeData ? ', incl. data questions' : ''}) ---`);
   if (unanswered.length === 0) console.log('none');

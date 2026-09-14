@@ -3,7 +3,7 @@ import axiosRetry from 'axios-retry';
 import humps from 'humps';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/auth.store';
-import { recordError, stripUrl } from './session-trail';
+import { recordError, recordSearchMiss, searchTermOf, isEmptyResult, stripUrl } from './session-trail';
 
 // API base URL - uses environment variable with fallback for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -73,6 +73,11 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // Which screen the request came from — lets the API attribute empty searches to a page
+    if (typeof window !== 'undefined') {
+      config.headers['X-Page-Route'] = window.location.pathname;
+    }
+
     // Set Content-Type based on data type
     if (config.data instanceof FormData) {
       // Don't set Content-Type - browser will set it with boundary
@@ -104,13 +109,18 @@ api.interceptors.request.use(
 // Response interceptor to handle errors, token refresh, and transform data
 api.interceptors.response.use(
   (response) => {
-    // Transform response data from snake_case to camelCase
-    // Note: Backend now handles this transformation, but we keep this as a safety net
-    // In case any response slips through without transformation
-    if (response.data && typeof response.data === 'object') {
-      // The backend middleware already converts to camelCase
-      // But we can add additional client-side transformation if needed
-      // response.data = humps.camelizeKeys(response.data);
+    // Session trail: a search that returned nothing is a 200 nobody else notices — remember it
+    // so the "Stuck?" nudge, the assistant and Report Issue can see what the user looked for
+    if ((response.config.method || 'get').toLowerCase() === 'get') {
+      const term = searchTermOf(response.config);
+      if (term && isEmptyResult(response.data)) {
+        recordSearchMiss({
+          at: new Date().toISOString(),
+          endpoint: stripUrl(response.config.url || ''),
+          term,
+          pageRoute: window.location.pathname,
+        });
+      }
     }
     return response;
   },

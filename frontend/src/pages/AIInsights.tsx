@@ -10,7 +10,17 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import { BarChart3, BookOpen, Copy, HelpCircle, Loader2, ThumbsDown, ThumbsUp, AlertTriangle } from 'lucide-react';
+import {
+  BarChart3,
+  BookOpen,
+  Copy,
+  HelpCircle,
+  Loader2,
+  ThumbsDown,
+  ThumbsUp,
+  AlertTriangle,
+  Search,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,8 +36,9 @@ import {
   getWeakMatches,
   getNegativeFeedback,
   getGuideUsage,
+  getSearchMisses,
 } from '@/services/ai-insights.service';
-import type { UnansweredQuestion, WeakMatch } from '@/types/aiInsights.types';
+import type { UnansweredQuestion, WeakMatch, SearchMissGroup } from '@/types/aiInsights.types';
 
 const formatDate = (dateString: string) =>
   new Date(dateString).toLocaleDateString([], { day: 'numeric', month: 'short' }) +
@@ -97,6 +108,26 @@ export default function AIInsights() {
     queryFn: () => getGuideUsage(params),
     enabled: tab === 'usage',
   });
+  const misses = useQuery({
+    queryKey: ['ai-insights', 'search-misses', params],
+    queryFn: () => getSearchMisses(params),
+    enabled: tab === 'misses',
+  });
+
+  const copySearchRequest = async (row: SearchMissGroup) => {
+    const lines = [
+      '### Search request',
+      `- Users typed: "${row.term}" and found nothing (${row.count}x by ${row.users} user(s), last ${formatDate(row.lastAt)})`,
+      `- Screen: ${row.samplePageRoute ?? 'unknown'} · Endpoint: ${row.endpoint}`,
+      `- Other filters: ${row.sampleFilters ? JSON.stringify(row.sampleFilters) : 'none'}`,
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      handleApiSuccess('Copied', 'Paste it into Claude Code and run /ai-gaps');
+    } catch (error) {
+      handleApiError(error, 'Could not copy');
+    }
+  };
 
   const copyGuideRequest = async (row: UnansweredQuestion | WeakMatch) => {
     const lines = [
@@ -130,12 +161,13 @@ export default function AIInsights() {
         <DateRangePicker value={range} onChange={setRange} className="w-72" />
       </div>
 
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-5">
+      <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
         <StatCard label="Questions asked" value={summary.data?.totalQuestions} icon={HelpCircle} />
         <StatCard label="No guide matched" value={summary.data?.zeroMatch} icon={AlertTriangle} />
         <StatCard label="Weak matches" value={summary.data?.weak} icon={BookOpen} />
         <StatCard label="Thumbs down" value={summary.data?.negativeFeedback} icon={ThumbsDown} />
         <StatCard label="Thumbs up" value={summary.data?.positiveFeedback} icon={ThumbsUp} />
+        <StatCard label="Searched, found nothing" value={summary.data?.searchMisses} icon={Search} />
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -144,6 +176,7 @@ export default function AIInsights() {
           <TabsTrigger value="weak">Weak matches</TabsTrigger>
           <TabsTrigger value="negative">Negative feedback</TabsTrigger>
           <TabsTrigger value="usage">Guide usage</TabsTrigger>
+          <TabsTrigger value="misses">Not found</TabsTrigger>
         </TabsList>
 
         <TabsContent value="unanswered" className="mt-4 space-y-3">
@@ -347,6 +380,68 @@ export default function AIInsights() {
                         <TableCell className="text-right">{row.notHelpful}</TableCell>
                         <TableCell className="text-right">
                           {row.ratio === null ? '—' : `${Math.round(row.ratio * 100)}%`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="misses" className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            What users typed into a search box and got no results — recorded automatically, no one has to report it.
+          </p>
+          <Card>
+            <CardContent className="p-0">
+              {misses.isLoading ? (
+                <Loading />
+              ) : !misses.data || misses.data.length === 0 ? (
+                <Empty text="No empty searches in this period." />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Searched for</TableHead>
+                      <TableHead>Where</TableHead>
+                      <TableHead className="text-right">Times</TableHead>
+                      <TableHead className="text-right">Users</TableHead>
+                      <TableHead>Roles</TableHead>
+                      <TableHead>Last</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {misses.data.map((row) => (
+                      <TableRow key={`${row.endpoint}::${row.term}`}>
+                        <TableCell className="max-w-md">
+                          <div className="text-sm">"{row.term}"</div>
+                          {row.sampleFilters && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              with{' '}
+                              {Object.entries(row.sampleFilters)
+                                .map(([key, value]) => `${key}=${value}`)
+                                .join(', ')}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          <div>{row.samplePageRoute ?? '—'}</div>
+                          <div className="opacity-70">{row.endpoint}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{row.count}</TableCell>
+                        <TableCell className="text-right">{row.users}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{row.roles.join(', ') || '—'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                          {formatDate(row.lastAt)}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm" className="h-8" onClick={() => copySearchRequest(row)}>
+                            <Copy className="h-4 w-4 mr-1" />
+                            Copy as request
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}

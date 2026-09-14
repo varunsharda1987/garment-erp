@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Send, Bot, User, Sparkles, AlertCircle, Loader2, PanelLeftClose, PanelLeft, Mic, MicOff } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
@@ -37,6 +38,8 @@ interface AIStatus {
 
 export default function AIAssistant() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   // State
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -52,6 +55,8 @@ export default function AIAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // The assistant is its own page, so "current page" is the one the user came from
   const pageRouteRef = useRef<string | undefined>(lastPageBefore('/ai-assistant'));
+  // The "Stuck? Ask the assistant" nudge hands its question over via router state — send it once
+  const autoAskedRef = useRef(false);
 
   // Voice input (Web Speech API) — appends the spoken transcript to the input box
   const speechBaseRef = useRef('');
@@ -130,10 +135,10 @@ export default function AIAssistant() {
     inputRef.current?.focus();
   }, []);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  const sendMessage = async (text?: string) => {
+    const currentInput = (text ?? input).trim();
+    if (!currentInput || loading) return;
 
-    const currentInput = input;
     setInput('');
     setLoading(true);
 
@@ -270,6 +275,17 @@ export default function AIAssistant() {
       setActionBusyId(null);
     }
   };
+
+  // Question handed over by the nudge: send it once the provider is known to be available,
+  // then clear the router state so a refresh does not send it again
+  useEffect(() => {
+    const ask = (location.state as { ask?: string } | null)?.ask;
+    if (!ask || autoAskedRef.current || !aiStatus?.enabled || !aiStatus.available) return;
+    autoAskedRef.current = true;
+    navigate(location.pathname, { replace: true, state: null });
+    void sendMessage(ask);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, aiStatus]);
 
   const formatTime = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString([], {
@@ -534,7 +550,7 @@ export default function AIAssistant() {
                 </div>
               )}
               <Button
-                onClick={sendMessage}
+                onClick={() => sendMessage()}
                 disabled={!input.trim() || loading}
                 className="self-end h-12 px-6 rounded-xl"
               >

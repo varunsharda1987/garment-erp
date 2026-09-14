@@ -1,6 +1,48 @@
 import { Request, Response, NextFunction } from 'express';
 import { serialize } from '../utils/serializer';
 import { logDebug, logError } from '../utils/logger';
+import {
+  searchMissService,
+  normalizeTerm,
+  isEmptySearchResult,
+  extractFilters,
+  MIN_TERM_LENGTH,
+} from '../services/search-miss.service';
+
+const SEARCH_MISS_IGNORED_PREFIXES = ['/api/ai', '/api/conversations'];
+
+/**
+ * A search that returns nothing is a 200 nobody else sees. Record it (fire-and-forget) so
+ * AI Insights can show what users looked for and could not find. Must never throw or delay.
+ */
+function maybeRecordSearchMiss(req: Request, res: Response, body: unknown): void {
+  try {
+    if (req.method !== 'GET' || res.statusCode !== 200) return;
+    const term = normalizeTerm(req.query.search);
+    if (term.length < MIN_TERM_LENGTH) return;
+    const userId = req.user?.userId;
+    if (!userId) return;
+    const endpoint = `${req.baseUrl}${req.path}`;
+    if (SEARCH_MISS_IGNORED_PREFIXES.some((prefix) => endpoint.startsWith(prefix))) return;
+    if (!isEmptySearchResult(body)) return;
+
+    const header = req.get('x-page-route');
+    const pageRoute = typeof header === 'string' && header.startsWith('/') ? header.slice(0, 200) : null;
+
+    void searchMissService
+      .record({
+        userId,
+        userRole: req.user?.role ?? null,
+        endpoint,
+        term,
+        filters: extractFilters(req.query as Record<string, unknown>),
+        pageRoute,
+      })
+      .catch((error: Error) => logDebug('[SearchMiss] record failed', { error: error.message }));
+  } catch (error) {
+    logDebug('[SearchMiss] skipped', { error: (error as Error).message });
+  }
+}
 
 /**
  * Response transformation middleware
@@ -25,6 +67,8 @@ export function transformResponse(req: Request, res: Response, next: NextFunctio
 
       // Transform the data to camelCase
       const transformedData = serialize(data);
+
+      maybeRecordSearchMiss(req, res, transformedData);
 
       if (debugEnabled) {
         logDebug('Transformed Data (first 500 chars):', JSON.stringify(transformedData, null, 2).substring(0, 500));

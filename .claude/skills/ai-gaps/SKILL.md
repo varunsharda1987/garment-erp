@@ -49,6 +49,17 @@ Read the question, the page it was asked from, and the role. Then:
 Weak matches (score 1-2) usually mean a single loose word matched — check the guide really
 answers the question; if not, treat it like an unanswered one.
 
+**"Searched, found nothing" rows** are what users typed into a screen's search box and got
+zero results (recorded automatically by `transform.middleware.ts`, no user action needed). Decide:
+- **Search field gap** — the screen shows a column the search does not cover (e.g. a customer or
+  buyer style code): extend that endpoint's `searchFields` / `buildSearchWhere` list
+  (`backend/src/utils/search-filter.ts` recipe) and add the endpoint to
+  `backend/src/__tests__/integration/listSearchCoverage.test.ts`.
+- **Looking in the wrong place** — the record lives on another screen (e.g. draft styles are not
+  sold): add the user's words as keywords to the guide for the right screen and say where to look.
+- **The data really is absent** — a master that was never created: report it to the owner.
+Never write a guide that tells users a record exists.
+
 ### 3. Re-ingest
 
 ```bash

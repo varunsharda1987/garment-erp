@@ -10,6 +10,7 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateQuery } from '../middleware/validation.middleware';
 import { aiInsightsService, resolveRange } from '../services/ai/ai-insights.service';
+import { searchMissService } from '../services/search-miss.service';
 import { aiInsightsQuerySchema, type AiInsightsQueryInput } from '../schemas/aiInsights.schema';
 
 const router = Router();
@@ -77,6 +78,17 @@ router.get(
   asyncHandler(async (req: Request, res: Response) => {
     const query = readQuery(req);
     const data = await aiInsightsService.getGuideUsage(resolveRange(query.from, query.to));
+    res.json({ data });
+  })
+);
+
+/** GET /api/ai-insights/search-misses — what users typed into a search and got nothing back */
+router.get(
+  '/search-misses',
+  validateQuery(aiInsightsQuerySchema),
+  asyncHandler(async (req: Request, res: Response) => {
+    const query = readQuery(req);
+    const data = await searchMissService.listGrouped(resolveRange(query.from, query.to), { limit: query.limit });
     res.json({ data });
   })
 );

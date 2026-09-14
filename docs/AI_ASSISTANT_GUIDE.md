@@ -217,6 +217,24 @@ along as `context.recentErrors` / `context.recentPages` (Zod: `sessionTrailSchem
   lists; `--test "<question>" --route grn/new` ranks the live guides for one question. The
   `/ai-gaps` skill runs it, then writes or fixes guides and re-ingests.
 
+### Silent struggles — empty searches and the nudge
+
+A search that returns nothing is a 200, so nothing above would see it. `transform.middleware.ts`
+(the one `res.json` wrapper) records every authenticated GET with a `search` param whose body came
+back empty into `search_misses` via `backend/src/services/search-miss.service.ts`: terms under 3
+chars are ignored, a prefix typed within 60 s replaces the previous row ("kas" → "kasya"), the
+same term within 10 min bumps `hits`. The screen comes from the `X-Page-Route` header the axios
+request interceptor sets (whitelisted in `app.ts` CORS). AI Insights lists them on the **Not
+found** tab (`GET /api/ai-insights/search-misses`); `ai-gaps.ts` prints them; the `/ai-gaps` skill
+decides between a search-field gap, a wrong-screen guide gap, and genuinely absent data.
+
+Client-side the same empty responses go into the session trail (`recentSearchMisses`) and reach
+the prompt as `RECENT SEARCHES THAT FOUND NOTHING`. `frontend/src/components/StuckNudge.tsx`
+(mounted in `Layout.tsx`) watches the trail: two distinct empty searches (prefixes collapse), or
+two API errors, on one page within two minutes → a "Stuck? Ask the assistant" toast whose **Ask**
+button opens `/ai-assistant` with the question in router state; `AIAssistant.tsx` sends it once and
+clears the state. One nudge per page per 10 minutes (`shouldNudge` in `session-trail.ts`).
+
 ### Adding a signal
 
 Put it on `AssistantMessageMetadata`, write it in the chat route, read it in

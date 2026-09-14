@@ -74,7 +74,8 @@ app.use(
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    // X-Page-Route: the screen a request came from (empty-search attribution in AI Insights)
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Page-Route'],
     exposedHeaders: ['Content-Disposition'],
   })
 );

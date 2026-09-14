@@ -11,6 +11,7 @@ import type {
   WeakMatch,
   NegativeFeedbackItem,
   GuideUsage,
+  SearchMissGroup,
 } from '@/types/aiInsights.types';
 
 function toQuery(params: AiInsightsParams): string {
@@ -45,5 +46,10 @@ export async function getNegativeFeedback(params: AiInsightsParams = {}): Promis
 
 export async function getGuideUsage(params: AiInsightsParams = {}): Promise<GuideUsage[]> {
   const response = await api.get<{ data: GuideUsage[] }>(`/ai-insights/guide-usage${toQuery(params)}`);
+  return response.data.data;
+}
+
+export async function getSearchMisses(params: AiInsightsParams = {}): Promise<SearchMissGroup[]> {
+  const response = await api.get<{ data: SearchMissGroup[] }>(`/ai-insights/search-misses${toQuery(params)}`);
   return response.data.data;
 }

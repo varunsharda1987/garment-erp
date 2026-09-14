@@ -42,6 +42,22 @@ describe('chatPersistentSchema.context', () => {
     expect(result.success).toBe(false);
   });
 
+  it('accepts recent empty searches and caps them at ten', () => {
+    const miss = {
+      at: '2026-09-14T10:00:00.000Z',
+      endpoint: '/styles',
+      term: 'kasya lng',
+      pageRoute: '/sale-orders/new',
+    };
+    const parsed = chatPersistentSchema.parse({ message: 'hi', context: { recentSearchMisses: [miss] } });
+    expect(parsed.context?.recentSearchMisses?.[0].term).toBe('kasya lng');
+    const tooMany = chatPersistentSchema.safeParse({
+      message: 'hi',
+      context: { recentSearchMisses: Array.from({ length: 11 }, () => miss) },
+    });
+    expect(tooMany.success).toBe(false);
+  });
+
   it('strips unknown keys so request bodies can never ride along', () => {
     const parsed = chatPersistentSchema.parse({
       message: 'hi',

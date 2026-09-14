@@ -49,10 +49,19 @@ export const trailPageSchema = z.object({
   path: z.string().max(200),
 });
 
+/** A search that returned nothing — a 200 the error trail never sees */
+export const trailSearchMissSchema = z.object({
+  at: z.string().max(40),
+  endpoint: z.string().max(200),
+  term: z.string().max(200),
+  pageRoute: z.string().max(200).optional(),
+});
+
 export const sessionTrailSchema = z.object({
   pageRoute: z.string().max(200).optional(),
   recentErrors: z.array(trailErrorSchema).max(10).optional(),
   recentPages: z.array(trailPageSchema).max(10).optional(),
+  recentSearchMisses: z.array(trailSearchMissSchema).max(10).optional(),
 });
 
 /**
@@ -93,5 +102,6 @@ export type ChatPersistentInput = z.infer<typeof chatPersistentSchema>;
 export type FeedbackInput = z.infer<typeof feedbackSchema>;
 export type TrailError = z.infer<typeof trailErrorSchema>;
 export type TrailPage = z.infer<typeof trailPageSchema>;
+export type TrailSearchMiss = z.infer<typeof trailSearchMissSchema>;
 export type SessionTrail = z.infer<typeof sessionTrailSchema>;
 export type SuggestionsQueryInput = z.infer<typeof suggestionsQuerySchema>;

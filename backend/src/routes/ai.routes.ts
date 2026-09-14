@@ -12,7 +12,7 @@ import { conversationService, type AssistantMessageMetadata } from '../services/
 import { aiActionsService } from '../services/ai/ai-actions.service';
 import { aiPermissionService } from '../services/ai/ai-permission.service';
 import { knowledgeService } from '../services/ai/knowledge.service';
-import { formatPageContext, formatRecentErrors } from '../services/ai/chat-context.format';
+import { formatPageContext, formatRecentErrors, formatRecentSearchMisses } from '../services/ai/chat-context.format';
 import { erpContextService } from '../services/ai/erp-context.service';
 import { ragService } from '../services/ai/rag.service';
 import { logDebug, logError, logInfo } from '../utils/logger';
@@ -310,6 +310,7 @@ router.post(
     const knowledge = await knowledgeService.getContext(message, { pageRoute: context?.pageRoute });
     const pageContext = formatPageContext(context?.pageRoute, knowledge.pageGuide);
     const recentErrorsContext = formatRecentErrors(context?.recentErrors);
+    const recentSearchesContext = formatRecentSearchMisses(context?.recentSearchMisses);
     logDebug(
       `[AI Chat] context pageRoute=${context?.pageRoute ?? '-'} pageGuide=${knowledge.pageGuide?.slug ?? '-'} ` +
         `guides=${knowledge.matches.map((m) => `${m.slug}(${m.score})`).join(',') || '-'} ` +
@@ -374,6 +375,7 @@ ${erpDataContext}
 ${ragContext}
 ${pageContext}
 ${recentErrorsContext}
+${recentSearchesContext}
 ${knowledge.context}
 
 USING THE HOW-TO GUIDES:
@@ -481,6 +483,7 @@ IMPORTANT:
       ...(knowledge.pageGuide ? { pageGuideSlug: knowledge.pageGuide.slug } : {}),
       ...(context?.recentErrors?.length ? { recentErrors: context.recentErrors } : {}),
       ...(context?.recentPages?.length ? { recentPages: context.recentPages } : {}),
+      ...(context?.recentSearchMisses?.length ? { recentSearchMisses: context.recentSearchMisses } : {}),
     };
 
     // Save assistant response. Return its DB id so the client can attach feedback to the

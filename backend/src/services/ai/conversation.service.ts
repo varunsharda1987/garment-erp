@@ -8,7 +8,7 @@
 import { ConversationStatus, AIMessageRole, FeedbackRating, ActionStatus, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { logInfo, logError } from '../../utils/logger';
-import type { TrailError, TrailPage } from '../../schemas/ai.schema';
+import type { TrailError, TrailPage, TrailSearchMiss } from '../../schemas/ai.schema';
 
 /**
  * What the chat route records on every ASSISTANT row (ai_messages.metadata) so AI Insights
@@ -30,6 +30,7 @@ export type AssistantMessageMetadata = {
   pageGuideSlug?: string;
   recentErrors?: TrailError[];
   recentPages?: TrailPage[];
+  recentSearchMisses?: TrailSearchMiss[];
 };
 
 // Types

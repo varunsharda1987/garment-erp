@@ -35,6 +35,7 @@ route: /cutting
 A cutting entry has two parts: first create a **batch** from the Cutting Chart, then record each **lay** on that batch.
 
 ## Before you start
+- The style must have an **approved Size Set Sample** (Manufacturing → Sample Tracking). The samples go in order — FIT, then PP, then Size Set — each approved. Without it, **Push to Cutting** and **Create Batch** both refuse with "No Size Set Sample exists for this style". This applies to stock production too.
 - The production run must be **In Production** (use **Push to Cutting** on the run page).
 - Fabric must be issued: on the production run page open **Fabric Issuance**, tick the lots and click **Issue to Cutting**.
 - PRODUCTION CAD (width and average) must be set for every fabric, otherwise **Create Batch** stays greyed out.

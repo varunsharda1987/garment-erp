@@ -54,6 +54,7 @@ route: /samples/new
 - A **Customer** must exist in the system (samples are always linked to a customer).
 - If linking to a style: the **Style** must exist and be assigned to the customer.
 - For PP Sample or Size Set Sample with colorways/sizes: the style must have color options and size options defined.
+- **Cutting waits for the Size Set Sample.** A production run cannot be pushed to cutting, and no cutting batch can be created, until the style has an **approved Size Set Sample** — even for stock production (the customer is then the house brand). Because of the sequence below, that means FIT → PP → Size Set, each approved.
 
 ## Steps
 

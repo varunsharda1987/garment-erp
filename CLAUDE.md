@@ -134,6 +134,22 @@ finished fabric does not exist yet; sourcing lives in `greigeId` + the CAD row. 
 (`greigeLaceId` = SENT, `finishedLaceId` = BACK); fabric mostly does not — which is how a GRN guard
 came to check the wrong column (2026-09-15, T0-A).
 
+## Stage prerequisites live in ONE place
+
+`backend/src/services/productionBlockingValidation.service.ts` → `validateStageTransition` is the only
+authority on what a production stage needs: samples (FIT → PP → Size Set, each approved — ON by
+default, stock runs included), FPT/GPT, an approved Order BOM with stock (order-backed runs), and a
+Production CAD average. When asked *"what does X need before it can happen"*, read that file — not the
+stage's page or controller. Cutting's prerequisites were listed from the cutting page on 2026-09-15;
+the first end-to-end walk was refused for a missing approved Size Set Sample.
+
+**Walk it, don't reason about it.** `backend/src/__tests__/integration/cutting-first-run.test.ts`
+drives the whole loop (greige → job → GRN → allocate-to-style → Production CAD from the lot → work
+order → samples → push to cutting → issue → chart → batch) through the real endpoints on tagged
+fixtures and tears everything down. Run it after touching any of those modules; every refusal it
+prints is a finding. Known gap it exposed: `adminOverride` on push-to-cutting is honoured with no
+server-side role check (plan `now-find-the-bugs-enumerated-floyd.md`, T4-A).
+
 **Rules:**
 1. **"Column empty" ≠ "feature unused."** Find the sibling column before concluding. Eight confident
    claims were retracted in one audit for exactly this (`docs/bug-hunt/START_HERE.md` → *Traps for

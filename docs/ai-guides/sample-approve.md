@@ -67,5 +67,6 @@ If the sample is rejected or needs revision:
 
 - The sample status updates to reflect the buyer's decision (Approved, Rejected, etc.)
 - Approved samples can proceed to production
+- An approved **Size Set Sample** is what unlocks **Push to Cutting** on a production run and **Create Batch** in Cutting; until then the run page answers "No Size Set Sample exists for this style"
 - Rejected or revision-needed samples show a **Revision Required** badge
 - The feedback date and comments are recorded in the Buyer Feedback section

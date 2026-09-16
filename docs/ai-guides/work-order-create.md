@@ -63,3 +63,5 @@ From a sale order, open **Orders & Sales → Sale Orders**, open the order and c
 
 ## After creating
 Open the run and use **Push to Cutting** when materials are ready. Only runs still in **Pending** status can be edited with **Edit**.
+
+**Push to Cutting** checks, before it does anything: the style has an **approved Size Set Sample** (which needs an approved PP Sample, which needs an approved FIT Sample — Manufacturing → Sample Tracking); a **Production CAD** with an average exists for the style (Pre-Production → CAD Planning); and, for a run made from an order, the Order BOM is approved and its fabric is in stock. The message names whichever is missing — for example "No Size Set Sample exists for this style".

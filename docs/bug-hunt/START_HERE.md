@@ -31,8 +31,9 @@ I re-classified every S1 by what it *actually does to you today*:
 ## ⚠️ Traps for the next hunt — read before the findings
 
 A follow-up audit of the order system (2026-09-15, plan `now-find-the-bugs-enumerated-floyd.md`)
-made **eight confident claims that turned out to be wrong**. Every one was caught by re-checking, an
-independent review, or the owner — not by the hunter. The pattern behind most of them is a property
+made **eleven confident claims that turned out to be wrong** (eight on 2026-09-15, three more by
+2026-09-16). Every one was caught by re-checking, an independent review, a test run, or the owner —
+not by the hunter reasoning harder. The pattern behind most of them is a property
 of this codebase, not a one-off:
 
 > **ONE CONCEPT, TWO HOMES.** This schema routinely keeps two columns for the same idea —
@@ -54,6 +55,9 @@ whether a column is used.
 | 6 | Three fixes that would have broken repeat orders, every greige BOM, and re-created the `'Natural'` placeholder bug. | Diagnoses verified; fixes never asked "what works today that this breaks?" | Verifying a diagnosis ≠ verifying a fix. |
 | 7 | "Receive via the Dyeing page." | A reviewer's "not *totally* blocked" became advice. The system's own 422 says *received through a GRN*. | The designed route is what the product's errors point to. |
 | 8 | "The JWOs were cancelled because the guard blocked them." | No receive was ever attempted (logs); two cancels 16 s apart. | No causation for human actions without logs. |
+| 9 | Copied a `// no-body` marker from a route that passes CI. | The precedent was grandfathered in the baseline; the detector reads the marker only from a comment line directly above the route. | A passing precedent may pass only because it is baselined — check the baseline, run the detector directly. |
+| 10 | "The GRN approve screen already captures quality for job-work receipts." | The six fields existed, but the dialog was gated on `poCategory === 'PROCESSING'`, which a PO-less job never meets — and `handleApprove` held a second copy of that condition. | "The fields exist" ≠ "reachable for this case": trace the condition that SHOWS a control and the one that SUBMITS it. |
+| 11 | "The prerequisites of cutting are Production CAD, the fabric link and the BOM." | Read the cutting page, not the central stage validator. `productionBlockingValidation.service.ts` also demands an approved **Size Set Sample** (→ PP → FIT), stock runs included. The first real walk (2026-09-16) was refused on it. | Stage prerequisites live in `validateStageTransition`. List them from there, then WALK the loop as a test (`backend/src/__tests__/integration/cutting-first-run.test.ts`) before saying what a stage needs. |
 
 Full evidence and the corrected fix plan: the plan file above, Appendices A and B.
 

@@ -1810,7 +1810,89 @@ function orphanedDemandLinks(relFiles) {
   return out;
 }
 
+// Dual-home column, undocumented. This schema keeps two columns for one concept (fabricId /
+// finishedFabricId, selectedGreigeId / greigeId) and a consumer that reads the wrong one is a live
+// bug class: on 2026-09-15 the GRN receive guard checked `fabricId` (the fabric SENT) while approval
+// resolved `finishedFabricId` (the fabric BACK), refusing every MRP job. Lace documents its pair
+// ("the greige lace SENT" / "the dyed variant expected BACK"); fabric mostly did not. Rule: when a
+// model carries both `<x>Id` and finished/selected/source/processed/result<X>Id (or greige<X>Id),
+// EACH must carry a `///` or inline comment with a direction word. Opt-out: `// allow-dual-home`.
+const DUAL_HOME_PREFIX_RE = /^(finished|selected|source|processed|result)([A-Z]\w*)Id$/;
+const DUAL_HOME_DIRECTION_RE = /\b(sent|back|source|result|arriv|return|finished|expected|produced|reprocess|origin|target)\w*/i;
+function dualHomeColumnUndocumented() {
+  const rel = 'backend/prisma/schema.prisma';
+  const content = readRel(rel) || '';
+  const lines = content.split(/\r?\n/);
+  const fields = new Map(); // model -> Map(field -> { line, comment })
+  let model = null;
+  let docBuf = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const t = raw.trim();
+    if (!model) {
+      const m = /^model\s+(\w+)\s*\{/.exec(t);
+      if (m) {
+        model = m[1];
+        fields.set(model, new Map());
+        docBuf = [];
+      }
+      continue;
+    }
+    if (t === '}') {
+      model = null;
+      docBuf = [];
+      continue;
+    }
+    if (t.startsWith('///')) {
+      docBuf.push(t.slice(3).trim());
+      continue;
+    }
+    if (t === '' || t.startsWith('//') || t.startsWith('@@')) {
+      docBuf = [];
+      continue;
+    }
+    const fm = /^(\w+)\s+\S/.exec(t);
+    if (!fm) {
+      docBuf = [];
+      continue;
+    }
+    const inline = (raw.split('//')[1] || '').trim();
+    fields.get(model).set(fm[1], { line: i + 1, comment: [...docBuf, inline].filter(Boolean).join(' ') });
+    docBuf = [];
+  }
+
+  const out = [];
+  const seen = new Set();
+  for (const [modelName, fmap] of fields) {
+    for (const [name] of fmap) {
+      const m = DUAL_HOME_PREFIX_RE.exec(name);
+      if (!m) continue;
+      const stem = m[2];
+      const partners = [stem[0].toLowerCase() + stem.slice(1) + 'Id', 'greige' + stem + 'Id'];
+      for (const partner of partners) {
+        if (!fmap.has(partner)) continue;
+        for (const f of [name, partner]) {
+          const key = `${modelName} :: ${f}`;
+          if (seen.has(key)) continue;
+          const info = fmap.get(f);
+          if (/allow-dual-home/.test(info.comment)) continue;
+          if (DUAL_HOME_DIRECTION_RE.test(info.comment)) continue;
+          seen.add(key);
+          out.push({
+            key,
+            file: rel,
+            line: info.line,
+            detail: `${modelName}.${f} pairs with ${f === name ? partner : name} but no comment says which is SENT and which comes BACK`,
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+
 module.exports = {
+  dualHomeColumnUndocumented,
   perRouteValidation,
   enumDrift,
   datetimeSchema,

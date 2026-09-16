@@ -118,6 +118,37 @@ materialId: !specificFk ? bomAny.materialId : undefined,
 - `backend/src/controllers/style-costing.utils.ts` — validates single-FK in cost sheet items
 - `frontend/src/pages/CostSheetForm.tsx` lines 1187-1248 — transforms dual-FK → single-FK
 
+## One concept, two homes (READ before concluding a column is unused, empty, or leaked)
+
+This schema routinely keeps **two columns for the same idea**, and consumers pick one:
+
+| Concept | Home 1 | Home 2 |
+|---|---|---|
+| The fabric a job work order is about | `job_work_orders.fabricId` (the SOURCE fabric SENT — only for reprocessing an existing lot) | `job_work_orders.finishedFabricId` (the result expected BACK) |
+| The exact greige a style uses | `style_fabrics.selectedGreigeId` (**0/350 — written only by the legacy `select-greige` endpoint**) | `fabric_width_cad.greigeId` (**137/188 — what CAD Planning's Greige/Fabric column actually writes**) |
+| Which style a CAD row belongs to | `fabric_width_cad.costingStyleId` (legacy writer) | `fabric_width_cad.styleFabricId` (modern writer) — hence the 3-path `OR` in `cutting.controller.ts` |
+| "The result of processing" | `finishedFabricId` / `processedFabricId` / `createdFabricId` / `resultFabricStockId` — four names, one meaning | |
+
+`fabricId` on BOM lines and cost-sheet lines is **null by design** (0/82, 0/64): at design time the
+finished fabric does not exist yet; sourcing lives in `greigeId` + the CAD row. Lace documents its pair
+(`greigeLaceId` = SENT, `finishedLaceId` = BACK); fabric mostly does not — which is how a GRN guard
+came to check the wrong column (2026-09-15, T0-A).
+
+**Rules:**
+1. **"Column empty" ≠ "feature unused."** Find the sibling column before concluding. Eight confident
+   claims were retracted in one audit for exactly this (`docs/bug-hunt/START_HERE.md` → *Traps for
+   the next hunt*).
+2. **Run `cd backend && npx ts-node scripts/check-order-system-integrity.ts` before reasoning about
+   live state** — it prints row counts, pipeline depth (where real data stops) and cutting readiness.
+3. **Match on IDs, never on a coincident value.** The same quantity in three tables is not the same row.
+4. When receiving processed goods, book the GRN item against the material **arriving** (lace already
+   does: `finishedLaceId`), never the one sent.
+
+Enforced by the *dual-home column undocumented* smart-check: a model carrying both `<x>Id` and
+`finished<X>Id` / `selected<X>Id` / `source<X>Id` must carry a `///` comment on each stating SENT vs
+BACK. Baseline ratchet — existing gaps grandfathered in `scripts/hooks/dual-home-column-baseline.json`
+and cleared by the documentation pass; only NEW undocumented pairs block.
+
 ## Fabric Costing IS the CAD row (hybrid table)
 
 There is **no separate fabric-costing table**. `fabric_width_cad` is one row serving two modules:

@@ -4,19 +4,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { dyeingService } from '@/services/dyeing.service';
 import { printingService } from '@/services/printing.service';
-import type { DyeLabDip, ReceiveFromMillRequest } from '@/types/dyeing.types';
+import type { DyeLabDip } from '@/types/dyeing.types';
 import type { ProcessPOStatus } from '@/types/printing.types';
 import {
   LabDipStatusLabels,
@@ -39,7 +29,7 @@ import {
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
+import { ReturnUnprocessedDialog } from '@/components/processing';
 import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -55,7 +45,6 @@ import {
   Clock,
   Factory,
   PackageCheck,
-  ArrowDownToLine,
   FileText,
   Undo,
   IndianRupee,
@@ -109,29 +98,6 @@ export default function ProcessingList() {
     type: 'labDip' | 'processPO';
     processType: UnifiedProcessType;
   } | null>(null);
-
-  // Receive dialog
-  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
-  const [selectedPOForReceive, setSelectedPOForReceive] = useState<UnifiedProcessPO | null>(null);
-  const [receiveForm, setReceiveForm] = useState({
-    thanCount: '',
-    foldLengthCm: '',
-    qtyReceivedMeters: '',
-    receivedWidthInches: '',
-    receivedDate: new Date().toISOString().split('T')[0],
-    receivedChallan: '',
-    invoiceNumber: '',
-  });
-  const [receiveLoading, setReceiveLoading] = useState(false);
-
-  // Update stock dialog
-  const [updateStockDialogOpen, setUpdateStockDialogOpen] = useState(false);
-  const [selectedPOForStock, setSelectedPOForStock] = useState<UnifiedProcessPO | null>(null);
-  const [stockLoading, setStockLoading] = useState(false);
-
-  // QC dialog
-  const [qcDialogOpen, setQcDialogOpen] = useState(false);
-  const [selectedPOForQC, setSelectedPOForQC] = useState<UnifiedProcessPO | null>(null);
 
   // Return dialog
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
@@ -316,93 +282,6 @@ export default function ProcessingList() {
       month: 'short',
       year: 'numeric',
     });
-  };
-
-  // Receive handlers
-  const openReceiveDialog = (po: UnifiedProcessPO) => {
-    setSelectedPOForReceive(po);
-    const jwo = po.jobWorkOrder;
-    setReceiveForm({
-      thanCount: '',
-      foldLengthCm: '',
-      qtyReceivedMeters: '',
-      receivedWidthInches: jwo?.sentWidthInches?.toString() || '',
-      receivedDate: new Date().toISOString().split('T')[0],
-      receivedChallan: '',
-      invoiceNumber: '',
-    });
-    setReceiveDialogOpen(true);
-  };
-
-  const calculatedActualMeters = (() => {
-    const thans = parseFloat(receiveForm.thanCount);
-    const foldL = parseFloat(receiveForm.foldLengthCm);
-    if (thans > 0 && foldL > 0) {
-      return ((thans * foldL) / 100).toFixed(2);
-    }
-    return '';
-  })();
-
-  const handleReceiveSubmit = async () => {
-    if (!selectedPOForReceive) return;
-    setReceiveLoading(true);
-    try {
-      const data: ReceiveFromMillRequest = {
-        receivedWidthInches: parseFloat(receiveForm.receivedWidthInches),
-        receivedDate: receiveForm.receivedDate,
-      };
-      if (receiveForm.thanCount) data.thanCount = parseInt(receiveForm.thanCount);
-      if (receiveForm.foldLengthCm) data.foldLengthCm = parseFloat(receiveForm.foldLengthCm);
-      if (receiveForm.qtyReceivedMeters) data.qtyReceivedMeters = parseFloat(receiveForm.qtyReceivedMeters);
-      if (receiveForm.receivedChallan) data.receivedChallan = receiveForm.receivedChallan;
-      if (receiveForm.invoiceNumber) data.invoiceNumber = receiveForm.invoiceNumber;
-
-      const service = selectedPOForReceive._processType === 'DYEING' ? dyeingService : printingService;
-      await service.processPOs.receiveFromMill(selectedPOForReceive.id, data);
-      const displayQty = receiveForm.qtyReceivedMeters || calculatedActualMeters || '-';
-      handleApiSuccess('Fabric Received', `${selectedPOForReceive.poNumber}: ${displayQty}m received from mill.`);
-      setReceiveDialogOpen(false);
-      setSelectedPOForReceive(null);
-      fetchProcessPOs();
-      fetchSummary();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to receive from mill');
-    } finally {
-      setReceiveLoading(false);
-    }
-  };
-
-  // Update stock handlers
-  const openUpdateStockDialog = (po: UnifiedProcessPO) => {
-    setSelectedPOForStock(po);
-    setUpdateStockDialogOpen(true);
-  };
-
-  const handleUpdateStock = async () => {
-    if (!selectedPOForStock) return;
-    setStockLoading(true);
-    try {
-      const service = selectedPOForStock._processType === 'DYEING' ? dyeingService : printingService;
-      await service.processPOs.updateStock(selectedPOForStock.id);
-      const jwo = selectedPOForStock.jobWorkOrder;
-      const fabricName = jwo?.finishedFabric?.fabricName || 'fabric';
-      const qty = jwo?.qtyReceivedMeters || jwo?.calculatedActualMeters || 0;
-      handleApiSuccess('Stock Updated', `${Number(qty).toFixed(2)}m of ${fabricName} added to inventory.`);
-      setUpdateStockDialogOpen(false);
-      setSelectedPOForStock(null);
-      fetchProcessPOs();
-      fetchSummary();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to update stock');
-    } finally {
-      setStockLoading(false);
-    }
-  };
-
-  // QC handlers
-  const openQCDialog = (po: UnifiedProcessPO) => {
-    setSelectedPOForQC(po);
-    setQcDialogOpen(true);
   };
 
   // Return handlers
@@ -718,44 +597,17 @@ export default function ProcessingList() {
                 <Send className="h-4 w-4" />
               </Button>
             )}
+            {/* Receive via GRN — the one door for booking processed fabric into stock (2026-09-15) */}
             {status === 'AT_MILL' && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  openReceiveDialog(item);
-                }}
-                className="text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-                title="Receive from Mill"
-              >
-                <ArrowDownToLine className="h-4 w-4" />
-              </Button>
-            )}
-            {status === 'RECEIVED' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openQCDialog(item);
-                }}
-                className="text-primary hover:text-primary hover:bg-primary/10"
-                title="Quality Check"
-              >
-                <CheckCircle className="h-4 w-4" />
-              </Button>
-            )}
-            {status === 'QUALITY_CHECKED' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openUpdateStockDialog(item);
+                  navigate(`/procurement/grn/new?jobWorkOrderId=${item.id}`);
                 }}
                 className="text-success hover:text-success hover:bg-success-muted"
-                title="Update Stock"
+                title="Receive via GRN"
               >
                 <PackageCheck className="h-4 w-4" />
               </Button>
@@ -1124,174 +976,6 @@ export default function ProcessingList() {
         confirmText="Delete"
         variant="destructive"
       />
-
-      {/* Receive from Mill Dialog */}
-      <Dialog
-        open={receiveDialogOpen}
-        onOpenChange={(open) => {
-          setReceiveDialogOpen(open);
-          if (!open) setSelectedPOForReceive(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Receive from Mill</DialogTitle>
-            <DialogDescription>
-              Record receipt of processed fabric from {selectedPOForReceive?.supplier?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Than Count</Label>
-                <Input
-                  type="number"
-                  value={receiveForm.thanCount}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, thanCount: e.target.value })}
-                  placeholder="Number of thans"
-                />
-              </div>
-              <div>
-                <Label>Fold Length (cm)</Label>
-                <Input
-                  type="number"
-                  value={receiveForm.foldLengthCm}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, foldLengthCm: e.target.value })}
-                  placeholder="Fold length in cm"
-                />
-              </div>
-            </div>
-            {calculatedActualMeters && (
-              <div className="text-sm text-muted-foreground">
-                Calculated meters: <strong>{calculatedActualMeters}m</strong>
-              </div>
-            )}
-            <div>
-              <Label>OR Enter Quantity Directly (mtrs)</Label>
-              <Input
-                type="number"
-                value={receiveForm.qtyReceivedMeters}
-                onChange={(e) => setReceiveForm({ ...receiveForm, qtyReceivedMeters: e.target.value })}
-                placeholder="Quantity in meters"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Received Width (inches) *</Label>
-                <Input
-                  type="number"
-                  value={receiveForm.receivedWidthInches}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, receivedWidthInches: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Received Date *</Label>
-                <Input
-                  type="date"
-                  value={receiveForm.receivedDate}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, receivedDate: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Received Challan #</Label>
-                <Input
-                  value={receiveForm.receivedChallan}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, receivedChallan: e.target.value })}
-                  placeholder="Challan number"
-                />
-              </div>
-              <div>
-                <Label>Invoice #</Label>
-                <Input
-                  value={receiveForm.invoiceNumber}
-                  onChange={(e) => setReceiveForm({ ...receiveForm, invoiceNumber: e.target.value })}
-                  placeholder="Invoice number"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReceiveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleReceiveSubmit} disabled={receiveLoading}>
-              {receiveLoading ? 'Recording...' : 'Record Receipt'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Update Stock Confirmation Dialog */}
-      <Dialog
-        open={updateStockDialogOpen}
-        onOpenChange={(open) => {
-          setUpdateStockDialogOpen(open);
-          if (!open) setSelectedPOForStock(null);
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Stock</DialogTitle>
-            <DialogDescription>
-              This will add the received fabric to inventory. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedPOForStock && (
-            <div className="py-4">
-              <div className="bg-muted p-4 rounded-lg space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">PO Number:</span>
-                  <span className="font-medium">{selectedPOForStock.poNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fabric:</span>
-                  <span className="font-medium">
-                    {selectedPOForStock.jobWorkOrder?.finishedFabric?.fabricName || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Quantity:</span>
-                  <span className="font-medium">
-                    {(
-                      selectedPOForStock.jobWorkOrder?.qtyReceivedMeters ||
-                      selectedPOForStock.jobWorkOrder?.calculatedActualMeters ||
-                      0
-                    ).toFixed(2)}
-                    m
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateStockDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateStock} disabled={stockLoading}>
-              {stockLoading ? 'Updating...' : 'Confirm & Update Stock'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* QC Dialog */}
-      {selectedPOForQC && (
-        <QualityCheckDialog
-          open={qcDialogOpen}
-          onOpenChange={(open) => {
-            setQcDialogOpen(open);
-            if (!open) setSelectedPOForQC(null);
-          }}
-          processPO={selectedPOForQC}
-          processType={selectedPOForQC._processType}
-          onSuccess={() => {
-            fetchProcessPOs();
-            fetchSummary();
-          }}
-        />
-      )}
 
       {/* Return Dialog */}
       {selectedPOForReturn && (

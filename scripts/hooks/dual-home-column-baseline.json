@@ -1,0 +1,6 @@
+[
+  "fabric_procurement :: fabricId",
+  "fabric_procurement :: processedFabricId",
+  "job_work_orders :: fabricId",
+  "processing_batch :: laceId"
+]

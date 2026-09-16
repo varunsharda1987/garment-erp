@@ -20,6 +20,7 @@ keywords:
   - ओपनिंग स्टॉक
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/GRNForm.tsx
   - frontend/src/pages/GRNList.tsx
   - frontend/src/pages/GRNDetail.tsx
@@ -31,7 +32,7 @@ sources:
   - backend/src/schemas/grn.schema.ts
   - backend/src/schemas/stockMovement.schema.ts
   - docs/STOCK_DOORS_GUIDE.md
-route: /grn/new
+route: /procurement/grn/new
 ---
 
 ## Which method to use?

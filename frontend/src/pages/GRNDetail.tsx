@@ -83,6 +83,12 @@ export default function GRNDetail() {
     }
   };
 
+  // ONE rule for "this receipt is quality-checked at approval": an old Processing PO, or a job work
+  // order GRN (processed fabric / dyed lace coming back). Used by BOTH the dialog gate and the
+  // approve payload — until 2026-09-16 they were computed separately, and a job-work GRN fell
+  // through the gap: no QC dialog, and processingQC never sent, so every lot got the default grade.
+  const isProcessingReceipt = (g: typeof grn) => g?.purchaseOrders?.poCategory === 'PROCESSING' || !!g?.jobWorkOrderId;
+
   const handleApprove = async () => {
     const wId = (grn?.warehouseId as string | undefined) || approveWarehouseId;
     if (!wId) {
@@ -90,7 +96,7 @@ export default function GRNDetail() {
       return;
     }
     try {
-      const isProcessing = grn?.purchaseOrders?.poCategory === 'PROCESSING';
+      const isProcessing = isProcessingReceipt(grn);
       const qcData: ProcessingQCData | undefined = isProcessing
         ? {
             qualityGrade: qcGrade,
@@ -180,7 +186,7 @@ export default function GRNDetail() {
   }
 
   const canApprove = grn.status === 'PENDING_QC';
-  const isProcessingGRN = grn.purchaseOrders?.poCategory === 'PROCESSING';
+  const isProcessingGRN = isProcessingReceipt(grn);
 
   return (
     <div className="space-y-6">

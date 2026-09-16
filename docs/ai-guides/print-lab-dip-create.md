@@ -31,10 +31,11 @@ keywords:
   - छपाई का सैंपल
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/printing/PrintLabDipCreate.tsx
   - frontend/src/pages/PrintingList.tsx
   - frontend/src/components/processing/LabDipBatchCreateForm.tsx
-route: /processing/printing/lab-dips/new
+route: /manufacturing/printing/lab-dips/new
 ---
 
 ## Before you start

@@ -4,25 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { dyeingService } from '@/services/dyeing.service';
-import type {
-  DyeLabDip,
-  DyeLabDipQueryParams,
-  DyeingSummary,
-  ProcessPO,
-  ProcessPOStatus,
-  ReceiveFromMillRequest,
-} from '@/types/dyeing.types';
+import type { DyeLabDip, DyeLabDipQueryParams, DyeingSummary, ProcessPO, ProcessPOStatus } from '@/types/dyeing.types';
 import {
   LabDipStatusLabels,
   LabDipStatusColors,
@@ -35,7 +18,7 @@ import {
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
+import { ReturnUnprocessedDialog } from '@/components/processing';
 import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -54,7 +37,6 @@ import {
   Factory,
   Palette,
   PackageCheck,
-  ArrowDownToLine,
   FileText,
   Undo,
   IndianRupee,
@@ -99,29 +81,6 @@ export default function DyeingList() {
   const [itemToDelete, setItemToDelete] = useState<{ id: string; number: string; type: 'labDip' | 'processPO' } | null>(
     null
   );
-
-  // Receive dialog state
-  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
-  const [selectedPOForReceive, setSelectedPOForReceive] = useState<ProcessPO | null>(null);
-  const [receiveForm, setReceiveForm] = useState({
-    thanCount: '',
-    foldLengthCm: '',
-    qtyReceivedMeters: '',
-    receivedWidthInches: '',
-    receivedDate: new Date().toISOString().split('T')[0],
-    receivedChallan: '',
-    invoiceNumber: '',
-  });
-  const [receiveLoading, setReceiveLoading] = useState(false);
-
-  // Update stock dialog state
-  const [updateStockDialogOpen, setUpdateStockDialogOpen] = useState(false);
-  const [selectedPOForStock, setSelectedPOForStock] = useState<ProcessPO | null>(null);
-  const [stockLoading, setStockLoading] = useState(false);
-
-  // Quality Check dialog state
-  const [qcDialogOpen, setQcDialogOpen] = useState(false);
-  const [selectedPOForQC, setSelectedPOForQC] = useState<ProcessPO | null>(null);
 
   // Return Unprocessed dialog state
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
@@ -241,91 +200,6 @@ export default function DyeingList() {
       month: 'short',
       year: 'numeric',
     });
-  };
-
-  // ---- Receive from Mill ----
-  const openReceiveDialog = (po: ProcessPO) => {
-    setSelectedPOForReceive(po);
-    const jwo = po.jobWorkOrder;
-    setReceiveForm({
-      thanCount: '',
-      foldLengthCm: '',
-      qtyReceivedMeters: '',
-      receivedWidthInches: jwo?.sentWidthInches?.toString() || '',
-      receivedDate: new Date().toISOString().split('T')[0],
-      receivedChallan: '',
-      invoiceNumber: '',
-    });
-    setReceiveDialogOpen(true);
-  };
-
-  const calculatedActualMeters = (() => {
-    const thans = parseFloat(receiveForm.thanCount);
-    const foldL = parseFloat(receiveForm.foldLengthCm);
-    if (thans > 0 && foldL > 0) {
-      return ((thans * foldL) / 100).toFixed(2);
-    }
-    return '';
-  })();
-
-  const handleReceiveSubmit = async () => {
-    if (!selectedPOForReceive) return;
-    setReceiveLoading(true);
-    try {
-      const data: ReceiveFromMillRequest = {
-        receivedWidthInches: parseFloat(receiveForm.receivedWidthInches),
-        receivedDate: receiveForm.receivedDate,
-      };
-      if (receiveForm.thanCount) data.thanCount = parseInt(receiveForm.thanCount);
-      if (receiveForm.foldLengthCm) data.foldLengthCm = parseFloat(receiveForm.foldLengthCm);
-      if (receiveForm.qtyReceivedMeters) data.qtyReceivedMeters = parseFloat(receiveForm.qtyReceivedMeters);
-      if (receiveForm.receivedChallan) data.receivedChallan = receiveForm.receivedChallan;
-      if (receiveForm.invoiceNumber) data.invoiceNumber = receiveForm.invoiceNumber;
-
-      await dyeingService.processPOs.receiveFromMill(selectedPOForReceive.id, data);
-      const displayQty = receiveForm.qtyReceivedMeters || calculatedActualMeters || '-';
-      handleApiSuccess('Fabric Received', `${selectedPOForReceive.poNumber}: ${displayQty}m received from mill.`);
-      setReceiveDialogOpen(false);
-      setSelectedPOForReceive(null);
-      fetchProcessPOs();
-      fetchSummary();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to receive from mill');
-    } finally {
-      setReceiveLoading(false);
-    }
-  };
-
-  // ---- Update Stock ----
-  const openUpdateStockDialog = (po: ProcessPO) => {
-    setSelectedPOForStock(po);
-    setUpdateStockDialogOpen(true);
-  };
-
-  const handleUpdateStock = async () => {
-    if (!selectedPOForStock) return;
-    setStockLoading(true);
-    try {
-      await dyeingService.processPOs.updateStock(selectedPOForStock.id);
-      const jwo = selectedPOForStock.jobWorkOrder;
-      const fabricName = jwo?.finishedFabric?.fabricName || 'fabric';
-      const qty = jwo?.qtyReceivedMeters || jwo?.calculatedActualMeters || 0;
-      handleApiSuccess('Stock Updated', `${Number(qty).toFixed(2)}m of ${fabricName} added to inventory.`);
-      setUpdateStockDialogOpen(false);
-      setSelectedPOForStock(null);
-      fetchProcessPOs();
-      fetchSummary();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to update stock');
-    } finally {
-      setStockLoading(false);
-    }
-  };
-
-  // ---- Quality Check ----
-  const openQCDialog = (po: ProcessPO) => {
-    setSelectedPOForQC(po);
-    setQcDialogOpen(true);
   };
 
   // ---- Return Unprocessed ----
@@ -669,47 +543,17 @@ export default function DyeingList() {
                 <Send className="h-4 w-4" />
               </Button>
             )}
-            {/* Receive from Mill — available when AT_MILL */}
+            {/* Receive via GRN — the one door for booking processed fabric into stock (2026-09-15) */}
             {status === 'AT_MILL' && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  openReceiveDialog(item);
-                }}
-                className="text-teal-600 hover:text-teal-700 hover:bg-teal-50"
-                title="Receive from Mill"
-              >
-                <ArrowDownToLine className="h-4 w-4" />
-              </Button>
-            )}
-            {/* Quality Check — available when RECEIVED */}
-            {status === 'RECEIVED' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openQCDialog(item);
-                }}
-                className="text-primary hover:text-primary hover:bg-primary/10"
-                title="Quality Check"
-              >
-                <CheckCircle className="h-4 w-4" />
-              </Button>
-            )}
-            {/* Update Stock — available when QUALITY_CHECKED */}
-            {status === 'QUALITY_CHECKED' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openUpdateStockDialog(item);
+                  navigate(`/procurement/grn/new?jobWorkOrderId=${item.id}`);
                 }}
                 className="text-success hover:text-success hover:bg-success-muted"
-                title="Update Stock"
+                title="Receive via GRN"
               >
                 <PackageCheck className="h-4 w-4" />
               </Button>
@@ -1032,254 +876,6 @@ export default function DyeingList() {
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
-      />
-
-      {/* Receive from Mill Dialog */}
-      <Dialog
-        open={receiveDialogOpen}
-        onOpenChange={(open) => {
-          setReceiveDialogOpen(open);
-          if (!open) setSelectedPOForReceive(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Receive from Mill</DialogTitle>
-            <DialogDescription>
-              {selectedPOForReceive?.poNumber} — {selectedPOForReceive?.supplier?.name || 'Mill'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {/* Sent info summary */}
-            <div className="bg-muted rounded-lg p-3 text-sm space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sent Qty:</span>
-                <span className="font-medium">
-                  {selectedPOForReceive?.jobWorkOrder?.qtySentMeters?.toFixed(2)} mtrs
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Sent Width:</span>
-                <span className="font-medium">{selectedPOForReceive?.jobWorkOrder?.sentWidthInches}"</span>
-              </div>
-              {selectedPOForReceive?.jobWorkOrder?.finishedFabric && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Finished Fabric:</span>
-                  <span className="font-medium">{selectedPOForReceive.jobWorkOrder.finishedFabric.fabricCode}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Than / Fold "L" measurement */}
-            <div className="border rounded-lg p-3 space-y-3">
-              <p className="text-sm font-medium text-foreground">Than / Fold Measurement</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="thanCount">No. of Thans</Label>
-                  <Input
-                    id="thanCount"
-                    type="number"
-                    min="1"
-                    placeholder="e.g. 50"
-                    value={receiveForm.thanCount}
-                    onChange={(e) => setReceiveForm((f) => ({ ...f, thanCount: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="foldLengthCm">Fold Length "L" (cm)</Label>
-                  <Input
-                    id="foldLengthCm"
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    placeholder="e.g. 97.5"
-                    value={receiveForm.foldLengthCm}
-                    onChange={(e) => setReceiveForm((f) => ({ ...f, foldLengthCm: e.target.value }))}
-                  />
-                </div>
-              </div>
-              {calculatedActualMeters && (
-                <div className="bg-info-muted rounded p-2 text-sm flex justify-between items-center">
-                  <span className="text-info">Calculated Actual Meters:</span>
-                  <span className="font-bold text-info">{calculatedActualMeters} m</span>
-                </div>
-              )}
-            </div>
-
-            {/* Override / manual qty */}
-            <div>
-              <Label htmlFor="qtyReceivedMeters">Qty Received (mtrs) — override</Label>
-              <Input
-                id="qtyReceivedMeters"
-                type="number"
-                step="0.01"
-                placeholder={calculatedActualMeters ? `Auto: ${calculatedActualMeters}` : 'Enter manually'}
-                value={receiveForm.qtyReceivedMeters}
-                onChange={(e) => setReceiveForm((f) => ({ ...f, qtyReceivedMeters: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground mt-1">Leave blank to use calculated value from thans x L</p>
-            </div>
-
-            {/* Width received */}
-            <div>
-              <Label htmlFor="receivedWidthInches">Received Width (inches)</Label>
-              <Input
-                id="receivedWidthInches"
-                type="number"
-                step="0.1"
-                value={receiveForm.receivedWidthInches}
-                onChange={(e) => setReceiveForm((f) => ({ ...f, receivedWidthInches: e.target.value }))}
-              />
-              {receiveForm.receivedWidthInches &&
-                selectedPOForReceive?.jobWorkOrder?.sentWidthInches &&
-                (() => {
-                  const diff =
-                    parseFloat(receiveForm.receivedWidthInches) - selectedPOForReceive.jobWorkOrder.sentWidthInches;
-                  if (diff === 0 || isNaN(diff)) return null;
-                  return (
-                    <p className={`text-xs mt-1 ${diff < 0 ? 'text-destructive' : 'text-success'}`}>
-                      {diff > 0 ? '+' : ''}
-                      {diff.toFixed(1)}" vs sent width
-                    </p>
-                  );
-                })()}
-            </div>
-
-            {/* Date and challan */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="receivedDate">Received Date</Label>
-                <Input
-                  id="receivedDate"
-                  type="date"
-                  value={receiveForm.receivedDate}
-                  onChange={(e) => setReceiveForm((f) => ({ ...f, receivedDate: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="receivedChallan">Challan No.</Label>
-                <Input
-                  id="receivedChallan"
-                  placeholder="Challan number"
-                  value={receiveForm.receivedChallan}
-                  onChange={(e) => setReceiveForm((f) => ({ ...f, receivedChallan: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="invoiceNumber">Invoice No.</Label>
-              <Input
-                id="invoiceNumber"
-                placeholder="Invoice number (optional)"
-                value={receiveForm.invoiceNumber}
-                onChange={(e) => setReceiveForm((f) => ({ ...f, invoiceNumber: e.target.value }))}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReceiveDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleReceiveSubmit}
-              disabled={receiveLoading || !receiveForm.receivedWidthInches || !receiveForm.receivedDate}
-            >
-              {receiveLoading ? 'Saving...' : 'Receive Fabric'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Update Stock Confirmation Dialog */}
-      <Dialog
-        open={updateStockDialogOpen}
-        onOpenChange={(open) => {
-          setUpdateStockDialogOpen(open);
-          if (!open) setSelectedPOForStock(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Update Stock</DialogTitle>
-            <DialogDescription>Create inventory stock from received fabric</DialogDescription>
-          </DialogHeader>
-          {selectedPOForStock &&
-            (() => {
-              const jwo = selectedPOForStock.jobWorkOrder;
-              return (
-                <div className="space-y-3 py-2">
-                  <div className="bg-muted rounded-lg p-3 text-sm space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">PO:</span>
-                      <span className="font-medium">{selectedPOForStock.poNumber}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Finished Fabric:</span>
-                      <span className="font-medium">{jwo?.finishedFabric?.fabricCode || '-'}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Qty Received:</span>
-                      <span className="font-medium">
-                        {(jwo?.qtyReceivedMeters || Number(jwo?.calculatedActualMeters) || 0).toFixed(2)} mtrs
-                      </span>
-                    </div>
-                    {jwo?.defectMeters != null && jwo.defectMeters > 0 && (
-                      <>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Defect Meters:</span>
-                          <span className="font-medium text-destructive">{jwo.defectMeters} mtrs</span>
-                        </div>
-                        <div className="flex justify-between border-t pt-1">
-                          <span className="text-muted-foreground">Good Qty:</span>
-                          <span className="font-bold text-success">
-                            {(
-                              (jwo.qtyReceivedMeters || Number(jwo.calculatedActualMeters) || 0) -
-                              (jwo.defectMeters || 0)
-                            ).toFixed(2)}{' '}
-                            mtrs
-                          </span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Quality Grade:</span>
-                      <Badge variant="outline">{jwo?.qualityGrade || '-'}</Badge>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Width:</span>
-                      <span className="font-medium">{jwo?.receivedWidthInches}"</span>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    This will create a fabric stock entry for{' '}
-                    <strong>{jwo?.finishedFabric?.fabricName || 'the finished fabric'}</strong> with the above
-                    quantities.
-                  </p>
-                </div>
-              );
-            })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateStockDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateStock} disabled={stockLoading} className="bg-success hover:bg-success">
-              {stockLoading ? 'Creating Stock...' : 'Confirm & Create Stock'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Quality Check Dialog */}
-      <QualityCheckDialog
-        open={qcDialogOpen}
-        onOpenChange={setQcDialogOpen}
-        processPO={selectedPOForQC}
-        processType="DYEING"
-        onSuccess={() => {
-          fetchProcessPOs();
-          fetchSummary();
-        }}
       />
 
       {/* Return Unprocessed Dialog */}

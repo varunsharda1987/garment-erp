@@ -12,8 +12,6 @@ import type {
   DyeJobListResponse,
   DyeJobResponse,
   CreateDyeJobRequest,
-  ReceiveFromMillRequest,
-  QualityCheckRequest,
   DyeJobQueryParams,
   DyeingSummary,
   ProcessPO,
@@ -190,23 +188,8 @@ export const dyeJobService = {
 
   // (legacy jobs/:id/send retired 2026-08-19 — issuance goes through processPOs.sendToMill)
 
-  // Receive fabric from mill
-  async receiveFromMill(id: string, data: ReceiveFromMillRequest): Promise<DyeJob> {
-    const response = await api.post<DyeJobResponse>(`/dyeing/jobs/${id}/receive`, data);
-    return response.data.data;
-  },
-
-  // Record quality check
-  async qualityCheck(id: string, data: QualityCheckRequest): Promise<DyeJob> {
-    const response = await api.post<DyeJobResponse>(`/dyeing/jobs/${id}/quality-check`, data);
-    return response.data.data;
-  },
-
-  // Update stock after quality check
-  async updateStock(id: string): Promise<DyeJob> {
-    const response = await api.post<DyeJobResponse>(`/dyeing/jobs/${id}/update-stock`);
-    return response.data.data;
-  },
+  // (legacy jobs/:id/receive, quality-check, update-stock retired 2026-09-15 — processed fabric is
+  // received through the GRN: /procurement/grn/new?jobWorkOrderId=…)
 
   // Get jobs by status
   async getJobsByStatus(status: string): Promise<DyeJob[]> {
@@ -278,18 +261,8 @@ export const dyeProcessPOService = {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/send`, data);
     return response.data.data;
   },
-  async receiveFromMill(id: string, data: ReceiveFromMillRequest): Promise<ProcessPO> {
-    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/receive`, data);
-    return response.data.data;
-  },
-  async qualityCheck(id: string, data: QualityCheckRequest): Promise<ProcessPO> {
-    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/quality-check`, data);
-    return response.data.data;
-  },
-  async updateStock(id: string): Promise<ProcessPO> {
-    const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/update-stock`);
-    return response.data.data;
-  },
+  // receiveFromMill / qualityCheck / updateStock retired 2026-09-15: processed fabric is received,
+  // quality-checked and booked into stock through the GRN (/procurement/grn/new?jobWorkOrderId=…).
   async returnUnprocessed(
     id: string,
     data: { returnedQtyMeters: number; returnDate: string; remarks?: string }

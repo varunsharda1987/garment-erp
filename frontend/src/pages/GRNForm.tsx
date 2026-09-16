@@ -91,6 +91,9 @@ export default function GRNForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedPOId = searchParams.get('poId');
+  // The Dyeing/Printing pages hand a quality-checked job straight here — the GRN is the one door
+  // for booking processed fabric into stock (2026-09-15).
+  const preselectedJwoId = searchParams.get('jobWorkOrderId');
 
   const [receivablePOs, setReceivablePOs] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -119,7 +122,7 @@ export default function GRNForm() {
     meters: string;
   }
   const [receivableJwos, setReceivableJwos] = useState<ReceivableJwo[]>([]);
-  const [selectedJwoId, setSelectedJwoId] = useState('');
+  const [selectedJwoId, setSelectedJwoId] = useState(preselectedJwoId || '');
   const [jwoQtyMeters, setJwoQtyMeters] = useState('');
   const [jwoWidth, setJwoWidth] = useState('');
   const [jwoThanCount, setJwoThanCount] = useState('');
@@ -209,6 +212,7 @@ export default function GRNForm() {
         thanCount: jwoEntryMode === 'TOTAL_METERS' && thanCount > 0 ? thanCount : undefined,
         foldLengthCm: foldLen > 0 ? foldLen : undefined,
         receivedChallan: jwoChallanRef || undefined,
+        receivedDate: receivingDate || undefined,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
         warehouseId: warehouseId || undefined,

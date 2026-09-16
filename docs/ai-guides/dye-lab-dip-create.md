@@ -28,10 +28,11 @@ keywords:
   - कपड़े की रंगाई
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/dyeing/DyeLabDipCreate.tsx
   - frontend/src/pages/DyeingList.tsx
   - frontend/src/components/processing/LabDipBatchCreateForm.tsx
-route: /processing/dyeing/lab-dips/new
+route: /manufacturing/dyeing/lab-dips/new
 ---
 
 ## Before you start

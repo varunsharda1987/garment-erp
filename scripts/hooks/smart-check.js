@@ -207,6 +207,17 @@ function checkEnumDrift(schemaFiles) {
   );
 }
 
+/** Check (A6): a model with both `<x>Id` and finished/selected/source<X>Id where either lacks a SENT/BACK comment — BLOCKING new + ratchet. */
+function checkDualHomeColumn() {
+  console.log(`\n${c.cyan}Checking dual-home columns carry a SENT/BACK comment...${c.reset}`);
+  return runRatchetedCheck(
+    'Dual-home column(s) without a comment stating SENT vs BACK',
+    detectors.dualHomeColumnUndocumented(),
+    'dual-home-column-baseline.json',
+    'Add a `///` comment to each column saying which is the material SENT and which comes BACK (see CLAUDE.md "One concept, two homes"). If intentional, mark the line `// allow-dual-home` or add the key to scripts/hooks/dual-home-column-baseline.json.'
+  );
+}
+
 /** Check (A4): z.string().datetime() in a schema rejects date-picker input — BLOCKING new + ratchet. */
 function checkDatetimeSchema(schemaFiles) {
   console.log(`\n${c.cyan}Checking schemas for z.string().datetime()...${c.reset}`);
@@ -1153,6 +1164,7 @@ function runAllModeChecks() {
   if (!checkSchemaControllerAlignment()) ok = false;
   if (!checkRouteValidation(routeFiles)) ok = false;
   if (!checkEnumDrift(schemaFiles)) ok = false;
+  if (!checkDualHomeColumn()) ok = false;
   if (!checkDatetimeSchema(schemaFiles)) ok = false;
   if (!checkStrictNumberSchema(schemaFiles)) ok = false;
   if (!checkShrinkageDivide(tsFiles)) ok = false;
@@ -1350,6 +1362,7 @@ function main() {
   if (categories.prisma.length || stagedFiles.some((f) => f.includes('schemas/generated/prisma-enums'))) {
     checksRun++;
     if (categories.prisma.length && !checkPrismaSafety()) allPassed = false;
+    if (categories.prisma.length && !checkDualHomeColumn()) allPassed = false;
     if (!checkGeneratedZodEnums()) allPassed = false;
   }
 

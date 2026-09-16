@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
@@ -43,9 +43,6 @@ import {
   updateDyeJob,
   deleteDyeJob,
   sendToMill,
-  receiveFromMill,
-  qualityCheck,
-  updateStock,
   // Summary endpoints
   getSummary,
   getSummaryByStyle,
@@ -56,9 +53,6 @@ import {
   createProcessPO,
   deleteProcessPO,
   sendProcessPO,
-  receiveProcessPO,
-  qualityCheckProcessPO,
-  updateStockProcessPO,
   returnUnprocessedProcessPO,
 } from '../controllers/dyeing.controller';
 
@@ -88,24 +82,25 @@ router.post(
   validateBody(sendProcessPoSchema),
   asyncHandler(sendProcessPO)
 );
-router.post(
-  '/process-pos/:id/receive',
-  validateParams(idParamSchema),
-  validateBody(processPoActionSchema),
-  asyncHandler(receiveProcessPO)
-);
-router.post(
-  '/process-pos/:id/quality-check',
-  validateParams(idParamSchema),
-  validateBody(processPoActionSchema),
-  asyncHandler(qualityCheckProcessPO)
-);
-router.post(
-  '/process-pos/:id/update-stock',
-  validateParams(idParamSchema),
-  validateBody(processPoActionSchema),
-  asyncHandler(updateStockProcessPO)
-);
+// 2026-09-15: the page's own receipt half is RETIRED — processed fabric is received, quality-checked
+// and booked into stock through the GRN (POST /api/grn/jwo, then approve), which records everything
+// this path did (received date, shrinkage, than/fold, inward challan) with one cost calculation and
+// a ledger sync that cannot be swallowed. Receiving here first would also lock the job out of the
+// GRN ("already received"). Reads and Send / Return stay. Tombstones follow fabric-processing.routes.
+const receiptRetired = (_req: Request, res: Response) =>
+  res.status(410).json({
+    success: false,
+    message:
+      'Processed fabric is received through a GRN (Receive against Job Work Order) — open Procurement → GRN → New and pick the job',
+  });
+// The route-validation smart-check reads its `no-body` marker ONLY from a comment line directly above
+// each route (comments inside the call are stripped before it looks; a trailing comment is never seen).
+// no-body — 410 tombstone, nothing read
+router.post('/process-pos/:id/receive', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/process-pos/:id/quality-check', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/process-pos/:id/update-stock', receiptRetired);
 router.post(
   '/process-pos/:id/return-unprocessed',
   validateParams(idParamSchema),
@@ -202,23 +197,12 @@ router.post(
   validateBody(dyeJobActionSchema),
   asyncHandler(sendToMill)
 );
-router.post(
-  '/jobs/:id/receive',
-  validateParams(idParamSchema),
-  validateBody(dyeJobActionSchema),
-  asyncHandler(receiveFromMill)
-);
-router.post(
-  '/jobs/:id/quality-check',
-  validateParams(idParamSchema),
-  validateBody(dyeJobActionSchema),
-  asyncHandler(qualityCheck)
-);
-router.post(
-  '/jobs/:id/update-stock',
-  validateParams(idParamSchema),
-  validateBody(dyeJobActionSchema),
-  asyncHandler(updateStock)
-);
+// Legacy dye-job receipt surface — no frontend caller; same retirement as the process-PO routes above.
+// no-body — 410 tombstone, nothing read
+router.post('/jobs/:id/receive', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/jobs/:id/quality-check', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/jobs/:id/update-stock', receiptRetired);
 
 export default router;

@@ -1307,6 +1307,9 @@ model order_items {
   @@index([styleId, status])
 }
 
+/// Production Order - Manufacturing instruction linked to a customer order
+/// Created manually OR via Sale Order → Start Production (which links saleOrderId)
+/// Triggers work orders (production runs), MRP, procurement, and the full manufacturing pipeline
 model orders {
   id                               String                       @id
   orderNumber                      String                       @unique
@@ -3275,6 +3278,9 @@ model work_order_breakup {
   @@index([workOrderId])
 }
 
+/// Work Order (Production Run) - Actual manufacturing execution unit
+/// Created from: Production Order (MTO via orderId) OR Stock Production Order (MTS via stockProductionOrderId)
+/// Drives cutting, stitching, finishing stages and creates finished goods stock
 model work_orders {
   id                                    String                            @id
   workOrderNumber                       String
@@ -3407,7 +3413,7 @@ model stock_production_order_items {
 // SALE ORDERS (Sell from Stock)
 // ============================================
 
-/// Sale Order - Sell from existing FG Stock without triggering production
+/// Sale Order - Customer demand entry point; can allocate from FG stock OR trigger production via Start Production
 model sale_orders {
   id               String          @id @default(uuid())
   saleOrderNumber  String          @unique
@@ -4619,21 +4625,23 @@ model fabric_master {
   @@index([styleReference])
 }
 
-/// Fabric Width CAD - CAD consumption by width
+/// Fabric Width CAD - HYBRID TABLE serving both CAD Planning and Fabric Costing
 ///
-/// DUAL PURPOSE TABLE:
-/// 1. CAD Planning: Stores width options and CAD consumption per garment (cadMeters, cutableWidth, cadWastagePercent)
-/// 2. Fabric Costing: Stores preliminary cost breakdown for style quotations (greigeCostPerMeter, transportCostPerMeter, etc.)
+/// There is NO separate fabric-costing table. This one row serves two modules:
 ///
-/// IMPORTANT NOTES:
-/// - The costing fields (lines 3605-3617) are STYLE-SPECIFIC and linked via costingStyleId
-/// - These costing fields store preliminary calculations used during style quotations
-/// - During order costing, ONLY the CAD dimensions (cadMeters, cutableWidth) are extracted
-/// - Actual order costs are recalculated from style_costing based on order-specific quantities
-/// - This provides an audit trail of preliminary costing assumptions made for each style
+/// CAD PLANNING OWNS: cutableWidth, cadMeters, cadAverage, markerEfficiency, purpose/purposeEnum,
+///   approvalStatus/approvedBy/approvedAt/isLocked, and cascade children cad_size_breakdown + cad_pattern_parts
 ///
-/// Centralized repository for CAD averages per fabric width
-/// This eliminates duplicate CAD entry for same fabric in different styles
+/// FABRIC COSTING OWNS: costingStyleId, totalCostPerMeter, transportCostPerMeter, processingPricePerMeter,
+///   shrinkagePercent/shrinkageCostPerMeter, screenCostPerMeter/screenType/numberOfColors, processorId,
+///   rateCardId, orderQuantityPcs, costedAtQuantityMeters/costedRateIsBatch, processingBatchGroupColorId,
+///   costingRunId, AND the PRICE approval: costingApprovalStatus/costingApprovedBy/costingApprovedAt
+///
+/// TWO APPROVAL FIELDS: approvalStatus = CAD geometry approval; costingApprovalStatus = price approval
+/// A row "is a costing option" when costingStyleId AND totalCostPerMeter are both non-null
+///
+/// CRITICAL: Removing a costing must CLEAR costing columns, NEVER delete the row (destroys CAD + cascades)
+/// See CLAUDE.md "Fabric Costing IS the CAD row" for the full ownership split and rules
 model fabric_width_cad {
   id                          String                       @id @default(uuid())
   fabricId                    String?

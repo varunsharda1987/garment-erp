@@ -166,6 +166,8 @@ export interface GRN {
 
   // Relations (post-serializer names — serializer outputs 'purchaseOrders' for this relation)
   purchaseOrders?: POSummary;
+  /** Set on a GRN raised against a job work order (no purchase order) — processed fabric/lace coming back. */
+  jobWorkOrderId?: string | null;
   supplier?: SupplierSummary;
   warehouse?: WarehouseSummary;
   items?: GRNItem[];

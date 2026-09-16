@@ -24,8 +24,6 @@
   "backend/src/routes/debitNote.routes.ts :: PUT /:id/approve",
   "backend/src/routes/debitNote.routes.ts :: PUT /:id/cancel",
   "backend/src/routes/export.routes.ts :: POST /:module",
-  "backend/src/routes/fabric-processing.routes.ts :: POST /",
-  "backend/src/routes/fabric-processing.routes.ts :: PUT /:id/receive",
   "backend/src/routes/finishing.routes.ts :: POST /issues/:id/complete",
   "backend/src/routes/finishing.routes.ts :: POST /issues/:id/generate-transfer-slip",
   "backend/src/routes/finishing.routes.ts :: POST /issues/:id/move-to-packing",

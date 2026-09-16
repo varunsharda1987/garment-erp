@@ -29,6 +29,7 @@ keywords:
   - बायर अप्रूवल
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/LaceLabDipForm.tsx
   - frontend/src/components/processing/LabDipDetail.tsx
   - frontend/src/pages/dyeing/DyeLabDipDetail.tsx
@@ -36,7 +37,7 @@ sources:
   - frontend/src/pages/DyeingList.tsx
   - frontend/src/types/laceLabDip.types.ts
   - frontend/src/types/printing.types.ts
-route: /processing
+route: /manufacturing/processing
 ---
 
 ## Before you start

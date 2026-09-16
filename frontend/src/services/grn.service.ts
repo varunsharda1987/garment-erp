@@ -99,6 +99,8 @@ export const createGRNFromJWO = async (payload: {
   thanCount?: number;
   foldLengthCm?: number;
   receivedChallan?: string;
+  /** The date the goods came back — becomes the GRN date, the job's receivedDate and the inward challan date. */
+  receivedDate?: string;
   invoiceNumber?: string;
   invoiceDate?: string;
   warehouseId?: string;

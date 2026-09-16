@@ -96,8 +96,14 @@ export const createJwoGRNSchema = z.object({
   qtyReceivedMeters: z.number().positive().optional(),
   receivedWidthInches: z.number().positive().optional(),
   thanCount: z.number().int().positive().optional(),
-  foldLengthCm: z.number().positive().optional(),
+  // Every foldLengthCm column is Decimal(5,2): anything ≥ 1000 overflows in Postgres and surfaced as
+  // a masked 500 (found 2026-09-15 by jwo-fabric-receive). Refuse it here with a readable message.
+  foldLengthCm: z.number().positive().max(999.99, 'Fold length is in cm and must be under 1000').optional(),
   receivedChallan: z.string().max(100).trim().optional(),
+  // The date the goods actually came back (defaults to today) — the Dyeing/Printing pages let the
+  // user set this; the GRN must too, since it becomes the job's receivedDate and the inward
+  // challan date.
+  receivedDate: z.string().optional().nullable(),
   invoiceNumber: z.string().max(100).trim().optional().nullable(),
   invoiceDate: z.string().optional().nullable(),
   warehouseId: z.string().optional().nullable(),

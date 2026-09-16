@@ -28,6 +28,37 @@ I re-classified every S1 by what it *actually does to you today*:
 
 ---
 
+## ⚠️ Traps for the next hunt — read before the findings
+
+A follow-up audit of the order system (2026-09-15, plan `now-find-the-bugs-enumerated-floyd.md`)
+made **eight confident claims that turned out to be wrong**. Every one was caught by re-checking, an
+independent review, or the owner — not by the hunter. The pattern behind most of them is a property
+of this codebase, not a one-off:
+
+> **ONE CONCEPT, TWO HOMES.** This schema routinely keeps two columns for the same idea —
+> `fabricId` / `finishedFabricId`, `style_fabrics.selectedGreigeId` / `fabric_width_cad.greigeId`,
+> three different CAD anchors (`fabricId`, `styleFabricId`, `costingStyleId`). An empty column proves
+> nothing until you have found its twin. A matching number proves nothing until you have matched the IDs.
+
+**Run `backend/scripts/check-order-system-integrity.ts` first** — it gives live row counts, pipeline
+depth (where real data stops) and cutting readiness, so you read a number instead of reasoning about
+whether a column is used.
+
+| # | The wrong claim | Why | Rule |
+|---|---|---|---|
+| 1 | "Sale orders are sell-from-stock only." | A stale `///` schema comment; `startProduction` exists. | Read the service, not the comment. |
+| 2 | "A cancelled challan leaked 3,058.82 m." | The number matched across three tables; the lot IDs did not. Legitimate MRP split. | Match on IDs, never a coincident value. |
+| 3 | "Greige selection has never been used (0/350)." | Wrong column. It lands in `fabric_width_cad.greigeId` (137/188). | "Column empty" ≠ "feature unused" — find the sibling. |
+| 4 | "Fabric was left behind by the lace commit." | Never checked git; the guard predates it. | `git show <commit>^:<file>` before narrating history. |
+| 5 | "GRN is the only door into `fabric_stock`." | Never enumerated writers; two other doors work. | Before "only", grep every writer of the table. |
+| 6 | Three fixes that would have broken repeat orders, every greige BOM, and re-created the `'Natural'` placeholder bug. | Diagnoses verified; fixes never asked "what works today that this breaks?" | Verifying a diagnosis ≠ verifying a fix. |
+| 7 | "Receive via the Dyeing page." | A reviewer's "not *totally* blocked" became advice. The system's own 422 says *received through a GRN*. | The designed route is what the product's errors point to. |
+| 8 | "The JWOs were cancelled because the guard blocked them." | No receive was ever attempted (logs); two cancels 16 s apart. | No causation for human actions without logs. |
+
+Full evidence and the corrected fix plan: the plan file above, Appendices A and B.
+
+---
+
 ## 🚨 STOP — your stock data is already corrupt. This is not a prediction.
 
 On the last day I stopped hunting for bugs and went looking for **damage that has already happened** — querying your live database for the specific fingerprints of the bugs I'd documented. I found them.

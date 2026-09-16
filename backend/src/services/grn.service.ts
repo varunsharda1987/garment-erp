@@ -41,6 +41,12 @@ import {
   resolveStockWidthInches,
   stampStyleFabricLink,
 } from './helpers/fabric-identity.helper';
+import {
+  JWO_GRN_INCLUDE,
+  isFabricLotReprocessingJwo,
+  resolveOrMintJwoArrivingMaterial,
+  stampJwoFinishedFabric,
+} from './helpers/jwo-arriving-material.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError } from '../errors';
 import {
@@ -2616,6 +2622,8 @@ class GRNService {
       thanCount?: number;
       foldLengthCm?: number;
       receivedChallan?: string;
+      /** The date the goods came back — becomes the GRN date, the job's receivedDate and the inward challan date. */
+      receivedDate?: string | null;
       invoiceNumber?: string;
       invoiceDate?: string;
       warehouseId?: string;
@@ -2632,12 +2640,11 @@ class GRNService {
     },
     userId: string
   ) {
+    // Same include as approval (JWO_GRN_INCLUDE) so creation can see every lineage rung approval
+    // will — the two sites must never load different views of the job.
     const jwo = await prisma.job_work_orders.findUnique({
       where: { id: data.jobWorkOrderId },
-      include: {
-        processor: { select: { id: true, name: true } },
-        style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
-      },
+      include: JWO_GRN_INCLUDE,
     });
     if (!jwo) {
       throw new Error('Job work order not found');
@@ -2703,22 +2710,23 @@ class GRNService {
       );
     }
 
-    // grn_items.materialId is required — use the source fabric's materials record
-    // (materials.id === master.id invariant; ensureMaterialRecord creates if missing).
-    // A lace job books against the DYED VARIANT: that is the material actually arriving, and
-    // the greige it was made from has already left stock at issue.
-    let materialId: string;
-    if (jwo.fabricType === 'LACE') {
-      if (!jwo.finishedLaceId) {
-        throw new Error(`${jwo.jobWorkNumber} has no dyed lace variant — cannot create a GRN item`);
-      }
-      materialId = await ensureMaterialRecord(jwo.finishedLaceId, 'LACE');
-    } else {
-      if (!jwo.fabricId) {
-        throw new Error(`${jwo.jobWorkNumber} has no fabric reference — cannot create a GRN item`);
-      }
-      materialId = await ensureMaterialRecord(jwo.fabricId, 'FABRIC');
+    // grn_items.materialId is required, and it must name the material ARRIVING — the dyed lace
+    // variant, or the finished fabric — never the greige or fabric that was SENT (the sent material
+    // already left stock at issue). resolveOrMintJwoArrivingMaterial is the same authority approval
+    // uses, so creation can no longer refuse a job approval would have received (2026-09-15, T0-A).
+    // For a greige job whose mint was deferred (MRP does this when lineage is missing at creation)
+    // it mints here, outside any transaction — a harmless catalog row if the GRN create then fails,
+    // the same trade the Dyeing page already makes at issue — and stamps it on the job so approval
+    // and every later reader find the same master.
+    const arriving = await resolveOrMintJwoArrivingMaterial(jwo, {
+      userId,
+      source: 'AUTO_FROM_MRP_GRN',
+      receivedWidthInches: data.receivedWidthInches ?? null,
+    });
+    if (arriving.minted) {
+      await stampJwoFinishedFabric(jwo.id, arriving.id);
     }
+    const materialId = await ensureMaterialRecord(arriving.id, arriving.kind);
 
     const grnNumber = await this.generateGRNNumber();
     const grn = await prisma.goods_receiving_notes.create({
@@ -2729,7 +2737,7 @@ class GRNService {
         jobWorkOrderId: jwo.id,
         supplierId: jwo.processorId,
         warehouseId: data.warehouseId || null,
-        receivingDate: new Date(),
+        receivingDate: data.receivedDate ? new Date(data.receivedDate) : new Date(),
         invoiceNumber: data.invoiceNumber || null,
         invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
         status: GRNStatus.PENDING_QC,
@@ -2802,60 +2810,10 @@ class GRNService {
     userId: string,
     grnId: string
   ): Promise<void> {
+    // Same include as creation (JWO_GRN_INCLUDE): identity lineage + cost basis in one view.
     const jobWorkOrder = await tx.job_work_orders.findUnique({
       where: { id: grn.jobWorkOrderId },
-      include: {
-        greigeStockLot: { select: { id: true, purchaseCost: true, greigeId: true } },
-        // Phase 5b: fabric-roll source (EMBROIDERY) — cost basis is the source lot's WAC
-        fabricStockLot: { select: { id: true, weightedAvgCost: true, fabricFinishType: true } },
-        fabric: { select: { id: true, greigeId: true } },
-        style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
-        // Stock (style-less) job: the shade lives on the order itself, because there is no
-        // requirement, BOM or lab dip below to carry it. This is the ONLY receipt path such an
-        // order takes — every other caller of resolveFinishedFabricIdentity is style-anchored.
-        colorMaster: { select: { id: true, colorName: true, colorCode: true } },
-        // Fabric-naming: requirement chain carries the dye colour + CAD pattern part +
-        // styleFabric anchor for the finished fabric identity (never 'Natural' again)
-        labDip: {
-          select: {
-            designArtwork: true,
-            colorReference: true,
-            targetColor: { select: { id: true, colorName: true, colorCode: true } },
-          },
-        },
-        requirementLinks: {
-          take: 1,
-          select: {
-            material_requirements: {
-              select: {
-                id: true,
-                colorName: true,
-                printingType: true,
-                materials: { select: { greigeId: true } },
-                orderBomItem: {
-                  select: {
-                    id: true,
-                    colorName: true,
-                    greigeId: true,
-                    fabricId: true,
-                    selectedCad: {
-                      select: {
-                        id: true,
-                        styleFabricId: true,
-                        isCombinedCutting: true,
-                        patternPart: { select: { id: true, name: true } },
-                        cadPatternParts: {
-                          select: { patternPart: { select: { id: true, name: true, sortOrder: true } } },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: JWO_GRN_INCLUDE,
     });
     if (!jobWorkOrder) {
       throw new Error(`Job work order ${grn.jobWorkOrderId} not found for PO-less GRN approval`);
@@ -2892,42 +2850,21 @@ class GRNService {
 
     // Phase 5b: fabric-lot JWOs (embroidery on a finished roll) keep the SAME fabric master —
     // the result lot is differentiated by embroideryId, not a new fabric (legacy parity).
-    const isFabricLotJwo = !!jobWorkOrder.fabricStockLotId && !jobWorkOrder.greigeStockLotId;
+    const isFabricLotJwo = isFabricLotReprocessingJwo(jobWorkOrder);
 
-    // Fabric-naming: resolve the finished-fabric identity from the requirement chain
-    // (dye colour, CAD pattern part, styleFabric anchor) — used for creation, the
-    // style_fabrics stamp, and the lot's patternPartId.
-    const identity = isFabricLotJwo
-      ? null
-      : await resolveFinishedFabricIdentity({
-          requirement: jobWorkOrder.requirementLinks?.[0]?.material_requirements ?? null,
-          jwo: {
-            greigeStockLot: jobWorkOrder.greigeStockLot,
-            fabric: jobWorkOrder.fabric,
-            style: jobWorkOrder.style,
-            labDip: jobWorkOrder.labDip,
-            colorMaster: jobWorkOrder.colorMaster,
-            colorName: jobWorkOrder.colorName,
-            receivedWidthInches: receivedWidthProvided,
-            sentWidthInches: jobWorkOrder.sentWidthInches,
-          },
-          finishType: determineFinishType(null, jobWorkOrder.processType === 'PRINTING' ? 'PIGMENT' : null),
-          tx,
-        });
-
-    // Finished fabric: reuse the JWO's, else mint from the resolved identity
-    let finishedFabricId: string | null = isFabricLotJwo ? jobWorkOrder.fabricId : jobWorkOrder.finishedFabricId;
-    if (!finishedFabricId) {
-      if (!identity) {
-        logWarn('PO-less JWO GRN has no greige lineage — cannot create fabric_stock', {
-          grnId,
-          jobWorkOrderId: jobWorkOrder.id,
-        });
-        return;
-      }
-      const fabricResult = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_GRN', tx);
-      finishedFabricId = fabricResult.fabricId;
-    } else if (!isFabricLotJwo) {
+    // Finished fabric: the same authority creation used. It reuses the JWO's, mints from greige
+    // lineage when the JWO carries none, and THROWS when nothing is resolvable. Until 2026-09-15
+    // this site logged a warning and returned — leaving the GRN ACCEPTED with no fabric_stock, no
+    // status update and no MRP callback, which the user saw as a successful receipt (T0-B).
+    const arriving = await resolveOrMintJwoArrivingMaterial(jobWorkOrder, {
+      userId,
+      source: 'AUTO_FROM_MRP_GRN',
+      receivedWidthInches: receivedWidthProvided,
+      tx,
+    });
+    const identity = arriving.identity;
+    const finishedFabricId = arriving.id;
+    if (!arriving.minted && !isFabricLotJwo) {
       // Master minted at JWO creation: follow the measured width (columns + AUTO name)
       // and make sure the style link exists even when the mint predates it
       if (receivedWidthProvided != null) {
@@ -2968,8 +2905,9 @@ class GRNService {
     const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
     const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
     const cutableWidth = receivedWidth > widthDeduction ? receivedWidth - widthDeduction : receivedWidth;
-    // Shared timestamp: GRN reversal matches fabric_stock by exact receivedDate equality
-    const receivedAt = new Date();
+    // Shared timestamp: GRN reversal matches fabric_stock by exact receivedDate equality. It is the
+    // date the user gave at creation (the GRN header), not the moment of approval.
+    const receivedAt = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
 
     await tx.fabric_stock.create({
       data: {
@@ -3009,11 +2947,51 @@ class GRNService {
     await ensureMaterialRecord(finishedFabricId, 'FABRIC', tx);
     await syncStockLevelQuantity(finishedFabricId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
 
+    // The PO-backed receive (~:305-395) records four things this path never did (2026-09-15):
+    // actual shrinkage, than/fold on the job, and an INWARD challan — the GST document for goods
+    // returning from a job worker. Created in-tx so a challan failure aborts the receive instead of
+    // being swallowed. Reversal (~:3715-3751) already cancels the challan and clears these fields.
+    const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
+    const actualShrinkage = sentMeters > 0 ? ((sentMeters - qtyReceived) / sentMeters) * 100 : 0;
+    const thanCount: number | null = grnItem?.thanCount ?? null;
+    const foldLengthCm: number | null = grnItem?.foldLengthCm != null ? Number(grnItem.foldLengthCm) : null;
+    const calculatedActualMeters = thanCount && foldLengthCm ? (thanCount * foldLengthCm) / 100 : null;
+    const inwardChallan = await createChallan(
+      {
+        challanType: 'INWARD',
+        challanDate: receivedAt,
+        fromType: 'VENDOR',
+        fromId: jobWorkOrder.processorId,
+        fromName: jobWorkOrder.processor?.name || 'Processor',
+        toType: 'WAREHOUSE',
+        toName: 'Main Warehouse',
+        jobWorkOrderId: jobWorkOrder.id,
+        issuedById: userId,
+        unit: Unit.METER,
+        remarks: grn.remarks || undefined,
+        items: [
+          {
+            itemType: 'FABRIC',
+            fabricId: finishedFabricId,
+            description: `Processed fabric received via GRN ${grn.grnNumber} - ${formatStyleCodeWithRef(jobWorkOrder.style?.styleCode || '', jobWorkOrder.style?.buyerStyleRef)}`,
+            quantity: qtyReceived,
+            unit: Unit.METER,
+          },
+        ],
+      },
+      tx
+    );
+
     await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
       finishedFabricId,
       qtyReceivedMeters: qtyReceived,
       receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
       grnId,
+      actualShrinkage,
+      thanCount,
+      foldLengthCm,
+      calculatedActualMeters,
+      inwardChallanId: inwardChallan.id,
       // Measured finished width + variance vs the asked finished width (sentWidthInches)
       ...(receivedWidthProvided != null
         ? {

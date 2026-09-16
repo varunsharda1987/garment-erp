@@ -38,7 +38,11 @@ const gone = (_req: Request, res: Response) =>
     success: false,
     message: 'Greige processing now runs on Job Work Orders — use the Dyeing/Printing pages or /job-work-orders',
   });
-router.post('/', gone); // no-body — 410 tombstone, nothing read
-router.put('/:id/receive', gone); // no-body — 410 tombstone, nothing read
+// The route-validation smart-check reads `no-body` only from a comment line directly above each
+// route — the trailing form these carried was never seen; they passed only by being grandfathered.
+// no-body — 410 tombstone, nothing read
+router.post('/', gone);
+// no-body — 410 tombstone, nothing read
+router.put('/:id/receive', gone);
 
 export default router;

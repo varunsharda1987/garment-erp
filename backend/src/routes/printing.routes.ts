@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
@@ -42,9 +42,6 @@ import {
   updatePrintJob,
   deletePrintJob,
   sendToMill,
-  receiveFromMill,
-  qualityCheck,
-  updateStock,
   // Summary endpoints
   getSummary,
   getSummaryByStyle,
@@ -55,9 +52,6 @@ import {
   createProcessPO,
   deleteProcessPO,
   sendProcessPO,
-  receiveProcessPO,
-  qualityCheckProcessPO,
-  updateStockProcessPO,
   returnUnprocessedProcessPO,
 } from '../controllers/printing.controller';
 
@@ -87,24 +81,21 @@ router.post(
   validateBody(sendProcessPoSchema),
   asyncHandler(sendProcessPO)
 );
-router.post(
-  '/process-pos/:id/receive',
-  validateParams(idParamSchema),
-  validateBody(printProcessPoActionSchema),
-  asyncHandler(receiveProcessPO)
-);
-router.post(
-  '/process-pos/:id/quality-check',
-  validateParams(idParamSchema),
-  validateBody(printProcessPoActionSchema),
-  asyncHandler(qualityCheckProcessPO)
-);
-router.post(
-  '/process-pos/:id/update-stock',
-  validateParams(idParamSchema),
-  validateBody(printProcessPoActionSchema),
-  asyncHandler(updateStockProcessPO)
-);
+// 2026-09-15: the page's own receipt half is RETIRED — processed fabric is received, quality-checked
+// and booked into stock through the GRN (POST /api/grn/jwo, then approve). See dyeing.routes.ts.
+const receiptRetired = (_req: Request, res: Response) =>
+  res.status(410).json({
+    success: false,
+    message:
+      'Processed fabric is received through a GRN (Receive against Job Work Order) — open Procurement → GRN → New and pick the job',
+  });
+// The route-validation smart-check reads `no-body` only from a comment line directly above each route.
+// no-body — 410 tombstone, nothing read
+router.post('/process-pos/:id/receive', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/process-pos/:id/quality-check', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/process-pos/:id/update-stock', receiptRetired);
 router.post(
   '/process-pos/:id/return-unprocessed',
   validateParams(idParamSchema),
@@ -203,23 +194,12 @@ router.post(
   validateBody(printJobActionSchema),
   asyncHandler(sendToMill)
 );
-router.post(
-  '/jobs/:id/receive',
-  validateParams(idParamSchema),
-  validateBody(printJobActionSchema),
-  asyncHandler(receiveFromMill)
-);
-router.post(
-  '/jobs/:id/quality-check',
-  validateParams(idParamSchema),
-  validateBody(printJobActionSchema),
-  asyncHandler(qualityCheck)
-);
-router.post(
-  '/jobs/:id/update-stock',
-  validateParams(idParamSchema),
-  validateBody(printJobActionSchema),
-  asyncHandler(updateStock)
-);
+// Legacy print-job receipt surface — no frontend caller; same retirement as the process-PO routes above.
+// no-body — 410 tombstone, nothing read
+router.post('/jobs/:id/receive', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/jobs/:id/quality-check', receiptRetired);
+// no-body — 410 tombstone, nothing read
+router.post('/jobs/:id/update-stock', receiptRetired);
 
 export default router;

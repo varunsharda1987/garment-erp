@@ -65,3 +65,5 @@ From a sale order, open **Orders & Sales → Sale Orders**, open the order and c
 Open the run and use **Push to Cutting** when materials are ready. Only runs still in **Pending** status can be edited with **Edit**.
 
 **Push to Cutting** checks, before it does anything: the style has an **approved Size Set Sample** (which needs an approved PP Sample, which needs an approved FIT Sample — Manufacturing → Sample Tracking); a **Production CAD** with an average exists for the style (Pre-Production → CAD Planning); and, for a run made from an order, the Order BOM is approved and its fabric is in stock. The message names whichever is missing — for example "No Size Set Sample exists for this style".
+
+Only an **administrator** can override these checks: when materials are short, an admin sees the **Admin Override Required** dialog and must type an **Override Reason** of at least 10 characters; the override is recorded under **Admin → Override History**. Anyone else gets a message saying only an administrator can override — fix what is missing, or ask an admin.

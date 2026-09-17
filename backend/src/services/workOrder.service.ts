@@ -637,17 +637,6 @@ class WorkOrderService {
       throw new Error(`Stage transition blocked: ${validation.blockers.map((b) => b.message).join('; ')}`);
     }
 
-    // Log override if admin bypassed blocks
-    if (isAdminOverride && overrideReason) {
-      await productionBlockingValidationService.logOverride({
-        blockType: 'STAGE_TRANSITION',
-        workOrderId: data.workOrderId,
-        toStage: data.productionStage,
-        overrideReason,
-        overriddenById: data.updatedById,
-      });
-    }
-
     // Tracking insert + work-order rollup update are ONE transaction, and completedQuantity is
     // RECOMPUTED as SUM(PACKING tracking rows) — never taken from a single entry (bug-hunt production-1:
     // the old code only set completedQuantity when ONE entry alone reached totalQuantity, so a WO packed
@@ -667,6 +656,23 @@ class WorkOrderService {
       if (targetWo.status === OrderStatus.CANCELLED) {
         throw new Error(
           `Work order ${targetWo.workOrderNumber} is CANCELLED — production cannot be recorded against it.`
+        );
+      }
+
+      // An override is ALWAYS audited, on the same transaction as the write it excuses. The old
+      // `if (isAdminOverride && overrideReason)` skipped the row whenever no reason came through,
+      // and ran outside the transaction (bug-hunt order-system T4-A). The controller has already
+      // refused a non-admin or a missing reason; the fallback text only guards direct callers.
+      if (isAdminOverride) {
+        await productionBlockingValidationService.logOverride(
+          {
+            blockType: 'STAGE_TRANSITION',
+            workOrderId: data.workOrderId,
+            toStage: data.productionStage,
+            overrideReason: overrideReason?.trim() || '(no reason given)',
+            overriddenById: data.updatedById,
+          },
+          tx
         );
       }
 

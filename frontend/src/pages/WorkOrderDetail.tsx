@@ -48,6 +48,7 @@ import type { FinishingIssue } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import SplitProductionModal from '@/components/SplitProductionModal';
 import AdminOverrideModal from '@/components/AdminOverrideModal';
+import { useAuthStore } from '@/stores/auth.store';
 import FabricIssuanceSection from '@/components/FabricIssuanceSection';
 import TrimIssuanceSection from '@/components/TrimIssuanceSection';
 import ThreadIssuanceSection from '@/components/ThreadIssuanceSection';
@@ -78,6 +79,10 @@ interface MaterialReadiness {
 export default function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Only an administrator may override a production gate; the API refuses anyone else (T4-A), so
+  // the page should not offer the dialog to them — same rule as ProductionTrackingInlineForm.
+  const { user } = useAuthStore();
+  const canOverride = user?.role === 'ADMIN';
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -221,7 +226,13 @@ export default function WorkOrderDetail() {
   const handlePushToCuttingClick = () => {
     if (!id) return;
     if (materialReadiness && !materialReadiness.isReady) {
-      setOverrideModalOpen(true);
+      if (canOverride) {
+        setOverrideModalOpen(true);
+      } else {
+        notify.error(
+          'Materials are short for this run — see Material Readiness above. Only an administrator can override this.'
+        );
+      }
     } else {
       setPushToCuttingDialogOpen(true);
     }
@@ -242,8 +253,8 @@ export default function WorkOrderDetail() {
         | Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>
         | undefined;
 
-      if (blockers && blockers.length > 0) {
-        // Show override modal with server-returned blockers so admin can override
+      if (blockers && blockers.length > 0 && canOverride) {
+        // Show override modal with server-returned blockers so an admin can override
         setServerBlockers(blockers);
         setOverrideModalOpen(true);
       } else {

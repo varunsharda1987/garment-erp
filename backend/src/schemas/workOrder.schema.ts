@@ -101,13 +101,24 @@ export const ProductionStageEnum = z.enum([
  * Add Production Tracking
  * POST /api/work-orders/:id/tracking
  */
-export const addProductionTrackingSchema = z.object({
-  productionStage: ProductionStageEnum,
-  quantityCompleted: z.number().int().nonnegative('Quantity completed must be zero or positive'),
-  remarks: z.string().max(1000).optional().nullable(),
-  adminOverride: z.boolean().optional(),
-  overrideReason: z.string().max(500).optional(),
-});
+// An override without a written reason is refused at the schema (the modal already demands 10
+// characters); the role check lives in resolveAdminOverride() — Zod cannot see req.user (T4-A).
+const overrideNeedsReason = {
+  message: 'An override needs a written reason of at least 10 characters — it is logged for audit.',
+  path: ['overrideReason'],
+};
+const hasOverrideReason = (d: { adminOverride?: boolean; overrideReason?: string }) =>
+  !d.adminOverride || (typeof d.overrideReason === 'string' && d.overrideReason.trim().length >= 10);
+
+export const addProductionTrackingSchema = z
+  .object({
+    productionStage: ProductionStageEnum,
+    quantityCompleted: z.number().int().nonnegative('Quantity completed must be zero or positive'),
+    remarks: z.string().max(1000).optional().nullable(),
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
+  })
+  .refine(hasOverrideReason, overrideNeedsReason);
 
 /**
  * Split Work Order
@@ -131,10 +142,12 @@ export const splitWorkOrderSchema = z.object({
  * Push to Cutting
  * POST /api/work-orders/:id/push-to-cutting
  */
-export const pushToCuttingSchema = z.object({
-  adminOverride: z.boolean().optional(),
-  overrideReason: z.string().max(500).optional(),
-});
+export const pushToCuttingSchema = z
+  .object({
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
+  })
+  .refine(hasOverrideReason, overrideNeedsReason);
 
 /**
  * Issue Fabric

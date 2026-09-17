@@ -11,6 +11,7 @@ import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { NotFoundError, UnauthorizedError, ValidationError, ConflictError, BusinessError } from '../errors';
+import { resolveAdminOverride } from '../utils/admin-override';
 import { ChallanType, Unit } from '@prisma/client';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { buildCuttingChartData } from './cutting.controller';
@@ -239,9 +240,8 @@ export const addProductionTracking = async (req: Request, res: Response) => {
     updatedById: userId,
   };
 
-  // Extract admin override parameters
-  const adminOverride = req.body.adminOverride === true;
-  const overrideReason = req.body.overrideReason;
+  // ADMIN only, reason required, else 403/400 before anything is written (T4-A)
+  const { adminOverride, overrideReason } = resolveAdminOverride(req.user, req.body);
 
   const tracking = await workOrderService.addProductionTracking(trackingData, adminOverride, overrideReason);
 
@@ -343,12 +343,15 @@ export const checkMaterialReadiness = async (req: Request, res: Response) => {
 export const pushToCutting = async (req: Request, res: Response) => {
   const { id } = req.params;
   const userId = req.user?.userId;
-  const adminOverride = req.body.adminOverride === true;
-  const overrideReason = req.body.overrideReason as string | undefined;
 
   if (!userId) {
     throw new UnauthorizedError('User not authenticated');
   }
+
+  // The override flag used to be taken from the body as-is, from any role, and the audit row was
+  // only written when a reason was sent — a non-admin could skip samples, tests, BOM and CAD in one
+  // click and leave no trace (bug-hunt order-system T4-A, found by cutting-first-run 2026-09-16).
+  const { adminOverride, overrideReason } = resolveAdminOverride(req.user, req.body);
 
   // Validate the stage transition BEFORE any write — the old flow flipped the WO to IN_PRODUCTION
   // first and only then hit the blocking validation inside addProductionTracking, leaving a

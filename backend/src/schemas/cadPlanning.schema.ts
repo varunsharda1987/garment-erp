@@ -29,21 +29,6 @@ export const GreigeRateSourceEnum = z.enum(['PROCUREMENT', 'STOCK_VALUATION', 'G
 // ============================================================================
 
 /**
- * Generate CAD Options
- * POST /api/cad-planning/generate
- */
-export const generateCADOptionsSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
-  fabricId: z.string().uuid('Invalid fabric ID').optional(),
-  greigeId: z.string().uuid('Invalid greige ID').optional(),
-  greigeWidths: z.array(z.number().positive()).optional(),
-  includeAllWidths: z.boolean().optional().default(false),
-  genericGreigeName: z.string().max(200).optional(),
-  averagingMode: z.enum(['COMBINED', 'SEPARATE']).optional(),
-  componentNames: z.array(z.string()).optional(),
-});
-
-/**
  * Calculate CAD Cost
  * POST /api/cad-planning/calculate-cost
  */
@@ -427,7 +412,6 @@ export const createOrUpdateEmbroideryCadSchema = z.object({
 // Type Exports
 // ============================================================================
 
-export type GenerateCADOptionsInput = z.infer<typeof generateCADOptionsSchema>;
 export type CalculateCADCostInput = z.infer<typeof calculateCADCostSchema>;
 export type SelectGreigeForGroupInput = z.infer<typeof selectGreigeForGroupSchema>;
 export type AddCADTableRowInput = z.infer<typeof addCADTableRowSchema>;

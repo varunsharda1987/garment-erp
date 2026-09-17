@@ -1089,52 +1089,37 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       for (let i = 0; i < costSheet.fabricItems.length; i++) {
         const fabricItem = costSheet.fabricItems[i];
 
-        // Fix 10: Resolve fabricId when null on relational fabric items
+        // Resolve fabricId when the cost-sheet line has none — ONLY from this style's own linked
+        // fabrics. A null fabricId is the normal state at BOM time (the finished fabric does not
+        // exist yet; sourcing lives in greigeId + the CAD row), so leaving it null is correct.
+        // Two fallbacks were removed 2026-09-17 (order-system E2): a global fabric_master name
+        // match, which could pick another style's fabric of the same name, and a positional
+        // "fabric N of the style" guess.
         let resolvedFabricId = fabricItem.fabricId;
-        if (!resolvedFabricId && fabricItem.fabricName) {
-          // Try name-based lookup in fabric_master
-          const fabricMatch = await this.prisma.fabric_master.findFirst({
-            where: { fabricName: { equals: fabricItem.fabricName, mode: 'insensitive' } },
+        if (!resolvedFabricId && fabricItem.fabricName && costSheet.styleId) {
+          const styleComponents = await this.prisma.style_components.findMany({
+            where: { styleId: costSheet.styleId },
             select: { id: true },
           });
-          if (fabricMatch) {
-            resolvedFabricId = fabricMatch.id;
-            logInfo('Resolved fabricId by name match', { fabricName: fabricItem.fabricName, fabricId: fabricMatch.id });
-          } else if (costSheet.styleId) {
-            // Fallback: look up via style_fabrics
-            const styleComponents = await this.prisma.style_components.findMany({
-              where: { styleId: costSheet.styleId },
-              select: { id: true },
+          if (styleComponents.length > 0) {
+            const styleFabrics = await this.prisma.style_fabrics.findMany({
+              where: { componentId: { in: styleComponents.map((c) => c.id) }, fabricId: { not: null } },
+              select: { fabricId: true, fabric: { select: { fabricName: true } } },
             });
-            if (styleComponents.length > 0) {
-              // P1.9: Include fabric relation for name-based matching instead of index
-              const styleFabrics = await this.prisma.style_fabrics.findMany({
-                where: { componentId: { in: styleComponents.map((c) => c.id) }, fabricId: { not: null } },
-                select: { fabricId: true, fabric: { select: { fabricName: true } } },
+            const fabricItemName = (fabricItem.fabricName || '').toLowerCase().trim();
+            const matchedStyleFabric = styleFabrics.find(
+              (sf) => sf.fabric?.fabricName && sf.fabric.fabricName.toLowerCase().trim() === fabricItemName
+            );
+            if (matchedStyleFabric) {
+              resolvedFabricId = matchedStyleFabric.fabricId;
+              logInfo('Resolved fabricId via style_fabrics (name match)', {
+                fabricName: fabricItem.fabricName,
+                fabricId: resolvedFabricId,
               });
-              // P1.9: Match by fabricName instead of index
-              const fabricItemName = (fabricItem.fabricName || '').toLowerCase().trim();
-              const matchedStyleFabric = styleFabrics.find(
-                (sf) => sf.fabric?.fabricName && sf.fabric.fabricName.toLowerCase().trim() === fabricItemName
-              );
-              if (matchedStyleFabric) {
-                resolvedFabricId = matchedStyleFabric.fabricId;
-                logInfo('Resolved fabricId via style_fabrics (name match)', {
-                  fabricName: fabricItem.fabricName,
-                  fabricId: resolvedFabricId,
-                });
-              } else if (styleFabrics.length === 1) {
-                // Single fabric fallback (unambiguous)
-                resolvedFabricId = styleFabrics[0].fabricId;
-                logInfo('Resolved fabricId via style_fabrics (single fabric)', { fabricId: resolvedFabricId });
-              } else if (styleFabrics[i]) {
-                // P1.9: Index fallback with warning
-                resolvedFabricId = styleFabrics[i].fabricId;
-                logWarn(
-                  `[P1.9] order-bom: Index-based fallback for fabric "${fabricItem.fabricName}" at index ${i}. ` +
-                    `Consider ensuring fabricId is set on cost sheet fabric items.`
-                );
-              }
+            } else if (styleFabrics.length === 1) {
+              // The style has exactly one linked fabric — unambiguous
+              resolvedFabricId = styleFabrics[0].fabricId;
+              logInfo('Resolved fabricId via style_fabrics (single fabric)', { fabricId: resolvedFabricId });
             }
           }
         }

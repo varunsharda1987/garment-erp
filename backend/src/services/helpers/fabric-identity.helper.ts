@@ -229,6 +229,12 @@ export interface ResolveIdentityParams {
  * style's style_fabrics row on the same greige with the same finish. Adopt ONLY on
  * exactly one match — multi-component styles (e.g. Kurta + Pallazo on one greige) are
  * ambiguous and fall back to the tuple path.
+ *
+ * "On the same greige" is read from the CAD rows (`fabric_width_cad.greigeId` — what CAD
+ * Planning's Greige/Fabric column writes, 137/188 rows) as well as the legacy
+ * `style_fabrics.selectedGreigeId` (0/350 — only the retired select-greige endpoint wrote it).
+ * Until 2026-09-17 only the empty column was consulted, so this anchor never resolved
+ * (order-system E4; "one concept, two homes").
  */
 export async function resolveManualJobStyleFabricAnchor(
   styleId: string,
@@ -238,9 +244,9 @@ export async function resolveManualJobStyleFabricAnchor(
 ): Promise<string | null> {
   const rows = await db(tx).style_fabrics.findMany({
     where: {
-      selectedGreigeId: greigeId,
       fabricFinishType: finishType,
       style_components: { styleId },
+      OR: [{ cadRows: { some: { greigeId } } }, { selectedGreigeId: greigeId }],
     },
     select: { id: true },
     take: 2,

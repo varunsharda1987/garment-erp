@@ -19,7 +19,6 @@ import {
   getGreigeOptionsForGeneric,
   getGreigeWidths,
   // CAD generation and calculation
-  generateCADOptions,
   calculateCADCost,
   selectGreigeForGroup,
   // CAD row CRUD
@@ -87,7 +86,6 @@ import {
   styleIdAndGroupKeyParamSchema,
 } from '../schemas/common.schema';
 import {
-  generateCADOptionsSchema,
   calculateCADCostSchema,
   selectGreigeForGroupSchema,
   addCADTableRowSchema,
@@ -225,12 +223,8 @@ router.get(
 // CAD GENERATION & CALCULATION
 // ============================================
 
-/**
- * @route   POST /api/cad-planning/generate
- * @desc    Generate CAD options for a style's fabric
- * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- */
-router.post('/generate', validateBody(generateCADOptionsSchema), asyncHandler(generateCADOptions));
+// POST /generate (generateCADOptions) was removed 2026-09-17 (order-system E5): no screen or
+// service called it, and its placeholder fabric_master rows were the 'Natural' bug's origin.
 
 /**
  * @route   POST /api/cad-planning/calculate-cost

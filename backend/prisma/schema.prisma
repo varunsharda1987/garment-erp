@@ -202,6 +202,9 @@ model order_bom_items {
   elasticId          String?
   labelId            String?
   packagingId        String?
+  /// Forward reference, NULL by design at BOM time (0/82 on 2026-09-15): the finished fabric a
+  /// greige line will become does not exist yet — sourcing lives in greigeId + selectedCadId. Only
+  /// syncBomFabricFromCAD (and, for fabric-lot lines, the cost sheet) fills it in later.
   fabricId           String?
   quantityPerGarment Decimal  @db.Decimal(10, 4)
   orderQuantity      Int
@@ -2065,6 +2068,9 @@ model cost_sheet_po_generation {
 model style_costing_fabric_items {
   id                 String               @id @default(uuid())
   costingId          String
+  /// Forward reference, NULL by design when the sheet is costed from greige (0/64 on 2026-09-15):
+  /// the line is sourced by greigeId + fabricCADId; fabricId is set only when an existing finished
+  /// fabric (a stock lot) is costed directly.
   fabricId           String?
   fabricCADId        String?
   fabricName         String
@@ -2327,6 +2333,9 @@ model style_fabrics {
   totalCostPerMeter      Decimal?              @db.Decimal(10, 2)
   cutableWidth           Decimal?              @map("cutableWidth") @db.Decimal(10, 2)
   averagingMode          String?               @default("COMBINED")
+  /// LEGACY (0/350 on 2026-09-15): written only by the retired select-greige flow. The greige a
+  /// style actually uses is on its CAD rows — fabric_width_cad.greigeId (cadRows). Read that
+  /// first; this column is kept as a secondary match only.
   selectedGreigeId       String?
   migrationStatus        String?               @default("LINKED")
   numberOfColors         Int?
@@ -4944,6 +4953,9 @@ model fabric_procurement {
   purchaseOrderNumber             String?
   supplierId                      String
   greigeId                        String?
+  /// The material this procurement is FOR — the fabric bought (fabric POs) or the SOURCE fabric
+  /// SENT out (processing POs on an existing lot). Greige buys use greigeId instead. Never the
+  /// result of processing — see processedFabricId.
   fabricId                        String?
   quantityPurchased               Decimal                      @db.Decimal(10, 2)
   unit                            String                       @default("meters")
@@ -4957,6 +4969,9 @@ model fabric_procurement {
   processingType                  String?
   processingColor                 String?
   processingDesign                String?
+  /// The finished fabric expected BACK from a processing PO. Accepted by fabricProcurement.schema
+  /// but written by NO code path as of 2026-09-17 (the job-work flow keeps the result on
+  /// job_work_orders.finishedFabricId) — unwritten column, documented rather than dropped.
   processedFabricId               String?
   processingMoq                   Decimal?                     @db.Decimal(10, 2)
   status                          String                       @default("ORDERED")
@@ -5895,10 +5910,13 @@ model processing_batch {
   isActive              Boolean  @default(true)
 
   // Lace processing support
+  /// The greige lace SENT for processing (lace batches); the dyed variant expected BACK is
+  /// finishedLaceId.
   laceId                   String? // For lace processing batches
   colorToApply             String? // Target color for lace dyeing
   dyeLotNumber             String? // Assigned dye lot
   shadeNote                String? // Shade description
+  /// The dyed lace expected BACK (finished variant created for this batch); the lace SENT is laceId.
   finishedLaceId           String? // Created finished lace reference
   expectedShrinkagePercent Decimal? @db.Decimal(5, 2)
   workOrderId              String? // Link to work order
@@ -6919,6 +6937,9 @@ model job_work_orders {
   processTypeId          String? // FK to process_type_master (Phase 1+)
   labDipId               String? // Optional - Process PO can be style-based without lab dip
   styleId                String? // Optional for garment/multi-material JWOs
+  /// The SOURCE fabric SENT out — set only when an existing fabric lot is reprocessed
+  /// (fabricStockLotId). NULL for greige→fabric jobs, which is why a receipt must never key on it
+  /// (2026-09-15, T0-A): the result expected BACK is finishedFabricId.
   fabricId               String? // Optional - multi-material JWOs use components table
   processorId            String
   fabricStockLotId       String? // Optional - use components for multi-material
@@ -6977,6 +6998,9 @@ model job_work_orders {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
   isActive               Boolean   @default(true)
+  /// The finished fabric expected BACK from the processor — minted at MRP time or at GRN creation
+  /// (resolveOrMintJwoArrivingMaterial); the GRN books stock against it. The fabric SENT, if any,
+  /// is fabricId.
   finishedFabricId       String? // FK to auto-created finished fabric_master
   thanCount              Int? // Number of thans (folded bundles) received
   foldLengthCm           Decimal?  @db.Decimal(5, 2) // "L" - actual fold length in cm
@@ -9132,6 +9156,8 @@ model challan_items {
   // What is being moved
   itemType    String // FABRIC, TRIM, CUT_PIECE, STITCHED_PIECE, GREIGE, LACE, etc.
   materialId  String? // FK to material_master (for trims)
+  /// fabric_master id for FABRIC items — NOT an enforced FK (no relation is declared on this
+  /// model), so a deleted master leaves a dangling id here (T0-C, 2026-09-15).
   fabricId    String? // FK to fabric_master (for fabric)
   description String // Human-readable description
 

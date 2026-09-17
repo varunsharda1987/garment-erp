@@ -236,6 +236,32 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     );
   }
 
+  // The width is NOT NULL on the batch, but the Cutting Chart page only knows it when the lot
+  // carries one (it sends 0 otherwise). Resolve it here — request, then the lot's finished width,
+  // then the CAD cutable width — and refuse readably instead of letting Prisma answer "Invalid data
+  // provided to database" (T4-B, 2026-09-17). Lays are recorded after the batch exists, so 0 is
+  // the honest value for layersPerLay/numberOfLays at creation.
+  const lot = await prisma.fabric_stock.findUnique({
+    where: { id: fabricStockId },
+    select: { id: true, finishedWidth: true },
+  });
+  if (!lot) {
+    throw new ValidationError('Fabric lot not found');
+  }
+  const resolvedWidth =
+    Number(actualFabricWidth) > 0
+      ? Number(actualFabricWidth)
+      : Number(lot.finishedWidth) > 0
+        ? Number(lot.finishedWidth)
+        : Number(cadWidthUsed) > 0
+          ? Number(cadWidthUsed)
+          : 0;
+  if (resolvedWidth <= 0) {
+    throw new ValidationError(
+      'The fabric width is not known — record the finished width on the fabric lot (or the cutable width on the Production CAD) before cutting.'
+    );
+  }
+
   // Get component name if provided
   let componentName: string | undefined;
   if (componentId) {
@@ -255,11 +281,11 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       componentId,
       cuttingDate: new Date(cuttingDate),
       fabricStockId,
-      actualFabricWidth,
+      actualFabricWidth: resolvedWidth,
       cadAverageUsed,
-      cadWidthUsed: cadWidthUsed || actualFabricWidth,
-      layersPerLay,
-      numberOfLays,
+      cadWidthUsed: cadWidthUsed || resolvedWidth,
+      layersPerLay: layersPerLay ?? 0,
+      numberOfLays: numberOfLays ?? 0,
       fabricConsumed: 0, // Will be updated when recording output
       cuttingTableId,
       cuttingOperatorId,
@@ -298,7 +324,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
   // guard blocked the batch for ever. Seeding the primary lot is what makes manual issuance work.
   const batchFabricRows = buildBatchFabricRows(
     batch.id,
-    { fabricStockId, cadAvgUsed: cadAverageUsed, cadWidthUsed, actualWidth: actualFabricWidth },
+    { fabricStockId, cadAvgUsed: cadAverageUsed, cadWidthUsed, actualWidth: resolvedWidth },
     fabricStocks
   );
   if (batchFabricRows.length > 0) {

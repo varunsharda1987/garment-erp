@@ -147,7 +147,9 @@ the first end-to-end walk was refused for a missing approved Size Set Sample.
 drives the whole loop (greige → job → GRN → allocate-to-style → Production CAD from the lot → work
 order → samples → push to cutting → issue → chart → batch) through the real endpoints on tagged
 fixtures and tears everything down. Run it after touching any of those modules; every refusal it
-prints is a finding. Known gap it exposed: `adminOverride` on push-to-cutting is honoured with no
+prints is a finding. **Post what the PAGE posts:** the first walk sent lays as 50 × 2 by hand and
+missed that the Cutting Chart page's zeros had been refused by the schema since April 2026 (T4-B).
+A route with two callers has two payloads — probe each one against the compiled schema with `node -e`. Known gap it exposed: `adminOverride` on push-to-cutting is honoured with no
 server-side role check (plan `now-find-the-bugs-enumerated-floyd.md`, T4-A).
 
 **Rules:**

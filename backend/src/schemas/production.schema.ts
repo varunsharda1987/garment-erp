@@ -70,11 +70,13 @@ export const skuOutputSchema = z.object({
 /**
  * Additional Fabric Stock for Cutting
  */
+// The Cutting Chart page sends `|| 0` for a lot with no recorded width or CAD figure; 0 means
+// "not known", never a value — the batch-level cadAverageUsed is the real gate (T4-B, 2026-09-17).
 export const fabricStockInputSchema = z.object({
   fabricStockId: z.string().uuid('Invalid fabric stock ID'),
-  cadAvgUsed: z.number().positive().optional().nullable(),
-  cadWidthUsed: z.number().positive().optional().nullable(),
-  actualWidth: z.number().positive().optional().nullable(),
+  cadAvgUsed: z.number().nonnegative().optional().nullable(),
+  cadWidthUsed: z.number().nonnegative().optional().nullable(),
+  actualWidth: z.number().nonnegative().optional().nullable(),
 });
 
 /**
@@ -86,11 +88,16 @@ export const createCuttingBatchSchema = z.object({
   componentId: z.string().uuid('Invalid component ID').optional(),
   cuttingDate: z.string().or(z.date()),
   fabricStockId: z.string().uuid('Invalid fabric stock ID'),
-  actualFabricWidth: z.number().positive().optional(),
+  // The Cutting Chart page (the designed path: Cutting → New Batch) creates the batch BEFORE any lay
+  // is planned and sends layersPerLay/numberOfLays as 0, and a lot with no recorded width as 0.
+  // `.positive()` (b0725786, 2026-04-17) refused all three, so every Create Batch from that page
+  // answered "Invalid request data" — never noticed because nothing had reached cutting (order-system
+  // T4-B, 2026-09-17). 0 = not yet known; the controller resolves the width from the lot.
+  actualFabricWidth: z.number().nonnegative().optional(),
   cadAverageUsed: z.number().positive('CAD average must be positive'),
-  cadWidthUsed: z.number().positive().optional(),
-  layersPerLay: z.number().int().positive().optional(),
-  numberOfLays: z.number().int().positive().optional(),
+  cadWidthUsed: z.number().nonnegative().optional(),
+  layersPerLay: z.number().int().nonnegative().optional(),
+  numberOfLays: z.number().int().nonnegative().optional(),
   cuttingTableId: z.string().uuid().optional(),
   cuttingOperatorId: z.string().uuid().optional(),
   remarks: z.string().max(1000).optional(),

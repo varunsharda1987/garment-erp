@@ -502,7 +502,12 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(d.warnings ?? []).toHaveLength(0);
   });
 
-  it('phase 7e: the first batch is created', async () => {
+  it('phase 7e: the first batch is created — with exactly what the Cutting Chart page sends', async () => {
+    // The page (Cutting → New Batch) creates the batch BEFORE any lay is planned: layersPerLay and
+    // numberOfLays go up as 0, sizes carry plannedQty only, and every chosen lot rides in
+    // fabricStocks. Until 2026-09-17 the schema's .positive() refused the zeros, so this exact
+    // request answered "Invalid request data" — the first run had already sent 50 × 2 by hand and
+    // never noticed (T4-B). Mirror the page, not the API's happy path.
     const res = await request(app)
       .post('/api/cutting/batches')
       .set(authHeader)
@@ -510,16 +515,17 @@ describe('the first cut: from greige to a cutting batch', () => {
         workOrderId,
         cuttingDate: new Date().toISOString(),
         fabricStockId,
+        actualFabricWidth: RECEIVED_WIDTH,
         cadAverageUsed: CAD_AVERAGE,
         cadWidthUsed: RECEIVED_WIDTH,
-        // NOT NULL in the table but optional in createCuttingBatchSchema — leave any one out and the
-        // API answers "Invalid data provided to database" with no field named (noted in the plan).
-        actualFabricWidth: RECEIVED_WIDTH,
-        layersPerLay: 50,
-        numberOfLays: 2,
+        layersPerLay: 0,
+        numberOfLays: 0,
         skuOutputs: [
-          { sizeId: sizeS, colorId: null, orderQty: 50, toCut: 50, plannedQty: 50 },
-          { sizeId: sizeM, colorId: null, orderQty: 50, toCut: 50, plannedQty: 50 },
+          { colorId: null, sizeId: sizeS, plannedQty: 50 },
+          { colorId: null, sizeId: sizeM, plannedQty: 50 },
+        ],
+        fabricStocks: [
+          { fabricStockId, cadAvgUsed: CAD_AVERAGE, cadWidthUsed: RECEIVED_WIDTH, actualWidth: RECEIVED_WIDTH },
         ],
       });
     expectStatus(res, (s) => s === 201);
@@ -529,8 +535,38 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(batch!.workOrderId).toBe(workOrderId);
     expect(batch!.fabricStockId).toBe(fabricStockId);
     expect(Number(batch!.cadAverageUsed)).toBeCloseTo(CAD_AVERAGE, 4);
+    expect(batch!.layersPerLay).toBe(0); // lays are recorded on the batch page, afterwards
+    expect(batch!.numberOfLays).toBe(0);
 
     const skus = await prisma.cutting_batch_skus.findMany({ where: { cuttingBatchId } });
     expect(skus).toHaveLength(2);
+    expect(skus.map((s) => s.toCut)).toEqual([50, 50]); // from plannedQty
+
+    // The lot the batch will consume is on record — completion sums issued metres through this row.
+    const lotRows = await prisma.cutting_batch_fabrics.findMany({ where: { batchId: cuttingBatchId } });
+    expect(lotRows.map((r) => r.fabricStockId)).toEqual([fabricStockId]);
+  });
+
+  it('phase 7e: a lot with no width in the request still gets a width — from the lot itself', async () => {
+    // The page sends `lot.actualWidth || 0`; the API must not turn that into a masked database error.
+    const res = await request(app)
+      .post('/api/cutting/batches')
+      .set(authHeader)
+      .send({
+        workOrderId,
+        cuttingDate: new Date().toISOString(),
+        fabricStockId,
+        actualFabricWidth: 0,
+        cadAverageUsed: CAD_AVERAGE,
+        cadWidthUsed: 0,
+        skuOutputs: [{ colorId: null, sizeId: sizeS, plannedQty: 10 }],
+        fabricStocks: [{ fabricStockId, cadAvgUsed: CAD_AVERAGE, cadWidthUsed: 0, actualWidth: 0 }],
+      });
+    expectStatus(res, (s) => s === 201);
+
+    const batch = await prisma.cutting_batches.findUnique({ where: { id: res.body.data.id } });
+    expect(Number(batch!.actualFabricWidth)).toBe(RECEIVED_WIDTH); // fabric_stock.finishedWidth from the GRN
+    expect(Number(batch!.cadWidthUsed)).toBe(RECEIVED_WIDTH);
+    expect(batch!.layersPerLay).toBe(0);
   });
 });

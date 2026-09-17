@@ -997,28 +997,24 @@ export const recordPOD = async (req: Request, res: Response) => {
 
     // P7.1: Handle sale order dispatch quantities and status
     if (updatedNote.saleOrderId) {
-      // For REJECTED/PARTIAL PODs, decrement dispatchedQty on sale_order_items
-      if (restored > 0) {
-        // Get delivery note items to know which sale order items to update
+      // A REJECTED delivery came back in full: hand its dispatchedQty back on every linked line.
+      // Gated on the POD's verdict, not on `restored > 0` — a note whose FG allocation rows were
+      // already at zero (or never written) kept its dispatchedQty and left the order DISPATCHED for
+      // ever (order-system T3-A, 2026-09-17). PARTIAL carries only a header-level shortage, so
+      // dispatchedQty stays and the POD row is the truth.
+      if (deliveryStatus === 'REJECTED') {
         const dnItems = await tx.delivery_note_items.findMany({
           where: { deliveryNoteId: id, saleOrderItemId: { not: null } },
           select: { saleOrderItemId: true, quantity: true },
         });
-
-        // For REJECTED: restore full quantities; for PARTIAL: we only have header-level shortage,
-        // so distribute proportionally or just update status
-        if (deliveryStatus === 'REJECTED') {
-          for (const item of dnItems) {
-            if (item.saleOrderItemId) {
-              await tx.sale_order_items.update({
-                where: { id: item.saleOrderItemId },
-                data: { dispatchedQty: { decrement: item.quantity } },
-              });
-            }
+        for (const item of dnItems) {
+          if (item.saleOrderItemId) {
+            await tx.sale_order_items.update({
+              where: { id: item.saleOrderItemId },
+              data: { dispatchedQty: { decrement: item.quantity } },
+            });
           }
         }
-        // For PARTIAL with shortageQty, the exact per-item breakdown isn't known at header level,
-        // so we leave dispatchedQty as-is — the POD record captures the shortage truth
       }
 
       // Update sale order status based on delivery confirmation.

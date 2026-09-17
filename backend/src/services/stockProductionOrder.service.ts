@@ -3,6 +3,7 @@ import { Prisma, StockProductionOrderStatus, Priority, OrderStatus } from '@pris
 import { randomUUID } from 'crypto';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { applySearch } from '../utils/search-filter';
+import { NotFoundError, BusinessError, ConflictError } from '../errors';
 
 interface SPOCreateInput {
   styleId: string;
@@ -222,11 +223,11 @@ export class StockProductionOrderService {
     });
 
     if (!spo) {
-      throw new Error('Stock Production Order not found');
+      throw new NotFoundError('Stock Production Order', id);
     }
 
     if (spo.status !== StockProductionOrderStatus.DRAFT) {
-      throw new Error('Can only approve SPOs in DRAFT status');
+      throw new BusinessError(`Can only approve a DRAFT stock production order (this one is ${spo.status})`);
     }
 
     return prisma.stock_production_orders.update({
@@ -254,60 +255,91 @@ export class StockProductionOrderService {
     });
 
     if (!spo) {
-      throw new Error('Stock Production Order not found');
+      throw new NotFoundError('Stock Production Order', id);
     }
 
     if (spo.status !== StockProductionOrderStatus.APPROVED) {
-      throw new Error('Can only generate work orders for APPROVED SPOs');
+      throw new BusinessError(
+        spo.status === StockProductionOrderStatus.IN_PRODUCTION
+          ? `Work orders have already been generated for ${spo.spoNumber}`
+          : `Can only generate work orders for an APPROVED stock production order (${spo.spoNumber} is ${spo.status})`
+      );
+    }
+
+    // The work order's size breakup must add up to its header quantity (integrity check D12);
+    // refuse here rather than mint a run the sweep would flag.
+    const breakupTotal = spo.items.reduce((sum, item) => sum + item.quantity, 0);
+    if (spo.items.length === 0) {
+      throw new BusinessError(`Add the size breakup to ${spo.spoNumber} before generating work orders`);
+    }
+    if (breakupTotal !== spo.totalQuantity) {
+      throw new BusinessError(
+        `The size breakup of ${spo.spoNumber} adds up to ${breakupTotal}, not the order quantity of ${spo.totalQuantity}`
+      );
     }
 
     // Generate a single work order with all items as breakup
     const workOrderNumber = await this.generateWorkOrderNumber();
 
-    const workOrder = await prisma.work_orders.create({
-      data: {
-        id: randomUUID(),
-        workOrderNumber,
-        stockProductionOrderId: id,
-        styleId: spo.styleId,
-        plannedStartDate: spo.targetDate || new Date(),
-        plannedEndDate: spo.targetDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        totalQuantity: spo.totalQuantity,
-        completedQuantity: 0,
-        status: OrderStatus.PENDING,
-        priority: spo.priority,
-        remarks: `Stock production from ${spo.spoNumber}`,
-        createdById: userId,
-        work_order_breakup: {
-          create: spo.items.map((item) => ({
-            id: randomUUID(),
-            colorId: item.colorId || null,
-            sizeId: item.sizeId,
-            plannedQuantity: item.quantity,
-            completedQuantity: 0,
-          })),
-        },
-      },
-      include: {
-        styles: {
-          select: { id: true, styleCode: true, styleName: true },
-        },
-        work_order_breakup: {
-          include: {
-            color_options: { select: { id: true, colorName: true } },
-            size_options: { select: { id: true, sizeName: true, sizeCode: true } },
+    // Claim, guard and create in ONE transaction. The old sequence created the work order and
+    // only then flipped the status, outside any transaction — two clicks (or a retry after a
+    // half-failure) produced two runs for one stock order, and nothing looked for an existing
+    // one (order-system T1-D, 2026-09-17).
+    return prisma.$transaction(async (tx) => {
+      // Exactly one caller flips APPROVED → IN_PRODUCTION; a concurrent second call finds no row.
+      const claimed = await tx.stock_production_orders.updateMany({
+        where: { id, status: StockProductionOrderStatus.APPROVED },
+        data: { status: StockProductionOrderStatus.IN_PRODUCTION },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictError(`Work orders are already being generated for ${spo.spoNumber}`);
+      }
+
+      const existing = await tx.work_orders.findFirst({
+        where: { stockProductionOrderId: id, status: { not: OrderStatus.CANCELLED } },
+        select: { workOrderNumber: true },
+      });
+      if (existing) {
+        throw new ConflictError(`Work order ${existing.workOrderNumber} already exists for ${spo.spoNumber}`);
+      }
+
+      return tx.work_orders.create({
+        data: {
+          id: randomUUID(),
+          workOrderNumber,
+          stockProductionOrderId: id,
+          styleId: spo.styleId,
+          plannedStartDate: spo.targetDate || new Date(),
+          plannedEndDate: spo.targetDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          totalQuantity: spo.totalQuantity,
+          completedQuantity: 0,
+          status: OrderStatus.PENDING,
+          priority: spo.priority,
+          remarks: `Stock production from ${spo.spoNumber}`,
+          createdById: userId,
+          work_order_breakup: {
+            create: spo.items.map((item) => ({
+              id: randomUUID(),
+              colorId: item.colorId || null,
+              sizeId: item.sizeId,
+              plannedQuantity: item.quantity,
+              completedQuantity: 0,
+            })),
           },
         },
-      },
+        include: {
+          styles: {
+            select: { id: true, styleCode: true, styleName: true },
+          },
+          work_order_breakup: {
+            include: {
+              color_options: { select: { id: true, colorName: true } },
+              size_options: { select: { id: true, sizeName: true, sizeCode: true } },
+            },
+          },
+        },
+      });
     });
-
-    // Update SPO status to IN_PRODUCTION
-    await prisma.stock_production_orders.update({
-      where: { id },
-      data: { status: StockProductionOrderStatus.IN_PRODUCTION },
-    });
-
-    return workOrder;
   }
 
   async search(params: { search?: string; limit?: number; isActive?: boolean }) {

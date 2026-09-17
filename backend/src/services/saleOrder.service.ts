@@ -995,11 +995,16 @@ export class SaleOrderService {
     }
 
     return prisma.$transaction(async (tx) => {
-      // Mark allocation as RELEASED
-      await tx.fg_stock_allocations.update({
-        where: { id: allocationId },
+      // Claim the row: only the caller that flips ALLOCATED → RELEASED gets to decrement. The
+      // status check above runs outside the transaction — two simultaneous releases both passed
+      // it and both decremented allocatedQty, driving it negative (order-system T2-B, 2026-09-17).
+      const released = await tx.fg_stock_allocations.updateMany({
+        where: { id: allocationId, status: 'ALLOCATED' },
         data: { status: 'RELEASED' },
       });
+      if (released.count === 0) {
+        throw new BusinessError('Cannot release — this allocation was already released');
+      }
 
       // Decrement allocatedQty on the sale order item
       await tx.sale_order_items.update({

@@ -359,6 +359,31 @@ describe('deallocateStock — giving a reservation back', () => {
       .expect(422);
     expect(res.body.message).toMatch(/already RELEASED/i);
   });
+
+  it('two simultaneous releases release once — allocatedQty never goes negative', async () => {
+    // The status check ran outside the transaction, so two clicks both passed it and both
+    // decremented (order-system T2-B). The row is now claimed inside the transaction.
+    const { itemId } = await confirmedOrder(4);
+    const stock = await fgLot(4);
+
+    const alloc = await request(app)
+      .post('/api/sale-orders/allocate-stock')
+      .set(authHeader)
+      .send({ saleOrderItemId: itemId, fgStockId: stock.id, quantity: 4 })
+      .expect(201);
+
+    const release = () =>
+      request(app).post('/api/sale-orders/deallocate-stock').set(authHeader).send({ allocationId: alloc.body.data.id });
+    const [a, b] = await Promise.all([release(), release()]);
+    expect([a.status, b.status].sort()).toEqual([200, 422]);
+
+    const item = await prisma.sale_order_items.findUniqueOrThrow({ where: { id: itemId } });
+    expect(item.allocatedQty).toBe(0);
+    const allocation = await prisma.fg_stock_allocations.findUniqueOrThrow({ where: { id: alloc.body.data.id } });
+    expect(allocation.status).toBe('RELEASED');
+    const available = await saleOrderService.getAvailableStock(styleId, colorId, sizeMId);
+    expect(available.find((s) => s.id === stock.id)?.availableQty).toBe(4);
+  });
 });
 
 describe('dispatch draws reservations down rather than discarding them', () => {
@@ -487,6 +512,46 @@ describe('dispatch draws reservations down rather than discarding them', () => {
 
     const finished = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
     expect(finished.body.status).toBe('DELIVERED');
+  });
+
+  it('a REJECTED POD hands dispatchedQty back even when there is no stock left to restore', async () => {
+    // The rollback used to be gated on `restored > 0` — a stock fact. A note whose FG allocation rows
+    // carried nothing to restore (older notes, or an allocation already drawn to zero) kept its
+    // dispatchedQty after rejection and the order stayed DISPATCHED for ever (order-system T3-A).
+    const { soId, itemId } = await confirmedOrder(5);
+    const stock = await fgLot(5);
+
+    await request(app)
+      .post('/api/sale-orders/allocate-stock')
+      .set(authHeader)
+      .send({ saleOrderItemId: itemId, fgStockId: stock.id, quantity: 5 })
+      .expect(201);
+    const dispatch = await request(app)
+      .post('/api/dispatch/sale-order-dispatch')
+      .set(authHeader)
+      .send({ saleOrderId: soId, items: [{ saleOrderItemId: itemId, quantity: 5 }] })
+      .expect(201);
+    const noteId = dispatch.body.data.id as string;
+
+    // Stand in for "nothing left to restore" and put the note on the road.
+    await prisma.delivery_note_fg_allocations.updateMany({ where: { deliveryNoteId: noteId }, data: { quantity: 0 } });
+    await prisma.delivery_notes.update({ where: { id: noteId }, data: { status: 'IN_TRANSIT' } });
+
+    await request(app)
+      .post(`/api/dispatch/delivery-notes/${noteId}/record-pod`)
+      .set(authHeader)
+      .send({
+        deliveryDate: '2026-09-17',
+        receivedBy: 'Gate',
+        deliveryStatus: 'REJECTED',
+        rejectionReason: 'Damaged in transit',
+      })
+      .expect(200);
+
+    const item = await prisma.sale_order_items.findUniqueOrThrow({ where: { id: itemId } });
+    expect(item.dispatchedQty).toBe(0);
+    const after = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
+    expect(after.body.status).toBe('CONFIRMED');
   });
 
   it('a returned shipment leaves no phantom reservation behind', async () => {

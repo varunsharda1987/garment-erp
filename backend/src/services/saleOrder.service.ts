@@ -653,7 +653,15 @@ export class SaleOrderService {
   async startProduction(
     id: string,
     userId: string,
-    input: { expectedDeliveryDate?: string; priority?: string; remarks?: string } = {}
+    input: {
+      expectedDeliveryDate?: string;
+      priority?: string;
+      remarks?: string;
+      /** SHORTFALL (default): produce only what finished-goods stock does not cover; FULL: the whole order. */
+      quantityMode?: 'SHORTFALL' | 'FULL';
+      /** Per-line override — the complete list; a line left out is not produced. */
+      items?: Array<{ saleOrderItemId: string; quantity: number }>;
+    } = {}
   ) {
     const so = await prisma.sale_orders.findUnique({
       where: { id },
@@ -730,11 +738,46 @@ export class SaleOrderService {
       );
     }
 
+    // How much of each line to make. Until 2026-09-17 this was always item.quantity — a line already
+    // half-covered from finished-goods stock (allocatedQty = reserved, dispatchedQty = shipped) was
+    // produced in full on top of that stock (order-system T1-A). Default is the shortfall; the
+    // caller can ask for the full quantity, or dictate per line.
+    const toProduce = new Map<string, number>();
+    if (input.items && input.items.length > 0) {
+      const byId = new Map(so.items.map((i) => [i.id, i]));
+      for (const override of input.items) {
+        const line = byId.get(override.saleOrderItemId);
+        if (!line) {
+          throw new ValidationError(`Sale order item ${override.saleOrderItemId} is not on this sale order`);
+        }
+        if (override.quantity > line.quantity) {
+          throw new ValidationError(
+            `Cannot produce ${override.quantity} of a line ordered at ${line.quantity} (${line.style?.styleCode ?? line.styleId})`
+          );
+        }
+        toProduce.set(line.id, override.quantity);
+      }
+    } else {
+      const full = input.quantityMode === 'FULL';
+      for (const item of so.items) {
+        const covered = (item.allocatedQty ?? 0) + (item.dispatchedQty ?? 0);
+        toProduce.set(item.id, full ? item.quantity : Math.max(0, item.quantity - covered));
+      }
+    }
+
     const byStyle = new Map<string, typeof so.items>();
     for (const item of so.items) {
+      if ((toProduce.get(item.id) ?? 0) <= 0) continue;
       const group = byStyle.get(item.styleId) ?? [];
       group.push(item);
       byStyle.set(item.styleId, group);
+    }
+    if (byStyle.size === 0) {
+      throw new BusinessError(
+        input.items && input.items.length > 0
+          ? 'Every quantity given is zero — nothing to produce'
+          : 'Every line is already covered from finished-goods stock — nothing to produce. Choose the full quantity to produce it anyway.'
+      );
     }
 
     const orderItems: OrderItemInput[] = [...byStyle.values()].map((group) => {
@@ -742,12 +785,14 @@ export class SaleOrderService {
       // guarantees breakup sum === totalQuantity, which work-order auto-creation requires.
       const breakupMap = new Map<string, { colorId: string | null; sizeId: string; quantity: number }>();
       for (const item of group) {
+        const quantity = toProduce.get(item.id) ?? 0;
+        if (quantity <= 0) continue;
         const key = `${item.colorId ?? ''}|${item.sizeId!}`;
         const entry = breakupMap.get(key);
         if (entry) {
-          entry.quantity += item.quantity;
+          entry.quantity += quantity;
         } else {
-          breakupMap.set(key, { colorId: item.colorId ?? null, sizeId: item.sizeId!, quantity: item.quantity });
+          breakupMap.set(key, { colorId: item.colorId ?? null, sizeId: item.sizeId!, quantity });
         }
       }
 

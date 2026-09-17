@@ -262,6 +262,109 @@ describe('Sale Order → start production (make-to-order)', () => {
   });
 });
 
+describe('Start Production makes only what stock does not already cover (order-system T1-A)', () => {
+  // Until 2026-09-17 the production order was always the full sale-order quantity — a line already
+  // half-allocated from finished-goods stock was made again on top of that stock.
+  const createdSoIds: string[] = [];
+
+  const createConfirmedSo = async (items: Array<Record<string, unknown>>) => {
+    const res = await request(app).post('/api/sale-orders').set(authHeader).send({ customerId, items }).expect(201);
+    const id = res.body.data.id as string;
+    createdSoIds.push(id);
+    await request(app).post(`/api/sale-orders/${id}/confirm`).set(authHeader).send({}).expect(200);
+    return id;
+  };
+  const lineOf = async (saleOrderId: string, sizeId: string) =>
+    (await prisma.sale_order_items.findFirst({ where: { saleOrderId, sizeId } }))!;
+  const breakupOf = async (orderId: string) => {
+    const items = await prisma.order_items.findMany({ where: { orderId }, select: { id: true } });
+    const rows = await prisma.order_item_breakup.findMany({ where: { orderItemId: { in: items.map((i) => i.id) } } });
+    return Object.fromEntries(rows.map((r) => [r.sizeId, r.quantity]));
+  };
+
+  afterAll(async () => {
+    const orders = await prisma.orders.findMany({ where: { saleOrderId: { in: createdSoIds } }, select: { id: true } });
+    const orderIds = orders.map((o) => o.id);
+    const woIds = (
+      await prisma.work_orders.findMany({ where: { orderId: { in: orderIds } }, select: { id: true } })
+    ).map((w) => w.id);
+    await prisma.production_tracking.deleteMany({ where: { workOrderId: { in: woIds } } });
+    await prisma.work_order_breakup.deleteMany({ where: { workOrderId: { in: woIds } } });
+    await prisma.work_orders.deleteMany({ where: { id: { in: woIds } } });
+    const itemIds = (
+      await prisma.order_items.findMany({ where: { orderId: { in: orderIds } }, select: { id: true } })
+    ).map((i) => i.id);
+    await prisma.order_item_breakup.deleteMany({ where: { orderItemId: { in: itemIds } } });
+    await prisma.order_items.deleteMany({ where: { orderId: { in: orderIds } } });
+    await prisma.orders.deleteMany({ where: { id: { in: orderIds } } });
+    await prisma.samples.deleteMany({ where: { customerId: only(customerId) } });
+    await prisma.sale_order_items.deleteMany({ where: { saleOrderId: { in: createdSoIds } } });
+    await prisma.sale_orders.deleteMany({ where: { id: { in: createdSoIds } } });
+  });
+
+  it('by default a half-covered line is produced only for the rest', async () => {
+    const so = await createConfirmedSo([
+      { styleId: styleAId, sizeId: sizeMId, quantity: 5, unitPrice: 100 },
+      { styleId: styleAId, sizeId: sizeLId, quantity: 7, unitPrice: 100 },
+    ]);
+    // Stand in for stock work: 2 pcs of M reserved from finished goods, 1 already shipped.
+    const m = await lineOf(so, sizeMId);
+    await prisma.sale_order_items.update({ where: { id: m.id }, data: { allocatedQty: 2, dispatchedQty: 1 } });
+
+    const res = await request(app)
+      .post(`/api/sale-orders/${so}/start-production`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: '2026-12-01' })
+      .expect(201);
+    expect(Number(res.body.data.totalQuantity)).toBe(9); // (5 − 2 − 1) + 7
+    expect(await breakupOf(res.body.data.id)).toEqual({ [sizeMId]: 2, [sizeLId]: 7 });
+  });
+
+  it('refuses when stock already covers everything — unless the full quantity is asked for', async () => {
+    const so = await createConfirmedSo([{ styleId: styleAId, sizeId: sizeMId, quantity: 5, unitPrice: 100 }]);
+    const m = await lineOf(so, sizeMId);
+    await prisma.sale_order_items.update({ where: { id: m.id }, data: { allocatedQty: 5 } });
+
+    const refused = await request(app)
+      .post(`/api/sale-orders/${so}/start-production`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: '2026-12-01' })
+      .expect(422);
+    expect(refused.body.message).toMatch(/nothing to produce/i);
+    expect(await prisma.orders.count({ where: { saleOrderId: so } })).toBe(0);
+
+    const full = await request(app)
+      .post(`/api/sale-orders/${so}/start-production`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: '2026-12-01', quantityMode: 'FULL' })
+      .expect(201);
+    expect(Number(full.body.data.totalQuantity)).toBe(5);
+  });
+
+  it('a per-line list dictates exactly what is made, and cannot exceed the line', async () => {
+    const so = await createConfirmedSo([
+      { styleId: styleAId, sizeId: sizeMId, quantity: 5, unitPrice: 100 },
+      { styleId: styleAId, sizeId: sizeLId, quantity: 7, unitPrice: 100 },
+    ]);
+    const m = await lineOf(so, sizeMId);
+
+    const tooMany = await request(app)
+      .post(`/api/sale-orders/${so}/start-production`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: '2026-12-01', items: [{ saleOrderItemId: m.id, quantity: 6 }] })
+      .expect(400);
+    expect(tooMany.body.message).toMatch(/ordered at 5/);
+
+    const res = await request(app)
+      .post(`/api/sale-orders/${so}/start-production`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: '2026-12-01', items: [{ saleOrderItemId: m.id, quantity: 3 }] })
+      .expect(201);
+    expect(Number(res.body.data.totalQuantity)).toBe(3); // L was not listed → not produced
+    expect(await breakupOf(res.body.data.id)).toEqual({ [sizeMId]: 3 });
+  });
+});
+
 describe('Sale Order guards that used to surface as generic 500s', () => {
   // Every order this block creates, cleaned up in afterAll. Cleaning up at the end of each `it`
   // does not survive a failing assertion — the leftovers then block the file-level teardown from

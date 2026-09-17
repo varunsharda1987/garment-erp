@@ -51,11 +51,18 @@ export async function confirmSaleOrder(id: string): Promise<SaleOrder> {
 }
 
 /**
- * Start production (make-to-order): creates a linked production order for the full SO quantity.
+ * Start production (make-to-order): creates a linked production order — by default for the
+ * shortfall (what finished-goods stock does not already cover), or the full SO quantity.
  */
 export async function startProduction(
   id: string,
-  data: { expectedDeliveryDate?: string; priority?: string; remarks?: string } = {}
+  data: {
+    expectedDeliveryDate?: string;
+    priority?: string;
+    remarks?: string;
+    quantityMode?: 'SHORTFALL' | 'FULL';
+    items?: Array<{ saleOrderItemId: string; quantity: number }>;
+  } = {}
 ): Promise<{ data: { id: string; orderNumber: string; workOrderFailures?: unknown[] }; message: string }> {
   const response = await api.post(`${BASE_URL}/${id}/start-production`, data);
   return response.data;

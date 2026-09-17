@@ -46,7 +46,7 @@ error. The account must stay active with access to the routes in §2.
 | `PUT /sale-orders/:id` | Re-send after PO edit | Same items shape; ERP replaces items wholesale; **DRAFT-only** |
 | `GET /sale-orders/:id` | Status read-back + background sync | Fields read in §4 |
 | `GET /production-status/by-order?styleId=&limit=` | Production progress per style | Kebab-case mount; `styleId` filters at DB level. **Since 2026-08-16 `?saleOrderId=` is the PRECISE per-PO filter** (returns only order items of production orders linked to that sale order — no cross-buyer bleed). B2B should switch to it, keeping `styleId` as fallback for pre-link orders. |
-| `POST /sale-orders/:id/start-production` | *(factory-side action, not called by B2B)* | Creates the linked production order (`orders.saleOrderId`) for the full SO quantity — listed here because its result is what `?saleOrderId=` reads |
+| `POST /sale-orders/:id/start-production` | *(factory-side action, not called by B2B)* | Creates the linked production order (`orders.saleOrderId`) — listed here because its result is what `?saleOrderId=` reads. **Since 2026-09-17 the default quantity is the SHORTFALL** — each line's `quantity − allocatedQty − dispatchedQty`, i.e. only what finished-goods stock does not already cover (`quantityMode: 'FULL'` or a per-line `items[]` override it). So `productionOrders[].totalQuantity` may be LESS than the SO total; B2B must not treat them as equal |
 | `POST /styles` | **Auto-create an unknown PO style** (since 2026-07-26) | Bare create: `{styleCode, styleName, brandName, customerName, sellingPrice?, status:'DRAFT'}` — **deliberately no `skuVariants`** (that create-time loop is non-transactional; a mid-loop SKU conflict leaves a half-created style). New style lands DRAFT for the factory to build on. |
 | `POST /styles/:id/variants` | Add the PO's sizes to a style (new or existing) | `{variants:[{size, sku, isActive:true}]}` — relies on `upsertVariants` find-or-creating `size_options` by `sizeName`. SKU convention: `STYLECODE+SIZE` uppercased/alphanumeric (the ERP UI's own convention; canonical `XXXL`, not the Tally `3XL` token). |
 
@@ -202,7 +202,8 @@ SKUs), then retry from the B2B side.
   the date.)
 - ~~**No sale-order → production-order link** in the schema.~~ **FIXED 2026-08-16:**
   `orders.saleOrderId` now links a production order to its sale order; the factory's
-  **Start Production** action on a confirmed SO creates it (full SO quantity, make-to-order).
+  **Start Production** action on a confirmed SO creates it (make-to-order; since 2026-09-17 for the
+  quantity stock does not already cover by default — see §2).
   Read it back via `productionOrders[]` on the SO (§4) and filter production progress precisely
   with `GET /production-status/by-order?saleOrderId=` (§2). B2B follow-up: send `buyerPoNumber`,
   switch the factory-status modal to `?saleOrderId=` (style fallback for pre-link orders).

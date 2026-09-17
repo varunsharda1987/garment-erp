@@ -170,7 +170,7 @@ export class SaleOrderController {
    */
   async startProduction(req: Request, res: Response) {
     const { id } = req.params;
-    const { expectedDeliveryDate, priority, remarks } = req.body;
+    const { expectedDeliveryDate, priority, remarks, quantityMode, items } = req.body;
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
@@ -180,6 +180,8 @@ export class SaleOrderController {
       expectedDeliveryDate,
       priority,
       remarks,
+      quantityMode,
+      items,
     });
 
     res.status(201).json({ data: order, message: 'Production order created' });

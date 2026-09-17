@@ -65,7 +65,7 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 9. While Draft, the **Edit** button on the order page changes details and items, including the **Buyer PO Number**.
 10. Once the order has at least one item, click **Confirm**. The dialog shows stock availability and style readiness before you approve it.
 11. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
-12. To make the goods instead: click **Start Production**. In the dialog set **Expected Delivery Date**, **Priority**, optional **Remarks**, then click **Create Production Order**. This creates one linked production order for the full sale-order quantity.
+12. To make the goods instead: click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
 
 ## Validation traps
 - Only the customer is required to create a new order — the **Create Sale Order** button stays disabled until one is picked. Items may be added afterwards.

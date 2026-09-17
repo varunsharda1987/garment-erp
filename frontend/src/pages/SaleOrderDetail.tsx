@@ -13,6 +13,7 @@ import { SaleOrderForm, CancelOrderDialog } from '@/components/sale-order';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   getSaleOrderById,
@@ -64,6 +65,8 @@ export default function SaleOrderDetail() {
   const [prodDeliveryDate, setProdDeliveryDate] = useState('');
   const [prodPriority, setProdPriority] = useState('MEDIUM');
   const [prodRemarks, setProdRemarks] = useState('');
+  // Default: make only what finished-goods stock does not already cover (order-system T1-A, 2026-09-17).
+  const [prodQuantityMode, setProdQuantityMode] = useState<'SHORTFALL' | 'FULL'>('SHORTFALL');
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SaleOrderItem | null>(null);
   const [allocateQty, setAllocateQty] = useState('');
@@ -120,6 +123,7 @@ export default function SaleOrderDetail() {
         expectedDeliveryDate: prodDeliveryDate || undefined,
         priority: prodPriority || undefined,
         remarks: prodRemarks.trim() || undefined,
+        quantityMode: prodQuantityMode,
       }),
     onSuccess: (result) => {
       invalidateSaleOrder();
@@ -645,7 +649,7 @@ export default function SaleOrderDetail() {
         isConfirming={confirmMutation.isPending}
       />
 
-      {/* Start Production Dialog (make-to-order: full SO quantity) */}
+      {/* Start Production Dialog (make-to-order: the shortfall by default, or the full SO quantity) */}
       <Dialog open={startProdDialogOpen} onOpenChange={setStartProdDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -653,9 +657,46 @@ export default function SaleOrderDetail() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Creates a production order for the full sale-order quantity (
-              {so.items?.reduce((sum, i) => sum + i.quantity, 0) || 0} pcs) with work orders per style.
+              Creates one linked production order with work orders per style.
             </p>
+            {(() => {
+              const items = so.items ?? [];
+              const total = items.reduce((sum, i) => sum + i.quantity, 0);
+              const shortfall = items.reduce(
+                (sum, i) => sum + Math.max(0, i.quantity - (i.allocatedQty ?? 0) - (i.dispatchedQty ?? 0)),
+                0
+              );
+              return (
+                <div className="space-y-2">
+                  <Label>What to produce</Label>
+                  <RadioGroup
+                    value={prodQuantityMode}
+                    onValueChange={(v) => setProdQuantityMode(v as 'SHORTFALL' | 'FULL')}
+                  >
+                    <div className="flex items-start gap-2">
+                      <RadioGroupItem value="SHORTFALL" id="prod-qty-shortfall" className="mt-0.5" />
+                      <Label htmlFor="prod-qty-shortfall" className="font-normal">
+                        Only what stock does not cover — <b>{shortfall} pcs</b>
+                        <span className="block text-xs text-muted-foreground">
+                          Pieces already allocated or dispatched from finished-goods stock are left out.
+                        </span>
+                      </Label>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <RadioGroupItem value="FULL" id="prod-qty-full" className="mt-0.5" />
+                      <Label htmlFor="prod-qty-full" className="font-normal">
+                        Full sale-order quantity — <b>{total} pcs</b>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  {shortfall === 0 && prodQuantityMode === 'SHORTFALL' && (
+                    <p className="text-xs text-warning">
+                      Stock already covers every line — choose the full quantity to produce it anyway.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             <div className="space-y-2">
               <Label>Expected Delivery Date</Label>
               <Input type="date" value={prodDeliveryDate} onChange={(e) => setProdDeliveryDate(e.target.value)} />

@@ -134,6 +134,20 @@ export const startProductionSchema = z.object({
     .optional(),
   priority: PriorityEnum.optional(),
   remarks: z.string().max(500).optional(),
+  // What to produce. SHORTFALL (default) = each line's quantity minus what finished-goods stock
+  // already covers (allocatedQty + dispatchedQty); FULL = the whole sale-order quantity, as before
+  // 2026-09-17 (order-system T1-A: a half-allocated order used to be produced twice over).
+  quantityMode: z.enum(['SHORTFALL', 'FULL']).optional(),
+  // Per-line override — the complete list: a line left out is not produced. Wins over quantityMode.
+  items: z
+    .array(
+      z.object({
+        saleOrderItemId: z.string().uuid('Invalid sale order item ID'),
+        quantity: z.number().int().nonnegative(),
+      })
+    )
+    .min(1)
+    .optional(),
 });
 
 /**

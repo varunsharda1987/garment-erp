@@ -55,7 +55,7 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/label.controller.ts
-route: /labels/new
+route: /materials/label/new
 ---
 
 ## Before you start
@@ -66,7 +66,7 @@ Labels are NOT under Trims Dashboard — they live under Packaging. To link a su
 2. The page opens as **Master Data**. In the **Packaging & Labels** section, click **Labels**. The page opens as **Label Management**. (Pressing Ctrl+K and typing "Labels" also opens it.)
 3. Click **+ Add New Label**.
 4. **Label Category** is the one required choice: **Sewn-in Label (Care/Size Labels)**, **Hangtag**, or **Price Tag**. It starts on Sewn-in Label. The whole form re-titles itself to match — for a hangtag the heading, the field names and the save button all say Hangtag.
-5. **Label Code** is greyed out and marked **Auto-generated**. The system assigns it on save (LBL-000001, LBL-000002 …).
+5. **Label Code** is greyed out and marked **Auto-generated**. The system assigns it on save (LBL-0001, LBL-0002 …). The sample text in the box shows "LBL-000001", but real codes have four digits.
 6. **Label Name**: leave it empty to have it built automatically from Type, Colour, Material and Size. The word "Label" is added only for sewn-in labels, and only when the chosen Type does not already contain it. Type a name only to override.
 7. **Label Type** lists only the types valid for the chosen category. Sewn-in: **Main Label**, **Washcare Label**, **Size Label**, **Main Cum Size Label**, **Brand Label**, **Loop Tag**, **Traceability Label**, **Barcode Label**, **Country of Origin**, **Composition Label**. Hangtag: **Hangtag**, **Brand Hangtag**, **Product Hangtag**, **Disclaimer Tag**, **Liva Tag**, **Eco-Vera Tag**. Price Tag: **Price Tag**. Pick **Other (Custom)** to type your own in the box that appears. Trap: if you change the Category afterwards, an incompatible Type is cleared and must be picked again.
 8. **Customer (Optional)** and **Brand (Optional)** link the label to one buyer. Leave **No Customer (Generic Label)** for a generic label (the option is named after the category — **No Customer (Generic Hangtag)** for a hangtag). Choose the customer first — the **Brand (Optional)** dropdown only appears after that, and stays disabled with "No brands available" if that customer has no brands set up. Leave **No Brand (Customer-Generic)** to link the customer but not one brand.
@@ -80,3 +80,7 @@ Labels are NOT under Trims Dashboard — they live under Packaging. To link a su
 16. Click **Create Label** (or **Create Hangtag** / **Create Price Tag**). You return to the **Label Management** list. **Cancel** returns without saving.
 
 Back on the list, use the **All Categories** filter to see only **Sewn-in Labels**, **Hangtags** or **Price Tags**, and **All Customers** / **Generic Only** to filter by buyer. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
+
+## Traps
+
+- If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

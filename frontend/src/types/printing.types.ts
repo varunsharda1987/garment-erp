@@ -452,6 +452,7 @@ export const ColorMatchRatingColors: Record<string, string> = {
 export type ProcessPOStatus =
   | 'DRAFT'
   | 'AT_MILL'
+  | 'PARTIALLY_RECEIVED' // part of the return is in; the rest is still at the mill and receivable (2026-09-19)
   | 'RECEIVED'
   | 'QUALITY_CHECKED'
   | 'STOCK_UPDATED'
@@ -532,6 +533,7 @@ export interface ProcessPOQueryParams {
 export const ProcessPOStatusLabels: Record<ProcessPOStatus, string> = {
   DRAFT: 'Draft',
   AT_MILL: 'At Mill',
+  PARTIALLY_RECEIVED: 'Partial Receipt',
   RECEIVED: 'Received',
   QUALITY_CHECKED: 'QC Done',
   STOCK_UPDATED: 'Stock Updated',
@@ -542,6 +544,7 @@ export const ProcessPOStatusLabels: Record<ProcessPOStatus, string> = {
 export const ProcessPOStatusColors: Record<ProcessPOStatus, string> = {
   DRAFT: 'bg-muted text-foreground',
   AT_MILL: 'bg-info-muted text-info',
+  PARTIALLY_RECEIVED: 'bg-info-muted text-info',
   RECEIVED: 'bg-accent/10 text-accent',
   QUALITY_CHECKED: 'bg-orange-100 text-orange-800',
   STOCK_UPDATED: 'bg-success-muted text-success',

@@ -112,6 +112,10 @@ export const receiveJwoToStockSchema = z.object({
   invoiceDate: z.string().optional().nullable(),
   // Required up front: the stock lot is written in the same call.
   warehouseId: z.string().uuid('Invalid warehouse ID'),
+  // Receiving in parts: a non-final receipt books its lot and challan and leaves the job
+  // PARTIALLY_RECEIVED; the final one runs the loss split on the cumulative total and closes the
+  // return. Defaults to true so a lone full receipt behaves as before.
+  isFinal: z.boolean().optional().default(true),
   remarks: z.string().max(1000).trim().optional().nullable(),
   // Entry mode for bale/than tracking (same modes as regular GRN)
   entryMode: entryModeEnum.optional().nullable(),

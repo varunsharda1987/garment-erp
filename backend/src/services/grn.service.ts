@@ -2628,6 +2628,12 @@ class GRNService {
       invoiceNumber?: string;
       invoiceDate?: string;
       warehouseId?: string;
+      /**
+       * false = one delivery of several: the job goes PARTIALLY_RECEIVED and stays receivable.
+       * true (default) = the last delivery: the job closes on the cumulative total. A lone full
+       * receipt posts nothing and behaves exactly as before parts existed (2026-09-19).
+       */
+      isFinal?: boolean;
       remarks?: string;
       // Entry mode for bale/than tracking
       entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
@@ -2724,12 +2730,18 @@ class GRNService {
         ? Number(jwo.qtyBillable)
         : toNumber(roundToCent(applyShrinkageLoss(jwo.qtySentMeters, jwo.expectedShrinkage ?? 0)));
 
-    // Over-receipt cap (this path previously had NONE — the PO path caps at :86)
+    // Over-receipt cap (this path previously had NONE — the PO path caps at :86). CUMULATIVE: a
+    // return may come in parts, and the cap is on everything received against the job, so the
+    // message names what is already in when there is any.
     const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
     const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
-    if (qtyReceived > maxReceivable) {
+    const receivedSoFar = Number(jwo.qtyReceivedMeters ?? 0);
+    if (receivedSoFar + qtyReceived > maxReceivable) {
       throw new BusinessError(
-        `Received ${qtyReceived} MTR exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
+        (receivedSoFar > 0
+          ? `Received ${qtyReceived} MTR on top of the ${receivedSoFar.toFixed(2)} MTR already received `
+          : `Received ${qtyReceived} MTR `) +
+          `exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
           `plus ${overReceiptTolerance}% over-receipt tolerance (max ${maxReceivable.toFixed(2)} MTR)`
       );
     }
@@ -2848,7 +2860,9 @@ class GRNService {
     const grn = await prisma.$transaction(
       async (tx) => {
         const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
-        await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id);
+        await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
+          isFinal: data.isFinal ?? true,
+        });
         return created;
       },
       { timeout: 30000, maxWait: 10000 }
@@ -2888,7 +2902,10 @@ class GRNService {
     processingQC: ProcessingQCData | undefined,
     targetWarehouseId: string | null,
     userId: string,
-    grnId: string
+    grnId: string,
+    // Parts (2026-09-19): every receipt books its own lot and inward challan; only the FINAL one
+    // closes the job. The two-step approve path passes nothing and gets the closing behaviour.
+    opts: { isFinal: boolean } = { isFinal: true }
   ): Promise<void> {
     // Same include as creation (JWO_GRN_INCLUDE): identity lineage + cost basis in one view.
     const jobWorkOrder = await tx.job_work_orders.findUnique({
@@ -2924,7 +2941,11 @@ class GRNService {
     }
     // ---- LACE: the dyed variant arrives as lace_stock, and no fabric is minted -----------------
     if (jobWorkOrder.fabricType === 'LACE') {
-      await this.approveLaceJwoGrnInTx(tx, jobWorkOrder, processingQC, targetWarehouseId, userId, grnId, qtyReceived);
+      await this.approveLaceJwoGrnInTx(tx, jobWorkOrder, processingQC, targetWarehouseId, userId, grnId, qtyReceived, {
+        grnItemId: grnItem?.id ?? null,
+        receivedAt: grn.receivingDate ? new Date(grn.receivingDate) : new Date(),
+        isFinal: opts.isFinal,
+      });
       return;
     }
 
@@ -2987,8 +3008,9 @@ class GRNService {
     const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
     const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
     const cutableWidth = receivedWidth > widthDeduction ? receivedWidth - widthDeduction : receivedWidth;
-    // Shared timestamp: GRN reversal matches fabric_stock by exact receivedDate equality. It is the
-    // date the user gave at creation (the GRN header), not the moment of approval.
+    // The date the user gave at creation (the GRN header), not the moment of approval. Reversal
+    // finds the lot by grnItemId; the date match is only the fallback for lots booked before
+    // that column existed.
     const receivedAt = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
 
     await tx.fabric_stock.create({
@@ -3023,6 +3045,8 @@ class GRNService {
         needsEmbroidery: false,
         createdById: userId,
         warehouseId: targetWarehouseId,
+        // The receipt line this lot came from: reversal takes back THIS lot, never a sibling part's.
+        grnItemId: grnItem?.id ?? null,
       },
     });
     // Ensure materials record exists for pre-existing fabrics before syncing stock_levels
@@ -3032,11 +3056,27 @@ class GRNService {
     // The PO-backed receive (~:305-395) records four things this path never did (2026-09-15):
     // actual shrinkage, than/fold on the job, and an INWARD challan — the GST document for goods
     // returning from a job worker. Created in-tx so a challan failure aborts the receive instead of
-    // being swallowed. Reversal (~:3715-3751) already cancels the challan and clears these fields.
+    // being swallowed. Reversal (reverseProcessingGRNInTx) cancels the challan by its grnId.
+    //
+    // A return may come in parts (2026-09-19). Every part books its own lot and challan, and the
+    // job's figures are CUMULATIVE. Only the final part closes the job: shrinkage, the loss split
+    // and receivedDate are computed once, on the total — a short first delivery is not a loss
+    // until the last one is in.
+    const receivedSoFar = Number(jobWorkOrder.qtyReceivedMeters ?? 0);
+    const cumulativeReceived = toNumber(roundToCent(addCurrency(receivedSoFar, qtyReceived)));
     const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
-    const actualShrinkage = sentMeters > 0 ? ((sentMeters - qtyReceived) / sentMeters) * 100 : 0;
-    const thanCount: number | null = grnItem?.thanCount ?? null;
-    const foldLengthCm: number | null = grnItem?.foldLengthCm != null ? Number(grnItem.foldLengthCm) : null;
+    const actualShrinkage = sentMeters > 0 ? ((sentMeters - cumulativeReceived) / sentMeters) * 100 : 0;
+    const partThanCount: number | null = grnItem?.thanCount ?? null;
+    const thanCount: number | null =
+      partThanCount != null || jobWorkOrder.thanCount != null
+        ? (jobWorkOrder.thanCount ?? 0) + (partThanCount ?? 0)
+        : null;
+    const foldLengthCm: number | null =
+      grnItem?.foldLengthCm != null
+        ? Number(grnItem.foldLengthCm)
+        : jobWorkOrder.foldLengthCm != null
+          ? Number(jobWorkOrder.foldLengthCm)
+          : null;
     const calculatedActualMeters = thanCount && foldLengthCm ? (thanCount * foldLengthCm) / 100 : null;
     const inwardChallan = await createChallan(
       {
@@ -3048,6 +3088,7 @@ class GRNService {
         toType: 'WAREHOUSE',
         toName: 'Main Warehouse',
         jobWorkOrderId: jobWorkOrder.id,
+        grnId,
         issuedById: userId,
         unit: Unit.METER,
         remarks: grn.remarks || undefined,
@@ -3064,12 +3105,11 @@ class GRNService {
       tx
     );
 
-    await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
+    // What every part writes on the job: the running total, the latest receipt and its challan.
+    const receiptFields: Prisma.job_work_ordersUncheckedUpdateInput = {
       finishedFabricId,
-      qtyReceivedMeters: qtyReceived,
-      receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
+      qtyReceivedMeters: cumulativeReceived,
       grnId,
-      actualShrinkage,
       thanCount,
       foldLengthCm,
       calculatedActualMeters,
@@ -3092,17 +3132,28 @@ class GRNService {
             actualRate: processingQC.actualRate ?? null,
           }
         : {}),
-    });
+    };
 
-    // Loss split (expected-output basis). This PO-less path previously skipped it, so
-    // the close-time debit gate never fired for GRN-received JWOs. Best-effort.
-    try {
-      await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, qtyReceived, tx);
-    } catch (lossSplitError) {
-      logWarn('[GRN] Loss split failed for PO-less JWO receive', {
-        jobWorkOrderId: jobWorkOrder.id,
-        error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+    if (opts.isFinal) {
+      await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
+        ...receiptFields,
+        receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
+        actualShrinkage,
       });
+
+      // Loss split (expected-output basis) on the TOTAL. This PO-less path previously skipped it,
+      // so the close-time debit gate never fired for GRN-received JWOs. Best-effort.
+      try {
+        await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, cumulativeReceived, tx);
+      } catch (lossSplitError) {
+        logWarn('[GRN] Loss split failed for PO-less JWO receive', {
+          jobWorkOrderId: jobWorkOrder.id,
+          error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+        });
+      }
+    } else {
+      // More to come: no receivedDate, no shrinkage, no loss split — the job stays receivable.
+      await setJwoStatus(tx, jobWorkOrder.id, 'PARTIALLY_RECEIVED', receiptFields);
     }
 
     // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links
@@ -3145,7 +3196,8 @@ class GRNService {
     targetWarehouseId: string | null,
     userId: string,
     grnId: string,
-    qtyReceived: number
+    qtyReceived: number,
+    receipt: { grnItemId: string | null; receivedAt: Date; isFinal: boolean }
   ): Promise<void> {
     if (!jobWorkOrder.finishedLaceId) {
       throw new Error(
@@ -3173,13 +3225,23 @@ class GRNService {
     }
     // No priced components (a job issued outside this flow) leaves the dyeing rate as the whole
     // cost — understated, but honest about what we actually know.
-    const costPerMeter = toNumber(roundToCent(addCurrency(divideCurrency(issuedValue, qtyReceived), processingRate)));
+    //
+    // Parts (2026-09-19): a single whole receipt spreads the greige money over what arrived, as
+    // above. A PART cannot — it would carry all the greige money on its own metres and the next
+    // part would carry it again — so parts spread it over the metres EXPECTED back instead.
+    const receivedSoFar = Number(jobWorkOrder.qtyReceivedMeters ?? 0);
+    const wholeReceipt = receivedSoFar === 0 && receipt.isFinal;
+    const expectedBack = Number(jobWorkOrder.qtyBillable ?? 0);
+    const spreadOver = wholeReceipt || expectedBack <= 0 ? qtyReceived : expectedBack;
+    const costPerMeter = toNumber(roundToCent(addCurrency(divideCurrency(issuedValue, spreadOver), processingRate)));
 
-    // Shared timestamp: GRN reversal matches the lot by exact receivedDate equality
-    const receivedAt = new Date();
+    // The user's receipt date (the GRN header), not the moment of the click — parts carry their
+    // own dates. Reversal finds the lot by grnItemId.
+    const receivedAt = receipt.receivedAt;
     const lot = await tx.lace_stock.create({
       data: {
         laceId: jobWorkOrder.finishedLaceId,
+        grnItemId: receipt.grnItemId,
         originStyleId: jobWorkOrder.styleId ?? null,
         originStyleCode: jobWorkOrder.style?.styleCode ?? null,
         quantityAvailable: new Prisma.Decimal(qtyReceived),
@@ -3213,10 +3275,11 @@ class GRNService {
     await syncStockLevelQuantity(jobWorkOrder.finishedLaceId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
 
     // No finishedFabricId: a lace job mints no fabric master, and writing one would put a
-    // phantom cloth on the order.
-    await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
-      qtyReceivedMeters: qtyReceived,
-      receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
+    // phantom cloth on the order. The job's total is cumulative across parts; only the final
+    // part dates the job and runs the loss split (same rule as the fabric branch).
+    const cumulativeReceived = toNumber(roundToCent(addCurrency(receivedSoFar, qtyReceived)));
+    const receiptFields: Prisma.job_work_ordersUncheckedUpdateInput = {
+      qtyReceivedMeters: cumulativeReceived,
       grnId,
       ...(processingQC
         ? {
@@ -3227,15 +3290,24 @@ class GRNService {
             actualRate: processingQC.actualRate ?? null,
           }
         : {}),
-    });
+    };
 
-    try {
-      await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, qtyReceived, tx);
-    } catch (lossSplitError) {
-      logWarn('[GRN] Loss split failed for lace JWO receive', {
-        jobWorkOrderId: jobWorkOrder.id,
-        error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+    if (receipt.isFinal) {
+      await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
+        ...receiptFields,
+        receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
       });
+
+      try {
+        await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, cumulativeReceived, tx);
+      } catch (lossSplitError) {
+        logWarn('[GRN] Loss split failed for lace JWO receive', {
+          jobWorkOrderId: jobWorkOrder.id,
+          error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+        });
+      }
+    } else {
+      await setJwoStatus(tx, jobWorkOrder.id, 'PARTIALLY_RECEIVED', receiptFields);
     }
 
     await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
@@ -3726,11 +3798,11 @@ class GRNService {
     userId: string,
     reason: string
   ): Promise<void> {
-    // Find the job work order — by direct GRN link (PO-less) or via the shadow PO
+    // Find the job work order — by the receipt's own link (PO-less) or via the shadow PO. Never by
+    // the job's `grnId` on the PO-less path: that names only the LATEST receipt, so reversing an
+    // earlier part of a return received in parts silently did nothing (2026-09-19).
     const jobWorkOrder = await tx.job_work_orders.findFirst({
-      where: grn.jobWorkOrderId
-        ? { id: grn.jobWorkOrderId, grnId: grn.id }
-        : { purchaseOrderId: po!.id, grnId: grn.id },
+      where: grn.jobWorkOrderId ? { id: grn.jobWorkOrderId } : { purchaseOrderId: po!.id, grnId: grn.id },
       include: {
         greigeStockLot: true,
         fabricStockLot: true,
@@ -3743,17 +3815,31 @@ class GRNService {
     }
 
     const receivedMeters = Number(jobWorkOrder.qtyReceivedMeters || 0);
+    // THIS receipt's quantity and lines. A return received in parts has one lot and one challan per
+    // receipt, each linked by id (grnItemId / challans.grnId). Lots booked before those columns
+    // existed are found the old way — the job's receipt date — but only when this receipt IS the
+    // job's receipt, so a job received in parts never takes back a sibling part's lot.
+    const receiptItemIds: string[] = (grn.grn_items ?? []).map((i: { id: string }) => i.id);
+    const receiptQty: number = (grn.grn_items ?? []).reduce(
+      (s: number, i: { acceptedQuantity: unknown }) => s + Number(i.acceptedQuantity || 0),
+      0
+    );
+    const partQty = receiptQty > 0 ? receiptQty : receivedMeters;
+    const legacyDateMatch =
+      jobWorkOrder.grnId === grn.id && jobWorkOrder.receivedDate ? { receivedDate: jobWorkOrder.receivedDate } : null;
 
     // 0. Reverse the dyed-lace lot this receipt minted. Matched the same way as fabric — the
     // material plus the receipt's exact timestamp — so an earlier lot of the same dyed lace is
     // never taken back.
     if (jobWorkOrder.fabricType === 'LACE' && jobWorkOrder.finishedLaceId) {
-      const laceLots = await tx.lace_stock.findMany({
-        where: {
-          laceId: jobWorkOrder.finishedLaceId,
-          ...(jobWorkOrder.receivedDate ? { receivedDate: jobWorkOrder.receivedDate } : {}),
-        },
+      let laceLots = await tx.lace_stock.findMany({
+        where: { laceId: jobWorkOrder.finishedLaceId, grnItemId: { in: receiptItemIds } },
       });
+      if (laceLots.length === 0 && legacyDateMatch) {
+        laceLots = await tx.lace_stock.findMany({
+          where: { laceId: jobWorkOrder.finishedLaceId, grnItemId: null, ...legacyDateMatch },
+        });
+      }
       for (const lot of laceLots) {
         const qty = Number(lot.quantityAvailable);
         // Consumed metres cannot be un-received — the lace has already gone into a garment.
@@ -3777,14 +3863,20 @@ class GRNService {
 
     // 1. Reverse fabric_stock created from this job
     if (jobWorkOrder.finishedFabricId) {
-      // Find fabric_stock records created by this job (via received date matching)
-      const fabricStocks = await tx.fabric_stock.findMany({
-        where: {
-          fabricId: jobWorkOrder.finishedFabricId,
-          originStyleId: jobWorkOrder.styleId,
-          ...(jobWorkOrder.receivedDate ? { receivedDate: jobWorkOrder.receivedDate } : {}),
-        },
+      // The lot(s) this receipt booked — by the receipt line; date match only for pre-link lots.
+      let fabricStocks = await tx.fabric_stock.findMany({
+        where: { fabricId: jobWorkOrder.finishedFabricId, grnItemId: { in: receiptItemIds } },
       });
+      if (fabricStocks.length === 0 && legacyDateMatch) {
+        fabricStocks = await tx.fabric_stock.findMany({
+          where: {
+            fabricId: jobWorkOrder.finishedFabricId,
+            originStyleId: jobWorkOrder.styleId,
+            grnItemId: null,
+            ...legacyDateMatch,
+          },
+        });
+      }
 
       for (const stock of fabricStocks) {
         const qty = Number(stock.quantityAvailable);
@@ -3806,12 +3898,12 @@ class GRNService {
       });
 
       if (processorGreigeStock) {
-        // Restore the consumed quantity
+        // Restore THIS receipt's quantity — not the job's running total, which spans every part.
         await tx.greige_stock.update({
           where: { id: processorGreigeStock.id },
           data: {
-            quantityAvailable: { increment: receivedMeters },
-            quantityConsumed: { decrement: receivedMeters },
+            quantityAvailable: { increment: partQty },
+            quantityConsumed: { decrement: partQty },
             status: 'AVAILABLE',
           },
         });
@@ -3821,8 +3913,8 @@ class GRNService {
           data: {
             stockId: processorGreigeStock.id,
             transactionType: 'ADJUSTMENT_OUT',
-            quantity: receivedMeters,
-            balanceAfter: Number(processorGreigeStock.quantityAvailable) + receivedMeters,
+            quantity: partQty,
+            balanceAfter: Number(processorGreigeStock.quantityAvailable) + partQty,
             referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
             referenceId: grn.id,
             notes: `GRN ${grn.grnNumber} reversed - restored greige at processor`,
@@ -3830,17 +3922,21 @@ class GRNService {
           },
         });
 
-        logInfo(`Restored processor greige_stock: ${receivedMeters}m`, {
+        logInfo(`Restored processor greige_stock: ${partQty}m`, {
           grnId: grn.id,
           processorStockId: processorGreigeStock.id,
         });
       }
     }
 
-    // 3. Cancel the inward challan if exists
-    if (jobWorkOrder.inwardChallanId) {
+    // 3. Cancel THIS receipt's inward challan — by its grnId; the job's inwardChallanId only when
+    //    this receipt is the job's latest and the challan predates the link.
+    const inwardChallan =
+      (await tx.challans.findFirst({ where: { grnId: grn.id, challanType: 'INWARD' }, select: { id: true } })) ??
+      (jobWorkOrder.grnId === grn.id && jobWorkOrder.inwardChallanId ? { id: jobWorkOrder.inwardChallanId } : null);
+    if (inwardChallan) {
       await tx.challans.update({
-        where: { id: jobWorkOrder.inwardChallanId },
+        where: { id: inwardChallan.id },
         data: {
           status: 'CANCELLED',
           remarks: `Cancelled due to GRN ${grn.grnNumber} reversal - ${reason}`,
@@ -3849,35 +3945,107 @@ class GRNService {
 
       logInfo(`Cancelled inward challan for GRN reversal`, {
         grnId: grn.id,
-        challanId: jobWorkOrder.inwardChallanId,
+        challanId: inwardChallan.id,
       });
     }
 
-    // 4. Reset job work order to pre-receive state (ISSUED maps legacy back to AT_MILL)
-    await setJwoStatus(tx, jobWorkOrder.id, 'ISSUED', {
-      qtyReceivedMeters: null,
-      receivedWidthInches: null,
-      receivedDate: null,
-      receivedChallan: null,
-      actualShrinkage: null,
-      // Loss split is a receive-time computation — clear it with the receive
-      qtyNormalLoss: null,
-      qtyAbnormalLoss: null,
-      widthVariance: null,
-      thanCount: null,
-      foldLengthCm: null,
-      calculatedActualMeters: null,
-      inwardChallanId: null,
-      grnId: null,
-      qualityGrade: null,
-      colorMatchStatus: null,
-      defectMeters: null,
-      defectType: null,
-      actualRate: null,
-      remarks: jobWorkOrder.remarks
-        ? `${jobWorkOrder.remarks}\n[GRN REVERSED ${new Date().toISOString()}] ${reason}`
-        : `[GRN REVERSED ${new Date().toISOString()}] ${reason}`,
-    });
+    // 4. Recompute the job from the receipts that remain ACCEPTED (the caller has already flipped
+    //    this one to REVERSED). None left → the full pre-receive reset. Some left → the job's total
+    //    is their sum; if the reversed receipt was the FINAL one the job is partial again
+    //    (receivedDate, shrinkage and the loss split belong to the final delivery, so they clear);
+    //    if a middle part went, the job stays final and the split is re-run on the reduced total.
+    const reversalNote = `[GRN REVERSED ${new Date().toISOString()}] ${reason}`;
+    const remarks = jobWorkOrder.remarks ? `${jobWorkOrder.remarks}\n${reversalNote}` : reversalNote;
+    const remaining = grn.jobWorkOrderId
+      ? await tx.goods_receiving_notes.findMany({
+          where: { jobWorkOrderId: jobWorkOrder.id, status: 'ACCEPTED', id: { not: grn.id } },
+          select: { id: true, grn_items: { select: { acceptedQuantity: true, thanCount: true } } },
+          orderBy: { receivingDate: 'asc' },
+        })
+      : [];
+
+    if (remaining.length === 0) {
+      // Reset job work order to pre-receive state (ISSUED maps legacy back to AT_MILL)
+      await setJwoStatus(tx, jobWorkOrder.id, 'ISSUED', {
+        qtyReceivedMeters: null,
+        receivedWidthInches: null,
+        receivedDate: null,
+        receivedChallan: null,
+        actualShrinkage: null,
+        // Loss split is a receive-time computation — clear it with the receive
+        qtyNormalLoss: null,
+        qtyAbnormalLoss: null,
+        widthVariance: null,
+        thanCount: null,
+        foldLengthCm: null,
+        calculatedActualMeters: null,
+        inwardChallanId: null,
+        grnId: null,
+        qualityGrade: null,
+        colorMatchStatus: null,
+        defectMeters: null,
+        defectType: null,
+        actualRate: null,
+        remarks,
+      });
+    } else {
+      const total = remaining.reduce(
+        (s, r) => s + r.grn_items.reduce((t, i) => t + Number(i.acceptedQuantity || 0), 0),
+        0
+      );
+      const thanCounts = remaining
+        .flatMap((r) => r.grn_items.map((i) => i.thanCount))
+        .filter((n): n is number => n != null);
+      const thanCount = thanCounts.length ? thanCounts.reduce((a, b) => a + b, 0) : null;
+      const foldLengthCm = jobWorkOrder.foldLengthCm != null ? Number(jobWorkOrder.foldLengthCm) : null;
+      const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
+      const stillFinal = !!jobWorkOrder.receivedDate && jobWorkOrder.grnId !== grn.id;
+      const latest = remaining[remaining.length - 1];
+      const latestChallan = await tx.challans.findFirst({
+        where: { grnId: latest.id, challanType: 'INWARD' },
+        select: { id: true },
+      });
+
+      await setJwoStatus(
+        tx,
+        jobWorkOrder.id,
+        stillFinal ? (jobWorkOrder.jwoStatus ?? 'STOCK_UPDATED') : 'PARTIALLY_RECEIVED',
+        {
+          qtyReceivedMeters: total,
+          thanCount,
+          calculatedActualMeters: thanCount && foldLengthCm ? (thanCount * foldLengthCm) / 100 : null,
+          remarks,
+          ...(stillFinal
+            ? { actualShrinkage: sentMeters > 0 ? ((sentMeters - total) / sentMeters) * 100 : 0 }
+            : {
+                receivedDate: null,
+                actualShrinkage: null,
+                qtyNormalLoss: null,
+                qtyAbnormalLoss: null,
+                grnId: latest.id,
+                inwardChallanId: latestChallan?.id ?? null,
+              }),
+        }
+      );
+
+      if (stillFinal) {
+        try {
+          await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, total, tx);
+        } catch (lossSplitError) {
+          logWarn('[GRN] Loss split re-run failed after reversing a part', {
+            jobWorkOrderId: jobWorkOrder.id,
+            error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+          });
+        }
+      }
+
+      logInfo(`Job recomputed from ${remaining.length} remaining receipt(s) after reversal`, {
+        grnId: grn.id,
+        jobId: jobWorkOrder.id,
+        total,
+        stillFinal,
+      });
+    }
 
     // 5. Reset PO status to allow re-receiving (Phase 4b: PO-less GRNs have no PO)
     if (po) {

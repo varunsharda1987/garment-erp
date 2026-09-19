@@ -61,7 +61,7 @@ sources:
   - backend/src/errors/index.ts
   - backend/src/controllers/zipper.controller.ts
   - backend/src/utils/code-generator.ts
-route: /zippers/new
+route: /materials/zipper/new
 ---
 
 ## Before you start
@@ -85,3 +85,7 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 14. Click **Create Zipper**. You return to the **Zipper Management** list with the new code shown.
 
 To edit later, open the zipper from the list and press **Update Zipper**. Trap: on edit the name is NOT rebuilt — if you clear the **Zipper Name** box, the zipper is saved with an empty name. To rename it, type the new name yourself. Supplier rows save on update the same way as on create, with the same one-row-per-supplier rule. The zipper code never changes.
+
+## Traps
+
+- If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

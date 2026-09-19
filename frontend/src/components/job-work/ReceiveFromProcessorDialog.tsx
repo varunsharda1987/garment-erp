@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
@@ -68,6 +69,9 @@ export default function ReceiveFromProcessorDialog({
   const [receivedDate, setReceivedDate] = useState(today);
   const [qualityGrade, setQualityGrade] = useState<'' | 'A' | 'B' | 'Reject'>('');
   const [defectMeters, setDefectMeters] = useState<number>(0);
+  // null = untouched: the "final delivery" box follows the quantity (ticked once the expected total
+  // is reached); a click pins it either way until the dialog is next opened.
+  const [finalOverride, setFinalOverride] = useState<boolean | null>(null);
 
   const { data: jwo } = useQuery({
     queryKey: ['job-work-order', jobWorkOrderId],
@@ -99,6 +103,7 @@ export default function ReceiveFromProcessorDialog({
       setReceivedDate(today);
       setQualityGrade('');
       setDefectMeters(0);
+      setFinalOverride(null);
     }
     wasOpen.current = open;
   }, [open, today]);
@@ -123,8 +128,14 @@ export default function ReceiveFromProcessorDialog({
         ? sumDetailRows(rows)
         : 0;
 
+  // Parts: what earlier deliveries already booked. The split, the cap and the "final" tick all work
+  // on the CUMULATIVE figure — a short first delivery is not a loss until the last one is in.
+  const receivedSoFar = Number(jwo?.qtyReceivedMeters ?? 0);
+  const expected = jwo?.qtyBillable ?? null;
+  const cumulativeQty = receivedSoFar + effectiveQty;
+
   // Warn on a short return BEFORE commit. Debounced; the figures come from the server's own loss
-  // split so the dialog and the booked numbers cannot disagree.
+  // split so the dialog and the booked numbers cannot disagree. Asked for the cumulative total.
   const [previewQty, setPreviewQty] = useState(0);
   useEffect(() => {
     const t = setTimeout(() => setPreviewQty(effectiveQty), 300);
@@ -132,10 +143,16 @@ export default function ReceiveFromProcessorDialog({
   }, [effectiveQty]);
 
   const { data: preview } = useQuery({
-    queryKey: ['jwo-receive-preview', jobWorkOrderId, previewQty],
-    queryFn: () => jobWorkOrderService.getReceivePreview(jobWorkOrderId!, previewQty),
+    queryKey: ['jwo-receive-preview', jobWorkOrderId, receivedSoFar, previewQty],
+    queryFn: () => jobWorkOrderService.getReceivePreview(jobWorkOrderId!, receivedSoFar + previewQty),
     enabled: open && !!jobWorkOrderId && previewQty > 0,
   });
+
+  // "This is the final delivery": pre-ticked once the total reaches the expected quantity less the
+  // processor's tolerance (the server's own figure: job → process type → 0), editable either way.
+  const tolerancePercent = preview?.tolerancePercent ?? jwo?.tolerancePercent ?? 0;
+  const autoFinal = expected != null && expected > 0 ? cumulativeQty >= expected * (1 - tolerancePercent / 100) : true;
+  const isFinal = finalOverride ?? autoFinal;
 
   const receiveMutation = useMutation({
     mutationFn: () =>
@@ -162,6 +179,7 @@ export default function ReceiveFromProcessorDialog({
         receivedChallan: challanRef.trim() || undefined,
         receivedDate,
         warehouseId,
+        isFinal,
         processingQC:
           qualityGrade || defectMeters > 0
             ? { qualityGrade: qualityGrade || undefined, defectMeters: defectMeters > 0 ? defectMeters : undefined }
@@ -173,6 +191,11 @@ export default function ReceiveFromProcessorDialog({
         handleApiSuccess(
           `${jwo?.jobWorkNumber ?? 'Job'} received into stock`,
           `${abnormal.toFixed(2)} m abnormal loss — a debit note against the processor is needed before the job can close.`
+        );
+      } else if (!isFinal) {
+        handleApiSuccess(
+          `${jwo?.jobWorkNumber ?? 'Job'} — part received into stock`,
+          `Receipt ${result.data.grnNumber} filed. The job stays open for the next delivery.`
         );
       } else {
         handleApiSuccess(
@@ -194,7 +217,6 @@ export default function ReceiveFromProcessorDialog({
 
   const isLace = jwo?.fabricType === 'LACE';
   const uom = jwo?.uom ?? 'MTR';
-  const expected = jwo?.qtyBillable ?? null;
   // A return cannot be dated before the greige went out — the server refuses it too.
   const sentDay = jwo?.sentDate ? jwo.sentDate.slice(0, 10) : undefined;
   const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
@@ -229,11 +251,27 @@ export default function ReceiveFromProcessorDialog({
                 )}
               </span>
             </div>
+            {receivedSoFar > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Received so far</span>
+                <span className="font-medium">
+                  {fmt(receivedSoFar)} {uom}
+                  {expected != null && (
+                    <span className="text-muted-foreground font-normal">
+                      {' '}
+                      — {fmt(Math.max(expected - receivedSoFar, 0))} still to come
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
             {preview && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Maximum you can receive</span>
+                <span className="text-muted-foreground">
+                  {receivedSoFar > 0 ? 'Maximum you can still receive' : 'Maximum you can receive'}
+                </span>
                 <span className="font-medium">
-                  {fmt(preview.maxReceivable)} {uom}
+                  {fmt(Math.max(preview.maxReceivable - receivedSoFar, 0))} {uom}
                 </span>
               </div>
             )}
@@ -338,13 +376,16 @@ export default function ReceiveFromProcessorDialog({
             </div>
           )}
 
-          {preview?.isOverTolerance && (
+          {preview?.isOverTolerance && isFinal && (
             <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
               <AlertTriangle className="h-4 w-4 mt-0.5 text-warning shrink-0" />
               <div>
-                <span className="font-medium">{fmt(previewQty)} entered</span> — {fmt(preview.qtyAbnormalLoss)} {uom}{' '}
-                beyond the {fmt(preview.tolerancePercent)}% allowance on {fmt(preview.qtyExpected)} expected. This will
-                need a debit note against {jwo?.processor?.name ?? 'the processor'}
+                <span className="font-medium">
+                  {fmt(previewQty)} entered{receivedSoFar > 0 ? ` (${fmt(receivedSoFar + previewQty)} in total)` : ''}
+                </span>{' '}
+                — {fmt(preview.qtyAbnormalLoss)} {uom} beyond the {fmt(preview.tolerancePercent)}% allowance on{' '}
+                {fmt(preview.qtyExpected)} expected. This will need a debit note against{' '}
+                {jwo?.processor?.name ?? 'the processor'}
                 {preview.debitNoteAmount != null ? ` (about ₹${fmt(preview.debitNoteAmount)})` : ''} before the job can
                 close. You can still receive it.
               </div>
@@ -429,6 +470,25 @@ export default function ReceiveFromProcessorDialog({
               />
             </div>
           </div>
+
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <Checkbox
+              id="rfp-final"
+              checked={isFinal}
+              onCheckedChange={(v) => setFinalOverride(v === true)}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="rfp-final" className="font-normal">
+                This is the final delivery
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {isFinal
+                  ? 'The job closes on the total received: shrinkage and any loss against the processor are worked out now.'
+                  : 'More is still to come. This part is booked into stock and the job stays open for the next delivery.'}
+              </p>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
@@ -437,7 +497,7 @@ export default function ReceiveFromProcessorDialog({
           </Button>
           <Button onClick={() => receiveMutation.mutate()} disabled={!canSubmit}>
             {receiveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Receive &amp; add to stock
+            {isFinal ? 'Receive & add to stock' : 'Receive part & add to stock'}
           </Button>
         </DialogFooter>
       </DialogContent>

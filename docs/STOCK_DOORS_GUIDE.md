@@ -140,14 +140,23 @@ Manufacturing → Dyeing & Printing, Job Work Orders tab, on a job showing At Mi
 - A **Job work return** receipt is filed, already accepted (it is listed on the GRN page, never created or approved there)
 - Finished fabric lot created (dyed lace → lace stock) at processing rate + greige cost; stock levels synced
 - **Inward challan** raised from the processor (the GST document for goods back from a job worker)
-- Shrinkage, than/fold, measured width and quality written onto the job; job → **Stock Updated**
-- Loss split into normal / abnormal; a short return beyond tolerance is warned about *before* you commit
-- Material requirements the job covered are advanced
+- Than/fold, measured width and quality written onto the job. On the **final delivery** the shrinkage is
+  written too and the job → **Stock Updated**; a part leaves it at **Partial Receipt**
+- Loss split into normal / abnormal on the final delivery, on the total of all parts; a short return beyond
+  tolerance is warned about *before* you commit
+- Material requirements the job covered are advanced by each receipt's metres
+
+**Receiving in parts (2026-09-19):** a processor often returns a job in two or more deliveries. Each is its
+own receipt — untick **This is the final delivery** on every part but the last (the box ticks itself once the
+total reaches the expected quantity less tolerance). Every part books its own lot (`fabric_stock.grnItemId`)
+and its own inward challan (`challans.grnId`); the job carries the running total, and the over-receipt cap is
+on the total. Reversal is per receipt: that part's lot and challan go, the others stay, and the job is
+recomputed — reversing the final part re-opens the job as Partial Receipt.
 
 **Important:**
 - This is NOT a purchase — material was always yours. The GRN *form* is for things you bought.
 - GST is on the SERVICE (processing charges), not the fabric — the return receipt is what the ITC report reads
-- One receipt per job; a wrong count is reversed by an admin (lot taken back, challan cancelled)
+- A wrong count is reversed by an admin, one receipt at a time (that lot taken back, that challan cancelled)
 
 **Example:** Receiving 480m printed fabric back from ABC Printing (sent 500m, 20m shrinkage)
 

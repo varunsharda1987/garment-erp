@@ -53,4 +53,5 @@ route: /fabric-stock
 - If you pick a fabric that belongs to a specific style, the page jumps straight to that style's own stock entry screen. That is expected — finish the entry there.
 - Quantity and width must both be positive numbers; purchase cost cannot be negative. **Notes** is limited to 500 characters.
 - **Warehouse Location** starts empty. It is a searchable dropdown — search by warehouse code, name or city and pick from the list; it cannot be typed in free-form.
+- If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
 - To book stock directly against a style instead, use **Add Stock Against Style** on the **Finished Fabric Stock** page and pick the style code.

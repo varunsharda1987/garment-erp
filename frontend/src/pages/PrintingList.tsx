@@ -536,8 +536,9 @@ export default function PrintingList() {
               <Send className="h-4 w-4" />
             </Button>
           )}
-          {/* Receive from processor — one action books the returned fabric into stock */}
-          {item.processPOStatus === 'AT_MILL' && (
+          {/* Receive from processor — one action books the returned fabric into stock; a job
+              received in parts keeps the action until its final delivery */}
+          {(item.processPOStatus === 'AT_MILL' || item.processPOStatus === 'PARTIALLY_RECEIVED') && (
             <Button
               variant="ghost"
               size="sm"
@@ -553,7 +554,9 @@ export default function PrintingList() {
             </Button>
           )}
           {/* Return Unprocessed — available when AT_MILL or RECEIVED */}
-          {(item.processPOStatus === 'AT_MILL' || item.processPOStatus === 'RECEIVED') && (
+          {(item.processPOStatus === 'AT_MILL' ||
+            item.processPOStatus === 'PARTIALLY_RECEIVED' ||
+            item.processPOStatus === 'RECEIVED') && (
             <Button
               variant="ghost"
               size="sm"
@@ -797,6 +800,7 @@ export default function PrintingList() {
                       <SelectItem value="all">All Statuses</SelectItem>
                       <SelectItem value="DRAFT">Draft</SelectItem>
                       <SelectItem value="AT_MILL">At Mill</SelectItem>
+                      <SelectItem value="PARTIALLY_RECEIVED">Partial Receipt</SelectItem>
                       <SelectItem value="RECEIVED">Received</SelectItem>
                       <SelectItem value="QUALITY_CHECKED">QC Done</SelectItem>
                       <SelectItem value="STOCK_UPDATED">Stock Updated</SelectItem>

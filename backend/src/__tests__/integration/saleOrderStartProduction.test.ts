@@ -31,6 +31,7 @@ let costingId: string;
 
 let soId: string; // main SO (style A, 2 sizes)
 let so2Id: string; // cost-sheet-gate SO (style B)
+let so3Id: string; // T2-C race SO (style A, one size)
 let productionOrderId: string;
 
 beforeAll(async () => {
@@ -95,7 +96,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // FK-safe teardown (children first). Everything is scoped to this run's ids.
   const orders = await prisma.orders.findMany({
-    where: { saleOrderId: { in: [soId, so2Id].filter(Boolean) } },
+    where: { saleOrderId: { in: [soId, so2Id, so3Id].filter(Boolean) } },
     select: { id: true },
   });
   const orderIds = orders.map((o) => o.id);
@@ -121,9 +122,9 @@ afterAll(async () => {
     await prisma.orders.deleteMany({ where: { id: { in: orderIds } } });
   }
   await prisma.sale_order_items.deleteMany({
-    where: { saleOrderId: { in: [soId, so2Id].filter(Boolean) } },
+    where: { saleOrderId: { in: [soId, so2Id, so3Id].filter(Boolean) } },
   });
-  await prisma.sale_orders.deleteMany({ where: { id: { in: [soId, so2Id].filter(Boolean) } } });
+  await prisma.sale_orders.deleteMany({ where: { id: { in: [soId, so2Id, so3Id].filter(Boolean) } } });
   await prisma.style_costing.deleteMany({ where: { id: only(costingId) } });
   // Confirming a sale order AUTO-CREATES samples against the customer and style. Missing this
   // step meant the customer delete below threw on samples_customerId_fkey, which aborted the
@@ -214,6 +215,38 @@ describe('Sale Order → start production (make-to-order)', () => {
       .send({ expectedDeliveryDate: '2026-12-01' })
       .expect(409);
     expect(res.body.message || res.body.error?.message).toMatch(/already exists/i);
+  });
+
+  it('T2-C: two simultaneous Start Production clicks yield exactly one production order', async () => {
+    // The findFirst guard above cannot close the split-second race between two clicks; the partial
+    // unique index orders_saleOrderId_active_key (migration 20260919112815) does, and the service
+    // turns its P2002 into the same 409. Whichever guard fires, the outcome must be one 201 + one 409.
+    const created = await request(app)
+      .post('/api/sale-orders')
+      .set(authHeader)
+      .send({
+        customerId,
+        buyerPoNumber: `${RUN}-PO-RACE`,
+        items: [{ styleId: styleAId, sizeId: sizeMId, quantity: 3, unitPrice: 100 }],
+      })
+      .expect(201);
+    so3Id = created.body.data.id;
+    await request(app).post(`/api/sale-orders/${so3Id}/confirm`).set(authHeader).send({}).expect(200);
+
+    const start = () =>
+      request(app)
+        .post(`/api/sale-orders/${so3Id}/start-production`)
+        .set(authHeader)
+        .send({ expectedDeliveryDate: '2026-12-01' });
+    const [a, b] = await Promise.all([start(), start()]);
+    expect([a.status, b.status].sort()).toEqual([201, 409]);
+    const loser = a.status === 409 ? a : b;
+    expect(loser.body.message || loser.body.error?.message).toMatch(/already exists/i);
+
+    const live = await prisma.orders.count({
+      where: { saleOrderId: so3Id, status: { not: 'CANCELLED' }, isActive: true },
+    });
+    expect(live).toBe(1);
   });
 
   it('blocks cancelling the SO while the linked production order is active', async () => {

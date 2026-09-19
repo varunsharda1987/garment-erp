@@ -896,6 +896,7 @@ model goods_receiving_notes {
   warehouses                                      warehouses?       @relation(fields: [warehouseId], references: [id])
   grn_items                                       grn_items[]
   job_work_orders                                 job_work_orders[]
+  inwardChallans                                  challans[]        @relation("ChallanReceipt")
 
   @@index([grnNumber])
   @@index([poId])
@@ -939,6 +940,8 @@ model grn_items {
   purchase_order_items  purchase_order_items? @relation(fields: [poItemId], references: [id], onDelete: Cascade)
   grn_item_details      grn_item_details[]
   greige_stock          greige_stock[]        @relation("GreigeStockGrnItem")
+  fabric_stock          fabric_stock[]        @relation("FabricStockGrnItem")
+  lace_stock            lace_stock[]          @relation("LaceStockGrnItem")
 
   @@index([grnId])
   @@index([poItemId])
@@ -5055,6 +5058,7 @@ model fabric_stock {
   defectValue                  Decimal?                     @db.Decimal(10, 2)
   warehouseLocation            String?
   warehouseId                  String?
+  grnItemId                    String? // The receipt line that booked this lot — a job-work return received in parts is reversed per receipt by this link, never by a date match (2026-09-19)
   rackNumber                   String?
   rollNumbers                  String?
   receivedDate                 DateTime
@@ -5082,6 +5086,7 @@ model fabric_stock {
   originStyle                  styles?                      @relation("StockOriginStyle", fields: [originStyleId], references: [id])
   procurement                  fabric_procurement?          @relation(fields: [procurementId], references: [id])
   warehouse                    warehouses?                  @relation("FabricStockWarehouse", fields: [warehouseId], references: [id])
+  grnItem                      grn_items?                   @relation("FabricStockGrnItem", fields: [grnItemId], references: [id])
   stockAllocations             fabric_stock_allocation[]
   stockTransactions            fabric_stock_transaction[]
   cadProductionRecords         fabric_width_cad[]           @relation("cad_fabric_stock")
@@ -5105,6 +5110,7 @@ model fabric_stock {
   @@index([patternPartId])
   @@index([fabricFinishType])
   @@index([needsEmbroidery, status])
+  @@index([grnItemId])
   // Performance: composite index for procurement queries
   @@index([procurementId, status])
 }
@@ -8214,6 +8220,7 @@ model lace_stock {
   warehouseLocation String?
   warehouseId       String?
   rackNumber        String?
+  grnItemId         String? // The receipt line that booked this lot — a job-work return received in parts is reversed per receipt by this link (2026-09-19)
 
   // Stock details
   quantityAvailable Decimal @db.Decimal(10, 2)
@@ -8255,6 +8262,7 @@ model lace_stock {
   originOrder        orders?                     @relation("lace_stock_origin_order", fields: [originOrderId], references: [id])
   processingBatch    processing_batch?           @relation("lace_stock_from_processing", fields: [processingBatchId], references: [id])
   warehouse          warehouses?                 @relation("LaceStockWarehouse", fields: [warehouseId], references: [id])
+  grnItem            grn_items?                  @relation("LaceStockGrnItem", fields: [grnItemId], references: [id])
   createdBy          users?                      @relation("lace_stock_creator", fields: [createdById], references: [id])
   allocations        lace_stock_allocation[]
   transactions       lace_stock_transaction[]
@@ -8271,6 +8279,7 @@ model lace_stock {
   @@index([status])
   @@index([qualityGrade])
   @@index([dyeLotNumber])
+  @@index([grnItemId])
 }
 
 /// Lace Stock Allocation - Tracks allocations/transfers between styles
@@ -9100,6 +9109,7 @@ model challans {
   productionRunId    String? // work_orders.id
   purchaseOrderId    String? // Linked PO (for outsourced work)
   jobWorkOrderId     String? // Phase 4a: header-level JWO attribution (JWO IS the PO endgame)
+  grnId              String? // The job-work receipt this INWARD challan was filed for — one challan per part when a return comes in parts (2026-09-19)
   fabricProcessingId String? // FK to fabric_processing (greige→processor→fabric tracking)
 
   // From/To
@@ -9148,6 +9158,7 @@ model challans {
   productionRun        work_orders?           @relation(fields: [productionRunId], references: [id])
   purchaseOrder        purchase_orders?       @relation(fields: [purchaseOrderId], references: [id])
   jobWorkOrder         job_work_orders?       @relation("ChallanHeaderJobWorkOrder", fields: [jobWorkOrderId], references: [id])
+  grn                  goods_receiving_notes? @relation("ChallanReceipt", fields: [grnId], references: [id])
   fabricProcessing     fabric_processing?     @relation("ChallanProcessing", fields: [fabricProcessingId], references: [id])
   issuedBy             users                  @relation("ChallanIssuedBy", fields: [issuedById], references: [id])
   receivedBy           users?                 @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
@@ -9166,6 +9177,7 @@ model challans {
   @@index([purchaseOrderId])
   @@index([jobWorkOrderId])
   @@index([fabricProcessingId])
+  @@index([grnId])
   @@index([challanType])
   @@index([status])
   @@index([challanDate])

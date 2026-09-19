@@ -823,19 +823,31 @@ export class SaleOrderService {
 
     const defaultRemarks = `Production for ${so.saleOrderNumber}${so.buyerPoNumber ? ` / Buyer PO ${so.buyerPoNumber}` : ''}`;
 
-    const createdOrder = await orderService.createWithItems(
-      {
-        customerId: so.customerId,
-        saleOrderId: id,
-        expectedDeliveryDate: deliveryDate.toISOString(),
-        priority: (input.priority as OrderPriority) || undefined,
-        paymentTerms: so.paymentTerms ?? undefined,
-        shippingAddress: so.deliveryAddress ?? undefined,
-        remarks: input.remarks || defaultRemarks,
-        items: orderItems,
-      },
-      userId
-    );
+    let createdOrder: Awaited<ReturnType<typeof orderService.createWithItems>>;
+    try {
+      createdOrder = await orderService.createWithItems(
+        {
+          customerId: so.customerId,
+          saleOrderId: id,
+          expectedDeliveryDate: deliveryDate.toISOString(),
+          priority: (input.priority as OrderPriority) || undefined,
+          paymentTerms: so.paymentTerms ?? undefined,
+          shippingAddress: so.deliveryAddress ?? undefined,
+          remarks: input.remarks || defaultRemarks,
+          items: orderItems,
+        },
+        userId
+      );
+    } catch (err) {
+      // T2-C: the findFirst guard above cannot stop two simultaneous starts; the partial unique
+      // index orders_saleOrderId_active_key (status <> CANCELLED AND isActive) can, and surfaces as
+      // P2002 — reported as the same 409 the guard gives, never as a 500.
+      const e = err as { code?: string; meta?: { target?: unknown } };
+      if (e?.code === 'P2002' && String(e.meta?.target ?? '').includes('saleOrderId')) {
+        throw new ConflictError('A production order already exists for this sale order');
+      }
+      throw err;
+    }
 
     // Qty-rate audit 2026-08-24: non-blocking advisory — surface up front when this sale
     // order's quantity prices in a different processor rate slab than the style costing

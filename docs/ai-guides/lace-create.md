@@ -63,7 +63,7 @@ sources:
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
   - frontend/src/components/JobWorkOrderCreateDialog.tsx
   - backend/src/schemas/trimMasters.schema.ts
-route: /laces/new
+route: /materials/lace/new
 ---
 
 ## Steps
@@ -71,7 +71,7 @@ route: /laces/new
 1. Lace has no direct sidebar entry. Open **Materials & Masters → Trims Dashboard** in the sidebar. The page opens as **Trim Masters**.
 2. Click **Add Trim** at the top right and choose **New Laces** under the **Decorative** heading. You can also click the **Laces** quick-access button to open the lace list first, then click **+ Add New Lace**.
 3. The page title becomes **Create New Lace**.
-4. **Lace Code** is assigned automatically on save (format LACE-000001). It cannot be typed or changed later.
+4. **Lace Code** is assigned automatically on save (format LACE-0001 — the sample text in the box shows "LACE-000001", but real codes have four digits). It cannot be typed or changed later.
 5. Choose **Lace Nature**. This is the most important choice on the page:
    - **Ready-to-Use (Finished)** — coloured lace that goes straight into production.
    - **Raw/Greige** — uncoloured lace that must be dyed first.
@@ -95,6 +95,7 @@ route: /laces/new
 - Nothing here except the lace nature choice is strictly enforced, so it is easy to save a thin record. Fill width, type and composition so the auto-generated name is meaningful.
 - If **Price per Meter** is left empty and no supplier price is set, cost sheets show this lace at zero until someone enters a price in the cost sheet's sourcing window. Setting the price here avoids that.
 - A supplier row where no **Supplier** was chosen is dropped silently on save. If the supplier you need is not in the dropdown, tag it with the **Lace Supplier** category in the supplier master first.
+- If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
 - When editing an existing lace, do not touch the **Suppliers** section unless you mean to change it. The form only sends supplier rows when that section was opened or edited.
 - On edit, the name refreshes automatically when you change attributes, unless you have typed a name of your own.
 - When editing an existing lace, the ✕ button on the photo removes it from the server immediately — it does not wait for you to click **Update Lace**.

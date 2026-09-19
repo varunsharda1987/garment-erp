@@ -64,6 +64,11 @@ export interface ReceiveToStockPayload {
   /** The day the goods came back — becomes the receipt date, the job's receivedDate and the inward challan date. */
   receivedDate: string;
   warehouseId: string;
+  /**
+   * false = one delivery of several — the job goes Partially Received and stays receivable.
+   * true (default on the server) = the last delivery — the job closes on the cumulative total.
+   */
+  isFinal?: boolean;
   entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
   /** Than-/bale-wise rows; the server sums them for the quantity and counts them for thanCount. */
   details?: Array<{ detailType: 'THAN'; baleNumber: number | null; sequenceNo: number; meters: number }>;

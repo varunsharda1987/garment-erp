@@ -185,6 +185,13 @@ export interface JobWorkOrder {
   createdBy?: { id: string; username: string };
   approvedBy?: { id: string; username: string };
   grn?: { id: string; grnNumber: string } | null;
+  /** Every accepted return receipt, oldest first — a job may come back in parts. */
+  receivingGRNs?: Array<{
+    id: string;
+    grnNumber: string;
+    receivingDate: string;
+    items?: Array<{ acceptedQuantity: number; receivedWidthInches?: number | null; thanCount?: number | null }>;
+  }>;
 }
 
 export interface JobWorkOrderQueryParams {

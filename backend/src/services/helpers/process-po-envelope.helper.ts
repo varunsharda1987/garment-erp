@@ -119,7 +119,10 @@ export const computeProcessPOStatusFromJwo = (jwo: any): string => {
   const jwoStatus = jwo.jwoStatus || '';
   if (jwoStatus === 'STOCK_UPDATED') return 'STOCK_UPDATED';
   if (jwoStatus === 'QUALITY_CHECKED') return 'QUALITY_CHECKED';
-  if (jwoStatus === 'RECEIVED' || jwoStatus === 'PARTIALLY_RECEIVED') return 'RECEIVED';
+  if (jwoStatus === 'RECEIVED') return 'RECEIVED';
+  // Part of the return is in and the rest is still at the mill: the row keeps its receive action
+  // (a return may come in parts, 2026-09-19). Mapping it to RECEIVED hid the icon after part one.
+  if (jwoStatus === 'PARTIALLY_RECEIVED') return 'PARTIALLY_RECEIVED';
   if (jwoStatus === 'ISSUED' || jwoStatus === 'IN_TRANSIT' || jwoStatus === 'AT_PROCESSOR') return 'AT_MILL';
   if (jwoStatus === 'DRAFT' || jwoStatus === 'PENDING_APPROVAL' || jwoStatus === 'APPROVED') return 'DRAFT';
   if (jwoStatus === 'CLOSED') return 'CLOSED';
@@ -142,8 +145,9 @@ export const toProcessPOEnvelope = (jwo: ProcessJwo): any => {
       case 'STOCK_UPDATED':
       case 'QUALITY_CHECKED':
       case 'RECEIVED':
-      case 'PARTIALLY_RECEIVED':
         return 'RECEIVED';
+      case 'PARTIALLY_RECEIVED':
+        return 'PARTIALLY_RECEIVED';
       case 'ISSUED':
       case 'IN_TRANSIT':
       case 'AT_PROCESSOR':

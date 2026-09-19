@@ -45,7 +45,7 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/elastic.controller.ts
-route: /elastics/new
+route: /materials/elastic/new
 ---
 
 ## Before you start
@@ -56,7 +56,7 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 2. Click **Add Trim** at the top right. Under **Threads & Tapes** choose **New Elastic**.
    (Alternative: open the **Elastic** card on the dashboard and click **+ Add New Elastic** on the **Elastic Management** list.)
 3. The form opens with the heading **Create New Elastic**.
-4. **Elastic Code** is greyed out and marked **Auto-generated** — the system assigns it on save (ELA-000001, ELA-000002 …). Ignore the sample text in the box; the real prefix is ELA.
+4. **Elastic Code** is greyed out and marked **Auto-generated** — the system assigns it on save (ELA-0001, ELA-0002 …). Ignore the sample text in the box ("ELS-000001"); real codes start with ELA and have four digits.
 5. **Elastic Name**: leave it empty. It is built automatically in this order: Colour, Elastic Type, the word "Elastic", Width ("25mm"), then Composition. If you filled **Buyer Code**, it goes in front in square brackets. If you fill nothing, the name falls back to "Elastic" plus the code. Type a name only to override.
 6. Fill the **Elastic Information** fields you know: **Buyer Code**, **Width (mm)**, **Stretch Percent (%)**, **Color**, **Composition**, **Elastic Type**. All are optional.
 7. **Color** is chosen from the Color Master dropdown, not typed. If the shade is missing, use the **add a new color** link (opens in a new tab), create it, then come back.
@@ -71,3 +71,7 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 16. Click **Create Elastic**. You return to the **Elastic Management** list with the new code shown. **Cancel** returns to the list without saving.
 
 Note: unlike Buttons and Zippers, the Elastic form has **no Style Associations section** — elastic cannot be tagged to styles here. Link it through the style's BOM instead. To edit later, open the elastic from the list, click **Edit**, and press **Update Elastic**; the code never changes.
+
+## Traps
+
+- If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

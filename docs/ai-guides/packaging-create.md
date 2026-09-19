@@ -62,7 +62,7 @@ sources:
   - backend/src/middleware/validation.middleware.ts
   - backend/src/controllers/packaging.controller.ts
   - backend/src/utils/code-generator.ts
-route: /packaging/new
+route: /materials/packaging/new
 ---
 
 ## Before you start
@@ -86,3 +86,7 @@ Nothing is mandatory first. To link a supplier, that supplier must already exist
 15. Click **Create Packaging**. You land back on the **Packaging Management** list.
 
 To change it later, open the item and use **Update Packaging**. The name box shows the saved name and does not change by itself when you edit Material, Packaging Type or Size — clear the **Packaging Name** box and save to have it rebuilt from the current attributes. Supplier rows save on update the same way as on create. The code can never be changed.
+
+## Traps
+
+- If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

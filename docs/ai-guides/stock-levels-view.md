@@ -24,7 +24,7 @@ sources:
   - frontend/src/pages/StockLevelList.tsx
   - frontend/src/pages/StockDashboard.tsx
   - frontend/src/components/WarehouseCombobox.tsx
-route: /stock/levels
+route: /inventory/stock-levels
 ---
 
 ## Steps
@@ -45,3 +45,7 @@ route: /stock/levels
 - For a summary of the whole inventory instead of a list, open **Inventory → Inventory Dashboard** (the page is titled **Unified Inventory Dashboard**). Its **Finished Fabric Stock** and **Generic Greige Stock** cards each have a **View Details** button, and the **Trim & Accessories Stock** card has **View All Stock Levels**. The greige card shows five tiles: **Total Meters**, **Total Value**, **Bales**, **Thans** and **Aging (>180d)**.
 - Greige and finished fabric also have their own detailed screens: **Inventory → Greige Stock** and **Inventory → Fabric Stock**. Use those when you need roll numbers, lot detail or ageing.
 - This screen is read-only. To change a quantity use **Inventory → Material Movements** (Stock In, Stock Out, Transfer, Adjustment) or **Inventory → Stock Counts**.
+
+## Traps
+
+- If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

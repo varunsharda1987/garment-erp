@@ -59,4 +59,5 @@ Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) a
 - Approval is one-way from this screen — you cannot re-approve or re-edit an Accepted GRN here.
 - If two people approve the same GRN at once, the second one gets "GRN is no longer PENDING_QC". Refresh and check the status.
 - An inactive warehouse is rejected. Pick an active one.
+- Reversing a **Job work return** takes back only that receipt's lot and inward challan. A job received in parts keeps its other parts; its total is recomputed, and if the reversed receipt was the final delivery the job goes back to **Partial Receipt** so the last delivery can be entered again.
 - A **Job work return** cannot be rejected or re-approved here — it is already accepted. If the count was wrong, ask an admin to reverse it: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved.

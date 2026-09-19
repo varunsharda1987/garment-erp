@@ -48,6 +48,7 @@ export interface CreateChallanInput {
   productionRunId?: string;
   purchaseOrderId?: string;
   jobWorkOrderId?: string; // Phase 4a: header-level JWO attribution
+  grnId?: string; // The job-work receipt an INWARD challan was filed for — one per part (2026-09-19)
   fabricProcessingId?: string;
   fromType: string;
   fromId?: string;
@@ -131,6 +132,7 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
         productionRunId: input.productionRunId,
         purchaseOrderId: input.purchaseOrderId,
         jobWorkOrderId: input.jobWorkOrderId,
+        grnId: input.grnId,
         fabricProcessingId: input.fabricProcessingId,
         fromType: input.fromType,
         fromId: input.fromId,

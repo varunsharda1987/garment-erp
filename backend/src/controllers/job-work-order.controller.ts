@@ -87,9 +87,20 @@ const jwoInclude = {
   approvedBy: {
     select: { id: true, firstName: true, lastName: true, email: true },
   },
-  // The receipt filed when the job's material came back — shown on the job as "Return receipt".
+  // The latest receipt filed when the job's material came back.
   grn: {
     select: { id: true, grnNumber: true },
+  },
+  // Every accepted receipt — a job may come back in parts, one receipt (and one inward challan) each.
+  receivingGRNs: {
+    where: { status: 'ACCEPTED' as const },
+    select: {
+      id: true,
+      grnNumber: true,
+      receivingDate: true,
+      grn_items: { select: { acceptedQuantity: true, receivedWidthInches: true, thanCount: true } },
+    },
+    orderBy: { receivingDate: 'asc' as const },
   },
   // Greige identity for greige-processing jobs: the issued lot's master post-issue,
   // and the requirement→BOM chain before a lot exists (MRP drafts have fabricId null).

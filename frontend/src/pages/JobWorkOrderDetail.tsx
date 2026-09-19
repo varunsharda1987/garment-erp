@@ -759,6 +759,18 @@ export default function JobWorkOrderDetail() {
                 </div>
               </div>
 
+              {jwo.jwoStatus === 'PARTIALLY_RECEIVED' && jwo.qtyBillable != null && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Received so far{' '}
+                  <span className="font-medium text-foreground">
+                    {(jwo.qtyReceivedMeters ?? 0).toFixed(2)} {jwo.uom}
+                  </span>{' '}
+                  of {jwo.qtyBillable.toFixed(2)} expected —{' '}
+                  {Math.max(0, jwo.qtyBillable - (jwo.qtyReceivedMeters ?? 0)).toFixed(2)} {jwo.uom} still to come. Tick
+                  "This is the final delivery" on the last receipt.
+                </p>
+              )}
+
               {/* Recorded at receipt and stored on the job — shown here rather than only on the receipt. */}
               {(jwo.thanCount != null || jwo.qualityGrade || jwo.defectMeters != null) && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -1062,16 +1074,50 @@ export default function JobWorkOrderDetail() {
                 </Button>
               )}
 
-              {jwo.grn && (
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate(`/procurement/grn/${jwo.grn!.id}`)}
-                >
-                  <PackageCheck className="mr-2 h-4 w-4" />
-                  Return receipt {jwo.grn.grnNumber}
-                </Button>
-              )}
+              {(() => {
+                // A job may come back in parts — one receipt each. Older payloads carry only the
+                // latest receipt on `grn`, so that stays as the fallback.
+                const receipts = jwo.receivingGRNs?.length
+                  ? jwo.receivingGRNs
+                  : jwo.grn
+                    ? [
+                        {
+                          id: jwo.grn.id,
+                          grnNumber: jwo.grn.grnNumber,
+                          receivingDate: jwo.receivedDate ?? '',
+                          items: [],
+                        },
+                      ]
+                    : [];
+                if (receipts.length === 0) return null;
+                return (
+                  <div className="space-y-1 pt-1">
+                    <Label className="text-muted-foreground">
+                      {receipts.length > 1 ? `Return receipts (${receipts.length})` : 'Return receipt'}
+                    </Label>
+                    {receipts.map((r) => {
+                      const qty = r.items?.[0]?.acceptedQuantity;
+                      return (
+                        <Button
+                          key={r.id}
+                          variant="outline"
+                          className="w-full justify-between"
+                          onClick={() => navigate(`/procurement/grn/${r.id}`)}
+                        >
+                          <span className="flex items-center">
+                            <PackageCheck className="mr-2 h-4 w-4" />
+                            {r.grnNumber}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {qty != null ? `${Number(qty).toFixed(2)} ${jwo.uom}` : ''}
+                            {r.receivingDate ? ` · ${format(new Date(r.receivingDate), 'dd-MMM-yyyy')}` : ''}
+                          </span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
 

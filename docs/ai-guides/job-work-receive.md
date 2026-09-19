@@ -25,7 +25,16 @@ keywords:
   - than count
   - fold length
   - inward challan
+  - partial receipt
+  - receive in parts
+  - final delivery
+  - two deliveries
+  - aadha maal aaya
+  - kishton mein
   - रिसीव फ्रॉम प्रोसेसर
+  - आधा माल आया
+  - किश्तों में
+  - आखिरी डिलीवरी
   - मिल से माल आया
   - लेस वापस
   - माल वापस
@@ -62,7 +71,7 @@ route: /job-work-orders
 ---
 
 ## Before you start
-The job work order must already be out with the processor — status **Issued**, **In Transit**, **At Processor** or **Partial Receipt** (the Dyeing & Printing page shows it as **At Mill**). A **Draft** or **Approved** order has not been sent yet: use **Issue to Processor** (or **Send to Mill**) first. A **Cancelled** or **Closed** order cannot be received — its material was already credited back to stock.
+The job work order must already be out with the processor — status **Issued**, **In Transit**, **At Processor** or **Partial Receipt** (the Dyeing & Printing page shows these as **At Mill**, or **Partial Receipt** once a first part is in). A **Draft** or **Approved** order has not been sent yet: use **Issue to Processor** (or **Send to Mill**) first. A **Cancelled** or **Closed** order cannot be received — its material was already credited back to stock.
 
 Receiving is one action on the job. There is no GRN form to fill and no separate approval step: the receipt is filed for you, already accepted, and the stock is booked in the same moment.
 
@@ -71,7 +80,7 @@ Receiving is one action on the job. There is no GRN form to fill and no separate
 ### Open the dialog
 Any of these opens the same dialog, titled **Receive from** followed by the processor's name:
 - Open the job work order and click **Receive from processor** in the Actions card.
-- On **Manufacturing → Dyeing & Printing**, **Job Work Orders** tab, click the green **Receive from processor** icon in the Actions column on the job showing **At Mill** (the name shows when you hover). The same icon is on the Dyeing page and the Printing page.
+- On **Manufacturing → Dyeing & Printing**, **Job Work Orders** tab, click the green **Receive from processor** icon in the Actions column on the job showing **At Mill** or **Partial Receipt** (the name shows when you hover). The same icon is on the Dyeing page and the Printing page.
 
 ### Fill it in
 1. Read **Expected back** (or **Expected dyed lace**) — the quantity due back: the greige sent minus the expected shrinkage. **Maximum you can receive** appears once you start typing a quantity.
@@ -82,15 +91,25 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 6. **Their challan no.** — the processor's challan number.
 7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent.
 8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
-9. If the quantity is short beyond the job's tolerance, a warning appears naming the metres beyond the allowance and saying a debit note against the processor will be needed before the job can close. You can still go ahead.
-10. Click **Receive & add to stock**. The button stays disabled until you have a quantity, a warehouse and a valid date.
+9. **This is the final delivery** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. Tick it yourself to close the job short.
+10. If the quantity is short beyond the job's tolerance and the final-delivery box is ticked, a warning appears naming the metres beyond the allowance and saying a debit note against the processor will be needed before the job can close. You can still go ahead.
+11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked). The button stays disabled until you have a quantity, a warehouse and a valid date.
 
 ### What that one click does
-- Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job shows **Return receipt GRN-…** in its Actions card.
+- Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date and metres.
 - Books the finished fabric into fabric stock (dyed lace into lace stock) in the warehouse you chose, at the processing rate plus the greige cost.
 - Raises the **Inward** challan from the processor — the GST document for goods back from a job worker. **Print Inward Challan** appears on the job.
-- Writes the actual shrinkage %, than count, fold length, width and quality onto the job and moves it to **Stock Updated**.
-- Splits the loss into normal and abnormal, and advances any material requirement the job was covering.
+- Writes the than count, fold length, width and quality onto the job. On the final delivery it also writes the actual shrinkage % and moves the job to **Stock Updated**; a part leaves it at **Partial Receipt**.
+- On the final delivery, splits the loss into normal and abnormal on the total of all parts. Every receipt advances any material requirement the job was covering by its own metres.
+
+## Receiving in parts
+A processor often returns a job in more than one delivery. Record each delivery as its own receipt:
+1. Open **Receive from processor** and enter the first delivery as above, with its own challan number and date.
+2. Untick **This is the final delivery** and click **Receive part & add to stock**. That part is in stock with its own inward challan, and the job shows **Partial Receipt** with **Received so far … of … expected — … still to come** in its Quantities card.
+3. For the next delivery open the dialog again. It shows **Received so far** and **Maximum you can still receive**, and the final-delivery box ticks itself once the total is reached. Leave it ticked on the last delivery and click **Receive & add to stock**.
+4. The job moves to **Stock Updated**. Shrinkage and the loss split are worked out once, on the total of all parts, and the Actions card lists every **Return receipt**.
+
+If a part was recorded wrongly, an admin reverses that one receipt: its lot and inward challan go, the other parts stay, and the job's total is recomputed. Reversing the final part re-opens the job as **Partial Receipt**, so the last delivery can be entered again.
 
 ## Piece work coming back (stitching, washing, handwork, kaaj-button)
 1. Open **Manufacturing → Job Work Dashboard**, click **Job Work Orders**, then open the order.
@@ -101,13 +120,14 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 ## After receiving
 - If there is abnormal loss you are told when you receive, and an **Abnormal Loss Detected** banner shows on the job work order. A debit note against the processor is required.
 - Click **Close Order** on the job work order and enter **Processor Invoice Number \*** to finish the order. Closing is refused while abnormal loss has no debit note.
-- If the count was wrong, ask an admin to reverse the receipt: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved.
+- If the count was wrong, ask an admin to reverse the receipt: that takes back that receipt's lot and cancels its inward challan (other parts of the same job stay), and is refused once any of that material has been used or reserved.
 
 ## Traps
-- **Receive from processor** only shows once the job has gone out (**Issued**, **In Transit**, **At Processor**, **Partial Receipt**; **At Mill** on the Dyeing & Printing page). A **Draft** job has not been sent — use **Issue to Processor** first.
-- One receipt per job. A job that has already been received is refused with "has already been received" — do not click again after a slow response; open the job and check its status.
+- **Receive from processor** only shows once the job has gone out (**Issued**, **In Transit**, **At Processor**, **Partial Receipt**; **At Mill** or **Partial Receipt** on the Dyeing & Printing page). A **Draft** job has not been sent — use **Issue to Processor** first.
+- A job that has had its final delivery is refused with "has already been received" — do not click again after a slow response; open the job and check its status. To receive in parts, untick **This is the final delivery** on every part but the last.
 - **Fold length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
-- Receiving more than **Maximum you can receive** is refused; the message shows the maximum.
+- Receiving more than **Maximum you can receive** is refused; the message shows the maximum. With parts the cap is on the total of all parts, and the message names the metres already received.
+- The final-delivery box follows the quantity only until you click it; after that it stays as you set it until the dialog is next opened.
 - A receipt with no quantity is refused with "Received quantity must be greater than 0" — nothing is written.
 - A return dated before the day the greige was sent is refused: "Date received 27-Aug-2026 is before the day the greige was sent (19-Sep-2026)". The date field will not go earlier than the send day.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

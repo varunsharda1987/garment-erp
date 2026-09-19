@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Requirement Form — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  /* ── Whose document this is ──────────────────────────────────────────────
+     Every other kf template opens with the Kashaya Fabs masthead, because every other kf
+     document is OURS — we issue it. This one is not. The Test Requirement Form belongs to
+     Lifestyle International (Easy Buy) and is submitted to Intertek; Kashaya Fabs is only
+     the applicant filling it in, and appears in the "Applicant Name & Billing Information"
+     and "Manufacturer's Name" fields exactly as on the buyer's original. So this template
+     deliberately does NOT use the {{> mast}} partial — printing our letterhead on a lab's
+     intake form would misattribute the document.
+
+     Layout follows the buyer's own file field for field, in their order, as a bordered
+     4-column table (label | value | label | value). That is not decoration: Intertek reads
+     hundreds of these from different vendors and matches them against their own master, so
+     a sheet that reflows the fields into a nicer grid is a sheet their intake desk has to
+     re-read. Ours should look like the one they already know.
+
+     Assets all come from the buyer's own .docx (word/media/): the Easy Buy mark was an EMF
+     and has been rasterised; the Intertek mark and the Terms & Conditions page are their
+     originals, unmodified. */
+
+  .trf-mast{display:flex; align-items:center; justify-content:space-between; gap:16px;
+            padding-bottom:7px;}
+  .trf-mast img.eb{height:26px; width:auto; flex:none;}
+  .trf-mast img.itk{height:24px; width:auto; flex:none;}
+  .trf-mast .who{text-align:center; flex:1;}
+  .trf-mast .who .buyer{font-size:11.5px; font-weight:600;}
+  .trf-mast .who h1{margin:2px 0 0; font-size:11px; letter-spacing:2.2px;
+                    text-transform:uppercase; font-weight:600;}
+  .trf-mast .who .docno{font-family:'IBM Plex Mono',monospace; font-size:10px;
+                        font-weight:600; color:var(--ink-2); margin-top:1px;}
+
+  /* The form table. Thin rules on every cell, as the buyer's. base.css tables are
+     bottom-ruled only — right for a statement, wrong for a form. */
+  table.form{width:100%; border-collapse:collapse; table-layout:fixed;
+             border:1px solid var(--rule-hard); font-size:9px;}
+  table.form td{border:1px solid var(--rule); padding:2px 5px; vertical-align:top;
+                line-height:1.35; word-break:break-word;}
+  table.form td.k{background:var(--wash); font-family:'IBM Plex Mono',monospace;
+                  font-size:7.5px; letter-spacing:.3px; text-transform:uppercase;
+                  color:var(--ink-2); white-space:normal;}
+  table.form td.v{font-weight:500;}
+  table.form td.band{background:var(--wash); font-family:'IBM Plex Mono',monospace;
+                     font-size:7.5px; letter-spacing:1.2px; text-transform:uppercase;
+                     color:var(--ink-2); text-align:center;}
+  /* A value we do not hold: hatched, for hand-fill. Never an em-dash — on a lab form that
+     would read as "not applicable", which is a different claim from "not recorded". */
+  td.v.hand{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+            rgba(0,0,0,.05) 5px,rgba(0,0,0,.05) 10px);}
+  td.office{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+            rgba(0,0,0,.05) 5px,rgba(0,0,0,.05) 10px);}
+
+  /* The TICK. No kf document has ever had a checkbox, because a kf document is a statement.
+     A buyer's TRF is a form — ~60 boxes a lab reads. Two rules keep it inside the system:
+     ticks are SYSTEM-populated so they are never hatched (base.css reserves the hatch for
+     hand-fill, and inverting that breaks the one convention the design system turns on);
+     and no new colour — the tick is --ink on --paper. */
+  .tick{display:inline-block; width:7px; height:7px; margin-right:3px; flex:none;
+        border:1px solid var(--rule-hard); background:var(--paper); vertical-align:-1px;}
+  .tick.on{background:var(--ink); box-shadow:inset 0 0 0 1.5px var(--paper);}
+  .opts{display:flex; flex-wrap:wrap; gap:0 12px;}
+  .opts span{display:inline-flex; align-items:center; white-space:nowrap;}
+  .yn{display:inline-flex; gap:10px; white-space:nowrap;}
+  .yn span{display:inline-flex; align-items:center;}
+
+  /* The three printed columns of the buyer's sub-grid and test grid. */
+  .cols3{display:grid; grid-template-columns:repeat(3,1fr); column-gap:10px;}
+  .cols3 .col{display:flex; flex-direction:column; gap:0;}
+  .cols3 .col > span{display:flex; align-items:flex-start; line-height:1.35;}
+  .cols3 .col > span .tick{margin-top:1.5px;}
+
+  .lab-foot{margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:7px;
+            line-height:1.5; letter-spacing:.3px; color:var(--ink-2); text-align:center;}
+  .note{font-size:7.5px; color:var(--ink-2); font-family:'IBM Plex Mono',monospace;
+        margin-top:4px; line-height:1.45;}
+
+  /* Page 2 — Intertek's Terms and Conditions of Business, their artwork unaltered.
+     The scan is 1100x1796, i.e. taller than A4's proportions: at full width it would be
+     310mm against the 277mm the page allows, and spill onto a third sheet. So it is bounded
+     by HEIGHT and centred, which keeps all 17 clauses on one page and legible. */
+  .terms-sheet{display:flex; align-items:flex-start; justify-content:center;}
+  .terms-sheet img{display:block; width:auto; height:auto;
+                   max-width:100%; max-height:276mm; break-inside:avoid;}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ PAGE 1 — the form ══════════════ -->
+<div class="sheet">
+
+  <div class="trf-mast">
+    <img class="eb" src="assets/easybuy-logo.png" alt="Easy Buy">
+    <div class="who">
+      <div class="buyer">Lifestyle International Pvt Ltd &mdash; Easy Buy</div>
+      <h1>Test Requirement Form</h1>
+      <div class="docno">{{docNo}} &middot; {{trfDate}}</div>
+    </div>
+    <img class="itk" src="assets/intertek-logo.jpg" alt="Intertek">
+  </div>
+
+  <table class="form">
+    <colgroup><col style="width:19%"><col style="width:31%"><col style="width:19%"><col style="width:31%"></colgroup>
+
+    <tr>
+      <td class="k">{{f.applicantName.label}}</td>
+      <td class="v{{#if f.applicantName.hand}} hand{{/if}}">{{f.applicantName.value}}</td>
+      <td class="k">Office Use Only:</td>
+      <td class="office" rowspan="2"></td>
+    </tr>
+    <tr>
+      <td class="k">{{f.address.label}}</td>
+      <td class="v{{#if f.address.hand}} hand{{/if}}" colspan="2">{{f.address.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.contactName.label}}</td>
+      <td class="v{{#if f.contactName.hand}} hand{{/if}}">{{f.contactName.value}}</td>
+      <td class="k">{{f.tel.label}}</td>
+      <td class="v{{#if f.tel.hand}} hand{{/if}}">{{f.tel.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.email.label}}</td>
+      <td class="v{{#if f.email.hand}} hand{{/if}}" colspan="3">{{f.email.value}}</td>
+    </tr>
+    <tr>
+      <td class="k" rowspan="2">Easy Buy Merchandise:</td>
+      <td class="k" style="background:transparent">Name:</td>
+      <td class="v{{#if f.merchandiserName.hand}} hand{{/if}}" colspan="2">{{f.merchandiserName.value}}</td>
+    </tr>
+    <tr>
+      <td class="k" style="background:transparent">E-Mail I&rsquo;d:</td>
+      <td class="v{{#if f.merchandiserEmail.hand}} hand{{/if}}" colspan="2">{{f.merchandiserEmail.value}}</td>
+    </tr>
+
+    <tr>
+      <td class="k">{{f.sampleDescription.label}}</td>
+      <td class="v{{#if f.sampleDescription.hand}} hand{{/if}}">{{f.sampleDescription.value}}</td>
+      <td class="k">{{f.boNumber.label}}</td>
+      <td class="v{{#if f.boNumber.hand}} hand{{/if}}">{{f.boNumber.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.styleNo.label}}</td>
+      <td class="v{{#if f.styleNo.hand}} hand{{/if}}">{{f.styleNo.value}}</td>
+      <td class="k">{{f.colour.label}}</td>
+      <td class="v{{#if f.colour.hand}} hand{{/if}}">{{f.colour.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.fibreContent.label}}</td>
+      <td class="v{{#if f.fibreContent.hand}} hand{{/if}}">{{f.fibreContent.value}}</td>
+      <td class="k">{{f.ageRangeCategory.label}}</td>
+      <td class="v{{#if f.ageRangeCategory.hand}} hand{{/if}}">{{f.ageRangeCategory.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.endUse.label}}</td>
+      <td class="v{{#if f.endUse.hand}} hand{{/if}}">{{f.endUse.value}}</td>
+      <td class="k">{{f.orderNumber.label}}</td>
+      <td class="v{{#if f.orderNumber.hand}} hand{{/if}}">{{f.orderNumber.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.fabricWeight.label}}</td>
+      <td class="v{{#if f.fabricWeight.hand}} hand{{/if}}">{{f.fabricWeight.value}}</td>
+      <td class="k">{{f.yarnCount.label}}</td>
+      <td class="v{{#if f.yarnCount.hand}} hand{{/if}}">{{f.yarnCount.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.season.label}}</td>
+      <td class="v{{#if f.season.hand}} hand{{/if}}">{{f.season.value}}</td>
+      <td class="k">{{f.construction.label}}</td>
+      <td class="v{{#if f.construction.hand}} hand{{/if}}">{{f.construction.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.manufacturerName.label}}</td>
+      <td class="v{{#if f.manufacturerName.hand}} hand{{/if}}">{{f.manufacturerName.value}}</td>
+      <td class="k">Sample Testing stage:</td>
+      <td class="v"><span class="opts">{{#each stageTicks}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}</span></td>
+    </tr>
+    <tr>
+      <td class="k">{{f.brandName.label}}</td>
+      <td class="v{{#if f.brandName.hand}} hand{{/if}}">{{f.brandName.value}}</td>
+      <td class="k">{{f.fabricSupplierName.label}}</td>
+      <td class="v{{#if f.fabricSupplierName.hand}} hand{{/if}}">{{f.fabricSupplierName.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.dyeingHouse.label}}</td>
+      <td class="v{{#if f.dyeingHouse.hand}} hand{{/if}}">{{f.dyeingHouse.value}}</td>
+      <td class="k">{{f.vendorCode.label}}</td>
+      <td class="v{{#if f.vendorCode.hand}} hand{{/if}}">{{f.vendorCode.value}}</td>
+    </tr>
+    <tr>
+      <td class="k">{{f.processingHouse.label}}</td>
+      <td class="v{{#if f.processingHouse.hand}} hand{{/if}}">{{f.processingHouse.value}}</td>
+      <td class="k">Contrast/Trim Fabric is used within Garment</td>
+      <td class="v">
+        <span class="yn">
+          <span><i class="tick{{#if yn.contrast.yes}} on{{/if}}"></i>YES</span>
+          <span><i class="tick{{#if yn.contrast.no}} on{{/if}}"></i>NO</span>
+        </span>
+      </td>
+    </tr>
+    <tr>
+      <td class="k">Style With Sets Packing Together with Different Color</td>
+      <td class="v">
+        <span class="yn">
+          <span><i class="tick{{#if yn.sets.yes}} on{{/if}}"></i>YES</span>
+          <span><i class="tick{{#if yn.sets.no}} on{{/if}}"></i>NO</span>
+        </span>
+      </td>
+      <td class="k">{{f.washCareCode.label}}</td>
+      <td class="v{{#if f.washCareCode.hand}} hand{{/if}}">{{f.washCareCode.value}}</td>
+    </tr>
+
+    <tr>
+      <td class="k">Finish Type:</td>
+      <td class="v" colspan="3"><span class="opts">{{#each finishTicks}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}</span></td>
+    </tr>
+
+    <tr>
+      <td class="k">Buying Dept.:</td>
+      <td class="v" colspan="3">
+        <span class="opts" style="margin-bottom:2px">{{#each departmentTicks}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}</span>
+        <div class="cols3">
+          {{#each subCategoryColumns}}
+          <div class="col">{{#each this}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}</div>
+          {{/each}}
+        </div>
+      </td>
+    </tr>
+
+    <tr><td class="band" colspan="4">Packages</td></tr>
+    <tr>
+      <td class="v" colspan="4">
+        <span class="opts">
+          {{#each packageTicks}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}
+          <span>Previous Report No: {{#if previousReportNo}}<b style="margin-left:4px">{{previousReportNo}}</b>{{else}}<i style="display:inline-block; width:90px; border-bottom:1px solid var(--rule); margin-left:4px"></i>{{/if}}</span>
+        </span>
+      </td>
+    </tr>
+
+    <tr><td class="band" colspan="4">Individual Test</td></tr>
+    <!-- One cell spanning the table, with the three printed columns as an even grid inside.
+         Splitting them across the table's own 19/31/19/31 columns makes them unequal and
+         wraps half the labels; the buyer prints three equal columns. -->
+    <tr>
+      <td class="v" colspan="4">
+        <div class="cols3">
+          {{#each testColumns}}
+          <div class="col">{{#each this}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}</div>
+          {{/each}}
+        </div>
+      </td>
+    </tr>
+
+    <tr>
+      <td class="k">Service Required:</td>
+      <td class="v" colspan="3"><span class="opts">{{#each serviceTicks}}<span><i class="tick{{#if this.on}} on{{/if}}"></i>{{this.label}}</span>{{/each}}</span></td>
+    </tr>
+    <tr>
+      <td class="k">Report Delivery Service:</td>
+      <td class="v">
+        <span class="yn">
+          <span><i class="tick{{#if yn.report.yes}} on{{/if}}"></i>Yes</span>
+          <span><i class="tick{{#if yn.report.no}} on{{/if}}"></i>No</span>
+        </span>
+      </td>
+      <td class="k">Return Remained Sample:</td>
+      <td class="v">
+        <span class="yn">
+          <span><i class="tick{{#if yn.return.yes}} on{{/if}}"></i>Yes</span>
+          <span><i class="tick{{#if yn.return.no}} on{{/if}}"></i>No</span>
+        </span>
+      </td>
+    </tr>
+  </table>
+
+  {{#if remarks}}<div class="note">Remarks: {{remarks}}</div>{{/if}}
+  {{#if handFilled.length}}
+  <div class="note">Hatched fields are to be completed by hand: {{#each handFilled}}{{this}}{{#unless @last}}; {{/unless}}{{/each}}</div>
+  {{/if}}
+
+  <div class="sign">
+    <div>Submitted By</div>
+    <div>Received By (Lab)</div>
+    <div>Date</div>
+  </div>
+
+  <!-- Intertek's own footer, transcribed from the buyer's file. This is the lab's address,
+       not ours — our details are the applicant block at the top of the table. -->
+  <div class="lab-foot">
+    Intertek India Pvt. Ltd. &middot; 17/F, Industrial Suburb, 2nd Stage Industrial Area, Yeshwanthpur, Bangalore &ndash; 560022<br>
+    T: +91 &ndash; 80 4021 3700 &nbsp;&middot;&nbsp; F: +91 &ndash; 80 4021 3960 &nbsp;&middot;&nbsp; E: labtest.india@intertek.com
+  </div>
+
+</div>
+
+<!-- ══════════════ PAGE 2 — Intertek's Terms and Conditions ══════════════
+     Their artwork, reproduced unaltered, exactly as it appears in the buyer's file. Not
+     retyped on purpose: these are contract terms, and a transcription error in a liability
+     clause would be ours to answer for. -->
+<div class="sheet terms-sheet">
+  <img src="assets/intertek-terms.png" alt="Intertek Testing Services India Pvt. Limited — Terms and Conditions of Business">
+</div>
+
+</body>
+</html>

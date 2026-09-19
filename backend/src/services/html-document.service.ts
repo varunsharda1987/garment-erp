@@ -30,7 +30,10 @@ export type KfTemplateName =
   | 'tech-pack'
   | 'line-sheet'
   | 'catalogue'
-  | 'cost-sheet';
+  | 'cost-sheet'
+  // Phase C — a BUYER's own form reproduced, not a kf document. Same design system, but the
+  // layout and wording belong to the buyer and must match what their lab expects.
+  | 'buyer-trf';
 
 // Resolves from both src/ (ts-node/tests) and dist/ (production build)
 const TEMPLATE_DIR = path.join(__dirname, '..', '..', 'templates', 'kf');

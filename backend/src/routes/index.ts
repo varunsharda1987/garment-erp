@@ -112,6 +112,7 @@ import testTemplatesRoutes from './testTemplates.routes';
 
 import fabricPhysicalTestsRoutes from './fabricPhysicalTests.routes';
 import garmentPhysicalTestsRoutes from './garmentPhysicalTests.routes';
+import buyerTrfRoutes from './buyerTrf.routes';
 import productionStatusRoutes from './productionStatus.routes';
 import productCategoryRoutes from './productCategory.routes';
 import conversationRoutes from './conversation.routes';
@@ -391,12 +392,13 @@ export function createApiRouter(): Router {
   // Manufacturing Control Center (Alerts + Vendor Tracker)
   router.use('/manufacturing', manufacturingRoutes);
 
-  // Testing Module (Labs, Templates, FPT, GPT)
+  // Testing Module (Labs, Templates, FPT, GPT, buyer TRFs)
   router.use('/testing-labs', testingLabsRoutes);
   router.use('/test-templates', testTemplatesRoutes);
 
   router.use('/fabric-physical-tests', fabricPhysicalTestsRoutes);
   router.use('/garment-physical-tests', garmentPhysicalTestsRoutes);
+  router.use('/buyer-trfs', buyerTrfRoutes);
 
   // Production Stage Validation & Blocking
   router.use('/stage-validation', stageValidationRoutes);

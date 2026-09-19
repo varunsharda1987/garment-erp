@@ -31,6 +31,7 @@ import { buildCuttingChartDocData } from './document-data/cutting-chart.doc-data
 import { buildLineSheetDocData } from './document-data/line-sheet.doc-data';
 import { buildCatalogueDocData } from './document-data/catalogue.doc-data';
 import { buildCostSheetDocData } from './document-data/cost-sheet.doc-data';
+import { buildBuyerTrfDocData } from './document-data/buyer-trf.doc-data';
 import logger from '../utils/logger';
 import { AppError } from '../errors';
 
@@ -254,6 +255,16 @@ export const documentFacadeService = {
   async generateCostSheetPDF(costingId: string): Promise<Buffer> {
     const data = await buildCostSheetDocData(costingId);
     return renderDocument('cost-sheet', data as unknown as Record<string, unknown>);
+  },
+
+  /**
+   * Buyer Test Requirement Form PDF — net-new, and deliberately NOT wrapped in
+   * withPdfkitFallback. There is no legacy generator to fall back to, and a silent fallback
+   * would send a buyer's lab a blank sheet. A missing renderer must surface as a 503.
+   */
+  async generateBuyerTrfPDF(trfId: string): Promise<Buffer> {
+    const data = await buildBuyerTrfDocData(trfId);
+    return renderDocument('buyer-trf', data as unknown as Record<string, unknown>);
   },
 };
 

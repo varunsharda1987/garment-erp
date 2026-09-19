@@ -344,4 +344,19 @@ router.get(
   asyncHandler(documentController.generateCostSheetExcel.bind(documentController))
 );
 
+// ────────────────────────────────────────────────────────────────
+// Buyer Test Requirement Form
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/buyer-trfs/:id/pdf
+ * @desc    Generate the buyer's Test Requirement Form PDF (Easybuy → Intertek)
+ * @access  Private
+ */
+router.get(
+  '/buyer-trfs/:id/pdf',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateBuyerTrfPDF.bind(documentController))
+);
+
 export default router;

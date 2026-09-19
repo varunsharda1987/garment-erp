@@ -18,6 +18,7 @@
  * - All records are created with a unique per-run prefix and deleted in afterAll.
  */
 
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
@@ -143,6 +144,11 @@ afterAll(async () => {
   await prisma.color_master.deleteMany({ where: { colorName: { startsWith: RUN } } });
   // issue_reports reference the test user — delete them first or the user delete hits its FK
   await prisma.issue_reports.deleteMany({ where: { title: { startsWith: RUN } } });
+  // Same for TRFs (createdById). The TRF block cleans up its own, but a failure mid-block
+  // would otherwise leave a row that blocks the user delete and fails the whole file's teardown.
+  await prisma.buyer_test_requirement_forms.deleteMany({
+    where: { trfNumber: { startsWith: 'TRF-' }, createdById: only(testUserId) },
+  });
   await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
@@ -483,5 +489,168 @@ describe.each(MODULES)('$name — create/update round-trip persists every field'
       if (spec.derived?.includes(key)) continue;
       expectFieldPersisted(fetched, key, sent);
     }
+  });
+});
+
+/**
+ * Buyer Test Requirement Form — bespoke round-trip.
+ *
+ * Bespoke rather than a MODULES entry because a TRF needs a customer, a style and a sale order
+ * to exist first (the same reason customer accessory presets are bespoke above).
+ *
+ * Three things here are not covered anywhere else in the suite and are the reason it exists:
+ *
+ *  1. **Enum array columns.** `selectedTests` and `buyingSubCategories` are Prisma enum[], a
+ *     shape used in exactly one other place in 226 models — so the serializer path for it is
+ *     effectively unproven. An array that silently comes back reordered or emptied would mean a
+ *     lab is sent the wrong tests.
+ *  2. **Tri-state booleans.** null means "neither YES nor NO ticked" and must survive as null;
+ *     coerced to false the printed form asserts a "NO" nobody chose.
+ *  3. **The anchor XOR**, at all three layers — Zod on create, the service's merged check on
+ *     update, and (implicitly) the DB constraint behind them.
+ */
+describe('buyer TRF — round-trip, enum arrays, tri-state nulls and the anchor rule', () => {
+  const base = '/api/buyer-trfs';
+  let customerId: string;
+  let styleId: string;
+  let saleOrderId: string;
+  let trfId: string;
+
+  const createBody = () => ({
+    styleId,
+    saleOrderId,
+    buyingDepartment: 'WOMENS_WEAR',
+    sampleDescription: 'TUNIC',
+    endUse: 'TUNIC(TOP)',
+    fibreContent: '100% RAYON',
+    season: 'S10-26',
+    yarnCount: '30*30',
+    construction: '68*46',
+    washCareCode: 'RN-6',
+    vendorCode: '205577',
+    packageType: 'WOVEN',
+    sampleStage: 'PP',
+    finishType: 'GARMENT_WASH',
+    serviceRequired: 'EXPRESS',
+    buyingSubCategories: ['WOMENS_DENIM', 'WOMENS_SMART'],
+    selectedTests: ['COLOR_FASTNESS_WASHING', 'PH_VALUE', 'FIBER_CONTENT'],
+    reportDeliveryService: true,
+    returnRemainedSample: false,
+    contrastTrimUsed: false,
+    setsPackingDifferentColour: null,
+  });
+
+  beforeAll(async () => {
+    const customer = await prisma.customers.create({
+      data: {
+        code: `${RUN}-TRFC`,
+        name: `${RUN} TRF Buyer`,
+        type: 'BUYER',
+        category: 'DOMESTIC',
+        vendorCode: '205577',
+        createdById: testUserId,
+      },
+    });
+    customerId = customer.id;
+
+    // styles.id has no @default — the service layer supplies it, so the fixture must too.
+    const style = await prisma.styles.create({
+      data: {
+        id: randomUUID(),
+        styleCode: `${RUN}-STY`,
+        styleName: `${RUN} Tunic`,
+        customerName: `${RUN} TRF Buyer`,
+        gender: 'WOMEN',
+        createdById: testUserId,
+      },
+    });
+    styleId = style.id;
+
+    const so = await prisma.sale_orders.create({
+      data: {
+        saleOrderNumber: `${RUN}-SO`,
+        buyerPoNumber: `${RUN}-PO`,
+        customerId,
+        createdById: testUserId,
+      },
+    });
+    saleOrderId = so.id;
+  });
+
+  it('creates with a sale-order anchor and reads every sent field back', async () => {
+    const sent = createBody();
+    const res = await request(app).post(base).set(authHeader).send(sent).expect(201);
+    trfId = (res.body.data as { id: string }).id;
+
+    const fetched = await readBack(base, trfId);
+    for (const [key, value] of Object.entries(sent)) {
+      if (key === 'styleId' || key === 'saleOrderId') continue; // relations, checked below
+      if (Array.isArray(value)) continue; // asserted verbatim in the next test
+      expectFieldPersisted(fetched, key, value);
+    }
+    expect(fetched.styleId).toBe(styleId);
+    expect(fetched.saleOrderId).toBe(saleOrderId);
+    expect(fetched.workOrderId).toBeNull();
+    expect(String(fetched.trfNumber)).toMatch(/^TRF-\d{4}$/);
+  });
+
+  it('round-trips both enum array columns verbatim, order included', async () => {
+    const fetched = await readBack(base, trfId);
+    expect(fetched.selectedTests).toEqual(['COLOR_FASTNESS_WASHING', 'PH_VALUE', 'FIBER_CONTENT']);
+    expect(fetched.buyingSubCategories).toEqual(['WOMENS_DENIM', 'WOMENS_SMART']);
+  });
+
+  it('keeps a tri-state null as null and a real false as false', async () => {
+    const fetched = await readBack(base, trfId);
+    // The distinction the printed form depends on: null prints two empty boxes, false prints NO.
+    expect(fetched.setsPackingDifferentColour).toBeNull();
+    expect(fetched.contrastTrimUsed).toBe(false);
+    expect(fetched.returnRemainedSample).toBe(false);
+    expect(fetched.reportDeliveryService).toBe(true);
+  });
+
+  it('does not let the prefill overwrite an edited fibre content', async () => {
+    // The merchant types the buyer's trade name over ours; create() must not put "Viscose" back.
+    const fetched = await readBack(base, trfId);
+    expect(fetched.fibreContent).toBe('100% RAYON');
+  });
+
+  it('updates and reads the changed fields back', async () => {
+    const update = { washCareCode: 'RN-1', remarks: `${RUN} second submission`, sampleStage: 'SHIPMENT' };
+    await request(app).put(`${base}/${trfId}`).set(authHeader).send(update).expect(200);
+
+    const fetched = await readBack(base, trfId);
+    for (const [key, value] of Object.entries(update)) expectFieldPersisted(fetched, key, value);
+    // Untouched fields must survive an update.
+    expect(fetched.selectedTests).toEqual(['COLOR_FASTNESS_WASHING', 'PH_VALUE', 'FIBER_CONTENT']);
+    expect(fetched.season).toBe('S10-26');
+  });
+
+  it('refuses a create with BOTH anchors (400, not 500)', async () => {
+    const wo = await prisma.work_orders.findFirst({ select: { id: true } });
+    const body = { ...createBody(), workOrderId: wo?.id ?? randomUUID() };
+    await request(app).post(base).set(authHeader).send(body).expect(400);
+  });
+
+  it('refuses a create with NEITHER anchor', async () => {
+    const { saleOrderId: _omitted, ...body } = createBody();
+    await request(app).post(base).set(authHeader).send(body).expect(400);
+  });
+
+  it('refuses an update that would clear the only anchor', async () => {
+    // Decidable only against the stored row, so this pins the service-level merged guard
+    // rather than the Zod refine.
+    await request(app).put(`${base}/${trfId}`).set(authHeader).send({ saleOrderId: null }).expect(400);
+
+    const fetched = await readBack(base, trfId);
+    expect(fetched.saleOrderId).toBe(saleOrderId);
+  });
+
+  afterAll(async () => {
+    // FK order: TRFs reference the style, the sale order, the customer and the test user.
+    await prisma.buyer_test_requirement_forms.deleteMany({ where: { customerId } });
+    await prisma.sale_orders.deleteMany({ where: { saleOrderNumber: { startsWith: RUN } } });
+    await prisma.styles.deleteMany({ where: { styleCode: { startsWith: RUN } } });
+    await prisma.customers.deleteMany({ where: { id: only(customerId) } });
   });
 });

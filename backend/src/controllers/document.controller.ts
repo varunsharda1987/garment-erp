@@ -12,6 +12,7 @@
 import { Request, Response } from 'express';
 import documentGeneratorService, { CatalogueFilters, CatalogueOptions } from '../services/document-generator.service';
 import { documentFacadeService, RendererUnavailableError } from '../services/document-facade.service';
+import { buyerTrfService } from '../services/buyerTrf.service';
 import prisma from '../config/database';
 import path from 'path';
 import fs from 'fs';
@@ -744,6 +745,40 @@ class DocumentController {
       res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
       res.setHeader('Content-Length', pdfBuffer.length);
       res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof RendererUnavailableError) {
+        res.status(503).json({ success: false, message: error.message });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generate the buyer's Test Requirement Form PDF
+   * GET /api/documents/buyer-trfs/:id/pdf
+   *
+   * Inline, because this is printed and walked to the lab with the sample, not filed.
+   */
+  async generateBuyerTrfPDF(req: Request, res: Response) {
+    const { id } = req.params;
+
+    try {
+      const pdfBuffer = await documentFacadeService.generateBuyerTrfPDF(id);
+
+      const trf = await prisma.buyer_test_requirement_forms.findUnique({
+        where: { id },
+        select: { trfNumber: true, styleNo: true },
+      });
+
+      const filename = `TRF_${trf?.trfNumber ?? 'unknown'}_${trf?.styleNo ?? 'style'}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+
+      // After the response: a print counter must never be the reason a print fails.
+      buyerTrfService.recordPrint(id).catch(() => undefined);
     } catch (error) {
       if (error instanceof RendererUnavailableError) {
         res.status(503).json({ success: false, message: error.message });

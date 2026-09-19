@@ -390,7 +390,13 @@ model color_options {
 
 model customers {
   id                             String                           @id @default(uuid())
+  /// OUR code FOR this customer, auto-generated (e.g. "CUST-B2B-DOM-002").
+  /// The mirror of `vendorCode` below — do not confuse the two directions.
   code                           String
+  /// THEIR vendor code FOR US — the number we are registered under in the buyer's own
+  /// system (Easybuy = "205577"). Printed in the "Vendor Code" box of their Test
+  /// Requirement Form. The opposite direction to `code` above.
+  vendorCode                     String?                          @map("vendor_code")
   name                           String
   type                           CustomerType
   category                       CustomerCategory
@@ -461,6 +467,7 @@ model customers {
   packaging                      packaging_master[]
   quotations                     quotations[]
   samples                        samples[]
+  buyerTrfs                      buyer_test_requirement_forms[]
   styles                         styles[]
   credit_notes                   credit_notes[]
   sale_orders                    sale_orders[]
@@ -2610,7 +2617,7 @@ model style_material_bom {
 }
 
 model styles {
-  id                          String                       @id
+  id                          String                         @id
   // Partial unique index (WHERE isActive) added via raw SQL in harden_code_uniqueness migration
   styleCode                   String
   styleName                   String
@@ -2621,15 +2628,15 @@ model styles {
   description                 String?
   specifications              String?
   image                       String?
-  isActive                    Boolean                      @default(true)
-  status                      StyleStatus                  @default(DRAFT)
-  cadStatus                   CADStatus                    @default(PENDING)
+  isActive                    Boolean                        @default(true)
+  status                      StyleStatus                    @default(DRAFT)
+  cadStatus                   CADStatus                      @default(PENDING)
   approvedCadDate             DateTime?
-  costPrice                   Decimal?                     @db.Decimal(10, 2)
-  sellingPrice                Decimal?                     @db.Decimal(10, 2)
+  costPrice                   Decimal?                       @db.Decimal(10, 2)
+  sellingPrice                Decimal?                       @db.Decimal(10, 2)
   createdById                 String
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
   brandName                   String?
   customerId                  String?
   customerName                String?
@@ -2643,22 +2650,22 @@ model styles {
   accountingUnit              String?
   hsnCode                     String?
   productTaxRule              String?
-  buyerStyleRef               String?                      @map("buyer_style_ref")
+  buyerStyleRef               String?                        @map("buyer_style_ref")
   internalCode                String?
   numberOfComponents          Int?
   expectedOrderQuantity       Int?
-  productCategoryId           String?                      @map("product_category_id")
+  productCategoryId           String?                        @map("product_category_id")
   customerAccessoriesPresetId String?
   button_style_associations   button_style_associations[]
   color_options               color_options[]
   delivery_note_items         delivery_note_items[]
-  embroiderySendOuts          embroidery_send_out[]        @relation("EmbroideryForStyle")
+  embroiderySendOuts          embroidery_send_out[]          @relation("EmbroideryForStyle")
   fabric_physical_tests       fabric_physical_tests[]
-  procurementOrigins          fabric_procurement[]         @relation("ProcurementOriginStyle")
-  stockOrigins                fabric_stock[]               @relation("StockOriginStyle")
-  originalStyleAllocs         fabric_stock_allocation[]    @relation("OriginalStyle")
-  allocationStyles            fabric_stock_allocation[]    @relation("AllocationStyle")
-  fabricWidthCadCostings      fabric_width_cad[]           @relation("fabric_width_cad_costing_style")
+  procurementOrigins          fabric_procurement[]           @relation("ProcurementOriginStyle")
+  stockOrigins                fabric_stock[]                 @relation("StockOriginStyle")
+  originalStyleAllocs         fabric_stock_allocation[]      @relation("OriginalStyle")
+  allocationStyles            fabric_stock_allocation[]      @relation("AllocationStyle")
+  fabricWidthCadCostings      fabric_width_cad[]             @relation("fabric_width_cad_costing_style")
   fabricCostingRuns           fabric_costing_run[]
   finished_goods_stock        finished_goods_stock[]
   garment_physical_tests      garment_physical_tests[]
@@ -2670,6 +2677,7 @@ model styles {
   quality_inspections         quality_inspections[]
   quotation_items             quotation_items[]
   samples                     samples[]
+  buyerTrfs                   buyer_test_requirement_forms[]
   size_options                size_options[]
   style_components            style_components[]
   style_costing               style_costing[]
@@ -2679,34 +2687,34 @@ model styles {
   style_production_tracking   style_production_tracking[]
   style_value_additions       style_value_additions[]
   style_variants              style_variants[]
-  brand_categories            brand_categories?            @relation(fields: [brandCategoryId], references: [id])
-  customer                    customers?                   @relation(fields: [customerId], references: [id])
-  style_categories            style_categories?            @relation(fields: [categoryId], references: [id])
-  users                       users                        @relation(fields: [createdById], references: [id])
-  product_category            product_category_master?     @relation(fields: [productCategoryId], references: [id])
-  season_master               season_master?               @relation(fields: [seasonId], references: [id])
-  color                       color_master?                @relation("StyleColor", fields: [colorId], references: [id])
+  brand_categories            brand_categories?              @relation(fields: [brandCategoryId], references: [id])
+  customer                    customers?                     @relation(fields: [customerId], references: [id])
+  style_categories            style_categories?              @relation(fields: [categoryId], references: [id])
+  users                       users                          @relation(fields: [createdById], references: [id])
+  product_category            product_category_master?       @relation(fields: [productCategoryId], references: [id])
+  season_master               season_master?                 @relation(fields: [seasonId], references: [id])
+  color                       color_master?                  @relation("StyleColor", fields: [colorId], references: [id])
   thread_style_associations   thread_style_associations[]
   zipper_style_associations   zipper_style_associations[] // BUG-MM6 FIX
   work_orders                 work_orders[]
   stock_production_orders     stock_production_orders[]
   sale_order_items            sale_order_items[]
-  sale_orders                 sale_orders[]                @relation("so_primaryStyle")
+  sale_orders                 sale_orders[]                  @relation("so_primaryStyle")
   // Lace processing relations
-  laceStockOrigins            lace_stock[]                 @relation("lace_stock_origin_style")
-  laceAllocations             lace_stock_allocation[]      @relation("lace_allocation_style")
-  laceOriginalStyleAllocs     lace_stock_allocation[]      @relation("lace_allocation_original_style")
-  laceLabDips                 lace_lab_dip[]               @relation("lace_lab_dip_style")
-  laceIssueNotes              lace_issue_note[]            @relation("lace_issue_style")
-  lacesProcessedFor           lace_master[]                @relation("lace_processed_for_style")
+  laceStockOrigins            lace_stock[]                   @relation("lace_stock_origin_style")
+  laceAllocations             lace_stock_allocation[]        @relation("lace_allocation_style")
+  laceOriginalStyleAllocs     lace_stock_allocation[]        @relation("lace_allocation_original_style")
+  laceLabDips                 lace_lab_dip[]                 @relation("lace_lab_dip_style")
+  laceIssueNotes              lace_issue_note[]              @relation("lace_issue_style")
+  lacesProcessedFor           lace_master[]                  @relation("lace_processed_for_style")
   // Design Hub relations
   styleImages                 style_images[]
   styleComments               style_comments[]
   techSpecs                   style_tech_specs?
   invoice_items               invoice_items[]
-  external_process_send_outs  external_process_send_outs[] @relation("ExternalProcessStyle")
+  external_process_send_outs  external_process_send_outs[]   @relation("ExternalProcessStyle")
   // Purchase orders linked to this style (for Manual PO traceability)
-  purchaseOrders              purchase_orders[]            @relation("PO_Style")
+  purchaseOrders              purchase_orders[]              @relation("PO_Style")
   // Mini marker files for CAD planning
   cadPurposeFiles             cad_purpose_files[]
 
@@ -3177,6 +3185,7 @@ model users {
   tax_masters                                                     tax_masters[]
   test_templates_created                                          test_templates[]                  @relation("TemplateCreator")
   testing_labs_created                                            testing_labs[]                    @relation("LabCreator")
+  buyer_trfs_created                                              buyer_test_requirement_forms[]    @relation("TRFCreator")
   thread_master                                                   thread_master[]
   transfer_slips_prepared                                         transfer_slips[]                  @relation("TransferPreparedBy")
   transfer_slips_received                                         transfer_slips[]                  @relation("TransferReceivedBy")
@@ -3336,6 +3345,7 @@ model work_orders {
   stageTransitionOverrides              stage_transition_overrides[]
   stitching_issues                      stitching_issues[]
   transfer_slips                        transfer_slips[]
+  buyerTrfs                             buyer_test_requirement_forms[]
   work_order_breakup                    work_order_breakup[]
   work_order_service_requirements       work_order_service_requirements[]
   embroidery_send_outs                  embroidery_send_out[]             @relation("EmbroideryForWorkOrder")
@@ -3452,15 +3462,16 @@ model sale_orders {
   updatedAt        DateTime        @updatedAt
   isActive         Boolean         @default(true)
 
-  customer         customers              @relation(fields: [customerId], references: [id])
-  style            styles?                @relation("so_primaryStyle", fields: [styleId], references: [id])
-  createdBy        users                  @relation("so_createdBy", fields: [createdById], references: [id])
-  approvedBy       users?                 @relation("so_approvedBy", fields: [approvedById], references: [id])
+  customer         customers                      @relation(fields: [customerId], references: [id])
+  style            styles?                        @relation("so_primaryStyle", fields: [styleId], references: [id])
+  createdBy        users                          @relation("so_createdBy", fields: [createdById], references: [id])
+  approvedBy       users?                         @relation("so_approvedBy", fields: [approvedById], references: [id])
   items            sale_order_items[]
   buyerPos         sale_order_buyer_pos[]
   delivery_notes   delivery_notes[]
   invoices         invoices[]
   productionOrders orders[]
+  buyerTrfs        buyer_test_requirement_forms[]
 
   @@index([customerId])
   @@index([styleId])
@@ -7360,7 +7371,7 @@ model dispatch_pods {
 
 /// Testing Labs Master - External testing labs
 model testing_labs {
-  id                    String                   @id @default(uuid())
+  id                    String                         @id @default(uuid())
   labCode               String
   labName               String
   contactPerson         String?
@@ -7370,16 +7381,17 @@ model testing_labs {
   city                  String?
   state                 String?
   pincode               String?
-  averageTurnaroundDays Int                      @default(7)
+  averageTurnaroundDays Int                            @default(7)
   accreditations        String?
-  isActive              Boolean                  @default(true)
+  isActive              Boolean                        @default(true)
   createdById           String
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
   customerDefaults      customers[]
   fabricTests           fabric_physical_tests[]
   garmentTests          garment_physical_tests[]
-  createdBy             users                    @relation("LabCreator", fields: [createdById], references: [id])
+  buyerTrfs             buyer_test_requirement_forms[]
+  createdBy             users                          @relation("LabCreator", fields: [createdById], references: [id])
 
   @@index([labCode])
   @@index([isActive])
@@ -10714,4 +10726,217 @@ model ai_knowledge_guides {
 
   @@index([isActive])
   @@map("ai_knowledge_guides")
+}
+
+/// ─────────────────────────── Buyer Test Requirement Form (TRF) ───────────────────────────
+/// The sheet that travels with a garment sample to the buyer's lab (Easybuy → Intertek
+/// India). Replaces a Word file that was retyped by hand for every sample.
+///
+/// Labels and print order for every enum below live in ONE place —
+/// backend/src/constants/buyer-trf.constants.ts — transcribed verbatim from the buyer's
+/// form. The enum VALUES here and the `code` values there must stay in lockstep.
+
+enum TrfStatus {
+  DRAFT
+  ISSUED
+  SENT_TO_LAB
+  CLOSED
+}
+
+enum TrfPackageType {
+  KNIT
+  WOVEN
+  RETEST
+}
+
+enum TrfSampleStage {
+  PP
+  SHIPMENT
+}
+
+/// The buyer's own finish vocabulary. NOT FabricFinishType (DYED/PRINTED/YARN_DYED/RAW),
+/// which is a colouration axis — the two value domains do not overlap and must not be mapped.
+enum TrfFinishType {
+  REGULAR_FINISH
+  PEACH_FINISH
+  GARMENT_WASH
+  OTHER_DYE
+}
+
+enum TrfServiceLevel {
+  REGULAR
+  EXPRESS
+  SAME_DAY
+}
+
+enum TrfBuyingDepartment {
+  KIDS_WEAR
+  MENS_WEAR
+  WOMENS_WEAR
+  INDIAN_WEAR
+  INNER_WEAR
+  ACCESSORIES
+}
+
+/// Scoped to a department — the three printed columns of the buyer's sub-grid are Kids,
+/// Men's and Women's. "Denim" appears on the sheet TWICE (once under Men's, once under
+/// Women's), so the two are separate values: a single flat DENIM would tick the wrong band.
+enum TrfBuyingSubCategory {
+  KIDS_BOYS
+  KIDS_GIRLS
+  KIDS_INFANT
+  KIDS_AGE_2_8Y
+  KIDS_AGE_8_16Y
+  MENS_CASUALS
+  MENS_DENIM
+  MENS_POLO_TEES
+  MENS_URBAN_UTILITY
+  WOMENS_DENIM
+  WOMENS_NIGHT_WEAR
+  WOMENS_DRESS
+  WOMENS_SMART
+}
+
+/// The 33 individual tests, in the buyer's printed column order. Fixed by Easybuy, so a
+/// revision of their form is a migration — that is the intended trade for type safety and
+/// for the enum-drift check having a same-named Prisma enum to compare the Zod copy against.
+enum TrfTestCode {
+  AFTER_HOME_LAUNDERING_3_WASH
+  AFTER_DRY_CLEANING_1_CYCLE
+  DIM_STABILITY_WASHING
+  DIM_STABILITY_DRY_CLEANING
+  COLOR_FASTNESS_WASHING
+  COLOR_FASTNESS_DRY_CLEANING
+  COLOR_FASTNESS_RUBBING
+  COLOR_FASTNESS_LIGHT
+  COLOR_FASTNESS_PERSPIRATION
+  COLOR_FASTNESS_WATER
+  COLOR_FASTNESS_SALIVA
+  SEAM_SLIPPAGE_STRENGTH
+  BURSTING_STRENGTH
+  PILLING_RESISTANCE
+  ABRASION_RESISTANCE
+  STRETCH_AND_RECOVERY
+  FABRIC_WEIGHT
+  YARN_COUNT
+  FABRIC_CONSTRUCTION
+  FIBER_CONTENT
+  TENSILE_STRENGTH
+  TEAR_STRENGTH
+  FLAMMABILITY
+  ZIPPER_PULL_STRENGTH
+  SLIDER_LOCK_STRENGTH
+  BOTTOM_STOP_HOLDING_STRENGTH
+  TOP_STOP_HOLDING_STRENGTH
+  LATERAL_STRENGTH_TESTING
+  PH_VALUE
+  FORMALDEHYDE_UV_VIS
+  ODOUR
+  DYE_TRANSFER_STORAGE
+  CORROSION_RESISTANCE_METAL_PARTS
+}
+
+/// Buyer Test Requirement Form — one saved record per sample sent to the lab, reprintable.
+///
+/// Every printed field is a STORED column, snapshotted from the style/fabric/order at create
+/// and editable afterwards, so a reprint months later is identical even after the style has
+/// been re-coded or re-costed. Same reasoning as sale_order_items.buyerStyleRef. The only
+/// live read at print time is the company masthead (buildCompanyBlock), which is shared with
+/// every other kf document on purpose.
+model buyer_test_requirement_forms {
+  id        String    @id @default(uuid())
+  trfNumber String    @unique
+  trfDate   DateTime  @default(now())
+  status    TrfStatus @default(DRAFT)
+
+  /// Anchor — the production run this sample came OUT OF. Mutually exclusive with
+  /// saleOrderId: exactly one must be set (DB CHECK buyer_trf_anchor_xor, plus a Zod refine
+  /// and a service-level guard on update, since Zod cannot see the row being patched).
+  workOrderId String?
+  /// Anchor — the buyer order this sample is FOR, and the source of the printed
+  /// "Order Number" (sale_orders.buyerPoNumber). Mutually exclusive with workOrderId.
+  saleOrderId String?
+
+  styleId      String
+  /// Resolved at create and stored, never re-derived at print: styles.customerId is NULL on
+  /// every style today, so the buyer is only reachable via the anchor or the denormalized
+  /// styles.customerName. Storing it makes vendor code and merchandiser lookup deterministic.
+  customerId   String
+  testingLabId String?
+
+  // ── Identity block: pre-filled, editable, printed ──
+  sampleDescription  String?
+  endUse             String?
+  boNumber           String  @default("Not required")
+  styleNo            String?
+  buyerStyleRef      String?
+  colour             String?
+  /// Pre-filled from greige.composition ("100% Viscose") but EDITABLE — Easybuy want the
+  /// trade name ("100% RAYON"). The edit must never be written back to the greige master.
+  fibreContent       String?
+  ageRangeCategory   String?
+  orderNumber        String?
+  /// Text, not a number: greige.gsmRange holds ranges like "140-150" as well as "122 GSM".
+  fabricWeightGsm    String?
+  yarnCount          String?
+  construction       String?
+  /// The BUYER's season code (Easybuy "S10-26"), typed per form. Deliberately not sourced
+  /// from season_master, whose codes are ours (SS26/AW26) and a different concept.
+  season             String?
+  manufacturerName   String?
+  brandName          String?
+  fabricSupplierName String?
+  vendorCode         String?
+  /// Who dyed / who processed, snapshotted: the processor a style goes to changes lot to
+  /// lot, so the form records whoever it actually was at the time rather than pointing at a
+  /// master that has since moved on.
+  dyeingHouse        String?
+  processingHouse    String?
+  washCareCode       String?
+  merchandiserName   String?
+  merchandiserEmail  String?
+  applicantContact   String?
+  applicantPhone     String?
+  applicantEmail     String?
+
+  // ── Tick groups ──
+  packageType         TrfPackageType         @default(WOVEN)
+  previousReportNo    String?
+  sampleStage         TrfSampleStage         @default(PP)
+  finishType          TrfFinishType          @default(GARMENT_WASH)
+  buyingDepartment    TrfBuyingDepartment
+  buyingSubCategories TrfBuyingSubCategory[]
+  selectedTests       TrfTestCode[]
+  serviceRequired     TrfServiceLevel        @default(EXPRESS)
+
+  /// Tri-state on purpose. NULL means neither YES nor NO is ticked, so the sheet prints two
+  /// empty boxes for someone to tick by hand; false is a real "NO". Do not default these to
+  /// false or the form silently asserts something the merchant never chose.
+  reportDeliveryService      Boolean? @default(true)
+  returnRemainedSample       Boolean? @default(true)
+  contrastTrimUsed           Boolean?
+  setsPackingDifferentColour Boolean?
+
+  remarks       String?
+  printCount    Int       @default(0)
+  lastPrintedAt DateTime?
+  isActive      Boolean   @default(true)
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  style      styles        @relation(fields: [styleId], references: [id])
+  customer   customers     @relation(fields: [customerId], references: [id])
+  workOrder  work_orders?  @relation(fields: [workOrderId], references: [id])
+  saleOrder  sale_orders?  @relation(fields: [saleOrderId], references: [id])
+  testingLab testing_labs? @relation(fields: [testingLabId], references: [id])
+  createdBy  users         @relation("TRFCreator", fields: [createdById], references: [id])
+
+  @@index([styleId])
+  @@index([customerId])
+  @@index([workOrderId])
+  @@index([saleOrderId])
+  @@index([testingLabId])
+  @@index([status])
+  @@index([createdAt])
 }

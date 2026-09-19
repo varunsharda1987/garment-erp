@@ -710,3 +710,82 @@ export type ExternalProcessSourceType = z.infer<typeof ExternalProcessSourceType
 
 export const ExternalProcessStatusEnum = z.enum(['DRAFT', 'SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']);
 export type ExternalProcessStatus = z.infer<typeof ExternalProcessStatusEnum>;
+
+export const TrfStatusEnum = z.enum(['DRAFT', 'ISSUED', 'SENT_TO_LAB', 'CLOSED']);
+export type TrfStatus = z.infer<typeof TrfStatusEnum>;
+
+export const TrfPackageTypeEnum = z.enum(['KNIT', 'WOVEN', 'RETEST']);
+export type TrfPackageType = z.infer<typeof TrfPackageTypeEnum>;
+
+export const TrfSampleStageEnum = z.enum(['PP', 'SHIPMENT']);
+export type TrfSampleStage = z.infer<typeof TrfSampleStageEnum>;
+
+export const TrfFinishTypeEnum = z.enum(['REGULAR_FINISH', 'PEACH_FINISH', 'GARMENT_WASH', 'OTHER_DYE']);
+export type TrfFinishType = z.infer<typeof TrfFinishTypeEnum>;
+
+export const TrfServiceLevelEnum = z.enum(['REGULAR', 'EXPRESS', 'SAME_DAY']);
+export type TrfServiceLevel = z.infer<typeof TrfServiceLevelEnum>;
+
+export const TrfBuyingDepartmentEnum = z.enum([
+  'KIDS_WEAR',
+  'MENS_WEAR',
+  'WOMENS_WEAR',
+  'INDIAN_WEAR',
+  'INNER_WEAR',
+  'ACCESSORIES',
+]);
+export type TrfBuyingDepartment = z.infer<typeof TrfBuyingDepartmentEnum>;
+
+export const TrfBuyingSubCategoryEnum = z.enum([
+  'KIDS_BOYS',
+  'KIDS_GIRLS',
+  'KIDS_INFANT',
+  'KIDS_AGE_2_8Y',
+  'KIDS_AGE_8_16Y',
+  'MENS_CASUALS',
+  'MENS_DENIM',
+  'MENS_POLO_TEES',
+  'MENS_URBAN_UTILITY',
+  'WOMENS_DENIM',
+  'WOMENS_NIGHT_WEAR',
+  'WOMENS_DRESS',
+  'WOMENS_SMART',
+]);
+export type TrfBuyingSubCategory = z.infer<typeof TrfBuyingSubCategoryEnum>;
+
+export const TrfTestCodeEnum = z.enum([
+  'AFTER_HOME_LAUNDERING_3_WASH',
+  'AFTER_DRY_CLEANING_1_CYCLE',
+  'DIM_STABILITY_WASHING',
+  'DIM_STABILITY_DRY_CLEANING',
+  'COLOR_FASTNESS_WASHING',
+  'COLOR_FASTNESS_DRY_CLEANING',
+  'COLOR_FASTNESS_RUBBING',
+  'COLOR_FASTNESS_LIGHT',
+  'COLOR_FASTNESS_PERSPIRATION',
+  'COLOR_FASTNESS_WATER',
+  'COLOR_FASTNESS_SALIVA',
+  'SEAM_SLIPPAGE_STRENGTH',
+  'BURSTING_STRENGTH',
+  'PILLING_RESISTANCE',
+  'ABRASION_RESISTANCE',
+  'STRETCH_AND_RECOVERY',
+  'FABRIC_WEIGHT',
+  'YARN_COUNT',
+  'FABRIC_CONSTRUCTION',
+  'FIBER_CONTENT',
+  'TENSILE_STRENGTH',
+  'TEAR_STRENGTH',
+  'FLAMMABILITY',
+  'ZIPPER_PULL_STRENGTH',
+  'SLIDER_LOCK_STRENGTH',
+  'BOTTOM_STOP_HOLDING_STRENGTH',
+  'TOP_STOP_HOLDING_STRENGTH',
+  'LATERAL_STRENGTH_TESTING',
+  'PH_VALUE',
+  'FORMALDEHYDE_UV_VIS',
+  'ODOUR',
+  'DYE_TRANSFER_STORAGE',
+  'CORROSION_RESISTANCE_METAL_PARTS',
+]);
+export type TrfTestCode = z.infer<typeof TrfTestCodeEnum>;

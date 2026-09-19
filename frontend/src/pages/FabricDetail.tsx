@@ -57,10 +57,10 @@ export default function FabricDetail() {
   // Update document title when fabric data is loaded
   useEffect(() => {
     if (fabric) {
-      document.title = `${fabric.fabricName} - Kashaya Fabs ERP`;
+      document.title = `${fabric.fabricName} - Kashaya Fabs`;
     }
     return () => {
-      document.title = 'Kashaya Fabs ERP';
+      document.title = 'Kashaya Fabs';
     };
   }, [fabric]);
 

@@ -137,7 +137,7 @@ export default function Register() {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <div className="flex items-center justify-center mb-4">
-            <div className="text-4xl">🏭</div>
+            <img src="/logo-mark.png" alt="Kashaya Fabs" className="h-16 w-16 object-contain" />
           </div>
           <CardTitle className="text-2xl text-center">Create an Account</CardTitle>
           <CardDescription className="text-center">Enter your information to request access</CardDescription>

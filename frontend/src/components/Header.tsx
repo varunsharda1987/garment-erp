@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, Settings, Search, Bug } from 'lucide-react';
+import { Menu, User, LogOut, Settings, Search, Bug } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -37,16 +37,22 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
       <div className="h-full px-4 flex items-center justify-between">
         {/* Left Section: Logo + Sidebar Toggle + Breadcrumb */}
         <div className="flex items-center gap-4 flex-1">
-          {/* Sidebar Toggle */}
-          <Button variant="ghost" size="sm" onClick={toggleSidebar} className="lg:inline-flex">
-            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {/* Sidebar Toggle — always the three bars: an X reads as "close the page", not "collapse the menu". */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={toggleSidebar}
+            aria-label={sidebarOpen ? 'Collapse menu' : 'Expand menu'}
+            aria-expanded={sidebarOpen}
+          >
+            <Menu className="h-5 w-5" />
           </Button>
 
           {/* Logo */}
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/dashboard')}>
-            <div className="text-2xl">🏭</div>
+            <img src="/logo-mark.png" alt="Kashaya Fabs" className="h-8 w-8 object-contain" />
             <div>
-              <h1 className="text-lg font-display font-medium text-foreground leading-tight">Kashaya Fabs ERP</h1>
+              <h1 className="text-lg font-display font-medium text-foreground leading-tight">Kashaya Fabs</h1>
             </div>
           </div>
 

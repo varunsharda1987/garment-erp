@@ -41,10 +41,10 @@ export default function GreigeDetail() {
   // Update document title when greige data is loaded
   useEffect(() => {
     if (greige) {
-      document.title = `${greige.greigeName} - Kashaya Fabs ERP`;
+      document.title = `${greige.greigeName} - Kashaya Fabs`;
     }
     return () => {
-      document.title = 'Kashaya Fabs ERP';
+      document.title = 'Kashaya Fabs';
     };
   }, [greige]);
 

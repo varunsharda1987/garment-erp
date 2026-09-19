@@ -34,6 +34,18 @@ keywords:
   - स्टाइल नंबर
   - style number changed
   - buyer code change
+  - color not showing
+  - colour not appearing
+  - color N/A
+  - no colors defined for this style
+  - set style colour
+  - primary color
+  - rang nahi aa raha
+  - color kaise set kare
+  - रंग
+  - रंग नहीं दिख रहा
+  - रंग सेट करें
+  - कलर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -58,14 +70,15 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 2. Click **New Sale Order**. A panel titled **New Sale Order** slides in from the right.
 3. In **Customer \***, search and pick the customer.
 4. Everything else in the header is optional: **Buyer PO Number** (the buyer's own PO reference), **Primary Style** (for single-style orders), **Expected Ship Date**, **Buyer Deadline**, **Order Date**, **Delivery Date**, **Payment Terms**, **Delivery Address**, **Remarks**.
-5. Under **Items**, click **Add Item**. In the dialog pick **Style \*** — the box lists published styles alphabetically by code, up to 200 at a time. If the bottom of the list says **Showing 200 of …**, type part of our style code, the style name, the customer, or the buyer's own code to narrow; several words together each have to match, so a customer name plus a code finds exactly that style, and "LNG 229" finds LNG229. **Buyer Style Ref** fills in with that style's current buyer code and can be overtyped for this line. **Color** fills in by itself from the style's own **Primary Color** — you only touch it if the style has none, and a style with no Primary Color shows "No colors defined for this style" (open that style and set one). Color and Size are both optional (leave Size as "Size to be decided" if unknown). Enter **Quantity \*** and **Unit Price \*** (the price auto-fills from the style's selling price when one is set, and you can clear it and type your own), then click **Add Single Item**.
+5. Under **Items**, click **Add Item**. In the dialog pick **Style \*** — the box lists published styles alphabetically by code, up to 200 at a time. If the bottom of the list says **Showing 200 of …**, type part of our style code, the style name, the customer, or the buyer's own code to narrow; several words together each have to match, so a customer name plus a code finds exactly that style, and "LNG 229" finds LNG229. **Buyer Style Ref** fills in with that style's current buyer code and can be overtyped for this line. **Color** fills in by itself from the style's own **Primary Color**. If the style has no colour yet, the Color field instead says **This style has no colour yet** and offers a colour box — pick the colour and click **Set as style colour**. That saves it as the style's Primary Color, so cutting, stock and dispatch all see it too, not just this order; a style has one colour, and an existing one is never replaced. Color and Size are both optional (leave Size as "Size to be decided" if unknown). Enter **Quantity \*** and **Unit Price \*** (the price auto-fills from the style's selling price when one is set, and you can clear it and type your own), then click **Add Single Item**.
 6. To split one quantity across sizes, fill Quantity and Unit Price first, then click **Size Breakdown** and enter per-size quantities — one line is added per size. Percentages are read against 100, so the sizes must add up to the full quantity before it will save.
 7. Add more lines the same way. Use the pencil and bin icons on a line to edit or remove it. The **Total Amount** box sums the order. Adding the same style, colour and size twice is safe — the two lines are merged into one with the quantities added together.
 8. Click **Create Sale Order**. The sale order opens with status **Draft**. You may also save with no items at all and add them later — the hint under the Items table says so.
 9. While Draft, the **Edit** button on the order page changes details and items, including the **Buyer PO Number**.
-10. Once the order has at least one item, click **Confirm**. The dialog shows stock availability and style readiness before you approve it.
-11. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
-12. To make the goods instead: click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
+10. If the Color column shows **N/A** on lines taken before the style had a colour, set the style's colour first (step 5), then click **Apply style colour to N lines** above the Items table. The button only appears while the order is Draft, so do this before Confirm — lines cannot be changed afterwards.
+11. Once the order has at least one item, click **Confirm**. The dialog shows stock availability and style readiness before you approve it.
+12. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
+13. To make the goods instead: click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
 
 ## Validation traps
 - Only the customer is required to create a new order — the **Create Sale Order** button stays disabled until one is picked. Items may be added afterwards.

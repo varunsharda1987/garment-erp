@@ -4,9 +4,9 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Grid3X3 } from 'lucide-react';
+import { Grid3X3, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,8 +20,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { StyleCombobox } from '@/components/StyleCombobox';
+import { ColorCombobox } from '@/components/ColorCombobox';
 import { SizeBreakdownDialog, type SizeBreakdownEntry } from './SizeBreakdownDialog';
-import { getStyleById } from '@/services/style.service';
+import { getStyleById, updateStyle } from '@/services/style.service';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getErrorMessage } from '@/lib/api-error-handler';
 import type { SOItemInput } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
 
@@ -89,12 +92,29 @@ export function SaleOrderItemDialog({
   const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
   const [sizeOptions, setSizeOptions] = useState<SizeOption[]>([]);
 
+  // Colour the user has picked from the catalogue for a style that has none yet, held until they
+  // press "Set as style colour". Deliberately NOT written on selection: syncStyleColourway never
+  // deletes a colourway, so firing on every keystroke of browsing would leave a permanent trail of
+  // colourways behind on the style.
+  const [pendingColorMasterId, setPendingColorMasterId] = useState('');
+  const [isSettingStyleColour, setIsSettingStyleColour] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
+
   // Fetch style details when styleId changes
-  const { data: styleData, isLoading: isLoadingStyle } = useQuery({
+  const {
+    data: styleData,
+    isLoading: isLoadingStyle,
+    refetch: refetchStyle,
+  } = useQuery({
     queryKey: ['style-detail', styleId],
     queryFn: () => getStyleById(styleId),
     enabled: !!styleId && open,
   });
+
+  /** A style is picked, it has loaded, and it has no colourway to offer. */
+  const needsStyleColour = Boolean(styleId) && colorOptions.length === 0 && !isLoadingStyle;
 
   // Update options when style data loads.
   // Deliberately NOT keyed on `unitPrice`: it used to be, so clearing the price field re-ran this
@@ -115,8 +135,15 @@ export function SaleOrderItemDialog({
     // colour is the style's Primary Color. Preselect it rather than making the user restate what
     // picking the style already said; a style whose colour was changed keeps its older colourways,
     // and the primary one is whichever mirrors `styles.colorId`.
-    if (mode === 'create' && style.colorId) {
-      const primary = colors.find((c) => c.colorMasterId === style.colorId);
+    //
+    // The `colorMasterId` match only finds colourways written by style-colour.helper.ts. Rows that
+    // predate it carry a NULL colorMasterId and could never preselect, leaving the field blank on a
+    // style that plainly has one colour — so fall back to the sole colourway, which is exactly what
+    // "one colour per style" means.
+    if (mode === 'create') {
+      const primary =
+        (style.colorId ? colors.find((c) => c.colorMasterId === style.colorId) : undefined) ??
+        (colors.length === 1 ? colors[0] : undefined);
       if (primary) setColorId((prev) => prev ?? primary.id);
     }
 
@@ -151,6 +178,7 @@ export function SaleOrderItemDialog({
       setBuyerStyleRef('');
       setColorOptions([]);
       setSizeOptions([]);
+      setPendingColorMasterId('');
     }
   }, [open, editItem, mode]);
 
@@ -159,6 +187,8 @@ export function SaleOrderItemDialog({
     // Reset dependent fields
     setColorId(null);
     setSizeId('');
+    // A colour half-picked for the previous style must not carry over to this one.
+    setPendingColorMasterId('');
 
     // Set selling price if available
     if (style?.sellingPrice) {
@@ -168,6 +198,52 @@ export function SaleOrderItemDialog({
     // style that was just swapped out.
     setBuyerStyleRef(style?.buyerStyleRef || '');
   }, []);
+
+  /**
+   * Give a colourless style its colour, without leaving the order.
+   *
+   * 1,101 of 1,130 styles arrived through the bulk importer, which writes `styles` straight through
+   * Prisma and never sets `colorId` — so `syncStyleColourway` never ran for them and they have no
+   * colourway at all. The dialog used to state that as a dead end ("No colors defined for this
+   * style") and the line saved with `colorId: null`, which is why the Sale Order's Color column
+   * read "N/A".
+   *
+   * This writes the STYLE's Primary Color, not something order-local: `PUT /styles/:id` mirrors it
+   * into `color_options` through the single-writer helper in one transaction, so cutting, stock,
+   * dispatch and samples all see the same colour afterwards. A partial body is safe — every
+   * relation block in `updateWithRelations` is `!== undefined`-guarded.
+   */
+  const handleSetStyleColour = async () => {
+    if (!styleId || !pendingColorMasterId) return;
+    setIsSettingStyleColour(true);
+    try {
+      await updateStyle(styleId, { colorId: pendingColorMasterId });
+
+      // The style update response carries `color` but NOT `color_options`, so the new colourway's
+      // id can only come from a re-read. It must be awaited: the line needs `color_options.id`
+      // (a uuid), never the `color_master.id` (a cuid) the user just picked — the sale-order item
+      // schema validates colorId as a uuid and would 400 on the master id.
+      queryClient.removeQueries({ queryKey: ['style-detail', styleId] });
+      const { data: fresh } = await refetchStyle();
+      const colourways = (fresh as StyleWithOptions | undefined)?.colorOptions ?? [];
+      const created = colourways.find((c) => c.colorMasterId === pendingColorMasterId);
+
+      if (!created) {
+        toast.error('Colour saved on the style, but its colourway could not be read back — reopen this dialog.');
+        return;
+      }
+
+      setColorId(created.id);
+      setPendingColorMasterId('');
+      // The style master changed, so any style list showing colour is now stale.
+      queryClient.invalidateQueries({ queryKey: ['styles'] });
+      toast.success(`${created.colorName} is now this style's colour`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsSettingStyleColour(false);
+    }
+  };
 
   const handleSave = () => {
     if (!styleId) {
@@ -285,22 +361,60 @@ export function SaleOrderItemDialog({
             {/* Color Selection (optional) */}
             <div className="space-y-2">
               <Label>Color</Label>
-              <Select value={colorId || 'none'} onValueChange={(v) => setColorId(v === 'none' ? null : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select color (optional)" />
-                </SelectTrigger>
-                <SelectContent className="z-[9999]">
-                  <SelectItem value="none">No color / Any</SelectItem>
-                  {colorOptions.map((color) => (
-                    <SelectItem key={color.id} value={color.id}>
-                      {color.colorName}
-                      {color.colorCode && ` (${color.colorCode})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {styleId && colorOptions.length === 0 && !isLoadingStyle && (
-                <p className="text-xs text-muted-foreground">No colors defined for this style</p>
+              {needsStyleColour ? (
+                /*
+                 * The style has no colourway yet, so there is nothing to choose from. Rather than
+                 * saying so and stopping — which left the line colourless and the order's Color
+                 * column reading "N/A" — offer the colour catalogue and set it ON THE STYLE.
+                 * Mounted only in this branch so the 200-row colour fetch never fires for a style
+                 * that already has its colour.
+                 */
+                <div className="space-y-2 rounded-md border border-dashed p-3">
+                  <p className="text-sm">This style has no colour yet.</p>
+                  {can('styles') ? (
+                    <>
+                      <ColorCombobox
+                        value={pendingColorMasterId}
+                        onValueChange={(v) => setPendingColorMasterId(v)}
+                        placeholder="Pick this style's colour..."
+                        disabled={isSettingStyleColour}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSetStyleColour}
+                        disabled={!pendingColorMasterId || isSettingStyleColour}
+                      >
+                        {isSettingStyleColour && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                        Set as style colour
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Saved as the style's Primary Color, so cutting, stock and dispatch all see it — not just this
+                        order. A style has one colour, and an existing one is never replaced.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Ask an administrator to set this style's Primary Color.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Select value={colorId || 'none'} onValueChange={(v) => setColorId(v === 'none' ? null : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select color (optional)" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    <SelectItem value="none">No color / Any</SelectItem>
+                    {colorOptions.map((color) => (
+                      <SelectItem key={color.id} value={color.id}>
+                        {color.colorName}
+                        {color.colorCode && ` (${color.colorCode})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
 

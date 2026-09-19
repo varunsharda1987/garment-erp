@@ -1,7 +1,21 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, Factory, Package, ShoppingBag, Pencil, Plus, Trash2, Star } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle,
+  Factory,
+  Package,
+  ShoppingBag,
+  Pencil,
+  Plus,
+  Trash2,
+  Star,
+  Loader2,
+  ChevronDown,
+  XCircle,
+  MoreHorizontal,
+} from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -16,6 +30,13 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   getSaleOrderById,
   confirmSaleOrder,
   allocateStock,
@@ -28,6 +49,8 @@ import {
   removeBuyerPo,
   setPrimaryBuyerPo,
 } from '@/services/saleOrder.service';
+import { getStyleById } from '@/services/style.service';
+import { getErrorMessage } from '@/lib/api-error-handler';
 import type {
   SaleOrderStatus,
   SaleOrderItem,
@@ -35,6 +58,16 @@ import type {
   UpdateSORequest,
   CreateSORequest,
 } from '@/types/saleOrder.types';
+import type { Style } from '@/types/style.types';
+
+/** A style's colourway row (`color_options`), as `GET /styles/:id` serialises it. */
+interface StyleColourway {
+  id: string;
+  colorName: string;
+  isActive?: boolean;
+  /** The catalogue colour this colourway mirrors — matches the style's own `colorId`. */
+  colorMasterId?: string | null;
+}
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   DRAFT: 'bg-muted text-foreground',
@@ -192,6 +225,62 @@ export default function SaleOrderDetail() {
     updateMutation.mutate(data as UpdateSORequest);
   };
 
+  /**
+   * Fill in the colour on lines that were taken before their style had one.
+   *
+   * Setting a style's Primary Color (from the Add Item dialog, or the style itself) mirrors it into
+   * `color_options` but does NOT reach back into sale-order lines already saved with
+   * `colorId: null` — so an existing order's Color column keeps reading "N/A". This walks the
+   * colourless lines, resolves each style's colourway, and re-saves the order through the ordinary
+   * update path. Explicit, never automatic: nothing is assigned to an order behind the user's back.
+   */
+  const applyStyleColourMutation = useMutation({
+    mutationFn: async () => {
+      const items = so?.items ?? [];
+      const styleIds = [...new Set(items.filter((i) => !i.colorId).map((i) => i.styleId))];
+      const styles = await Promise.all(styleIds.map((sid) => getStyleById(sid)));
+
+      // styleId -> the colourway to use. Mirrors the Add Item dialog's preselect: the colourway
+      // matching the style's Primary Color, else the sole colourway (rows written before
+      // style-colour.helper.ts carry a NULL colorMasterId and can't be matched by it).
+      const colourwayByStyle = new Map<string, string>();
+      styleIds.forEach((sid, idx) => {
+        const style = styles[idx] as (Style & { colorOptions?: StyleColourway[] }) | undefined;
+        const colourways = (style?.colorOptions ?? []).filter((c) => c.isActive !== false);
+        const chosen =
+          (style?.colorId ? colourways.find((c) => c.colorMasterId === style.colorId) : undefined) ??
+          (colourways.length === 1 ? colourways[0] : undefined);
+        if (chosen) colourwayByStyle.set(sid, chosen.id);
+      });
+
+      const filled = items.filter((i) => !i.colorId && colourwayByStyle.has(i.styleId)).length;
+      if (filled === 0) {
+        throw new Error('None of these styles has a colour yet. Set one from Edit → Add Item, then apply it here.');
+      }
+
+      // Re-send every line, not just the changed ones — PUT replaces the item set. `buyerStyleRef`
+      // must be carried back explicitly or the backend re-captures today's style code and silently
+      // rewrites what the buyer ordered under.
+      return updateSaleOrder(id!, {
+        items: items.map((item) => ({
+          styleId: item.styleId,
+          colorId: item.colorId || colourwayByStyle.get(item.styleId) || null,
+          sizeId: item.sizeId || null,
+          quantity: item.quantity,
+          unitPrice: Number(item.unitPrice),
+          ...(item.buyerStyleRef != null ? { buyerStyleRef: item.buyerStyleRef } : {}),
+        })),
+      });
+    },
+    onSuccess: () => {
+      invalidateSaleOrder();
+      toast.success('Colour applied to the order lines');
+    },
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+
   const addBuyerPoMutation = useMutation({
     mutationFn: ({ buyerPoNumber, remarks }: { buyerPoNumber: string; remarks?: string }) =>
       addBuyerPo(id!, buyerPoNumber, remarks),
@@ -254,11 +343,15 @@ export default function SaleOrderDetail() {
   }
 
   const isDraft = so.status === 'DRAFT';
+  const colourlessItemCount = so.items?.filter((i) => !i.colorId).length ?? 0;
   const canAllocate = ['CONFIRMED', 'PARTIALLY_ALLOCATED'].includes(so.status);
   const activeProductionOrders = (so.productionOrders || []).filter((po) => po.status !== 'CANCELLED');
   const canStartProduction = canAllocate && activeProductionOrders.length === 0 && (so.items?.length || 0) > 0;
   const isTerminal = ['CANCELLED', 'DELIVERED'].includes(so.status);
   const canShowCancelButton = !isTerminal;
+  /** Confirm is offered only on a draft that actually has lines — an empty order is a dead end. */
+  const canConfirm = isDraft && (so.items?.length || 0) > 0;
+  const hasHeaderActions = isDraft || canConfirm || canStartProduction || canShowCancelButton;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -286,38 +379,60 @@ export default function SaleOrderDetail() {
             {so.status.replace(/_/g, ' ')}
           </Badge>
         </div>
-        <div className="flex gap-2">
-          {isDraft && (
-            <Button variant="outline" onClick={() => setEditSheetOpen(true)}>
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          )}
-          {canShowCancelButton && (
-            <Button variant="outline" onClick={() => setCancelDialogOpen(true)}>
-              Cancel Order
-            </Button>
-          )}
-          {isDraft && so.items && so.items.length > 0 && (
-            <Button onClick={() => setConfirmDialogOpen(true)}>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Confirm
-            </Button>
-          )}
-          {canStartProduction && (
-            <Button
-              onClick={() => {
-                setProdDeliveryDate(toDateInputValue(so.buyerDeadline ?? so.expectedShipDate ?? so.deliveryDate));
-                setProdPriority('MEDIUM');
-                setProdRemarks('');
-                setStartProdDialogOpen(true);
-              }}
-            >
-              <Factory className="h-4 w-4 mr-2" />
-              Start Production
-            </Button>
-          )}
-        </div>
+        {/*
+          One Actions menu rather than a row of bare buttons. Which entries appear is still driven
+          entirely by status, so a menu with nothing in it is not rendered at all — on a Cancelled or
+          Delivered order there is genuinely nothing to do here.
+        */}
+        {hasHeaderActions && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                Actions
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {isDraft && (
+                <DropdownMenuItem onSelect={() => setEditSheetOpen(true)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canConfirm && (
+                <DropdownMenuItem onSelect={() => setConfirmDialogOpen(true)}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Confirm
+                </DropdownMenuItem>
+              )}
+              {canStartProduction && (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setProdDeliveryDate(toDateInputValue(so.buyerDeadline ?? so.expectedShipDate ?? so.deliveryDate));
+                    setProdPriority('MEDIUM');
+                    setProdRemarks('');
+                    setStartProdDialogOpen(true);
+                  }}
+                >
+                  <Factory className="h-4 w-4 mr-2" />
+                  Start Production
+                </DropdownMenuItem>
+              )}
+              {canShowCancelButton && (
+                <>
+                  {(isDraft || canConfirm || canStartProduction) && <DropdownMenuSeparator />}
+                  <DropdownMenuItem
+                    onSelect={() => setCancelDialogOpen(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancel Order
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Linked Production Orders (make-to-order) */}
@@ -421,7 +536,7 @@ export default function SaleOrderDetail() {
             {/* The PO set is closed once the order is finished — the backend refuses the change
                 too, and the buyer app matches its own records against these numbers. */}
             {!isTerminal && (
-              <Button variant="outline" size="sm" onClick={() => setAddPoDialogOpen(true)}>
+              <Button variant="ghost" size="sm" onClick={() => setAddPoDialogOpen(true)}>
                 <Plus className="h-3 w-3 mr-1" />
                 Add PO
               </Button>
@@ -498,6 +613,23 @@ export default function SaleOrderDetail() {
                 {so.items?.length || 0} items — {so.items?.reduce((sum, i) => sum + i.quantity, 0) || 0} total pcs
               </CardDescription>
             </div>
+            {/*
+              Lines taken before the style had a colour keep `colorId: null` — setting the style's
+              colour afterwards does not reach back into them, so the Color column would still read
+              "N/A" on exactly the orders that prompted the complaint. Lines are editable only while
+              the order is DRAFT, so this has to be done before Confirm.
+            */}
+            {isDraft && colourlessItemCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => applyStyleColourMutation.mutate()}
+                disabled={applyStyleColourMutation.isPending}
+              >
+                {applyStyleColourMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Apply style colour to {colourlessItemCount} {colourlessItemCount === 1 ? 'line' : 'lines'}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -578,24 +710,31 @@ export default function SaleOrderDetail() {
                     </TableCell>
                     <TableCell className="text-right">{item.dispatchedQty}</TableCell>
                     {canAllocate && (
-                      <TableCell>
+                      <TableCell className="text-right">
                         {/* Allocation matches a specific style/colour/size lot, so a line with no
                             size has nothing to match against — the stock lookup is skipped for it
                             and the dialog would just report "no stock available". */}
                         {item.allocatedQty < item.quantity &&
                           (item.sizeId ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setAllocateQty(String(item.quantity - item.allocatedQty));
-                                setAllocateDialogOpen(true);
-                              }}
-                            >
-                              <Package className="h-3 w-3 mr-1" />
-                              Allocate
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onSelect={() => {
+                                    setSelectedItem(item);
+                                    setAllocateQty(String(item.quantity - item.allocatedQty));
+                                    setAllocateDialogOpen(true);
+                                  }}
+                                >
+                                  <Package className="h-4 w-4 mr-2" />
+                                  Allocate
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           ) : (
                             <span className="text-xs text-muted-foreground">Set a size to allocate</span>
                           ))}

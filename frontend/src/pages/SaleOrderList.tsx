@@ -4,12 +4,19 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
-import { Plus, Trash2, ShoppingBag, Eye } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -281,22 +288,37 @@ export default function SaleOrderList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (so) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/sale-orders/${so.id}`)}>
-            <Eye className="h-4 w-4" />
-          </Button>
-          {so.status === 'DRAFT' && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                setSoToDelete(so);
-                setDeleteDialogOpen(true);
-              }}
-            >
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </Button>
-          )}
+        <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            {/* stopPropagation: the menu renders in a portal, so its clicks still bubble up the
+                React tree to the row's own onClick and would navigate instead of firing the item. */}
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+              <DropdownMenuItem onSelect={() => navigate(`/sale-orders/${so.id}`)}>
+                <Eye className="h-4 w-4 mr-2" />
+                View Details
+              </DropdownMenuItem>
+              {so.status === 'DRAFT' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => {
+                      setSoToDelete(so);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },

@@ -88,6 +88,7 @@ afterAll(async () => {
     ['finished_goods_stock', () => prisma.finished_goods_stock.deleteMany({ where: { id: { in: createdStockIds } } })],
     ['color_options', () => prisma.color_options.deleteMany({ where: { styleId: { in: createdStyleIds } } })],
     ['size_options', () => prisma.size_options.deleteMany({ where: { styleId: { in: createdStyleIds } } })],
+    ['style_material_bom', () => prisma.style_material_bom.deleteMany({ where: { styleId: { in: createdStyleIds } } })],
     ['styles', () => prisma.styles.deleteMany({ where: { id: { in: createdStyleIds } } })],
     ['locations', () => prisma.locations.deleteMany({ where: { id: { in: createdLocationIds } } })],
     ['color_master', () => prisma.color_master.deleteMany({ where: { id: { in: [indigoId, scarletId] } } })],
@@ -226,5 +227,104 @@ describe('what the colourway unblocks', () => {
     const read = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
     expect(read.body.items[0].colorId).toBe(colourId);
     expect(read.body.items[0].color.colorName).toBe(`${RUN} Indigo`);
+  });
+});
+
+/**
+ * The state 1,101 of 1,130 styles are actually in, and the way out of it.
+ *
+ * The bulk importer writes `styles` straight through Prisma and never sets `colorId`, so
+ * `syncStyleColourway` never ran for an imported style and it has no colourway at all. The Sale
+ * Order Add Item dialog then had nothing to offer, the line saved with `colorId: null`, and the
+ * order's Color column read "N/A" — which is what the owner reported twice.
+ *
+ * The fix sets the colour from inside that dialog via `PUT /styles/:id { colorId }`. These pin the
+ * two guarantees that makes safe to do: a partial PUT touches nothing else, and a line already
+ * placed keeps its colour when the style's colour later changes.
+ */
+describe("setting a colourless style's colour from the Sale Order dialog", () => {
+  it('walks an imported-style order from "N/A" to a named colour', async () => {
+    // 1. A style in the imported state: no Primary Color, no colourway.
+    const styleId = await createStyle('I');
+    expect(await colourwaysOf(styleId)).toEqual([]);
+
+    // 2. What the dialog's "Set as style colour" button sends.
+    await request(app).put(`/api/styles/${styleId}`).set(authHeader).send({ colorId: indigoId }).expect(200);
+
+    // 3. The dialog re-reads the style to learn the COLOURWAY id. It must use that, never the
+    //    colour-master id it just picked: sale-order items validate colorId as a uuid and
+    //    color_master.id is a cuid, so sending the master id would 400.
+    const style = await request(app).get(`/api/styles/${styleId}`).set(authHeader).expect(200);
+    expect(style.body.data.colorOptions).toHaveLength(1);
+    const colourwayId = style.body.data.colorOptions[0].id as string;
+    expect(colourwayId).not.toBe(indigoId);
+
+    const size = await prisma.size_options.create({
+      data: { id: randomUUID(), styleId, sizeName: 'L', sizeCode: `${RUN}-I-L` },
+    });
+
+    // 4. The line saves with a colour, and the order reads it back by name — no more "N/A".
+    const created = await request(app)
+      .post('/api/sale-orders')
+      .set(authHeader)
+      .send({ customerId, items: [{ styleId, colorId: colourwayId, sizeId: size.id, quantity: 4, unitPrice: 120 }] })
+      .expect(201);
+    const soId = created.body.data.id as string;
+    createdSoIds.push(soId);
+
+    const read = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
+    expect(read.body.items[0].color.colorName).toBe(`${RUN} Indigo`);
+
+    // 5. Pressing it twice must not add a second colourway.
+    await request(app).put(`/api/styles/${styleId}`).set(authHeader).send({ colorId: indigoId }).expect(200);
+    expect(await colourwaysOf(styleId)).toHaveLength(1);
+
+    // 6. Changing the style's colour later must not repaint an order already placed. The old
+    //    colourway is kept (never deleted) and the line still points at it.
+    await request(app).put(`/api/styles/${styleId}`).set(authHeader).send({ colorId: scarletId }).expect(200);
+    expect(await colourwaysOf(styleId)).toHaveLength(2);
+
+    const reread = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
+    expect(reread.body.items[0].colorId).toBe(colourwayId);
+    expect(reread.body.items[0].color.colorName).toBe(`${RUN} Indigo`);
+  });
+
+  it('a colorId-only PUT leaves the rest of the style untouched', async () => {
+    // The whole inline-set feature rests on this: PUT /styles/:id runs updateWithRelations, and a
+    // partial body must not be read as "delete everything I did not send". Every relation block
+    // there is `!== undefined`-guarded — this is the test that says so out loud, because the same
+    // trap on PUT /orders/:id does destroy the order's items.
+    const styleId = await createStyle('J');
+    await request(app)
+      .put(`/api/styles/${styleId}`)
+      .set(authHeader)
+      .send({ buyerStyleRef: `${RUN}-BUYER`, styleName: `${RUN} J keep me` })
+      .expect(200);
+
+    const size = await prisma.size_options.create({
+      data: { id: randomUUID(), styleId, sizeName: 'S', sizeCode: `${RUN}-J-S` },
+    });
+    const bom = await prisma.style_material_bom.create({
+      data: {
+        id: randomUUID(),
+        styleId,
+        materialType: 'THREAD',
+        usageCategory: 'GARMENT_TRIM',
+        quantityPerGarment: 2,
+        unit: 'lot',
+      },
+    });
+
+    await request(app).put(`/api/styles/${styleId}`).set(authHeader).send({ colorId: indigoId }).expect(200);
+
+    const after = await prisma.styles.findUniqueOrThrow({
+      where: { id: styleId },
+      select: { styleName: true, buyerStyleRef: true, colorId: true },
+    });
+    expect(after.colorId).toBe(indigoId);
+    expect(after.styleName).toBe(`${RUN} J keep me`);
+    expect(after.buyerStyleRef).toBe(`${RUN}-BUYER`);
+    expect(await prisma.style_material_bom.count({ where: { id: only(bom.id) } })).toBe(1);
+    expect(await prisma.size_options.count({ where: { id: only(size.id) } })).toBe(1);
   });
 });

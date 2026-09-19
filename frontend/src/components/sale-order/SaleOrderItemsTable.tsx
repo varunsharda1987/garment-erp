@@ -143,8 +143,14 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
                     </div>
                     {item.styleName && <div className="text-xs text-muted-foreground">{item.styleName}</div>}
                   </TableCell>
-                  <TableCell>{item.colorName || (item.colorId ? item.colorId.slice(0, 8) : 'Any')}</TableCell>
-                  <TableCell>{item.sizeName || (item.sizeId ? item.sizeId.slice(0, 8) : 'Size TBD')}</TableCell>
+                  {/*
+                    Show the label or the honest placeholder. These used to fall back to the first
+                    eight characters of the id, which reads as a colour/size name but is a fragment
+                    of a UUID — every writer of colorId/sizeId sets the matching label, so the
+                    fallback only ever fired on a data glitch and then showed the user hex.
+                  */}
+                  <TableCell>{item.colorName || 'Any'}</TableCell>
+                  <TableCell>{item.sizeName || 'Size TBD'}</TableCell>
                   <TableCell className="text-right font-medium">{item.quantity}</TableCell>
                   <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
                   <TableCell className="text-right font-medium">

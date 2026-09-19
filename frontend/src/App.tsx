@@ -241,6 +241,8 @@ import {
   TestingLabs,
   TestTemplates,
   TestTemplateForm,
+  BuyerTrfList,
+  BuyerTrfForm,
   ProductCategoryMaster,
   ProcessGuidePage,
   OverrideHistory,
@@ -806,6 +808,9 @@ function App() {
               <Route path="/test-templates" element={<TestTemplates />} />
               <Route path="/test-templates/new" element={<TestTemplateForm />} />
               <Route path="/test-templates/:id" element={<TestTemplateForm />} />
+              <Route path="/test-requirement-forms" element={<BuyerTrfList />} />
+              <Route path="/test-requirement-forms/new" element={<BuyerTrfForm />} />
+              <Route path="/test-requirement-forms/:id" element={<BuyerTrfForm />} />
 
               {/* AI Assistant */}
               <Route path="/ai-assistant" element={<AIAssistant />} />

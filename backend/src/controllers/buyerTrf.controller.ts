@@ -16,6 +16,16 @@ import {
   BuyerTrfPrefillQueryInput,
 } from '../schemas/buyerTrf.schema';
 
+/**
+ * The COERCED query lives only on req.validatedQuery — under Express 5 req.query is a getter
+ * that re-parses the URL on every read, so validateQuery cannot write back to it and
+ * `req.query` hands you raw strings. Reading it directly here sent Prisma take: "20" and
+ * turned every paginated list request into a 400. See validation.middleware.ts.
+ */
+function validatedQuery<T>(req: Request): T {
+  return ((req as Request & { validatedQuery?: unknown }).validatedQuery ?? req.query) as T;
+}
+
 export class BuyerTrfController {
   /**
    * Every label and print order the form needs, so the frontend never re-types one.
@@ -31,13 +41,13 @@ export class BuyerTrfController {
    * came from.
    */
   async prefill(req: Request, res: Response) {
-    const { styleId, workOrderId, saleOrderId } = req.query as unknown as BuyerTrfPrefillQueryInput;
+    const { styleId, workOrderId, saleOrderId } = validatedQuery<BuyerTrfPrefillQueryInput>(req);
     const result = await buyerTrfService.buildPrefill(styleId, { workOrderId, saleOrderId });
     res.json({ success: true, data: result });
   }
 
   async getAll(req: Request, res: Response) {
-    const result = await buyerTrfService.getAll(req.query as unknown as BuyerTrfQueryInput);
+    const result = await buyerTrfService.getAll(validatedQuery<BuyerTrfQueryInput>(req));
     res.json({ success: true, ...result });
   }
 

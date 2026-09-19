@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, Building2, FileText, Shirt, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { FlaskConical, Building2, FileText, Shirt, XCircle, Clock, AlertTriangle, ClipboardCheck } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -283,6 +283,28 @@ export default function TestingDashboard() {
                 {stats?.templates.gpt || 0}
               </Badge>
             </div>
+          </div>
+        </Card>
+
+        {/* Test Requirement Forms — the sheet that goes to the lab with the sample. No count:
+            the testing stats endpoint does not cover TRFs, and a wrong number is worse than none. */}
+        <Card
+          className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-l-4 border-l-primary"
+          onClick={() => navigate('/test-requirement-forms')}
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-sm text-muted-foreground font-medium">Test Requirement Forms</p>
+              <p className="text-lg font-semibold text-foreground mt-1">Raise &amp; print</p>
+            </div>
+            <div className="p-3 bg-info-muted rounded-lg">
+              <ClipboardCheck className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <div className="space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              The buyer&rsquo;s form that travels with a garment sample to the lab.
+            </p>
           </div>
         </Card>
       </div>

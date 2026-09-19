@@ -477,6 +477,9 @@ export const GarmentPhysicalTestForm = lazy(() => import('../pages/GarmentPhysic
 export const TestingLabs = lazy(() => import('../pages/TestingLabs'));
 export const TestTemplates = lazy(() => import('../pages/TestTemplates'));
 export const TestTemplateForm = lazy(() => import('../pages/TestTemplateForm'));
+// Buyer Test Requirement Forms — the sheet that goes to the lab with a sample.
+export const BuyerTrfList = lazy(() => import('../pages/BuyerTrfList'));
+export const BuyerTrfForm = lazy(() => import('../pages/BuyerTrfForm'));
 
 // ============================================================================
 // Process Guide

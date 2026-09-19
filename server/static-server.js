@@ -17,14 +17,26 @@ app.use('/api', createProxyMiddleware({
 }));
 
 // Static assets + SPA fallback to index.html.
+//
+// `no-cache` does NOT mean "don't cache" — the browser still stores the file and re-uses it, but
+// must revalidate with the server first, which answers 304 Not Modified (a few bytes) when nothing
+// changed. So the caching benefit is kept and staleness becomes impossible.
+//
+// It replaces `max-age=31536000, immutable` on /assets, which told browsers to trust a filename for
+// a YEAR without ever asking again. That is only safe if a given filename's bytes can never change,
+// and Vite does not guarantee that: a chunk's hash can stay the same across builds while its
+// minified export aliases change, because those depend on which other chunks import it. On
+// 2026-09-19 a cached `radio-group-<hash>.js` kept exporting the old letters while the freshly
+// downloaded page chunk imported `R`, and the whole app died on
+// "does not provide an export named 'R'" — unrecoverable by normal reloading, because `immutable`
+// means the browser never re-asks. Only a hard refresh cleared it.
+//
+// If asset revalidation ever shows up as a latency problem, the fix is build-unique asset paths
+// (a per-build directory), NOT restoring `immutable` on filenames whose contents can shift.
 app.use(express.static(DIST, {
   index: false,
-  setHeaders: (res, filePath) => {
-    if (/[\\/]assets[\\/]/.test(filePath)) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    } else {
-      res.setHeader('Cache-Control', 'no-cache');
-    }
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
   },
 }));
 

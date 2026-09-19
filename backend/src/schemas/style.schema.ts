@@ -208,6 +208,10 @@ export const createStyleSchema = z.object({
     .optional(),
 
   // Basic optional fields
+  /// The buyer LINK — the real FK into `customers`. Pair it with `customerName` below,
+  /// which is the display text only. Omitting this here is what left 0/1130 styles
+  /// linked (2026-09-19): the service wrote `data.customerId` but Zod stripped it first.
+  customerId: z.string().uuid().optional().nullable(),
   customerName: z.string().optional(),
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),
@@ -279,6 +283,9 @@ export const updateStyleSchema = z.object({
     .min(2, 'Style name must be at least 2 characters')
     .max(200, 'Style name must not exceed 200 characters')
     .optional(),
+  /// The buyer LINK — see the note on `createStyleSchema.customerId`. `customerName` is
+  /// the display text; this is the FK reports and filters join on.
+  customerId: z.string().uuid().optional().nullable(),
   customerName: z.string().optional(),
   brandName: z.string().optional(),
   brandCategoryId: z.string().uuid().optional().nullable(),

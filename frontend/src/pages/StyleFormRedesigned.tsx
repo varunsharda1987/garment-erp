@@ -2126,6 +2126,10 @@ export default function StyleFormRedesigned() {
       const styleData = {
         ...(inHouseCode ? { styleCode: inHouseCode } : {}),
         styleName: styleName || styleCode,
+        // Send the buyer LINK, not just the display text. Sending only customerName left
+        // every style's customerId null (0/1130 on 2026-09-19), so the buyer filters on
+        // GET /styles and /styles/running matched nothing.
+        customerId: selectedCustomerId || null,
         customerName: customerName || (isDraft ? 'Draft' : ''),
         brandName,
         category,

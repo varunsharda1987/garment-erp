@@ -33,6 +33,7 @@ export interface Style {
   styleCode: string;
   buyerStyleRef?: string | null; // Buyer's own reference number - always editable
   styleName: string;
+  customerId?: string | null; // The buyer LINK (FK into customers) — customerName below is display text only
   customerName: string;
   brandName: string;
   brandCategoryId?: string | null; // Reference to brand_categories table
@@ -332,6 +333,7 @@ export interface DashboardSummary {
 export interface CreateStyleFormData {
   styleCode: string;
   styleName: string;
+  customerId?: string | null; // The buyer LINK — send alongside customerName, not instead of it
   customerName?: string;
   brandName?: string;
   brandCategoryId?: string | null;

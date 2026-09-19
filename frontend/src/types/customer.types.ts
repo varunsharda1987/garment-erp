@@ -70,6 +70,9 @@ export interface CustomerGstNumber {
 export interface Customer {
   id: string;
   code: string;
+  /** THEIR vendor code FOR US (Easybuy = "205577") — the mirror of `code`, which is OUR
+   *  code for THEM. Printed on the buyer's Test Requirement Form. */
+  vendorCode?: string | null;
   name: string;
   billingName?: string | null;
   brandNames?: string | null;

@@ -71,6 +71,11 @@ export const createCustomerSchema = z.object({
     .max(200, 'Customer name must be less than 200 characters')
     .trim(),
 
+  // THEIR vendor code FOR US — the number we are registered under in the buyer's own system
+  // (Easybuy = "205577"). Printed on their Test Requirement Form. The mirror of `code` above,
+  // which is OUR code for THEM — opposite directions, easy to conflate.
+  vendorCode: z.string().max(50).trim().optional().nullable(),
+
   billingName: z
     .string()
     .min(2, 'Billing name must be at least 2 characters')
@@ -188,6 +193,11 @@ export const updateCustomerSchema = z.object({
     .max(200, 'Customer name must be less than 200 characters')
     .trim()
     .optional(),
+
+  // THEIR vendor code FOR US — the number we are registered under in the buyer's own system
+  // (Easybuy = "205577"). Printed on their Test Requirement Form. The mirror of `code` above,
+  // which is OUR code for THEM — opposite directions, easy to conflate.
+  vendorCode: z.string().max(50).trim().optional().nullable(),
 
   billingName: z
     .string()

@@ -27,6 +27,7 @@ export interface SerializedGreige {
   expectedFinishedWidthMax: number | null;
   averageShrinkagePercent: number | null;
   gsmRange?: string | null;
+  washCareCode?: string | null;
   costPerMeter?: number | null;
   moq?: number | null;
   leadTimeDays?: number | null;
@@ -57,6 +58,7 @@ export interface RawGreigeData {
   expectedFinishedWidthMax: { toNumber: () => number } | number | null;
   averageShrinkagePercent: { toNumber: () => number } | number | null;
   gsmRange?: string | null;
+  washCareCode?: string | null;
   costPerMeter?: { toNumber: () => number } | number | null;
   moq?: number | null;
   leadTimeDays?: number | null;
@@ -126,6 +128,7 @@ export interface GreigeUpdateData {
   expectedFinishedWidthMax?: number | null;
   averageShrinkagePercent?: number | null;
   gsmRange?: string | null;
+  washCareCode?: string | null;
   costPerMeter?: number | null;
   moq?: number | null;
   leadTimeDays?: number | null;

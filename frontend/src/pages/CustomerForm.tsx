@@ -35,6 +35,7 @@ import { AgencyCombobox } from '@/components/AgencyCombobox';
 
 const customerFormSchema = z.object({
   code: validators.required('Customer code'),
+  vendorCode: z.string().optional(),
   name: validators.required('Company name'),
   billingName: z.string().optional(),
   brandNames: z.string().optional(),
@@ -305,6 +306,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         .getCustomerById(id)
         .then((customer: Customer) => {
           setValue('code', customer.code);
+          setValue('vendorCode', customer.vendorCode || '');
           setValue('name', customer.name);
           setValue('billingName', customer.billingName || '');
 
@@ -762,6 +764,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Label htmlFor="code">Customer Code *</Label>
                     <Input id="code" {...register('code')} readOnly className="bg-muted" />
                     {errors.code && <p className="text-sm text-destructive mt-1">{errors.code.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="vendorCode">Our Vendor Code with them</Label>
+                    <Input id="vendorCode" {...register('vendorCode')} placeholder="e.g., 205577" />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The number this buyer knows us by in their system &mdash; the opposite of the Customer Code above.
+                      Prints on their Test Requirement Form.
+                    </p>
                   </div>
                   {/* Style Code Prefix moved to brand_categories - each brand-category gets its own prefix */}
                   <div>

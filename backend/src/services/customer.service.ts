@@ -29,6 +29,9 @@ import { gstService } from './gst.service';
 // - `category`: Required in both Zod schema and Prisma (no default)
 export interface CreateCustomerDTO {
   code: string;
+  /** THEIR vendor code FOR US (Easybuy = "205577"), printed on their Test Requirement
+   *  Form. The mirror of `code` above, which is OUR code for THEM. */
+  vendorCode?: string | null;
   name: string;
   billingName?: string;
   brandNames?: string;
@@ -144,6 +147,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    */
   protected readonly searchFields = [
     'code',
+    'vendorCode',
     'name',
     'billingName',
     'brandNames',

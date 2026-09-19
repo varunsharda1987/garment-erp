@@ -39,6 +39,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     // where most of the 8% values in the data came from.
     averageShrinkagePercent: undefined,
     gsmRange: '',
+    washCareCode: '',
     costPerMeter: undefined,
     description: '',
     notes: '',
@@ -119,6 +120,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         expectedFinishedWidthMax: greige.expectedFinishedWidthMax,
         averageShrinkagePercent: greige.averageShrinkagePercent,
         gsmRange: greige.gsmRange || '',
+        washCareCode: greige.washCareCode || '',
         costPerMeter: greige.costPerMeter ?? undefined,
         description: greige.description || '',
         notes: greige.notes || '',
@@ -402,6 +404,20 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 onChange={handleChange}
                 placeholder="e.g., 120-140"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Wash Care Code</label>
+              <Input
+                type="text"
+                name="washCareCode"
+                value={formData.washCareCode}
+                onChange={handleChange}
+                placeholder="e.g., RN-6"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                The buyer&rsquo;s care code for this fabric. Prints on their Test Requirement Form.
+              </p>
             </div>
           </div>
         </div>

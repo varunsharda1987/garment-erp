@@ -217,6 +217,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     averageShrinkagePercent,
     suppliers = [], // Array of {supplierId, isPreferred, isActive, notes}
     gsmRange,
+    washCareCode,
     costPerMeter,
     moq,
     leadTimeDays,
@@ -273,6 +274,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       expectedFinishedWidthMax: expectedFinishedWidthMax ? parseFloat(expectedFinishedWidthMax) : null,
       averageShrinkagePercent: averageShrinkagePercent ? parseFloat(averageShrinkagePercent) : null,
       gsmRange,
+      washCareCode,
       costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
       moq: moq ? parseInt(moq) : null,
       leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
@@ -343,6 +345,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     averageShrinkagePercent,
     suppliers, // Array of {supplierId, isPreferred, isActive, notes}
     gsmRange,
+    washCareCode,
     costPerMeter,
     moq,
     leadTimeDays,
@@ -407,6 +410,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
           : null
         : undefined,
     gsmRange,
+    washCareCode,
     costPerMeter: costPerMeter !== undefined ? (costPerMeter ? parseFloat(costPerMeter) : null) : undefined,
     moq: moq !== undefined ? (moq ? parseInt(moq) : null) : undefined,
     leadTimeDays: leadTimeDays !== undefined ? (leadTimeDays ? parseInt(leadTimeDays) : null) : undefined,

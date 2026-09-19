@@ -12,12 +12,22 @@
  * transcribed from the footer of the buyer's own TRF.
  *
  * NOT seeded, on purpose:
- *  - The Easybuy merchandiser (name + email). The current form leaves both blank and the owner
- *    said not to take them from the older forms. Fill it on the customer's Contacts tab; until
- *    then the TRF prints those two boxes as a hand-fill hatch, which is honest.
  *  - greige_master.washCareCode. The codes are per fabric and must not be guessed — fill them
  *    on the greige as TRFs are raised.
  */
+
+/**
+ * The person who appears on a TRF, in both contact blocks.
+ *
+ * Seeded into the DATABASE, not referenced from code at runtime: the TRF reads
+ * company_profile and customer_contacts, so this can be changed on screen without a deploy.
+ * That is the owner's requirement — these values start the record, they do not define it.
+ */
+const TRF_CONTACT = {
+  name: 'Khushbu Saxena',
+  phone: '8387931101',
+  email: 'merchant1@kashayafabs.com',
+};
 
 import prisma from '../src/config/database';
 
@@ -113,23 +123,52 @@ async function seedTestingLab() {
   }
 }
 
-/** C — our vendor code with Easybuy. 205577 is current; the older 48156 is superseded. */
+/**
+ * C — our vendor code with Easybuy (205577 is current; the older 48156 is superseded), and the
+ * merchandiser contact the TRF prints in the "Easy Buy Merchandise" block.
+ */
 async function seedCustomerVendorCode() {
   const easybuy = await prisma.customers.findFirst({
     where: { name: 'Easybuy' },
     select: { id: true, vendorCode: true },
   });
   if (!easybuy) {
-    console.error('  ! Customer "Easybuy" not found. Skipping vendor code.');
+    console.error('  ! Customer "Easybuy" not found. Skipping vendor code and contact.');
     return;
   }
+
   if (easybuy.vendorCode === '205577') {
     log('customer', 'exists', 'Easybuy vendor code already 205577');
+  } else {
+    log('customer', 'update', `Easybuy vendor code ${easybuy.vendorCode ?? '(none)'} -> 205577`);
+    if (!DRY_RUN) {
+      await prisma.customers.update({ where: { id: easybuy.id }, data: { vendorCode: '205577' } });
+    }
+  }
+
+  // buildPrefill() reads the primary customer_contacts row for the merchandiser block, so the
+  // contact has to exist as a row — the flat customers.contactPerson/email are only a fallback.
+  const existing = await prisma.customer_contacts.findFirst({
+    where: { customerId: easybuy.id, name: TRF_CONTACT.name },
+    select: { id: true },
+  });
+
+  if (existing) {
+    log('customer contact', 'exists', `${TRF_CONTACT.name} already on Easybuy`);
     return;
   }
-  log('customer', 'update', `Easybuy vendor code ${easybuy.vendorCode ?? '(none)'} -> 205577`);
+  log('customer contact', 'create', `${TRF_CONTACT.name} <${TRF_CONTACT.email}> as Easybuy primary`);
   if (DRY_RUN) return;
-  await prisma.customers.update({ where: { id: easybuy.id }, data: { vendorCode: '205577' } });
+  await prisma.customer_contacts.create({
+    data: {
+      customerId: easybuy.id,
+      name: TRF_CONTACT.name,
+      email: TRF_CONTACT.email,
+      phone: TRF_CONTACT.phone,
+      designation: 'Merchandiser',
+      isPrimary: true,
+    },
+  });
 }
 
 /**
@@ -148,9 +187,9 @@ async function seedCompanyContact() {
   }
 
   const details = {
-    contactPerson: 'Khushbu',
-    phone: '8387931101',
-    email: 'merchant1@kashayafabs.com',
+    contactPerson: TRF_CONTACT.name,
+    phone: TRF_CONTACT.phone,
+    email: TRF_CONTACT.email,
   };
 
   const unchanged =
@@ -174,9 +213,10 @@ async function main() {
   await seedCustomerVendorCode();
   await seedCompanyContact();
   console.log('\nDone.\n');
-  console.log('Still to fill by hand (deliberately not seeded):');
-  console.log('  - Easybuy merchandiser name + email, on the customer\'s Contacts tab');
-  console.log('  - Wash care codes, on each greige (Fabric > Greige)\n');
+  console.log('Still to fill by hand (deliberately not seeded — real values, not to be guessed):');
+  console.log('  - Wash care codes, on each greige (Materials & Masters > Greige)\n');
+  console.log('Everything seeded above is editable on screen — the TRF reads the database,');
+  console.log('not these constants.\n');
 }
 
 main()

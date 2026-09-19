@@ -7,6 +7,7 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import * as wa from '../services/whatsapp.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { applySearch } from '../utils/search-filter';
+import { gateSampleVerdict, logSampleVerdictOverride } from '../services/helpers/sample-verdict.helper';
 
 /**
  * Sample Controller
@@ -621,6 +622,13 @@ export const updateSample = async (req: Request, res: Response) => {
     throw new NotFoundError('Sample', id);
   }
 
+  // A verdict (approved/rejected/…) needs the sample to have gone to the buyer first — same rule
+  // as PATCH /:id/status and POST /:id/feedback (T4-C). Intermediate statuses pass through.
+  const verdictOverride =
+    status !== undefined
+      ? gateSampleVerdict({ existing, newStatus: status, user: req.user, body: req.body })
+      : { adminOverride: false as const };
+
   // Build update data
   const updateData: any = {};
 
@@ -644,31 +652,34 @@ export const updateSample = async (req: Request, res: Response) => {
   if (sentTo !== undefined) updateData.sentTo = sentTo || null;
   if (purpose !== undefined) updateData.purpose = purpose || null;
 
-  const updated = await prisma.samples.update({
-    where: { id },
-    data: updateData,
-    include: {
-      customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
-      users: { select: { id: true, firstName: true, lastName: true } },
-      measurements: {
-        include: {
-          size: { select: { id: true, sizeName: true, sizeCode: true } },
+  const updated = await prisma.$transaction(async (tx) => {
+    await logSampleVerdictOverride(tx, existing, status, verdictOverride, req.user!.userId);
+    return tx.samples.update({
+      where: { id },
+      data: updateData,
+      include: {
+        customers: { select: { id: true, code: true, name: true } },
+        styles: { select: { id: true, styleCode: true, styleName: true } },
+        users: { select: { id: true, firstName: true, lastName: true } },
+        measurements: {
+          include: {
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+          },
+        },
+        colorways: {
+          include: {
+            color: { select: { id: true, colorName: true, colorCode: true } },
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+          },
+        },
+        sizeSets: {
+          include: {
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+            color: { select: { id: true, colorName: true, colorCode: true } },
+          },
         },
       },
-      colorways: {
-        include: {
-          color: { select: { id: true, colorName: true, colorCode: true } },
-          size: { select: { id: true, sizeName: true, sizeCode: true } },
-        },
-      },
-      sizeSets: {
-        include: {
-          size: { select: { id: true, sizeName: true, sizeCode: true } },
-          color: { select: { id: true, colorName: true, colorCode: true } },
-        },
-      },
-    },
+    });
   });
 
   logInfo('Sample updated', { id, sampleNumber: updated.sampleNumber });
@@ -715,6 +726,10 @@ export const updateSampleStatus = async (req: Request, res: Response) => {
     throw new NotFoundError('Sample', id);
   }
 
+  // No screen calls this endpoint — it was the API-only shortcut that let a REQUESTED sample be
+  // marked APPROVED (T4-C). A verdict now needs SENT / FEEDBACK_PENDING first, or an admin override.
+  const verdictOverride = gateSampleVerdict({ existing, newStatus: status, user: req.user, body: req.body });
+
   const updateData: any = {
     status,
   };
@@ -737,17 +752,20 @@ export const updateSampleStatus = async (req: Request, res: Response) => {
     updateData.completionDate = new Date();
   }
 
-  const updated = await prisma.samples.update({
-    where: { id },
-    data: updateData,
-    include: {
-      customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
-      users: { select: { id: true, firstName: true, lastName: true } },
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    await logSampleVerdictOverride(tx, existing, status, verdictOverride, req.user!.userId);
+    return tx.samples.update({
+      where: { id },
+      data: updateData,
+      include: {
+        customers: { select: { id: true, code: true, name: true } },
+        styles: { select: { id: true, styleCode: true, styleName: true } },
+        users: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
   });
 
-  logInfo('Sample status updated', { id, status });
+  logInfo('Sample status updated', { id, status, adminOverride: verdictOverride.adminOverride });
 
   const u = updated as any;
   res.json({
@@ -1070,22 +1088,29 @@ export const recordFeedback = async (req: Request, res: Response) => {
     throw new NotFoundError('Sample', id);
   }
 
-  const updated = await prisma.samples.update({
-    where: { id },
-    data: {
-      status,
-      customerFeedback: feedback || null,
-      feedbackDate: feedbackDate ? new Date(feedbackDate) : new Date(),
-      measurementComments: measurementComments || null,
-      revisionRequired: status === 'REVISION_NEEDED' || status === 'REJECTED',
-    },
-    include: {
-      customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
-    },
+  // The screen offers Record Feedback only for SENT / FEEDBACK_PENDING; the API now holds the
+  // same line for direct callers (T4-C).
+  const verdictOverride = gateSampleVerdict({ existing, newStatus: status, user: req.user, body: req.body });
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await logSampleVerdictOverride(tx, existing, status, verdictOverride, req.user!.userId);
+    return tx.samples.update({
+      where: { id },
+      data: {
+        status,
+        customerFeedback: feedback || null,
+        feedbackDate: feedbackDate ? new Date(feedbackDate) : new Date(),
+        measurementComments: measurementComments || null,
+        revisionRequired: status === 'REVISION_NEEDED' || status === 'REJECTED',
+      },
+      include: {
+        customers: { select: { id: true, code: true, name: true } },
+        styles: { select: { id: true, styleCode: true, styleName: true } },
+      },
+    });
   });
 
-  logInfo('Sample feedback recorded', { id, status });
+  logInfo('Sample feedback recorded', { id, status, adminOverride: verdictOverride.adminOverride });
 
   const u = updated as any;
   res.json({

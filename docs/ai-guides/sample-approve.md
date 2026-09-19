@@ -60,7 +60,8 @@ If the sample is rejected or needs revision:
 ## Traps
 
 - The **Record Feedback** button only appears when the sample status is **Sent** or **Feedback Pending**
-- Samples must be marked as sent before you can record buyer feedback
+- Samples must be marked as sent before you can record buyer feedback — the system refuses an approval or rejection before that, with "mark it Sent and record the buyer's feedback"
+- For a stock style with no real buyer (the customer is the house brand), still mark the sample **Sent** and then **Record Feedback** — that is the quickest route; only an administrator can skip it, with a written reason that is logged under **Admin → Override History**
 - Only Fit Samples can create revisions; other sample types need a new sample
 
 ## After recording feedback

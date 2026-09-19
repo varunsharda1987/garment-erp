@@ -140,6 +140,9 @@ export const updateSampleSchema = z
     productionLot: z.string().max(100).optional().nullable(),
     sentTo: z.string().max(200).optional().nullable(),
     purpose: z.string().max(500).optional().nullable(),
+    // A verdict status out of sequence is admin-only with a reason (T4-C, sample-verdict.helper)
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
   })
   .passthrough();
 
@@ -152,6 +155,8 @@ export const updateSampleStatusSchema = z
     status: SampleStatusEnum,
     feedback: z.string().max(1000).optional(),
     comments: z.string().max(500).optional(), // Controller uses 'comments' not 'remarks'
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
   })
   .passthrough();
 
@@ -228,6 +233,8 @@ export const recordFeedbackSchema = z
     feedback: z.string().max(1000).optional(),
     feedbackDate: z.coerce.date().optional(),
     measurementComments: z.string().max(1000).optional(),
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
   })
   .passthrough();
 

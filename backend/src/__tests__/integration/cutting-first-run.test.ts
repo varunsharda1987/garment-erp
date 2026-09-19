@@ -425,9 +425,21 @@ describe('the first cut: from greige to a cutting batch', () => {
         .send({ customerId, styleId, sampleType, requiredDate });
       return res;
     };
+    // Approve the way the screen does: Mark Sent, then Record Feedback. A verdict straight from
+    // REQUESTED is refused since 2026-09-18 (T4-C) — this walk used to take that shortcut.
     const approve = async (sampleId: string) => {
-      const res = await request(app)
+      const shortcut = await request(app)
         .patch(`/api/samples/${sampleId}/status`)
+        .set(authHeader)
+        .send({ status: 'APPROVED', feedback: 'approved for the first run' });
+      expect(shortcut.status).toBe(422);
+      const sent = await request(app)
+        .post(`/api/samples/${sampleId}/send`)
+        .set(authHeader)
+        .send({ courierMode: 'Hand' });
+      expectStatus(sent, (s) => s === 200);
+      const res = await request(app)
+        .post(`/api/samples/${sampleId}/feedback`)
         .set(authHeader)
         .send({ status: 'APPROVED', feedback: 'approved for the first run' });
       expectStatus(res, (s) => s === 200);

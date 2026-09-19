@@ -382,6 +382,22 @@ describe('Sale Order guards that used to surface as generic 500s', () => {
     await prisma.sale_orders.deleteMany({ where: { id: { in: createdSoIds } } });
   });
 
+  // The bug every other confirm test in this file was blind to. They all call `.send({})`, which
+  // sets Content-Type: application/json and hands the route `req.body = {}`. The Confirm BUTTON
+  // sends no body at all (saleOrder.service.ts `api.post(url)` with no second argument), and under
+  // Express 5 / body-parser 2 that leaves `req.body === undefined`, which
+  // `validateBody(confirmSaleOrderSchema)` answered with 400 "Invalid request data" — on every
+  // click, for five months, so not one sale order in the live database was ever CONFIRMED.
+  // Post what the PAGE posts: no `.send()`.
+  it('confirms an order posted with NO body at all, exactly as the Confirm button sends it', async () => {
+    const bodylessSoId = await createSaleOrder([{ styleId: styleAId, sizeId: sizeMId, quantity: 3, unitPrice: 100 }]);
+
+    await request(app).post(`/api/sale-orders/${bodylessSoId}/confirm`).set(authHeader).expect(200);
+
+    const after = await request(app).get(`/api/sale-orders/${bodylessSoId}`).set(authHeader).expect(200);
+    expect(after.body.status).toBe('CONFIRMED');
+  });
+
   it('start-production on a size-less line answers 400 with the reason, not a bare 500', async () => {
     // This threw a plain Error, and with NODE_ENV=production the message never reached the user —
     // the screen just said "Failed to start production".

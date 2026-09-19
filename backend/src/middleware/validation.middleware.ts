@@ -25,7 +25,10 @@ const formatZodErrors = (error: z.ZodError): { field: string; message: string }[
 export const validateBody = <T extends ZodSchema>(schema: T) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      req.body = schema.parse(req.body);
+      // `?? {}` belt-and-braces: app.ts already normalises an absent body (Express 5 / body-parser 2
+      // leave it undefined), but this keeps the guarantee for any router mounted ahead of it and for
+      // tests that exercise this middleware in isolation.
+      req.body = schema.parse(req.body ?? {});
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {

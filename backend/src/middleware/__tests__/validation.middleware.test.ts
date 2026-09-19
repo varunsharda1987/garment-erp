@@ -166,6 +166,41 @@ describe('Validation Middleware', () => {
       expect(mockNext).toHaveBeenCalled();
       expect(mockRequest.body.name).toBe('Test User');
     });
+
+    // Express 5 / body-parser 2 leave `req.body === undefined` when a request carries no body at all
+    // (body-parser 1.x set `{}`). Action endpoints — Confirm, Approve, Reject, Retry — are posted
+    // that way by the frontend, and `z.object().parse(undefined)` throws. That is what made
+    // `POST /sale-orders/:id/confirm` 400 on every click so no sale order was ever confirmed.
+    describe('absent body (Express 5 / body-parser 2)', () => {
+      it('treats an undefined body as {} when every field is optional', async () => {
+        const allOptional = z.object({ remarks: z.string().max(500).optional() });
+        mockRequest.body = undefined;
+
+        const middleware = validateBody(allOptional);
+        await middleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+        expect(mockNext).toHaveBeenCalled();
+        expect(statusMock).not.toHaveBeenCalled();
+        expect(mockRequest.body).toEqual({});
+      });
+
+      it('still rejects an absent body when the schema has required fields, naming them', async () => {
+        mockRequest.body = undefined;
+
+        const middleware = validateBody(testSchema);
+        await middleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+        expect(mockNext).not.toHaveBeenCalled();
+        expect(statusMock).toHaveBeenCalledWith(400);
+
+        // The point of the fix: field-level errors the user can act on, NOT a bare
+        // "Invalid input: expected object, received undefined" against an empty field path.
+        const { details } = jsonMock.mock.calls[0][0];
+        const fields = details.map((d: { field: string }) => d.field);
+        expect(fields).toEqual(expect.arrayContaining(['name', 'email']));
+        expect(fields).not.toContain('');
+      });
+    });
   });
 
   describe('validateQuery', () => {

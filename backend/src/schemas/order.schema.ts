@@ -79,6 +79,10 @@ export const updateOrderStatusSchema = z.object({
 // The body is normalised from undefined/null to {}: under Express 5 / body-parser 2 a POST sent with
 // no body at all leaves req.body === undefined, and this endpoint is legitimately callable that way —
 // a bare z.object() would 400 a request that works today.
+// NOTE: this preprocess is now redundant — app.ts normalises an absent body to {} for every route,
+// and validateBody does `?? {}` as well. It is kept only because it is harmless and idempotent.
+// DO NOT copy this pattern into a new schema: remembering it per-route is exactly what left
+// `confirmSaleOrderSchema` and six others 400ing on every click. Plain z.object() is correct now.
 export const cancelOrderSchema = z.preprocess(
   (body) => (body === undefined || body === null ? {} : body),
   z.object({

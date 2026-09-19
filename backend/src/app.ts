@@ -142,6 +142,22 @@ app.use(httpLogger);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Express 5 / body-parser 2 leave `req.body === undefined` when a request carries no body at all
+// (body-parser 1.x set `{}`). Plenty of action endpoints legitimately POST with no payload — Confirm,
+// Approve, Reject, Retry — and on an absent body BOTH consumers break: `validateBody(z.object({…}))`
+// answers 400 "Invalid request data" even when every field is optional, and any controller doing
+// `const { x } = req.body` throws a TypeError 500. That is how `POST /sale-orders/:id/confirm` 400'd
+// on every click and no sale order was ever confirmed.
+//
+// Restore the body-parser 1.x contract once, here, rather than per-schema — the per-schema workaround
+// (see `cancelOrderSchema` in schemas/order.schema.ts) has to be remembered at every new route, and
+// six others were still missing it. A schema with REQUIRED fields still rejects `{}`, and does so
+// with useful field-level errors instead of a bare "expected object, received undefined".
+app.use((req, _res, next) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
+
 // Response transformation middleware
 app.use(transformResponse);
 

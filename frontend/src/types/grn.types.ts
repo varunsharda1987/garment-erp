@@ -168,6 +168,7 @@ export interface GRN {
   purchaseOrders?: POSummary;
   /** Set on a GRN raised against a job work order (no purchase order) — processed fabric/lace coming back. */
   jobWorkOrderId?: string | null;
+  jobWorkOrder?: { id: string; jobWorkNumber: string; processType?: string } | null;
   supplier?: SupplierSummary;
   warehouse?: WarehouseSummary;
   items?: GRNItem[];

@@ -308,9 +308,10 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(jwo!.jwoStatus).toBe('ISSUED');
   });
 
-  it('phase 4-5: the dyed fabric is received and approved through the GRN', async () => {
+  it('phase 4-5: the dyed fabric is received and booked into stock in one action on the job', async () => {
+    // What the Receive from processor dialog posts — receipt filed accepted, stock booked, in one call.
     const res = await request(app)
-      .post('/api/grn/jwo')
+      .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
         jobWorkOrderId: jwoId,
@@ -318,15 +319,10 @@ describe('the first cut: from greige to a cutting batch', () => {
         receivedWidthInches: RECEIVED_WIDTH,
         warehouseId,
         receivedChallan: `${RUN}-VCH`,
+        processingQC: { qualityGrade: 'A' },
       });
     expectStatus(res, (s) => s === 201);
     grnId = res.body.data.id;
-
-    const approved = await request(app)
-      .patch(`/api/grn/${grnId}/approve`)
-      .set(authHeader)
-      .send({ warehouseId, processingQC: { qualityGrade: 'A', colorMatchStatus: 'Match' } });
-    expectStatus(approved, (s) => s === 200);
 
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');

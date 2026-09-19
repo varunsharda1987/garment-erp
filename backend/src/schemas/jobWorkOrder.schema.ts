@@ -13,6 +13,11 @@ import { ProcessTypeEnum } from './generated/prisma-enums';
 export const FABRIC_PROCESS_TYPES = ['DYEING', 'PRINTING', 'FINISHING'] as const;
 export type FabricProcessType = (typeof FABRIC_PROCESS_TYPES)[number];
 
+/** GET /api/job-work-orders/:id/receive-preview?qty= — a hypothetical received quantity. */
+export const receivePreviewQuerySchema = z.object({
+  qty: z.coerce.number().positive('qty must be a positive number'),
+});
+
 /**
  * POST /api/job-work-orders — create a DRAFT job work order.
  *

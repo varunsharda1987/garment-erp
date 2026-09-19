@@ -180,9 +180,9 @@ describe('receiving dyed lace on a job work order GRN', () => {
     expect(res.body.message).toMatch(/lace/i);
   });
 
-  it('books the GRN against the dyed variant, not the greige', async () => {
+  it('one action books the receipt against the dyed variant and mints the lace lot at the all-in cost', async () => {
     const res = await request(app)
-      .post('/api/grn/jwo')
+      .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
         jobWorkOrderId: jwoId,
@@ -193,6 +193,7 @@ describe('receiving dyed lace on a job work order GRN', () => {
 
     expect(res.status).toBe(201);
     grnId = res.body.data.id;
+    expect(res.body.data.status).toBe('ACCEPTED'); // filed accepted at birth
 
     const items = await prisma.grn_items.findMany({ where: { grnId } });
     expect(items).toHaveLength(1);
@@ -200,12 +201,8 @@ describe('receiving dyed lace on a job work order GRN', () => {
     expect(Number(items[0].receivedQuantity)).toBe(RECEIVE_QTY);
     // Ordered basis is the expected lace back (billable), not the 1,000 m sent.
     expect(Number(items[0].orderedQuantity)).toBeCloseTo(RECEIVE_QTY, 2);
-  });
 
-  it('mints a dyed lace lot at the all-in cost per metre, and no fabric', async () => {
-    const res = await request(app).patch(`/api/grn/${grnId}/approve`).set(authHeader).send({ warehouseId });
-    expect(res.status).toBe(200);
-
+    // …and the same call minted the lot — no separate approval.
     const lots = await prisma.lace_stock.findMany({ where: { laceId: dyedLaceId } });
     expect(lots).toHaveLength(1);
     expect(Number(lots[0].quantityAvailable)).toBe(RECEIVE_QTY);

@@ -80,40 +80,6 @@ export const createGRN = async (grnData: CreateGRNRequest): Promise<GRN> => {
   return data.data;
 };
 
-/** Detail row for bale/than entry on JWO receipt */
-export interface JwoReceiptDetail {
-  detailType: 'THAN' | 'ROLL';
-  baleNumber?: number | null;
-  sequenceNo: number;
-  meters: number;
-  remarks?: string | null;
-}
-
-/**
- * Phase 4b: create a GRN against a Job Work Order (no purchase order)
- */
-export const createGRNFromJWO = async (payload: {
-  jobWorkOrderId: string;
-  qtyReceivedMeters?: number;
-  receivedWidthInches?: number;
-  thanCount?: number;
-  foldLengthCm?: number;
-  receivedChallan?: string;
-  /** The date the goods came back — becomes the GRN date, the job's receivedDate and the inward challan date. */
-  receivedDate?: string;
-  invoiceNumber?: string;
-  invoiceDate?: string;
-  warehouseId?: string;
-  remarks?: string;
-  /** Entry mode for bale/than tracking */
-  entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
-  /** Detail rows for THAN_WISE / BALE_WISE entry modes */
-  details?: JwoReceiptDetail[];
-}): Promise<GRN> => {
-  const { data } = await api.post<GRNResponse>(`${BASE_URL}/jwo`, payload);
-  return data.data;
-};
-
 /**
  * Approve a GRN (PENDING_QC -> ACCEPTED)
  */

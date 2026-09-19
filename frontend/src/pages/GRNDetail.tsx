@@ -301,28 +301,53 @@ export default function GRNDetail() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium mb-2">Purchase Order</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">PO Number:</span>
-                  <button
-                    onClick={() => navigate(`/procurement/purchase-orders/${grn.poId}`)}
-                    className="text-info hover:underline font-medium"
-                  >
-                    {grn.purchaseOrders?.poNumber}
-                  </button>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Expected Delivery:</span>
-                  <span>{formatDate(grn.purchaseOrders?.expectedDeliveryDate || null)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">PO Status:</span>
-                  <span>{grn.purchaseOrders?.status}</span>
+            {grn.jobWorkOrder ? (
+              // A job-work return has no purchase order: it is the receipt filed by the job's
+              // "Receive from processor" action. Before this it rendered an empty PO link to /null.
+              <div>
+                <h4 className="font-medium mb-2">Job work return</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Job work order:</span>
+                    <button
+                      onClick={() => navigate(`/job-work-orders/${grn.jobWorkOrder!.id}`)}
+                      className="text-info hover:underline font-medium"
+                    >
+                      {grn.jobWorkOrder.jobWorkNumber}
+                    </button>
+                  </div>
+                  {grn.jobWorkOrder.processType && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Process:</span>
+                      <span>{grn.jobWorkOrder.processType}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            ) : (
+              <div>
+                <h4 className="font-medium mb-2">Purchase Order</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">PO Number:</span>
+                    <button
+                      onClick={() => navigate(`/procurement/purchase-orders/${grn.poId}`)}
+                      className="text-info hover:underline font-medium"
+                    >
+                      {grn.purchaseOrders?.poNumber}
+                    </button>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Expected Delivery:</span>
+                    <span>{formatDate(grn.purchaseOrders?.expectedDeliveryDate || null)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">PO Status:</span>
+                    <span>{grn.purchaseOrders?.status}</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div>
               <h4 className="font-medium mb-2">Supplier</h4>
               <div className="space-y-2 text-sm">

@@ -106,6 +106,10 @@ export interface JobWorkOrder {
   workOrderId?: string;
   outwardChallanId?: string;
   inwardChallanId?: string;
+  /** The receipt filed when the material came back (badged "Job work return" on the GRN list). */
+  grnId?: string | null;
+  thanCount?: number | null;
+  foldLengthCm?: number | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -180,6 +184,7 @@ export interface JobWorkOrder {
   components?: JobWorkOrderComponent[];
   createdBy?: { id: string; username: string };
   approvedBy?: { id: string; username: string };
+  grn?: { id: string; grnNumber: string } | null;
 }
 
 export interface JobWorkOrderQueryParams {

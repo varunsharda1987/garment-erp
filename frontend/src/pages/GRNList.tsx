@@ -128,16 +128,22 @@ export default function GRNList() {
           >
             {grn.purchaseOrders?.poNumber || '-'}
           </button>
-        ) : (grn as { jobWorkOrder?: { id: string; jobWorkNumber: string } }).jobWorkOrder ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/job-work-orders/${(grn as { jobWorkOrder?: { id: string } }).jobWorkOrder!.id}`);
-            }}
-            className="text-sm text-info hover:underline"
-          >
-            {(grn as { jobWorkOrder?: { jobWorkNumber: string } }).jobWorkOrder!.jobWorkNumber}
-          </button>
+        ) : grn.jobWorkOrder ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/job-work-orders/${grn.jobWorkOrder!.id}`);
+              }}
+              className="text-sm text-info hover:underline"
+            >
+              {grn.jobWorkOrder.jobWorkNumber}
+            </button>
+            {/* The print already calls these "Job work return" — the list should say the same. */}
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              Job work return
+            </span>
+          </div>
         ) : (
           <span className="text-sm text-muted-foreground">-</span>
         ),

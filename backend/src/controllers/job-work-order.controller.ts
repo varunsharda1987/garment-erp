@@ -87,6 +87,10 @@ const jwoInclude = {
   approvedBy: {
     select: { id: true, firstName: true, lastName: true, email: true },
   },
+  // The receipt filed when the job's material came back — shown on the job as "Return receipt".
+  grn: {
+    select: { id: true, grnNumber: true },
+  },
   // Greige identity for greige-processing jobs: the issued lot's master post-issue,
   // and the requirement→BOM chain before a lot exists (MRP drafts have fabricId null).
   greigeStockLot: {
@@ -1676,9 +1680,9 @@ class JobWorkOrderController {
           success: false,
           code: 'RECEIVE_VIA_GRN',
           message:
-            `${existing.fabricType === 'LACE' ? 'Lace' : 'Fabric'} job work is received through a GRN ` +
-            `(Procurement → GRN → New → Receive against Job Work Order) so the stock lot is created. ` +
-            `If the GRN says the job has no lineage, link its greige lot or requirement, or set its ` +
+            `${existing.fabricType === 'LACE' ? 'Lace' : 'Fabric'} job work is received with ` +
+            `Receive from processor on the job, which books the stock lot in one step. ` +
+            `If that says the job has no lineage, link its greige lot or requirement, or set its ` +
             `finished fabric, first — it cannot be received here.`,
         });
       }
@@ -1934,6 +1938,75 @@ class JobWorkOrderController {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to issue job work order',
       });
+    }
+  }
+
+  /**
+   * GET /api/job-work-orders/:id/receive-preview?qty=
+   * The loss split and the over-receipt ceiling for a hypothetical received quantity — the same
+   * pure function and the same tolerance precedence applyLossSplit uses at commit, so the dialog's
+   * warning and the booked figures can never disagree. Read-only.
+   */
+  async receivePreview(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const qty = Number(req.query.qty);
+
+      const jwo = await prisma.job_work_orders.findUnique({
+        where: { id },
+        select: {
+          jobWorkNumber: true,
+          qtySentMeters: true,
+          qtyBillable: true,
+          expectedShrinkage: true,
+          tolerancePercent: true,
+          agreedRatePerMeter: true,
+          processTypeMaster: { select: { tolerancePercent: true } },
+        },
+      });
+      if (!jwo) {
+        return res.status(404).json({ success: false, message: 'Job work order not found' });
+      }
+
+      // Job override → process-type default → 0 (strict). Never 3% by assumption.
+      const tolerancePercent = Number(jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0);
+
+      const split = jobWorkOrderService.calculateLossSplit({
+        qtySent: jwo.qtySentMeters,
+        qtyReceived: qty,
+        qtyExpected: jwo.qtyBillable,
+        expectedShrinkagePercent: jwo.expectedShrinkage,
+        tolerancePercent,
+        ratePerMeter: jwo.agreedRatePerMeter,
+      });
+
+      // The ceiling createGRNFromJWO enforces — surfaced here so the dialog never guesses it.
+      const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
+      const maxReceivable = roundToCent(
+        multiplyCurrency(split.qtyExpected.toNumber(), 1 + overReceiptTolerance / 100)
+      ).toNumber();
+
+      res.json({
+        success: true,
+        data: {
+          qtyExpected: split.qtyExpected.toNumber(),
+          tolerancePercent: split.tolerancePercent.toNumber(),
+          allowedLoss: split.allowedLoss.toNumber(),
+          shortfall: split.shortfall.toNumber(),
+          qtyNormalLoss: split.qtyNormalLoss.toNumber(),
+          qtyAbnormalLoss: split.qtyAbnormalLoss.toNumber(),
+          isOverTolerance: split.isOverTolerance,
+          debitNoteRequired: split.debitNoteRequired,
+          debitNoteAmount: split.debitNoteAmount ? split.debitNoteAmount.toNumber() : null,
+          maxReceivable,
+        },
+      });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError) {
+        return res.status(422).json({ success: false, code: error.code, message: error.message });
+      }
+      logger.error('Error building receive preview:', error);
+      res.status(500).json({ success: false, message: 'Failed to build receive preview' });
     }
   }
 }

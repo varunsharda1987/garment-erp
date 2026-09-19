@@ -157,24 +157,31 @@ export const createGRN = async (req: Request, res: Response) => {
 };
 
 /**
- * @route POST /api/grn/jwo
- * @desc Phase 4b: Create a GRN against a Job Work Order (no purchase order)
- * @access Private (WAREHOUSE, PURCHASE, ADMIN)
+ * @route POST /api/grn/jwo/receive
+ * @desc One action: file the job-work receipt (already accepted) and book the stock lot, the
+ *       inward challan, the loss split and the MRP advance in a single transaction.
+ * @access Private (INVENTORY, PURCHASE, ADMIN)
  */
-export const createGRNFromJWO = async (req: Request, res: Response) => {
+export const receiveJwoToStock = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
 
-  const grn = await grnService.createGRNFromJWO(req.body, userId);
+  const { grn, jwo } = await grnService.receiveJwoToStock(req.body, userId);
 
-  logInfo(`PO-less JWO GRN created: ${grn.grnNumber}`);
+  logInfo(`Job-work receipt booked to stock: ${grn.grnNumber} (${jwo.jobWorkNumber})`);
 
   res.status(201).json({
     success: true,
     data: grn,
-    message: 'GRN created against job work order',
+    lossSplit: {
+      qtyNormalLoss: jwo.qtyNormalLoss,
+      qtyAbnormalLoss: jwo.qtyAbnormalLoss,
+      tolerancePercent: jwo.tolerancePercent,
+      actualShrinkage: jwo.actualShrinkage,
+    },
+    message: `${jwo.jobWorkNumber} received into stock`,
   });
 };
 

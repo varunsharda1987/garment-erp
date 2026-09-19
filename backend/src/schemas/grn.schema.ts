@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UnitEnum } from './common.schema';
+import { UnitEnum, formNumber } from './common.schema';
 
 /**
  * Unit Enum - shared full Prisma-aligned enum (includes PAIR/PACK/GRAM/LITER/ROLL).
@@ -83,46 +83,62 @@ export const createGRNSchema = z
   .passthrough();
 
 /**
- * Phase 4b: Create GRN against a Job Work Order (no purchase order)
- * POST /api/grn/jwo
+ * POST /api/grn/jwo/receive — the one action that records a job-work return (2026-09-19).
+ *
+ * The only door for processed material coming back from a processor: the receipt is filed already
+ * ACCEPTED and the stock lot, inward challan, loss split and MRP advance are booked in the same
+ * transaction. The create-only POST /api/grn/jwo (a receipt with no stock behind it) is a 410.
  *
  * Entry modes:
- * - TOTAL_METERS: Just qtyReceivedMeters (simple total)
+ * - TOTAL_METERS: qtyReceivedMeters, or thanCount × foldLengthCm
  * - THAN_WISE: Array of thans with meters (unbaled)
  * - BALE_WISE: Array of thans grouped by baleNumber
  */
-export const createJwoGRNSchema = z.object({
+export const receiveJwoToStockSchema = z.object({
   jobWorkOrderId: z.string().uuid('Invalid Job Work Order ID'),
-  qtyReceivedMeters: z.number().positive().optional(),
-  receivedWidthInches: z.number().positive().optional(),
-  thanCount: z.number().int().positive().optional(),
+  // Numeric fields use formNumber(): optional and nullable by construction, '' → null. This is a
+  // form-fed schema and the strict-number ratchet is right to insist on it.
+  qtyReceivedMeters: formNumber(z.number().positive()),
+  receivedWidthInches: formNumber(z.number().positive()),
+  thanCount: formNumber(z.number().int().positive()),
   // Every foldLengthCm column is Decimal(5,2): anything ≥ 1000 overflows in Postgres and surfaced as
   // a masked 500 (found 2026-09-15 by jwo-fabric-receive). Refuse it here with a readable message.
-  foldLengthCm: z.number().positive().max(999.99, 'Fold length is in cm and must be under 1000').optional(),
+  foldLengthCm: formNumber(z.number().positive().max(999.99, 'Fold length is in cm and must be under 1000')),
   receivedChallan: z.string().max(100).trim().optional(),
-  // The date the goods actually came back (defaults to today) — the Dyeing/Printing pages let the
-  // user set this; the GRN must too, since it becomes the job's receivedDate and the inward
-  // challan date.
+  // The date the goods actually came back (defaults to today) — becomes the receipt date, the job's
+  // receivedDate and the inward challan date.
   receivedDate: z.string().optional().nullable(),
   invoiceNumber: z.string().max(100).trim().optional().nullable(),
   invoiceDate: z.string().optional().nullable(),
-  warehouseId: z.string().optional().nullable(),
+  // Required up front: the stock lot is written in the same call.
+  warehouseId: z.string().uuid('Invalid warehouse ID'),
   remarks: z.string().max(1000).trim().optional().nullable(),
   // Entry mode for bale/than tracking (same modes as regular GRN)
   entryMode: entryModeEnum.optional().nullable(),
   // Detail rows for THAN_WISE / BALE_WISE entry modes
   details: z.array(grnItemDetailSchema).optional(),
+  // Declared explicitly: processingQCSchema below never names these and they only survive through
+  // .passthrough(), the silent-stripping class the smart-check exists to catch.
+  processingQC: z
+    .object({
+      qualityGrade: z.enum(['A', 'B', 'Reject']).optional(),
+      defectMeters: formNumber(z.number().nonnegative()),
+    })
+    .optional(),
 });
 
 /**
  * Processing QC Data Schema (for PROCESSING PO GRN approval)
  */
+// Form-fed (the GRN approve dialog): formNumber() accepts '' and strings. The trailing transform maps
+// formNumber's null back to undefined so the legacy PROCESSING-PO branch sees exactly what it always did.
+const blankToUndefined = (v: number | null | undefined) => v ?? undefined;
 const processingQCSchema = z
   .object({
-    qtyReceivedMeters: z.number().nonnegative().optional(),
-    receivedWidthInches: z.number().positive().optional(),
-    thanCount: z.number().int().nonnegative().optional(),
-    foldLengthCm: z.number().nonnegative().optional(),
+    qtyReceivedMeters: formNumber(z.number().nonnegative()).transform(blankToUndefined),
+    receivedWidthInches: formNumber(z.number().positive()).transform(blankToUndefined),
+    thanCount: formNumber(z.number().int().nonnegative()).transform(blankToUndefined),
+    foldLengthCm: formNumber(z.number().nonnegative()).transform(blankToUndefined),
     receivedChallan: z.string().max(100).optional(),
   })
   .passthrough();

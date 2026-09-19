@@ -48,6 +48,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrder.service';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
+import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import { evaluateLotRows, round2, type IssueLotRow } from '@/components/job-work/lot-rows';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
@@ -121,6 +122,7 @@ export default function JobWorkOrderDetail() {
   const queryClient = useQueryClient();
 
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [receiveFromProcessorOpen, setReceiveFromProcessorOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [waDialogOpen, setWaDialogOpen] = useState(false);
@@ -757,6 +759,28 @@ export default function JobWorkOrderDetail() {
                 </div>
               </div>
 
+              {/* Recorded at receipt and stored on the job — shown here rather than only on the receipt. */}
+              {(jwo.thanCount != null || jwo.qualityGrade || jwo.defectMeters != null) && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <div>
+                    <Label className="text-muted-foreground">Than Count</Label>
+                    <p className="font-medium">{jwo.thanCount ?? '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Fold Length</Label>
+                    <p className="font-medium">{jwo.foldLengthCm != null ? `${jwo.foldLengthCm} cm` : '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Quality Grade</Label>
+                    <p className="font-medium">{jwo.qualityGrade ?? '-'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Defect Metres</Label>
+                    <p className="font-medium">{jwo.defectMeters != null ? jwo.defectMeters.toFixed(2) : '-'}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Widths (industry model 2026-08-18): greige loom width in; the processor is asked
                   for a FINISHED (stenter) width = cutable + selvedge deduction; received is measured.
                   received < asked ⟺ the cutable target is missed.
@@ -977,12 +1001,12 @@ export default function JobWorkOrderDetail() {
 
               {['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(currentStatus) &&
                 !jwo.receivedDate &&
-                // Metre goods are received on a GRN — that is the only path that creates the stock
-                // lot. Receive Material books no stock, so it is shown for piece work only.
+                // Metre goods come back through ONE action that books the stock lot; Receive
+                // Material books no stock, so it stays for piece work only.
                 (jwo.uom === 'MTR' ? (
-                  <Button className="w-full" onClick={() => navigate(`/procurement/grn/new?jobWorkOrderId=${jwo.id}`)}>
+                  <Button className="w-full" onClick={() => setReceiveFromProcessorOpen(true)}>
                     <PackageCheck className="mr-2 h-4 w-4" />
-                    Receive via GRN
+                    Receive from processor
                   </Button>
                 ) : (
                   <Button className="w-full" onClick={() => setReceiveDialogOpen(true)}>
@@ -1025,6 +1049,29 @@ export default function JobWorkOrderDetail() {
                 <FileText className="mr-2 h-4 w-4" />
                 {jwo.outwardChallanId ? 'Print Challan' : 'Print Challan (issue first)'}
               </Button>
+
+              {/* The inward challan is raised by the receive action; it was stored but never printable here. */}
+              {jwo.inwardChallanId && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => openPDF(`/documents/challans/${jwo.inwardChallanId}/pdf`)}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Print Inward Challan
+                </Button>
+              )}
+
+              {jwo.grn && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate(`/procurement/grn/${jwo.grn!.id}`)}
+                >
+                  <PackageCheck className="mr-2 h-4 w-4" />
+                  Return receipt {jwo.grn.grnNumber}
+                </Button>
+              )}
             </CardContent>
           </Card>
 
@@ -1092,7 +1139,14 @@ export default function JobWorkOrderDetail() {
         </div>
       </div>
 
-      {/* Receive Dialog */}
+      {/* Receive from processor — metre jobs: one action, stock booked */}
+      <ReceiveFromProcessorDialog
+        open={receiveFromProcessorOpen}
+        onOpenChange={setReceiveFromProcessorOpen}
+        jobWorkOrderId={jwo.id}
+      />
+
+      {/* Receive Dialog — piece work only */}
       <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
         <DialogContent>
           <DialogHeader>

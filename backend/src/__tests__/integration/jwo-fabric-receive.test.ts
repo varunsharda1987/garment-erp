@@ -23,6 +23,7 @@ import { randomUUID } from 'crypto';
 import request from 'supertest';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
 
 const RUN = `FRC${Date.now().toString(36).toUpperCase()}`;
@@ -203,9 +204,9 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(res.body.message).toMatch(/fabric/i);
   });
 
-  it('T0-A: accepts the fabricId-null job, minting the finished fabric it books against', async () => {
+  it('T0-A: one action accepts the fabricId-null job — mints the finished fabric and books it into stock', async () => {
     const res = await request(app)
-      .post('/api/grn/jwo')
+      .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
         jobWorkOrderId: jwoId,
@@ -217,15 +218,20 @@ describe('receiving dyed fabric on a job work order GRN', () => {
         receivedDate: RECEIVED_ON,
         warehouseId,
         receivedChallan: `${RUN}-VCH`,
+        processingQC: { qualityGrade: 'A' },
       });
 
-    // Before the fix this was a 4xx: "has no fabric reference — cannot create a GRN item".
+    // Before 2026-09-15 this was a 4xx: "has no fabric reference — cannot create a GRN item".
     expect(res.status).toBe(201);
     grnId = res.body.data.id;
-    // The date the user gave is the GRN's date, not the moment of the click.
+    // Filed accepted at birth: there is no PENDING_QC moment a user could leave the job in.
+    expect(res.body.data.status).toBe('ACCEPTED');
+    // The date the user gave is the receipt's date, not the moment of the click.
     expect(String(res.body.data.receivingDate).slice(0, 10)).toBe(RECEIVED_ON);
+    // The split is returned so the dialog can name the consequence the moment it commits.
+    expect(res.body.lossSplit).toBeDefined();
 
-    // The mint is stamped on the job at creation, so approval and every later reader agree.
+    // The mint is stamped on the job at creation, so every later reader agrees.
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
     expect(jwo!.finishedFabricId).toBeTruthy();
     finishedFabricId = jwo!.finishedFabricId!;
@@ -237,39 +243,15 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(master!.fabricName).toMatch(/Solid\/Dyed/); // the DYED finish label
     expect(master!.fabricName).toMatch(/Navy/); // the shade carried on the order
 
-    // The GRN item names the material ARRIVING — the finished fabric — never the greige sent.
+    // The receipt item names the material ARRIVING — the finished fabric — never the greige sent.
     const items = await prisma.grn_items.findMany({ where: { grnId } });
     expect(items).toHaveLength(1);
     expect(items[0].materialId).toBe(finishedFabricId); // materials.id === master.id
     expect(Number(items[0].receivedQuantity)).toBe(RECEIVE_QTY);
     // Ordered basis is the expected fabric back (billable), not the 1,000 m sent.
     expect(Number(items[0].orderedQuantity)).toBeCloseTo(RECEIVE_QTY, 2);
-  });
 
-  it('a second GRN on the same job reuses the stamped master — it never mints another', async () => {
-    // Partial receipts are legitimate (PARTIALLY_RECEIVED is an at-processor status), so a second
-    // GRN may be created before the first is approved. What must NOT happen is a second master:
-    // a retry after a slow response has to find the one stamped at the first creation.
-    const before = await prisma.fabric_master.count({ where: { greigeId } });
-    const res = await request(app)
-      .post('/api/grn/jwo')
-      .set(authHeader)
-      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: 100, warehouseId });
-    expect(res.status).toBe(201);
-    const after = await prisma.fabric_master.count({ where: { greigeId } });
-    expect(after).toBe(before);
-    const items = await prisma.grn_items.findMany({ where: { grnId: res.body.data.id } });
-    expect(items[0].materialId).toBe(finishedFabricId);
-    // NOTE (found by this test, not fixed here): the over-receipt cap is per GRN, not cumulative
-    // across GRNs on one job — two full-quantity receipts both pass it. Tracked in the plan.
-    await prisma.grn_items.deleteMany({ where: { grnId: res.body.data.id } });
-    await prisma.goods_receiving_notes.delete({ where: { id: res.body.data.id } });
-  });
-
-  it('approves into fabric_stock against that same master, at rate + greige cost', async () => {
-    const res = await request(app).patch(`/api/grn/${grnId}/approve`).set(authHeader).send({ warehouseId });
-    expect(res.status).toBe(200);
-
+    // …and the same call booked the stock — everything the two-step approval used to do.
     const lots = await prisma.fabric_stock.findMany({ where: { fabricId: finishedFabricId } });
     expect(lots).toHaveLength(1);
     expect(Number(lots[0].quantityAvailable)).toBe(RECEIVE_QTY);
@@ -278,15 +260,16 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(lots[0].warehouseId).toBe(warehouseId);
     expect(lots[0].status).toBe('AVAILABLE');
     expect(lots[0].fabricFinishType).toBe('DYED');
+    expect(lots[0].qualityGrade).toBe('A'); // the grade typed in the dialog lands on the lot
 
     // The central ledger carries the finished fabric now.
     const level = await prisma.stock_levels.findFirst({ where: { materialId: finishedFabricId, warehouseId } });
     expect(Number(level!.quantity)).toBe(RECEIVE_QTY);
 
-    const jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
+    // (Same `jwo` read as above — one call did both halves, so one read sees both.)
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
     expect(Number(jwo!.qtyReceivedMeters)).toBe(RECEIVE_QTY);
-    expect(jwo!.finishedFabricId).toBe(finishedFabricId); // approval agreed with creation
+    expect(jwo!.finishedFabricId).toBe(finishedFabricId); // the booking agreed with the mint
     expect(jwo!.grnId).toBe(grnId);
 
     // The four things the Dyeing page recorded that this path used to drop (2026-09-15).
@@ -309,6 +292,22 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(Number(inward!.items[0].quantity)).toBe(RECEIVE_QTY);
     // The stock lot carries the same date, which is what reversal matches on.
     expect(lots[0].receivedDate.toISOString().slice(0, 10)).toBe(RECEIVED_ON);
+  });
+
+  it('a second receipt on the same job is refused — never a second master, never a second lot', async () => {
+    // The two-step path allowed a second PENDING_QC receipt before approval. One action leaves
+    // the job received, so a retry after a slow response must be refused, not double-booked.
+    const mastersBefore = await prisma.fabric_master.count({ where: { greigeId } });
+    const lotsBefore = await prisma.fabric_stock.count({ where: { fabricId: finishedFabricId } });
+    const res = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: 100, warehouseId });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(res.body)).toMatch(/already been received/i);
+    expect(await prisma.fabric_master.count({ where: { greigeId } })).toBe(mastersBefore);
+    expect(await prisma.fabric_stock.count({ where: { fabricId: finishedFabricId } })).toBe(lotsBefore);
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: jwoId } })).toBe(1);
   });
 
   it('takes the lot back when the receipt is reversed', async () => {
@@ -351,7 +350,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     });
 
     const res = await request(app)
-      .post('/api/grn/jwo')
+      .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({ jobWorkOrderId: orphanJwoId, qtyReceivedMeters: 450, warehouseId });
 
@@ -414,10 +413,17 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(afterRefusal!.receivedDate).toBeNull();
 
     const viaGrn = await request(app)
-      .post('/api/grn/jwo')
+      .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({ jobWorkOrderId: gapJwoId, qtyReceivedMeters: 450, warehouseId });
     expect(viaGrn.status).toBe(201);
+    // Booked. The job carries whichever master the identity ladder resolved — it may mint a
+    // properly-identified finished fabric from jwo.fabric's greige rather than reuse fabricId
+    // verbatim — so the lot is looked up through the job, not through the fabricId we planted.
+    const booked = await prisma.job_work_orders.findUnique({ where: { id: gapJwoId } });
+    expect(booked!.jwoStatus).toBe('STOCK_UPDATED');
+    expect(booked!.finishedFabricId).toBeTruthy();
+    expect(await prisma.fabric_stock.count({ where: { fabricId: booked!.finishedFabricId! } })).toBe(1);
   });
 
   it('sends a PO-backed metre job to the PO GRN, not the job-work GRN', async () => {
@@ -461,45 +467,97 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     await prisma.purchase_orders.delete({ where: { id: po.id } });
   });
 
-  it('refuses to approve a receipt that carries no quantity, instead of accepting it with no stock', async () => {
+  // A fresh at-processor job carrying just enough lineage (fabricId) for the receipt to resolve.
+  const raiseAtProcessorJob = async () => {
     const created = await request(app).post('/api/job-work-orders').set(authHeader).send({
       processType: 'DYEING',
       processorId: dyerId,
       quantity: 500,
       agreedRate: DYEING_RATE,
     });
-    const zeroJwoId = created.body.data.id;
+    expect(created.status).toBe(201);
+    const id = created.body.data.id as string;
     await prisma.job_work_orders.update({
-      where: { id: zeroJwoId },
+      where: { id },
       data: { jwoStatus: 'AT_PROCESSOR', uom: 'MTR', qtySentMeters: 500, fabricId: finishedFabricId },
     });
+    return id;
+  };
 
-    const grn = await request(app)
-      .post('/api/grn/jwo')
-      .set(authHeader)
-      .send({ jobWorkOrderId: zeroJwoId, qtyReceivedMeters: 450, warehouseId });
-    expect(grn.status).toBe(201);
-    const zeroGrnId = grn.body.data.id;
-
-    // Creation refuses a zero quantity, so the only way to reach the approval branch is to zero the
-    // line afterwards — which is the state legacy rows were found in.
-    await prisma.grn_items.updateMany({
-      where: { grnId: zeroGrnId },
-      data: { acceptedQuantity: 0, receivedQuantity: 0 },
-    });
-
+  it('refuses a receipt that carries no quantity at the door — nothing is written', async () => {
+    const zeroJwoId = await raiseAtProcessorJob();
     const lotsBefore = await prisma.fabric_stock.count();
-    const res = await request(app).patch(`/api/grn/${zeroGrnId}/approve`).set(authHeader).send({ warehouseId });
+
+    const res = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: zeroJwoId, warehouseId }); // no metres, no than × fold
 
     expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(JSON.stringify(res.body)).toMatch(/no quantity/i);
-
-    // The whole point: it used to answer success here and leave stock empty. Now the transaction
-    // rolls back, so the GRN is still waiting rather than falsely closed.
-    const after = await prisma.goods_receiving_notes.findUnique({ where: { id: zeroGrnId } });
-    expect(after!.status).toBe('PENDING_QC');
+    expect(JSON.stringify(res.body)).toMatch(/quantity/i);
+    // The old path could accept a receipt and leave stock empty; now a zero receipt leaves nothing.
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: zeroJwoId } })).toBe(0);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: zeroJwoId } });
     expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
     expect(await prisma.fabric_stock.count()).toBe(lotsBefore);
+  });
+
+  it('the create-only door is closed: POST /api/grn/jwo answers 410 and points at the job', async () => {
+    const res = await request(app)
+      .post('/api/grn/jwo')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: 10, warehouseId });
+    expect(res.status).toBe(410);
+    expect(res.body.message).toMatch(/Receive from processor/);
+  });
+
+  it('previews the loss split before commit, from the same function the receipt books with', async () => {
+    const preview = (qty: number) =>
+      request(app).get(`/api/job-work-orders/${jwoId}/receive-preview`).query({ qty }).set(authHeader);
+
+    const full = await preview(RECEIVE_QTY);
+    expect(full.status).toBe(200);
+    expect(full.body.data.qtyExpected).toBeCloseTo(RECEIVE_QTY, 2);
+    expect(full.body.data.isOverTolerance).toBe(false);
+    expect(full.body.data.maxReceivable).toBeGreaterThanOrEqual(RECEIVE_QTY);
+
+    // 200 m short of the contract is beyond any plausible tolerance: the dialog must warn.
+    const short = await preview(RECEIVE_QTY - 200);
+    expect(short.status).toBe(200);
+    expect(short.body.data.qtyExpected).toBeCloseTo(RECEIVE_QTY, 2);
+    expect(short.body.data.isOverTolerance).toBe(true);
+    expect(short.body.data.debitNoteRequired).toBe(true);
+    expect(short.body.data.qtyAbnormalLoss).toBeGreaterThan(0);
+
+    const bad = await preview(0);
+    expect(bad.status).toBe(400);
+  });
+
+  it('is all-or-nothing: a failure after the receipt row is created leaves no row, no lot, no challan', async () => {
+    const atomicJwoId = await raiseAtProcessorJob();
+    const lotsBefore = await prisma.fabric_stock.count({ where: { fabricId: finishedFabricId } });
+
+    // Fail the booking half, AFTER createGRNFromJWO has written the receipt row inside the tx.
+    const target = grnService as unknown as { approvePolessJwoGrnInTx: (...args: unknown[]) => Promise<void> };
+    const spy = jest
+      .spyOn(target, 'approvePolessJwoGrnInTx')
+      .mockRejectedValueOnce(new Error('simulated failure after create'));
+    try {
+      const res = await request(app)
+        .post('/api/grn/jwo/receive')
+        .set(authHeader)
+        .send({ jobWorkOrderId: atomicJwoId, qtyReceivedMeters: 450, warehouseId });
+      expect(res.status).toBeGreaterThanOrEqual(400);
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: atomicJwoId } })).toBe(0);
+    expect(await prisma.challans.count({ where: { jobWorkOrderId: atomicJwoId, challanType: 'INWARD' } })).toBe(0);
+    expect(await prisma.fabric_stock.count({ where: { fabricId: finishedFabricId } })).toBe(lotsBefore);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: atomicJwoId } });
+    expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
+    expect(jwo!.grnId).toBeNull();
+    expect(jwo!.receivedDate).toBeNull();
   });
 });

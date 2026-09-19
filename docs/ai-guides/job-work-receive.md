@@ -5,16 +5,17 @@ keywords:
   - job work receive
   - JWO receive
   - receive from processor
+  - receive and add to stock
   - receive via GRN
-  - receive via grn button
+  - job work return
   - mill se maal aaya
   - maal wapas
   - kapda wapas
-  - job work GRN
   - dyed fabric receive
   - printed fabric receive
   - shrinkage
   - abnormal loss
+  - debit note
   - close order
   - greige
   - greage
@@ -24,13 +25,14 @@ keywords:
   - than count
   - fold length
   - inward challan
-  - रिसीव वाया जीआरएन
+  - रिसीव फ्रॉम प्रोसेसर
   - मिल से माल आया
   - लेस वापस
   - माल वापस
   - रिसीव
   - प्रोसेसर
   - जॉब वर्क
+  - जॉब वर्क रिटर्न
   - कपड़ा वापस
   - रंगा हुआ कपड़ा
   - इनवर्ड चालान
@@ -43,47 +45,48 @@ sources:
   - frontend/src/pages/PrintingList.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/pages/JobWorkOrderList.tsx
-  - frontend/src/pages/GRNForm.tsx
+  - frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx
+  - frontend/src/services/jobWorkOrder.service.ts
   - frontend/src/pages/GRNList.tsx
   - frontend/src/pages/GRNDetail.tsx
   - backend/src/schemas/jobWorkOrder.schema.ts
   - backend/src/schemas/grn.schema.ts
+  - backend/src/routes/grn.routes.ts
   - backend/src/controllers/job-work-order.controller.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/helpers/jwo-arriving-material.helper.ts
   - backend/src/services/helpers/jwo-status.helper.ts
-route: /procurement/grn/new
+route: /job-work-orders
 ---
 
 ## Before you start
-The job work order must already be issued to the processor (status **Issued**, **In Transit**, **At Processor** or **Partial Receipt** — on the Dyeing & Printing page the job shows **At Mill**). A **Cancelled** or **Closed** order cannot be received at all — its material was already credited back to stock. There are two different receive paths — pick the right one or you get an error.
+The job work order must already be out with the processor — status **Issued**, **In Transit**, **At Processor** or **Partial Receipt** (the Dyeing & Printing page shows it as **At Mill**). A **Draft** or **Approved** order has not been sent yet: use **Issue to Processor** (or **Send to Mill**) first. A **Cancelled** or **Closed** order cannot be received — its material was already credited back to stock.
 
-The old **Receive**, **Quality Check** and **Update Stock** buttons on the Dyeing and Printing pages no longer exist. Processed fabric and dyed lace are received, and booked into stock, only through a GRN.
+Receiving is one action on the job. There is no GRN form to fill and no separate approval step: the receipt is filed for you, already accepted, and the stock is booked in the same moment.
 
 ## Fabric or dyed lace coming back in metres (dyeing, printing, finishing)
-Anything measured in metres is received through a GRN, so the stock lot gets created — cloth into fabric stock, dyed lace into lace stock.
 
-### Open the GRN form with the job selected
-Any of these:
-- Open the job work order itself and click **Receive via GRN** in the Actions card. The GRN form opens with that job already selected. This is the whole button for a metre job — there is no **Receive Material** on a fabric or lace order, because that action books no stock.
-- Open **Manufacturing → Dyeing & Printing** in the sidebar and click the **Job Work Orders** tab. On the job showing **At Mill**, click the green **Receive via GRN** icon button in the Actions column (the name shows when you hover). The GRN form opens with that job already selected. The same button is on the Dyeing page and the Printing page.
-- Or open **Procurement → GRN (Goods Receipt)**, click **+ Create GRN**, and in the box **Or receive against a Job Work Order (no PO)** pick the job. Each entry shows the JWO number, processor, process type, quantity due back, quantity sent and style.
+### Open the dialog
+Any of these opens the same dialog, titled **Receive from** followed by the processor's name:
+- Open the job work order and click **Receive from processor** in the Actions card.
+- On **Manufacturing → Dyeing & Printing**, **Job Work Orders** tab, click the green **Receive from processor** icon in the Actions column on the job showing **At Mill** (the name shows when you hover). The same icon is on the Dyeing page and the Printing page.
 
-### Fill the receipt
-1. Read the line under the dropdown: **Expected fabric** (or **Expected dyed lace** with the shade name) is the quantity due back — the greige sent minus the expected shrinkage.
-2. Choose the **Entry Mode**: **Total Meters**, **Than-wise** or **Bale-wise**.
-3. In **Total Meters** mode, fill **Received Meters**. If you only have than and fold, leave meters blank and fill **Than Count** and **Fold Length (cm)** instead — one or the other is required.
-4. In **Than-wise** mode, click **Add Than** for every than that came back and type its metres. In **Bale-wise** mode, click **Add Bale** for each bale, then **Than** inside the bale, and type the metres of each than. The green **Detail sum** shows the running total.
-5. Fill **Fold Length (cm)** — it is centimetres and must be under 1000 — and **Width (inches)**. The measured width is stamped onto the finished fabric.
-6. Fill **Vendor Challan Ref** with the processor's challan number.
-7. Lower down the page, choose **Warehouse** and set **Receiving Date** — the date the goods actually came back (defaults to today). Both apply to this receipt, as do **Invoice Number**, **Invoice Date** and **Notes**. A warehouse is needed at approval in any case, so pick it now if you know it.
-8. Click **Save GRN for [JWO number]** — the button inside the job work box, not the **Save GRN** button at the top of the page (that one is for purchase orders).
-9. The GRN is created in **Pending QC** and you land on the GRN list. Nothing is in stock yet.
+### Fill it in
+1. Read **Expected back** (or **Expected dyed lace**) — the quantity due back: the greige sent minus the expected shrinkage. **Maximum you can receive** appears once you start typing a quantity.
+2. **How much came back (MTR) \*** — type the metres. Or leave it blank and give **Than count** and **Fold length (cm, under 1000)** — the metres are worked out from those.
+3. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
+4. **Their challan no.** — the processor's challan number.
+5. **Into warehouse \*** and **Date received \*** (defaults to today). The date becomes the receipt date, the job's received date and the inward challan date.
+6. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
+7. If the quantity is short beyond the job's tolerance, a warning appears naming the metres beyond the allowance and saying a debit note against the processor will be needed before the job can close. You can still go ahead.
+8. Click **Receive & add to stock**. The button stays disabled until you have a quantity, a warehouse and a date.
 
-### Approve the GRN
-1. On **Procurement → GRN (Goods Receipt)**, open the new GRN — filter the status to **Pending QC** or search the JWO number.
-2. Click **Approve**. The **Approve Processing GRN - Quality Check** dialog opens: fill **Quality Grade *** (A - Good, B - Minor Defects, Reject), **Color Match**, **Defect Meters**, **Defect Type**, **Actual Rate (per meter)** and **QC Remarks**. If the GRN has no warehouse yet, pick **Warehouse *** in the same dialog. Click **Approve & Create Stock**. This is the only place the quality of a job-work receipt is recorded.
-3. Approval books the finished fabric into fabric stock (dyed lace into lace stock) in that warehouse and moves the job to **Stock Updated**. For a fabric job it also writes the actual shrinkage %, than count and fold length onto the job and raises an **Inward** challan from the processor automatically — you do not create that challan yourself. The Receiving Date you entered becomes the job's received date, the stock lot's date and the inward challan date.
+### What that one click does
+- Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job shows **Return receipt GRN-…** in its Actions card.
+- Books the finished fabric into fabric stock (dyed lace into lace stock) in the warehouse you chose, at the processing rate plus the greige cost.
+- Raises the **Inward** challan from the processor — the GST document for goods back from a job worker. **Print Inward Challan** appears on the job.
+- Writes the actual shrinkage %, than count, fold length, width and quality onto the job and moves it to **Stock Updated**.
+- Splits the loss into normal and abnormal, and advances any material requirement the job was covering.
 
 ## Piece work coming back (stitching, washing, handwork, kaaj-button)
 1. Open **Manufacturing → Job Work Dashboard**, click **Job Work Orders**, then open the order.
@@ -92,23 +95,20 @@ Any of these:
 4. Click **Receive & Calculate Loss**.
 
 ## After receiving
-- The system splits the loss into normal process loss and abnormal loss automatically — for metre jobs this happens when the GRN is approved.
-- If there is abnormal loss you get a warning and an **Abnormal Loss Detected** banner on the job work order. A debit note against the processor is required.
-- Click **Close Order** on the job work order and enter **Processor Invoice Number *** to finish the order. Closing is refused while abnormal loss has no debit note.
+- If there is abnormal loss you are told when you receive, and an **Abnormal Loss Detected** banner shows on the job work order. A debit note against the processor is required.
+- Click **Close Order** on the job work order and enter **Processor Invoice Number \*** to finish the order. Closing is refused while abnormal loss has no debit note.
+- If the count was wrong, ask an admin to reverse the receipt: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved.
 
 ## Traps
-- **Receive via GRN** only shows once the job has gone out — status **Issued**, **In Transit**, **At Processor** or **Partial Receipt** (**At Mill** on the Dyeing & Printing page). A job in **Draft** has not been sent yet — use **Send to Mill** first.
-- Until the GRN is approved the job still shows **At Mill** and the button stays. Do not save a second GRN for the same job — open the GRN list and approve the one already there.
-- **Fold Length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
-- Receiving more than the expected fabric plus the allowed over-receipt tolerance is refused; the message shows the maximum you can enter.
-- **Receive Material** never appears on a metre-based fabric or lace job — those show **Receive via GRN** instead, because only the GRN creates the stock lot. A piece-based (PCS) job is the mirror image: it never appears in the GRN list and is received from the job work order's **Receive Material**. If some older screen or link still posts a metre job to **Receive Material**, it is refused with "Fabric job work is received through a GRN" (or "Lace job work…") and the job is left untouched, so you can still receive it properly afterwards.
-- A job that is linked to a purchase order is refused with "…is linked to a purchase order — receive it on a GRN against that PO". It does not appear in the job work box; receive it against the purchase order instead.
-- A receipt that records no quantity is refused when you approve it, with "…cannot be approved: this receipt records no quantity". Reject that GRN and create a new one with the metres actually received.
-- If the JWO is missing from the GRN dropdown, it has not been issued yet, it has already been received, it was cancelled or closed, it is linked to a purchase order (receive it against that PO), or it is piece-based. If the whole **Or receive against a Job Work Order (no PO)** box is missing, no job is currently receivable.
-- A job that was already received on the old Dyeing or Printing page is marked received and cannot be received again — the message says it "has already been received".
-- A job whose finished fabric cannot be identified is refused when you save, with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.
+- **Receive from processor** only shows once the job has gone out (**Issued**, **In Transit**, **At Processor**, **Partial Receipt**; **At Mill** on the Dyeing & Printing page). A **Draft** job has not been sent — use **Issue to Processor** first.
+- One receipt per job. A job that has already been received is refused with "has already been received" — do not click again after a slow response; open the job and check its status.
+- **Fold length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
+- Receiving more than **Maximum you can receive** is refused; the message shows the maximum.
+- A receipt with no quantity is refused with "Received quantity must be greater than 0" — nothing is written.
+- **Receive Material** never appears on a metre-based fabric or lace job — those show **Receive from processor**, because only that action creates the stock lot. A piece-based (PCS) job is the mirror image. If an older screen or link still posts a metre job to **Receive Material**, it is refused and the job is left untouched, so you can still receive it properly.
+- A job linked to a purchase order is refused — receive it against that purchase order on the GRN form.
+- A job whose finished fabric cannot be identified is refused with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.
 - A dyed lace receipt lands on the **dyed variant**, not on the greige — the greige left stock when it was issued. Its cost per metre is all the greige money plus all the dyeing money, spread over the metres that actually came back.
-- Reversing an approved lace receipt removes the lot it created, and is refused once any of that lace has been used or reserved.
-- A cancelled job blocks receiving everywhere — even a GRN saved before the cancellation refuses approval. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.
-- Receiving does not create stock on its own — the GRN must be approved.
-- If the order was cancelled after material was issued, a disposition dialog appears asking what happened to the material. Complete that step before trying to receive.
+- A cancelled job blocks receiving. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.
+- If the order was cancelled after material was issued, a disposition dialog appears asking what happened to the material. Complete that step first.
+- The old **Or receive against a Job Work Order (no PO)** box on the GRN form is gone. That form only receives purchased goods against a purchase order now; it shows a note pointing you to the job work order.

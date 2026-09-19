@@ -53,6 +53,35 @@ export interface IssueWithDetailsPayload {
   lots: IssueLotWithDetailsInput[];
 }
 
+/** POST /api/grn/jwo/receive — the one-action job-work receipt. */
+export interface ReceiveToStockPayload {
+  jobWorkOrderId: string;
+  qtyReceivedMeters?: number;
+  thanCount?: number;
+  foldLengthCm?: number;
+  receivedWidthInches?: number;
+  receivedChallan?: string;
+  /** The day the goods came back — becomes the receipt date, the job's receivedDate and the inward challan date. */
+  receivedDate: string;
+  warehouseId: string;
+  entryMode?: 'TOTAL_METERS';
+  processingQC?: { qualityGrade?: 'A' | 'B' | 'Reject'; defectMeters?: number };
+}
+
+/** GET /api/job-work-orders/:id/receive-preview — the server's own loss split for a hypothetical quantity. */
+export interface JwoReceivePreview {
+  qtyExpected: number;
+  tolerancePercent: number;
+  allowedLoss: number;
+  shortfall: number;
+  qtyNormalLoss: number;
+  qtyAbnormalLoss: number;
+  isOverTolerance: boolean;
+  debitNoteRequired: boolean;
+  debitNoteAmount: number | null;
+  maxReceivable: number;
+}
+
 /**
  * Issue payload.
  *
@@ -194,29 +223,24 @@ export const jobWorkOrderService = {
   },
 
   /**
-   * Phase 4b: PO-less JWOs receivable via GRN (sent to processor, nothing back yet)
+   * Receive processed material back from the processor in ONE action: the receipt is filed
+   * (already accepted) and the stock lot, inward challan, loss split and MRP advance are booked
+   * in the same transaction. The route lives under /grn because that is the permission store
+   * staff hold — the URL is invisible to the user.
    */
-  async getReceivable(): Promise<
-    Array<{
-      id: string;
-      jobWorkNumber: string;
-      processType: string;
-      qtySentMeters: number;
-      /** Expected fabric due back (billable = sent × (1 − shrinkage)) */
-      qtyBillable?: number | null;
-      expectedShrinkage?: number | null;
-      uom: string;
-      sentDate?: string;
-      expectedReturnDate?: string;
-      processor?: { id: string; name: string };
-      style?: { id: string; styleCode: string };
-      fabric?: { id: string; fabricCode: string; fabricName: string };
-      /** 'LACE' ⇒ the dyed variant below is what comes back, and there is no fabric. */
-      fabricType?: string | null;
-      finishedLace?: { id: string; laceCode: string; laceName: string; color?: string | null } | null;
-    }>
-  > {
-    const response = await api.get(`${BASE_URL}/receivable`);
+  async receiveToStock(
+    payload: ReceiveToStockPayload
+  ): Promise<{ data: { id: string; grnNumber: string }; lossSplit: LossSplitResult }> {
+    const response = await api.post('/grn/jwo/receive', payload);
+    return response.data;
+  },
+
+  /**
+   * Read-only: what a receipt of `qty` would mean — shortfall, abnormal loss, debit note, and
+   * the most the job can accept. Drives the warning in the receive dialog before commit.
+   */
+  async getReceivePreview(id: string, qty: number): Promise<JwoReceivePreview> {
+    const response = await api.get(`${BASE_URL}/${id}/receive-preview`, { params: { qty } });
     return response.data.data;
   },
 

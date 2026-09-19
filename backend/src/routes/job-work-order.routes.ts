@@ -9,8 +9,9 @@
 import { Router } from 'express';
 import { jobWorkOrderController } from '../controllers/job-work-order.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import {
+  receivePreviewQuerySchema,
   createJobWorkOrderSchema,
   addJwoComponentSchema,
   closeJwoSchema,
@@ -57,6 +58,13 @@ router.post('/:id/close', validateBody(closeJwoSchema), jobWorkOrderController.c
 router.post('/:id/compute-totals', jobWorkOrderController.computeTotals.bind(jobWorkOrderController));
 // Read-only dry run of the issuance validation (blockers, expected greige, candidate lots)
 router.get('/:id/issue-preview', jobWorkOrderController.issuePreview.bind(jobWorkOrderController));
+// Read-only dry run of a receipt: the loss split and the over-receipt ceiling for a quantity, from the
+// same pure function applyLossSplit uses — the dialog warns before commit and computes no money math.
+router.get(
+  '/:id/receive-preview',
+  validateQuery(receivePreviewQuerySchema),
+  jobWorkOrderController.receivePreview.bind(jobWorkOrderController)
+);
 router.post('/:id/issue', validateBody(issueJwoSchema), jobWorkOrderController.issue.bind(jobWorkOrderController));
 // Issue with bale/than detail selection (for processor dispatch)
 router.post(

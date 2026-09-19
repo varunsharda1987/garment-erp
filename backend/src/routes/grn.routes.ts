@@ -3,7 +3,7 @@
  * RESTful API routes for goods receiving management
  */
 
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import {
   getAllGRNs,
   getGRNById,
@@ -12,7 +12,7 @@ import {
   getReceivingSummaryByPO,
   getProcessingContext,
   createGRN,
-  createGRNFromJWO,
+  receiveJwoToStock,
   approveGRN,
   rejectGRN,
   reverseGRN, // BUG-GRN6 fix
@@ -22,7 +22,7 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
   createGRNSchema,
-  createJwoGRNSchema,
+  receiveJwoToStockSchema,
   approveGRNSchema,
   rejectGRNSchema,
   reverseGRNSchema,
@@ -95,10 +95,25 @@ router.post('/', validateBody(createGRNSchema), asyncHandler(createGRN));
 
 /**
  * @route   POST /api/grn/jwo
- * @desc    Phase 4b: Create a GRN against a Job Work Order (no purchase order)
+ * @desc    RETIRED 2026-09-19. This created a receipt with no stock behind it (PENDING_QC) and
+ *          relied on a second screen to approve it — the "saved but not in stock" trap. Job-work
+ *          returns are one action on the job now (POST /api/grn/jwo/receive).
+ */
+// no-body — 410 tombstone, nothing read
+router.post('/jwo', (_req: Request, res: Response) =>
+  res.status(410).json({
+    success: false,
+    message: 'Job-work returns are recorded on the job work order — open the job and click Receive from processor.',
+  })
+);
+
+/**
+ * @route   POST /api/grn/jwo/receive
+ * @desc    One action: file the job-work receipt (accepted) and book stock, inward challan, loss
+ *          split and MRP in a single transaction. Lives on this router so INVENTORY can run it.
  * @access  Private (INVENTORY, PURCHASE, ADMIN)
  */
-router.post('/jwo', validateBody(createJwoGRNSchema), asyncHandler(createGRNFromJWO));
+router.post('/jwo/receive', validateBody(receiveJwoToStockSchema), asyncHandler(receiveJwoToStock));
 
 // ============================================
 // Status Transition Routes

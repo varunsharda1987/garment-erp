@@ -19,6 +19,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { ReturnUnprocessedDialog } from '@/components/processing';
+import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -85,6 +86,9 @@ export default function DyeingList() {
   // Return Unprocessed dialog state
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedPOForReturn, setSelectedPOForReturn] = useState<ProcessPO | null>(null);
+  // Receive from processor — one action, opened in place on the row's job
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveJwoId, setReceiveJwoId] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab === 'lab-dips') {
@@ -543,17 +547,18 @@ export default function DyeingList() {
                 <Send className="h-4 w-4" />
               </Button>
             )}
-            {/* Receive via GRN — the one door for booking processed fabric into stock (2026-09-15) */}
+            {/* Receive from processor — one action books the returned fabric into stock */}
             {status === 'AT_MILL' && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/procurement/grn/new?jobWorkOrderId=${item.id}`);
+                  setReceiveJwoId(item.id);
+                  setReceiveOpen(true);
                 }}
                 className="text-success hover:text-success hover:bg-success-muted"
-                title="Receive via GRN"
+                title="Receive from processor"
               >
                 <PackageCheck className="h-4 w-4" />
               </Button>
@@ -876,6 +881,16 @@ export default function DyeingList() {
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
+      />
+
+      <ReceiveFromProcessorDialog
+        open={receiveOpen}
+        onOpenChange={(open) => {
+          setReceiveOpen(open);
+          if (!open) setReceiveJwoId(null);
+        }}
+        jobWorkOrderId={receiveJwoId}
+        onSuccess={() => fetchProcessPOs()}
       />
 
       {/* Return Unprocessed Dialog */}

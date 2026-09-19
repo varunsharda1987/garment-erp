@@ -144,8 +144,8 @@ stage's page or controller. Cutting's prerequisites were listed from the cutting
 the first end-to-end walk was refused for a missing approved Size Set Sample.
 
 **Walk it, don't reason about it.** `backend/src/__tests__/integration/cutting-first-run.test.ts`
-drives the whole loop (greige → job → GRN → allocate-to-style → Production CAD from the lot → work
-order → samples → push to cutting → issue → chart → batch) through the real endpoints on tagged
+drives the whole loop (greige → job → receive from processor (one action) → allocate-to-style → Production
+CAD from the lot → work order → samples → push to cutting → issue → chart → batch) through the real endpoints on tagged
 fixtures and tears everything down. Run it after touching any of those modules; every refusal it
 prints is a finding. **Post what the PAGE posts:** the first walk sent lays as 50 × 2 by hand and
 missed that the Cutting Chart page's zeros had been refused by the schema since April 2026 (T4-B).
@@ -161,6 +161,12 @@ server-side role check (plan `now-find-the-bugs-enumerated-floyd.md`, T4-A).
 3. **Match on IDs, never on a coincident value.** The same quantity in three tables is not the same row.
 4. When receiving processed goods, book the GRN item against the material **arriving** (lace already
    does: `finishedLaceId`), never the one sent.
+5. **A job-work return has ONE writer**: `POST /api/grn/jwo/receive` (the job's *Receive from processor*
+   dialog), which files the receipt already ACCEPTED and books stock, inward challan, loss split and MRP
+   in one transaction (`GRNService.receiveJwoToStock`). The create-only `POST /api/grn/jwo` is a 410 —
+   a `PENDING_QC` job-work receipt must never exist again. The receipt row is kept (badged *Job work
+   return*) because the GST ITC report (`gstReport.service.ts`) and the printed return read it — not
+   because stock does: `fabric_stock`, the challan, §143, debit notes and MRP all key on the job.
 
 Enforced by the *dual-home column undocumented* smart-check: a model carrying both `<x>Id` and
 `finished<X>Id` / `selected<X>Id` / `source<X>Id` must carry a `///` comment on each stating SENT vs

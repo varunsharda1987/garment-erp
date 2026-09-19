@@ -2639,7 +2639,10 @@ class GRNService {
         remarks?: string | null;
       }>;
     },
-    userId: string
+    userId: string,
+    // `tx`: join a caller's transaction (receiveJwoToStock). `acceptedBy`: file the row ACCEPTED at
+    // birth — the one-action receipt never has a PENDING_QC moment a user could leave it in.
+    opts?: { tx?: Prisma.TransactionClient; acceptedBy?: string }
   ) {
     // Same include as approval (JWO_GRN_INCLUDE) so creation can see every lineage rung approval
     // will — the two sites must never load different views of the job.
@@ -2647,31 +2650,36 @@ class GRNService {
       where: { id: data.jobWorkOrderId },
       include: JWO_GRN_INCLUDE,
     });
+    // Every refusal below is something the person at the door can act on, so each is a
+    // BusinessError (422, message shown). As plain Errors they surfaced as a masked 500 —
+    // "An unexpected error occurred" — which told the user nothing (2026-09-19).
     if (!jwo) {
-      throw new Error('Job work order not found');
+      throw new BusinessError('Job work order not found');
     }
     if (jwo.purchaseOrderId) {
-      throw new Error(`${jwo.jobWorkNumber} is linked to a purchase order — receive it through the normal PO GRN flow`);
+      throw new BusinessError(
+        `${jwo.jobWorkNumber} is linked to a purchase order — receive it through the normal PO GRN flow`
+      );
     }
     // Landmine №1 fix: a cancelled job's material was already credited back to stock —
     // receiving its physical return would double-count it (policy: block, office re-opens
     // the job if the return is genuine).
     if (isJwoDead(jwo.jwoStatus)) {
-      throw new Error(
+      throw new BusinessError(
         `${jwo.jobWorkNumber} is ${jwo.jwoStatus?.toLowerCase()} — its stock was already credited back. ` +
           `If the mill physically returned material, contact the office to re-open the job first.`
       );
     }
     if (jwo.receivedDate) {
-      throw new Error(`${jwo.jobWorkNumber} has already been received`);
+      throw new BusinessError(`${jwo.jobWorkNumber} has already been received`);
     }
     if (!JWO_AT_PROCESSOR_STATUSES.includes(jwo.jwoStatus!)) {
-      throw new Error(`Cannot receive ${jwo.jobWorkNumber}: status is ${jwo.jwoStatus}, expected at-processor`);
+      throw new BusinessError(`Cannot receive ${jwo.jobWorkNumber}: status is ${jwo.jwoStatus}, expected at-processor`);
     }
     // Phase 5a (D6): GRN receiving is fabric/meters-shaped; piece-based job work
     // (embroidery/handwork/smocking/kaaj) is received on the JWO itself.
     if (!JWO_GRN_UOMS.includes(jwo.uom)) {
-      throw new Error(
+      throw new BusinessError(
         `${jwo.jobWorkNumber} is piece-based (${jwo.uom}) — receive it from the Job Work Order's Receive action, not a GRN`
       );
     }
@@ -2690,7 +2698,7 @@ class GRNService {
       qtyReceived = (data.thanCount * data.foldLengthCm) / 100;
     }
     if (qtyReceived <= 0) {
-      throw new Error('Received quantity must be greater than 0');
+      throw new BusinessError('Received quantity must be greater than 0');
     }
 
     // Expected FABRIC due back (billable = sent × (1 − shrinkage)) — the GRN's
@@ -2705,7 +2713,7 @@ class GRNService {
     const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
     const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
     if (qtyReceived > maxReceivable) {
-      throw new Error(
+      throw new BusinessError(
         `Received ${qtyReceived} MTR exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
           `plus ${overReceiptTolerance}% over-receipt tolerance (max ${maxReceivable.toFixed(2)} MTR)`
       );
@@ -2730,7 +2738,8 @@ class GRNService {
     const materialId = await ensureMaterialRecord(arriving.id, arriving.kind);
 
     const grnNumber = await this.generateGRNNumber();
-    const grn = await prisma.goods_receiving_notes.create({
+    const client = opts?.tx ?? prisma;
+    const grn = await client.goods_receiving_notes.create({
       data: {
         id: randomUUID(),
         grnNumber,
@@ -2741,7 +2750,8 @@ class GRNService {
         receivingDate: data.receivedDate ? new Date(data.receivedDate) : new Date(),
         invoiceNumber: data.invoiceNumber || null,
         invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
-        status: GRNStatus.PENDING_QC,
+        status: opts?.acceptedBy ? GRNStatus.ACCEPTED : GRNStatus.PENDING_QC,
+        approvedById: opts?.acceptedBy ?? null,
         remarks:
           [data.remarks, data.receivedChallan ? `Vendor challan ref: ${data.receivedChallan}` : null]
             .filter(Boolean)
@@ -2794,6 +2804,60 @@ class GRNService {
       qtyReceived,
     });
     return grn;
+  }
+
+  /**
+   * One action: receive processed material against a job work order and book it (2026-09-19).
+   *
+   * The receipt row is filed ALREADY ACCEPTED, and the stock lot, the inward challan, the loss
+   * split and the MRP advance are written in the same transaction. There is no PENDING_QC moment,
+   * which is how "saved but not in stock" used to happen. The receipt row stays because the GST
+   * input-credit report and the printed "Job work return" read it — not because stock needs it.
+   *
+   * createGRNFromJWO runs its own guards, quantity derivation, over-receipt cap and the
+   * finished-fabric mint before the create: a refusal leaves no row, and a minted master is the
+   * same harmless catalog row the two-step path already tolerated.
+   */
+  async receiveJwoToStock(
+    data: Parameters<typeof grnService.createGRNFromJWO>[0] & {
+      warehouseId: string;
+      processingQC?: ProcessingQCData;
+    },
+    userId: string
+  ) {
+    const warehouse = await prisma.warehouses.findUnique({ where: { id: data.warehouseId } });
+    if (!warehouse || !warehouse.isActive) {
+      throw new BusinessError('Invalid or inactive warehouse');
+    }
+
+    const grn = await prisma.$transaction(
+      async (tx) => {
+        const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
+        await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id);
+        return created;
+      },
+      { timeout: 30000, maxWait: 10000 }
+    );
+
+    // The split applyLossSplit wrote inside the transaction — returned so the dialog can say
+    // "abnormal loss, debit note needed" the moment it commits, as the piece-work receive does.
+    const jwo = await prisma.job_work_orders.findUniqueOrThrow({
+      where: { id: data.jobWorkOrderId },
+      select: {
+        jobWorkNumber: true,
+        qtyNormalLoss: true,
+        qtyAbnormalLoss: true,
+        tolerancePercent: true,
+        actualShrinkage: true,
+      },
+    });
+
+    logInfo('Job-work receipt booked to stock in one action', {
+      grnId: grn.id,
+      grnNumber: grn.grnNumber,
+      jobWorkNumber: jwo.jobWorkNumber,
+    });
+    return { grn, jwo };
   }
 
   /**

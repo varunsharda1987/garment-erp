@@ -30,7 +30,7 @@ What are you doing?
 What are you receiving?
 │
 ├─► Processed fabric BACK from processor (dyeing/printing mill)?
-│   └─► Use: Process PO Receive (on the SAME Process PO you sent)
+│   └─► Use: Receive from processor (on the SAME Job Work Order you sent) — one action
 │
 ├─► PURCHASED goods from supplier (new material you bought)?
 │   └─► Use: GRN (against the Purchase PO)
@@ -129,23 +129,25 @@ What are you receiving?
 
 ## INWARD Doors (Goods Arriving)
 
-### 1. Process PO Receive
+### 1. Receive from processor (on the Job Work Order)
 
-**Location:** Dyeing/Printing page → Find the Process PO → Receive
+**Location:** Job Work Order → Actions → **Receive from processor** (also the green icon on
+Manufacturing → Dyeing & Printing, Job Work Orders tab, on a job showing At Mill)
 
-**Use when:** YOUR material coming BACK from processor after job work
+**Use when:** YOUR material coming BACK from processor after job work (dyed/printed/finished fabric, dyed lace)
 
-**What happens:**
-- Quantity received recorded against the Process PO
-- QC step (check quality, record actual rate if was TBD)
-- Update Stock → Fabric stock created
-- Greige at processor reduced
-- Multiple partial receipts allowed (receive in lots as mill returns)
+**What happens — in ONE action, one transaction:**
+- A **Job work return** receipt is filed, already accepted (it is listed on the GRN page, never created or approved there)
+- Finished fabric lot created (dyed lace → lace stock) at processing rate + greige cost; stock levels synced
+- **Inward challan** raised from the processor (the GST document for goods back from a job worker)
+- Shrinkage, than/fold, measured width and quality written onto the job; job → **Stock Updated**
+- Loss split into normal / abnormal; a short return beyond tolerance is warned about *before* you commit
+- Material requirements the job covered are advanced
 
-**Important:** 
-- This is NOT a purchase — material was always yours
-- GST is on the SERVICE (processing charges), not the fabric
-- Must receive against the SAME Process PO that was sent
+**Important:**
+- This is NOT a purchase — material was always yours. The GRN *form* is for things you bought.
+- GST is on the SERVICE (processing charges), not the fabric — the return receipt is what the ITC report reads
+- One receipt per job; a wrong count is reversed by an admin (lot taken back, challan cancelled)
 
 **Example:** Receiving 480m printed fabric back from ABC Printing (sent 500m, 20m shrinkage)
 
@@ -169,7 +171,8 @@ What are you receiving?
 - Any material you BOUGHT
 
 **DO NOT use for:**
-- Processor returns (use Process PO Receive)
+- Processor returns (use Receive from processor on the Job Work Order — the "Job work return" receipt it files is
+  visible on this page, but is never created or approved here)
 - Internal transfers (use Challan Receive)
 
 **Example:** Receiving 1000m greige fabric purchased from DEF Textiles
@@ -276,8 +279,8 @@ Here's the complete flow for sending greige for printing and receiving printed f
 
 | Mistake | Why It's Wrong | Correct Action |
 |---------|---------------|----------------|
-| Using GRN for processor returns | Wrong GST (goods vs service), wrong accounting | Use Process PO Receive |
-| Using Stock In for processor returns | No audit trail, no document link | Use Process PO Receive |
+| Using the GRN form for processor returns | It is a purchase form; nothing you bought is arriving | Use Receive from processor on the Job Work Order |
+| Using Stock In for processor returns | No audit trail, no document link | Use Receive from processor on the Job Work Order |
 | Using Stock Out for processor issues | Creates challan but no Process PO, can't track return | Use Process PO Create & Send |
 | Using Stock In for purchases | Skips Purchase PO, wrong accounting | Use GRN against PO |
 | Using manual Challan for everything | Bypasses proper workflows | Use purpose-specific doors |
@@ -289,7 +292,7 @@ Here's the complete flow for sending greige for printing and receiving printed f
 | Flow | Documents Created |
 |------|-------------------|
 | **Purchase** | Purchase PO → GRN → Payment |
-| **Job Work (Processor)** | Process PO → Outward Challan → (mill works) → Receive → Inward Challan → QC → Service Invoice Payment |
+| **Job Work (Processor)** | Job Work Order → Outward Challan → (mill works) → Receive from processor [one action: Job work return receipt + stock lot + Inward Challan + loss split] → Service Invoice Payment |
 | **Internal Transfer** | Outward Challan → Challan Receive |
 | **Purchase Return** | Outward Challan (linked to original PO) |
 

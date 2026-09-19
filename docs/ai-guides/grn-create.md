@@ -26,9 +26,6 @@ sources:
   - frontend/src/pages/GRNList.tsx
   - frontend/src/pages/GRNForm.tsx
   - frontend/src/pages/PurchaseOrderDetail.tsx
-  - frontend/src/pages/ProcessingList.tsx
-  - frontend/src/pages/DyeingList.tsx
-  - frontend/src/pages/PrintingList.tsx
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/purchaseOrder.service.ts
@@ -36,13 +33,13 @@ route: /procurement/grn/new
 ---
 
 ## Before you start
-A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Partially Received** status — Draft POs do not appear in the list. Goods coming back from a processor with no PO (dyed or printed fabric, dyed lace) are received against a Job Work Order instead — same screen, separate box. This is now the only way processed fabric enters stock; the Dyeing and Printing pages no longer have their own receive buttons.
+A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Partially Received** status — Draft POs do not appear in the list. This form is only for goods you **bought**. Processed fabric or dyed lace coming back from a processor is not received here: open the job work order and click **Receive from processor** — one action that books it into stock (see *Receive processed material back from a processor*).
 
 ## Steps
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
 2. Click **+ Create GRN**. The page title reads **Create Goods Receiving Note**. (Shortcut: from the PO page click **Receive Goods** and the PO is already selected.)
 3. Under **Purchase Order Selection**, search by PO number, supplier, material or style, or use the category chips, then pick the PO in **Purchase Order ***.
-4. To receive from a processor instead, use **Or receive against a Job Work Order (no PO)** and pick the job. (Shortcut: click **Receive via GRN** on the job work order itself, or on **Manufacturing → Dyeing & Printing**, **Job Work Orders** tab, on a job showing **At Mill** — the form opens with that job selected.) Choose an **Entry Mode**: **Total Meters** (fill **Received Meters**, or **Than Count** plus **Fold Length (cm)**), **Than-wise** (click **Add Than** and type the meters of each than), or **Bale-wise** (click **Add Bale**, then **Than** inside each bale, and type the meters). The **Detail sum** shows the total as you type. Also fill **Fold Length (cm)** (under 1000), **Width (inches)** and **Vendor Challan Ref**. Set **Warehouse** and **Receiving Date** below — the date is the day the goods came back and becomes the job's received date — then click the **Save GRN for ...** button in that box, not the **Save GRN** button at the top. The full flow is in the guide *Receive processed material back from a processor*.
+4. If you came here to receive from a processor, stop: under the PO list the form says **Receiving from a processor? Open the job work order and click Receive from processor**. There is no job work box on this form any more.
 5. Choose **Warehouse *** and confirm **Receiving Date *** (defaults to today).
 6. Fill **Invoice Number** and **Invoice Date** if the supplier sent an invoice. Both are optional.
 7. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
@@ -53,12 +50,10 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 
 ## Validation traps
 - PO, Warehouse and Receiving Date are required, and at least one item must have a received quantity.
-- Over-receipt is allowed only up to the tolerance shown on the **Items to Receive** card. Beyond that the save is blocked with the maximum allowed quantity in the message. The same cap applies to a job work receipt, measured against the expected fabric due back.
+- Over-receipt is allowed only up to the tolerance shown on the **Items to Receive** card. Beyond that the save is blocked with the maximum allowed quantity in the message.
 - Accepted + Rejected must equal Received on every line, or the save fails.
 - Lines that are already fully received do not appear — only pending quantity is shown.
-- On a job work receipt, **Fold Length (cm)** must be under 1000 — it is centimetres, not metres.
-- A job work order that was already received — including one received on the old Dyeing or Printing page — is refused with "has already been received". A job whose finished fabric cannot be identified is refused with a message asking you to link its greige lot or requirement, or set its finished fabric, first.
-- A cancelled or closed job work order cannot be received. It does not appear in the JWO list, and a Processing PO whose linked job was cancelled refuses the save — that material was already credited back to stock. If the mill really returned goods, ask the office to re-open the job first.
+- A Processing PO whose linked job was cancelled refuses the save — that material was already credited back to stock. If the mill really returned goods, ask the office to re-open the job first.
 
 ## After saving
-The GRN is created with status **Pending QC**. Stock is NOT added yet — it is added only when the GRN is approved. For a job work receipt, approval also marks the job **Stock Updated**, records its actual shrinkage and than/fold, and raises the inward challan.
+The GRN is created with status **Pending QC**. Stock is NOT added yet — it is added only when the GRN is approved. (A **Job work return** is different: it is filed already accepted by the job's **Receive from processor** action, with the stock booked in the same step.)

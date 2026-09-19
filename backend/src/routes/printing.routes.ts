@@ -87,7 +87,7 @@ const receiptRetired = (_req: Request, res: Response) =>
   res.status(410).json({
     success: false,
     message:
-      'Processed fabric is received through a GRN (Receive against Job Work Order) — open Procurement → GRN → New and pick the job',
+      'Processed fabric is received with Receive from processor on the job work order — one action books it into stock',
   });
 // The route-validation smart-check reads `no-body` only from a comment line directly above each route.
 // no-body — 410 tombstone, nothing read

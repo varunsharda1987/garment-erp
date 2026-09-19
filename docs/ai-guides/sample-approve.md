@@ -25,7 +25,11 @@ keywords:
   - खरीदार का फीडबैक
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/SampleDetail.tsx
+  - frontend/src/pages/SampleList.tsx
+  - frontend/src/components/samples/SampleActionMenu.tsx
+  - frontend/src/components/RecordFeedbackDialog.tsx
 route: /samples
 ---
 
@@ -37,8 +41,9 @@ route: /samples
 ## Steps to approve or reject
 
 1. Open **Manufacturing → Sample Tracking** in the sidebar.
-2. Find the sample in the list and click to open its detail page.
-3. Click the **Record Feedback** button in the top-right corner.
+2. Find the sample in the list and click the **⋯** button at the end of its row.
+3. Choose **Record Feedback** from the menu.
+   (You can also open the sample's own page by clicking the row, and use the **⋯** menu at the top right next to **Edit**.)
 4. In the **Record Buyer Feedback** dialog:
    - Select the **Status** from the dropdown:
      - **Approved** - buyer accepts the sample as-is
@@ -53,16 +58,19 @@ route: /samples
 
 If the sample is rejected or needs revision:
 
-1. Open the rejected sample's detail page.
-2. For Fit Samples, click **Create Revision** to start a new version.
+1. Find the rejected sample and open its **⋯** menu (on the row, or at the top right of its own page).
+2. Choose **Create Revision**, then confirm when asked.
 3. The system creates a new sample with an incremented version number.
+
+This is offered for **FIT Sample, PP Sample and Size Set Sample**. Other types are remade as a
+new sample instead.
 
 ## Traps
 
-- The **Record Feedback** button only appears when the sample status is **Sent** or **Feedback Pending**
+- **Record Feedback** only appears in the **⋯** menu when the sample status is **Sent** or **Feedback Pending**
 - Samples must be marked as sent before you can record buyer feedback — the system refuses an approval or rejection before that, with "mark it Sent and record the buyer's feedback"
 - For a stock style with no real buyer (the customer is the house brand), still mark the sample **Sent** and then **Record Feedback** — that is the quickest route; only an administrator can skip it, with a written reason that is logged under **Admin → Override History**
-- Only Fit Samples can create revisions; other sample types need a new sample
+- Only FIT, PP and Size Set samples can create revisions; other sample types need a new sample
 
 ## After recording feedback
 

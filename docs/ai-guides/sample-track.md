@@ -38,8 +38,10 @@ keywords:
   - सैंपल रिजेक्ट
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/SampleList.tsx
   - frontend/src/pages/SampleDetail.tsx
+  - frontend/src/components/samples/SampleActionMenu.tsx
 route: /samples
 ---
 
@@ -71,10 +73,30 @@ route: /samples
    - **Status** — current status badge
    - **Ver.** — version number for FIT/PP/Size Set samples (v1, v2, etc.)
    - **SLA** — timeline status (On Time, Approaching, Delayed, Completed)
-   - **Quick Action** — fast status updates
-   - **Actions** — View, Edit, Delete buttons
+   - **⋯** — the actions menu at the end of the row (see below)
 
 5. Click any row to open the **Sample Detail** page.
+
+## Moving a sample forward
+
+Every action lives behind the **⋯** button at the end of the sample's row. Click it to open
+the menu; the top item is the one step that sample is ready for, followed by **View Details**,
+**Edit**, and **Delete**.
+
+| Current Status | Menu offers |
+|----------------|-------------|
+| Requested | **Start Progress** — asks you to confirm, then moves it to In Progress |
+| In Progress | **Mark Complete** — pick the completion date, then click Mark Complete |
+| Submitted | **Mark Sent** — enter sent date, courier mode and tracking number |
+| Sent / Feedback Pending | **Record Feedback** — enter the buyer's response |
+| Rejected / Revision Needed | **Create Revision** — asks you to confirm, then starts a new version |
+| Approved | no further action — the row shows Approved |
+
+Nothing is applied on the click alone: each action either asks you to confirm or opens a
+dialog you fill in and save. Cancelling leaves the sample exactly as it was.
+
+The same **⋯** menu is on the sample's own page (top right, next to **Edit**) and on the
+sample blocker cards in **Production Status**, with the same steps and the same confirmations.
 
 ## Understanding sample statuses
 
@@ -118,18 +140,6 @@ On the **Sample Detail** page:
    - **Related Samples** — other samples for the same style
    - **Notes** — any remarks
 
-## Quick actions from detail page
-
-Based on current status, different action buttons appear:
-
-| Current Status | Available Action |
-|----------------|------------------|
-| Requested | **Start Progress** — move to In Progress |
-| In Progress | **Mark Complete** — move to Submitted |
-| Submitted | **Mark as Sent** — record shipping details |
-| Sent / Feedback Pending | **Record Feedback** — enter buyer's response |
-| Rejected / Revision Needed (FIT only) | **Create Revision** — start a new version |
-
 ## WhatsApp notification
 
 When a sample is in **Sent** or **Feedback Pending** status:
@@ -144,9 +154,11 @@ Note: Your WhatsApp must be linked in **Team & Settings → My WhatsApp** for th
 
 - **Overdue indicator** — a red alert icon next to the sample number means the required date has passed. Check the "Overdue" summary card or use the "Overdue First" grouping to prioritize these.
 
-- **Version column** — only FIT Sample, PP Sample, and Size Set Sample show versions. Other sample types show "-" in this column.
+- **Version column** — only FIT Sample, PP Sample, and Size Set Sample show versions. Other sample types show "-" in this column. Those same three are the only types that offer **Create Revision**; every other type is remade as a new sample instead.
 
-- **Delete restrictions** — you cannot delete samples that are already Approved or Approved (with comments).
+- **Actions are behind the ⋯ menu** — there are no one-click status buttons on the row. Open the ⋯ menu at the end of the row and pick the step from there.
+
+- **Delete restrictions** — you cannot delete samples that are already Approved or Approved (with comments); the Delete item does not appear in the menu for those.
 
 - **SLA colors** — green = on time, yellow = approaching deadline, red = delayed, gray = completed.
 

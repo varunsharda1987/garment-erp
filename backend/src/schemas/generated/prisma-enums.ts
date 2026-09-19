@@ -300,6 +300,8 @@ export const SampleStatusEnum = z.enum([
 export type SampleStatus = z.infer<typeof SampleStatusEnum>;
 
 export const SampleTypeEnum = z.enum([
+  'ORIGINAL_SAMPLE',
+  'LOOK_SAMPLE',
   'FIT_SAMPLE',
   'PHOTO_SAMPLE',
   'PRODUCTION_SAMPLE',

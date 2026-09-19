@@ -12,6 +12,8 @@ interface SamplePipelineIndicatorProps {
 const PIPELINE_ORDER: SampleType[] = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'];
 
 const SAMPLE_LABELS: Record<SampleType, string> = {
+  ORIGINAL_SAMPLE: 'ORIG',
+  LOOK_SAMPLE: 'LOOK',
   FIT_SAMPLE: 'FIT',
   PP_SAMPLE: 'PP',
   SIZE_SET_SAMPLE: 'SIZE_SET',

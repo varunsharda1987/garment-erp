@@ -79,8 +79,8 @@ This tells the system which samples to create automatically for the buyer's orde
 
 1. Save the customer first, then open it again with **Edit** from the list. The form is titled **Edit Customer**.
 2. Scroll down past **Testing Requirements (FPT/GPT)** to the **Sample Requirements** card. It says "Configure which samples are required for" followed by the customer name.
-3. Six rows are listed: **FIT Sample**, **PP Sample**, **Size Set Sample**, **Photo Sample**, **Production Sample** and **Shipment Sample**. Tick the checkbox next to each sample this buyer needs. Un-tick the ones it does not need.
-4. When **FIT Sample**, **PP Sample** or **Size Set Sample** is ticked, a second checkbox **Blocks Production** appears on the right of that row. Tick it if production must wait for that sample's approval. For **Shipment Sample** the second box is **Blocks Dispatch**. **Photo Sample** and **Production Sample** have no second box.
+3. Eight rows are listed: **Original Sample**, **Look Sample**, **FIT Sample**, **PP Sample**, **Size Set Sample**, **Photo Sample**, **Production Sample** and **Shipment Sample**. Tick the checkbox next to each sample this buyer needs. Un-tick the ones it does not need.
+4. When **FIT Sample**, **PP Sample** or **Size Set Sample** is ticked, a second checkbox **Blocks Production** appears on the right of that row. Tick it if production must wait for that sample's approval. For **Shipment Sample** the second box is **Blocks Dispatch**. **Original Sample**, **Look Sample**, **Photo Sample** and **Production Sample** have no second box.
 5. Click **Save (N selected)** at the top right of the card — N is how many samples are ticked. The button stays greyed out until you change something. You will see "Sample requirements saved successfully".
 
 Traps:
@@ -88,7 +88,7 @@ Traps:
 - The card only exists after the customer is saved. On **Create New Customer** it is not shown at all.
 - A **Blocks Production** / **Blocks Dispatch** tick only counts while that sample's own checkbox is ticked. Un-ticking the sample removes the block too, even if the Blocks box was ticked earlier.
 - If nothing has ever been saved on this card, the system treats **FIT Sample**, **PP Sample** and **Size Set Sample** as required and blocking, even though the card shows every row un-ticked. Save the card once to make the screen the truth.
-- Every save writes all six rows, so un-ticking a sample really switches it off. Saving with nothing ticked means no samples are required and none are created automatically — the card then shows "No sample types selected. Samples won't be auto-created for this customer."
+- Every save writes all eight rows, so un-ticking a sample really switches it off. Saving with nothing ticked means no samples are required and none are created automatically — the card then shows "No sample types selected. Samples won't be auto-created for this customer."
 - Only Admin, Sales and Merchandiser users can save this card.
 
 ## Notes

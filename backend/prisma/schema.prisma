@@ -40,6 +40,11 @@ model company_profile {
   pincode           String
   phone             String?
   email             String?
+  /// Named person a buyer's lab contacts about a Test Requirement Form. The TRF prints
+  /// this person with `phone` and `email` above; all three are stored here rather than in
+  /// company.config.ts so they can be changed without a deploy.
+  /// Distinct from the accounts-side contact in COMPANY_CONFIG that invoices fall back to.
+  contactPerson     String?
   website           String?
   bankName          String?
   bankBranch        String?
@@ -4378,6 +4383,13 @@ model greige_master {
   expectedFinishedWidthMax Decimal?                     @db.Decimal(10, 2)
   averageShrinkagePercent  Decimal?                     @db.Decimal(5, 2)
   gsmRange                 String?
+  /// Buyer's wash-care code for this fabric (Easybuy e.g. "RN-6") — the code printed on the
+  /// washcare label and on the buyer's Test Requirement Form.
+  /// It lives on the GREIGE because the code follows the fabric, not the style: this is
+  /// already the record supplying composition / yarnCount / construction to the TRF, so all
+  /// four values arrive from one read. Not to be confused with
+  /// label_master.washcareInstructions, which is the free-text care prose printed ON the label.
+  washCareCode             String?                      @map("wash_care_code")
   /// Hand-set planning rate. Fabric Costing uses it only when there is no purchase and no
   /// priced stock lot, and the PO form pre-fills from it. Deliberately NOT auto-updated:
   /// letting receipts write it would make master -> PO price -> GRN -> master self-reinforcing.
@@ -9648,6 +9660,8 @@ enum SampleStatus {
 }
 
 enum SampleType {
+  ORIGINAL_SAMPLE
+  LOOK_SAMPLE
   FIT_SAMPLE
   PHOTO_SAMPLE
   PRODUCTION_SAMPLE

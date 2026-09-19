@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Send, MessageSquare, Clock, CheckCircle, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Clock, AlertCircle } from 'lucide-react';
 import { sampleService } from '@/services/sample.service';
-import { MarkAsSentDialog } from './MarkAsSentDialog';
-import { RecordFeedbackDialog } from './RecordFeedbackDialog';
-import { UpdateStatusDialog } from './UpdateStatusDialog';
+import { SampleActionMenu } from './samples/SampleActionMenu';
 import { SampleVersionBadge } from './SampleVersionBadge';
 import { SampleSLABadge } from './SampleSLABadge';
-import type { Sample, SampleStatus } from '@/types/sample.types';
+import type { Sample } from '@/types/sample.types';
 import { SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
 
 interface BlockerResolutionPanelProps {
@@ -22,11 +19,6 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
   const [sample, setSample] = useState<Sample | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Dialog states
-  const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchSample();
@@ -50,16 +42,6 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
     onResolved?.();
   };
 
-  const handleCreateRevision = async () => {
-    if (!sample) return;
-    try {
-      await sampleService.createRevision(sample.id);
-      handleSuccess();
-    } catch (err) {
-      // allow-silent-catch — createRevision throws toast on error via handleApiError
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -78,51 +60,6 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
     );
   }
 
-  const getActionButton = (status: SampleStatus) => {
-    switch (status) {
-      case 'REQUESTED':
-      case 'IN_PROGRESS':
-        return (
-          <Button size="sm" variant="outline" onClick={() => setStatusDialogOpen(true)} className="gap-1">
-            <Clock className="h-3 w-3" />
-            Update Status
-          </Button>
-        );
-      case 'SUBMITTED':
-        return (
-          <Button size="sm" variant="default" onClick={() => setSendDialogOpen(true)} className="gap-1">
-            <Send className="h-3 w-3" />
-            Mark as Sent
-          </Button>
-        );
-      case 'SENT':
-      case 'FEEDBACK_PENDING':
-        return (
-          <Button size="sm" variant="default" onClick={() => setFeedbackDialogOpen(true)} className="gap-1">
-            <MessageSquare className="h-3 w-3" />
-            Record Feedback
-          </Button>
-        );
-      case 'REVISION_NEEDED':
-        return (
-          <Button size="sm" variant="secondary" onClick={handleCreateRevision} className="gap-1">
-            <RefreshCcw className="h-3 w-3" />
-            Create Revision
-          </Button>
-        );
-      case 'APPROVED':
-      case 'APPROVED_WITH_COMMENTS':
-        return (
-          <div className="flex items-center gap-1 text-sm text-green-600">
-            <CheckCircle className="h-4 w-4" />
-            Approved
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
-
   if (compact) {
     return (
       <div className="flex items-center gap-3">
@@ -131,29 +68,7 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
           <SampleVersionBadge version={sample.version} sampleType={sample.sampleType} />
           <Badge className={SampleStatusColors[sample.status]}>{SampleStatusLabels[sample.status]}</Badge>
         </div>
-        {getActionButton(sample.status)}
-
-        <MarkAsSentDialog
-          open={sendDialogOpen}
-          onOpenChange={setSendDialogOpen}
-          sampleId={sample.id}
-          onSuccess={handleSuccess}
-        />
-        <RecordFeedbackDialog
-          open={feedbackDialogOpen}
-          onOpenChange={setFeedbackDialogOpen}
-          sampleId={sample.id}
-          sampleType={sample.sampleType}
-          onSuccess={handleSuccess}
-          onCreateRevision={handleCreateRevision}
-        />
-        <UpdateStatusDialog
-          open={statusDialogOpen}
-          onOpenChange={setStatusDialogOpen}
-          sampleId={sample.id}
-          currentStatus={sample.status}
-          onSuccess={handleSuccess}
-        />
+        <SampleActionMenu sample={sample} onActionComplete={handleSuccess} />
       </div>
     );
   }
@@ -176,31 +91,11 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
               </p>
             )}
           </div>
-          <div className="flex-shrink-0">{getActionButton(sample.status)}</div>
+          <div className="flex-shrink-0">
+            <SampleActionMenu sample={sample} onActionComplete={handleSuccess} />
+          </div>
         </div>
       </CardContent>
-
-      <MarkAsSentDialog
-        open={sendDialogOpen}
-        onOpenChange={setSendDialogOpen}
-        sampleId={sample.id}
-        onSuccess={handleSuccess}
-      />
-      <RecordFeedbackDialog
-        open={feedbackDialogOpen}
-        onOpenChange={setFeedbackDialogOpen}
-        sampleId={sample.id}
-        sampleType={sample.sampleType}
-        onSuccess={handleSuccess}
-        onCreateRevision={handleCreateRevision}
-      />
-      <UpdateStatusDialog
-        open={statusDialogOpen}
-        onOpenChange={setStatusDialogOpen}
-        sampleId={sample.id}
-        currentStatus={sample.status}
-        onSuccess={handleSuccess}
-      />
     </Card>
   );
 }

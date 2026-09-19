@@ -1,2 +1,2 @@
 export { SamplePipelineIndicator } from './SamplePipelineIndicator';
-export { SampleQuickActionBar } from './SampleQuickActionBar';
+export { SampleActionMenu } from './SampleActionMenu';

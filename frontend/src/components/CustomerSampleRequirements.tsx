@@ -17,6 +17,20 @@ import api from '@/lib/api';
 
 const SAMPLE_TYPES = [
   {
+    value: 'ORIGINAL_SAMPLE',
+    label: 'Original Sample',
+    description: 'First concept/design sample',
+    defaultBlocks: false,
+    blocksLabel: 'Required',
+  },
+  {
+    value: 'LOOK_SAMPLE',
+    label: 'Look Sample',
+    description: 'Overall aesthetic/look approval',
+    defaultBlocks: false,
+    blocksLabel: 'Required',
+  },
+  {
     value: 'FIT_SAMPLE',
     label: 'FIT Sample',
     description: 'Initial fit approval sample',

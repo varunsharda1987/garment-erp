@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { sampleService } from '@/services/sample.service';
 import { useWhatsappStatus } from '@/hooks/useWhatsapp';
-import type { Sample, SampleStatus, SampleType } from '@/types/sample.types';
-import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
+import type { Sample, SampleType } from '@/types/sample.types';
+import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors, isVersionedSampleType } from '@/types/sample.types';
 import { SampleVersionBadge } from '@/components/SampleVersionBadge';
+import { SampleActionMenu } from '@/components/samples/SampleActionMenu';
 
 interface RelatedSample {
   id: string;
@@ -25,10 +26,7 @@ import {
   TestTube,
   ArrowLeft,
   Pencil,
-  Send,
   MessageSquare,
-  RefreshCcw,
-  CheckCircle,
   Clock,
   Ruler,
   Palette,
@@ -50,7 +48,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function SampleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -60,10 +57,6 @@ export default function SampleDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Dialog states
-  const [sendDialogOpen, setSendDialogOpen] = useState(false);
-  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
 
   // WhatsApp: notify the buyer through the logged-in user's own linked number.
@@ -71,19 +64,6 @@ export default function SampleDetail() {
   const waLinked = waStatus?.state === 'ready';
   const [notifyForm, setNotifyForm] = useState({ to: '', text: '' });
   const [notifying, setNotifying] = useState(false);
-
-  // Form states
-  const [sendForm, setSendForm] = useState({
-    sentDate: new Date().toISOString().split('T')[0],
-    courierMode: '',
-    trackingNumber: '',
-  });
-  const [feedbackForm, setFeedbackForm] = useState({
-    status: 'APPROVED' as 'APPROVED' | 'REJECTED' | 'REVISION_NEEDED' | 'APPROVED_WITH_COMMENTS',
-    feedback: '',
-    measurementComments: '',
-  });
-  const [newStatus, setNewStatus] = useState<SampleStatus>('IN_PROGRESS');
 
   useEffect(() => {
     if (id) {
@@ -103,23 +83,6 @@ export default function SampleDetail() {
       setError(errorMessage);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleMarkAsSent = async () => {
-    try {
-      await sampleService.markAsSent(id!, sendForm);
-      handleApiSuccess('Sample sent', 'Sample has been marked as sent.');
-      setSendDialogOpen(false);
-      await fetchSample();
-      // Offer to notify the buyer on WhatsApp right away, prefilled from the shipping details.
-      openNotifyDialog({
-        courierMode: sendForm.courierMode,
-        trackingNumber: sendForm.trackingNumber,
-        sentDate: sendForm.sentDate,
-      });
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to update sample');
     }
   };
 
@@ -180,42 +143,6 @@ export default function SampleDetail() {
     }
   };
 
-  const handleRecordFeedback = async () => {
-    try {
-      await sampleService.recordFeedback(id!, {
-        status: feedbackForm.status,
-        feedback: feedbackForm.feedback,
-        measurementComments: feedbackForm.measurementComments,
-      });
-      handleApiSuccess('Feedback recorded', 'Buyer feedback has been recorded.');
-      setFeedbackDialogOpen(false);
-      fetchSample();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to record feedback');
-    }
-  };
-
-  const handleStatusChange = async () => {
-    try {
-      await sampleService.updateSampleStatus(id!, { status: newStatus });
-      handleApiSuccess('Status updated', `Sample status changed to ${SampleStatusLabels[newStatus]}`);
-      setStatusDialogOpen(false);
-      fetchSample();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to update status');
-    }
-  };
-
-  const handleCreateRevision = async () => {
-    try {
-      const revision = await sampleService.createRevision(id!);
-      handleApiSuccess('Revision created', `New revision ${revision.sampleNumber} created.`);
-      navigate(`/samples/${revision.id}`);
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to create revision');
-    }
-  };
-
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('en-IN', {
@@ -273,7 +200,7 @@ export default function SampleDetail() {
               </div>
               <p className="text-muted-foreground flex items-center gap-1">
                 {SampleTypeLabels[sample.sampleType]}
-                {['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'].includes(sample.sampleType) && (
+                {isVersionedSampleType(sample.sampleType) && (
                   <>
                     <span className="ml-1">(Version {sample.version || 1})</span>
                     <SampleVersionBadge version={sample.version} sampleType={sample.sampleType} />
@@ -284,47 +211,16 @@ export default function SampleDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Action buttons based on status */}
-          {sample.status === 'REQUESTED' && (
-            <Button onClick={() => setStatusDialogOpen(true)}>
-              <Clock className="h-4 w-4 mr-2" />
-              Start Progress
-            </Button>
-          )}
-          {sample.status === 'IN_PROGRESS' && (
-            <Button
-              onClick={() => {
-                setNewStatus('SUBMITTED');
-                setStatusDialogOpen(true);
-              }}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Mark Complete
-            </Button>
-          )}
-          {sample.status === 'SUBMITTED' && (
-            <Button onClick={() => setSendDialogOpen(true)}>
-              <Send className="h-4 w-4 mr-2" />
-              Mark as Sent
-            </Button>
-          )}
-          {['SENT', 'FEEDBACK_PENDING'].includes(sample.status) && (
-            <Button onClick={() => setFeedbackDialogOpen(true)}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Record Feedback
-            </Button>
-          )}
-          {(sample.status === 'REJECTED' || sample.status === 'REVISION_NEEDED') &&
-            sample.sampleType === 'FIT_SAMPLE' && (
-              <Button onClick={handleCreateRevision}>
-                <RefreshCcw className="h-4 w-4 mr-2" />
-                Create Revision
-              </Button>
-            )}
           <Button variant="outline" onClick={() => navigate(`/samples/${id}/edit`)}>
             <Pencil className="h-4 w-4 mr-2" />
             Edit
           </Button>
+          <SampleActionMenu
+            sample={sample}
+            onActionComplete={fetchSample}
+            onMarkedSent={openNotifyDialog}
+            onRevisionCreated={(revision) => navigate(`/samples/${revision.id}`)}
+          />
         </div>
       </div>
 
@@ -699,140 +595,6 @@ export default function SampleDetail() {
           )}
         </div>
       </div>
-
-      {/* Send Dialog */}
-      <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Mark Sample as Sent</DialogTitle>
-            <DialogDescription>Enter shipping details for tracking</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Sent Date</Label>
-              <Input
-                type="date"
-                value={sendForm.sentDate}
-                onChange={(e) => setSendForm({ ...sendForm, sentDate: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Courier Mode</Label>
-              <Input
-                placeholder="e.g., FedEx, DHL, Hand Delivery"
-                value={sendForm.courierMode}
-                onChange={(e) => setSendForm({ ...sendForm, courierMode: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Tracking Number</Label>
-              <Input
-                placeholder="Optional tracking number"
-                value={sendForm.trackingNumber}
-                onChange={(e) => setSendForm({ ...sendForm, trackingNumber: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSendDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleMarkAsSent}>
-              <Send className="h-4 w-4 mr-2" />
-              Mark as Sent
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Feedback Dialog */}
-      <Dialog open={feedbackDialogOpen} onOpenChange={setFeedbackDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record Buyer Feedback</DialogTitle>
-            <DialogDescription>Enter the buyer's response to this sample</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select
-                value={feedbackForm.status}
-                onValueChange={(v) =>
-                  setFeedbackForm({
-                    ...feedbackForm,
-                    status: v as 'APPROVED' | 'REJECTED' | 'REVISION_NEEDED' | 'APPROVED_WITH_COMMENTS',
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="APPROVED_WITH_COMMENTS">Approved (with comments)</SelectItem>
-                  <SelectItem value="REVISION_NEEDED">Revision Needed</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Feedback Comments</Label>
-              <Textarea
-                placeholder="Enter buyer's feedback..."
-                value={feedbackForm.feedback}
-                onChange={(e) => setFeedbackForm({ ...feedbackForm, feedback: e.target.value })}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Measurement Notes</Label>
-              <Textarea
-                placeholder="Any measurement-specific comments..."
-                value={feedbackForm.measurementComments}
-                onChange={(e) => setFeedbackForm({ ...feedbackForm, measurementComments: e.target.value })}
-                rows={2}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFeedbackDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRecordFeedback}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Save Feedback
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Status Change Dialog */}
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Status</DialogTitle>
-            <DialogDescription>Change the sample status</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <Select value={newStatus} onValueChange={(v) => setNewStatus(v as SampleStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="REQUESTED">Requested</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="SUBMITTED">Submitted (Complete)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleStatusChange}>Update Status</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Notify Buyer on WhatsApp Dialog */}
       <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>

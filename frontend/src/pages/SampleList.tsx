@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { sampleService } from '@/services/sample.service';
 import type { Sample, SampleType, SampleStatus, SampleSummary } from '@/types/sample.types';
-import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
+import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors, isVersionedSampleType } from '@/types/sample.types';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -29,7 +29,8 @@ import { SampleVersionBadge } from '@/components/SampleVersionBadge';
 import { SampleSLABadge } from '@/components/SampleSLABadge';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SampleQuickActionBar } from '@/components/samples/SampleQuickActionBar';
+import { SampleActionMenu } from '@/components/samples/SampleActionMenu';
+import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 type GroupByMode = 'none' | 'type' | 'customer' | 'overdue';
 
@@ -83,6 +84,8 @@ export default function SampleList() {
           groupKey = sample.sampleType;
           groupLabel = SampleTypeLabels[sample.sampleType] || sample.sampleType;
           order = [
+            'ORIGINAL_SAMPLE',
+            'LOOK_SAMPLE',
             'FIT_SAMPLE',
             'PP_SAMPLE',
             'SIZE_SET_SAMPLE',
@@ -305,8 +308,7 @@ export default function SampleList() {
       key: 'version',
       header: 'Ver.',
       render: (item) => {
-        const VERSIONED_TYPES = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'];
-        if (!VERSIONED_TYPES.includes(item.sampleType)) {
+        if (!isVersionedSampleType(item.sampleType)) {
           return <div className="text-sm text-muted-foreground">-</div>;
         }
         const version = item.version || 1;
@@ -321,55 +323,40 @@ export default function SampleList() {
       render: (item) => <SampleSLABadge slaStatus={item.slaStatus} daysUntilDue={item.daysUntilDue} />,
     },
     {
-      key: 'quickAction',
-      header: 'Quick Action',
-      render: (item) => (
-        <div onClick={(e) => e.stopPropagation()}>
-          <SampleQuickActionBar sample={item} onActionComplete={fetchSamples} compact />
-        </div>
-      ),
-    },
-    {
       key: 'actions',
       header: '',
+      headerClassName: 'text-right',
+      className: 'text-right',
       render: (item) => (
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/samples/${item.id}`);
-            }}
-            title="View details"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/samples/${item.id}/edit`);
-            }}
-            title="Edit"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          {!['APPROVED', 'APPROVED_WITH_COMMENTS'].includes(item.status) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteClick(item.id, item.sampleNumber);
-              }}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-              title="Delete"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
+        <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+          <SampleActionMenu
+            sample={item}
+            onActionComplete={fetchSamples}
+            extraItems={
+              <>
+                <DropdownMenuItem onSelect={() => navigate(`/samples/${item.id}`)}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => navigate(`/samples/${item.id}/edit`)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                {!['APPROVED', 'APPROVED_WITH_COMMENTS'].includes(item.status) && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onSelect={() => handleDeleteClick(item.id, item.sampleNumber)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </>
+            }
+          />
         </div>
       ),
     },

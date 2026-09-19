@@ -9,6 +9,8 @@
 // ============================================
 
 export type SampleType =
+  | 'ORIGINAL_SAMPLE'
+  | 'LOOK_SAMPLE'
   | 'FIT_SAMPLE'
   | 'PP_SAMPLE'
   | 'SIZE_SET_SAMPLE'
@@ -322,7 +324,20 @@ export interface SampleSummary {
 // UI HELPER TYPES
 // ============================================
 
+/**
+ * Types that iterate through numbered revisions (v1, v2, …) on rejection.
+ * Concept-stage types (Original, Look) and one-off types (Photo, Production,
+ * Shipment) are remade rather than versioned.
+ */
+export const VERSIONED_SAMPLE_TYPES: SampleType[] = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'];
+
+export function isVersionedSampleType(sampleType: SampleType | string): boolean {
+  return VERSIONED_SAMPLE_TYPES.includes(sampleType as SampleType);
+}
+
 export const SampleTypeLabels: Record<SampleType, string> = {
+  ORIGINAL_SAMPLE: 'Original Sample',
+  LOOK_SAMPLE: 'Look Sample',
   FIT_SAMPLE: 'FIT Sample',
   PP_SAMPLE: 'PP Sample (Pre-Production)',
   SIZE_SET_SAMPLE: 'Size Set Sample',

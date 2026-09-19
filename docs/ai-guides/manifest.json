@@ -7,7 +7,7 @@
       "backend/src/services/ai/ai-insights.service.ts": "4a9c5109a179"
     },
     "contentHash": "93352bf4ac10",
-    "generatedAt": "2026-09-19T08:52:42.873Z"
+    "generatedAt": "2026-09-19T10:25:48.614Z"
   },
   "ai-settings": {
     "sources": {
@@ -18,7 +18,7 @@
       "backend/src/services/ai/ai-settings.service.ts": "21eebbc3f1f5"
     },
     "contentHash": "df4eabfde046",
-    "generatedAt": "2026-09-19T08:52:42.995Z"
+    "generatedAt": "2026-09-19T10:25:48.899Z"
   },
   "asn-create": {
     "sources": {
@@ -27,7 +27,7 @@
       "frontend/src/pages/ASNDetail.tsx": "80ad6b83f71c"
     },
     "contentHash": "24b2c56f0d33",
-    "generatedAt": "2026-09-19T08:52:42.999Z"
+    "generatedAt": "2026-09-19T10:25:48.903Z"
   },
   "button-create": {
     "sources": {
@@ -44,7 +44,7 @@
       "backend/src/controllers/button.controller.ts": "7e59492113e2"
     },
     "contentHash": "35b9a826a0e2",
-    "generatedAt": "2026-09-19T08:52:43.004Z"
+    "generatedAt": "2026-09-19T10:25:48.908Z"
   },
   "cad-approve": {
     "sources": {
@@ -52,7 +52,7 @@
       "frontend/src/pages/CADPlanningPage.tsx": "8464899606cb"
     },
     "contentHash": "ff3b6cc25c66",
-    "generatedAt": "2026-09-19T08:52:43.007Z"
+    "generatedAt": "2026-09-19T10:25:48.911Z"
   },
   "cad-costing": {
     "sources": {
@@ -61,7 +61,7 @@
       "frontend/src/pages/CADPlanningPage.tsx": "8464899606cb"
     },
     "contentHash": "682575eb24fc",
-    "generatedAt": "2026-09-19T08:52:43.012Z"
+    "generatedAt": "2026-09-19T10:25:48.916Z"
   },
   "cad-planning-create": {
     "sources": {
@@ -71,7 +71,7 @@
       "frontend/src/components/cad/CADSpreadsheetTable.tsx": "03d935b53540"
     },
     "contentHash": "e11a4999d5fd",
-    "generatedAt": "2026-09-19T08:52:43.016Z"
+    "generatedAt": "2026-09-19T10:25:48.920Z"
   },
   "catalogue-generate": {
     "sources": {
@@ -79,7 +79,7 @@
       "frontend/src/pages/CatalogueGenerator.tsx": "00b8048d5842"
     },
     "contentHash": "7e7eddb35a80",
-    "generatedAt": "2026-09-19T08:52:43.019Z"
+    "generatedAt": "2026-09-19T10:25:48.923Z"
   },
   "challan-create": {
     "sources": {
@@ -89,7 +89,7 @@
       "frontend/src/types/challan.types.ts": "14af129091fa"
     },
     "contentHash": "2eb318228f96",
-    "generatedAt": "2026-09-19T08:52:43.023Z"
+    "generatedAt": "2026-09-19T10:25:48.925Z"
   },
   "challan-receive": {
     "sources": {
@@ -98,7 +98,7 @@
       "frontend/src/pages/ChallanList.tsx": "c8a84895a82f"
     },
     "contentHash": "b1cab1b88c20",
-    "generatedAt": "2026-09-19T08:52:43.027Z"
+    "generatedAt": "2026-09-19T10:25:48.928Z"
   },
   "chart-of-accounts": {
     "sources": {
@@ -107,7 +107,7 @@
       "frontend/src/types/financial.types.ts": "2a457b3e5aeb"
     },
     "contentHash": "d30ad6227273",
-    "generatedAt": "2026-09-19T08:52:43.030Z"
+    "generatedAt": "2026-09-19T10:25:48.931Z"
   },
   "color-create": {
     "sources": {
@@ -122,7 +122,7 @@
       "backend/src/services/color.service.ts": "128f84afd978"
     },
     "contentHash": "d0ddbc09f0d9",
-    "generatedAt": "2026-09-19T08:52:43.034Z"
+    "generatedAt": "2026-09-19T10:25:48.935Z"
   },
   "component-group-create": {
     "sources": {
@@ -130,7 +130,7 @@
       "frontend/src/pages/ComponentGroupMaster.tsx": "ee7ac743c8cf"
     },
     "contentHash": "53b83841ff48",
-    "generatedAt": "2026-09-19T08:52:43.037Z"
+    "generatedAt": "2026-09-19T10:25:48.937Z"
   },
   "component-master-create": {
     "sources": {
@@ -138,7 +138,7 @@
       "frontend/src/pages/ComponentMasters.tsx": "28a57f723e32"
     },
     "contentHash": "39fc4fef978e",
-    "generatedAt": "2026-09-19T08:52:43.039Z"
+    "generatedAt": "2026-09-19T10:25:48.940Z"
   },
   "cost-sheet-create": {
     "sources": {
@@ -158,7 +158,7 @@
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234"
     },
     "contentHash": "7fd265913f12",
-    "generatedAt": "2026-09-19T08:52:43.046Z"
+    "generatedAt": "2026-09-19T10:25:48.946Z"
   },
   "credit-note-create": {
     "sources": {
@@ -168,7 +168,7 @@
       "frontend/src/types/creditNote.types.ts": "00d0837afb4d"
     },
     "contentHash": "e2d9aa58a7d1",
-    "generatedAt": "2026-09-19T08:52:43.048Z"
+    "generatedAt": "2026-09-19T10:25:48.949Z"
   },
   "customer-create": {
     "sources": {
@@ -177,17 +177,17 @@
       "frontend/src/App.tsx": "7b417aa8a48b",
       "frontend/src/pages/CustomerList.tsx": "d8953761cbdc",
       "frontend/src/pages/CustomerForm.tsx": "9eee75d39ad1",
-      "frontend/src/components/CustomerSampleRequirements.tsx": "acfbdf2a3fb9",
+      "frontend/src/components/CustomerSampleRequirements.tsx": "a08eb1b5de95",
       "frontend/src/components/GSTNumberInput.tsx": "d5fe28d64e27",
       "frontend/src/lib/validators.ts": "efac7c741170",
       "backend/src/schemas/customer.schema.ts": "2aed89273ce1",
       "backend/src/routes/customer.routes.ts": "0b477c930b26",
       "backend/src/services/customer.service.ts": "abe4e555f2d2",
-      "backend/src/services/sample.service.ts": "36789ecc7b3d",
+      "backend/src/services/sample.service.ts": "31a79e5cf207",
       "backend/src/services/productionBlockingValidation.service.ts": "e3709ac6acb7"
     },
-    "contentHash": "c401c585fd2f",
-    "generatedAt": "2026-09-19T08:52:43.054Z"
+    "contentHash": "9ba3c542c067",
+    "generatedAt": "2026-09-19T10:25:48.954Z"
   },
   "cutting-entry": {
     "sources": {
@@ -204,7 +204,7 @@
       "backend/src/routes/cutting.routes.ts": "c8017d275eeb"
     },
     "contentHash": "f540748feeb8",
-    "generatedAt": "2026-09-19T08:52:43.059Z"
+    "generatedAt": "2026-09-19T10:25:48.969Z"
   },
   "debit-note-create": {
     "sources": {
@@ -212,7 +212,7 @@
       "frontend/src/pages/DebitNoteList.tsx": "59cdc5034632"
     },
     "contentHash": "d0fef5307148",
-    "generatedAt": "2026-09-19T08:52:43.062Z"
+    "generatedAt": "2026-09-19T10:25:48.972Z"
   },
   "delivery-note-create": {
     "sources": {
@@ -221,7 +221,7 @@
       "backend/src/schemas/dispatch.schema.ts": "174397452fc8"
     },
     "contentHash": "c2e007b7d6a7",
-    "generatedAt": "2026-09-19T08:52:43.065Z"
+    "generatedAt": "2026-09-19T10:25:48.975Z"
   },
   "delivery-note-pod": {
     "sources": {
@@ -231,7 +231,7 @@
       "frontend/src/types/dispatch.types.ts": "3e3fed099017"
     },
     "contentHash": "694968c70161",
-    "generatedAt": "2026-09-19T08:52:43.067Z"
+    "generatedAt": "2026-09-19T10:25:48.978Z"
   },
   "design-dashboard": {
     "sources": {
@@ -241,7 +241,7 @@
       "frontend/src/types/designerDashboard.types.ts": "ed325dc8dbdc"
     },
     "contentHash": "a9482f66a414",
-    "generatedAt": "2026-09-19T08:52:43.070Z"
+    "generatedAt": "2026-09-19T10:25:48.980Z"
   },
   "dispatch-track": {
     "sources": {
@@ -251,7 +251,7 @@
       "frontend/src/types/dispatch.types.ts": "3e3fed099017"
     },
     "contentHash": "c5738efb5e47",
-    "generatedAt": "2026-09-19T08:52:43.073Z"
+    "generatedAt": "2026-09-19T10:25:48.983Z"
   },
   "drawstring-create": {
     "sources": {
@@ -264,7 +264,7 @@
       "frontend/src/config/trimTypeRegistry.ts": "e918b41b0e12"
     },
     "contentHash": "af58b60c2ecd",
-    "generatedAt": "2026-09-19T08:52:43.076Z"
+    "generatedAt": "2026-09-19T10:25:48.987Z"
   },
   "dye-lab-dip-create": {
     "sources": {
@@ -275,7 +275,7 @@
       "frontend/src/components/processing/LabDipBatchCreateForm.tsx": "b1c6877ea607"
     },
     "contentHash": "1b7069a8662c",
-    "generatedAt": "2026-09-19T08:52:43.079Z"
+    "generatedAt": "2026-09-19T10:25:48.990Z"
   },
   "einvoice-generate": {
     "sources": {
@@ -286,7 +286,7 @@
       "frontend/src/types/einvoice.types.ts": "16a824d8539e"
     },
     "contentHash": "4e8ed3b9d0ca",
-    "generatedAt": "2026-09-19T08:52:43.083Z"
+    "generatedAt": "2026-09-19T10:25:48.993Z"
   },
   "elastic-create": {
     "sources": {
@@ -303,7 +303,7 @@
       "backend/src/controllers/elastic.controller.ts": "659caffa19eb"
     },
     "contentHash": "be0062ea6010",
-    "generatedAt": "2026-09-19T08:52:43.088Z"
+    "generatedAt": "2026-09-19T10:25:48.997Z"
   },
   "embroidery-create": {
     "sources": {
@@ -312,7 +312,7 @@
       "frontend/src/pages/EmbroideryList.tsx": "6d454a097e60"
     },
     "contentHash": "1f685f278934",
-    "generatedAt": "2026-09-19T08:52:43.091Z"
+    "generatedAt": "2026-09-19T10:25:48.999Z"
   },
   "embroidery-dashboard": {
     "sources": {
@@ -320,7 +320,7 @@
       "frontend/src/pages/EmbroideryPieceDashboard.tsx": "6aeaeefc6513"
     },
     "contentHash": "d8407651ff57",
-    "generatedAt": "2026-09-19T08:52:43.093Z"
+    "generatedAt": "2026-09-19T10:25:49.001Z"
   },
   "embroidery-piece-receive": {
     "sources": {
@@ -329,7 +329,7 @@
       "frontend/src/pages/EmbroideryPieceDashboard.tsx": "6aeaeefc6513"
     },
     "contentHash": "17f08bfb8f27",
-    "generatedAt": "2026-09-19T08:52:43.096Z"
+    "generatedAt": "2026-09-19T10:25:49.004Z"
   },
   "embroidery-piece-send": {
     "sources": {
@@ -338,7 +338,7 @@
       "frontend/src/pages/EmbroideryPieceDashboard.tsx": "6aeaeefc6513"
     },
     "contentHash": "289a5ffa6b4b",
-    "generatedAt": "2026-09-19T08:52:43.098Z"
+    "generatedAt": "2026-09-19T10:25:49.007Z"
   },
   "fabric-costing-approve": {
     "sources": {
@@ -347,7 +347,7 @@
       "frontend/src/pages/FabricCostingOptionsPage.tsx": "db91ce41e374"
     },
     "contentHash": "7599f8809e1c",
-    "generatedAt": "2026-09-19T08:52:43.102Z"
+    "generatedAt": "2026-09-19T10:25:49.010Z"
   },
   "fabric-costing-options": {
     "sources": {
@@ -357,7 +357,7 @@
       "frontend/src/types/fabricCosting.types.ts": "eb2300a0532a"
     },
     "contentHash": "aeec01015f08",
-    "generatedAt": "2026-09-19T08:52:43.105Z"
+    "generatedAt": "2026-09-19T10:25:49.013Z"
   },
   "fabric-costing-run": {
     "sources": {
@@ -365,7 +365,7 @@
       "frontend/src/pages/FabricCostingPage.tsx": "0eb057234116"
     },
     "contentHash": "680becd558ac",
-    "generatedAt": "2026-09-19T08:52:43.108Z"
+    "generatedAt": "2026-09-19T10:25:49.016Z"
   },
   "fabric-create": {
     "sources": {
@@ -378,7 +378,7 @@
       "backend/src/services/fabric.service.ts": "a679990ca519"
     },
     "contentHash": "70febd66e9f4",
-    "generatedAt": "2026-09-19T08:52:43.112Z"
+    "generatedAt": "2026-09-19T10:25:49.021Z"
   },
   "fabric-stock-entry": {
     "sources": {
@@ -392,7 +392,7 @@
       "backend/src/routes/fabric-stock.routes.ts": "c7bf14911d52"
     },
     "contentHash": "1d0959f0f34c",
-    "generatedAt": "2026-09-19T08:52:43.116Z"
+    "generatedAt": "2026-09-19T10:25:49.024Z"
   },
   "fg-stock-view": {
     "sources": {
@@ -400,7 +400,7 @@
       "frontend/src/pages/FGStockList.tsx": "9b52a8dfe004"
     },
     "contentHash": "525bda88c0ef",
-    "generatedAt": "2026-09-19T08:52:43.118Z"
+    "generatedAt": "2026-09-19T10:25:49.027Z"
   },
   "finishing-entry": {
     "sources": {
@@ -415,7 +415,7 @@
       "backend/src/controllers/finishing.controller.ts": "01cc29ec0337"
     },
     "contentHash": "130ea659ab55",
-    "generatedAt": "2026-09-19T08:52:43.122Z"
+    "generatedAt": "2026-09-19T10:25:49.031Z"
   },
   "fpt-create": {
     "sources": {
@@ -424,7 +424,7 @@
       "frontend/src/pages/FabricPhysicalTests.tsx": "618f3206fa99"
     },
     "contentHash": "70827ed45248",
-    "generatedAt": "2026-09-19T08:52:43.125Z"
+    "generatedAt": "2026-09-19T10:25:49.033Z"
   },
   "gpt-create": {
     "sources": {
@@ -433,7 +433,7 @@
       "frontend/src/pages/GarmentPhysicalTests.tsx": "a677d8df99d7"
     },
     "contentHash": "be46913cf1c2",
-    "generatedAt": "2026-09-19T08:52:43.128Z"
+    "generatedAt": "2026-09-19T10:25:49.035Z"
   },
   "greige-create": {
     "sources": {
@@ -445,7 +445,7 @@
       "backend/src/services/greige.service.ts": "c8d20161a4f7"
     },
     "contentHash": "6d2e844f5773",
-    "generatedAt": "2026-09-19T08:52:43.131Z"
+    "generatedAt": "2026-09-19T10:25:49.038Z"
   },
   "greige-receive-without-po": {
     "sources": {
@@ -477,7 +477,7 @@
       "backend/src/schemas/stockMovement.schema.ts": "86b30277cc59"
     },
     "contentHash": "3737b190c4cf",
-    "generatedAt": "2026-09-19T08:52:43.141Z"
+    "generatedAt": "2026-09-19T10:25:49.046Z"
   },
   "grn-approve": {
     "sources": {
@@ -513,7 +513,7 @@
       "frontend/src/pages/GSTReports.tsx": "07144bd349c7"
     },
     "contentHash": "41d3748de602",
-    "generatedAt": "2026-09-19T08:52:43.153Z"
+    "generatedAt": "2026-09-19T10:25:49.058Z"
   },
   "handwork-send-receive": {
     "sources": {
@@ -523,7 +523,7 @@
       "frontend/src/pages/HandworkReceive.tsx": "378a812e97f7"
     },
     "contentHash": "34a7d99bf36d",
-    "generatedAt": "2026-09-19T08:52:43.156Z"
+    "generatedAt": "2026-09-19T10:25:49.060Z"
   },
   "hsn-sac-create": {
     "sources": {
@@ -531,7 +531,7 @@
       "frontend/src/pages/HSNSACMasterList.tsx": "09684de67773"
     },
     "contentHash": "21391db4257c",
-    "generatedAt": "2026-09-19T08:52:43.159Z"
+    "generatedAt": "2026-09-19T10:25:49.062Z"
   },
   "invoice-create": {
     "sources": {
@@ -541,7 +541,7 @@
       "backend/src/schemas/invoice.schema.ts": "7afc2829d468"
     },
     "contentHash": "f28b41631285",
-    "generatedAt": "2026-09-19T08:52:43.161Z"
+    "generatedAt": "2026-09-19T10:25:49.067Z"
   },
   "invoice-edit": {
     "sources": {
@@ -550,7 +550,7 @@
       "frontend/src/pages/InvoiceDetail.tsx": "0e8efd73715b"
     },
     "contentHash": "e4ddb83d4759",
-    "generatedAt": "2026-09-19T08:52:43.164Z"
+    "generatedAt": "2026-09-19T10:25:49.069Z"
   },
   "invoice-view": {
     "sources": {
@@ -561,7 +561,7 @@
       "frontend/src/types/invoice.types.ts": "a130f5e31ecc"
     },
     "contentHash": "5030cdf916c0",
-    "generatedAt": "2026-09-19T08:52:43.167Z"
+    "generatedAt": "2026-09-19T10:25:49.072Z"
   },
   "job-work-dashboard": {
     "sources": {
@@ -629,7 +629,7 @@
       "frontend/src/types/printing.types.ts": "1bcff95a6574"
     },
     "contentHash": "33aa2694641f",
-    "generatedAt": "2026-09-19T08:52:43.190Z"
+    "generatedAt": "2026-09-19T10:25:49.092Z"
   },
   "label-create": {
     "sources": {
@@ -650,7 +650,7 @@
       "backend/src/controllers/label.controller.ts": "6d0d0e4dbcdc"
     },
     "contentHash": "aea0affd3685",
-    "generatedAt": "2026-09-19T08:52:43.197Z"
+    "generatedAt": "2026-09-19T10:25:49.098Z"
   },
   "lace-create": {
     "sources": {
@@ -667,7 +667,7 @@
       "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5"
     },
     "contentHash": "c0061f1875aa",
-    "generatedAt": "2026-09-19T08:52:43.202Z"
+    "generatedAt": "2026-09-19T10:25:49.102Z"
   },
   "lace-defect-create": {
     "sources": {
@@ -677,7 +677,7 @@
       "frontend/src/types/laceDefect.types.ts": "4e8103aff07d"
     },
     "contentHash": "6687d0fdb65d",
-    "generatedAt": "2026-09-19T08:52:43.205Z"
+    "generatedAt": "2026-09-19T10:25:49.105Z"
   },
   "lace-lab-dip-create": {
     "sources": {
@@ -686,7 +686,7 @@
       "frontend/src/pages/LaceLabDipList.tsx": "dcabbb6b99c9"
     },
     "contentHash": "6c5e04f07f01",
-    "generatedAt": "2026-09-19T08:52:43.208Z"
+    "generatedAt": "2026-09-19T10:25:49.107Z"
   },
   "lace-stock-aging": {
     "sources": {
@@ -694,7 +694,7 @@
       "frontend/src/pages/LaceStockAging.tsx": "3b968f935887"
     },
     "contentHash": "85abd32823d5",
-    "generatedAt": "2026-09-19T08:52:43.210Z"
+    "generatedAt": "2026-09-19T10:25:49.109Z"
   },
   "lace-stock-view": {
     "sources": {
@@ -703,7 +703,7 @@
       "frontend/src/pages/LaceStockDetail.tsx": "aa02d5d474e2"
     },
     "contentHash": "dcda32884a68",
-    "generatedAt": "2026-09-19T08:52:43.213Z"
+    "generatedAt": "2026-09-19T10:25:49.111Z"
   },
   "lace-variant-create": {
     "sources": {
@@ -713,7 +713,7 @@
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "0e5623fa396c"
     },
     "contentHash": "3ecb0baada2c",
-    "generatedAt": "2026-09-19T08:52:43.216Z"
+    "generatedAt": "2026-09-19T10:25:49.114Z"
   },
   "machine-part-create": {
     "sources": {
@@ -722,7 +722,7 @@
       "frontend/src/pages/MachinePartList.tsx": "5701754fd294"
     },
     "contentHash": "0ed61a845367",
-    "generatedAt": "2026-09-19T08:52:43.219Z"
+    "generatedAt": "2026-09-19T10:25:49.116Z"
   },
   "manufacturing-control-center": {
     "sources": {
@@ -733,7 +733,7 @@
       "frontend/src/services/manufacturingAlerts.service.ts": "fa5aa12daa59"
     },
     "contentHash": "fb2e86f723a4",
-    "generatedAt": "2026-09-19T08:52:43.223Z"
+    "generatedAt": "2026-09-19T10:25:49.119Z"
   },
   "material-quick-add": {
     "sources": {
@@ -756,7 +756,7 @@
       "backend/src/controllers/generic-trim.controller.ts": "ec410996e45e"
     },
     "contentHash": "eda8704edcfb",
-    "generatedAt": "2026-09-19T08:52:43.230Z"
+    "generatedAt": "2026-09-19T10:25:49.125Z"
   },
   "mood-board-create": {
     "sources": {
@@ -765,7 +765,7 @@
       "frontend/src/pages/MoodBoardList.tsx": "f7bb18e2c4a7"
     },
     "contentHash": "13e2107cb53b",
-    "generatedAt": "2026-09-19T08:52:43.233Z"
+    "generatedAt": "2026-09-19T10:25:49.127Z"
   },
   "order-create": {
     "sources": {
@@ -781,7 +781,7 @@
       "backend/src/controllers/order.controller.ts": "960c15f98e06"
     },
     "contentHash": "7621304742bc",
-    "generatedAt": "2026-09-19T08:52:43.238Z"
+    "generatedAt": "2026-09-19T10:25:49.131Z"
   },
   "order-track-status": {
     "sources": {
@@ -798,7 +798,7 @@
       "frontend/src/types/mrp.types.ts": "b75630793078"
     },
     "contentHash": "10ee34947d0c",
-    "generatedAt": "2026-09-19T08:52:43.243Z"
+    "generatedAt": "2026-09-19T10:25:49.136Z"
   },
   "other-material-create": {
     "sources": {
@@ -809,7 +809,7 @@
       "frontend/src/services/otherMaterial.service.ts": "2d8bbf68337e"
     },
     "contentHash": "4400ca30d31b",
-    "generatedAt": "2026-09-19T08:52:43.246Z"
+    "generatedAt": "2026-09-19T10:25:49.139Z"
   },
   "packaging-create": {
     "sources": {
@@ -834,7 +834,7 @@
       "backend/src/utils/code-generator.ts": "2672cbc3ab81"
     },
     "contentHash": "89af39b6ea68",
-    "generatedAt": "2026-09-19T08:52:43.252Z"
+    "generatedAt": "2026-09-19T10:25:49.144Z"
   },
   "pattern-part-create": {
     "sources": {
@@ -842,7 +842,7 @@
       "frontend/src/pages/PatternPartMaster.tsx": "ce0dff464141"
     },
     "contentHash": "3d4a56639ffc",
-    "generatedAt": "2026-09-19T08:52:43.255Z"
+    "generatedAt": "2026-09-19T10:25:49.146Z"
   },
   "permissions-manage": {
     "sources": {
@@ -856,7 +856,7 @@
       "backend/src/middleware/auth.middleware.ts": "b9152e3af919"
     },
     "contentHash": "834acf0c0444",
-    "generatedAt": "2026-09-19T08:52:43.258Z"
+    "generatedAt": "2026-09-19T10:25:49.149Z"
   },
   "print-lab-dip-create": {
     "sources": {
@@ -867,7 +867,7 @@
       "frontend/src/components/processing/LabDipBatchCreateForm.tsx": "b1c6877ea607"
     },
     "contentHash": "cb8b81d7bd16",
-    "generatedAt": "2026-09-19T08:52:43.262Z"
+    "generatedAt": "2026-09-19T10:25:49.152Z"
   },
   "processing-batch-create": {
     "sources": {
@@ -876,7 +876,7 @@
       "frontend/src/pages/ProcessingBatchCreateForm.tsx": "e338c3f32f9a"
     },
     "contentHash": "90b8c7b2a311",
-    "generatedAt": "2026-09-19T08:52:43.265Z"
+    "generatedAt": "2026-09-19T10:25:49.154Z"
   },
   "processing-batch-track": {
     "sources": {
@@ -887,7 +887,7 @@
       "frontend/src/services/processingBatch.service.ts": "269137c821c5"
     },
     "contentHash": "a5edc06cdb0a",
-    "generatedAt": "2026-09-19T08:52:43.269Z"
+    "generatedAt": "2026-09-19T10:25:49.157Z"
   },
   "processor-rate-card": {
     "sources": {
@@ -897,7 +897,7 @@
       "frontend/src/types/processorRateCardV2.types.ts": "1dda77501229"
     },
     "contentHash": "f561dac28113",
-    "generatedAt": "2026-09-19T08:52:43.272Z"
+    "generatedAt": "2026-09-19T10:25:49.160Z"
   },
   "product-category-create": {
     "sources": {
@@ -905,7 +905,7 @@
       "frontend/src/pages/ProductCategoryMaster.tsx": "0f58804b6d13"
     },
     "contentHash": "1d638b4f3fe7",
-    "generatedAt": "2026-09-19T08:52:43.275Z"
+    "generatedAt": "2026-09-19T10:25:49.162Z"
   },
   "production-status-track": {
     "sources": {
@@ -922,7 +922,7 @@
       "backend/src/schemas/workOrder.schema.ts": "e515662501f3"
     },
     "contentHash": "2e07e12601e1",
-    "generatedAt": "2026-09-19T08:52:43.279Z"
+    "generatedAt": "2026-09-19T10:25:49.166Z"
   },
   "purchase-order-close-short": {
     "sources": {
@@ -935,7 +935,7 @@
       "backend/src/services/purchaseOrder.service.ts": "af54023fbf24"
     },
     "contentHash": "25fcb81c94bf",
-    "generatedAt": "2026-09-19T08:52:43.283Z"
+    "generatedAt": "2026-09-19T10:25:49.170Z"
   },
   "purchase-order-create": {
     "sources": {
@@ -949,7 +949,7 @@
       "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a"
     },
     "contentHash": "094732f3bca0",
-    "generatedAt": "2026-09-19T08:52:43.287Z"
+    "generatedAt": "2026-09-19T10:25:49.174Z"
   },
   "quotation-convert": {
     "sources": {
@@ -959,7 +959,7 @@
       "frontend/src/pages/OrderForm.tsx": "f5966a430f7a"
     },
     "contentHash": "e182a8da010c",
-    "generatedAt": "2026-09-19T08:52:43.290Z"
+    "generatedAt": "2026-09-19T10:25:49.177Z"
   },
   "quotation-create": {
     "sources": {
@@ -968,7 +968,7 @@
       "frontend/src/pages/QuotationList.tsx": "1d59a7c5c003"
     },
     "contentHash": "47dd49cbc5db",
-    "generatedAt": "2026-09-19T08:52:43.293Z"
+    "generatedAt": "2026-09-19T10:25:49.179Z"
   },
   "quotation-revise": {
     "sources": {
@@ -977,7 +977,7 @@
       "frontend/src/pages/QuotationDetail.tsx": "32d1aa4dc6ff"
     },
     "contentHash": "4eca0985678f",
-    "generatedAt": "2026-09-19T08:52:43.296Z"
+    "generatedAt": "2026-09-19T10:25:49.181Z"
   },
   "reports-view": {
     "sources": {
@@ -987,7 +987,7 @@
       "frontend/src/pages/GSTReports.tsx": "07144bd349c7"
     },
     "contentHash": "32ceeae6eb5e",
-    "generatedAt": "2026-09-19T08:52:43.299Z"
+    "generatedAt": "2026-09-19T10:25:49.183Z"
   },
   "sale-order-create": {
     "sources": {
@@ -1010,28 +1010,36 @@
   "sample-approve": {
     "sources": {
       "frontend/src/config/navigation.ts": "9ece28576ed9",
-      "frontend/src/pages/SampleDetail.tsx": "7cb26b4a2c54"
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/pages/SampleDetail.tsx": "8b5a42df86f6",
+      "frontend/src/pages/SampleList.tsx": "f4ad85219d9d",
+      "frontend/src/components/samples/SampleActionMenu.tsx": "d4e11fdd2f39",
+      "frontend/src/components/RecordFeedbackDialog.tsx": "4d9657dc8171"
     },
-    "contentHash": "abcb9312dc05",
-    "generatedAt": "2026-09-19T08:52:43.314Z"
+    "contentHash": "b627263764b6",
+    "generatedAt": "2026-09-19T10:25:49.191Z"
   },
   "sample-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "9ece28576ed9",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/pages/SampleForm.tsx": "b10b684022c4",
-      "frontend/src/pages/SampleList.tsx": "7af5ae5f0bc8"
+      "frontend/src/pages/SampleList.tsx": "f4ad85219d9d",
+      "frontend/src/types/sample.types.ts": "8a91858f1dd2"
     },
-    "contentHash": "c124256d2d65",
-    "generatedAt": "2026-09-19T08:52:43.317Z"
+    "contentHash": "e6c52faa7eeb",
+    "generatedAt": "2026-09-19T10:25:49.196Z"
   },
   "sample-track": {
     "sources": {
       "frontend/src/config/navigation.ts": "9ece28576ed9",
-      "frontend/src/pages/SampleList.tsx": "7af5ae5f0bc8",
-      "frontend/src/pages/SampleDetail.tsx": "7cb26b4a2c54"
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/pages/SampleList.tsx": "f4ad85219d9d",
+      "frontend/src/pages/SampleDetail.tsx": "8b5a42df86f6",
+      "frontend/src/components/samples/SampleActionMenu.tsx": "d4e11fdd2f39"
     },
-    "contentHash": "779d4557e2a9",
-    "generatedAt": "2026-09-19T08:52:43.320Z"
+    "contentHash": "5b87fbe59264",
+    "generatedAt": "2026-09-19T10:25:49.202Z"
   },
   "season-create": {
     "sources": {
@@ -1045,7 +1053,7 @@
       "backend/src/schemas/season.schema.ts": "018cde58118a"
     },
     "contentHash": "81d9fe1056c9",
-    "generatedAt": "2026-09-19T08:52:43.325Z"
+    "generatedAt": "2026-09-19T10:25:49.208Z"
   },
   "smocking-send-receive": {
     "sources": {
@@ -1055,7 +1063,7 @@
       "frontend/src/pages/SmockingReceive.tsx": "bc20d2498b5a"
     },
     "contentHash": "b8796b06fcb7",
-    "generatedAt": "2026-09-19T08:52:43.329Z"
+    "generatedAt": "2026-09-19T10:25:49.210Z"
   },
   "stitching-entry": {
     "sources": {
@@ -1070,7 +1078,7 @@
       "backend/src/controllers/stitching.controller.ts": "828cfe5721b9"
     },
     "contentHash": "2b5c7ee6a8fa",
-    "generatedAt": "2026-09-19T08:52:43.333Z"
+    "generatedAt": "2026-09-19T10:25:49.214Z"
   },
   "stock-adjustment-create": {
     "sources": {
@@ -1079,7 +1087,7 @@
       "frontend/src/pages/StockMovementList.tsx": "a560592309f3"
     },
     "contentHash": "bca5eded0d99",
-    "generatedAt": "2026-09-19T08:52:43.337Z"
+    "generatedAt": "2026-09-19T10:25:49.217Z"
   },
   "stock-count-create": {
     "sources": {
@@ -1089,7 +1097,7 @@
       "frontend/src/pages/StockCountDetail.tsx": "0fb9c2d9c63a"
     },
     "contentHash": "9938b67e5325",
-    "generatedAt": "2026-09-19T08:52:43.339Z"
+    "generatedAt": "2026-09-19T10:25:49.219Z"
   },
   "stock-dashboard": {
     "sources": {
@@ -1097,7 +1105,7 @@
       "frontend/src/pages/StockDashboard.tsx": "9b408230c561"
     },
     "contentHash": "ffe71d2a3abe",
-    "generatedAt": "2026-09-19T08:52:43.342Z"
+    "generatedAt": "2026-09-19T10:25:49.221Z"
   },
   "stock-in-create": {
     "sources": {
@@ -1106,7 +1114,7 @@
       "frontend/src/pages/StockMovementList.tsx": "a560592309f3"
     },
     "contentHash": "05341abae74e",
-    "generatedAt": "2026-09-19T08:52:43.345Z"
+    "generatedAt": "2026-09-19T10:25:49.224Z"
   },
   "stock-levels-view": {
     "sources": {
@@ -1119,7 +1127,7 @@
       "frontend/src/components/WarehouseCombobox.tsx": "ae499432932d"
     },
     "contentHash": "64c78954eb80",
-    "generatedAt": "2026-09-19T08:52:43.349Z"
+    "generatedAt": "2026-09-19T10:25:49.227Z"
   },
   "stock-out-create": {
     "sources": {
@@ -1128,7 +1136,7 @@
       "frontend/src/pages/StockMovementList.tsx": "a560592309f3"
     },
     "contentHash": "0f973908079a",
-    "generatedAt": "2026-09-19T08:52:43.351Z"
+    "generatedAt": "2026-09-19T10:25:49.229Z"
   },
   "stock-transfer-create": {
     "sources": {
@@ -1137,7 +1145,7 @@
       "frontend/src/pages/StockMovementList.tsx": "a560592309f3"
     },
     "contentHash": "e6266f419ba5",
-    "generatedAt": "2026-09-19T08:52:43.354Z"
+    "generatedAt": "2026-09-19T10:25:49.231Z"
   },
   "style-create": {
     "sources": {
@@ -1154,7 +1162,7 @@
       "backend/src/services/helpers/default-thread.helper.ts": "36c3ef3e76f8"
     },
     "contentHash": "cb27a8a2e035",
-    "generatedAt": "2026-09-19T08:52:43.359Z"
+    "generatedAt": "2026-09-19T10:25:49.237Z"
   },
   "style-edit": {
     "sources": {
@@ -1163,7 +1171,7 @@
       "frontend/src/pages/StyleList.tsx": "9776e465b0bc"
     },
     "contentHash": "88632d434d79",
-    "generatedAt": "2026-09-19T08:52:43.363Z"
+    "generatedAt": "2026-09-19T10:25:49.240Z"
   },
   "style-import": {
     "sources": {
@@ -1177,7 +1185,7 @@
       "backend/src/schemas/styleImport.schema.ts": "d08ac04b591f"
     },
     "contentHash": "df696be40d00",
-    "generatedAt": "2026-09-19T08:52:43.367Z"
+    "generatedAt": "2026-09-19T10:25:49.243Z"
   },
   "supplier-create": {
     "sources": {
@@ -1193,7 +1201,7 @@
       "backend/src/services/supplier.service.ts": "00c1425475f2"
     },
     "contentHash": "91bf8c01c1cf",
-    "generatedAt": "2026-09-19T08:52:43.370Z"
+    "generatedAt": "2026-09-19T10:25:49.247Z"
   },
   "tally-push-invoices": {
     "sources": {
@@ -1204,7 +1212,7 @@
       "frontend/src/pages/TallySettings.tsx": "f89c54fcab6f"
     },
     "contentHash": "881d8805a5a8",
-    "generatedAt": "2026-09-19T08:52:43.373Z"
+    "generatedAt": "2026-09-19T10:25:49.249Z"
   },
   "tally-setup": {
     "sources": {
@@ -1213,7 +1221,7 @@
       "frontend/src/services/tally.service.ts": "f84c7891e193"
     },
     "contentHash": "982edae2c1d2",
-    "generatedAt": "2026-09-19T08:52:43.375Z"
+    "generatedAt": "2026-09-19T10:25:49.251Z"
   },
   "tax-master-create": {
     "sources": {
@@ -1221,7 +1229,7 @@
       "frontend/src/pages/TaxMasterList.tsx": "fd3ce3c9e4c3"
     },
     "contentHash": "aca1727fd9c5",
-    "generatedAt": "2026-09-19T08:52:43.377Z"
+    "generatedAt": "2026-09-19T10:25:49.253Z"
   },
   "test-template-create": {
     "sources": {
@@ -1231,7 +1239,7 @@
       "frontend/src/pages/TestingDashboard.tsx": "fc699ccf79a7"
     },
     "contentHash": "a5439edd1f2a",
-    "generatedAt": "2026-09-19T08:52:43.379Z"
+    "generatedAt": "2026-09-19T10:25:49.255Z"
   },
   "testing-dashboard": {
     "sources": {
@@ -1239,7 +1247,7 @@
       "frontend/src/pages/TestingDashboard.tsx": "fc699ccf79a7"
     },
     "contentHash": "f53e578e79cd",
-    "generatedAt": "2026-09-19T08:52:43.381Z"
+    "generatedAt": "2026-09-19T10:25:49.257Z"
   },
   "testing-lab-create": {
     "sources": {
@@ -1248,7 +1256,7 @@
       "frontend/src/pages/TestingDashboard.tsx": "fc699ccf79a7"
     },
     "contentHash": "10b0cd85de3a",
-    "generatedAt": "2026-09-19T08:52:43.383Z"
+    "generatedAt": "2026-09-19T10:25:49.259Z"
   },
   "thread-create": {
     "sources": {
@@ -1265,14 +1273,14 @@
       "frontend/src/lib/api-error-handler.ts": "aeda0b5e854c",
       "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
       "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
-      "backend/src/schemas/generated/prisma-enums.ts": "023cc13271b2",
+      "backend/src/schemas/generated/prisma-enums.ts": "c7a54a07f1a5",
       "backend/src/routes/thread.routes.ts": "5ba06c87806f",
       "backend/src/middleware/validation.middleware.ts": "6053b03f5667",
       "backend/src/controllers/thread.controller.ts": "ca3661066fed",
       "backend/src/utils/code-generator.ts": "2672cbc3ab81"
     },
     "contentHash": "712952c9620f",
-    "generatedAt": "2026-09-19T08:52:43.388Z"
+    "generatedAt": "2026-09-19T10:25:49.264Z"
   },
   "user-approve": {
     "sources": {
@@ -1281,7 +1289,7 @@
       "frontend/src/services/user.service.ts": "64cb4838da9f"
     },
     "contentHash": "5de84e2fc400",
-    "generatedAt": "2026-09-19T08:52:43.390Z"
+    "generatedAt": "2026-09-19T10:25:49.266Z"
   },
   "user-create": {
     "sources": {
@@ -1290,7 +1298,7 @@
       "frontend/src/pages/UserForm.tsx": "7bb268d21433"
     },
     "contentHash": "c8571ff286e3",
-    "generatedAt": "2026-09-19T08:52:43.392Z"
+    "generatedAt": "2026-09-19T10:25:49.268Z"
   },
   "warehouse-create": {
     "sources": {
@@ -1299,7 +1307,7 @@
       "frontend/src/pages/WarehouseList.tsx": "9735d7816bab"
     },
     "contentHash": "b6f18e9d91c8",
-    "generatedAt": "2026-09-19T08:52:43.395Z"
+    "generatedAt": "2026-09-19T10:25:49.270Z"
   },
   "warehouse-edit": {
     "sources": {
@@ -1308,7 +1316,7 @@
       "frontend/src/pages/WarehouseList.tsx": "9735d7816bab"
     },
     "contentHash": "56b518c62a4a",
-    "generatedAt": "2026-09-19T08:52:43.397Z"
+    "generatedAt": "2026-09-19T10:25:49.272Z"
   },
   "work-order-create": {
     "sources": {
@@ -1350,6 +1358,6 @@
       "backend/src/utils/code-generator.ts": "2672cbc3ab81"
     },
     "contentHash": "f90cff38a914",
-    "generatedAt": "2026-09-19T08:52:43.406Z"
+    "generatedAt": "2026-09-19T10:25:49.281Z"
   }
 }

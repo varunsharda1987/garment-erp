@@ -8,6 +8,9 @@ keywords:
   - create sample
   - new sample
   - proto sample
+  - original sample
+  - look sample
+  - production sample
   - fit sample
   - PP sample
   - pre-production sample
@@ -24,6 +27,8 @@ keywords:
   - sample request karna
   - naya sample
   - proto banana
+  - original sample banana
+  - look sample banana
   - fit sample banana
   - PP sample banana
   - size set banana
@@ -36,6 +41,9 @@ keywords:
   - नया सैंपल
   - प्रोटो
   - प्रोटो सैंपल
+  - ओरिजिनल सैंपल
+  - लुक सैंपल
+  - प्रोडक्शन सैंपल
   - फिट सैंपल
   - पीपी सैंपल
   - साइज सेट
@@ -44,8 +52,10 @@ keywords:
   - बायर अप्रूवल
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/SampleForm.tsx
   - frontend/src/pages/SampleList.tsx
+  - frontend/src/types/sample.types.ts
 route: /samples/new
 ---
 
@@ -63,11 +73,14 @@ route: /samples/new
 3. Fill in the **Basic Information** card:
    - **Customer** * — Select the customer requesting the sample.
    - **Sample Type** * — Choose from:
+     - Original Sample
+     - Look Sample
      - FIT Sample
-     - PP Sample
+     - PP Sample (Pre-Production)
      - Size Set Sample
      - Shipment Sample
      - Photoshoot Sample
+     - Production Sample
    - **Style** — Optional. Select a style from the customer's styles if applicable.
    - **Required By** * — Date when the sample is needed (defaults to 7 days from today).
    - **Notes** — Any special instructions or remarks.
@@ -103,11 +116,14 @@ route: /samples/new
 
 | Type | Purpose | When to use |
 |------|---------|-------------|
+| **Original Sample** | The first physical make of the design | Concept stage, before fit work starts |
+| **Look Sample** | Shows the overall look and finish of the garment | Aesthetic sign-off, alongside or after the Original |
 | **FIT Sample** | First sample with measurements for buyer approval | Initial fit check before production |
 | **PP Sample** | Pre-production sample with actual fabric, multiple colorways | After fit is approved, before bulk |
 | **Size Set Sample** | Jumping sizes with mix of colors for grading approval | Before bulk production to verify sizing |
 | **Shipment Sample** | Sample sent before each shipment from production lot | Quality check before shipping bulk |
 | **Photoshoot Sample** | For catalog/marketing purposes | Marketing needs, no return tracking |
+| **Production Sample** | Sample taken from the running bulk | Confirms bulk quality matches the approved sample |
 
 ## Sample workflow sequence
 
@@ -116,7 +132,8 @@ For PP Sample and Size Set Sample, the system validates the sequence:
 2. Then PP Sample can be created.
 3. Then Size Set Sample can be created.
 
-Admins can override this sequence with a reason if needed.
+Admins can override this sequence with a reason if needed. The other types (Original, Look,
+Shipment, Photoshoot, Production) have no prerequisite and can be created at any time.
 
 ## Traps
 
@@ -134,4 +151,4 @@ Admins can override this sequence with a reason if needed.
 - The sample appears in the Sample Tracking list with SLA tracking.
 - You can track the sample through statuses: Requested → In Progress → Submitted → Sent → Feedback Pending → Approved/Rejected.
 - Overdue samples are highlighted with a red warning icon.
-- Use the **Quick Action** buttons in the list to update status without opening the detail page.
+- Use the **⋯** menu at the end of the sample's row to move it through those statuses without opening the detail page. Each step asks you to confirm or opens a dialog first.

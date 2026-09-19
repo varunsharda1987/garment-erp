@@ -11,6 +11,8 @@ import type { SampleType, SampleStatus, Prisma } from '@prisma/client';
 
 // Sample type to days-before-ship mapping
 const SAMPLE_LEAD_DAYS: Record<SampleType, number> = {
+  ORIGINAL_SAMPLE: 28, // 4 weeks before ship (earliest, concept approval)
+  LOOK_SAMPLE: 25, // 3.5 weeks before ship (aesthetic approval)
   FIT_SAMPLE: 21, // 3 weeks before ship
   PP_SAMPLE: 14, // 2 weeks before ship
   SIZE_SET_SAMPLE: 10, // 10 days before ship

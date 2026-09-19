@@ -7,7 +7,10 @@
  *   - asks for a full picker page (PICKER_LIMIT, or the endpoint's own cap),
  *   - lists what came back alphabetically (a picker is scanned by eye, not by recency),
  *   - says "Showing N of M — type to narrow" whenever the server held some back,
- *   - drops responses that arrive out of order while the user is still typing.
+ *   - drops responses that arrive out of order while the user is still typing,
+ *   - never leaves a picker dead: a failed first load is reported (`loadError`) and the wrapper retries
+ *     it when the picker is next opened — one blip (an API mid-restart) used to disable the trigger
+ *     until a page reload (2026-09-19, the receive dialog's warehouse box).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -50,6 +53,7 @@ export function usePickerOptions<T extends { id: string }>({
   const [total, setTotal] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   // Fast typing fires several fetches; only the latest may update the list.
   const requestSeq = useRef(0);
@@ -68,8 +72,12 @@ export function usePickerOptions<T extends { id: string }>({
         setItems(page.items);
         setTotal(page.total);
         setInitialLoaded(true);
+        setLoadError(false);
       } catch (error) {
-        if (seq === requestSeq.current) onErrorRef.current?.(error);
+        if (seq === requestSeq.current) {
+          setLoadError(true);
+          onErrorRef.current?.(error);
+        }
       } finally {
         if (seq === requestSeq.current) setIsLoading(false);
       }
@@ -102,5 +110,5 @@ export function usePickerOptions<T extends { id: string }>({
       ? `Showing ${shown.toLocaleString('en-IN')} of ${total.toLocaleString('en-IN')} — ${narrowHint}`
       : `Showing the first ${shown.toLocaleString('en-IN')} — ${narrowHint}`;
 
-  return { options, items, byId, addItem, isLoading, initialLoaded, load, total, footer };
+  return { options, items, byId, addItem, isLoading, initialLoaded, loadError, load, total, footer };
 }

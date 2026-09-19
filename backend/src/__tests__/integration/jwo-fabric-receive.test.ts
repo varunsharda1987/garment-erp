@@ -132,6 +132,9 @@ beforeAll(async () => {
     .set(authHeader)
     .send({ lots: [{ greigeStockLotId: lotId, qty: SEND_QTY }] });
   if (issued.status !== 200) throw new Error(`JWO issue failed: ${JSON.stringify(issued.body)}`);
+  // The receipt below is dated RECEIVED_ON to prove the user's date flows through — and a return may
+  // not be dated before the send (refused since 2026-09-19), so the fixture's send is backdated too.
+  await prisma.job_work_orders.update({ where: { id: jwoId }, data: { sentDate: new Date('2026-09-01T00:00:00Z') } });
 });
 
 afterAll(async () => {
@@ -559,5 +562,60 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
     expect(jwo!.grnId).toBeNull();
     expect(jwo!.receivedDate).toBeNull();
+  });
+
+  it('bale-wise: the quantity is the sum of the thans, the than count is the row count, and the bales are kept', async () => {
+    const baleJwoId = await raiseAtProcessorJob();
+    const res = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({
+        jobWorkOrderId: baleJwoId,
+        entryMode: 'BALE_WISE',
+        details: [
+          { detailType: 'THAN', baleNumber: 1, sequenceNo: 1, meters: 150 },
+          { detailType: 'THAN', baleNumber: 1, sequenceNo: 2, meters: 148.5 },
+          { detailType: 'THAN', baleNumber: 2, sequenceNo: 3, meters: 151.5 },
+        ],
+        warehouseId,
+      });
+    expect(res.status).toBe(201);
+    const items = await prisma.grn_items.findMany({
+      where: { grnId: res.body.data.id },
+      include: { grn_item_details: true },
+    });
+    expect(Number(items[0].receivedQuantity)).toBe(450);
+    expect(items[0].thanCount).toBe(3);
+    expect(items[0].grn_item_details.map((d) => d.baleNumber).sort()).toEqual([1, 1, 2]);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: baleJwoId } });
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(450);
+    expect(jwo!.thanCount).toBe(3);
+  });
+
+  it('a total typed beside a than count keeps both — the count is stored, the metres are the quantity', async () => {
+    const countJwoId = await raiseAtProcessorJob();
+    const res = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: countJwoId, qtyReceivedMeters: 450, thanCount: 12, foldLengthCm: 100, warehouseId });
+    expect(res.status).toBe(201);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: countJwoId } });
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(450); // not 12 × 100 / 100
+    expect(jwo!.thanCount).toBe(12);
+  });
+
+  it('refuses a return dated before the day the greige was sent', async () => {
+    const earlyJwoId = await raiseAtProcessorJob();
+    await prisma.job_work_orders.update({
+      where: { id: earlyJwoId },
+      data: { sentDate: new Date('2026-09-19T10:00:00Z') },
+    });
+    const res = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: earlyJwoId, qtyReceivedMeters: 450, receivedDate: '2026-08-27', warehouseId });
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/27-Aug-2026 is before the day the greige was sent \(19-Sep-2026\)/);
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: earlyJwoId } })).toBe(0);
   });
 });

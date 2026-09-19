@@ -12,6 +12,12 @@ interface WarehouseComboboxProps {
   className?: string;
   disabled?: boolean;
   warehouseTypeFilter?: WarehouseType;
+  /**
+   * Types to leave out — e.g. ['JOB_WORK', 'TRANSIT'] when the picker chooses where stock is BOOKED:
+   * a processor's virtual location or "in transit" is never that. Filtered client-side; the endpoint
+   * returns the whole list.
+   */
+  excludeTypes?: WarehouseType[];
 }
 
 export function WarehouseCombobox({
@@ -21,7 +27,11 @@ export function WarehouseCombobox({
   className,
   disabled = false,
   warehouseTypeFilter,
+  excludeTypes,
 }: WarehouseComboboxProps) {
+  // Keyed on the joined string, not the array: an inline array literal from the caller is a new
+  // identity every render, which would re-create `fetch` and refetch on every keystroke.
+  const excludeKey = (excludeTypes ?? []).join(',');
   const fetch = useCallback(
     async (search: string): Promise<PickerPage<Warehouse>> => {
       // The warehouses endpoint returns every match (no paging), so the list is always complete
@@ -30,12 +40,14 @@ export function WarehouseCombobox({
         warehouseType: warehouseTypeFilter || undefined,
         isActive: true,
       });
-      return { items: data, total: data.length };
+      const excluded = new Set(excludeKey ? excludeKey.split(',') : []);
+      const items = excluded.size ? data.filter((w) => !excluded.has(w.warehouseType)) : data;
+      return { items, total: items.length };
     },
-    [warehouseTypeFilter]
+    [warehouseTypeFilter, excludeKey]
   );
 
-  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<Warehouse>({
+  const { options, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<Warehouse>({
     fetch,
     toOption: (warehouse) => ({
       value: warehouse.id,
@@ -53,11 +65,16 @@ export function WarehouseCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? 'Loading warehouses...' : placeholder}
+      placeholder={
+        !initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading warehouses...') : placeholder
+      }
       searchPlaceholder="Search by code, name, city..."
       emptyText="No warehouses found."
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

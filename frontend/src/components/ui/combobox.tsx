@@ -27,6 +27,8 @@ interface ComboboxProps {
   isLoading?: boolean;
   /** Rendered under the list — e.g. "Showing 200 of 1,116 — type to narrow" */
   footer?: React.ReactNode;
+  /** Fires when the list opens or closes — wrappers use the open edge to retry a failed first load. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function Combobox({
@@ -42,6 +44,7 @@ export function Combobox({
   onSearchChange,
   isLoading = false,
   footer,
+  onOpenChange,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState('');
@@ -68,7 +71,14 @@ export function Combobox({
   const selectedOption = options.find((option) => option.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        onOpenChange?.(next);
+      }}
+      modal={true}
+    >
       <PopoverTrigger asChild>
         <Button
           ref={buttonRef}

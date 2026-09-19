@@ -46,6 +46,8 @@ sources:
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/pages/JobWorkOrderList.tsx
   - frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx
+  - frontend/src/components/job-work/ReceiptDetailRows.tsx
+  - frontend/src/components/WarehouseCombobox.tsx
   - frontend/src/services/jobWorkOrder.service.ts
   - frontend/src/pages/GRNList.tsx
   - frontend/src/pages/GRNDetail.tsx
@@ -73,13 +75,15 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 
 ### Fill it in
 1. Read **Expected back** (or **Expected dyed lace**) — the quantity due back: the greige sent minus the expected shrinkage. **Maximum you can receive** appears once you start typing a quantity.
-2. **How much came back (MTR) \*** — type the metres. Or leave it blank and give **Than count** and **Fold length (cm, under 1000)** — the metres are worked out from those.
-3. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
-4. **Their challan no.** — the processor's challan number.
-5. **Into warehouse \*** and **Date received \*** (defaults to today). The date becomes the receipt date, the job's received date and the inward challan date.
-6. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
-7. If the quantity is short beyond the job's tolerance, a warning appears naming the metres beyond the allowance and saying a debit note against the processor will be needed before the job can close. You can still go ahead.
-8. Click **Receive & add to stock**. The button stays disabled until you have a quantity, a warehouse and a date.
+2. Choose the **Entry mode**: **Total metres**, **Than-wise** or **Bale-wise**.
+3. **Total metres** — type **How much came back (MTR) \***. **Than count** and **Fold length (cm, under 1000)** can be recorded alongside it and are stored with the receipt. Leave the metres blank and the quantity is worked out from than count × fold length instead.
+4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. In both, the than count is the number of rows.
+5. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
+6. **Their challan no.** — the processor's challan number.
+7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent.
+8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
+9. If the quantity is short beyond the job's tolerance, a warning appears naming the metres beyond the allowance and saying a debit note against the processor will be needed before the job can close. You can still go ahead.
+10. Click **Receive & add to stock**. The button stays disabled until you have a quantity, a warehouse and a valid date.
 
 ### What that one click does
 - Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job shows **Return receipt GRN-…** in its Actions card.
@@ -105,6 +109,9 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 - **Fold length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
 - Receiving more than **Maximum you can receive** is refused; the message shows the maximum.
 - A receipt with no quantity is refused with "Received quantity must be greater than 0" — nothing is written.
+- A return dated before the day the greige was sent is refused: "Date received 27-Aug-2026 is before the day the greige was sent (19-Sep-2026)". The date field will not go earlier than the send day.
+- If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
+- In Than-wise or Bale-wise mode every row needs metres greater than zero before the button enables; an empty row blocks it.
 - **Receive Material** never appears on a metre-based fabric or lace job — those show **Receive from processor**, because only that action creates the stock lot. A piece-based (PCS) job is the mirror image. If an older screen or link still posts a metre job to **Receive Material**, it is refused and the job is left untouched, so you can still receive it properly.
 - A job linked to a purchase order is refused — receive it against that purchase order on the GRN form.
 - A job whose finished fabric cannot be identified is refused with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.

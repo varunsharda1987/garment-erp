@@ -40,7 +40,7 @@ export function MaterialCombobox({
     [supplierId]
   );
 
-  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<Material>({
+  const { options, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<Material>({
     fetch,
     toOption: (material) => ({
       value: material.id,
@@ -59,11 +59,16 @@ export function MaterialCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? 'Loading materials...' : placeholder}
+      placeholder={
+        !initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading materials...') : placeholder
+      }
       searchPlaceholder="Search by code, name, category..."
       emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} materials found.` : 'No materials found.'}
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

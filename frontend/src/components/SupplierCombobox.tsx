@@ -42,6 +42,7 @@ export function SupplierCombobox({
     options: suppliers,
     isLoading,
     initialLoaded,
+    loadError,
     load,
     footer,
   } = usePickerOptions<Supplier>({
@@ -66,11 +67,16 @@ export function SupplierCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? 'Loading suppliers...' : placeholder}
+      placeholder={
+        !initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading suppliers...') : placeholder
+      }
       searchPlaceholder="Search by code, name, contact..."
       emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} suppliers found.` : 'No suppliers found.'}
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

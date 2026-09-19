@@ -2684,6 +2684,21 @@ class GRNService {
       );
     }
 
+    // A return cannot be dated before the day the greige went out (the owner's first receipt was
+    // dated 27-Aug on a job sent 19-Sep — nothing refused it). Calendar-day compare, UTC.
+    if (data.receivedDate && jwo.sentDate) {
+      const day = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      const received = new Date(data.receivedDate);
+      if (!Number.isNaN(received.getTime()) && day(received) < day(new Date(jwo.sentDate))) {
+        const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const fmtDay = (d: Date) =>
+          `${String(d.getUTCDate()).padStart(2, '0')}-${MONTHS[d.getUTCMonth()]}-${d.getUTCFullYear()}`;
+        throw new BusinessError(
+          `Date received ${fmtDay(received)} is before the day the greige was sent (${fmtDay(new Date(jwo.sentDate))})`
+        );
+      }
+    }
+
     // Quantity: from details array, or direct meters, or than-count × fold-length
     const entryMode = data.entryMode ?? 'TOTAL_METERS';
     const hasDetails = data.details && data.details.length > 0;

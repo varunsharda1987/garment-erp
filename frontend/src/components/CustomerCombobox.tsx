@@ -25,7 +25,7 @@ export function CustomerCombobox({
     return { items: response.data ?? [], total: response.pagination?.total };
   }, []);
 
-  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<Customer>({
+  const { options, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<Customer>({
     fetch,
     toOption: (customer) => ({
       value: customer.id,
@@ -44,11 +44,16 @@ export function CustomerCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? 'Loading customers...' : placeholder}
+      placeholder={
+        !initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading customers...') : placeholder
+      }
       searchPlaceholder="Search by code, name, brand..."
       emptyText="No customers found."
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

@@ -37,7 +37,7 @@ export function AgentCombobox({
     [agencyId]
   );
 
-  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<AgentSearchResult>({
+  const { options, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<AgentSearchResult>({
     fetch,
     limit: AGENT_PICKER_LIMIT,
     toOption: (agent) => ({
@@ -57,11 +57,14 @@ export function AgentCombobox({
       options={options}
       value={value}
       onValueChange={onValueChange}
-      placeholder={!initialLoaded ? 'Loading agents...' : placeholder}
+      placeholder={!initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading agents...') : placeholder}
       searchPlaceholder="Search by code, name, phone..."
       emptyText="No agents found."
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

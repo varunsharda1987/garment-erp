@@ -1,5 +1,5 @@
 // Receive from processor — the one action that records a job-work return and books it into stock.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2, PackageCheck } from 'lucide-react';
 import {
@@ -13,9 +13,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import ReceiptDetailRows, {
+  sumDetailRows,
+  type ReceiptDetailRow,
+  type ReceiptEntryMode,
+} from '@/components/job-work/ReceiptDetailRows';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
+import { warehouseService } from '@/services/warehouse.service';
+import type { WarehouseType } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
 interface ReceiveFromProcessorDialogProps {
@@ -26,7 +34,17 @@ interface ReceiveFromProcessorDialogProps {
   onSuccess?: () => void;
 }
 
+// A return is booked into a place that holds stock — never a processor's virtual location or
+// "in transit". The default must not come from the greige lot either: greige is often delivered
+// straight to the dyer, so the lot's warehouse IS the processor's (owner, 2026-09-19).
+const NOT_A_STORE: WarehouseType[] = ['JOB_WORK', 'TRANSIT'];
+
 const fmt = (n: number | null | undefined) => (n == null ? '-' : Number(n).toFixed(2));
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmtDay = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}-${MONTHS[Number(m) - 1]}-${y}`;
+};
 
 export default function ReceiveFromProcessorDialog({
   open,
@@ -39,8 +57,10 @@ export default function ReceiveFromProcessorDialog({
 
   // Numbers are held as numbers and normalised at the input, never as raw strings: '' or NaN
   // reaching the payload is a known 400 class on this frontend.
+  const [entryMode, setEntryMode] = useState<ReceiptEntryMode>('TOTAL_METERS');
   const [qtyMeters, setQtyMeters] = useState<number>(0);
   const [thanCount, setThanCount] = useState<number>(0);
+  const [rows, setRows] = useState<ReceiptDetailRow[]>([]);
   const [foldLengthCm, setFoldLengthCm] = useState<number>(0);
   const [widthInches, setWidthInches] = useState<number>(0);
   const [challanRef, setChallanRef] = useState('');
@@ -55,9 +75,53 @@ export default function ReceiveFromProcessorDialog({
     enabled: open && !!jobWorkOrderId,
   });
 
-  // The quantity the receipt will book: metres typed directly, else than × fold (in cm → m).
+  // Physical stores only — used for the one-store default; the picker filters the same way.
+  const { data: stores } = useQuery({
+    queryKey: ['warehouses', 'physical'],
+    queryFn: async () =>
+      (await warehouseService.getAll({ isActive: true })).filter((w) => !NOT_A_STORE.includes(w.warehouseType)),
+    enabled: open,
+  });
+
+  // Reset on the open edge. (The previous handler reset inside Radix's onOpenChange(true), which never
+  // fires here — the parent controls `open` — so a second opening showed the last receipt's figures.)
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpen.current) {
+      setEntryMode('TOTAL_METERS');
+      setQtyMeters(0);
+      setThanCount(0);
+      setRows([]);
+      setFoldLengthCm(0);
+      setWidthInches(0);
+      setChallanRef('');
+      setWarehouseId('');
+      setReceivedDate(today);
+      setQualityGrade('');
+      setDefectMeters(0);
+    }
+    wasOpen.current = open;
+  }, [open, today]);
+
+  // Exactly one physical store → pre-select it; never overwrite a choice.
+  useEffect(() => {
+    if (open && !warehouseId && stores?.length === 1) setWarehouseId(stores[0].id);
+  }, [open, warehouseId, stores]);
+
+  // The quantity the receipt will book.
+  //   Total metres: what was typed; or than count × fold length when metres are blank.
+  //   Than-/bale-wise: the sum of the rows (the server derives the than count from them).
+  const rowsValid = rows.length > 0 && rows.every((r) => r.meters > 0);
   const effectiveQty =
-    qtyMeters > 0 ? qtyMeters : thanCount > 0 && foldLengthCm > 0 ? (thanCount * foldLengthCm) / 100 : 0;
+    entryMode === 'TOTAL_METERS'
+      ? qtyMeters > 0
+        ? qtyMeters
+        : thanCount > 0 && foldLengthCm > 0
+          ? (thanCount * foldLengthCm) / 100
+          : 0
+      : rowsValid
+        ? sumDetailRows(rows)
+        : 0;
 
   // Warn on a short return BEFORE commit. Debounced; the figures come from the server's own loss
   // split so the dialog and the booked numbers cannot disagree.
@@ -73,33 +137,31 @@ export default function ReceiveFromProcessorDialog({
     enabled: open && !!jobWorkOrderId && previewQty > 0,
   });
 
-  const handleOpenChange = (next: boolean) => {
-    if (next) {
-      setQtyMeters(0);
-      setThanCount(0);
-      setFoldLengthCm(0);
-      setWidthInches(0);
-      setChallanRef('');
-      setWarehouseId('');
-      setReceivedDate(today);
-      setQualityGrade('');
-      setDefectMeters(0);
-    }
-    onOpenChange(next);
-  };
-
   const receiveMutation = useMutation({
     mutationFn: () =>
       jobWorkOrderService.receiveToStock({
         jobWorkOrderId: jobWorkOrderId!,
-        qtyReceivedMeters: qtyMeters > 0 ? qtyMeters : undefined,
-        thanCount: qtyMeters > 0 ? undefined : thanCount > 0 ? thanCount : undefined,
+        entryMode,
+        ...(entryMode === 'TOTAL_METERS'
+          ? {
+              qtyReceivedMeters: qtyMeters > 0 ? qtyMeters : undefined,
+              // A count typed beside a total is stored as given (the server only derives the
+              // quantity from than × fold when the metres are blank).
+              thanCount: thanCount > 0 ? thanCount : undefined,
+            }
+          : {
+              details: rows.map((r, i) => ({
+                detailType: 'THAN' as const,
+                baleNumber: entryMode === 'BALE_WISE' ? r.baleNumber : null,
+                sequenceNo: i + 1,
+                meters: r.meters,
+              })),
+            }),
         foldLengthCm: foldLengthCm > 0 ? foldLengthCm : undefined,
         receivedWidthInches: widthInches > 0 ? widthInches : undefined,
         receivedChallan: challanRef.trim() || undefined,
         receivedDate,
         warehouseId,
-        entryMode: 'TOTAL_METERS',
         processingQC:
           qualityGrade || defectMeters > 0
             ? { qualityGrade: qualityGrade || undefined, defectMeters: defectMeters > 0 ? defectMeters : undefined }
@@ -133,11 +195,15 @@ export default function ReceiveFromProcessorDialog({
   const isLace = jwo?.fabricType === 'LACE';
   const uom = jwo?.uom ?? 'MTR';
   const expected = jwo?.qtyBillable ?? null;
-  const canSubmit = effectiveQty > 0 && !!warehouseId && !!receivedDate && !receiveMutation.isPending;
+  // A return cannot be dated before the greige went out — the server refuses it too.
+  const sentDay = jwo?.sentDate ? jwo.sentDate.slice(0, 10) : undefined;
+  const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
+  const canSubmit =
+    effectiveQty > 0 && !!warehouseId && !!receivedDate && !dateBeforeSend && !receiveMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <PackageCheck className="h-5 w-5 text-success" />
@@ -174,48 +240,103 @@ export default function ReceiveFromProcessorDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="rfp-qty">How much came back ({uom}) *</Label>
-            <Input
-              id="rfp-qty"
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={qtyMeters > 0 ? qtyMeters : ''}
-              onChange={(e) => setQtyMeters(parseFloat(e.target.value) || 0)}
-              placeholder={expected != null ? `e.g. ${fmt(expected)}` : undefined}
-            />
-            <p className="text-xs text-muted-foreground">Or leave blank and give than count × fold length:</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="rfp-than" className="text-xs">
-                  Than count
+            <Label>Entry mode</Label>
+            <RadioGroup
+              value={entryMode}
+              onValueChange={(v) => {
+                setEntryMode(v as ReceiptEntryMode);
+                setRows([]);
+              }}
+              className="flex flex-wrap gap-4"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="TOTAL_METERS" id="rfp-mode-total" />
+                <Label htmlFor="rfp-mode-total" className="font-normal">
+                  Total metres
                 </Label>
-                <Input
-                  id="rfp-than"
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={thanCount || ''}
-                  onChange={(e) => setThanCount(parseInt(e.target.value, 10) || 0)}
-                  disabled={qtyMeters > 0}
-                />
               </div>
-              <div className="space-y-1">
-                <Label htmlFor="rfp-fold" className="text-xs">
-                  Fold length (cm, under 1000)
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="THAN_WISE" id="rfp-mode-than" />
+                <Label htmlFor="rfp-mode-than" className="font-normal">
+                  Than-wise
                 </Label>
-                <Input
-                  id="rfp-fold"
-                  type="number"
-                  min={0.01}
-                  max={999.99}
-                  step={0.01}
-                  value={foldLengthCm || ''}
-                  onChange={(e) => setFoldLengthCm(parseFloat(e.target.value) || 0)}
-                />
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="BALE_WISE" id="rfp-mode-bale" />
+                <Label htmlFor="rfp-mode-bale" className="font-normal">
+                  Bale-wise
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {entryMode === 'TOTAL_METERS' ? (
+            <div className="space-y-2">
+              <Label htmlFor="rfp-qty">How much came back ({uom}) *</Label>
+              <Input
+                id="rfp-qty"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={qtyMeters > 0 ? qtyMeters : ''}
+                onChange={(e) => setQtyMeters(parseFloat(e.target.value) || 0)}
+                placeholder={expected != null ? `e.g. ${fmt(expected)}` : undefined}
+              />
+              <p className="text-xs text-muted-foreground">
+                Than count and fold length are recorded with the receipt. Leave the metres blank to work them out from
+                than count × fold length.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="rfp-than" className="text-xs">
+                    Than count
+                  </Label>
+                  <Input
+                    id="rfp-than"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={thanCount > 0 ? thanCount : ''}
+                    onChange={(e) => setThanCount(parseInt(e.target.value, 10) || 0)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="rfp-fold" className="text-xs">
+                    Fold length (cm, under 1000)
+                  </Label>
+                  <Input
+                    id="rfp-fold"
+                    type="number"
+                    min={0.01}
+                    max={999.99}
+                    step={0.01}
+                    value={foldLengthCm > 0 ? foldLengthCm : ''}
+                    onChange={(e) => setFoldLengthCm(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <ReceiptDetailRows mode={entryMode} rows={rows} onChange={setRows} unit={uom === 'MTR' ? 'm' : uom} />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="rfp-fold" className="text-xs">
+                    Fold length (cm, under 1000)
+                  </Label>
+                  <Input
+                    id="rfp-fold"
+                    type="number"
+                    min={0.01}
+                    max={999.99}
+                    step={0.01}
+                    value={foldLengthCm > 0 ? foldLengthCm : ''}
+                    onChange={(e) => setFoldLengthCm(parseFloat(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           {preview?.isOverTolerance && (
             <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
@@ -239,7 +360,7 @@ export default function ReceiveFromProcessorDialog({
                   type="number"
                   min={0.01}
                   step={0.01}
-                  value={widthInches || ''}
+                  value={widthInches > 0 ? widthInches : ''}
                   onChange={(e) => setWidthInches(parseFloat(e.target.value) || 0)}
                   placeholder={jwo?.sentWidthInches ? `asked ${jwo.sentWidthInches}"` : undefined}
                 />
@@ -254,11 +375,27 @@ export default function ReceiveFromProcessorDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Into warehouse *</Label>
-              <WarehouseCombobox value={warehouseId} onValueChange={setWarehouseId} placeholder="Select warehouse" />
+              <WarehouseCombobox
+                value={warehouseId}
+                onValueChange={setWarehouseId}
+                placeholder="Select warehouse"
+                excludeTypes={NOT_A_STORE}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="rfp-date">Date received *</Label>
-              <Input id="rfp-date" type="date" value={receivedDate} onChange={(e) => setReceivedDate(e.target.value)} />
+              <Input
+                id="rfp-date"
+                type="date"
+                min={sentDay}
+                value={receivedDate}
+                onChange={(e) => setReceivedDate(e.target.value)}
+              />
+              {dateBeforeSend && sentDay && (
+                <p className="text-xs text-destructive">
+                  {fmtDay(receivedDate)} is before the day the greige was sent ({fmtDay(sentDay)}).
+                </p>
+              )}
             </div>
           </div>
 

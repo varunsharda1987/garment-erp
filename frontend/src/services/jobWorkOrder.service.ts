@@ -64,7 +64,9 @@ export interface ReceiveToStockPayload {
   /** The day the goods came back — becomes the receipt date, the job's receivedDate and the inward challan date. */
   receivedDate: string;
   warehouseId: string;
-  entryMode?: 'TOTAL_METERS';
+  entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
+  /** Than-/bale-wise rows; the server sums them for the quantity and counts them for thanCount. */
+  details?: Array<{ detailType: 'THAN'; baleNumber: number | null; sequenceNo: number; meters: number }>;
   processingQC?: { qualityGrade?: 'A' | 'B' | 'Reject'; defectMeters?: number };
 }
 

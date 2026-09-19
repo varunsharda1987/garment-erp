@@ -48,7 +48,7 @@ export function ColorCombobox({
     return { items: response.data ?? [], total: response.pagination?.total };
   }, []);
 
-  const { options, byId, addItem, isLoading, initialLoaded, load, footer } = usePickerOptions<ColorMaster>({
+  const { options, byId, addItem, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<ColorMaster>({
     fetch,
     toOption: (color) => ({
       value: color.id,
@@ -87,11 +87,14 @@ export function ColorCombobox({
       options={options}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={!initialLoaded ? 'Loading colors...' : placeholder}
+      placeholder={!initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading colors...') : placeholder}
       searchPlaceholder="Search by code or name..."
       emptyText="No colors found."
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

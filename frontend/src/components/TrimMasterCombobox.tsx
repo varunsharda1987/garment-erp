@@ -204,7 +204,7 @@ export function TrimMasterCombobox({
     [materialType, customerId, config]
   );
 
-  const { options, byId, isLoading, initialLoaded, load, footer } = usePickerOptions<TrimMasterItem>({
+  const { options, byId, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<TrimMasterItem>({
     fetch,
     limit: TRIM_PICKER_LIMIT,
     toOption: (item) => ({
@@ -250,11 +250,20 @@ export function TrimMasterCombobox({
       options={options}
       value={value}
       onValueChange={handleValueChange}
-      placeholder={!initialLoaded ? 'Loading...' : placeholder || `Select ${materialType.toLowerCase()}...`}
+      placeholder={
+        !initialLoaded
+          ? loadError
+            ? 'Could not load — open to retry'
+            : 'Loading...'
+          : placeholder || `Select ${materialType.toLowerCase()}...`
+      }
       searchPlaceholder={`Search ${materialType.toLowerCase()}...`}
       emptyText={`No ${materialType.toLowerCase()} masters found. Create one first.`}
-      disabled={disabled || !initialLoaded}
+      disabled={disabled}
       className={className}
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       onSearchChange={load}
       isLoading={isLoading}
       footer={footer}

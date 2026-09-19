@@ -268,7 +268,7 @@
   <header>
     <p class="eyebrow">Kashaya Fabs ERP · Job work · First real run</p>
     <h1>Bringing the first dyed fabric back into stock</h1>
-    <p class="lede">One greige lot goes to the dyer and comes back as finished fabric, booked into stock with <strong>one action on the job — Receive from processor</strong> — then made ready for the cutting table. Seven phases; each ends with what you should see on screen. One real job is already out with the dyer (<strong>DJ-ESSKY085LS-002</strong>, 1,833 m to Aryan Dyeing): for that one, start at phase 3.</p>
+    <p class="lede">One greige lot goes to the dyer and comes back as finished fabric, booked into stock with <strong>one action on the job — Receive from processor</strong> — then made ready for the cutting table. Seven phases; each ends with what you should see on screen. <strong>The first has happened:</strong> on 19 September the first part of <strong>DJ-ESSKY085LS-002</strong> — 852.1 m at 54", back from Aryan Dyeing — became the first dyed fabric ever booked into this system's stock. Its second delivery is what phase 4 now covers.</p>
   </header>
 
   <nav class="rail" aria-label="Phases">
@@ -379,15 +379,26 @@
         <li><b>Their challan no.</b> — the processor's challan number.</li>
         <li><b>Into warehouse *</b> — only real stores are listed; with a single store it is already filled in. <b>Date received *</b> — the day the cloth arrived (defaults to today; it cannot be before the day the greige was sent).</li>
         <li><b>Quality (optional)</b> — <kbd>A - Good</kbd>, <kbd>B - Minor Defects</kbd> or <kbd>Reject</kbd> — and <b>Defect metres</b> if any. This is the only place the quality of a job-work receipt is recorded.</li>
-        <li>If the quantity is short beyond the job's tolerance, a warning names the metres beyond the allowance and says a debit note against the processor will be needed before the job can close. You can still go ahead.</li>
-        <li>Click <kbd>Receive &amp; add to stock</kbd>. The button stays greyed out until you have a quantity, a warehouse and a valid date.</li>
+        <li><b>This is the final delivery</b> — the tick-box ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). <b>Untick it if more is still to come:</b> this part is booked into stock and the job stays open as <b>Partial Receipt</b>. Tick it yourself to close the job short.</li>
+        <li>If the quantity is short beyond the job's tolerance <i>and</i> the final-delivery box is ticked, a warning names the metres beyond the allowance and says a debit note against the processor will be needed before the job can close. You can still go ahead.</li>
+        <li>Click <kbd>Receive &amp; add to stock</kbd> — it reads <kbd>Receive part &amp; add to stock</kbd> while the box is unticked. The button stays greyed out until you have a quantity, a warehouse and a valid date.</li>
       </ol>
       <div class="check"><span class="tag">You should see</span><ul>
-        <li>The job at <code>Stock Updated</code>, showing received metres, actual shrinkage %, than count, fold length, width and quality.</li>
-        <li>In the job's Actions card: <b>Return receipt GRN-…</b> and <kbd>Print Inward Challan</kbd>.</li>
+        <li><b>Final delivery:</b> the job at <code>Stock Updated</code>, showing received metres, actual shrinkage %, than count, fold length, width and quality.</li>
+        <li><b>A part:</b> the job at <code>Partial Receipt</code>, its Quantities card reading <b>Received so far … of … expected — … still to come</b>. The part is in stock already.</li>
+        <li>In the job's Actions card: <b>Return receipt GRN-…</b> (or <b>Return receipts (2)</b> after a second part) and <kbd>Print Inward Challan</kbd>.</li>
         <li>If the loss was larger than the expected shrinkage, an <b>Abnormal Loss Detected</b> banner on the job. That is information, not an error — but a debit note is needed before the job can close.</li>
       </ul></div>
-      <div class="warn"><b>If the screen is slow, do not click again</b> — open the job and check its status first; a repeat is refused with “has already been received”. <b>Two deliveries for one job</b> (as with DJ-ESSKY085LS-002, challans CH-489 and CH-497): receiving in parts is being added today — the dialog gains a <b>final delivery</b> tick-box, pre-ticked when what came back is close to what is expected. Until you see that tick-box on your screen, receive the job once, when the whole lot is back.</div>
+      <div class="aside">
+        <h3>The second delivery — DJ-ESSKY085LS-002 today</h3>
+        <ul>
+          <li>Open the job (it shows <b>Partial Receipt</b>) → <kbd>Receive from processor</kbd>. The dialog now shows <b>Received so far</b> (852.1 m) and <b>Maximum you can still receive</b>.</li>
+          <li>Enter the second challan's metres, its own <b>Their challan no.</b> and <b>Date received</b>, the measured width, and the quality.</li>
+          <li>Once the total reaches what is expected, <b>This is the final delivery</b> ticks itself — leave it ticked and click <kbd>Receive &amp; add to stock</kbd>. If the dyer is still short after this delivery and nothing more is coming, tick it yourself: the job closes short and the shortfall is treated as loss.</li>
+          <li>Each part keeps its own stock lot and inward challan; shrinkage and the loss split are worked out once, on the total of all parts.</li>
+        </ul>
+      </div>
+      <div class="warn"><b>If the screen is slow, do not click again</b> — open the job and check its status first. A job whose final delivery is already recorded reads <code>Stock Updated</code> and a repeat is refused with “has already been received”.</div>
       <div class="example">
         <span class="lbl">Worked example — the numbers, not the money</span>
         <table>
@@ -410,14 +421,14 @@
         </div>
       </div>
       <ol class="steps">
-        <li><kbd>Procurement</kbd> → <kbd>GRN (Goods Receipt)</kbd>: the receipt is already there at <b>Accepted</b>, badged <b>Job work return</b>, in your name. There is no Pending QC and no Approve button for it. Opening it shows the job it belongs to, not a purchase order.</li>
-        <li>The fabric stock list: a new fabric in the warehouse you chose, dated with your Date received, named from the greige, colour and width — like <code>Cotton Poplin - Solid/Dyed - Navy - 52"</code> — with a code like <code>FAB-STK-0001</code> and the quality grade you gave.</li>
-        <li>Back on the job: <kbd>Print Inward Challan</kbd> — the challan from the processor was raised for you; you do not create it. The metres, width and shrinkage on the job should match your gate note.</li>
+        <li><kbd>Procurement</kbd> → <kbd>GRN (Goods Receipt)</kbd>: the receipt is already there at <b>Accepted</b>, badged <b>Job work return</b>, in your name — one receipt per delivery. There is no Pending QC and no Approve button for it. Opening it shows the job it belongs to, not a purchase order.</li>
+        <li>The fabric stock list: a new lot in the warehouse you chose, dated with your Date received, named from the greige, colour and width — like <code>Cotton Poplin - Solid/Dyed - Navy - 54"</code> — with a code like <code>FAB-STK-0001</code> and the quality grade you gave. A job received in parts has one lot per part, under the same fabric.</li>
+        <li>Back on the job: <kbd>Print Inward Challan</kbd> — the challan from the processor was raised for you; you do not create it. The metres, width and shrinkage on the job should match your gate notes; with parts, the shrinkage is on the total.</li>
       </ol>
       <div class="check"><span class="tag">Done when</span><ul>
         <li>Receipt <code>Accepted</code>, job <code>Stock Updated</code>, and the dyed fabric in stock with the right metres and width.</li>
       </ul></div>
-      <div class="warn"><b>Counted wrong?</b> Ask an admin to reverse the receipt: it takes the lot back and cancels the inward challan. That is refused once any of the fabric has been used or reserved, so check the numbers the same day.</div>
+      <div class="warn"><b>Counted wrong?</b> Ask an admin to reverse <i>that one</i> receipt: its lot and inward challan go, the other parts stay, and the job's total is recomputed. Reversing the final part re-opens the job as <b>Partial Receipt</b>, so the last delivery can be entered again. A reversal is refused once any of that lot has been used or reserved, so check the numbers the same day.</div>
     </section>
 
     <section class="phase" id="p6">
@@ -479,9 +490,9 @@
             <tr><td><q>Fabric job work is received through a GRN …</q></td><td>An old screen or link posted the job to <b>Receive Material</b>, which books no stock. The job is untouched — use <kbd>Receive from processor</kbd> on the job (phase 4).</td></tr>
             <tr><td><q>Received quantity must be greater than 0</q></td><td>No metres were entered, or every than row is empty. Nothing was written.</td></tr>
             <tr><td><q>Fold length is in cm and must be under 1000</q></td><td>You typed metres or millimetres. Fold length is centimetres.</td></tr>
-            <tr><td><q>Received … exceeds the expected fabric … plus … over-receipt tolerance (max …)</q></td><td>Your metres are higher than sent-minus-shrinkage allows. The message shows the maximum. Re-count the thans.</td></tr>
+            <tr><td><q>Received … MTR on top of the … MTR already received exceeds the expected fabric … plus … over-receipt tolerance (max …)</q></td><td>All parts together would be more than sent-minus-shrinkage allows. The message shows the maximum for the job as a whole. Re-count the thans of this delivery.</td></tr>
             <tr><td><q>Date received … is before the day the greige was sent (…)</q></td><td>The date is earlier than the send day. Use the day the cloth actually arrived.</td></tr>
-            <tr><td><q>… has already been received</q></td><td>This job already has its receipt — one per job. Open the job: it should read <b>Stock Updated</b> with a <b>Return receipt</b>. Never click twice after a slow response.</td></tr>
+            <tr><td><q>… has already been received</q></td><td>The job's final delivery is already recorded. Open the job: it should read <b>Stock Updated</b> with its <b>Return receipt(s)</b>. If a genuine further delivery arrived after that, an admin reverses the final receipt (which re-opens the job as Partial Receipt) and it is entered again.</td></tr>
             <tr><td><q>… link the job to its greige lot or requirement, or set its finished fabric</q></td><td>The job was not issued from a greige lot, so the system cannot tell what fabric it is. Ask the office to link the job to its greige lot, then receive again.</td></tr>
             <tr><td><q>… is cancelled — its stock was already credited back</q></td><td>Cancelled jobs cannot be received; their greige went back to stock. If the mill really returned material, the office must re-open the job first.</td></tr>
             <tr><td>The warehouse box reads <b>Could not load — open to retry</b></td><td>The server was busy for a moment. Open the box again — the list is fetched afresh.</td></tr>
@@ -493,6 +504,6 @@
   </main>
 
   <footer>
-    Written from the live screens on 16 September 2026; receiving rewritten on 19 September 2026 for the one-action <b>Receive from processor</b>. Every button and field name here is the one on screen; if a label differs, the page has changed and this sheet needs updating — say so.
+    Written from the live screens on 16 September 2026; receiving rewritten on 19 September 2026 for the one-action <b>Receive from processor</b> and, the same day, for receiving in parts. Every button and field name here is the one on screen; if a label differs, the page has changed and this sheet needs updating — say so.
   </footer>
 </div>

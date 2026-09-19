@@ -20,6 +20,19 @@ keywords:
   - add item
   - size breakdown
   - buyer po
+  - buyer po document
+  - po copy
+  - po pdf
+  - attach po
+  - upload po
+  - customer po
+  - delivery location
+  - po date
+  - po kaise attach kare
+  - बायर पीओ
+  - पीओ अपलोड
+  - पीओ दस्तावेज़
+  - डिलीवरी लोकेशन
   - साइज़ ब्रेकडाउन
   - sale order filter
   - sale order search
@@ -75,10 +88,13 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 7. Add more lines the same way. Use the pencil and bin icons on a line to edit or remove it. The **Total Amount** box sums the order. Adding the same style, colour and size twice is safe — the two lines are merged into one with the quantities added together.
 8. Click **Create Sale Order**. The sale order opens with status **Draft**. You may also save with no items at all and add them later — the hint under the Items table says so.
 9. While Draft, the **Edit** button on the order page changes details and items, including the **Buyer PO Number**.
-10. If the Color column shows **N/A** on lines taken before the style had a colour, set the style's colour first (step 5), then click **Apply style colour to N lines** above the Items table. The button only appears while the order is Draft, so do this before Confirm — lines cannot be changed afterwards.
-11. Once the order has at least one item, click **Confirm**. The dialog shows stock availability and style readiness before you approve it.
-12. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
-13. To make the goods instead: click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
+10. To record the customer's own purchase orders, use the **Buyer PO Numbers** card and click **Add PO**. Fill **PO Number \***, pick the **Delivery Location** from that customer's saved addresses, set the **PO Date** printed on their PO, and choose the **PO Document** (PDF, JPG or PNG, up to 10MB). The customer raises one PO per delivery location, and each location has its own PO number, so add one PO per location. If the Delivery Location list is empty, add the locations on that customer's page first and come back.
+11. On each PO row the location, PO date and attached document are shown. Use the upload icon to attach or replace the document, the cross icon to remove it, the star to make that PO primary, and the bin to remove the PO. Click the document name to open it — it opens in a new tab and needs you to be signed in, because a PO carries prices.
+12. The same PO and its document are then visible to the dispatch team on the **Delivery Note** page and to accounts on the **Invoice** page, so nobody has to ask for a copy.
+13. If the Color column shows **N/A** on lines taken before the style had a colour, set the style's colour first (step 5), then click **Apply style colour to N lines** above the Items table. The button only appears while the order is Draft, so do this before Confirm — lines cannot be changed afterwards.
+14. Once the order has at least one item, click **Confirm**. The dialog shows stock availability and style readiness before you approve it.
+15. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
+16. To make the goods instead: click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
 
 ## Validation traps
 - Only the customer is required to create a new order — the **Create Sale Order** button stays disabled until one is picked. Items may be added afterwards.
@@ -92,7 +108,10 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 - Expected Delivery Date is required in the Start Production dialog. It pre-fills from the buyer deadline or ship date when set.
 - **Allocate** only shows on lines that have a size; a size-less line shows "Set a size to allocate" instead. Allocation is limited to what the line still needs and only accepts stock of that exact style, colour and size.
 - **Cancel Order** is refused once anything on the order has been dispatched, or while a production order is still live.
-- Buyer POs can be added, removed or made primary only while the order is still live — not after it is Cancelled or Delivered.
+- Buyer POs can be added, removed or made primary only while the order is still live — not after it is Cancelled or Delivered. The same applies to attaching or removing a PO document.
+- A PO number can only appear once on an order. Each delivery location has its own PO number, so add a separate PO per location.
+- Only PDF, JPG and PNG files up to 10MB are accepted as a PO document. Uploading a new one replaces the old one.
+- A delivery location must already be saved on the customer before it can be picked on a PO.
 
 ## Why the buyer's style code is saved on the line
 The buyer's code is stored **with the order line**, not just on the style. If the buyer later

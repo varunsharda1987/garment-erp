@@ -10,6 +10,7 @@ import { processorRateValidationService } from './processor-rate-validation.serv
 import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
+import { deleteBuyerPoDocumentFile } from '../middleware/upload.middleware';
 
 /** A line as it arrives from the ERP form or the B2B push. */
 interface SOItemInput {
@@ -390,7 +391,8 @@ export class SaleOrderService {
             },
           },
           buyerPos: {
-            select: { id: true, buyerPoNumber: true, isPrimary: true },
+            // documentUrl only, so the list can show a paperclip without a second query.
+            select: { id: true, buyerPoNumber: true, isPrimary: true, documentUrl: true },
             orderBy: { isPrimary: 'desc' },
           },
           _count: {
@@ -553,7 +555,15 @@ export class SaleOrderService {
       throw new BusinessError(reason || 'Cannot delete this sale order');
     }
 
-    return prisma.$transaction(async (tx) => {
+    // `sale_order_buyer_pos` is ON DELETE CASCADE, so the rows — and the only record of which PO
+    // document belonged to this order — vanish with the delete. Read them first; unlink after the
+    // transaction commits. The B2B app deletes and re-creates orders routinely, so this path is hot.
+    const poDocuments = await prisma.sale_order_buyer_pos.findMany({
+      where: { saleOrderId: id, documentUrl: { not: null } },
+      select: { documentUrl: true },
+    });
+
+    const deleted = await prisma.$transaction(async (tx) => {
       // P7.2.2: Release any allocations before delete (defensive — DRAFT shouldn't have allocations)
       const items = await tx.sale_order_items.findMany({
         where: { saleOrderId: id },
@@ -573,6 +583,12 @@ export class SaleOrderService {
 
       return tx.sale_orders.delete({ where: { id } });
     });
+
+    for (const po of poDocuments) {
+      if (po.documentUrl) deleteBuyerPoDocumentFile(po.documentUrl);
+    }
+
+    return deleted;
   }
 
   async confirm(id: string, approvedById: string) {
@@ -1420,6 +1436,17 @@ export class SaleOrderService {
           isPrimary: true,
           remarks: true,
           createdAt: true,
+          poDate: true,
+          documentUrl: true,
+          documentName: true,
+          documentSize: true,
+          documentUploadedAt: true,
+          deliveryAddressId: true,
+          // Enough to name the destination without a second request. Deliberately NOT the uploader
+          // relation — this include is on every sale-order read, including the B2B app's poll.
+          deliveryAddress: {
+            select: { id: true, label: true, addressType: true, pincode: true, city: { select: { cityName: true } } },
+          },
         },
       },
       _count: {
@@ -1432,14 +1459,33 @@ export class SaleOrderService {
    * Add a buyer PO number to a sale order.
    * First PO added becomes primary automatically.
    */
-  async addBuyerPo(saleOrderId: string, buyerPoNumber: string, remarks?: string) {
+  async addBuyerPo(
+    saleOrderId: string,
+    buyerPoNumber: string,
+    remarks?: string,
+    details?: { deliveryAddressId?: string | null; poDate?: string | null }
+  ) {
     const so = await prisma.sale_orders.findUnique({
       where: { id: saleOrderId },
-      select: { id: true, buyerPoNumber: true, status: true, saleOrderNumber: true },
+      select: { id: true, buyerPoNumber: true, status: true, saleOrderNumber: true, customerId: true },
     });
     if (!so) throw new NotFoundError('Sale Order', saleOrderId);
     if (BUYER_PO_LOCKED_STATUSES.includes(so.status)) {
       throw new BusinessError(`Cannot change buyer POs — sale order ${so.saleOrderNumber} is ${so.status}.`);
+    }
+
+    // A PO ships to one of the CUSTOMER's own locations. Checking it here turns a foreign-key
+    // violation (a 500 naming a constraint) into a sentence, and stops one customer's PO being
+    // pointed at another customer's warehouse.
+    if (details?.deliveryAddressId) {
+      const address = await prisma.customer_addresses.findUnique({
+        where: { id: details.deliveryAddressId },
+        select: { customerId: true, label: true },
+      });
+      if (!address) throw new NotFoundError('Delivery location', details.deliveryAddressId);
+      if (address.customerId !== so.customerId) {
+        throw new ValidationError(`Delivery location "${address.label}" belongs to a different customer.`);
+      }
     }
 
     return prisma.$transaction(async (tx) => {
@@ -1482,6 +1528,8 @@ export class SaleOrderService {
           buyerPoNumber,
           isPrimary,
           remarks: remarks || null,
+          deliveryAddressId: details?.deliveryAddressId || null,
+          poDate: details?.poDate ? new Date(details.poDate) : null,
         },
       });
 
@@ -1508,6 +1556,7 @@ export class SaleOrderService {
         id: true,
         saleOrderId: true,
         isPrimary: true,
+        documentUrl: true,
         saleOrder: { select: { status: true, saleOrderNumber: true } },
       },
     });
@@ -1526,6 +1575,140 @@ export class SaleOrderService {
       if (buyerPo.isPrimary) {
         await promoteNextBuyerPo(tx, buyerPo.saleOrderId);
       }
+    });
+
+    // Only once the row is gone for good. Deleting the PO but leaving its PDF behind strands a
+    // file nothing references, and the NAS/Drive backup would copy it forever.
+    if (buyerPo.documentUrl) deleteBuyerPoDocumentFile(buyerPo.documentUrl);
+  }
+
+  /**
+   * Attach the customer's PO document to a buyer PO — also the REPLACE path.
+   *
+   * `file` has already been written to disk by multer before this runs, so every early return
+   * must unlink it first or a rejected upload leaks a PDF nobody can reach.
+   */
+  async attachBuyerPoDocument(
+    buyerPoId: string,
+    file: { fileUrl: string; fileName: string; fileSize: number },
+    uploadedById?: string
+  ) {
+    const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
+      where: { id: buyerPoId },
+      select: {
+        id: true,
+        documentUrl: true,
+        saleOrder: { select: { status: true, saleOrderNumber: true } },
+      },
+    });
+
+    if (!buyerPo) {
+      deleteBuyerPoDocumentFile(file.fileUrl);
+      throw new NotFoundError('Buyer PO', buyerPoId);
+    }
+    if (BUYER_PO_LOCKED_STATUSES.includes(buyerPo.saleOrder.status)) {
+      deleteBuyerPoDocumentFile(file.fileUrl);
+      throw new BusinessError(
+        `Cannot change buyer POs — sale order ${buyerPo.saleOrder.saleOrderNumber} is ${buyerPo.saleOrder.status}.`
+      );
+    }
+
+    const previousUrl = buyerPo.documentUrl;
+
+    const updated = await prisma.sale_order_buyer_pos.update({
+      where: { id: buyerPoId },
+      data: {
+        documentUrl: file.fileUrl,
+        documentName: file.fileName,
+        documentSize: file.fileSize,
+        documentUploadedById: uploadedById || null,
+        documentUploadedAt: new Date(),
+      },
+    });
+
+    // Unlink the superseded file AFTER the row points at the new one — the opposite order to a
+    // delete. The row survives here, and must never be left naming a file that is already gone.
+    if (previousUrl && previousUrl !== file.fileUrl) deleteBuyerPoDocumentFile(previousUrl);
+
+    return updated;
+  }
+
+  /** Remove the PO document, leaving the PO itself in place. */
+  async removeBuyerPoDocument(buyerPoId: string) {
+    const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
+      where: { id: buyerPoId },
+      select: {
+        id: true,
+        documentUrl: true,
+        saleOrder: { select: { status: true, saleOrderNumber: true } },
+      },
+    });
+    if (!buyerPo) throw new NotFoundError('Buyer PO', buyerPoId);
+    if (BUYER_PO_LOCKED_STATUSES.includes(buyerPo.saleOrder.status)) {
+      throw new BusinessError(
+        `Cannot change buyer POs — sale order ${buyerPo.saleOrder.saleOrderNumber} is ${buyerPo.saleOrder.status}.`
+      );
+    }
+
+    const updated = await prisma.sale_order_buyer_pos.update({
+      where: { id: buyerPoId },
+      data: {
+        documentUrl: null,
+        documentName: null,
+        documentSize: null,
+        documentUploadedById: null,
+        documentUploadedAt: null,
+      },
+    });
+
+    if (buyerPo.documentUrl) deleteBuyerPoDocumentFile(buyerPo.documentUrl);
+
+    return updated;
+  }
+
+  /**
+   * Edit a buyer PO's location / date / remarks.
+   *
+   * `buyerPoNumber` is deliberately not editable: it is the key of the unique index and the value
+   * `syncPrimaryBuyerPo` mirrors into the legacy scalar the B2B app reads.
+   */
+  async updateBuyerPo(
+    buyerPoId: string,
+    patch: { deliveryAddressId?: string | null; poDate?: string | null; remarks?: string | null }
+  ) {
+    const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
+      where: { id: buyerPoId },
+      select: {
+        id: true,
+        saleOrder: { select: { status: true, saleOrderNumber: true, customerId: true } },
+      },
+    });
+    if (!buyerPo) throw new NotFoundError('Buyer PO', buyerPoId);
+    if (BUYER_PO_LOCKED_STATUSES.includes(buyerPo.saleOrder.status)) {
+      throw new BusinessError(
+        `Cannot change buyer POs — sale order ${buyerPo.saleOrder.saleOrderNumber} is ${buyerPo.saleOrder.status}.`
+      );
+    }
+
+    if (patch.deliveryAddressId) {
+      const address = await prisma.customer_addresses.findUnique({
+        where: { id: patch.deliveryAddressId },
+        select: { customerId: true, label: true },
+      });
+      if (!address) throw new NotFoundError('Delivery location', patch.deliveryAddressId);
+      if (address.customerId !== buyerPo.saleOrder.customerId) {
+        throw new ValidationError(`Delivery location "${address.label}" belongs to a different customer.`);
+      }
+    }
+
+    return prisma.sale_order_buyer_pos.update({
+      where: { id: buyerPoId },
+      data: {
+        // An ABSENT key means "leave it"; an explicit null means "clear it".
+        ...(patch.deliveryAddressId !== undefined ? { deliveryAddressId: patch.deliveryAddressId } : {}),
+        ...(patch.poDate !== undefined ? { poDate: patch.poDate ? new Date(patch.poDate) : null } : {}),
+        ...(patch.remarks !== undefined ? { remarks: patch.remarks } : {}),
+      },
     });
   }
 

@@ -19,7 +19,7 @@ import { logInfo, logWarn } from './utils/logger';
 // Import all middleware
 import { generalLimiter } from './middleware/security.middleware';
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
-import { fileAccessMiddleware } from './middleware/file-access.middleware';
+import { fileAccessMiddleware, createFileAccessMiddleware } from './middleware/file-access.middleware';
 import { httpLogger } from './middleware/logging.middleware';
 import { transformResponse } from './middleware/transform.middleware';
 
@@ -173,6 +173,19 @@ app.use('/uploads', (req, res, next) => {
   });
   next();
 });
+
+// Buyer PO documents are the customer's own commercial paperwork — prices, terms, destinations —
+// so they need a login. This is the ONLY upload prefix that is not world-readable; style images,
+// CAD files, lace images and issue screenshots keep exactly today's public behaviour.
+//
+// Mounted BEFORE the global guard below, because that one runs in 'public' mode by default and
+// calls next() unconditionally — ordering this first means the PO path's protection never depends
+// on FILE_ACCESS_MODE. It sits AFTER the CORS block above so a 401 still carries the CORS headers
+// and the browser reports the real status instead of an opaque failure.
+//
+// Do NOT "simplify" this by setting FILE_ACCESS_MODE=authenticated globally: that would 401 every
+// image the app opens in a new tab.
+app.use('/uploads/po-documents', createFileAccessMiddleware('authenticated'));
 
 // File access control middleware
 app.use('/uploads', fileAccessMiddleware);

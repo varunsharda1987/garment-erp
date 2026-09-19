@@ -28,6 +28,18 @@ const transformDeliveryNote = ({ users, ...note }: any) => ({
         billingName: note.customers.billingName,
       }
     : null,
+  // Hand-projected rather than left to the serializer, which would rename `sale_orders` to the
+  // singular `saleOrder` via an existing RELATION_MAPPINGS entry — the same name, arrived at by
+  // accident. `applySearch` has always searched sale_orders.buyerPoNumber, so until now dispatch
+  // could FILTER by a buyer PO it had no way to display.
+  saleOrder: note.sale_orders
+    ? {
+        id: note.sale_orders.id,
+        saleOrderNumber: note.sale_orders.saleOrderNumber,
+        buyerPoNumber: note.sale_orders.buyerPoNumber,
+        buyerPos: note.sale_orders.buyerPos ?? [],
+      }
+    : null,
   // `users` is destructured OUT of the spread above so the raw relation is never returned; only the
   // curated createdBy is exposed. The include is also a safe-select (no password), so this is belt-and-braces.
   createdBy: users
@@ -217,6 +229,29 @@ const deliveryNoteExtendedIncludeOptions = {
       pod: true,
       transport: true,
       cartons: true,
+    },
+  },
+  // The buyer's own POs, so dispatch can open the customer's PO paperwork from the note they are
+  // packing against. Detail-only: the list include above stays lean.
+  // NOTE: only the SALE-ORDER dispatch path sets `saleOrderId`; a note raised from a production
+  // order leaves it NULL and will simply have nothing to show here.
+  sale_orders: {
+    select: {
+      id: true,
+      saleOrderNumber: true,
+      buyerPoNumber: true,
+      buyerPos: {
+        orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }],
+        select: {
+          id: true,
+          buyerPoNumber: true,
+          isPrimary: true,
+          poDate: true,
+          documentUrl: true,
+          documentName: true,
+          deliveryAddress: { select: { id: true, label: true, city: { select: { cityName: true } } } },
+        },
+      },
     },
   },
 };

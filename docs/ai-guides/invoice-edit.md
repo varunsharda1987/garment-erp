@@ -86,3 +86,5 @@ Only **PENDING** invoices can be edited. You cannot edit an invoice if:
 - GST amounts (CGST/SGST or IGST) are recalculated based on HSN codes and customer state
 - The total amount updates to reflect any changes to line items
 - You can continue to edit the invoice until a payment is recorded or an IRN is generated
+
+- **Buyer PO** under Customer & Order Information shows the customer's PO number and a **View PO** link to their PO document, when the invoice came from a sale order. It is read-only here — the PO and its document are managed on the sale order.

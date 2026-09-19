@@ -1,3 +1,5 @@
+import type { BuyerPoSummary } from '@/components/sale-order/BuyerPoCard';
+
 // ============================================
 // Invoice Module Types
 // ============================================
@@ -155,6 +157,16 @@ export interface Invoice {
     orderNumber: string;
     orderDate: string;
   };
+  /**
+   * The sale order this invoice came from, when there is one. Named SINGULAR because the
+   * serializer remaps the Prisma relation `sale_orders` via RELATION_MAPPINGS.
+   */
+  saleOrder?: {
+    id: string;
+    saleOrderNumber: string;
+    buyerPoNumber?: string | null;
+    buyerPos?: BuyerPoSummary[];
+  } | null;
   users?: {
     id: string;
     firstName: string;

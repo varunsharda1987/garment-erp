@@ -142,6 +142,28 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           orderDate: true,
         },
       },
+      // The buyer's own POs, so accounts can open the customer's PO paperwork while checking an
+      // invoice. Serializer note: `sale_orders` is remapped to the SINGULAR `saleOrder` by an
+      // existing RELATION_MAPPINGS entry, so the frontend reads `invoice.saleOrder`.
+      sale_orders: {
+        select: {
+          id: true,
+          saleOrderNumber: true,
+          buyerPoNumber: true,
+          buyerPos: {
+            orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }],
+            select: {
+              id: true,
+              buyerPoNumber: true,
+              isPrimary: true,
+              poDate: true,
+              documentUrl: true,
+              documentName: true,
+              deliveryAddress: { select: { id: true, label: true, city: { select: { cityName: true } } } },
+            },
+          },
+        },
+      },
       users: {
         select: {
           id: true,

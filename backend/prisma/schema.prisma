@@ -618,6 +618,12 @@ model customer_addresses {
   state    indian_states? @relation("CustomerAddressState", fields: [stateId], references: [id])
   city     indian_cities? @relation("CustomerAddressCity", fields: [cityId], references: [id])
 
+  /// Buyer POs shipping to this location. Restrict, not the default SET NULL: deleting an address
+  /// is a HARD delete (customerAddress.service.ts `delete`), and SET NULL would silently erase the
+  /// shipping destination of a live buyer PO. customerAddress.service refuses the delete with a
+  /// readable message instead.
+  buyerPos sale_order_buyer_pos[] @relation("buyer_po_delivery_address")
+
   @@index([customerId])
   @@index([customerId, addressType])
   @@index([stateId])
@@ -3245,6 +3251,7 @@ model users {
   rejectDispositionsResolved                                      reject_dispositions[]             @relation("reject_disposition_resolver")
   // CAD mini marker files uploaded
   cadFilesUploaded                                                cad_purpose_files[]               @relation("cad_file_uploader")
+  buyerPoDocumentsUploaded                                        sale_order_buyer_pos[]            @relation("buyer_po_document_uploader")
   // Greige issue details (bale/than tracking)
   greigeIssueDetailsIssued                                        greige_issue_details[]            @relation("greige_issue_details_issuedBy")
 
@@ -3526,11 +3533,35 @@ model sale_order_buyer_pos {
   remarks       String?
   createdAt     DateTime @default(now())
 
-  saleOrder sale_orders @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+  /// Where THIS PO's goods ship. The customer raises one PO per delivery location and each
+  /// location carries its own PO number, so this is what tells two POs on one order apart — and
+  /// what packing will group by if PO-wise packing is ever built.
+  /// FK into the customer's own address book rather than free text, so dispatch gets the full
+  /// address, state and contact and accounts can reach the matching GSTIN. NULL on rows that
+  /// predate this column, and on any row the legacy `buyerPoNumber` sync creates.
+  deliveryAddressId String?
+  /// The date printed on the buyer's PO. NOT `createdAt`, which is when we keyed it in.
+  poDate            DateTime? @db.Date
+
+  /// The buyer's PO document itself — exactly one per PO; re-uploading replaces it and unlinks the
+  /// previous file. Shaped after `cad_purpose_files`, the established upload shape.
+  /// Served from /uploads/po-documents, which app.ts mounts behind an auth check: unlike every
+  /// other upload directory this one is NOT world-readable, because a customer PO carries prices.
+  documentUrl          String?   @db.VarChar(500)
+  documentName         String?   @db.VarChar(255)
+  documentSize         Int?
+  documentUploadedById String?
+  documentUploadedAt   DateTime?
+
+  saleOrder          sale_orders         @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+  /// Named relation, never a bare `users` — a `users: true` select would return the password hash.
+  documentUploadedBy users?              @relation("buyer_po_document_uploader", fields: [documentUploadedById], references: [id])
+  deliveryAddress    customer_addresses? @relation("buyer_po_delivery_address", fields: [deliveryAddressId], references: [id], onDelete: Restrict)
 
   @@unique([saleOrderId, buyerPoNumber])
   @@index([saleOrderId])
   @@index([buyerPoNumber])
+  @@index([deliveryAddressId])
 }
 
 /// FG Stock Allocations - Reserve finished goods for sale order items

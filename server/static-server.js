@@ -16,6 +16,22 @@ app.use('/api', createProxyMiddleware({
   changeOrigin: true,
 }));
 
+// Uploaded files, proxied so they are reachable SAME-ORIGIN.
+//
+// Most uploads are fetched with an absolute http://<host>:5000/... URL (getUploadUrl) and that
+// works because an <img> tag is not CORS-restricted. A buyer PO document is different: it needs a
+// login, so it is fetched by axios with an Authorization header — which IS CORS-restricted, and
+// the API's CORS whitelist contains the Vite dev ports, not this server's port 3000. Cross-origin
+// it fails the preflight with no Access-Control-Allow-Origin.
+//
+// Proxying is the fix rather than widening the API's CORS whitelist: same-origin means no
+// preflight at all, it works identically over the LAN, and no new origin is trusted.
+// Nothing existing changes — absolute-URL consumers never come through here.
+app.use('/uploads', createProxyMiddleware({
+  target: API_TARGET,
+  changeOrigin: true,
+}));
+
 // Static assets + SPA fallback to index.html.
 //
 // `no-cache` does NOT mean "don't cache" — the browser still stores the file and re-uses it, but

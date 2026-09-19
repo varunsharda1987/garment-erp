@@ -2,6 +2,8 @@
 // Dispatch Module Types
 // ============================================
 
+import type { BuyerPoSummary } from '@/components/sale-order/BuyerPoCard';
+
 // ============================================
 // Status Enums
 // ============================================
@@ -157,6 +159,16 @@ export interface DeliveryNote {
     id: string;
     orderNumber: string;
   };
+  /**
+   * Only set on notes raised through the SALE-ORDER dispatch path; the production path leaves
+   * `saleOrderId` NULL, so this is absent there. Hand-projected by `transformDeliveryNote`.
+   */
+  saleOrder?: {
+    id: string;
+    saleOrderNumber: string;
+    buyerPoNumber?: string | null;
+    buyerPos?: BuyerPoSummary[];
+  } | null;
   customer?: {
     id: string;
     name: string;

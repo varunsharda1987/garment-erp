@@ -19,6 +19,9 @@ import { pushInvoiceToTally } from '@/services/tally.service';
 import { generateIrn, cancelIrn } from '@/services/einvoice.service';
 import type { Invoice, InvoiceItem, PaymentMethod } from '@/types/invoice.types';
 import { InvoiceStatusLabels, PaymentMethodLabels } from '@/types/invoice.types';
+import { toast } from 'sonner';
+import { openUploadedFile } from '@/lib/document-utils';
+import { getErrorMessage } from '@/lib/api-error-handler';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -543,6 +546,38 @@ export default function InvoiceDetail() {
                 <p className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</p>
               )}
             </div>
+            {/* The customer's own PO, so accounts can check the invoice against the paper the
+                buyer actually sent. Absent on invoices with no sale-order link. */}
+            {invoice.saleOrder?.buyerPos && invoice.saleOrder.buyerPos.length > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Buyer PO</p>
+                <div className="space-y-1">
+                  {invoice.saleOrder.buyerPos.map((po) => (
+                    <div key={po.id} className="flex items-center gap-2 text-sm flex-wrap">
+                      <span className="font-mono">{po.buyerPoNumber}</span>
+                      {po.deliveryAddress?.label && (
+                        <span className="text-xs text-muted-foreground">· {po.deliveryAddress.label}</span>
+                      )}
+                      {po.documentUrl && (
+                        <button
+                          type="button"
+                          className="text-xs text-info hover:underline"
+                          onClick={() => {
+                            // Opened synchronously so the popup blocker does not eat the tab.
+                            const tab = window.open('', '_blank');
+                            openUploadedFile(po.documentUrl!, po.documentName || 'purchase-order', tab).catch((err) =>
+                              toast.error(getErrorMessage(err))
+                            );
+                          }}
+                        >
+                          View PO
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <p className="text-sm font-medium text-muted-foreground">Created By</p>
               <p className="text-sm text-foreground">

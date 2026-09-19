@@ -18,13 +18,29 @@ export interface LinkedProductionOrder {
   createdAt?: string;
 }
 
-/** Buyer PO record (multiple POs per sale order) */
+/** Buyer PO record (multiple POs per sale order — one per delivery location) */
 export interface BuyerPO {
   id: string;
   buyerPoNumber: string;
   isPrimary: boolean;
   remarks?: string | null;
   createdAt: string;
+  /** Where this PO's goods ship — one of the customer's own saved addresses. */
+  deliveryAddressId?: string | null;
+  deliveryAddress?: {
+    id: string;
+    label: string;
+    addressType?: string | null;
+    pincode?: string | null;
+    city?: { cityName: string } | null;
+  } | null;
+  /** The date printed on the buyer's PO (not when we filed it). */
+  poDate?: string | null;
+  /** The customer's PO paperwork. Served behind an auth check — open it with openUploadedFile(). */
+  documentUrl?: string | null;
+  documentName?: string | null;
+  documentSize?: number | null;
+  documentUploadedAt?: string | null;
 }
 
 export interface SaleOrderItem {

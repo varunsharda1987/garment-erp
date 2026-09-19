@@ -8,6 +8,7 @@ import { deliveryNoteService } from '@/services/dispatch.service';
 import type { DeliveryNote } from '@/types/dispatch.types';
 import { DeliveryStatusLabels, DeliveryStatusColors, DeliveryConfirmationLabels } from '@/types/dispatch.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { BuyerPoCard } from '@/components/sale-order';
 import { ArrowLeft, Loader2, Truck, Package, ClipboardCheck, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -126,6 +127,11 @@ export default function DispatchDeliveryNoteDetail() {
             )}
           </CardContent>
         </Card>
+
+        {/* The customer's own PO paperwork, so the packing team can check what the buyer ordered
+            without asking sales. Renders nothing on a note raised from a production order — those
+            carry no sale-order link. */}
+        <BuyerPoCard buyerPos={note.saleOrder?.buyerPos} saleOrderNumber={note.saleOrder?.saleOrderNumber} />
 
         <Card>
           <CardHeader>

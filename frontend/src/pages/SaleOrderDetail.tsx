@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -15,6 +15,10 @@ import {
   ChevronDown,
   XCircle,
   MoreHorizontal,
+  MapPin,
+  FileText,
+  FileX,
+  Upload,
 } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
@@ -24,7 +28,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SmartConfirmDialog } from '@/components/SmartConfirmDialog';
 import { SaleOrderForm, CancelOrderDialog } from '@/components/sale-order';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -48,9 +59,13 @@ import {
   addBuyerPo,
   removeBuyerPo,
   setPrimaryBuyerPo,
+  uploadBuyerPoDocument,
+  removeBuyerPoDocument,
 } from '@/services/saleOrder.service';
 import { getStyleById } from '@/services/style.service';
 import { getErrorMessage } from '@/lib/api-error-handler';
+import { openUploadedFile } from '@/lib/document-utils';
+import { customerAddressService } from '@/services/customerAddress.service';
 import type {
   SaleOrderStatus,
   SaleOrderItem,
@@ -108,6 +123,16 @@ export default function SaleOrderDetail() {
   const [newPoNumber, setNewPoNumber] = useState('');
   const [newPoRemarks, setNewPoRemarks] = useState('');
   const [releasingAllocationId, setReleasingAllocationId] = useState<string | null>(null);
+  // Buyer PO document upload. One hidden input serves every PO row; `uploadTargetPoId` says which
+  // row asked for it.
+  const poFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTargetPoId, setUploadTargetPoId] = useState<string | null>(null);
+  const [uploadingPoId, setUploadingPoId] = useState<string | null>(null);
+  // Add-PO dialog fields
+  const [newPoAddressId, setNewPoAddressId] = useState('');
+  const [newPoDate, setNewPoDate] = useState('');
+  const [newPoFile, setNewPoFile] = useState<File | null>(null);
+  const newPoFileInputRef = useRef<HTMLInputElement>(null);
 
   /**
    * Refresh this page AND the list. `saleOrders.all` is the prefix of both query keys, so one
@@ -124,6 +149,14 @@ export default function SaleOrderDetail() {
     queryKey: queryKeys.saleOrders.detail(id || ''),
     queryFn: () => getSaleOrderById(id!),
     enabled: !!id,
+  });
+
+  // The customer's own saved locations — a PO ships to one of them. Only fetched while the
+  // Add-PO dialog is open, since it is the only place that needs the list.
+  const { data: customerAddresses } = useQuery({
+    queryKey: ['customer-addresses', so?.customerId],
+    queryFn: () => customerAddressService.getByCustomerId(so!.customerId, { isActive: true }),
+    enabled: !!so?.customerId && addPoDialogOpen,
   });
 
   const { data: availableStock } = useQuery({
@@ -282,20 +315,76 @@ export default function SaleOrderDetail() {
   });
 
   const addBuyerPoMutation = useMutation({
-    mutationFn: ({ buyerPoNumber, remarks }: { buyerPoNumber: string; remarks?: string }) =>
-      addBuyerPo(id!, buyerPoNumber, remarks),
+    // Two calls on purpose: the PO row is created as JSON, then the file is posted separately.
+    // Keeps POST /:id/buyer-pos a plain JSON endpoint rather than converting a live one to
+    // multipart. If the upload leg fails the PO still exists, showing "attach" — recoverable.
+    mutationFn: async ({ buyerPoNumber, remarks }: { buyerPoNumber: string; remarks?: string }) => {
+      const po = await addBuyerPo(id!, buyerPoNumber, remarks, {
+        deliveryAddressId: newPoAddressId || null,
+        poDate: newPoDate || null,
+      });
+      if (newPoFile) {
+        await uploadBuyerPoDocument(po.id, newPoFile);
+      }
+      return po;
+    },
     onSuccess: () => {
       invalidateSaleOrder();
       toast.success('Buyer PO added');
       setAddPoDialogOpen(false);
       setNewPoNumber('');
       setNewPoRemarks('');
+      setNewPoAddressId('');
+      setNewPoDate('');
+      setNewPoFile(null);
     },
     onError: (error: unknown) => {
-      const axiosErr = error as { response?: { data?: { message?: string } } };
-      toast.error(axiosErr?.response?.data?.message || 'Failed to add buyer PO');
+      toast.error(getErrorMessage(error));
     },
   });
+
+  const removePoDocumentMutation = useMutation({
+    mutationFn: (poId: string) => removeBuyerPoDocument(poId),
+    onSuccess: () => {
+      invalidateSaleOrder();
+      toast.success('PO document removed');
+    },
+    onError: (error: unknown) => toast.error(getErrorMessage(error)),
+  });
+
+  /** Mirrors the server's own filter so a bad pick is refused before the round trip. */
+  const rejectBadPoFile = (file: File): string | null => {
+    if (!['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)) {
+      return 'Only JPG, PNG and PDF files are allowed';
+    }
+    if (file.size > 10 * 1024 * 1024) return 'File is too large. Maximum size is 10MB.';
+    return null;
+  };
+
+  const handlePoFilePicked = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Reset immediately so picking the SAME file again still fires a change event.
+    event.target.value = '';
+    if (!file || !uploadTargetPoId) return;
+
+    const problem = rejectBadPoFile(file);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+
+    setUploadingPoId(uploadTargetPoId);
+    try {
+      await uploadBuyerPoDocument(uploadTargetPoId, file);
+      invalidateSaleOrder();
+      toast.success('PO document uploaded');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setUploadingPoId(null);
+      setUploadTargetPoId(null);
+    }
+  };
 
   const removeBuyerPoMutation = useMutation({
     mutationFn: (poId: string) => removeBuyerPo(poId),
@@ -555,18 +644,80 @@ export default function SaleOrderDetail() {
                     po.isPrimary ? 'bg-info-muted border border-info/20' : 'bg-muted'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    {po.isPrimary && <Star className="h-3 w-3 text-info fill-info" />}
-                    <span className="font-mono font-medium">{po.buyerPoNumber}</span>
-                    {po.remarks && <span className="text-muted-foreground">- {po.remarks}</span>}
-                    {po.isPrimary && (
-                      <Badge variant="outline" className="text-xs">
-                        Primary
-                      </Badge>
-                    )}
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {po.isPrimary && <Star className="h-3 w-3 text-info fill-info" />}
+                      <span className="font-mono font-medium">{po.buyerPoNumber}</span>
+                      {po.remarks && <span className="text-muted-foreground">- {po.remarks}</span>}
+                      {po.isPrimary && (
+                        <Badge variant="outline" className="text-xs">
+                          Primary
+                        </Badge>
+                      )}
+                    </div>
+                    {/* The customer raises one PO per delivery location, so the location is what
+                        tells two POs on this order apart. */}
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {po.deliveryAddress
+                          ? `${po.deliveryAddress.label}${po.deliveryAddress.city?.cityName ? `, ${po.deliveryAddress.city.cityName}` : ''}`
+                          : 'No location set'}
+                      </span>
+                      {po.poDate && <span>PO dated {new Date(po.poDate).toLocaleDateString()}</span>}
+                      {po.documentUrl ? (
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-info hover:underline"
+                          onClick={(e) => {
+                            // The tab must be opened inside the click handler — see openUploadedFile.
+                            const tab = window.open('', '_blank');
+                            openUploadedFile(po.documentUrl!, po.documentName || 'purchase-order', tab).catch((err) =>
+                              toast.error(getErrorMessage(err))
+                            );
+                            e.stopPropagation();
+                          }}
+                        >
+                          <FileText className="h-3 w-3" />
+                          {po.documentName || 'View PO'}
+                          {po.documentSize ? ` (${Math.round(po.documentSize / 1024)} KB)` : ''}
+                        </button>
+                      ) : (
+                        <span className="italic">No PO document</span>
+                      )}
+                    </div>
                   </div>
                   {!isTerminal && (
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        title={po.documentUrl ? 'Replace PO document' : 'Attach PO document'}
+                        onClick={() => {
+                          setUploadTargetPoId(po.id);
+                          poFileInputRef.current?.click();
+                        }}
+                        disabled={uploadingPoId !== null}
+                      >
+                        {uploadingPoId === po.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Upload className="h-3 w-3" />
+                        )}
+                      </Button>
+                      {po.documentUrl && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          title="Remove PO document"
+                          onClick={() => removePoDocumentMutation.mutate(po.id)}
+                          disabled={removePoDocumentMutation.isPending}
+                        >
+                          <FileX className="h-3 w-3" />
+                        </Button>
+                      )}
                       {!po.isPrimary && (
                         <Button
                           variant="ghost"
@@ -999,6 +1150,15 @@ export default function SaleOrderDetail() {
         isSubmitting={updateMutation.isPending}
       />
 
+      {/* One hidden input serves the Replace/Attach button on every PO row. */}
+      <input
+        ref={poFileInputRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.pdf"
+        className="hidden"
+        onChange={handlePoFilePicked}
+      />
+
       {/* Add Buyer PO Dialog */}
       <Dialog
         open={addPoDialogOpen}
@@ -1007,12 +1167,19 @@ export default function SaleOrderDetail() {
           if (!open) {
             setNewPoNumber('');
             setNewPoRemarks('');
+            setNewPoAddressId('');
+            setNewPoDate('');
+            setNewPoFile(null);
           }
         }}
       >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Add Buyer PO</DialogTitle>
+            <DialogDescription>
+              The customer raises one PO per delivery location. Attach their PO here so production, dispatch and
+              accounts all work from the same paper.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1024,12 +1191,72 @@ export default function SaleOrderDetail() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Remarks (optional)</Label>
-              <Input
-                value={newPoRemarks}
-                onChange={(e) => setNewPoRemarks(e.target.value)}
-                placeholder="Any notes..."
+              <Label>Delivery Location</Label>
+              {customerAddresses && customerAddresses.length > 0 ? (
+                <Select
+                  value={newPoAddressId || 'none'}
+                  onValueChange={(v) => setNewPoAddressId(v === 'none' ? '' : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Where this PO ships to" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[9999]">
+                    <SelectItem value="none">Not set</SelectItem>
+                    {customerAddresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id}>
+                        {address.label}
+                        {address.city?.cityName ? ` — ${address.city.cityName}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                /* Only one customer address exists system-wide today, so without saying this the
+                   empty dropdown reads as broken rather than as missing data. */
+                <p className="text-xs text-muted-foreground">
+                  No saved locations for this customer — add them on the{' '}
+                  <Link to={`/customers/${so.customerId}`} className="text-info hover:underline">
+                    customer page
+                  </Link>
+                  , then pick one here.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>PO Date</Label>
+              <Input type="date" value={newPoDate} onChange={(e) => setNewPoDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">The date printed on the buyer's PO.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>PO Document</Label>
+              <input
+                ref={newPoFileInputRef}
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  const problem = rejectBadPoFile(file);
+                  if (problem) {
+                    toast.error(problem);
+                    return;
+                  }
+                  setNewPoFile(file);
+                }}
               />
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => newPoFileInputRef.current?.click()}>
+                  <Upload className="h-3 w-3 mr-2" />
+                  {newPoFile ? 'Change file' : 'Choose file'}
+                </Button>
+                <span className="text-xs text-muted-foreground truncate">
+                  {newPoFile
+                    ? `${newPoFile.name} (${Math.round(newPoFile.size / 1024)} KB)`
+                    : 'PDF, JPG or PNG, up to 10MB'}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>

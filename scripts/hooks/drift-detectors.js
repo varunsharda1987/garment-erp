@@ -963,6 +963,10 @@ const STANDALONE_ENDPOINT_SCHEMAS = [
   'updateCADGroupingSchema',
   'updateClaimStatusSchema',
   'updateOrderStatusSchema',
+  // PATCH /sale-orders/buyer-pos/:poId — its own endpoint and its own service method
+  // (`updateBuyerPo`), writing a buyer PO row. The detector only reads the service's `update()`,
+  // which is the SALE ORDER's updater and correctly knows nothing about these fields.
+  'updateBuyerPoSchema',
 ];
 
 // Fields that are nested relations handled via separate upserts/methods

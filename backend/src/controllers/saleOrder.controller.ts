@@ -259,10 +259,54 @@ export class SaleOrderController {
    */
   async addBuyerPo(req: Request, res: Response) {
     const { id } = req.params;
-    const { buyerPoNumber, remarks } = req.body;
+    const { buyerPoNumber, remarks, deliveryAddressId, poDate } = req.body;
 
-    const result = await saleOrderService.addBuyerPo(id, buyerPoNumber, remarks);
+    const result = await saleOrderService.addBuyerPo(id, buyerPoNumber, remarks, { deliveryAddressId, poDate });
     res.status(201).json({ data: result, message: 'Buyer PO added' });
+  }
+
+  /**
+   * Edit a buyer PO's delivery location / PO date / remarks.
+   */
+  async updateBuyerPo(req: Request, res: Response) {
+    const { poId } = req.params;
+
+    const result = await saleOrderService.updateBuyerPo(poId, req.body);
+    res.json({ data: result, message: 'Buyer PO updated' });
+  }
+
+  /**
+   * Attach (or replace) the customer's PO document on a buyer PO.
+   */
+  async uploadBuyerPoDocument(req: Request, res: Response) {
+    const { poId } = req.params;
+    const file = (req as Request & { file?: Express.Multer.File }).file;
+    if (!file) {
+      throw new ValidationError('A PO file is required');
+    }
+
+    const result = await saleOrderService.attachBuyerPoDocument(
+      poId,
+      {
+        // Root-relative, matching every other upload in the app — the frontend prefixes it with
+        // getUploadUrl(). Served from behind an auth check; see app.ts.
+        fileUrl: `/uploads/po-documents/${file.filename}`,
+        fileName: file.originalname,
+        fileSize: file.size,
+      },
+      req.user?.userId
+    );
+    res.status(201).json({ data: result, message: 'PO document uploaded' });
+  }
+
+  /**
+   * Remove the PO document, leaving the buyer PO itself in place.
+   */
+  async removeBuyerPoDocument(req: Request, res: Response) {
+    const { poId } = req.params;
+
+    const result = await saleOrderService.removeBuyerPoDocument(poId);
+    res.json({ data: result, message: 'PO document removed' });
   }
 
   /**

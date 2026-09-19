@@ -11,9 +11,12 @@ import {
   deallocateStockSchema,
   saleOrderQuerySchema,
   addBuyerPoSchema,
+  updateBuyerPoSchema,
+  uploadBuyerPoDocumentSchema,
 } from '../schemas/saleOrder.schema';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
-import { idParamSchema } from '../schemas/common.schema';
+import { uploadBuyerPoDocument } from '../middleware/upload.middleware';
+import { idParamSchema, poIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -113,14 +116,47 @@ router.post(
   asyncHandler(saleOrderController.addBuyerPo.bind(saleOrderController))
 );
 
+// PATCH /api/sale-orders/buyer-pos/:poId - Edit delivery location / PO date / remarks
+router.patch(
+  '/buyer-pos/:poId',
+  validateParams(poIdParamSchema),
+  validateBody(updateBuyerPoSchema),
+  asyncHandler(saleOrderController.updateBuyerPo.bind(saleOrderController))
+);
+
 // DELETE /api/sale-orders/buyer-pos/:poId - Remove a buyer PO
-router.delete('/buyer-pos/:poId', asyncHandler(saleOrderController.removeBuyerPo.bind(saleOrderController)));
+router.delete(
+  '/buyer-pos/:poId',
+  validateParams(poIdParamSchema),
+  asyncHandler(saleOrderController.removeBuyerPo.bind(saleOrderController))
+);
 
 // POST /api/sale-orders/buyer-pos/:poId/set-primary - Set a buyer PO as primary
 // no-body — action route, no payload needed
 router.post(
   '/buyer-pos/:poId/set-primary',
+  validateParams(poIdParamSchema),
   asyncHandler(saleOrderController.setPrimaryBuyerPo.bind(saleOrderController))
+);
+
+// === Buyer PO document (the customer's own PO paperwork) ===
+
+// POST /api/sale-orders/buyer-pos/:poId/document - Attach or REPLACE the PO file
+// ORDER IS LOAD-BEARING: validateParams → multer → validateBody → handler.
+// multer is what parses the multipart body into req.body, so validateBody must follow it.
+router.post(
+  '/buyer-pos/:poId/document',
+  validateParams(poIdParamSchema),
+  uploadBuyerPoDocument,
+  validateBody(uploadBuyerPoDocumentSchema),
+  asyncHandler(saleOrderController.uploadBuyerPoDocument.bind(saleOrderController))
+);
+
+// DELETE /api/sale-orders/buyer-pos/:poId/document - Remove the file, keep the PO
+router.delete(
+  '/buyer-pos/:poId/document',
+  validateParams(poIdParamSchema),
+  asyncHandler(saleOrderController.removeBuyerPoDocument.bind(saleOrderController))
 );
 
 export default router;

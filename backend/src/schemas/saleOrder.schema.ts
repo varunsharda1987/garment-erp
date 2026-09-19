@@ -196,7 +196,54 @@ export const saleOrderQuerySchema = z.object({
 export const addBuyerPoSchema = z.object({
   buyerPoNumber: z.string().min(1, 'Buyer PO number is required').max(100),
   remarks: z.string().max(500).optional(),
+  // The customer raises one PO per delivery location; this is the location it ships to, chosen
+  // from that customer's own address book. OPTIONAL on purpose — the field is new, and a PO must
+  // never be unrecordable because its location has not been added to the customer yet.
+  deliveryAddressId: z.string().uuid('Invalid delivery location').optional().nullable(),
+  // Bare 'YYYY-MM-DD' from <input type="date"> and full ISO must both pass, same as
+  // expectedShipDate above. NEVER z.string().datetime() — it rejects the date-only form.
+  poDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional()
+    .nullable(),
 });
+
+/**
+ * Update a Buyer PO's details — location / date / remarks, without touching the document.
+ * PATCH /api/sale-orders/buyer-pos/:poId
+ *
+ * buyerPoNumber is deliberately NOT editable here: it is the key of
+ * @@unique([saleOrderId, buyerPoNumber]) and the value `syncPrimaryBuyerPo` mirrors into the
+ * legacy `sale_orders.buyerPoNumber` scalar that the B2B app reads. Renaming a PO means removing
+ * it and adding the new one.
+ */
+export const updateBuyerPoSchema = z.object({
+  deliveryAddressId: z.string().uuid('Invalid delivery location').optional().nullable(),
+  poDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional()
+    .nullable(),
+  remarks: z.string().max(500).optional().nullable(),
+});
+
+/**
+ * Upload a Buyer PO document — MULTIPART (multipart/form-data)
+ * POST /api/sale-orders/buyer-pos/:poId/document
+ *
+ * ⚠ This body is parsed by multer (`uploadBuyerPoDocument`, .single('file')), so validateBody MUST
+ * be mounted AFTER it. The FILE ITSELF lives on `req.file` and is never part of req.body.
+ *
+ * There are no text fields — location and date are edited via PATCH — but the schema still exists
+ * and is mounted for two reasons: scripts/hooks/check-route-validation.js fails any POST without a
+ * validateBody, and the preprocess makes a file-only upload (where multer leaves req.body empty)
+ * pass rather than 400.
+ */
+export const uploadBuyerPoDocumentSchema = z.preprocess(
+  (body) => (body === undefined || body === null ? {} : body),
+  z.object({}).passthrough()
+);
 
 // ============================================================================
 // Type Exports
@@ -209,3 +256,4 @@ export type StartProductionInput = z.infer<typeof startProductionSchema>;
 export type AllocateStockInput = z.infer<typeof allocateStockSchema>;
 export type SaleOrderQueryInput = z.infer<typeof saleOrderQuerySchema>;
 export type AddBuyerPoInput = z.infer<typeof addBuyerPoSchema>;
+export type UpdateBuyerPoInput = z.infer<typeof updateBuyerPoSchema>;

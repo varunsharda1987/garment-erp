@@ -5,3 +5,5 @@ export { CancelOrderDialog } from './CancelOrderDialog';
 export { SizeBreakdownDialog } from './SizeBreakdownDialog';
 export type { DisplayItem } from './SaleOrderItemsTable';
 export type { SizeBreakdownEntry } from './SizeBreakdownDialog';
+export { BuyerPoCard } from './BuyerPoCard';
+export type { BuyerPoSummary } from './BuyerPoCard';

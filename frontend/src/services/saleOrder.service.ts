@@ -118,11 +118,47 @@ import type { BuyerPO } from '@/types/saleOrder.types';
 /**
  * Add a buyer PO number to a sale order.
  */
-export async function addBuyerPo(saleOrderId: string, buyerPoNumber: string, remarks?: string): Promise<BuyerPO> {
+export async function addBuyerPo(
+  saleOrderId: string,
+  buyerPoNumber: string,
+  remarks?: string,
+  details?: { deliveryAddressId?: string | null; poDate?: string | null }
+): Promise<BuyerPO> {
   const response = await api.post(`${BASE_URL}/${saleOrderId}/buyer-pos`, {
     buyerPoNumber,
     remarks,
+    ...details,
   });
+  return response.data.data;
+}
+
+/**
+ * Edit a buyer PO's delivery location / PO date / remarks.
+ * The PO NUMBER is not editable — it keys the unique index and the legacy scalar the B2B app
+ * reads. Renaming a PO means removing it and adding the new one.
+ */
+export async function updateBuyerPo(
+  poId: string,
+  patch: { deliveryAddressId?: string | null; poDate?: string | null; remarks?: string | null }
+): Promise<BuyerPO> {
+  const response = await api.patch(`${BASE_URL}/buyer-pos/${poId}`, patch);
+  return response.data.data;
+}
+
+/**
+ * Attach (or replace) the customer's PO document.
+ * Content-Type is left unset on purpose so the browser writes the multipart boundary.
+ */
+export async function uploadBuyerPoDocument(poId: string, file: File): Promise<BuyerPO> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(`${BASE_URL}/buyer-pos/${poId}/document`, formData);
+  return response.data.data;
+}
+
+/** Remove the PO document, leaving the PO itself in place. */
+export async function removeBuyerPoDocument(poId: string): Promise<BuyerPO> {
+  const response = await api.delete(`${BASE_URL}/buyer-pos/${poId}/document`);
   return response.data.data;
 }
 

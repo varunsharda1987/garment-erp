@@ -142,3 +142,5 @@ route: /dispatch
 - **In Transit** does not automatically change to **Delivered**. Someone must record the POD.
 - ASN **Approved** status means the customer accepted the shipment window. You still need to create the actual Delivery Note.
 - Use the **Refresh** button (top right) to see the latest status if shipments were recently updated.
+
+- The **Buyer PO** card on a delivery note shows the customer's own purchase orders for that sale order — PO number, delivery location and PO date — with a **View PO** link that opens their PO document. It only appears on notes raised from a sale order; a note raised from a production order has no sale-order link and shows nothing. Opening the PO needs you to be signed in.

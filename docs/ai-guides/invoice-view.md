@@ -104,3 +104,5 @@ Note: Your WhatsApp must be linked in **Team & Settings > My WhatsApp** for this
 - **Delete** button only appears for PENDING invoices with no payments and no IRN. Once any payment is recorded, the invoice cannot be deleted.
 - Overdue status is shown in red. The due date text also appears in red when the invoice is past due.
 - The **Download Excel** option is available only for Tax Invoices, not for other document types like Proforma Invoice or Order Form.
+
+- **Buyer PO** appears under Customer & Order Information when the invoice came from a sale order: the customer's PO number, its delivery location, and a **View PO** link that opens their PO document so you can check the invoice against the paper they sent.

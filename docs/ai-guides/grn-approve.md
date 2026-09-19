@@ -62,3 +62,4 @@ Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) a
 - An inactive warehouse is rejected. Pick an active one.
 - A GRN made against a job work order will not approve if that job was cancelled or closed after the GRN was saved. The message says its stock was already credited back. Reject the GRN, or ask the office to re-open the job first.
 - A job work GRN is also refused if the job's finished fabric cannot be identified (no greige lot, requirement, lab dip or fabric on the job). The message asks you to link the job to its greige lot or requirement, or set its finished fabric, and then receive again.
+- A job work GRN whose line carries no quantity is refused with "…cannot be approved: this receipt records no quantity". Nothing is booked and the GRN stays in Pending QC. Reject it and create a new one with the metres actually received.

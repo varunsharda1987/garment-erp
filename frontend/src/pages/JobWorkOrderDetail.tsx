@@ -21,6 +21,7 @@ import {
   Calculator,
   Send,
   Download,
+  PackageCheck,
   Trash2,
   Ban,
   MessageCircle,
@@ -975,12 +976,20 @@ export default function JobWorkOrderDetail() {
               )}
 
               {['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(currentStatus) &&
-                !jwo.receivedDate && (
+                !jwo.receivedDate &&
+                // Metre goods are received on a GRN — that is the only path that creates the stock
+                // lot. Receive Material books no stock, so it is shown for piece work only.
+                (jwo.uom === 'MTR' ? (
+                  <Button className="w-full" onClick={() => navigate(`/procurement/grn/new?jobWorkOrderId=${jwo.id}`)}>
+                    <PackageCheck className="mr-2 h-4 w-4" />
+                    Receive via GRN
+                  </Button>
+                ) : (
                   <Button className="w-full" onClick={() => setReceiveDialogOpen(true)}>
                     <Download className="mr-2 h-4 w-4" />
                     Receive Material
                   </Button>
-                )}
+                ))}
 
               {jwo.jwoStatus !== 'CLOSED' &&
                 ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.jwoStatus) && (

@@ -19,6 +19,7 @@
  * deliberately NOT changed here; this suite pins what the path does today.
  */
 
+import { randomUUID } from 'crypto';
 import request from 'supertest';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
@@ -362,5 +363,143 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: orphanJwoId } });
     expect(jwo!.finishedFabricId).toBeNull();
     expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
+  });
+
+  it('T0-B: refuses that same no-lineage job on the JWO page too, saying how to make it receivable', async () => {
+    const res = await request(app)
+      .post(`/api/job-work-orders/${orphanJwoId}/receive`)
+      .set(authHeader)
+      .send({ qtyReceived: 450 });
+
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('RECEIVE_VIA_GRN');
+    // Both doors refuse this shape, so this message is the only one that can get the user unstuck.
+    expect(res.body.message).toMatch(/greige lot or requirement/i);
+
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: orphanJwoId } });
+    expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
+    expect(jwo!.receivedDate).toBeNull();
+  });
+
+  it('refuses a metre job with no greige lot and no requirement — and the GRN still takes it', async () => {
+    // The shape that slipped the old guard, which fired only on LACE || greigeStockLotId ||
+    // requirementLinks. A hand-raised metre job matched none of them, so it was stamped RECEIVED
+    // with no stock and then locked out of the GRN as "already received" — the lot was lost.
+    const created = await request(app).post('/api/job-work-orders').set(authHeader).send({
+      processType: 'DYEING',
+      processorId: dyerId,
+      quantity: 500,
+      agreedRate: DYEING_RATE,
+    });
+    expect(created.status).toBe(201);
+    const gapJwoId = created.body.data.id;
+    await prisma.job_work_orders.update({
+      where: { id: gapJwoId },
+      // fabricId alone is enough for the GRN to resolve a master (legacy parity), while
+      // greigeStockLotId and requirementLinks stay empty — exactly the gap.
+      data: { jwoStatus: 'AT_PROCESSOR', uom: 'MTR', qtySentMeters: 500, fabricId: finishedFabricId },
+    });
+
+    const refused = await request(app)
+      .post(`/api/job-work-orders/${gapJwoId}/receive`)
+      .set(authHeader)
+      .send({ qtyReceived: 450 });
+    expect(refused.status).toBe(422);
+    expect(refused.body.code).toBe('RECEIVE_VIA_GRN');
+
+    // It refused without touching the job, so the real door is still open — this is the half that
+    // proves the lot is recoverable rather than stranded.
+    const afterRefusal = await prisma.job_work_orders.findUnique({ where: { id: gapJwoId } });
+    expect(afterRefusal!.jwoStatus).toBe('AT_PROCESSOR');
+    expect(afterRefusal!.receivedDate).toBeNull();
+
+    const viaGrn = await request(app)
+      .post('/api/grn/jwo')
+      .set(authHeader)
+      .send({ jobWorkOrderId: gapJwoId, qtyReceivedMeters: 450, warehouseId });
+    expect(viaGrn.status).toBe(201);
+  });
+
+  it('sends a PO-backed metre job to the PO GRN, not the job-work GRN', async () => {
+    const po = await prisma.purchase_orders.create({
+      data: {
+        id: randomUUID(),
+        poNumber: `${RUN}-PO`,
+        supplierId: dyerId,
+        poDate: new Date(),
+        expectedDeliveryDate: new Date(Date.now() + 20 * 86400000),
+        status: 'ACKNOWLEDGED',
+        poCategory: 'PROCESSING',
+        createdById: userId,
+      },
+    });
+
+    const created = await request(app).post('/api/job-work-orders').set(authHeader).send({
+      processType: 'DYEING',
+      processorId: dyerId,
+      quantity: 500,
+      agreedRate: DYEING_RATE,
+    });
+    expect(created.status).toBe(201);
+    await prisma.job_work_orders.update({
+      where: { id: created.body.data.id },
+      data: { jwoStatus: 'AT_PROCESSOR', uom: 'MTR', qtySentMeters: 500, purchaseOrderId: po.id },
+    });
+
+    const res = await request(app)
+      .post(`/api/job-work-orders/${created.body.data.id}/receive`)
+      .set(authHeader)
+      .send({ qtyReceived: 450 });
+
+    expect(res.status).toBe(422);
+    // A different code from the PO-less case: this job's stock comes in on the PO's own GRN, so
+    // pointing it at "Receive against Job Work Order" would send the user somewhere it cannot appear.
+    expect(res.body.code).toBe('RECEIVE_VIA_PO_GRN');
+    expect(res.body.message).toMatch(/purchase order/i);
+
+    await prisma.job_work_orders.updateMany({ where: { purchaseOrderId: po.id }, data: { purchaseOrderId: null } });
+    await prisma.purchase_orders.delete({ where: { id: po.id } });
+  });
+
+  it('refuses to approve a receipt that carries no quantity, instead of accepting it with no stock', async () => {
+    const created = await request(app).post('/api/job-work-orders').set(authHeader).send({
+      processType: 'DYEING',
+      processorId: dyerId,
+      quantity: 500,
+      agreedRate: DYEING_RATE,
+    });
+    const zeroJwoId = created.body.data.id;
+    await prisma.job_work_orders.update({
+      where: { id: zeroJwoId },
+      data: { jwoStatus: 'AT_PROCESSOR', uom: 'MTR', qtySentMeters: 500, fabricId: finishedFabricId },
+    });
+
+    const grn = await request(app)
+      .post('/api/grn/jwo')
+      .set(authHeader)
+      .send({ jobWorkOrderId: zeroJwoId, qtyReceivedMeters: 450, warehouseId });
+    expect(grn.status).toBe(201);
+    const zeroGrnId = grn.body.data.id;
+
+    // Creation refuses a zero quantity, so the only way to reach the approval branch is to zero the
+    // line afterwards — which is the state legacy rows were found in.
+    await prisma.grn_items.updateMany({
+      where: { grnId: zeroGrnId },
+      data: { acceptedQuantity: 0, receivedQuantity: 0 },
+    });
+
+    const lotsBefore = await prisma.fabric_stock.count();
+    const res = await request(app).patch(`/api/grn/${zeroGrnId}/approve`).set(authHeader).send({ warehouseId });
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(res.body)).toMatch(/no quantity/i);
+
+    // The whole point: it used to answer success here and leave stock empty. Now the transaction
+    // rolls back, so the GRN is still waiting rather than falsely closed.
+    const after = await prisma.goods_receiving_notes.findUnique({ where: { id: zeroGrnId } });
+    expect(after!.status).toBe('PENDING_QC');
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: zeroJwoId } });
+    expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
+    expect(await prisma.fabric_stock.count()).toBe(lotsBefore);
   });
 });

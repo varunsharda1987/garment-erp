@@ -34,6 +34,7 @@ import {
   JWO_PRE_ISSUE_STATUSES,
   JWO_AT_PROCESSOR_STATUSES,
   JWO_RECEIVED_STATUSES,
+  JWO_GRN_UOMS,
 } from '../services/helpers/jwo-status.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
@@ -786,7 +787,7 @@ class JobWorkOrderController {
           jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
           // Phase 5a (D6): GRN receiving is fabric/meters-only; PCS job work is
           // received on the JWO itself (POST /:id/receive)
-          uom: 'MTR',
+          uom: { in: JWO_GRN_UOMS },
         },
         select: {
           id: true,
@@ -1652,24 +1653,33 @@ class JobWorkOrderController {
         select: {
           uom: true,
           fabricType: true,
-          greigeStockLotId: true,
-          _count: { select: { requirementLinks: true } },
+          jobWorkNumber: true,
+          purchaseOrderId: true,
         },
       });
       if (!existing) {
         return res.status(404).json({ success: false, message: 'Job work order not found' });
       }
-      // A lace job has neither a greige lot pointer nor (when raised by hand) a requirement link,
-      // so it is named explicitly — otherwise it would terminate here and the dyed lace would
-      // never reach stock.
-      if (
-        existing.uom === 'MTR' &&
-        (existing.fabricType === 'LACE' || existing.greigeStockLotId || existing._count.requirementLinks > 0)
-      ) {
+      // This route books no stock, so anything measured in metres must go to the GRN instead.
+      // The split is on uom alone: it used to also require a greige lot, a requirement link or LACE,
+      // which let a hand-raised metre job through to a stockless receive that then locked it out of
+      // the GRN as "already received".
+      if (JWO_GRN_UOMS.includes(existing.uom)) {
+        if (existing.purchaseOrderId) {
+          return res.status(422).json({
+            success: false,
+            code: 'RECEIVE_VIA_PO_GRN',
+            message: `${existing.jobWorkNumber} is linked to a purchase order — receive it on a GRN against that PO. This action records no stock.`,
+          });
+        }
         return res.status(422).json({
           success: false,
           code: 'RECEIVE_VIA_GRN',
-          message: `${existing.fabricType === 'LACE' ? 'Lace' : 'Fabric'} job work is received through a GRN (Receive against Job Work Order) so stock gets created.`,
+          message:
+            `${existing.fabricType === 'LACE' ? 'Lace' : 'Fabric'} job work is received through a GRN ` +
+            `(Procurement → GRN → New → Receive against Job Work Order) so the stock lot is created. ` +
+            `If the GRN says the job has no lineage, link its greige lot or requirement, or set its ` +
+            `finished fabric, first — it cannot be received here.`,
         });
       }
 

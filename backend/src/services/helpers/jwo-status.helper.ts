@@ -40,6 +40,20 @@ export const JWO_AT_PROCESSOR_STATUSES: JobWorkOrderStatus[] = [
 export const JWO_RECEIVED_STATUSES: JobWorkOrderStatus[] = ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'];
 
 /**
+ * UOMs whose receipt creates a stock lot, so they are received through the GRN and never through
+ * POST /job-work-orders/:id/receive (which books no stock). Piece work stays on that legacy route.
+ *
+ * One home for the split: the guard, the /receivable picker and the GRN's own refusal all read this,
+ * because they drifted apart once already — the guard checked lineage columns as well as uom, so a
+ * metre job with no greige lot slipped through, was stamped RECEIVED with no stock, and was then
+ * locked out of the GRN as "already received".
+ *
+ * YDS/GM (mrp.service.ts unitToJwoUom) are deliberately absent: the GRN cannot convert units, so a
+ * yard job must stay on the legacy route. No YARD/GRAM material exists today.
+ */
+export const JWO_GRN_UOMS: string[] = ['MTR'];
+
+/**
  * Set a JWO's status.
  * `extra` carries any other fields the same update must set (receivedDate, remarks, …).
  */

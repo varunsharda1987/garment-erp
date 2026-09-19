@@ -30,6 +30,7 @@ import {
   isJwoDead,
   JWO_ACTIVE_FILTER,
   JWO_AT_PROCESSOR_STATUSES,
+  JWO_GRN_UOMS,
 } from './helpers/jwo-status.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
@@ -2669,7 +2670,7 @@ class GRNService {
     }
     // Phase 5a (D6): GRN receiving is fabric/meters-shaped; piece-based job work
     // (embroidery/handwork/smocking/kaaj) is received on the JWO itself.
-    if (jwo.uom !== 'MTR') {
+    if (!JWO_GRN_UOMS.includes(jwo.uom)) {
       throw new Error(
         `${jwo.jobWorkNumber} is piece-based (${jwo.uom}) — receive it from the Job Work Order's Receive action, not a GRN`
       );
@@ -2834,11 +2835,13 @@ class GRNService {
     // greige band; only the measured value is stamped onto the JWO / baked into the name.
     const receivedWidthProvided = grnItem?.receivedWidthInches != null ? Number(grnItem.receivedWidthInches) : null;
     if (qtyReceived <= 0) {
-      logWarn('PO-less JWO GRN approved with zero accepted quantity — no stock created', {
-        grnId,
-        jobWorkOrderId: jobWorkOrder.id,
-      });
-      return;
+      // Never return quietly here: the caller would commit the GRN as ACCEPTED with no stock lot,
+      // no JWO status change and no MRP callback — a receipt the user is told succeeded while
+      // fabric_stock stays empty. That is the failure 623b42cf removed from the rest of this path.
+      throw new BusinessError(
+        `${jobWorkOrder.jobWorkNumber} cannot be approved: this receipt records no quantity, so there ` +
+          `is nothing to book into stock. Reject this GRN and create a new one with the metres actually received.`
+      );
     }
     // ---- LACE: the dyed variant arrives as lace_stock, and no fabric is minted -----------------
     if (jobWorkOrder.fabricType === 'LACE') {

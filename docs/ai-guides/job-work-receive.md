@@ -51,6 +51,7 @@ sources:
   - backend/src/controllers/job-work-order.controller.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/helpers/jwo-arriving-material.helper.ts
+  - backend/src/services/helpers/jwo-status.helper.ts
 route: /procurement/grn/new
 ---
 
@@ -63,7 +64,8 @@ The old **Receive**, **Quality Check** and **Update Stock** buttons on the Dyein
 Anything measured in metres is received through a GRN, so the stock lot gets created — cloth into fabric stock, dyed lace into lace stock.
 
 ### Open the GRN form with the job selected
-Either:
+Any of these:
+- Open the job work order itself and click **Receive via GRN** in the Actions card. The GRN form opens with that job already selected. This is the whole button for a metre job — there is no **Receive Material** on a fabric or lace order, because that action books no stock.
 - Open **Manufacturing → Dyeing & Printing** in the sidebar and click the **Job Work Orders** tab. On the job showing **At Mill**, click the green **Receive via GRN** icon button in the Actions column (the name shows when you hover). The GRN form opens with that job already selected. The same button is on the Dyeing page and the Printing page.
 - Or open **Procurement → GRN (Goods Receipt)**, click **+ Create GRN**, and in the box **Or receive against a Job Work Order (no PO)** pick the job. Each entry shows the JWO number, processor, process type, quantity due back, quantity sent and style.
 
@@ -95,11 +97,13 @@ Either:
 - Click **Close Order** on the job work order and enter **Processor Invoice Number *** to finish the order. Closing is refused while abnormal loss has no debit note.
 
 ## Traps
-- **Receive via GRN** only shows while the job is **At Mill**. A job in **Draft** has not been sent yet — use **Send to Mill** first.
+- **Receive via GRN** only shows once the job has gone out — status **Issued**, **In Transit**, **At Processor** or **Partial Receipt** (**At Mill** on the Dyeing & Printing page). A job in **Draft** has not been sent yet — use **Send to Mill** first.
 - Until the GRN is approved the job still shows **At Mill** and the button stays. Do not save a second GRN for the same job — open the GRN list and approve the one already there.
 - **Fold Length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
 - Receiving more than the expected fabric plus the allowed over-receipt tolerance is refused; the message shows the maximum you can enter.
-- Trying to use **Receive Material** on a metre-based fabric or lace job gives "Fabric job work is received through a GRN" (or "Lace job work…"). Use the GRN path above. The reverse is also true: a piece-based (PCS) job never appears in the GRN list — it is received from the job work order's **Receive Material**.
+- **Receive Material** never appears on a metre-based fabric or lace job — those show **Receive via GRN** instead, because only the GRN creates the stock lot. A piece-based (PCS) job is the mirror image: it never appears in the GRN list and is received from the job work order's **Receive Material**. If some older screen or link still posts a metre job to **Receive Material**, it is refused with "Fabric job work is received through a GRN" (or "Lace job work…") and the job is left untouched, so you can still receive it properly afterwards.
+- A job that is linked to a purchase order is refused with "…is linked to a purchase order — receive it on a GRN against that PO". It does not appear in the job work box; receive it against the purchase order instead.
+- A receipt that records no quantity is refused when you approve it, with "…cannot be approved: this receipt records no quantity". Reject that GRN and create a new one with the metres actually received.
 - If the JWO is missing from the GRN dropdown, it has not been issued yet, it has already been received, it was cancelled or closed, it is linked to a purchase order (receive it against that PO), or it is piece-based. If the whole **Or receive against a Job Work Order (no PO)** box is missing, no job is currently receivable.
 - A job that was already received on the old Dyeing or Printing page is marked received and cannot be received again — the message says it "has already been received".
 - A job whose finished fabric cannot be identified is refused when you save, with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.

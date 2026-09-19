@@ -1,0 +1,498 @@
+<title>First Fabric Receipt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg: #F5F6F2;
+    --paper: #FFFFFF;
+    --ink: #1E2A24;
+    --ink-2: #4B5750;
+    --line: #D9DED8;
+    --indigo: #2F4B7C;
+    --indigo-soft: #E4EAF5;
+    --madder: #A44A3F;
+    --madder-soft: #F7E6E3;
+    --sage: #DCE6DC;
+    --sage-ink: #2C4A38;
+    --mono-bg: #EEF1EC;
+    --focus: #2F4B7C;
+    --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --display: "Bricolage Grotesque", "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141A17;
+      --paper: #1C2420;
+      --ink: #E8ECE6;
+      --ink-2: #A9B4AC;
+      --line: #2F3A34;
+      --indigo: #8FA9D8;
+      --indigo-soft: #232D3D;
+      --madder: #D98B80;
+      --madder-soft: #3A2622;
+      --sage: #243128;
+      --sage-ink: #B9D1BF;
+      --mono-bg: #222B26;
+      --focus: #8FA9D8;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141A17;
+    --paper: #1C2420;
+    --ink: #E8ECE6;
+    --ink-2: #A9B4AC;
+    --line: #2F3A34;
+    --indigo: #8FA9D8;
+    --indigo-soft: #232D3D;
+    --madder: #D98B80;
+    --madder-soft: #3A2622;
+    --sage: #243128;
+    --sage-ink: #B9D1BF;
+    --mono-bg: #222B26;
+    --focus: #8FA9D8;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.55;
+    padding-block: 40px 80px;
+    padding-inline: 20px;
+  }
+  a { color: var(--indigo); }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 68ch);
+    gap: 48px;
+    align-items: start;
+  }
+  @media (max-width: 899px) {
+    .wrap { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  }
+
+  /* ---------- header ---------- */
+  header { grid-column: 1 / -1; max-width: 68ch; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin: 0 0 12px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+  }
+  .lede { font-size: 19px; color: var(--ink-2); margin: 0; max-width: 60ch; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- phase rail ---------- */
+  .rail {
+    position: sticky;
+    top: 24px;
+    border-left: 2px solid var(--line);
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  @media (max-width: 899px) {
+    .rail { position: static; border-left: 0; padding-left: 0; flex-direction: row; flex-wrap: wrap; gap: 8px 16px; }
+  }
+  .rail a {
+    text-decoration: none;
+    color: var(--ink-2);
+    font-size: 15px;
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .rail a b { font-family: var(--mono); font-weight: 600; font-size: 12px; color: var(--indigo); }
+  .rail a:hover span { color: var(--ink); }
+
+  /* ---------- phases ---------- */
+  main { display: flex; flex-direction: column; gap: 40px; }
+  section.phase { scroll-margin-top: 24px; }
+  .phase-head {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 14px;
+  }
+  .phase-num {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--indigo);
+    background: var(--indigo-soft);
+    border-radius: 6px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+  }
+  h2 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 26px;
+    line-height: 1.15;
+    margin: 6px 0 4px;
+    text-wrap: balance;
+  }
+  .where {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-2);
+    margin: 0;
+  }
+  .where kbd, kbd {
+    font-family: var(--mono);
+    font-size: 0.92em;
+    background: var(--mono-bg);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+
+  ol.steps { margin: 0; padding-left: 0; list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 12px; }
+  ol.steps > li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 10px;
+    align-items: baseline;
+  }
+  ol.steps > li::before {
+    content: counter(step);
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink-2);
+    padding-top: 3px;
+  }
+  ol.steps b { font-weight: 600; }
+  ol.steps .note { display: block; color: var(--ink-2); font-size: 15.5px; margin-top: 2px; }
+
+  .check {
+    margin-top: 16px;
+    background: var(--sage);
+    color: var(--sage-ink);
+    border-radius: 8px;
+    padding: 12px 14px 12px 14px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: start;
+    font-size: 15.5px;
+  }
+  .check .tag { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; padding-top: 3px; }
+  .check ul { margin: 0; padding-left: 18px; }
+  .check code { font-family: var(--mono); font-size: 0.9em; }
+
+  .aside {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: var(--paper);
+    font-size: 15.5px;
+    margin-top: 16px;
+  }
+  .aside h3 { font-family: var(--display); font-size: 17px; margin: 0 0 6px; }
+  .aside ul { margin: 0; padding-left: 18px; }
+
+  /* worked example */
+  .example {
+    margin-top: 16px;
+    border-radius: 8px;
+    background: var(--mono-bg);
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+  }
+  .example .lbl { color: var(--ink-2); font-family: var(--sans); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .example table { border-collapse: collapse; }
+  .example td { padding: 0 18px 0 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .example td:first-child { color: var(--ink-2); }
+
+  /* refusals */
+  .refusals { width: 100%; border-collapse: collapse; font-size: 15px; margin-top: 8px; }
+  .refusals th { text-align: left; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); }
+  .refusals td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .refusals td:first-child { width: 42%; }
+  .refusals q { font-family: var(--mono); font-size: 13px; color: var(--madder); quotes: "“" "”"; }
+  .table-wrap { overflow-x: auto; }
+
+  .warn {
+    border-left: 4px solid var(--madder);
+    background: var(--madder-soft);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 14px;
+    font-size: 15.5px;
+    margin-top: 16px;
+  }
+  .warn b { color: var(--madder); }
+
+  footer { grid-column: 1 / -1; max-width: 68ch; color: var(--ink-2); font-size: 14px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+  @media print {
+    body { background: #fff; color: #000; padding: 0; font-size: 12pt; }
+    .rail { display: none; }
+    .wrap { display: block; }
+    section.phase { break-inside: avoid; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Kashaya Fabs ERP · Job work · First real run</p>
+    <h1>Bringing the first dyed fabric back into stock</h1>
+    <p class="lede">One greige lot goes to the dyer and comes back as finished fabric, booked into stock with <strong>one action on the job — Receive from processor</strong> — then made ready for the cutting table. Seven phases; each ends with what you should see on screen. One real job is already out with the dyer (<strong>DJ-ESSKY085LS-002</strong>, 1,833 m to Aryan Dyeing): for that one, start at phase 3.</p>
+  </header>
+
+  <nav class="rail" aria-label="Phases">
+    <a href="#p1"><b>1</b><span>Raise the job</span></a>
+    <a href="#p2"><b>2</b><span>Send the greige</span></a>
+    <a href="#p3"><b>3</b><span>At the mill</span></a>
+    <a href="#p4"><b>4</b><span>Receive from processor</span></a>
+    <a href="#p5"><b>5</b><span>Check what it booked</span></a>
+    <a href="#p6"><b>6</b><span>Close the order</span></a>
+    <a href="#p7"><b>7</b><span>Before it can be cut</span></a>
+    <a href="#refusals"><b>!</b><span>If it refuses</span></a>
+  </nav>
+
+  <main>
+    <section class="phase" id="p0">
+      <div class="aside">
+        <h3>Before you start</h3>
+        <ul>
+          <li>The dyer or printer exists as a <b>supplier</b>.</li>
+          <li>The greige you will send is already in <b>greige stock</b> — its purchase order was received. Twelve lots are in stock today.</li>
+          <li>You know which <b>warehouse</b> the dyed fabric will be received into.</li>
+          <li>Pick a small lot for this first run. The point is to see the whole loop work, not to move a season's cloth.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="phase" id="p1">
+      <div class="phase-head">
+        <div class="phase-num">01</div>
+        <div>
+          <h2>Raise the job work order</h2>
+          <p class="where"><kbd>Manufacturing</kbd> → <kbd>Job Work Dashboard</kbd> → <kbd>Job Work Orders</kbd> → <kbd>New Job Work Order</kbd></p>
+        </div>
+      </div>
+      <ol class="steps">
+        <li><b>Process Type *</b> — <kbd>Dyeing</kbd> (or <kbd>Printing</kbd>).</li>
+        <li><b>Material *</b> — <kbd>Fabric (cloth)</kbd>.</li>
+        <li><b>Style</b> — leave it <b>blank</b> for this run. <span class="note">With a style filled in, the dialog sends you to the Processing page instead. A blank style makes this a stock job, which is the simplest path and the one this runbook follows.</span></li>
+        <li><b>Processor *</b> — the dyer.</li>
+        <li><b>Quantity *</b> — metres of greige you are sending.</li>
+        <li><b>Rate *</b> — the agreed rate. Dyers are paid per metre <b>returned</b>, not sent.</li>
+        <li><b>Colour</b>, <b>Finished Width (inches)</b>, <b>Expected Shrinkage (%)</b> — all three appear because there is no style. Colour is required. Shrinkage must be under 100.</li>
+        <li><b>Expected Return</b> — the date you need it back. <b>Remarks</b> — optional.</li>
+        <li>Click <kbd>Create Draft JWO</kbd>.</li>
+      </ol>
+      <div class="check"><span class="tag">You should see</span><ul><li>The order in the list with status <code>Draft</code> and a job number like <code>DJ-…</code></li></ul></div>
+    </section>
+
+    <section class="phase" id="p2">
+      <div class="phase-head">
+        <div class="phase-num">02</div>
+        <div>
+          <h2>Send the greige out</h2>
+          <p class="where">Open the new order from <kbd>Job Work Orders</kbd></p>
+        </div>
+      </div>
+      <ol class="steps">
+        <li>Click <kbd>Approve</kbd>. Status becomes <b>Approved</b>.</li>
+        <li>Click <kbd>Issue to Processor</kbd>. <span class="note">This button exists only while the order is Approved.</span></li>
+        <li>Under <b>Greige Lots *</b>, pick the lot and the quantity. The total must read <b>“matches the order”</b>. Every row must be the same greige — one order sends one cloth.</li>
+        <li><b>Vehicle Number</b> if you know the truck. Do not type a challan number — the system assigns it.</li>
+        <li>Click <kbd>Issue &amp; Create Challan</kbd>.</li>
+      </ol>
+      <div class="check"><span class="tag">You should see</span><ul>
+        <li>A confirmation with the <b>outward challan number</b> — write it on the physical challan that travels with the cloth.</li>
+        <li>The job at <code>Issued</code>; on <kbd>Manufacturing</kbd> → <kbd>Dyeing &amp; Printing</kbd> it shows as <code>At Mill</code>.</li>
+        <li>The greige lot's available metres reduced by what you sent.</li>
+      </ul></div>
+    </section>
+
+    <section class="phase" id="p3">
+      <div class="phase-head">
+        <div class="phase-num">03</div>
+        <div>
+          <h2>At the mill — nothing to do in the system</h2>
+          <p class="where">Until the cloth comes back</p>
+        </div>
+      </div>
+      <p>When the dyed fabric arrives at the gate, note these on paper before anyone touches the screen. They are exactly what the receive dialog asks for, in one go.</p>
+      <div class="aside">
+        <h3>Write down at the gate</h3>
+        <ul>
+          <li>The <b>processor's challan number</b> on the paperwork that came with it.</li>
+          <li>Number of <b>thans</b> (folded bundles) and either the total <b>metres</b> or the <b>fold length in centimetres</b>. Fold length is centimetres, and the system refuses anything of 1000 or more — a metre figure typed here will be rejected.</li>
+          <li>The measured <b>width in inches</b>. This width is stamped on the finished fabric's name.</li>
+          <li>The <b>date it actually arrived</b>.</li>
+          <li>The <b>quality</b> — A (good), B (minor defects) or Reject — and the <b>defect metres</b>, if any. Quality is recorded in the same dialog as the receipt now; there is no separate approval step.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="phase" id="p4">
+      <div class="phase-head">
+        <div class="phase-num">04</div>
+        <div>
+          <h2>Receive from the processor — one dialog, one click</h2>
+          <p class="where">Open the job → Actions card → <kbd>Receive from processor</kbd></p>
+        </div>
+      </div>
+      <p>There is no GRN form to fill and no separate approval any more. The receipt is filed for you, already accepted, and the stock is booked in the same moment.</p>
+      <ol class="steps">
+        <li>Open the job (<kbd>Manufacturing</kbd> → <kbd>Job Work Dashboard</kbd> → <kbd>Job Work Orders</kbd> → the job) and click <kbd>Receive from processor</kbd> in the Actions card. The dialog is titled <b>Receive from</b> and the processor's name.
+          <span class="note">The green <kbd>Receive from processor</kbd> icon on a row showing <b>At Mill</b> — <kbd>Manufacturing</kbd> → <kbd>Dyeing &amp; Printing</kbd>, <kbd>Job Work Orders</kbd> tab, or the Dyeing / Printing page — opens the same dialog.</span></li>
+        <li>Read <b>Expected back</b> — the greige sent minus the expected shrinkage. <b>Maximum you can receive</b> appears once you start typing a quantity.</li>
+        <li><b>Entry mode</b> — <kbd>Total metres</kbd> is simplest: fill <b>How much came back (MTR) *</b>. <b>Than count</b> and <b>Fold length (cm, under 1000)</b> can be recorded alongside it; leave the metres blank and the quantity is worked out as than count × fold length instead.
+          <span class="note"><kbd>Than-wise</kbd>: click <kbd>Add than</kbd> for every than and type its metres. <kbd>Bale-wise</kbd>: <kbd>Add bale</kbd>, then <kbd>Add than</kbd> inside each bale. The <b>Detail sum</b> shows the running total; every row needs metres above zero.</span></li>
+        <li><b>Measured width (inches)</b> — from your gate note. It is stamped onto the finished fabric.</li>
+        <li><b>Their challan no.</b> — the processor's challan number.</li>
+        <li><b>Into warehouse *</b> — only real stores are listed; with a single store it is already filled in. <b>Date received *</b> — the day the cloth arrived (defaults to today; it cannot be before the day the greige was sent).</li>
+        <li><b>Quality (optional)</b> — <kbd>A - Good</kbd>, <kbd>B - Minor Defects</kbd> or <kbd>Reject</kbd> — and <b>Defect metres</b> if any. This is the only place the quality of a job-work receipt is recorded.</li>
+        <li>If the quantity is short beyond the job's tolerance, a warning names the metres beyond the allowance and says a debit note against the processor will be needed before the job can close. You can still go ahead.</li>
+        <li>Click <kbd>Receive &amp; add to stock</kbd>. The button stays greyed out until you have a quantity, a warehouse and a valid date.</li>
+      </ol>
+      <div class="check"><span class="tag">You should see</span><ul>
+        <li>The job at <code>Stock Updated</code>, showing received metres, actual shrinkage %, than count, fold length, width and quality.</li>
+        <li>In the job's Actions card: <b>Return receipt GRN-…</b> and <kbd>Print Inward Challan</kbd>.</li>
+        <li>If the loss was larger than the expected shrinkage, an <b>Abnormal Loss Detected</b> banner on the job. That is information, not an error — but a debit note is needed before the job can close.</li>
+      </ul></div>
+      <div class="warn"><b>If the screen is slow, do not click again</b> — open the job and check its status first; a repeat is refused with “has already been received”. <b>Two deliveries for one job</b> (as with DJ-ESSKY085LS-002, challans CH-489 and CH-497): receiving in parts is being added today — the dialog gains a <b>final delivery</b> tick-box, pre-ticked when what came back is close to what is expected. Until you see that tick-box on your screen, receive the job once, when the whole lot is back.</div>
+      <div class="example">
+        <span class="lbl">Worked example — the numbers, not the money</span>
+        <table>
+          <tr><td>Greige sent</td><td>1,000 m</td></tr>
+          <tr><td>Expected shrinkage</td><td>10 %</td></tr>
+          <tr><td>Expected back (shown in the dialog)</td><td>900 m</td></tr>
+          <tr><td>How much came back (MTR)</td><td>900</td></tr>
+          <tr><td>Than count × Fold length (cm)</td><td>900 × 100 = 900 m</td></tr>
+          <tr><td>Measured width (inches)</td><td>52</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="phase" id="p5">
+      <div class="phase-head">
+        <div class="phase-num">05</div>
+        <div>
+          <h2>Check what that one click booked</h2>
+          <p class="where">Nothing to approve — this phase is only looking</p>
+        </div>
+      </div>
+      <ol class="steps">
+        <li><kbd>Procurement</kbd> → <kbd>GRN (Goods Receipt)</kbd>: the receipt is already there at <b>Accepted</b>, badged <b>Job work return</b>, in your name. There is no Pending QC and no Approve button for it. Opening it shows the job it belongs to, not a purchase order.</li>
+        <li>The fabric stock list: a new fabric in the warehouse you chose, dated with your Date received, named from the greige, colour and width — like <code>Cotton Poplin - Solid/Dyed - Navy - 52"</code> — with a code like <code>FAB-STK-0001</code> and the quality grade you gave.</li>
+        <li>Back on the job: <kbd>Print Inward Challan</kbd> — the challan from the processor was raised for you; you do not create it. The metres, width and shrinkage on the job should match your gate note.</li>
+      </ol>
+      <div class="check"><span class="tag">Done when</span><ul>
+        <li>Receipt <code>Accepted</code>, job <code>Stock Updated</code>, and the dyed fabric in stock with the right metres and width.</li>
+      </ul></div>
+      <div class="warn"><b>Counted wrong?</b> Ask an admin to reverse the receipt: it takes the lot back and cancels the inward challan. That is refused once any of the fabric has been used or reserved, so check the numbers the same day.</div>
+    </section>
+
+    <section class="phase" id="p6">
+      <div class="phase-head">
+        <div class="phase-num">06</div>
+        <div>
+          <h2>Close the order</h2>
+          <p class="where">Back on the job work order, once the processor's invoice is in</p>
+        </div>
+      </div>
+      <ol class="steps">
+        <li>Click <kbd>Close Order</kbd> and enter <b>Processor Invoice Number *</b>. <span class="note">Closing is refused while an abnormal loss has no debit note against the processor — raise the debit note first if the banner appeared. Dyers are paid per metre <b>returned</b>: the bill should match the received metres, not the greige sent.</span></li>
+        <li>Tell the office it is done, and what was confusing. This is the first time this loop has run for real; anything awkward is worth reporting.</li>
+      </ol>
+      <div class="check"><span class="tag">Done when</span><ul><li>The job is <code>Closed</code>, its return receipt is <code>Accepted</code>, and the dyed fabric shows in stock with the right metres and width.</li></ul></div>
+    </section>
+
+    <section class="phase" id="p7">
+      <div class="phase-head">
+        <div class="phase-num">07</div>
+        <div>
+          <h2>Before it can be cut</h2>
+          <p class="where">Stock alone is not enough — cutting checks samples, CAD and the fabric link</p>
+        </div>
+      </div>
+      <p>Before a run can go to cutting the system checks three things: an <b>approved Size Set Sample</b> on the style (which needs an approved PP Sample before it, which needs an approved FIT Sample), a <b>Production CAD</b> row with an average, and a way to find the fabric — through the style's fabric slot, or through a Production CAD row created against the actual lot. A job raised <b>with a style</b> fills the fabric link on its own. A job raised <b>without one</b> — the stock job in phase 1 — does not, and the lot will not even be offered in CAD Planning until you link it by hand. Every step below was run end-to-end against the real system on 16 Sep 2026 (<code>cutting-first-run.test.ts</code>).</p>
+      <ol class="steps">
+        <li><b>Approve the three samples — FIT, then PP, then Size Set.</b> <kbd>Manufacturing</kbd> → <kbd>Sample Tracking</kbd> → <kbd>New Sample</kbd>. <b>Customer *</b> is the house brand (a sample always needs a customer, even for stock production), <b>Sample Type *</b> <kbd>FIT Sample</kbd>, <b>Style</b> this style, <b>Required By *</b> any date → <kbd>Create Sample</kbd>. Then walk it through the list's <b>Quick Action</b> column: <kbd>Start Progress</kbd> → <kbd>Mark Complete</kbd> → <kbd>Mark Sent</kbd> → <kbd>Record Feedback</kbd> → <b>Status</b> <kbd>Approved</kbd> → <kbd>Save Feedback</kbd>. Do this even for a house-brand style with no real buyer — the system will not accept an approval before the sample is marked Sent. Repeat for <kbd>PP Sample</kbd>, then <kbd>Size Set Sample</kbd>.
+          <span class="note">The order is enforced: a PP cannot be raised until the FIT is approved, a Size Set not until the PP is. If the style already has an approved Size Set Sample, skip this step. An admin can skip a sample with a written reason — it is logged under <kbd>Admin</kbd> → <kbd>Override History</kbd>.</span></li>
+        <li><b>Link the fabric to the style</b> — only if the job had no style. <kbd>Materials &amp; Masters</kbd> → <kbd>Fabric Master</kbd> → click the new fabric (it opens for editing) → under <b>Allocated Styles</b> click <kbd>+ Allocate to Style</kbd> → choose the style and its component. If the style is already listed there, skip this step.
+          <span class="note">If that component has more than one empty fabric slot, choose the one whose greige name matches. Otherwise a new slot is created, the existing CAD rows keep pointing at the old one, and the chart shows a fabric with no average.</span></li>
+        <li><b>Give the style a Production CAD.</b> <kbd>Pre-Production</kbd> → <kbd>CAD Planning</kbd> → find the style → <kbd>Open CAD</kbd> → <kbd>+ Add Row</kbd>. Set <b>Purpose *</b> to <kbd>Production</kbd>, pick the <b>Style Fabric(s)</b>, and — because it is Production — select the <b>fabric stock lot</b> you just received. Click <kbd>Add</kbd>.</li>
+        <li>On the new row fill <b>Part *</b>, <b>Greige Name *</b>, <b>Cutable Width *</b> in inches (usually 1–2 inches less than the greige width, for selvedge) and the <b>Size Breakdown *</b> (pieces per size in one marker). <b>CAD Average</b> — metres per piece — is calculated for you. Approve the row from its three-dot menu, or <kbd>Actions</kbd> → <kbd>Approve CAD Plan</kbd>.</li>
+        <li><b>Send the production run to cutting.</b> <kbd>Manufacturing</kbd> → <kbd>Production Runs</kbd> → open the run → <kbd>Push to Cutting</kbd>. Then in <b>Fabric Issuance</b> on the same page, tick the lot and click <kbd>Issue to Cutting</kbd>.
+          <span class="note">If the page answers <i>"Cannot push to cutting: No Size Set Sample exists for this style"</i>, go back to step 1 — the run and the fabric are fine. If it offers an <b>Admin Override</b> instead, do not use it to skip the samples: it bypasses every check at once and only records a reason if you type one.</span></li>
+        <li><kbd>Manufacturing</kbd> → <kbd>Cutting</kbd> → <kbd>New Batch</kbd> → pick the <b>Production Run</b>. Under <b>Lot Details</b> your lot appears under its fabric with its width. Fill <b>Actual Fabric Width</b>, <b>Layers per Lay</b> and <b>Number of Lays</b> — all three are required — and <kbd>Create Batch</kbd> is enabled.</li>
+      </ol>
+      <div class="check"><span class="tag">You should see</span><ul>
+        <li>In Sample Tracking, the style has a <b>FIT</b>, a <b>PP</b> and a <b>Size Set</b> sample, all <b>Approved</b>.</li>
+        <li>In CAD Planning, the style's <b>Progress</b> column shows <b>Production</b> done.</li>
+        <li>On the Cutting Chart, <b>Max Cuttable</b> is a real number, not blank, and names your fabric. Once fabric is issued, the chart plans against the <b>issued</b> metres, not the store's.</li>
+      </ul></div>
+      <div class="warn"><b>Create Batch greyed out?</b> A fabric on this style has no Production CAD average. Every fabric needs one — the chart drops a fabric without one from the cuttable total.</div>
+    </section>
+
+    <section class="phase" id="refusals">
+      <div class="phase-head">
+        <div class="phase-num">!</div>
+        <div>
+          <h2>If the system refuses</h2>
+          <p class="where">The exact messages, and what they mean</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="refusals">
+          <thead><tr><th>It says</th><th>Why, and what to do</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Receive from processor</kbd> is not on the job</td><td>The job has not gone out yet (<b>Draft</b> or <b>Approved</b> — use <kbd>Issue to Processor</kbd>, phase 2), it was already received, it is cancelled or closed, or it is linked to a purchase order (receive that one on the GRN form against its PO).</td></tr>
+            <tr><td><q>Fabric job work is received through a GRN …</q></td><td>An old screen or link posted the job to <b>Receive Material</b>, which books no stock. The job is untouched — use <kbd>Receive from processor</kbd> on the job (phase 4).</td></tr>
+            <tr><td><q>Received quantity must be greater than 0</q></td><td>No metres were entered, or every than row is empty. Nothing was written.</td></tr>
+            <tr><td><q>Fold length is in cm and must be under 1000</q></td><td>You typed metres or millimetres. Fold length is centimetres.</td></tr>
+            <tr><td><q>Received … exceeds the expected fabric … plus … over-receipt tolerance (max …)</q></td><td>Your metres are higher than sent-minus-shrinkage allows. The message shows the maximum. Re-count the thans.</td></tr>
+            <tr><td><q>Date received … is before the day the greige was sent (…)</q></td><td>The date is earlier than the send day. Use the day the cloth actually arrived.</td></tr>
+            <tr><td><q>… has already been received</q></td><td>This job already has its receipt — one per job. Open the job: it should read <b>Stock Updated</b> with a <b>Return receipt</b>. Never click twice after a slow response.</td></tr>
+            <tr><td><q>… link the job to its greige lot or requirement, or set its finished fabric</q></td><td>The job was not issued from a greige lot, so the system cannot tell what fabric it is. Ask the office to link the job to its greige lot, then receive again.</td></tr>
+            <tr><td><q>… is cancelled — its stock was already credited back</q></td><td>Cancelled jobs cannot be received; their greige went back to stock. If the mill really returned material, the office must re-open the job first.</td></tr>
+            <tr><td>The warehouse box reads <b>Could not load — open to retry</b></td><td>The server was busy for a moment. Open the box again — the list is fetched afresh.</td></tr>
+            <tr><td><q>An unexpected error occurred</q></td><td>Not one of the above. Note the time and what you clicked, and report it — this is exactly what the first run is for.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Written from the live screens on 16 September 2026; receiving rewritten on 19 September 2026 for the one-action <b>Receive from processor</b>. Every button and field name here is the one on screen; if a label differs, the page has changed and this sheet needs updating — say so.
+  </footer>
+</div>

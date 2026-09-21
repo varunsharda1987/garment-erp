@@ -19,9 +19,6 @@ export interface GreigeMaster {
   averageShrinkagePercent?: number;
   supplierId?: string;
   gsmRange?: string;
-  /** The buyer's wash-care code for this fabric (Easybuy e.g. "RN-6") — printed on the
-   *  washcare label and on their Test Requirement Form. Follows the fabric, not the style. */
-  washCareCode?: string;
   costPerMeter?: number;
   moq?: number;
   leadTimeDays?: number;
@@ -277,9 +274,6 @@ export interface GreigeMasterFormData {
   /** MRP-48: fallback only — the processor rate card is the source of truth for shrinkage. */
   averageShrinkagePercent?: number;
   gsmRange?: string;
-  /** The buyer's wash-care code for this fabric (Easybuy e.g. "RN-6") — printed on the
-   *  washcare label and on their Test Requirement Form. Follows the fabric, not the style. */
-  washCareCode?: string;
   /** Planning fallback rate — Fabric Costing prefers the latest GRN, then a priced stock lot.
    *  Nullable so clearing the field actually clears the stored rate. */
   costPerMeter?: number | null;

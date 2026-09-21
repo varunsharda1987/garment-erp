@@ -16,6 +16,9 @@ keywords:
   - buyer test form
   - pp sample testing
   - wash care code
+  - washcare code
+  - care code
+  - RN code
   - vendor code
   # Hinglish
   - trf banana
@@ -38,6 +41,7 @@ sources:
   - frontend/src/pages/BuyerTrfList.tsx
   - frontend/src/pages/BuyerTrfForm.tsx
   - frontend/src/pages/TestingDashboard.tsx
+  - frontend/src/components/fabric/WashCareCodes.tsx
   - backend/src/schemas/buyerTrf.schema.ts
   - backend/src/constants/buyer-trf.constants.ts
 route: /test-requirement-forms
@@ -82,8 +86,11 @@ has changed since.
 
 ## If a field keeps coming up blank
 
-- **Wash Care Code** — set it on the fabric: **Materials & Masters > Greige**, open the greige,
-  fill **Wash Care Code**. Every TRF using that fabric then fills it in.
+- **Wash Care Code** — set it per buyer on the fabric. Open the greige (**Materials & Masters >
+  Greige**), scroll to **Wash care codes**, pick the buyer and type the code. The same fabric can
+  carry a different code for each buyer, which is why there is a row per buyer rather than one
+  box. You can also just type the code on the TRF and save — it is remembered against that buyer
+  and fabric, so the next form fills it in.
 - **Vendor Code** — set it on the buyer: open the customer and fill **Our Vendor Code with
   them**.
 - **Easy Buy Merchandise name and email** — add the buyer's merchandiser on the customer's

@@ -326,6 +326,7 @@ model color_master {
   job_work_orders           job_work_orders[]
   // Primary style color relation
   styles                    styles[]                    @relation("StyleColor")
+  washCareCodes             customer_fabric_wash_care[]
 
   @@index([colorFamily])
   @@index([colorName])
@@ -472,6 +473,7 @@ model customers {
   credit_notes                   credit_notes[]
   sale_orders                    sale_orders[]
   customer_sample_requirements   customer_sample_requirements[]
+  washCareCodes                  customer_fabric_wash_care[]
 
   @@index([code])
   @@index([name])
@@ -3254,6 +3256,7 @@ model users {
   buyerPoDocumentsUploaded                                        sale_order_buyer_pos[]            @relation("buyer_po_document_uploader")
   // Greige issue details (bale/than tracking)
   greigeIssueDetailsIssued                                        greige_issue_details[]            @relation("greige_issue_details_issuedBy")
+  washCareCodesCreated                                            customer_fabric_wash_care[]       @relation("WashCareCreator")
 
   @@index([email])
 }
@@ -4414,8 +4417,8 @@ model export_templates {
 /// Greige Master - Raw, unfinished fabric specifications
 /// This represents fabric straight from the loom before any processing
 model greige_master {
-  id                       String                       @id @default(uuid())
-  greigeCode               String                       @unique
+  id                       String                         @id @default(uuid())
+  greigeCode               String                         @unique
   greigeName               String
   yarnCount                String?
   construction             String?
@@ -4423,52 +4426,47 @@ model greige_master {
   weaveType                String?
   greigeQuality            GreigeQuality?
   weaver                   String?
-  greigeWidth              Decimal                      @db.Decimal(10, 2)
-  expectedFinishedWidthMin Decimal?                     @db.Decimal(10, 2)
-  expectedFinishedWidthMax Decimal?                     @db.Decimal(10, 2)
-  averageShrinkagePercent  Decimal?                     @db.Decimal(5, 2)
+  greigeWidth              Decimal                        @db.Decimal(10, 2)
+  expectedFinishedWidthMin Decimal?                       @db.Decimal(10, 2)
+  expectedFinishedWidthMax Decimal?                       @db.Decimal(10, 2)
+  averageShrinkagePercent  Decimal?                       @db.Decimal(5, 2)
   gsmRange                 String?
-  /// Buyer's wash-care code for this fabric (Easybuy e.g. "RN-6") — the code printed on the
-  /// washcare label and on the buyer's Test Requirement Form.
-  /// It lives on the GREIGE because the code follows the fabric, not the style: this is
-  /// already the record supplying composition / yarnCount / construction to the TRF, so all
-  /// four values arrive from one read. Not to be confused with
-  /// label_master.washcareInstructions, which is the free-text care prose printed ON the label.
-  washCareCode             String?                      @map("wash_care_code")
   /// Hand-set planning rate. Fabric Costing uses it only when there is no purchase and no
   /// priced stock lot, and the PO form pre-fills from it. Deliberately NOT auto-updated:
   /// letting receipts write it would make master -> PO price -> GRN -> master self-reinforcing.
-  costPerMeter             Decimal?                     @db.Decimal(10, 2)
+  costPerMeter             Decimal?                       @db.Decimal(10, 2)
   /// Latest greige GRN price, maintained automatically on receipt (see grn.service.ts).
   /// Informational: the costing page already reads the live procurement row directly.
-  lastPurchaseRate         Decimal?                     @map("last_purchase_rate") @db.Decimal(10, 2)
-  lastPurchaseAt           DateTime?                    @map("last_purchase_at")
+  lastPurchaseRate         Decimal?                       @map("last_purchase_rate") @db.Decimal(10, 2)
+  lastPurchaseAt           DateTime?                      @map("last_purchase_at")
   moq                      Int?
   leadTimeDays             Int?
   supplierId               String?
   description              String?
   notes                    String?
-  isActive                 Boolean                      @default(true)
+  isActive                 Boolean                        @default(true)
   createdById              String
-  createdAt                DateTime                     @default(now())
-  updatedAt                DateTime                     @updatedAt
+  createdAt                DateTime                       @default(now())
+  updatedAt                DateTime                       @updatedAt
   genericGreigeName        String?
-  defaultCutableWidth      Decimal?                     @db.Decimal(10, 2)
+  defaultCutableWidth      Decimal?                       @db.Decimal(10, 2)
   finishedFabrics          fabric_master[]
-  fabricProcessing         fabric_processing[]          @relation("ProcessingGreige")
-  fabricProcurements       fabric_procurement[]         @relation("ProcurementGreige")
-  fabricWidthCads          fabric_width_cad[]           @relation("fabric_width_cad_greige")
-  createdBy                users                        @relation("greige_master_createdBy", fields: [createdById], references: [id])
-  defaultSupplier          suppliers?                   @relation("greige_default_supplier", fields: [supplierId], references: [id])
+  fabricProcessing         fabric_processing[]            @relation("ProcessingGreige")
+  fabricProcurements       fabric_procurement[]           @relation("ProcurementGreige")
+  fabricWidthCads          fabric_width_cad[]             @relation("fabric_width_cad_greige")
+  createdBy                users                          @relation("greige_master_createdBy", fields: [createdById], references: [id])
+  defaultSupplier          suppliers?                     @relation("greige_default_supplier", fields: [supplierId], references: [id])
   suppliers                greige_suppliers[]
   materials                materials[]
   processing_batch         processing_batch[]
-  processorRateCards       processor_rate_card[]        @relation("greige_rate_cards")
-  styleFabrics             style_fabrics[]              @relation("style_fabrics_selectedGreige")
+  processorRateCards       processor_rate_card[]          @relation("greige_rate_cards")
+  styleFabrics             style_fabrics[]                @relation("style_fabrics_selectedGreige")
   greigeStock              greige_stock[]
-  orderBomItems            order_bom_items[]            @relation("bom_item_greige")
+  orderBomItems            order_bom_items[]              @relation("bom_item_greige")
   costingFabricItems       style_costing_fabric_items[]
   jwoComponents            job_work_order_components[]
+  washCareCodes            customer_fabric_wash_care[]
+  buyerTrfs                buyer_test_requirement_forms[]
 
   @@index([supplierId])
   @@index([isActive])
@@ -10901,6 +10899,10 @@ model buyer_test_requirement_forms {
   saleOrderId String?
 
   styleId      String
+  /// The greige the printed fabric block came from. Stored so a code typed on the form can be
+  /// remembered against (customer, fabric) without re-deriving the CAD chain at save time, and
+  /// so a reprint can say which fabric it described.
+  greigeId     String?
   /// Resolved at create and stored, never re-derived at print: styles.customerId is NULL on
   /// every style today, so the buyer is only reachable via the anchor or the denormalized
   /// styles.customerName. Storing it makes vendor code and merchandiser lookup deterministic.
@@ -10968,12 +10970,13 @@ model buyer_test_requirement_forms {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  style      styles        @relation(fields: [styleId], references: [id])
-  customer   customers     @relation(fields: [customerId], references: [id])
-  workOrder  work_orders?  @relation(fields: [workOrderId], references: [id])
-  saleOrder  sale_orders?  @relation(fields: [saleOrderId], references: [id])
-  testingLab testing_labs? @relation(fields: [testingLabId], references: [id])
-  createdBy  users         @relation("TRFCreator", fields: [createdById], references: [id])
+  style      styles         @relation(fields: [styleId], references: [id])
+  greige     greige_master? @relation(fields: [greigeId], references: [id])
+  customer   customers      @relation(fields: [customerId], references: [id])
+  workOrder  work_orders?   @relation(fields: [workOrderId], references: [id])
+  saleOrder  sale_orders?   @relation(fields: [saleOrderId], references: [id])
+  testingLab testing_labs?  @relation(fields: [testingLabId], references: [id])
+  createdBy  users          @relation("TRFCreator", fields: [createdById], references: [id])
 
   @@index([styleId])
   @@index([customerId])
@@ -10982,4 +10985,44 @@ model buyer_test_requirement_forms {
   @@index([testingLabId])
   @@index([status])
   @@index([createdAt])
+}
+
+/// Wash-care code per BUYER per FABRIC.
+///
+/// Not a column on greige_master, which is where it started and was wrong: the same fabric
+/// carries different care instructions for different customers, so one code per fabric cannot
+/// be right. The key is (customer, fabric).
+///
+/// There is deliberately NO fabric-level default. A customer with no row here prints a hatched
+/// blank on the Test Requirement Form for someone to complete by hand — on a lab form another
+/// customer's care code would be a confident wrong answer, which is worse than an empty box.
+model customer_fabric_wash_care {
+  id         String @id @default(uuid())
+  customerId String
+  greigeId   String
+
+  /// Reserved, and unused by any screen today. Whether the code also varies by colour is not
+  /// yet known (owner, 2026-09-19), so the column exists to make that a row change rather than
+  /// another migration on a live database. The lookup already prefers a colour-specific row
+  /// and falls back to the colour-blank one; nothing writes a colour yet.
+  colorId String?
+
+  washCareCode String
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customer  customers     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  greige    greige_master @relation(fields: [greigeId], references: [id], onDelete: Cascade)
+  color     color_master? @relation(fields: [colorId], references: [id])
+  createdBy users         @relation("WashCareCreator", fields: [createdById], references: [id])
+
+  /// Covers the colour-specific rows. The colour-BLANK rows are covered by a partial unique
+  /// index added by hand in the migration — Postgres treats NULLs as distinct, so this
+  /// constraint alone would allow two rows for the same customer+fabric.
+  @@unique([customerId, greigeId, colorId])
+  @@index([customerId])
+  @@index([greigeId])
 }

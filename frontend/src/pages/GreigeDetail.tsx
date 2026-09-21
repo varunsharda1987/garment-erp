@@ -11,6 +11,7 @@ import { greigeService, fabricService } from '../services/fabricGreigeService';
 import { getGenericGreigeStock } from '../services/style-stock.service';
 import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
+import { WashCareCodes } from '@/components/fabric/WashCareCodes';
 
 interface GreigeStock {
   greigeId: string;
@@ -224,6 +225,10 @@ export default function GreigeDetail() {
                 <div className="text-base text-foreground mt-1">{greige.notes}</div>
               </div>
             )}
+
+            <div className="mt-6 border-t pt-6">
+              <WashCareCodes greigeId={greige.id} />
+            </div>
           </CardContent>
         </Card>
 

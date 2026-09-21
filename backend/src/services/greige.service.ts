@@ -40,7 +40,6 @@ export interface CreateGreigeDTO {
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent?: number;
   gsmRange?: string;
-  washCareCode?: string;
   description?: string;
   notes?: string;
   isActive?: boolean;
@@ -63,7 +62,6 @@ export interface UpdateGreigeDTO {
   expectedFinishedWidthMax?: number;
   averageShrinkagePercent?: number;
   gsmRange?: string;
-  washCareCode?: string;
   description?: string;
   notes?: string;
   isActive?: boolean;
@@ -92,7 +90,6 @@ export interface BulkImportGreigeInput {
   expectedFinishedWidthMax?: string | number;
   averageShrinkagePercent?: string | number;
   gsmRange?: string;
-  washCareCode?: string;
   description?: string;
   notes?: string;
   isActive?: boolean;
@@ -218,7 +215,6 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
           expectedFinishedWidthMax: data.expectedFinishedWidthMax || null,
           averageShrinkagePercent: data.averageShrinkagePercent ?? null,
           gsmRange: data.gsmRange || null,
-          washCareCode: data.washCareCode || null,
           description: data.description || null,
           notes: data.notes || null,
           isActive: data.isActive ?? true,
@@ -585,7 +581,6 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       expectedFinishedWidthMax: data.expectedFinishedWidthMax,
       averageShrinkagePercent: data.averageShrinkagePercent,
       gsmRange: data.gsmRange,
-      washCareCode: data.washCareCode,
       description: data.description,
       notes: data.notes,
       isActive: data.isActive,

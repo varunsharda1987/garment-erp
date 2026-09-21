@@ -21,6 +21,7 @@ import {
   BUYER_TRF_UPDATABLE_FIELDS,
 } from '../schemas/buyerTrf.schema';
 import { EASYBUY_TRF_DEFAULTS, TRF_BO_NUMBER_NOT_REQUIRED } from '../constants/buyer-trf.constants';
+import { washCareService } from './washCare.service';
 
 /** Fields the list screen searches. Registered in listSearchCoverage.test.ts. */
 const TRF_SEARCH_FIELDS = [
@@ -239,6 +240,19 @@ class BuyerTrfService {
 
     if (values.boNumber === undefined) values.boNumber = TRF_BO_NUMBER_NOT_REQUIRED;
 
+    /* ── Wash care: the pair (customer, fabric), never the fabric alone ──
+       The same fabric carries different care codes for different customers, so this can only be
+       resolved once BOTH are known — which is why it sits here rather than in fabricPrefill.
+       No fabric-level fallback: with nothing recorded the field prints a hatched blank. */
+    const washCustomerId = values.customerId as string | undefined;
+    const washGreigeId = values.greigeId as string | undefined;
+    if (washCustomerId && washGreigeId) {
+      const row = await washCareService.resolve(washCustomerId, washGreigeId, null);
+      note('washCareCode', row?.washCareCode, `${row?.customer?.name ?? 'customer'} + this fabric`, 'Wash Care Code');
+    } else {
+      missing.push('Wash Care Code');
+    }
+
     return { values, missingFields: [...new Set(missing)], sources };
   }
 
@@ -276,7 +290,6 @@ class BuyerTrfService {
             weaveType: true,
             gsmRange: true,
             weaver: true,
-            washCareCode: true,
             supplierId: true,
           },
         },
@@ -295,12 +308,15 @@ class BuyerTrfService {
       return out;
     }
 
+    // Stored on the form so a code typed there can be remembered against (customer, fabric)
+    // without re-walking the CAD chain, and so a reprint can say which fabric it described.
+    out.greigeId = greige.id;
+
     const src = `greige ${greige.greigeName}`;
     note('fibreContent', greige.composition, src, 'Fiber Content');
     note('yarnCount', greige.yarnCount, src, 'Count');
     note('construction', greige.construction, src, 'Construction');
     note('fabricWeightGsm', greige.gsmRange, src, 'Fabric Weight');
-    note('washCareCode', greige.washCareCode, src, 'Wash Care Code');
 
     // Knit vs woven decides which Package box is ticked. Plain/twill/satin are wovens; the
     // buyer's sheet only offers the two, so anything that does not read as a knit stays WOVEN.
@@ -377,6 +393,14 @@ class BuyerTrfService {
     });
 
     logger.info(`TRF ${created.trfNumber} created for style ${created.styleNo ?? data.styleId}`);
+
+    // Learn the code for next time. Best-effort by design — failing to remember must never fail
+    // the save the merchant actually asked for.
+    void washCareService.rememberFromTrf(
+      { customerId: created.customerId, greigeId: created.greigeId, washCareCode: created.washCareCode },
+      userId
+    );
+
     return created;
   }
 

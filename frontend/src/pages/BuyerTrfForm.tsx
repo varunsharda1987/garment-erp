@@ -402,7 +402,12 @@ export default function BuyerTrfForm() {
             value={draft.processingHouse}
             onChange={(v) => set('processingHouse', v)}
           />
-          <Field label="Wash Care Code" value={draft.washCareCode} onChange={(v) => set('washCareCode', v)} />
+          <Field
+            label="Wash Care Code"
+            value={draft.washCareCode}
+            onChange={(v) => set('washCareCode', v)}
+            hint="Remembered against this buyer and fabric when you save, so the next form fills it in."
+          />
           <Field
             label="Easy Buy Merchandise (name)"
             value={draft.merchandiserName}

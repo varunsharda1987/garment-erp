@@ -32,9 +32,6 @@ export const createGreigeMasterSchema = z.object({
   expectedFinishedWidthMax: z.number().positive().optional(),
   averageShrinkagePercent: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
   gsmRange: z.string().max(50).optional(),
-  // The buyer's wash-care code for this fabric (Easybuy e.g. "RN-6"). Printed on the washcare
-  // label and on the buyer's Test Requirement Form — the code follows the fabric, not the style.
-  washCareCode: z.string().max(50).optional(),
   // Planning fallback only — Fabric Costing prefers the latest GRN, then a priced stock lot.
   // .positive() not .nonnegative(): a stored Decimal(0) is truthy in the costing reader and would present as a real ₹0 rate.
   costPerMeter: z.number().positive().max(99999999.99).optional().nullable(),
@@ -77,7 +74,6 @@ export const updateGreigeMasterSchema = z.object({
   expectedFinishedWidthMax: z.number().positive().optional().nullable(),
   averageShrinkagePercent: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
   gsmRange: z.string().max(50).optional().nullable(),
-  washCareCode: z.string().max(50).optional().nullable(),
   costPerMeter: z.number().positive().max(99999999.99).optional().nullable(),
   moq: z.number().positive().optional().nullable(),
   leadTimeDays: z.number().int().nonnegative().optional().nullable(),
@@ -124,7 +120,6 @@ export const bulkImportGreigeSchema = z.object({
         expectedFinishedWidthMax: z.number().positive().optional(),
         averageShrinkagePercent: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
         gsmRange: z.string().max(50).optional(),
-        washCareCode: z.string().max(50).optional(),
         costPerMeter: z.number().positive().max(99999999.99).optional().nullable(),
         description: z.string().max(1000).optional(),
         notes: z.string().max(1000).optional(),

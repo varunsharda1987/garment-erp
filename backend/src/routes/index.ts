@@ -113,6 +113,7 @@ import testTemplatesRoutes from './testTemplates.routes';
 import fabricPhysicalTestsRoutes from './fabricPhysicalTests.routes';
 import garmentPhysicalTestsRoutes from './garmentPhysicalTests.routes';
 import buyerTrfRoutes from './buyerTrf.routes';
+import washCareRoutes from './washCare.routes';
 import productionStatusRoutes from './productionStatus.routes';
 import productCategoryRoutes from './productCategory.routes';
 import conversationRoutes from './conversation.routes';
@@ -399,6 +400,8 @@ export function createApiRouter(): Router {
   router.use('/fabric-physical-tests', fabricPhysicalTestsRoutes);
   router.use('/garment-physical-tests', garmentPhysicalTestsRoutes);
   router.use('/buyer-trfs', buyerTrfRoutes);
+  // Wash-care codes per buyer per fabric — fabric master data the TRF reads.
+  router.use('/wash-care-codes', washCareRoutes);
 
   // Production Stage Validation & Blocking
   router.use('/stage-validation', stageValidationRoutes);

@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { PrintingTypeEnum } from './generated/prisma-enums';
 
 // Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
 const isValidIdFormat = (val: string) =>
@@ -202,6 +203,9 @@ export const calculateSingleCostSchema = z
     width: z.union([z.number().positive(), z.string()]),
     orderQuantity: z.union([z.number().int().positive(), z.string()]).optional(),
     styleId: z.string().uuid('Invalid style ID').optional(),
+    // Printed fabrics cannot be rated without it: rate cards hold PRINTING rates per printing
+    // type, and fabric_master carries no printingType column to fall back on.
+    printingType: PrintingTypeEnum.optional(),
   })
   .passthrough();
 
@@ -220,6 +224,8 @@ export const calculateBatchCostSchema = z
             fabricId: z.string().uuid('Invalid fabric ID'),
             cadMeters: z.union([z.number().positive(), z.string()]),
             width: z.union([z.number().positive(), z.string()]),
+            // Per-fabric: a batch can mix printing types
+            printingType: PrintingTypeEnum.optional(),
           })
           .passthrough()
       )

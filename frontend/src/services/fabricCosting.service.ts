@@ -56,7 +56,14 @@ export const fabricCostingService = {
   },
 
   /**
-   * Lookup processor rate for a specific greige and quantity
+   * Lookup processor rate for a specific greige and quantity.
+   *
+   * A missing rate card is a 404 whose body carries `details.code` (NO_SLABS / NO_RATES_AT_ALL /
+   * NO_GREIGE_RATE / NO_PRINTING_TYPE_RATE / NO_SLAB_RATE) and a human message naming the next
+   * action. This used to catch that 404 and return null, which is how the operator ended up
+   * with "No rate found for this combination" and no idea which of processor / greige /
+   * printing type / quantity was the problem. Let it throw; read it with
+   * extractRateCardMissing() from lib/rate-card-missing.
    */
   async lookupRate(params: {
     processorId: string;
@@ -64,18 +71,9 @@ export const fabricCostingService = {
     printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE';
     greigeId: string;
     quantityMeters: number;
-  }): Promise<ProcessorRateLookup | null> {
-    try {
-      const response = await api.post<ApiResponse<ProcessorRateLookup>>(`${BASE_URL}/lookup-rate`, params);
-      return response.data.data;
-    } catch (error: unknown) {
-      // Return null if no rate found (404)
-      const err = error as { response?: { status?: number } };
-      if (err.response?.status === 404) {
-        return null;
-      }
-      throw error;
-    }
+  }): Promise<ProcessorRateLookup> {
+    const response = await api.post<ApiResponse<ProcessorRateLookup>>(`${BASE_URL}/lookup-rate`, params);
+    return response.data.data;
   },
 
   /**

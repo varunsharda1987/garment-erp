@@ -31,10 +31,13 @@ import {
   ProcessorTypeStats,
   ProcessorSummary,
   ProcessorRateCardSummary,
+  MissingRateCode,
+  MissingRateExplanation,
 } from '../types/processor-rate-v2.types';
 import { Decimal } from '@prisma/client/runtime/library';
 // BUG-PRC7 fix: use decimal.js utilities for precise rate calculations
 import { toCurrency, multiplyCurrency } from '../utils/currency';
+import { logWarn } from '../utils/logger';
 
 // ============================================
 // Rate History Helper Functions
@@ -871,6 +874,45 @@ export async function removeGreigeFromProcessor(
 }
 
 /**
+ * The slab whose [min, max) range contains this quantity, else the top slab for quantities at
+ * or above every range. Null when the processor has no slabs for this processing type at all.
+ *
+ * Half-open range: max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the slabs are
+ * 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
+ * (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule.
+ *
+ * Extracted so explainMissingRate names the SAME slab this lookup just missed — a second copy
+ * of the rule would sooner or later diagnose a different slab than the one that failed.
+ */
+async function findMatchingSlab(processorId: string, processingType: ProcessingTypeV2, quantityMeters: number) {
+  const exactMatch = await prisma.processor_quantity_slabs.findFirst({
+    where: {
+      processorId,
+      processingType,
+      isActive: true,
+      minQuantity: { lte: quantityMeters },
+      maxQuantity: { gt: quantityMeters },
+    },
+  });
+  if (exactMatch) return exactMatch;
+
+  // Quantities at or above the top slab fall back to it
+  return prisma.processor_quantity_slabs.findFirst({
+    where: {
+      processorId,
+      processingType,
+      isActive: true,
+    },
+    orderBy: { maxQuantity: 'desc' },
+  });
+}
+
+/** How a slab reads on screen when it was saved without a label. */
+function slabDisplayLabel(slab: { slabLabel: string | null; minQuantity: Decimal; maxQuantity: Decimal }): string {
+  return slab.slabLabel || `${toNumber(slab.minQuantity)}-${toNumber(slab.maxQuantity)}m`;
+}
+
+/**
  * Lookup rate for fabric costing (find best matching slab for quantity)
  * For PRINTING, printingType is required to lookup the rate for a specific printing sub-type
  */
@@ -895,32 +937,7 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
   }
 
   // Find the slab that matches the quantity (slabs are shared across printing types)
-  // First try exact slab match
-  let matchingSlab = await prisma.processor_quantity_slabs.findFirst({
-    where: {
-      processorId,
-      processingType,
-      isActive: true,
-      minQuantity: { lte: quantityMeters },
-      // Half-open range [min, max): max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the
-      // slabs are 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
-      // (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule; the `desc` fallback
-      // below still catches quantities at or above the top slab.
-      maxQuantity: { gt: quantityMeters },
-    },
-  });
-
-  // If no exact match, use highest slab (for quantities exceeding max slab range)
-  if (!matchingSlab) {
-    matchingSlab = await prisma.processor_quantity_slabs.findFirst({
-      where: {
-        processorId,
-        processingType,
-        isActive: true,
-      },
-      orderBy: { maxQuantity: 'desc' },
-    });
-  }
+  const matchingSlab = await findMatchingSlab(processorId, processingType, quantityMeters);
 
   if (!matchingSlab) {
     return null; // No slabs defined at all for this processor/processingType
@@ -977,6 +994,155 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
     shrinkagePercent,
     screenCostPerScreen: rateCard.screenCostPerScreen ? Number(rateCard.screenCostPerScreen) : null,
   };
+}
+
+/**
+ * Say WHY a lookupRate call found nothing.
+ *
+ * lookupRate returns a bare `null` from five different places, which reached the operator as
+ * "No rate found for this combination" — leaving them no way to tell which of processor /
+ * greige / printing type / quantity is the one that isn't set up. On the Fabric Costing page
+ * that is a dead end: the row simply refuses to cost and nothing says why.
+ *
+ * This re-queries what the processor DOES have and names the gap, cheapest check first. Call
+ * it only after lookupRate has returned null for the SAME query.
+ */
+export async function explainMissingRate(query: RateLookupQuery): Promise<MissingRateExplanation> {
+  const { processingType, greigeId, quantityMeters } = query;
+  const printingType = query.printingType ?? null;
+
+  // Mirror lookupRate's SYSTEM_DEFAULT fallback, so we diagnose the processor it actually used
+  let processorId = query.processorId ?? null;
+  const usingSystemDefault = !processorId;
+  if (!processorId) {
+    const systemDefault = await prisma.suppliers.findFirst({
+      where: { code: 'SYSTEM_DEFAULT' },
+      select: { id: true },
+    });
+    processorId = systemDefault?.id ?? null;
+  }
+
+  const [processor, greige] = await Promise.all([
+    processorId ? prisma.suppliers.findUnique({ where: { id: processorId }, select: { name: true } }) : null,
+    prisma.greige_master.findUnique({ where: { id: greigeId }, select: { greigeName: true } }),
+  ]);
+
+  const processorName = processor?.name ?? null;
+  const greigeName = greige?.greigeName ?? null;
+  const who = usingSystemDefault ? 'The system default rate card' : (processorName ?? 'This processor');
+  const greigeLabel = greigeName ? `"${greigeName}"` : 'this greige';
+  const work = processingType === 'PRINTING' ? 'printing' : 'dyeing';
+
+  const base = {
+    processorId,
+    processorName,
+    processingType,
+    printingType,
+    greigeId,
+    greigeName,
+    quantityMeters,
+    slabLabel: null as string | null,
+    availableGreiges: [] as string[],
+    availablePrintingTypes: [] as PrintingTypeV2[],
+  };
+
+  const explain = (
+    code: MissingRateCode,
+    message: string,
+    extra: Partial<MissingRateExplanation> = {}
+  ): MissingRateExplanation => {
+    const explanation: MissingRateExplanation = { ...base, ...extra, code, message };
+    // lookupRate logs none of its null exits, so a rate gap left no trace anywhere. One line
+    // here makes them findable in backend/logs the way rejected saves already are.
+    logWarn('[FabricCosting] no processor rate found', {
+      code,
+      processorId,
+      processorName,
+      processingType,
+      printingType,
+      greigeId,
+      greigeName,
+      quantityMeters,
+      slabLabel: explanation.slabLabel,
+    });
+    return explanation;
+  };
+
+  if (!processorId) {
+    return explain(
+      'NO_RATES_AT_ALL',
+      `No system default rates are configured, so ${work} cannot be priced until a processor is chosen.`
+    );
+  }
+
+  // 1. Slabs first: without them nothing can resolve, however many rates exist
+  const slab = await findMatchingSlab(processorId, processingType, quantityMeters);
+  if (!slab) {
+    return explain(
+      'NO_SLABS',
+      `${who} has no quantity slabs set for ${work}. Rates are held per quantity band, so none can be found until the slabs are added on the Processor Rate Cards page.`
+    );
+  }
+  const slabLabel = slabDisplayLabel(slab);
+
+  // 2. What does this processor rate at all?
+  const cards = await prisma.processor_rate_card.findMany({
+    where: { processorId, processingType, isActive: true },
+    select: {
+      greigeId: true,
+      printingType: true,
+      slabId: true,
+      greige: { select: { greigeName: true } },
+    },
+  });
+
+  if (cards.length === 0) {
+    return explain(
+      'NO_RATES_AT_ALL',
+      `${who} has no ${work} rates at all. Add them on the Processor Rate Cards page, or pick a processor that is already rated.`,
+      { slabLabel }
+    );
+  }
+
+  const availableGreiges = [...new Set(cards.map((c) => c.greige?.greigeName).filter((n): n is string => !!n))];
+  const forGreige = cards.filter((c) => c.greigeId === greigeId);
+
+  // 3. Nothing at all for this greige
+  if (forGreige.length === 0) {
+    const alsoRated =
+      availableGreiges.length > 0
+        ? ` It is rated for ${availableGreiges.slice(0, 3).join(', ')}${availableGreiges.length > 3 ? ' and others' : ''}.`
+        : '';
+    return explain(
+      'NO_GREIGE_RATE',
+      `${who} has no ${work} rate for ${greigeLabel}.${alsoRated} Add a row for it on the Processor Rate Cards page, or pick a processor that rates it.`,
+      { slabLabel, availableGreiges }
+    );
+  }
+
+  // 4. Greige is rated, but not for the printing type asked for
+  if (processingType === 'PRINTING') {
+    const forPrintingType = forGreige.filter((c) => c.printingType === printingType);
+    if (forPrintingType.length === 0) {
+      const availablePrintingTypes = [
+        ...new Set(forGreige.map((c) => c.printingType).filter((p): p is PrintingType => !!p)),
+      ] as PrintingTypeV2[];
+      const alsoRated =
+        availablePrintingTypes.length > 0 ? ` It is rated for ${availablePrintingTypes.join(', ')}.` : '';
+      return explain(
+        'NO_PRINTING_TYPE_RATE',
+        `${who} rates ${greigeLabel}, but not for ${printingType ?? 'the selected'} printing.${alsoRated} Add that printing type on the Processor Rate Cards page, or pick one that is rated.`,
+        { slabLabel, availableGreiges, availablePrintingTypes }
+      );
+    }
+  }
+
+  // 5. Rated for greige (+ printing type), just not in the band this quantity falls into
+  return explain(
+    'NO_SLAB_RATE',
+    `${who} rates ${greigeLabel}, but has no rate in the ${slabLabel} band that ${Math.round(quantityMeters).toLocaleString('en-IN')} m falls into. Fill that column on the Processor Rate Cards page.`,
+    { slabLabel, availableGreiges }
+  );
 }
 
 /**

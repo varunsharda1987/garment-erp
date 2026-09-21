@@ -20,7 +20,7 @@
 import prisma from '../config/database';
 import { getGreigeWAC } from './helpers/derived-stock.helper';
 import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
-import type { ProcessingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
+import type { ProcessingTypeV2, PrintingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
 import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 
 export interface FabricCostOptions {
@@ -30,6 +30,12 @@ export interface FabricCostOptions {
   width: number;
   orderQuantity?: number;
   styleId?: string;
+  /**
+   * Required to price a PRINTED fabric: rate cards hold PRINTING rates per printing type, and
+   * fabric_master has no printingType column to fall back on. Without it a printed fabric
+   * cannot be compared across processors and is reported unavailable rather than guessed at.
+   */
+  printingType?: PrintingTypeV2;
 }
 
 export interface StockOption {
@@ -112,7 +118,7 @@ export interface FabricCostCalculationResult {
  * Calculate fabric cost with all sourcing options
  */
 export async function calculateFabricCost(options: FabricCostOptions): Promise<FabricCostCalculationResult> {
-  const { fabricId, cadMeters, width, orderQuantity, styleId } = options;
+  const { fabricId, cadMeters, width, orderQuantity, styleId, printingType } = options;
 
   // Get fabric details
   const fabric = await prisma.fabric_master.findUnique({
@@ -149,7 +155,7 @@ export async function calculateFabricCost(options: FabricCostOptions): Promise<F
   const readyFabricOption = await getReadyFabricCost(fabricId, totalMetersNeeded, fabric);
 
   // Option 3: Calculate greige + processing
-  const greigeProcessingOption = await calculateGreigeProcessingCost(fabricId, totalMetersNeeded, fabric);
+  const greigeProcessingOption = await calculateGreigeProcessingCost(fabricId, totalMetersNeeded, fabric, printingType);
 
   // Build comparison table
   const comparisonTable: {
@@ -368,7 +374,8 @@ async function getReadyFabricCost(fabricId: string, quantityNeeded: number, fabr
 async function calculateGreigeProcessingCost(
   fabricId: string,
   quantityNeeded: number,
-  fabric: any
+  fabric: any,
+  printingType?: PrintingTypeV2
 ): Promise<GreigeProcessingOption> {
   // Check if fabric has greige reference
   if (!fabric.greigeId || !fabric.greige) {
@@ -491,6 +498,36 @@ async function calculateGreigeProcessingCost(
     };
   }
 
+  // PRINTING rates are held per printing type, and lookupRate throws without one. This loop
+  // used to omit it entirely, so every PRINTED fabric threw: /calculate answered 500 and
+  // /batch-calculate swallowed it into failedCalculations, where nobody saw it. Report the
+  // gap in the same shape as any other unavailable option instead.
+  if (processingType === 'PRINTING' && !printingType) {
+    return {
+      available: false,
+      greigeCost: toNumber(multiplyCurrency(greigeCostPerMeter, quantityNeeded)),
+      processingCost: null,
+      processorId: null,
+      processorName: null,
+      rateCardId: null,
+      processingType,
+      slabLabel: null,
+      totalCost: null,
+      costBreakdown: {
+        greigeCostPerMeter,
+        processingCostPerMeter: null,
+        totalPerMeter: null,
+      },
+      details:
+        'Printed fabric needs a printing type (Pigment / Procian / Discharge / Pigment+Discharge) before processors can be compared — printing rates are held per printing type.',
+      greigeRateSource,
+      processingRateSource: null,
+      greigeProcurementDate,
+      rateCardEffectiveDate: null,
+      lastUpdated: greigeLastUpdated,
+    };
+  }
+
   // Get all DYEING/PRINTING processors to find the best rate
   const processors = await getAllDyeingPrintingProcessors();
 
@@ -501,6 +538,7 @@ async function calculateGreigeProcessingCost(
     const rate = await lookupRate({
       processorId: processor.id,
       processingType: processingType as ProcessingTypeV2,
+      printingType,
       greigeId: fabric.greigeId,
       quantityMeters: quantityNeeded,
     });

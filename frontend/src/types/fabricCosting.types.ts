@@ -3,6 +3,8 @@
  * Types for fabric cost calculation with sourcing strategies
  */
 
+import type { ProcessingTypeV2, PrintingTypeV2 } from './processorRateCardV2.types';
+
 // Color option from style's color_options (for processing batch grouping)
 export interface StyleColorOption {
   id: string;
@@ -409,6 +411,15 @@ export interface FabricCostingRow {
   isExpanded: boolean;
   isLoading: boolean;
   error: string | null;
+  /**
+   * Why the processor rate could not be resolved (404 carrying details.code). Null whenever a
+   * rate IS resolved. Kept separate from `error`, which stays for everything else (network,
+   * 500, validation) — the two are rendered on different surfaces, and only this one is
+   * actionable enough to list in the page banner and deep-link.
+   *
+   * UI-only: never sent on save.
+   */
+  rateIssue: RateCardMissing | null;
   // CAD-GEOMETRY approval (two-owner split; informational on this page)
   approvalStatus?: string | null;
   // Costing PRICE approval — an approved-costing row is skipped on save and badged
@@ -651,4 +662,37 @@ export interface CostingInUseErrorDetails {
   blocking: boolean;
   requiresConfirmation?: boolean;
   dependents: CadCostingDependents;
+}
+
+// ============================================================================
+// Missing processor rate card (404 on POST /fabric-costing/lookup-rate)
+//
+// The backend names the exact next action in `message`; `details` carries the machine code
+// plus enough context to deep-link the Rate Card page pre-filled.
+// ============================================================================
+
+export type RateCardMissingCode =
+  | 'NO_SLABS' // processor has no quantity slabs for this processing type
+  | 'NO_RATES_AT_ALL' // no rate cards at all for this processor + processing type
+  | 'NO_GREIGE_RATE' // nothing rated for this greige
+  | 'NO_PRINTING_TYPE_RATE' // greige is rated, but not for the requested printing type
+  | 'NO_SLAB_RATE'; // greige (+ printing type) rated, but not in this quantity's slab
+
+export interface RateCardMissingDetails {
+  code: RateCardMissingCode;
+  processorId: string | null;
+  processorName: string | null;
+  processingType: ProcessingTypeV2;
+  printingType: PrintingTypeV2 | null;
+  greigeId: string | null;
+  greigeName: string | null;
+  quantityMeters: number | null;
+  slabLabel: string | null;
+  availableGreiges: string[];
+  availablePrintingTypes: PrintingTypeV2[];
+}
+
+/** The details plus the backend's human sentence — that sentence is what the operator reads. */
+export interface RateCardMissing extends RateCardMissingDetails {
+  message: string;
 }

@@ -5,11 +5,11 @@
 
 import { Request, Response } from 'express';
 import { calculateFabricCost } from '../services/fabric-cost-calculation.service';
-import { lookupRate } from '../services/processor-rate-v2.service';
+import { lookupRate, explainMissingRate } from '../services/processor-rate-v2.service';
 import { serialize } from '../utils/serializer';
 import prisma from '../config/database';
 import { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
-import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors';
+import { AppError, NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors';
 import { getCadCostingDependents } from '../services/helpers/cad-costing-provenance.helper';
 import { logInfo } from '../utils/logger';
 
@@ -18,7 +18,7 @@ import { logInfo } from '../utils/logger';
  * Calculate fabric cost with all sourcing options
  */
 export async function calculateSingleFabricCost(req: Request, res: Response) {
-  const { fabricId, cadMeters, width, orderQuantity, styleId } = req.body;
+  const { fabricId, cadMeters, width, orderQuantity, styleId, printingType } = req.body;
 
   // Validation
   if (!fabricId || !cadMeters || !width) {
@@ -43,6 +43,7 @@ export async function calculateSingleFabricCost(req: Request, res: Response) {
     width: parsedWidth,
     orderQuantity: parsedOrderQty,
     styleId,
+    printingType: printingType as PrintingTypeV2 | undefined,
   });
 
   res.json(
@@ -73,6 +74,7 @@ export async function calculateBatchFabricCost(req: Request, res: Response) {
           width: parseFloat(fabric.width),
           orderQuantity: orderQuantity ? parseInt(orderQuantity) : undefined,
           styleId,
+          printingType: fabric.printingType as PrintingTypeV2 | undefined,
         });
       } catch (error: any) {
         return {
@@ -854,46 +856,23 @@ export async function lookupProcessorRate(req: Request, res: Response) {
   });
 
   if (!result) {
-    // Check what rate cards exist for this processor to provide helpful error messages
-    const availableRates = await prisma.processor_rate_card.findMany({
-      where: {
-        processorId,
-        processingType,
-        isActive: true,
-      },
-      include: {
-        greige: { select: { id: true, greigeName: true } },
-        slab: { select: { id: true, slabLabel: true, minQuantity: true, maxQuantity: true } },
-      },
-      take: 10,
+    // Name which of processor / greige / printing type / quantity is the gap, and carry the
+    // machine code + context so the page can keep the reason on screen and deep-link the Rate
+    // Card page. The old version here could not express "rated, but not at this quantity" —
+    // that case produced a message that trailed off after "Rate for the given criteria."
+    const explanation = await explainMissingRate({
+      processorId,
+      processingType: processingType as ProcessingTypeV2,
+      printingType: printingType as PrintingTypeV2 | undefined,
+      greigeId,
+      quantityMeters: parseFloat(quantityMeters),
     });
 
-    // Check if greige exists but with different printingType
-    const greigeMatch = availableRates.find((rc) => rc.greigeId === greigeId);
-    const printTypeMatch = availableRates.find((rc) => rc.printingType === printingType);
-
-    // Get the requested greige name for error message
-    const requestedGreige = await prisma.greige_master.findUnique({
-      where: { id: greigeId },
-      select: { greigeName: true },
-    });
-
-    let errorDetail = '';
-    if (greigeMatch && !printTypeMatch) {
-      errorDetail = `Greige found but not for ${printingType} printing type.`;
-    } else if (!greigeMatch && printTypeMatch) {
-      errorDetail = `No rate card for greige "${requestedGreige?.greigeName || greigeId}". `;
-      if (availableRates.length > 0) {
-        const availableGreiges = [...new Set(availableRates.map((rc) => rc.greige?.greigeName))]
-          .filter(Boolean)
-          .slice(0, 3);
-        errorDetail += `Available greiges: ${availableGreiges.join(', ')}`;
-      }
-    } else if (!greigeMatch && !printTypeMatch) {
-      errorDetail = `No rate card for this processor/printing type combination.`;
-    }
-
-    throw new NotFoundError(`Rate for the given criteria. ${errorDetail}`);
+    // AppError, not NotFoundError: the latter builds its own message from (resource, identifier)
+    // and carries no details, and the details are the whole point here — the page reads
+    // details.code to keep the reason on screen and deep-link the Rate Card page.
+    const { code, message, ...context } = explanation;
+    throw new AppError(404, 'NOT_FOUND', message, { code, ...context });
   }
 
   res.json(

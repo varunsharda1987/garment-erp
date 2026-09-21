@@ -58,8 +58,10 @@ import type {
   ProcessorRateLookup,
   ScreenType,
   CostingPurpose,
+  RateCardMissing,
 } from '../types/fabricCosting.types';
 import { SCREEN_TYPE_LABELS, DEFAULT_SCREEN_COSTS } from '../types/fabricCosting.types';
+import { extractRateCardMissing } from '../lib/rate-card-missing';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
@@ -84,6 +86,27 @@ const parseGreigeName = (name: string | null | undefined): { line1: string; line
   }
   return { line1: name, line2: '' };
 };
+
+/**
+ * Deep link to the Rate Card page with the processor and type the lookup just failed on
+ * pre-selected, so the operator lands on the matrix that needs the missing row rather than on
+ * an empty page where they must find processor, process type and print type all over again.
+ */
+const rateCardLink = (issue: RateCardMissing): string => {
+  const params = new URLSearchParams();
+  if (issue.processorId) params.set('processorId', issue.processorId);
+  params.set('processingType', issue.processingType);
+  if (issue.printingType) params.set('printingType', issue.printingType);
+  if (issue.greigeId) params.set('greigeId', issue.greigeId);
+  return `/processor-rate-cards?${params.toString()}`;
+};
+
+/**
+ * Quantity-sensitive gaps go stale the moment the quantity changes; the rest (wrong greige,
+ * wrong print type, no card at all) hold until the rate cards themselves change.
+ */
+const clearIfQtySensitive = (issue: RateCardMissing | null): RateCardMissing | null =>
+  issue && (issue.code === 'NO_SLAB_RATE' || issue.code === 'NO_SLABS') ? null : issue;
 
 // Per-row quantity input that commits on blur/Enter, not per keystroke.
 // The table groups rows by quantity (nestedGroups qtyKey) — committing per keystroke changed the
@@ -329,6 +352,203 @@ function GreigeCostCell({
         </span>
       )}
     </div>
+  );
+}
+
+/*
+ * Shared processing cells, used by BOTH render branches below.
+ *
+ * The table body forks into a nested (date → quantity → greige) view and a simple view. That
+ * fork was created on 2026-02-03 by copy-pasting the row renderer, and the copy was taken from
+ * a month-stale version: it carries the `finishType === 'PRINTED'` gate that had already been
+ * replaced, and it never received the Printing Type dropdown at all — which is why a printed
+ * row in the nested view could not be rated, the lookup refusing with "select a print type"
+ * for a control that was not on screen.
+ *
+ * Both branches render these components now, so the two views cannot say different things
+ * about the same row. Gating is the simple view's rule: `processingType` is what lookupRate and
+ * calculateRowTotals actually key off, while `finishType` is merely what derives it.
+ */
+
+const needsProcessingInput = (row: FabricCostingRow): boolean =>
+  row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE';
+
+function ColorsCell({ row, onChange }: { row: FabricCostingRow; onChange: (u: Partial<FabricCostingRow>) => void }) {
+  if (!needsProcessingInput(row)) return <span className="text-muted-foreground text-xs">-</span>;
+  return (
+    <Input
+      type="number"
+      min="1"
+      max="20"
+      className="w-9 text-center text-xs h-7 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      value={row.numberOfColors || ''}
+      onChange={(e) => onChange({ numberOfColors: parseInt(e.target.value) || null })}
+      placeholder="#"
+      title="Number of colors/screens"
+    />
+  );
+}
+
+function PrintTypeCell({
+  row,
+  onChange,
+  onLookup,
+}: {
+  row: FabricCostingRow;
+  onChange: (u: Partial<FabricCostingRow>) => void;
+  onLookup: (overrides: Partial<FabricCostingRow>) => void;
+}) {
+  if (!needsProcessingInput(row)) return <span className="text-muted-foreground text-xs">-</span>;
+  return (
+    <Select
+      value={row.printingType || ''}
+      onValueChange={(value) => {
+        const printingType = value as NonNullable<FabricCostingRow['printingType']>;
+        // rateCardId must go too: it belonged to the OLD print type's card, and handleSave
+        // persists it alongside a now-null rate.
+        onChange({
+          printingType,
+          processingCostPerMeter: null,
+          slabLabel: null,
+          rateCardId: null,
+          error: null,
+          rateIssue: null,
+        });
+        if (value && row.processorId && row.greigeId) {
+          // State hasn't committed yet, so pass the new value through
+          onLookup({ printingType });
+        }
+      }}
+    >
+      <SelectTrigger className="w-[78px] h-7 text-[10px]">
+        <SelectValue placeholder="Type" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="PIGMENT" className="text-xs">
+          Pigment
+        </SelectItem>
+        <SelectItem value="PROCIAN" className="text-xs">
+          Procian
+        </SelectItem>
+        <SelectItem value="DISCHARGE" className="text-xs">
+          Discharge
+        </SelectItem>
+        <SelectItem value="PIGMENT_DISCHARGE" className="text-xs">
+          Pig+Dis
+        </SelectItem>
+      </SelectContent>
+    </Select>
+  );
+}
+
+function ScreenCell({ row, onChange }: { row: FabricCostingRow; onChange: (u: Partial<FabricCostingRow>) => void }) {
+  if (!needsProcessingInput(row)) return <span className="text-muted-foreground text-xs">-</span>;
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <Select
+        value={row.screenType || ''}
+        // calculateRowTotals owns the screen-cost maths: it applies the DEFAULT_SCREEN_COSTS /
+        // BUG-FC4 rule and recomputes screenCostTotal, screenCostPerMeter and the row total.
+        // The nested branch used to duplicate that formula inline AND persist
+        // screenCostPerScreen, which is why switching ROTARY→TABLE kept the stale ₹3000.
+        onValueChange={(value) => onChange({ screenType: value as ScreenType })}
+      >
+        <SelectTrigger className="w-[72px] h-7 text-[10px]">
+          <SelectValue placeholder="Screen" />
+        </SelectTrigger>
+        <SelectContent>
+          {(Object.entries(SCREEN_TYPE_LABELS) as [ScreenType, string][]).map(([value, label]) => (
+            <SelectItem key={value} value={value} className="text-xs">
+              {label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {row.screenCostPerMeter != null && (
+        <span
+          className="text-[9px] text-muted-foreground"
+          title={`Total screen cost: ₹${row.screenCostTotal?.toLocaleString('en-IN') ?? 0}`}
+        >
+          ₹{row.screenCostPerMeter.toFixed(2)}/m
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The processing rate, or — when there isn't one — why not, durably.
+ *
+ * The reason used to live only in an 8-second toast and in a `row.error` field that nothing
+ * ever rendered, so once the toast went the cell just read "Select" and the operator had
+ * nothing to go on. The full sentence is in the tooltip.
+ */
+function ProcessingCostCell({ row }: { row: FabricCostingRow }) {
+  // `!= null`, not truthy: a contracted rate of ₹0 is a real rate, not an unset one.
+  if (row.processingCostPerMeter != null) {
+    return (
+      <div>
+        <span className="font-medium text-xs">₹{row.processingCostPerMeter.toFixed(2)}</span>
+        {row.slabLabel && (
+          <p className="text-[9px] text-muted-foreground truncate" title={row.slabLabel}>
+            {row.slabLabel}
+          </p>
+        )}
+        {row.individualRate != null && row.batchRate != null && row.individualRate !== row.batchRate && (
+          <p className="text-[9px] text-muted-foreground line-through" title="Individual rate (without batch grouping)">
+            ₹{row.individualRate.toFixed(2)}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  // Nothing to process: landed price, RAW, or a finish type that maps to no processingType
+  if (row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' || row.processingType == null) {
+    return <span className="text-muted-foreground text-xs">-</span>;
+  }
+
+  if (row.rateIssue) {
+    return (
+      <div className="flex flex-col items-center leading-tight" title={row.rateIssue.message}>
+        <AlertCircle className="w-3.5 h-3.5 text-destructive" />
+        <span className="text-[8px] text-destructive">no rate card</span>
+      </div>
+    );
+  }
+  if (row.error) {
+    return (
+      <div className="flex flex-col items-center leading-tight" title={row.error}>
+        <AlertCircle className="w-3.5 h-3.5 text-warning" />
+        <span className="text-[8px] text-warning">lookup failed</span>
+      </div>
+    );
+  }
+  if (!row.processorId) return <span className="text-muted-foreground text-[10px]">Select</span>;
+  if (row.processingType === 'PRINTING' && !row.printingType)
+    return <span className="text-warning text-[10px]">Print type?</span>;
+  return <span className="text-muted-foreground text-[10px]">Lookup</span>;
+}
+
+/**
+ * Full-width row for a lookup FAILURE (network / 500 / validation). Rate-card gaps are listed
+ * in the page banner instead, where they can be grouped and deep-linked.
+ */
+function RowErrorRow({ row }: { row: FabricCostingRow }) {
+  if (!row.error || row.rateIssue) return null;
+  return (
+    <TableRow className="bg-destructive/10 hover:bg-destructive/10">
+      <TableCell colSpan={18} className="py-1.5 px-3">
+        <div className="flex items-center gap-2 text-[11px] text-destructive">
+          <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+          <span className="font-medium">
+            {row.componentName || row.fabricName}
+            {row.width ? ` ${row.width}"` : ''}:
+          </span>
+          <span>{row.error}</span>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -798,6 +1018,7 @@ export default function FabricCostingPage() {
               isExpanded: false,
               isLoading: false,
               error: null,
+              rateIssue: null,
               // Two-owner split: approvalStatus = CAD geometry, costingApprovalStatus = price
               approvalStatus: fabric.approvalStatus || null,
               costingApprovalStatus: fabric.costingApprovalStatus || null,
@@ -897,6 +1118,7 @@ export default function FabricCostingPage() {
             isExpanded: false,
             isLoading: false,
             error: null,
+            rateIssue: null,
             // Two-owner split: a CAD-approved row with no costing is a LEGITIMATE state that
             // must accept its first costing save — only the PRICE approval skips a row.
             approvalStatus: fabric.approvalStatus || null,
@@ -1086,10 +1308,15 @@ export default function FabricCostingPage() {
     [orderQuantity]
   );
 
-  // Recalculate all rows when orderQuantity changes
+  // Recalculate all rows when orderQuantity changes.
+  // A new quantity can land in a different rate slab, so a "no rate at this quantity" verdict
+  // is stale the moment it changes — drop those, keep the ones that have nothing to do with
+  // quantity (wrong greige, wrong print type, no card at all).
   useEffect(() => {
     if (fabricRows.length > 0) {
-      setFabricRows((rows) => rows.map((row) => calculateRowTotals(row)));
+      setFabricRows((rows) =>
+        rows.map((row) => ({ ...calculateRowTotals(row), rateIssue: clearIfQtySensitive(row.rateIssue) }))
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderQuantity, calculateRowTotals]);
@@ -1109,14 +1336,29 @@ export default function FabricCostingPage() {
     const baseRow = fabricRows[index];
     const row = overrides ? { ...baseRow, ...overrides } : baseRow;
 
-    if (!row.processorId || !row.processingType || !row.greigeId) {
-      notify.warning('Please select a processor and ensure greige is set');
+    // Name the actual null. The old single guard said "select a processor and ensure greige is
+    // set" even when the processor WAS set and the real blocker was processingType — which is
+    // derived from finishType (:749-754, :862-867) and can never be fixed by picking a processor.
+    if (!row.greigeId) {
+      notify.warning('No greige set for this row', {
+        description: 'Processor rates are held per greige. Set the greige on the style or in CAD Planning first.',
+      });
       return;
     }
-
-    // For PRINTING, we need printingType
+    if (!row.processingType) {
+      notify.warning(`Nothing to process on this row (finish type: ${row.finishType ?? 'not set'})`, {
+        description: 'Processing rates apply to PRINTED, DYED and YARN_DYED fabric. Set the finish type on the style.',
+      });
+      return;
+    }
+    if (!row.processorId) {
+      notify.warning('Select a processor first');
+      return;
+    }
     if (row.processingType === 'PRINTING' && !row.printingType) {
-      notify.warning('Please select a printing type');
+      notify.warning('Select a print type', {
+        description: 'Printing rates are held per print type (Pigment / Procian / Discharge / Pig+Dis).',
+      });
       return;
     }
 
@@ -1168,7 +1410,7 @@ export default function FabricCostingPage() {
       }, 0);
     }
 
-    updateRow(index, { isLoading: true, error: null });
+    updateRow(index, { isLoading: true, error: null, rateIssue: null });
 
     try {
       // Lookup rate using batch (combined) quantity if in a batch group, else individual
@@ -1214,6 +1456,8 @@ export default function FabricCostingPage() {
           batchSavings: savings,
           batchGroupTotalQuantity: hasBatchGroup ? batchQuantityMeters : null,
           isLoading: false,
+          error: null,
+          rateIssue: null,
         });
 
         // If batch group, also update ALL OTHER rows in the same batch
@@ -1250,6 +1494,8 @@ export default function FabricCostingPage() {
                     individualRate: otherIndivRate,
                     batchSavings: otherSavings,
                     batchGroupTotalQuantity: batchQuantityMeters,
+                    error: null,
+                    rateIssue: null,
                   });
                 })
                 .catch(() => {
@@ -1262,6 +1508,8 @@ export default function FabricCostingPage() {
                     individualRate: null,
                     batchSavings: null,
                     batchGroupTotalQuantity: batchQuantityMeters,
+                    error: null,
+                    rateIssue: null,
                   });
                 });
             }
@@ -1274,6 +1522,21 @@ export default function FabricCostingPage() {
           notify.success(`Rate loaded: ₹${result.ratePerMeter}/m (${result.slabLabel})`);
         }
       } else {
+        // Defensive only: lookupRate now throws rather than resolving empty, so a falsy result
+        // means the response shape changed. Clear the spinner instead of hanging on it.
+        updateRow(index, { isLoading: false, error: 'Rate lookup returned no data' });
+        notify.error('Rate lookup returned no data');
+      }
+    } catch (error: unknown) {
+      // MUST come first: getErrorMessage runs describeValidationDetails, which treats any object
+      // `details` as {field: message} pairs — so a coded refusal renders as
+      // "Code: NO_GREIGE_RATE · Processor Name: …" and the real sentence is never reached.
+      const missing = extractRateCardMissing(error);
+
+      if (missing) {
+        // No card means no shrinkage or screen cost either — clear what the card would have
+        // carried, or a stale rate from the previously selected processor sits next to the
+        // new reason.
         updateRow(index, {
           processingCostPerMeter: null,
           slabLabel: null,
@@ -1285,18 +1548,22 @@ export default function FabricCostingPage() {
           batchSavings: null,
           batchGroupTotalQuantity: null,
           isLoading: false,
-          error: 'No rate found for this processor/greige/quantity',
+          error: null,
+          rateIssue: missing,
         });
-        notify.warning('No rate found for this combination', {
-          description: 'Please add the rate in Processor Rate Card',
+        notify.warning('No processor rate for this combination', {
+          description: missing.message,
           action: {
             label: 'Go to Rate Cards',
-            onClick: () => navigate('/processor-rate-cards'),
+            onClick: () => navigate(rateCardLink(missing)),
           },
           duration: 8000,
         });
+        return;
       }
-    } catch (error: unknown) {
+
+      // A 500 or a dropped connection says nothing about the rate card, so deliberately do NOT
+      // wipe shrinkagePercent here — it may be the committed value restored at load.
       // getErrorMessage prefers the backend's human message over the machine code —
       // the old data.error read rendered raw "VALIDATION_ERROR" toasts
       const errorMessage = getErrorMessage(error) || 'Failed to lookup rate';
@@ -1304,11 +1571,57 @@ export default function FabricCostingPage() {
       updateRow(index, {
         isLoading: false,
         error: errorMessage,
+        rateIssue: null,
       });
 
       // Show detailed error
       notify.error(errorMessage);
     }
+  };
+
+  /**
+   * Picking a processor, shared by both render branches.
+   *
+   * This used to auto-look-up for DYEING only. On a PRINTING row it blanked the rate fields and
+   * then said nothing at all — the operator got a processor, an empty Process cell and no clue
+   * that a print type was still needed, or that the small refresh icon was the way forward.
+   */
+  const handleProcessorChange = (index: number, row: FabricCostingRow, value: string) => {
+    const processor = processors.find((p) => p.id === value);
+    updateRow(index, {
+      processorId: value,
+      processorName: processor?.name || null,
+      processingCostPerMeter: null,
+      slabLabel: null,
+      // The card id belonged to the PREVIOUS processor. It used to survive this change, and
+      // handleSave then persisted it next to a null rate — provenance pointing at the wrong one.
+      rateCardId: null,
+      shrinkagePercent: null,
+      screenCostPerScreen: null,
+      error: null,
+      rateIssue: null,
+    });
+
+    if (!value || !row.greigeId) return;
+
+    if (row.processingType === 'DYEING' || (row.processingType === 'PRINTING' && row.printingType)) {
+      // Pass the new processorId as override since state hasn't updated yet
+      void lookupRate(index, { processorId: value });
+      return;
+    }
+
+    if (row.processingType === 'PRINTING') {
+      // Genuinely unknowable until a print type is chosen — say so rather than going quiet.
+      // Deliberately NOT a rateIssue: no rate card has been ruled out yet.
+      notify.info('Select a print type to fetch the rate', {
+        description: `${processor?.name ?? 'Processor'} selected. Printing rates are held per print type.`,
+      });
+      return;
+    }
+
+    notify.warning(`Nothing to process on this row (finish type: ${row.finishType ?? 'not set'})`, {
+      description: 'Processor rates apply to PRINTED, DYED and YARN_DYED fabric.',
+    });
   };
 
   // Save fabric costing - saves to fabric_width_cad
@@ -1342,6 +1655,20 @@ export default function FabricCostingPage() {
     const missingGreige = costedRows.filter(
       (row) => row.costInputMode === 'BUILD_UP' && !(row.greigeCostPerMeter != null && row.greigeCostPerMeter > 0)
     );
+    // A build-up row that NEEDS processing but has no rate is not a costing either.
+    // calculateRowTotals reads a missing processing rate as ₹0, so such a row still totalled
+    // greige + transport and saved silently — with processingCostPerMeter and rateCardId both
+    // null — feeding an under-priced fabric into the cost sheet and MRP. Worse, the drift
+    // checks skip a zero rate, so nothing downstream ever caught it. Same treatment as a
+    // missing greige price: skip the row and name it.
+    const needsProcessingRate = (row: FabricCostingRow) =>
+      row.costInputMode === 'BUILD_UP' && // landed-price rows never process
+      row.processingType != null && // null for RAW / unset finish type
+      row.finishType !== 'RAW';
+    const missingProcessingRate = costedRows.filter(
+      // `== null`, NOT falsy — a contracted rate of ₹0 is a real rate and must save
+      (row) => needsProcessingRate(row) && row.processingCostPerMeter == null
+    );
     // Don't send rows whose COSTING is approved — the backend rejects re-pricing an approved
     // costing. Two-owner split: CAD-geometry approval alone must NOT skip a row (a CAD-approved
     // row with no saved costing needs its FIRST costing saved). hasSavedCosting is
@@ -1351,10 +1678,13 @@ export default function FabricCostingPage() {
         (row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED') &&
         row.hasSavedCosting
     );
-    const rowsToSave = costedRows.filter((row) => !missingGreige.includes(row) && !approvedRows.includes(row));
+    const rowsToSave = costedRows.filter(
+      (row) => !missingGreige.includes(row) && !missingProcessingRate.includes(row) && !approvedRows.includes(row)
+    );
 
     if (rowsToSave.length === 0) {
-      const hasMissingPrices = missingGreige.length > 0 || missingLandedPrice.length > 0;
+      const hasMissingPrices =
+        missingGreige.length > 0 || missingProcessingRate.length > 0 || missingLandedPrice.length > 0;
       const allApproved = approvedRows.length > 0 && !hasMissingPrices && costedRows.length === approvedRows.length;
       notify.error(
         allApproved
@@ -1362,7 +1692,9 @@ export default function FabricCostingPage() {
           : hasMissingPrices
             ? missingGreige.length > 0
               ? `Cannot save: no greige price for ${missingGreige.map(describeRow).join(', ')}. Enter a rate, or set one on the Greige Master.`
-              : `Cannot save: no landed price for ${missingLandedPrice.map(describeRow).join(', ')}. Enter a landed price or switch to Build Up mode.`
+              : missingProcessingRate.length > 0
+                ? `Cannot save: no processor rate for ${missingProcessingRate.map(describeRow).join(', ')}. Add the rate in Processor Rate Cards, or pick a processor that has one.`
+                : `Cannot save: no landed price for ${missingLandedPrice.map(describeRow).join(', ')}. Enter a landed price or switch to Build Up mode.`
             : 'No fabrics with calculated costs to save'
       );
       return;
@@ -1371,6 +1703,20 @@ export default function FabricCostingPage() {
     if (missingGreige.length > 0) {
       notify.warning(
         `Skipped ${missingGreige.length} fabric(s) with no greige price: ${missingGreige.map(describeRow).join(', ')}`
+      );
+    }
+
+    if (missingProcessingRate.length > 0) {
+      notify.warning(
+        `Skipped ${missingProcessingRate.length} fabric(s) with no processor rate: ${missingProcessingRate.map(describeRow).join(', ')}`,
+        {
+          description: 'Add the rate in Processor Rate Cards, then look it up again and save.',
+          action: {
+            label: 'Go to Rate Cards',
+            onClick: () => navigate('/processor-rate-cards'),
+          },
+          duration: 8000,
+        }
       );
     }
 
@@ -2012,6 +2358,66 @@ export default function FabricCostingPage() {
         </Card>
       )}
 
+      {/* Unresolved processor rates.
+          The per-row toast is gone in 8 seconds; this is the durable trace, and it repeats the
+          exact reason the backend gave for each row rather than a generic "no rate found". */}
+      {(() => {
+        const unresolved = fabricRows.filter((r) => r.rateIssue != null);
+        if (unresolved.length === 0) return null;
+
+        // One missing rate-card row usually blocks several fabric rows — group them, so the
+        // list reads as reasons to fix rather than as a wall of repeated text.
+        const byReason = new Map<string, { issue: RateCardMissing; rows: FabricCostingRow[] }>();
+        unresolved.forEach((r) => {
+          const issue = r.rateIssue!;
+          const key = `${issue.processorId ?? ''}|${issue.greigeId ?? ''}|${issue.printingType ?? ''}|${issue.code}`;
+          const entry = byReason.get(key);
+          if (entry) entry.rows.push(r);
+          else byReason.set(key, { issue, rows: [r] });
+        });
+        const reasons = [...byReason.values()];
+        const shown = reasons.slice(0, 5);
+
+        return (
+          <Card className="border-warning/20 bg-warning-muted">
+            <div className="p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-warning mb-1">
+                  {unresolved.length} fabric row{unresolved.length !== 1 ? 's have' : ' has'} no processor rate
+                </h3>
+                <p className="text-sm text-warning mb-3">
+                  These rows are skipped on save — their total would be greige + transport only, with no processing cost
+                  and no rate card recorded.
+                </p>
+                <ul className="text-sm text-warning mb-3 space-y-1.5">
+                  {shown.map(({ issue, rows }, i) => (
+                    <li key={i} className="flex flex-col">
+                      <span className="font-medium">
+                        {rows
+                          .map((r) => `${r.componentName || r.fabricName}${r.width ? ` ${r.width}"` : ''}`)
+                          .join(', ')}
+                      </span>
+                      <span>{issue.message}</span>
+                    </li>
+                  ))}
+                  {reasons.length > shown.length && <li>+{reasons.length - shown.length} more</li>}
+                </ul>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(rateCardLink(shown[0].issue))}
+                  className="border-warning text-warning hover:bg-warning/10"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Go to Rate Cards
+                </Button>
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* Fabric Costing Table */}
       {isLoadingFabrics ? (
         <Card className="p-8 flex items-center justify-center">
@@ -2437,22 +2843,7 @@ export default function FabricCostingPage() {
                                               <div className="flex items-center justify-center gap-0.5">
                                                 <Combobox
                                                   value={row.processorId || ''}
-                                                  onValueChange={(value) => {
-                                                    const processor = processors.find((p) => p.id === value);
-                                                    updateRow(index, {
-                                                      processorId: value,
-                                                      processorName: processor?.name || null,
-                                                      processingCostPerMeter: null,
-                                                      slabLabel: null,
-                                                      shrinkagePercent: null,
-                                                      screenCostPerScreen: null,
-                                                    });
-
-                                                    // Auto-lookup rates for DYEING (no printing type needed)
-                                                    if (row.processingType === 'DYEING' && value && row.greigeId) {
-                                                      lookupRate(index, { processorId: value });
-                                                    }
-                                                  }}
+                                                  onValueChange={(value) => handleProcessorChange(index, row, value)}
                                                   options={processors.map((p) => ({ value: p.id, label: p.name }))}
                                                   placeholder="Select"
                                                   searchPlaceholder="Search processor..."
@@ -2479,145 +2870,26 @@ export default function FabricCostingPage() {
 
                                           {/* Colors */}
                                           <TableCell className="px-1 text-center">
-                                            {row.finishType === 'PRINTED' ? (
-                                              <Input
-                                                type="number"
-                                                min="1"
-                                                max="12"
-                                                className="h-7 w-full text-xs text-center px-0.5"
-                                                value={row.numberOfColors || ''}
-                                                onChange={(e) => {
-                                                  const numColors = parseInt(e.target.value) || null;
-                                                  // Recalculate screen cost
-                                                  const screenType = row.screenType;
-                                                  const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
-                                                  // BUG-FC4 fix: only apply defaults for new rows
-                                                  const costPerScreen = row.fabricWidthCadId
-                                                    ? row.screenCostPerScreen // Saved row: preserve existing value
-                                                    : row.screenCostPerScreen || defaultCost; // New row: use default
-                                                  const totalScreenCost =
-                                                    numColors && costPerScreen ? numColors * costPerScreen : null;
-                                                  const qty = row.rowQuantity ?? orderQuantity;
-                                                  const fabricMeters = row.cadMeters * (qty || 0);
-                                                  const screenCostPerMeter =
-                                                    totalScreenCost && fabricMeters > 0
-                                                      ? totalScreenCost / fabricMeters
-                                                      : null;
-                                                  // Recalc total
-                                                  const greigeCost = row.greigeCostPerMeter || 0;
-                                                  const transportCost = row.transportCostPerMeter || 0;
-                                                  const shrinkageValue = row.shrinkageValue || 0;
-                                                  const processingCost = row.processingCostPerMeter || 0;
-                                                  const total =
-                                                    greigeCost +
-                                                    transportCost +
-                                                    shrinkageValue +
-                                                    processingCost +
-                                                    (screenCostPerMeter || 0);
-                                                  updateRow(index, {
-                                                    numberOfColors: numColors,
-                                                    screenCostTotal: totalScreenCost,
-                                                    screenCostPerMeter,
-                                                    totalCostPerMeter:
-                                                      row.costInputMode === 'BUILD_UP' ? total : row.totalCostPerMeter,
-                                                  });
-                                                }}
-                                                placeholder="#"
-                                                title="Number of colors/screens"
-                                              />
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
+                                            <ColorsCell row={row} onChange={(updates) => updateRow(index, updates)} />
                                           </TableCell>
 
-                                          {/* Print Type */}
+                                          {/* Print Type — the control this branch never had */}
                                           <TableCell className="px-1 text-center">
-                                            {row.finishType === 'PRINTED' ? (
-                                              <select
-                                                className="h-7 w-full text-[10px] border rounded px-0.5 bg-card"
-                                                value={row.screenType || ''}
-                                                onChange={(e) => {
-                                                  const screenType = (e.target.value || null) as ScreenType | null;
-                                                  const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
-                                                  // BUG-FC4 fix: only apply defaults for new rows
-                                                  const costPerScreen = row.fabricWidthCadId
-                                                    ? row.screenCostPerScreen // Saved row: preserve existing value
-                                                    : row.screenCostPerScreen || defaultCost; // New row: use default
-                                                  const numColors = row.numberOfColors || 0;
-                                                  const totalScreenCost =
-                                                    numColors && costPerScreen ? numColors * costPerScreen : null;
-                                                  const qty = row.rowQuantity ?? orderQuantity;
-                                                  const fabricMeters = row.cadMeters * (qty || 0);
-                                                  const screenCostPerMeter =
-                                                    totalScreenCost && fabricMeters > 0
-                                                      ? totalScreenCost / fabricMeters
-                                                      : null;
-                                                  // Recalc total
-                                                  const greigeCost = row.greigeCostPerMeter || 0;
-                                                  const transportCost = row.transportCostPerMeter || 0;
-                                                  const shrinkageValue = row.shrinkageValue || 0;
-                                                  const processingCost = row.processingCostPerMeter || 0;
-                                                  const total =
-                                                    greigeCost +
-                                                    transportCost +
-                                                    shrinkageValue +
-                                                    processingCost +
-                                                    (screenCostPerMeter || 0);
-                                                  updateRow(index, {
-                                                    screenType,
-                                                    screenCostPerScreen: costPerScreen,
-                                                    screenCostTotal: totalScreenCost,
-                                                    screenCostPerMeter,
-                                                    totalCostPerMeter:
-                                                      row.costInputMode === 'BUILD_UP' ? total : row.totalCostPerMeter,
-                                                  });
-                                                }}
-                                              >
-                                                <option value="">-</option>
-                                                {Object.entries(SCREEN_TYPE_LABELS).map(([value, label]) => (
-                                                  <option key={value} value={value}>
-                                                    {label}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
+                                            <PrintTypeCell
+                                              row={row}
+                                              onChange={(updates) => updateRow(index, updates)}
+                                              onLookup={(overrides) => lookupRate(index, overrides)}
+                                            />
                                           </TableCell>
 
-                                          {/* Screen Cost */}
+                                          {/* Screen */}
                                           <TableCell className="px-1 text-center">
-                                            {row.finishType === 'PRINTED' && row.screenCostPerMeter ? (
-                                              <span
-                                                className="text-xs"
-                                                title={`Total screen cost: ₹${row.screenCostTotal?.toLocaleString() || 0}`}
-                                              >
-                                                ₹{row.screenCostPerMeter.toFixed(2)}
-                                              </span>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
+                                            <ScreenCell row={row} onChange={(updates) => updateRow(index, updates)} />
                                           </TableCell>
 
                                           {/* Processing Cost */}
                                           <TableCell className="px-1 text-center">
-                                            {row.processingCostPerMeter != null ? (
-                                              <div>
-                                                <span className="text-xs">
-                                                  ₹{row.processingCostPerMeter.toFixed(2)}
-                                                </span>
-                                                {row.slabLabel && (
-                                                  <div
-                                                    className="text-[9px] text-muted-foreground truncate"
-                                                    title={row.slabLabel}
-                                                  >
-                                                    {row.slabLabel}
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
+                                            <ProcessingCostCell row={row} />
                                           </TableCell>
 
                                           {/* Shrinkage Cost */}
@@ -2698,6 +2970,7 @@ export default function FabricCostingPage() {
                                             )}
                                           </TableCell>
                                         </TableRow>
+                                        <RowErrorRow row={row} />
                                       </React.Fragment>
                                     );
                                   })}
@@ -2984,24 +3257,7 @@ export default function FabricCostingPage() {
                                       <div className="flex items-center justify-center gap-0.5">
                                         <Combobox
                                           value={row.processorId || ''}
-                                          onValueChange={(value) => {
-                                            const processor = processors.find((p) => p.id === value);
-                                            updateRow(index, {
-                                              processorId: value,
-                                              processorName: processor?.name || null,
-                                              processingCostPerMeter: null,
-                                              slabLabel: null,
-                                              shrinkagePercent: null,
-                                              screenCostPerScreen: null,
-                                            });
-
-                                            // Auto-lookup rates for DYEING (no printing type needed)
-                                            // For PRINTING, wait until printing type is selected
-                                            if (row.processingType === 'DYEING' && value && row.greigeId) {
-                                              // Pass the new processorId as override since state hasn't updated yet
-                                              lookupRate(index, { processorId: value });
-                                            }
-                                          }}
+                                          onValueChange={(value) => handleProcessorChange(index, row, value)}
                                           options={processors.map((p) => ({ value: p.id, label: p.name }))}
                                           placeholder="Select"
                                           searchPlaceholder="Search processor..."
@@ -3026,136 +3282,28 @@ export default function FabricCostingPage() {
                                     )}
                                   </TableCell>
 
-                                  {/* Number of Colors */}
+                                  {/* Colors */}
                                   <TableCell className="px-1 text-center">
-                                    {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
-                                      <Input
-                                        type="number"
-                                        min="1"
-                                        max="20"
-                                        className="w-9 text-center text-xs h-7 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                        value={row.numberOfColors || ''}
-                                        onChange={(e) =>
-                                          updateRow(index, {
-                                            numberOfColors: parseInt(e.target.value) || null,
-                                          })
-                                        }
-                                        placeholder="#"
-                                      />
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
+                                    <ColorsCell row={row} onChange={(updates) => updateRow(index, updates)} />
                                   </TableCell>
 
-                                  {/* Printing Type */}
+                                  {/* Print Type */}
                                   <TableCell className="px-1 text-center">
-                                    {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
-                                      <Select
-                                        value={row.printingType || ''}
-                                        onValueChange={(value) => {
-                                          const newPrintingType = value as
-                                            | 'PIGMENT'
-                                            | 'PROCIAN'
-                                            | 'DISCHARGE'
-                                            | 'PIGMENT_DISCHARGE';
-                                          updateRow(index, {
-                                            printingType: newPrintingType,
-                                            processingCostPerMeter: null,
-                                            slabLabel: null,
-                                          });
-                                          // Auto-lookup after printing type is selected
-                                          if (value && row.processorId && row.greigeId) {
-                                            // Pass the new printingType as override since state hasn't updated yet
-                                            lookupRate(index, { printingType: newPrintingType });
-                                          }
-                                        }}
-                                      >
-                                        <SelectTrigger className="w-[70px] h-7 text-[10px]">
-                                          <SelectValue placeholder="Type" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="PIGMENT" className="text-xs">
-                                            Pigment
-                                          </SelectItem>
-                                          <SelectItem value="PROCIAN" className="text-xs">
-                                            Procian
-                                          </SelectItem>
-                                          <SelectItem value="DISCHARGE" className="text-xs">
-                                            Discharge
-                                          </SelectItem>
-                                          <SelectItem value="PIGMENT_DISCHARGE" className="text-xs">
-                                            Pig+Dis
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
+                                    <PrintTypeCell
+                                      row={row}
+                                      onChange={(updates) => updateRow(index, updates)}
+                                      onLookup={(overrides) => lookupRate(index, overrides)}
+                                    />
                                   </TableCell>
 
-                                  {/* Screen Type */}
+                                  {/* Screen */}
                                   <TableCell className="px-1 text-center">
-                                    {row.processingType === 'PRINTING' && row.costInputMode !== 'LANDED_PRICE' ? (
-                                      <Select
-                                        value={row.screenType || ''}
-                                        onValueChange={(value) =>
-                                          updateRow(index, {
-                                            screenType: value as 'ROTARY' | 'FLATBELT' | 'TABLE',
-                                          })
-                                        }
-                                      >
-                                        <SelectTrigger className="w-[65px] h-7 text-[10px]">
-                                          <SelectValue placeholder="Screen" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="ROTARY" className="text-xs">
-                                            Rotary
-                                          </SelectItem>
-                                          <SelectItem value="FLATBELT" className="text-xs">
-                                            Flat Belt
-                                          </SelectItem>
-                                          <SelectItem value="TABLE" className="text-xs">
-                                            Table
-                                          </SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
+                                    <ScreenCell row={row} onChange={(updates) => updateRow(index, updates)} />
                                   </TableCell>
 
                                   {/* Processing Cost */}
                                   <TableCell className="px-1 text-center">
-                                    {row.processingCostPerMeter ? (
-                                      <div>
-                                        <span className="font-medium text-xs">
-                                          ₹{row.processingCostPerMeter.toFixed(2)}
-                                        </span>
-                                        {row.slabLabel && (
-                                          <p
-                                            className="text-[9px] text-muted-foreground truncate"
-                                            title={row.slabLabel}
-                                          >
-                                            {row.slabLabel}
-                                          </p>
-                                        )}
-                                        {/* Show individual rate comparison when in a batch group */}
-                                        {row.individualRate != null &&
-                                          row.batchRate != null &&
-                                          row.individualRate !== row.batchRate && (
-                                            <p
-                                              className="text-[9px] text-muted-foreground line-through"
-                                              title="Individual rate (without batch grouping)"
-                                            >
-                                              ₹{row.individualRate.toFixed(2)}
-                                            </p>
-                                          )}
-                                      </div>
-                                    ) : row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-[10px]">Select</span>
-                                    )}
+                                    <ProcessingCostCell row={row} />
                                   </TableCell>
 
                                   {/* Shrinkage Cost */}
@@ -3227,6 +3375,7 @@ export default function FabricCostingPage() {
                                     )}
                                   </TableCell>
                                 </TableRow>
+                                <RowErrorRow row={row} />
                               </React.Fragment>
                             );
                           })}

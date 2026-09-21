@@ -156,6 +156,45 @@ export interface RateLookupResult {
   screenCostPerScreen?: number | null; // Screen cost per screen (PRINTING only) - fixed cost per color screen
 }
 
+// ============================================
+// Missing-rate diagnosis
+// ============================================
+
+/**
+ * Why a rate lookup found nothing.
+ *
+ * Ordered from "nothing is set up" to "almost set up" — the FIRST condition that matches is
+ * the one worth telling the operator about, because fixing it is what unblocks them.
+ */
+export type MissingRateCode =
+  | 'NO_SLABS' // processor has no quantity slabs for this processing type
+  | 'NO_RATES_AT_ALL' // no rate cards at all for this processor + processing type
+  | 'NO_GREIGE_RATE' // nothing rated for this greige
+  | 'NO_PRINTING_TYPE_RATE' // greige is rated, but not for the requested printing type
+  | 'NO_SLAB_RATE'; // greige (+ printing type) rated, but not in this quantity's slab
+
+/**
+ * The answer to "why can't this row be costed". `message` is written for the operator and is
+ * shown verbatim; the rest is context so the UI can deep-link the Rate Card page.
+ */
+export interface MissingRateExplanation {
+  code: MissingRateCode;
+  message: string;
+  processorId: string | null;
+  processorName: string | null;
+  processingType: ProcessingTypeV2;
+  printingType: PrintingTypeV2 | null;
+  greigeId: string;
+  greigeName: string | null;
+  quantityMeters: number;
+  /** The slab the quantity fell into. Null only when the processor has no slabs at all. */
+  slabLabel: string | null;
+  /** Up to a few greiges this processor DOES rate, so the operator can spot a wrong pick. */
+  availableGreiges: string[];
+  /** Printing types this processor DOES rate for this greige. */
+  availablePrintingTypes: PrintingTypeV2[];
+}
+
 // Shrinkage entry for saving (one per greige, shared across slabs)
 export interface ShrinkageEntry {
   greigeId: string;

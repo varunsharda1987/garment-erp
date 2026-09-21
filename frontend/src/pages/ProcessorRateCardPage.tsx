@@ -8,7 +8,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
@@ -45,13 +45,28 @@ interface DeleteRowItem {
 export default function ProcessorRateCardPage() {
   const navigate = useNavigate();
 
+  /**
+   * Fabric Costing links here when a rate is missing, carrying the processor, process type and
+   * print type it failed on — otherwise the operator lands on an empty page and has to find all
+   * three again with no idea which row was missing. Lazy initialisers only: the matrix effect
+   * below already fires on selectedProcessorId, so no extra effect is needed.
+   *
+   * Values are validated against the enums so a hand-edited query string can't wedge the page.
+   */
+  const [searchParams] = useSearchParams();
+
   // Material type state (Fabric or Lace)
   const [materialType, setMaterialType] = useState<MaterialTypeV2>('FABRIC');
 
   // Selection state
-  const [processingType, setProcessingType] = useState<ProcessingTypeV2>('DYEING');
-  const [printingType, setPrintingType] = useState<PrintingTypeV2>('PIGMENT');
-  const [selectedProcessorId, setSelectedProcessorId] = useState<string>('');
+  const [processingType, setProcessingType] = useState<ProcessingTypeV2>(() =>
+    searchParams.get('processingType') === 'PRINTING' ? 'PRINTING' : 'DYEING'
+  );
+  const [printingType, setPrintingType] = useState<PrintingTypeV2>(() => {
+    const q = searchParams.get('printingType') as PrintingTypeV2 | null;
+    return q && PRINTING_TYPES.includes(q) ? q : 'PIGMENT';
+  });
+  const [selectedProcessorId, setSelectedProcessorId] = useState<string>(() => searchParams.get('processorId') ?? '');
   const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
   const [isDefaultRatesMode, setIsDefaultRatesMode] = useState(false);
   const [systemDefaultProcessorId, setSystemDefaultProcessorId] = useState<string | null>(null);
@@ -157,13 +172,20 @@ export default function ProcessorRateCardPage() {
       const data = await processorRateCardV2Service.getProcessors();
       // Find and separate SYSTEM_DEFAULT processor
       const systemDefault = data.find((p: ProcessorInfo) => p.code === 'SYSTEM_DEFAULT');
+      const selectable = systemDefault ? data.filter((p: ProcessorInfo) => p.code !== 'SYSTEM_DEFAULT') : data;
       if (systemDefault) {
         setSystemDefaultProcessorId(systemDefault.id);
-        // Filter out SYSTEM_DEFAULT from regular processor list
-        setProcessors(data.filter((p: ProcessorInfo) => p.code !== 'SYSTEM_DEFAULT'));
-      } else {
-        setProcessors(data);
       }
+      setProcessors(selectable);
+
+      // A deep link can name a processor this dropdown doesn't offer (SYSTEM_DEFAULT is filtered
+      // out above, and ids go stale). Clear it and say so, rather than leaving the Select blank
+      // while the matrix loads for a processor nobody can see.
+      setSelectedProcessorId((current) => {
+        if (!current || selectable.some((p: ProcessorInfo) => p.id === current)) return current;
+        notify.info('That processor is not in this list — pick one to load its rate card');
+        return '';
+      });
     } catch (error: unknown) {
       const msg = isAxiosError(error) ? error.response?.data?.error : undefined;
       notify.error(msg || 'Failed to load processors');

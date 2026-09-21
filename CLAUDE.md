@@ -125,6 +125,7 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 | Concept | Home 1 | Home 2 |
 |---|---|---|
 | The fabric a job work order is about | `job_work_orders.fabricId` (the SOURCE fabric SENT — only for reprocessing an existing lot) | `job_work_orders.finishedFabricId` (the result expected BACK) |
+| Our own phone/email | `company_profile.phone`/`email` = the ACCOUNTS contact invoices print | `company_profile.contactPhone`/`contactEmail` (+ `contactPerson`) = the LAB/TRF contact a buyer's testing lab rings. Split 2026-09-21; they shared one pair of columns while invoices read a third copy from `company.config.ts` |
 | The exact greige a style uses | `style_fabrics.selectedGreigeId` (**0/350 — written only by the legacy `select-greige` endpoint**) | `fabric_width_cad.greigeId` (**137/188 — what CAD Planning's Greige/Fabric column actually writes**) |
 | Which style a CAD row belongs to | `fabric_width_cad.costingStyleId` (legacy writer) | `fabric_width_cad.styleFabricId` (modern writer) — hence the 3-path `OR` in `cutting.controller.ts` |
 | "The result of processing" | `finishedFabricId` / `processedFabricId` / `createdFabricId` / `resultFabricStockId` — four names, one meaning | |
@@ -133,6 +134,52 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 finished fabric does not exist yet; sourcing lives in `greigeId` + the CAD row. Lace documents its pair
 (`greigeLaceId` = SENT, `finishedLaceId` = BACK); fabric mostly does not — which is how a GRN guard
 came to check the wrong column (2026-09-15, T0-A).
+
+## Company identity lives in ONE place (`company_profile`)
+
+Who we are on a document — name, GSTIN, PAN, Udyam/MSME, address, bank, logo, signature, tagline,
+invoice terms — is a **database record**, edited at **Settings → Company Profile**
+(`/settings/company`). It was spread across five sources until 2026-09-21 (`a7a47a6c`), with the
+Udyam number existing ONLY in code.
+
+**Read it through `companyProfileService`** (`backend/src/services/company-profile.service.ts`):
+`getDefault()` (async), `getCompanySync()` (for synchronous PDFKit render helpers),
+`getCompanySyncOrNull()` (cosmetic callers only). On the frontend, `useCompanyProfile()`.
+
+**Rules:**
+1. **Never `prisma.company_profile.findFirst({ where: { isActive: true } })`.** That was the old
+   singleton rule and picks an arbitrary row now that several entities can exist.
+2. **MULTI-ENTITY, one default.** Exactly one row has `isDefault`, and that row supplies the
+   letterhead, GSTIN and state code everywhere — including the CGST/SGST-vs-IGST decision in
+   `gst.service.ts`. There is deliberately NO per-transaction entity selection and no `companyId`
+   FK on transaction tables. The invariant is held by the partial unique index
+   `company_profile_single_default` (raw SQL in migration `20260921112453` — Prisma cannot express
+   it, **do not drop it**) plus a demote-then-promote transaction in `setDefault`.
+3. **Identity fields NEVER fall back to `COMPANY_CONFIG`** — only cosmetic ones (tagline, brand
+   colours) do. `getCompanySync()` THROWS `CompanyProfileNotLoadedError` when cold rather than
+   guessing: printing a superseded GSTIN on a tax invoice is worse than failing to print one.
+4. **`backend/src/config/company.config.ts` is a BOOT FALLBACK ONLY.** Do not import
+   `COMPANY_CONFIG` in new code. Its `DEFAULT_HSN_CODES`, `DOCUMENT_PREFIXES`, `INVOICE_TERMS` and
+   `amountToWords()` are NOT company identity and are unaffected. The frontend copy is
+   `FALLBACK_COMPANY`, used only as React Query `placeholderData` (never `initialData`, which
+   marks the cache fresh and suppresses the real fetch).
+5. **`COMPANY_STATE_ID` is retired.** "Our state" comes from the default entity; route every
+   interstate decision through `gstService.isInterstateByStateId()`.
+
+**Two traps this cost us, both worth knowing before touching auth or boot code:**
+
+- **`requirePermissionForWrites('admin')` does NOT gate admins here.** `role_permissions` grants
+  the `admin` key to EVERY role in this deployment, so that middleware let a MERCHANDISER rewrite
+  the company GSTIN (`f8e702de`). For anything that must truly be admin-only, use `requireAdmin()`
+  — the hardcoded floor the Permissions page cannot lower. **Check the `role_permissions` table,
+  not `permissions.config.ts`, before assuming a key gates anything.**
+- **"Swallow at boot plus throw at use".** `ensureSeededAndWarm()` deliberately swallows (so a bad
+  row cannot take the API down on the shared PM2 daemon) while the accessors throw. Any caller that
+  writes a row BEFORE resolving the company then 500s with an orphan record — which is what
+  `job-work-order.controller.ts` create did. Degrade to a warning, don't rethrow, once a row exists.
+
+Invariant check: `company-perms.test.ts` (reads open, writes admin-only) and the
+`company_profile` block in `persistence-smoke.test.ts` (round-trip + single-default guards).
 
 ## Stage prerequisites live in ONE place
 

@@ -642,7 +642,7 @@ Top must-read findings: **BH-0030** (challan-issue sync ignores warehouse — de
 - **BH-0050 — Every embroidery movement syncs unscoped** ([embroidery-stock.service.ts:143](../../backend/src/services/embroidery-stock.service.ts#L143), :304, :517): sending 50m from Warehouse A also decrements Warehouse B's stock_levels.
 
 ### BH-0070 [S1][CONFIRMED] 💰 The amount-in-words on every invoice contradicts the printed total
-- **File:** [company.config.ts:121](../../backend/src/config/company.config.ts#L121) · **Class:** money-math · **Found/verified:** iter 15
+- **File:** [company.config.ts:107](../../backend/src/config/company.config.ts#L107) (`amountToWords`) · **Class:** money-math · **Found/verified:** iter 15
 - **Scenario:** the Grand Total prints with paise (`₹1,050.50`), and directly beneath it `amountToWords()` prints "Rupees One Thousand Fifty One Only" — because the function does `Math.round(amount)` and has no paise vocabulary at all. There is **no Round-Off line** anywhere on the document to reconcile the gap. This isn't an edge case: invoice totals are stored unrounded and GST rates (2.5/6/9%) put paise on nearly every invoice. In India the words are the legally controlling figure on a tax invoice. Affects the invoice PDF, the Excel export, and the proforma.
 - **Fix direction (NOT applied):** add paise handling to `amountToWords` ("…and Fifty Paise Only"), or add a Round-Off line and print the rounded figure in both places.
 
@@ -697,7 +697,7 @@ Top must-read findings: **BH-0030** (challan-issue sync ignores warehouse — de
 - **Fix direction (NOT applied):** make the update conditional (`where: { id, status: 'PENDING_QC' }`) and disable the button while the request is in flight.
 
 ### BH-0114 [S1][CONFIRMED] Cost-sheet PO generation is completely broken — every attempt fails
-- **File:** [costSheetPOGeneration.schema.ts:17](../../backend/src/schemas/costSheetPOGeneration.schema.ts#L17) · **Class:** zod-drift · **Found/verified:** iter 22
+- **File:** `backend/src/schemas/costSheetPOGeneration.schema.ts:17` — **module deleted since** as dead code (`ae50aa21`), so the link is intentionally plain text · **Class:** zod-drift · **Found/verified:** iter 22
 - **Scenario:** the validation schema declares item fields (`styleFabricId`, `greigeId`, `quantity`, `rate`) that have **zero overlap** with what the page actually sends (`materialId`, `orderQty`, `unit`, `unitPrice`, `allowancePercent`) — and with what the service itself expects. Zod strips unknown keys, so **every item arrives as an empty object**. The "price must be positive" guard doesn't catch it (`undefined <= 0` is false), the total becomes `NaN`, and Prisma then rejects the missing required columns. Net result: the Cost-Sheet PO Generation page **fails on every invocation and has presumably never worked**. Nothing is corrupted — it just always errors. This is the project's own documented "Zod schema-controller drift" pitfall, at full scale.
 - **Fix direction (NOT applied):** rewrite `costSheetPOItemSchema` to match the real payload (there are currently two different TypeScript types with the same name, which is how this hid).
 
@@ -850,7 +850,7 @@ Top must-read findings: **BH-0030** (challan-issue sync ignores warehouse — de
 - **BH-0125** ([processor-rate-validation.service.ts:107](../../backend/src/services/processor-rate-validation.service.ts#L107)): `slabId: slabId || undefined` **drops the filter** rather than matching NULL (Prisma omits undefined keys), so the rate-drift guard compares your cost sheet against a **different quantity tier's** rate — which can mask a genuine rate rise and let a stale price through to a job-work PO.
 
 ### BH-0115 [S2][CONFIRMED] Both PO paths can buy the same material — the anti-duplicate table exists but nothing uses it
-- **File:** [costSheetPOGeneration.service.ts:99](../../backend/src/services/costSheetPOGeneration.service.ts#L99) · **Found/verified:** iter 22
+- **File:** `backend/src/services/costSheetPOGeneration.service.ts:99` — **module deleted since** as dead code (`ae50aa21`), so the link is intentionally plain text · **Found/verified:** iter 22
 - **Scenario:** `po_source_links` exists in the schema *precisely* to unify PO provenance across the cost-sheet and MRP sources — and **neither mainline path writes it**. MRP uses an older separate table; the cost-sheet path references it zero times. There's even a working duplicate-detector (`checkForDuplicatePOs`, blocks unless explicitly overridden) in `unified-po-creation.service.ts` — which **neither flow calls**. So a merchandiser raising a fabric PO from the cost sheet and procurement running MRP for the same order both buy the same fabric, with no warning.
 
 ### BH-0116 · BH-0117 · BH-0118 · BH-0119 · BH-0120 [S2][CONFIRMED] (iter 22) Cost-sheet PO math and lifecycle

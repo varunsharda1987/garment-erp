@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateControlCenter } from '@/lib/control-center-keys';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +30,7 @@ export default function ChallanDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [challan, setChallan] = useState<Challan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -117,6 +120,8 @@ export default function ChallanDetail() {
       });
       toast({ title: 'Success', description: 'Challan received' });
       setReceiveOpen(false);
+      // Closing a challan clears it from the Control Center's overdue list.
+      invalidateControlCenter(queryClient);
       loadChallan();
     } catch (error) {
       handleApiError(error);

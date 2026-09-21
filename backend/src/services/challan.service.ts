@@ -64,6 +64,19 @@ export interface CreateChallanInput {
   unit?: string;
   remarks?: string;
   issuedById: string;
+  /**
+   * Status to file the challan at. Defaults to DRAFT (a document being prepared).
+   *
+   * Pass RECEIVED when the goods are already physically in hand at creation time — a job-work
+   * return books stock in the same transaction, so its INWARD challan documenting that arrival was
+   * never a draft. Until 2026-09-21 every auto-created challan was left DRAFT forever, which is why
+   * the Control Center's "Materials with External Vendors" and "Overdue Challans" could not be
+   * trusted. `tx.challans.create` at :1265 already did this by hand for the INTERNAL return challan.
+   */
+  status?: ChallanStatus;
+  /** Only meaningful with `status: 'RECEIVED'` / `'PARTIALLY_RECEIVED'`. */
+  receivedDate?: Date;
+  receivedById?: string;
   items: CreateChallanItemInput[];
 }
 
@@ -144,8 +157,17 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
         driverName: input.driverName,
         driverPhone: input.driverPhone,
         lrNumber: input.lrNumber,
-        status: 'DRAFT',
+        status: input.status ?? 'DRAFT',
         expectedDate: input.expectedDate,
+        // Goods already in hand at filing time carry their arrival facts immediately, so the row is
+        // never a half-written receipt that a later reader has to guess about.
+        ...(input.status === 'RECEIVED' || input.status === 'PARTIALLY_RECEIVED'
+          ? {
+              receivedDate: input.receivedDate ?? new Date(),
+              receivedById: input.receivedById ?? input.issuedById,
+              receivedQuantity: totalQuantity,
+            }
+          : {}),
         totalItems: input.items.length,
         totalQuantity,
         unit: input.unit || Unit.PIECE,
@@ -1173,6 +1195,9 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
         toId: processing.processorId,
         toName: processing.processor.name,
         status: 'DRAFT',
+        // When the processor owes it back. Omitted until 2026-09-21, and since Prisma's
+        // `{ lt: today }` skips NULLs, every auto-created challan was invisible to the overdue alert.
+        expectedDate: processing.expectedReturnDate ?? undefined,
         totalItems: itemsToCreate.length,
         totalQuantity,
         unit: Unit.METER,

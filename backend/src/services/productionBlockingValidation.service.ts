@@ -56,6 +56,45 @@ interface CreationValidationResult {
 type BomFabricLine = { fabricId: string | null; greigeId: string | null };
 type RunIdentity = { styleId: string; orderId: string | null };
 
+type SampleReq = { sampleType: string; isRequired: boolean; blocksProduction: boolean };
+type CustomerGates = {
+  fitBlocks: boolean;
+  sizeSetBlocks: boolean;
+  fptBlocksProduction: boolean;
+  gptBlocksShipment: boolean;
+};
+
+/**
+ * Which gates this customer actually enforces.
+ *
+ * Shared by the work-order orchestrator and the order-level one so the rule is written once. The
+ * `isRequired && blocksProduction` part is the subtle half: the customer screen keeps a hidden
+ * `blocksProduction` on un-ticked sample types, so honouring `blocksProduction` alone would block
+ * production for a customer who had explicitly opted out of FIT / size-set samples. No row at all
+ * keeps the backward-compatible default of blocking.
+ */
+function resolveCustomerGates(
+  customer:
+    | {
+        fptBlocksProduction?: boolean | null;
+        gptBlocksShipment?: boolean | null;
+        customer_sample_requirements?: SampleReq[] | null;
+      }
+    | null
+    | undefined
+): CustomerGates {
+  const sampleRequirements: SampleReq[] = customer?.customer_sample_requirements || [];
+  const blocks = (req: SampleReq | undefined) => (req ? req.isRequired && req.blocksProduction : true);
+
+  return {
+    fitBlocks: blocks(sampleRequirements.find((r) => r.sampleType === 'FIT_SAMPLE')),
+    sizeSetBlocks: blocks(sampleRequirements.find((r) => r.sampleType === 'SIZE_SET_SAMPLE')),
+    fptBlocksProduction: customer?.fptBlocksProduction ?? false,
+    // Default to true for safety
+    gptBlocksShipment: customer?.gptBlocksShipment ?? true,
+  };
+}
+
 /**
  * How much AVAILABLE finished fabric answers one Order BOM fabric/greige line.
  *
@@ -399,18 +438,6 @@ class ProductionBlockingValidationService {
     workOrderId: string,
     targetStage: ProductionStage
   ): Promise<ValidationResult> {
-    // Determine which material types to validate at this stage
-    let materialTypesToCheck: string[];
-    if (targetStage === 'IN_CUTTING') {
-      materialTypesToCheck = FABRIC_MATERIAL_TYPES;
-    } else if (['IN_STITCHING', 'IN_EMBROIDERY', 'IN_HANDWORK'].includes(targetStage as string)) {
-      materialTypesToCheck = TRIM_MATERIAL_TYPES;
-    } else if (targetStage === 'IN_FINISHING') {
-      materialTypesToCheck = FINISHING_MATERIAL_TYPES;
-    } else {
-      return { isBlocked: false, blockers: [] };
-    }
-
     // Get work order's orderId and styleId to find Order BOM
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
@@ -426,16 +453,54 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Skip BOM validation for stock production (MTS) work orders without an order
+    // Skip BOM validation for stock production (MTS) work orders without an order.
+    // "MTS run" is a work-order concept, so the guard stays in this wrapper.
     if (!workOrder.orderId) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    return this.validateMaterialAvailabilityForRun(
+      { styleId: workOrder.styleId, orderId: workOrder.orderId },
+      targetStage
+    );
+  }
+
+  /**
+   * The body of the materials check, keyed on the RUN (style + order) rather than a work order.
+   *
+   * Split out on 2026-09-21 so the Manufacturing Control Center can answer "why can't this order
+   * start?" before any work order exists — which is the state every open order is in today.
+   *
+   * This must never be reimplemented order-side. `availableFabricForBomLine` is the CUT-5 fix: a BOM
+   * line's `fabricId` is NULL by design at BOM time, so availability is answered by greige LINEAGE.
+   * A re-derivation that keyed on the column would report "Available: 0.00" against 1,704 m of dyed
+   * fabric physically in stock, which is exactly the bug that fix removed.
+   */
+  private async validateMaterialAvailabilityForRun(
+    run: RunIdentity,
+    targetStage: ProductionStage
+  ): Promise<ValidationResult> {
+    // Determine which material types to validate at this stage
+    let materialTypesToCheck: string[];
+    if (targetStage === 'IN_CUTTING') {
+      materialTypesToCheck = FABRIC_MATERIAL_TYPES;
+    } else if (['IN_STITCHING', 'IN_EMBROIDERY', 'IN_HANDWORK'].includes(targetStage as string)) {
+      materialTypesToCheck = TRIM_MATERIAL_TYPES;
+    } else if (targetStage === 'IN_FINISHING') {
+      materialTypesToCheck = FINISHING_MATERIAL_TYPES;
+    } else {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    if (!run.orderId) {
       return { isBlocked: false, blockers: [] };
     }
 
     // Find the active approved/locked Order BOM
     const orderBom = await prisma.order_bom.findFirst({
       where: {
-        orderId: workOrder.orderId!,
-        styleId: workOrder.styleId,
+        orderId: run.orderId,
+        styleId: run.styleId,
         isActive: true,
         status: { in: ['APPROVED', 'LOCKED'] },
       },
@@ -482,7 +547,7 @@ class ProductionBlockingValidationService {
 
       let availableStock = 0;
       if (isFabricType) {
-        availableStock = await availableFabricForBomLine(bom, workOrder);
+        availableStock = await availableFabricForBomLine(bom, run);
       } else {
         if (!bom.materialId) continue;
         // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
@@ -608,23 +673,9 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Extract customer settings (default to false if not found)
-    const customer = workOrder.order_items?.orders?.customers;
-    const fptBlocksProduction = customer?.fptBlocksProduction ?? false;
-    const gptBlocksShipment = customer?.gptBlocksShipment ?? true; // Default to true for safety
-
-    // Extract sample requirements from customer (default to blocking if no requirements defined)
-    type SampleReq = { sampleType: string; isRequired: boolean; blocksProduction: boolean };
-    const sampleRequirements: SampleReq[] = customer?.customer_sample_requirements || [];
-    const fitReq = sampleRequirements.find((r: SampleReq) => r.sampleType === 'FIT_SAMPLE');
-    const sizeSetReq = sampleRequirements.find((r: SampleReq) => r.sampleType === 'SIZE_SET_SAMPLE');
-    // A configured type blocks only when it is required AND set to block — the screen keeps a
-    // hidden blocksProduction on un-ticked types, so isRequired must be honoured here or a
-    // customer opting out of FIT/size-set samples would still be blocked. No row at all keeps
-    // the backward-compatible default (blocking on).
-    const blocks = (req: SampleReq | undefined) => (req ? req.isRequired && req.blocksProduction : true);
-    const fitBlocks = blocks(fitReq);
-    const sizeSetBlocks = blocks(sizeSetReq);
+    const { fitBlocks, sizeSetBlocks, fptBlocksProduction, gptBlocksShipment } = resolveCustomerGates(
+      workOrder.order_items?.orders?.customers
+    );
 
     // Run all validations in parallel
     const [fitResult, sizeSetResult, fptResult, gptResult, materialResult, cadResult] = await Promise.all([
@@ -649,6 +700,77 @@ class ProductionBlockingValidationService {
     return {
       isBlocked: allBlockers.length > 0,
       blockers: allBlockers,
+    };
+  }
+
+  /**
+   * What stands between an ORDER ITEM and a stage, before any work order exists.
+   *
+   * `validateStageTransition` keys on a work order, so it cannot answer for an order that has not
+   * reached one — which on 2026-09-21 was every open order in the system (8 of them, all blocked
+   * for cutting). The Manufacturing Control Center needs exactly that answer, so this composes the
+   * same validators at order grain rather than letting the dashboard re-derive prerequisites.
+   * CLAUDE.md: stage prerequisites live in ONE place, and this is it.
+   *
+   * GPT is the one gate that cannot be evaluated here: a garment test is per production run, so
+   * `validateGPTForStage` keys on a work order and there is nothing to test before cutting starts.
+   * That is returned as `gptEvaluated: false` rather than silently omitted, so a caller can say
+   * "garment test is checked once cutting starts" instead of implying a pass.
+   */
+  async validateOrderItemForStage(
+    orderItemId: string,
+    targetStage: ProductionStage
+  ): Promise<ValidationResult & { gptEvaluated: boolean }> {
+    const orderItem = await prisma.order_items.findUnique({
+      where: { id: orderItemId },
+      select: {
+        id: true,
+        styleId: true,
+        orderId: true,
+        orders: {
+          select: {
+            customers: {
+              select: {
+                fptBlocksProduction: true,
+                gptBlocksShipment: true,
+                customer_sample_requirements: {
+                  select: { sampleType: true, isRequired: true, blocksProduction: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // No style — nothing to validate against, same stance as validateStageTransition.
+    if (!orderItem?.styleId) {
+      return { isBlocked: false, blockers: [], gptEvaluated: false };
+    }
+
+    const { fitBlocks, sizeSetBlocks, fptBlocksProduction } = resolveCustomerGates(orderItem.orders?.customers);
+    const run: RunIdentity = { styleId: orderItem.styleId, orderId: orderItem.orderId };
+
+    const [fitResult, sizeSetResult, fptResult, materialResult, cadResult] = await Promise.all([
+      this.validateFitSampleForStage(orderItem.styleId, targetStage, fitBlocks),
+      this.validateSizeSetSampleForStage(orderItem.styleId, targetStage, sizeSetBlocks),
+      this.validateFPTForStage(orderItem.styleId, targetStage, fptBlocksProduction),
+      this.validateMaterialAvailabilityForRun(run, targetStage),
+      this.validateProductionCADForStage(orderItem.styleId, targetStage),
+    ]);
+
+    const allBlockers: BlockerInfo[] = [
+      ...fitResult.blockers,
+      ...sizeSetResult.blockers,
+      ...fptResult.blockers,
+      ...materialResult.blockers,
+      ...cadResult.blockers,
+    ];
+
+    return {
+      isBlocked: allBlockers.length > 0,
+      blockers: allBlockers,
+      gptEvaluated: false,
     };
   }
 

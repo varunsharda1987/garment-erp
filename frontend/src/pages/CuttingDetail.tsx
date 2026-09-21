@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateControlCenter } from '@/lib/control-center-keys';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +52,7 @@ import { format } from 'date-fns';
 export default function CuttingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [batch, setBatch] = useState<CuttingBatch | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -185,6 +188,8 @@ export default function CuttingDetail() {
       await cuttingBatchService.complete(id!, { fabricReturns });
       handleApiSuccess('Batch Completed', 'Cutting batch completed. Fabric returns processed.');
       setShowCompleteDialog(false);
+      // Completing a batch clears it from the Control Center's stuck-cutting alert.
+      invalidateControlCenter(queryClient);
       fetchBatch();
     } catch (err) {
       handleApiError(err, 'Failed to complete batch');

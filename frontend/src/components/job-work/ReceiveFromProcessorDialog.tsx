@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2, PackageCheck } from 'lucide-react';
+import { invalidateControlCenter } from '@/lib/control-center-keys';
 import {
   Dialog,
   DialogContent,
@@ -232,6 +233,9 @@ export default function ReceiveFromProcessorDialog({
       queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['process-pos'] });
       queryClient.invalidateQueries({ queryKey: ['grns'] });
+      // Receiving closes the outward challan and puts fabric in stock, so both halves of the
+      // Control Center change: the vendor/challan alerts and any material-shortage blocker.
+      invalidateControlCenter(queryClient);
       onOpenChange(false);
       onSuccess?.();
     },

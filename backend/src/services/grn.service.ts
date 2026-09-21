@@ -32,6 +32,7 @@ import {
   JWO_AT_PROCESSOR_STATUSES,
   JWO_GRN_UOMS,
 } from './helpers/jwo-status.helper';
+import { closeOutwardChallanForJwo, resyncOutwardChallanAfterReversal } from './helpers/jwo-challan-lifecycle.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
 import { jobWorkOrderService } from './job-work-order.service';
@@ -350,6 +351,11 @@ class GRNService {
               issuedById: userId,
               unit: Unit.METER,
               remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
+              // Goods in hand — this transaction books the lot. See the PO-less branch for why
+              // filing arrival documents as DRAFT broke the Control Center's vendor signals.
+              status: 'RECEIVED',
+              receivedDate: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
+              receivedById: userId,
               items: [
                 {
                   itemType: 'FABRIC',
@@ -393,6 +399,28 @@ class GRNService {
           );
           if (jobUpdate.count === 0) {
             throw new Error('This processing PO has already been received via the Printing/Dyeing module');
+          }
+
+          // Close the OUTWARD challan the greige went out on. This PO-backed path is a whole
+          // receive (no parts), so isFinal is always true here. After setJwoStatusMany, so the
+          // "every job on this challan settled?" check sees RECEIVED.
+          try {
+            const outwardStatus = await closeOutwardChallanForJwo(tx, processingJob.id, {
+              isFinal: true,
+              receivedById: userId,
+              receivedAt: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
+            });
+            if (outwardStatus) {
+              logInfo('[GRN] Outward challan advanced on PO-backed processing receipt', {
+                jobWorkOrderId: processingJob.id,
+                status: outwardStatus,
+              });
+            }
+          } catch (challanError) {
+            logWarn('[GRN] Could not advance outward challan on PO-backed processing receipt', {
+              jobWorkOrderId: processingJob.id,
+              error: challanError instanceof Error ? challanError.message : challanError,
+            });
           }
 
           // Loss split (expected-output basis). GRN receives previously skipped this
@@ -3147,6 +3175,12 @@ class GRNService {
         issuedById: userId,
         unit: Unit.METER,
         remarks: grn.remarks || undefined,
+        // The goods are in hand — this very transaction books the stock lot. Filing the arrival
+        // document as DRAFT (as this did until 2026-09-21) left every completed return looking like
+        // an unfinished one, which is what broke the Control Center's vendor and challan signals.
+        status: 'RECEIVED',
+        receivedDate: receivedAt,
+        receivedById: userId,
         items: [
           {
             itemType: 'FABRIC',
@@ -3209,6 +3243,29 @@ class GRNService {
     } else {
       // More to come: no receivedDate, no shrinkage, no loss split — the job stays receivable.
       await setJwoStatus(tx, jobWorkOrder.id, 'PARTIALLY_RECEIVED', receiptFields);
+    }
+
+    // Close (or part-close) the OUTWARD challan the goods went out on. Runs AFTER setJwoStatus so
+    // the job's cumulative qtyReceivedMeters is already written — the helper reconciles the challan
+    // against it. Best-effort by design: a stale challan status is a reporting defect, and failing a
+    // stock-booking receipt over one would be the worse outcome.
+    try {
+      const outwardStatus = await closeOutwardChallanForJwo(tx, jobWorkOrder.id, {
+        isFinal: !!opts.isFinal,
+        receivedById: userId,
+        receivedAt,
+      });
+      if (outwardStatus) {
+        logInfo('[GRN] Outward challan advanced on job-work receipt', {
+          jobWorkOrderId: jobWorkOrder.id,
+          status: outwardStatus,
+        });
+      }
+    } catch (challanError) {
+      logWarn('[GRN] Could not advance outward challan on job-work receipt', {
+        jobWorkOrderId: jobWorkOrder.id,
+        error: challanError instanceof Error ? challanError.message : challanError,
+      });
     }
 
     // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links
@@ -3363,6 +3420,27 @@ class GRNService {
       }
     } else {
       await setJwoStatus(tx, jobWorkOrder.id, 'PARTIALLY_RECEIVED', receiptFields);
+    }
+
+    // Same outward-challan close as the fabric branch. The lace path files no INWARD challan, but
+    // the goods still went out on an OUTWARD one and it must stop reading as "at the dyer".
+    try {
+      const outwardStatus = await closeOutwardChallanForJwo(tx, jobWorkOrder.id, {
+        isFinal: !!receipt.isFinal,
+        receivedById: userId,
+        receivedAt,
+      });
+      if (outwardStatus) {
+        logInfo('[GRN] Outward challan advanced on lace job-work receipt', {
+          jobWorkOrderId: jobWorkOrder.id,
+          status: outwardStatus,
+        });
+      }
+    } catch (challanError) {
+      logWarn('[GRN] Could not advance outward challan on lace job-work receipt', {
+        jobWorkOrderId: jobWorkOrder.id,
+        error: challanError instanceof Error ? challanError.message : challanError,
+      });
     }
 
     await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
@@ -4099,6 +4177,26 @@ class GRNService {
         jobId: jobWorkOrder.id,
         total,
         stillFinal,
+      });
+    }
+
+    // Mirror the receive side: put the OUTWARD challan back to what the surviving receipts say.
+    // Runs after the job's status has been recomputed above, for the same reason the close does.
+    try {
+      const outwardStatus = await resyncOutwardChallanAfterReversal(tx, jobWorkOrder.id, {
+        remainingReceipts: remaining.length,
+        stillFinal: remaining.length > 0 && !!jobWorkOrder.receivedDate && jobWorkOrder.grnId !== grn.id,
+      });
+      if (outwardStatus) {
+        logInfo('[GRN] Outward challan reopened after reversal', {
+          jobWorkOrderId: jobWorkOrder.id,
+          status: outwardStatus,
+        });
+      }
+    } catch (challanError) {
+      logWarn('[GRN] Could not resync outward challan after reversal', {
+        jobWorkOrderId: jobWorkOrder.id,
+        error: challanError instanceof Error ? challanError.message : challanError,
       });
     }
 

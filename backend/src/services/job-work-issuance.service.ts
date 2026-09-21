@@ -429,6 +429,16 @@ export async function validateIssue(
 }
 
 /**
+ * The soonest date any job on a shared challan is due back, or undefined when none of them says.
+ * A consolidated challan is late the moment its first job is late.
+ */
+function earliestExpectedReturn(dates: (Date | null | undefined)[]): Date | undefined {
+  const known = dates.filter((d): d is Date => d != null);
+  if (known.length === 0) return undefined;
+  return known.reduce((earliest, d) => (d < earliest ? d : earliest));
+}
+
+/**
  * The Rule 55 challan lines for ONE order's material. Split out so a consolidated dispatch can
  * concatenate several orders' lines onto a single challan — each line still names its own order
  * via `jobWorkOrderId`, which is what keeps reconciliation (it sums challan_items BY order)
@@ -841,6 +851,9 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
             issuedById: opts.userId,
             unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
             remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
+            // When the goods are due back. Left NULL until 2026-09-21, which made the Control
+            // Center's overdue-challan alert unfireable — Prisma's `{ lt: today }` skips NULLs.
+            expectedDate: jwo.expectedReturnDate ?? undefined,
             items: buildOutwardChallanItems(challanV),
           },
           tx
@@ -1056,6 +1069,10 @@ export async function dispatchJobWorkOrders(input: DispatchInput): Promise<Dispa
           remarks:
             `Consolidated dispatch — ${v.validations.length} job work orders` +
             (input.challanNumber ? `. Manual challan ref: ${input.challanNumber}` : ''),
+          // One challan, several jobs: the EARLIEST due date governs. The challan becomes overdue
+          // as soon as the first job on it is late — anything later would let a slipping job hide
+          // behind a patient one on the same truck.
+          expectedDate: earliestExpectedReturn(v.validations.map((one) => one.jwo.expectedReturnDate)),
           items: v.validations.flatMap((one) => buildOutwardChallanItems(one)),
         },
         tx
@@ -1324,6 +1341,8 @@ export async function issueJobWorkOrderWithDetails(
           issuedById: opts.userId,
           unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
           remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
+          // See the with-details path: a NULL expectedDate is invisible to the overdue alert.
+          expectedDate: jwo.expectedReturnDate ?? undefined,
           items: buildOutwardChallanItems(v),
         },
         tx

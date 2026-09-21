@@ -1,0 +1,39 @@
+[
+  {
+    "id": "dabfe6eb-dfc7-4e9f-b85f-96cc6f8569b9",
+    "challanNumber": "CH2609-0143",
+    "was": {
+      "status": "DRAFT"
+    }
+  },
+  {
+    "id": "b20a1a46-7dec-4983-b469-fd4474b1dc8e",
+    "challanNumber": "CH2609-0145",
+    "was": {
+      "status": "DRAFT"
+    }
+  },
+  {
+    "id": "86b1424b-8707-4a9b-95b8-addf79011520",
+    "challanNumber": "CH2609-0108",
+    "was": {
+      "status": "DRAFT"
+    }
+  },
+  {
+    "id": "93ae72fb-ac35-466e-9a46-506bb78a8d2a",
+    "challanNumber": "CH2609-0144",
+    "was": {
+      "status": "ISSUED",
+      "expectedDate": null
+    }
+  },
+  {
+    "id": "d2f81942-5cc9-41be-abae-61d121ddb3be",
+    "challanNumber": "CH2609-0056",
+    "was": {
+      "status": "ISSUED",
+      "expectedDate": null
+    }
+  }
+]

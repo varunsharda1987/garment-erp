@@ -279,6 +279,42 @@ export const SYSTEM_DEFAULTS = {
     max: 100,
     unit: '%',
   },
+  OVERDUE_NO_DUE_DATE_GRACE_DAYS: {
+    value: '7',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    group: 'Receiving',
+    label: 'Overdue grace when no return date is set',
+    description:
+      'How long material may sit with a vendor with no expected return date before it is reported overdue. ' +
+      'Without this, anything sent without a due date could never become overdue at all. ' +
+      'Changes can take up to 5 minutes to show on the Control Center.',
+    min: 1,
+    max: 365,
+    unit: 'days',
+  },
+  STUCK_PROCESS_THRESHOLD_DAYS: {
+    value: '7',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    group: 'Receiving',
+    label: 'Stuck-in-progress threshold',
+    description: 'A batch with no progress for this long is reported as stuck on the Control Center.',
+    min: 1,
+    max: 365,
+    unit: 'days',
+  },
+  VARIANCE_LOOKBACK_DAYS: {
+    value: '90',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    group: 'Receiving',
+    label: 'Variance watchtower lookback',
+    description: 'How far back the Control Center looks for receipts when hunting for variances.',
+    min: 1,
+    max: 730,
+    unit: 'days',
+  },
 
   // ──────────────────────────────────────────────────────────────────────────
   // Processing rates

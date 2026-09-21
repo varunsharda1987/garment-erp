@@ -66,13 +66,23 @@ function checkBrokenLinks(file) {
     const linkText = match[1];
     const linkPath = match[2];
 
-    // Skip external links and anchors
+    // Skip external links and same-page anchors
     if (linkPath.startsWith('http') || linkPath.startsWith('#')) {
       continue;
     }
 
+    // Strip the #anchor before resolving: this repo's findings link to a line
+    // (`../../backend/src/services/x.service.ts#L42`), and without this every one of those
+    // was reported "File not found" — a wall of false positives that trains people to ignore
+    // the whole check, including the one link that is genuinely broken.
+    // Matches the resolution smart-check.js already uses (see its link check).
+    const filePathOnly = linkPath.split('#')[0];
+    if (!filePathOnly) {
+      continue;
+    }
+
     // Check if file exists
-    const fullPath = path.join(path.dirname(file), linkPath);
+    const fullPath = path.join(path.dirname(file), filePathOnly);
     if (!fs.existsSync(fullPath)) {
       brokenLinks.push({
         text: linkText,

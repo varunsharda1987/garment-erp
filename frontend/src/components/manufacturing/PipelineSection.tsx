@@ -56,7 +56,11 @@ function DeliveryCell({ order }: { order: PipelineOrder }) {
       </div>
       {order.daysToDelivery != null && (
         <div className={`text-xs ${late ? 'text-destructive' : 'text-muted-foreground'}`}>
-          {late ? `${Math.abs(order.daysToDelivery)} days late` : `in ${order.daysToDelivery} days`}
+          {late
+            ? `${Math.abs(order.daysToDelivery)} ${Math.abs(order.daysToDelivery) === 1 ? 'day' : 'days'} late`
+            : order.daysToDelivery === 0
+              ? 'due today'
+              : `in ${order.daysToDelivery} ${order.daysToDelivery === 1 ? 'day' : 'days'}`}
         </div>
       )}
     </div>

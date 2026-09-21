@@ -31,8 +31,15 @@ const pathNameMap: Record<string, string> = {
   edit: 'Edit',
 };
 
+/** A record id in the path — UUID or CUID, the two PK shapes this schema uses. */
+const ID_SEGMENT = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CUID_SEGMENT = /^c[a-z0-9]{20,}$/i;
+
 function segmentLabel(segment: string): string {
   if (pathNameMap[segment]) return pathNameMap[segment];
+  // Without this an id renders title-cased into the crumb, e.g.
+  // "D1c0d066 3df8 4917 Ac0b 8173b6637750".
+  if (ID_SEGMENT.test(segment) || CUID_SEGMENT.test(segment)) return 'Details';
   // "size-categories" → "Size Categories"
   return segment
     .split('-')

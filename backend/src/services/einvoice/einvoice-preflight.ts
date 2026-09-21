@@ -9,7 +9,7 @@
  */
 
 import prisma from '../../config/database';
-import { COMPANY_CONFIG } from '../../config/company.config';
+import { companyProfileService, type CompanySnapshot } from '../company-profile.service';
 import { einvoiceSettingsService } from '../einvoice-settings.service';
 import {
   buildInv01Payload,
@@ -120,22 +120,30 @@ export async function preflightInvoice(invoiceId: string): Promise<PreflightResu
   }
 
   // ── Seller ────────────────────────────────────────────────────────────────
-  const profile = await prisma.company_profile.findFirst({ where: { isActive: true } });
-  if (!profile) {
-    warnings.push('No active Company Profile row found — using built-in company config as seller details.');
+  // The DEFAULT entity, with NO per-field fallback to company.config.ts. An IRN is registered
+  // against a real GSTIN at the IRP; quietly substituting a compile-time constant for a missing
+  // column is how a document gets filed under the wrong firm. If the profile can't be resolved
+  // this is a hard problem, not a warning.
+  let profile: CompanySnapshot | null = null;
+  try {
+    profile = await companyProfileService.getDefault();
+  } catch {
+    problems.push(
+      'No default Company Profile is configured — set one under Settings → Company Profile before generating an IRN.'
+    );
   }
-  const sellerAddress = splitAddress(profile?.address ?? COMPANY_CONFIG.address);
+  const sellerAddress = splitAddress(profile?.address ?? '');
   const seller: ResolvedParty = {
-    gstin: (profile?.gstin ?? COMPANY_CONFIG.gstin).trim().toUpperCase(),
-    legalName: profile?.legalName ?? COMPANY_CONFIG.name,
-    tradeName: profile?.name ?? COMPANY_CONFIG.name,
+    gstin: (profile?.gstin ?? '').trim().toUpperCase(),
+    legalName: profile?.legalName ?? '',
+    tradeName: profile?.name ?? '',
     addr1: sellerAddress.addr1,
     addr2: sellerAddress.addr2,
-    location: profile?.city ?? COMPANY_CONFIG.city,
-    pincode: (profile?.pincode ?? COMPANY_CONFIG.pincode).trim(),
-    stateCode: (profile?.stateCode ?? COMPANY_CONFIG.stateCode).trim(),
-    phone: profile?.phone ?? COMPANY_CONFIG.phone,
-    email: profile?.email ?? COMPANY_CONFIG.email,
+    location: profile?.city ?? '',
+    pincode: (profile?.pincode ?? '').trim(),
+    stateCode: (profile?.stateCode ?? '').trim(),
+    phone: profile?.phone ?? undefined,
+    email: profile?.email ?? undefined,
   };
 
   if (!GSTIN_REGEX.test(seller.gstin)) {

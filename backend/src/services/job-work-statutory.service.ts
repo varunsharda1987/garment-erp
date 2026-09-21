@@ -11,6 +11,7 @@
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
 import { applyShrinkageLoss, toNumber } from '../utils/currency';
+import { companyProfileService } from './company-profile.service';
 
 // ============================================
 // Section 143 Ageing Report
@@ -247,14 +248,10 @@ class JobWorkStatutoryService {
    * Required for quarterly GST filing
    */
   async getITC04Extract(periodStart: Date, periodEnd: Date): Promise<ITC04Summary> {
-    // Get company profile
-    const company = await prisma.company_profile.findFirst({
-      where: { isActive: true },
-    });
-
-    if (!company) {
-      throw new Error('Company profile not configured');
-    }
+    // The DEFAULT entity — an ITC-04 return is filed under ONE GSTIN, so picking "any active
+    // row" would file a quarterly statutory return under an arbitrary entity once a second one
+    // exists. getDefault() throws a NotFoundError with the same meaning as the old guard.
+    const company = await companyProfileService.getDefault();
 
     // Table A: Goods sent to job worker (OUTWARD challans)
     const outwardChallans = await prisma.challans.findMany({

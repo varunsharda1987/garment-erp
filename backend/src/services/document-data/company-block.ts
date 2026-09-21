@@ -1,10 +1,16 @@
 /**
  * Company (consignor/seller) block for every kf-document masthead.
- * Source of truth: company_profile table (isActive row) with COMPANY_CONFIG
- * as the fallback — one function so the two sources can't drift silently.
+ *
+ * Source of truth: the DEFAULT company_profile row, resolved through companyProfileService
+ * so the cache, the multi-entity default rule and the "identity never falls back to config"
+ * merge rule all apply here too.
+ *
+ * Until 2026-09-21 this read the row directly and then overrode two of its fields with
+ * hardcoded values — `tagline` and, more seriously, `msme`, which meant the Udyam number on
+ * every invoice came from company.config.ts and could not be changed without a deploy.
+ * Both now come from the row.
  */
-import prisma from '../../config/database';
-import { COMPANY_CONFIG } from '../../config/company.config';
+import { companyProfileService } from '../company-profile.service';
 
 export interface CompanyBlock {
   name: string;
@@ -20,33 +26,18 @@ export interface CompanyBlock {
 }
 
 export async function buildCompanyBlock(): Promise<CompanyBlock> {
-  const profile = await prisma.company_profile.findFirst({ where: { isActive: true } });
-
-  if (profile) {
-    return {
-      name: profile.name,
-      tagline: 'Proprietorship · Contract & Private Label Manufacturing',
-      addressLine: `${profile.address}, ${profile.city} ${profile.pincode}`,
-      gstin: profile.gstin,
-      stateCode: profile.stateCode,
-      stateName: profile.stateName,
-      pan: profile.pan ?? COMPANY_CONFIG.panNumber ?? null,
-      msme: COMPANY_CONFIG.msmeNumber ?? null,
-      phone: profile.phone ?? COMPANY_CONFIG.phone ?? null,
-      email: profile.email ?? COMPANY_CONFIG.email ?? null,
-    };
-  }
+  const company = await companyProfileService.getDefault();
 
   return {
-    name: COMPANY_CONFIG.name,
-    tagline: 'Proprietorship · Contract & Private Label Manufacturing',
-    addressLine: `${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} ${COMPANY_CONFIG.pincode}`,
-    gstin: COMPANY_CONFIG.gstin,
-    stateCode: COMPANY_CONFIG.stateCode,
-    stateName: COMPANY_CONFIG.state,
-    pan: COMPANY_CONFIG.panNumber ?? null,
-    msme: COMPANY_CONFIG.msmeNumber ?? null,
-    phone: COMPANY_CONFIG.phone ?? null,
-    email: COMPANY_CONFIG.email ?? null,
+    name: company.name,
+    tagline: company.tagline,
+    addressLine: company.addressLine,
+    gstin: company.gstin,
+    stateCode: company.stateCode,
+    stateName: company.stateName,
+    pan: company.pan,
+    msme: company.msmeNumber,
+    phone: company.phone,
+    email: company.email,
   };
 }

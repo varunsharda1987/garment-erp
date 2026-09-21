@@ -1,10 +1,18 @@
 /**
- * Company Configuration
+ * Company Configuration — BOOT FALLBACK ONLY. Do not import COMPANY_CONFIG in new code.
  *
- * Static company details used for document generation (invoices, catalogues, etc.)
- * Bank details are fetched dynamically from bank_accounts table (primary account)
+ * The company_profile table is the source of truth for company identity as of 2026-09-21.
+ * Read it through `companyProfileService` (getDefault / getCompanySync), which applies the
+ * multi-entity default rule and the cache.
  *
- * To support multiple companies in future, migrate this to a database table
+ * COMPANY_CONFIG survives for exactly two purposes:
+ *   1. seeding row #1 on a fresh database (companyProfileService.ensureSeededAndWarm)
+ *   2. the cosmetic name/phone in a WhatsApp share link, which must not throw
+ * Identity fields (GSTIN, PAN, MSME, state, address) must NEVER be read from here at render
+ * time — that is how a superseded GSTIN reaches a printed tax invoice.
+ *
+ * The other exports below are NOT company identity and are unaffected:
+ *   DEFAULT_HSN_CODES, DOCUMENT_PREFIXES, INVOICE_TERMS, amountToWords()
  */
 
 export interface CompanyConfig {
@@ -35,7 +43,10 @@ export interface CompanyConfig {
 export const COMPANY_CONFIG: CompanyConfig = {
   name: 'KASHAYA FABS',
   tagline: 'Quality Garments',
-  address: 'H-1, 51, RIICO Industrial Area, Mansarovar',
+  // Canonical spelling, confirmed by the owner 2026-09-21. The two homes for this address had
+  // drifted: this file said "H-1, 51, RIICO Industrial Area" while the company_profile row said
+  // "H1-51, Riico Industrial Area", so PDFKit documents and Handlebars documents disagreed.
+  address: 'H1-51, Riico Industrial Area, Mansarovar',
   city: 'Jaipur',
   state: 'Rajasthan',
   stateCode: '08',

@@ -50,7 +50,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
-import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
+import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
@@ -117,6 +117,7 @@ interface GRNItem {
 }
 
 export default function PurchaseOrderDetail() {
+  const { company, companyFullAddress } = useCompanyProfile();
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -531,16 +532,16 @@ export default function PurchaseOrderDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-1">
-            <div className="font-semibold text-lg">{COMPANY_CONFIG.name}</div>
-            <div className="text-sm text-muted-foreground">{getCompanyFullAddress()}</div>
+            <div className="font-semibold text-lg">{company.name}</div>
+            <div className="text-sm text-muted-foreground">{companyFullAddress}</div>
             <div className="text-sm">
-              <span className="font-medium">GSTIN:</span> {COMPANY_CONFIG.gstin}
+              <span className="font-medium">GSTIN:</span> {company.gstin}
             </div>
             <div className="text-sm">
-              <span className="font-medium">Phone:</span> {COMPANY_CONFIG.phone}
+              <span className="font-medium">Phone:</span> {company.phone}
             </div>
             <div className="text-sm">
-              <span className="font-medium">Email:</span> {COMPANY_CONFIG.email}
+              <span className="font-medium">Email:</span> {company.email}
             </div>
           </CardContent>
         </Card>

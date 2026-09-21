@@ -47,7 +47,7 @@ import {
   POPreviewItem,
 } from '../types/mrp.types';
 import { materialService } from './material.service';
-import { COMPANY_CONFIG } from '../config/company.config';
+import { companyProfileService } from './company-profile.service';
 import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
 import { findRateCardsForShrinkage } from './processor-rate-v2.service';
@@ -3530,7 +3530,8 @@ export async function generatePOFromRequirements(
       })
     )?.stateCode ||
     null;
-  const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
+  const ourStateCode = (await companyProfileService.getDefault()).stateCode;
+  const isInterstate = supplierStateCode ? supplierStateCode !== ourStateCode : false;
 
   // Group by material if consolidating
   interface POItemData {
@@ -5470,7 +5471,8 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
     const supplierStateCode = supplierGst?.stateCode || fallbackGst?.stateCode || null;
     const supplierGstin = supplierGst?.gstNumber || fallbackGst?.gstNumber || null;
 
-    const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
+    const ourStateCode = (await companyProfileService.getDefault()).stateCode;
+    const isInterstate = supplierStateCode ? supplierStateCode !== ourStateCode : false;
 
     // MRP-05: exclude requirements that already carry an active PO link — generatePOFromRequirements
     // drops them, so a preview that included them promised line items the created PO never had.

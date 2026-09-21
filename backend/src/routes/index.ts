@@ -94,6 +94,7 @@ import colorRoutes from './color.routes';
 import seasonRoutes from './season.routes';
 import lookupRoutes from './lookup.routes';
 import systemSettingsRoutes from './system-settings.routes';
+import companyProfileRoutes from './companyProfile.routes';
 import tallyRoutes from './tally.routes';
 import einvoiceRoutes from './einvoice.routes';
 import trimDashboardRoutes from './trim-dashboard.routes';
@@ -353,6 +354,9 @@ export function createApiRouter(): Router {
 
   // System Settings (Configurable Defaults)
   router.use('/system-settings', systemSettingsRoutes);
+
+  // Company Profile (the entities we invoice as — source of truth for every letterhead)
+  router.use('/company-profiles', companyProfileRoutes);
 
   // Tally ERP Integration
   router.use('/tally', tallyRoutes);

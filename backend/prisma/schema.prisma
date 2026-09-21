@@ -24,27 +24,48 @@ model audit_logs {
   @@index([userId])
 }
 
-/// Company Profile - Singleton table for company identity
-/// Used for GST invoices, challans, and statutory reports
-/// Rule: Only ONE active row should exist at any time
+/// Company Profile - the legal entities we invoice as.
+/// MULTI-ENTITY: several rows may exist, one per GSTIN / firm.
+/// Rule: EXACTLY ONE row has `isDefault = true`, and that row is the source of truth for
+/// every document masthead, every letterhead and every CGST/SGST-vs-IGST decision.
+/// There is NO per-transaction entity selection — nothing carries a companyId FK.
+/// `isActive` means "not archived" and is independent: with 2+ entities both can be active.
+/// Enforced by the partial unique index `company_profile_single_default` (raw SQL in
+/// migration 20260921_company_profile_multi_entity — Prisma cannot express it, do not drop it)
+/// and by companyProfileService.setDefault()'s demote-then-promote transaction.
+/// Read it through `companyProfileService`, never with a bare findFirst.
 model company_profile {
   id                String   @id @default(uuid())
   name              String // "KASHAYA FABS"
   legalName         String // Full legal name for documents
   gstin             String   @unique // "08DCDPS0146D1ZU"
   pan               String? // PAN number
+  /// Udyam / MSME registration, e.g. "UDYAM-RJ-17-0028194". Printed on invoices under the
+  /// MSMED Act. Lived only in company.config.ts until 2026-09-21.
+  msmeNumber        String?
+  cin               String? // Corporate Identity Number (companies only)
+  iec               String? // Import-Export Code
+  tan               String? // Tax deduction account number
   stateCode         String // "08" for Rajasthan
   stateName         String // "Rajasthan"
+  /// FK to the canonical state row. Retires the COMPANY_STATE_ID env var as the third
+  /// source of "our state"; `stateCode` above stays as the printed/compared value.
+  stateId           String?
   address           String // Full address
   city              String
   pincode           String
+  /// The company's MAIN contact — the accounts-side phone/email printed on invoices, purchase
+  /// orders and challans. Until 2026-09-21 these columns held the TRF/lab contact instead while
+  /// invoices read the accounts contact from company.config.ts; the two were split apart into
+  /// `contactPhone`/`contactEmail` below so both documents have an editable home.
   phone             String?
   email             String?
-  /// Named person a buyer's lab contacts about a Test Requirement Form. The TRF prints
-  /// this person with `phone` and `email` above; all three are stored here rather than in
-  /// company.config.ts so they can be changed without a deploy.
-  /// Distinct from the accounts-side contact in COMPANY_CONFIG that invoices fall back to.
+  /// Named person a buyer's lab contacts about a Test Requirement Form, with that person's own
+  /// phone and email. SENT to the buyer's lab — deliberately NOT the accounts contact above,
+  /// which is what a customer rings about a bill.
   contactPerson     String?
+  contactPhone      String?
+  contactEmail      String?
   website           String?
   bankName          String?
   bankBranch        String?
@@ -52,11 +73,29 @@ model company_profile {
   bankIfscCode      String?
   logoUrl           String?
   signatureUrl      String?
+  /// Masthead strapline, e.g. "Proprietorship · Contract & Private Label Manufacturing".
+  /// Was hardcoded in company-block.ts until 2026-09-21.
+  tagline           String?
+  /// Newline-separated invoice terms. Supersedes INVOICE_TERMS in company.config.ts.
+  invoiceTerms      String?
+  /// Jurisdiction line, e.g. "Subject to Jaipur jurisdiction only."
+  jurisdiction      String?
+  /// Brand palette for generated PDFs. Flat columns, not Json, so the Zod update schema and
+  /// the Prisma update({ data }) stay field-for-field comparable to the schema-parity check.
+  brandColorPrimary String?
+  brandColorAccent  String?
+  brandColorHeader  String?
+  brandColorText    String?
+  brandColorMuted   String?
   isActive          Boolean  @default(true)
+  isDefault         Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
+  state indian_states? @relation("CompanyProfileState", fields: [stateId], references: [id])
+
   @@index([isActive])
+  @@index([isDefault])
 }
 
 /// Process Type Master - Reference table for job work process types
@@ -690,6 +729,7 @@ model indian_states {
   customers_billing          customers[]            @relation("CustomerBillingState")
   customers_shipping         customers[]            @relation("CustomerShippingState")
   cities                     indian_cities[]
+  company_profiles           company_profile[]      @relation("CompanyProfileState")
   invoices_place_of_supply   invoices[]             @relation("InvoicePlaceOfSupply")
   quotations_place_of_supply quotations[]           @relation("QuotationPlaceOfSupply")
   supplier_gst_numbers       supplier_gst_numbers[]

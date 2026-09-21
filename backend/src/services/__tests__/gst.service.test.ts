@@ -17,8 +17,13 @@ jest.mock('../../config/database', () => ({
   },
 }));
 
-jest.mock('../../config/company.config', () => ({
-  COMPANY_CONFIG: { stateCode: '29', gstin: '29AABCU9603R1ZM' },
+// "Our state" comes from the DEFAULT company entity, not COMPANY_CONFIG (changed 2026-09-21).
+// Mocking the config here would silently stop controlling the interstate decision and let these
+// tests hit the real database instead.
+jest.mock('../company-profile.service', () => ({
+  companyProfileService: {
+    getDefault: jest.fn().mockResolvedValue({ stateCode: '29', gstin: '29AABCU9603R1ZM' }),
+  },
 }));
 
 jest.mock('../../utils/logger', () => ({
@@ -29,12 +34,21 @@ jest.mock('../../utils/logger', () => ({
 
 import { gstService } from '../gst.service';
 import prisma from '../../config/database';
+import { companyProfileService } from '../company-profile.service';
 
 const mockPrisma = prisma as jest.Mocked<typeof prisma>;
+/** Our home state for every interstate assertion below. Karnataka (29). */
+const HOME_STATE_CODE = '29';
 
 describe('GSTService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // clearAllMocks wipes return values too, so re-arm the company entity every test —
+    // without this, getDefault() resolves undefined and every interstate test throws.
+    (companyProfileService.getDefault as jest.Mock).mockResolvedValue({
+      stateCode: HOME_STATE_CODE,
+      gstin: '29AABCU9603R1ZM',
+    });
   });
 
   // ============================================
@@ -464,13 +478,16 @@ describe('GSTService', () => {
       expect(result.supplierStateCode).toBeNull();
     });
 
-    it('should handle error gracefully', async () => {
+    it('PROPAGATES a lookup failure instead of defaulting to intrastate', async () => {
+      // This test previously asserted the opposite ("handle error gracefully" → isInterstate
+      // false). That expectation was stale: bug-hunt financial-gst-14 deliberately changed the
+      // service to rethrow, because swallowing a DB failure into "intrastate" books CGST/SGST
+      // on a supply that owes IGST — a wrong tax head on a statutory document. The service has
+      // rethrown since that fix; only the test was left behind, and it was failing before the
+      // company-entity work touched this file.
       (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockRejectedValue(new Error('DB error'));
 
-      const result = await gstService.isInterstatePO('supplier-1');
-
-      expect(result.isInterstate).toBe(false);
-      expect(result.supplierStateCode).toBeNull();
+      await expect(gstService.isInterstatePO('supplier-1')).rejects.toThrow('DB error');
     });
   });
 
@@ -567,6 +584,60 @@ describe('GSTService', () => {
   // ============================================
   // 7. validateGSTNumber
   // ============================================
+  // ============================================
+  // Company-entity sourcing of the interstate decision (2026-09-21)
+  // ============================================
+  describe('interstate decision is anchored to the DEFAULT company entity', () => {
+    beforeEach(() => {
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockResolvedValue(null);
+      (mockPrisma.suppliers.findUnique as jest.Mock).mockResolvedValue(null);
+    });
+
+    it('follows the company entity when its state changes, not a compile-time constant', async () => {
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockResolvedValue({ stateCode: '27' });
+
+      // Entity in 29: a supplier in 27 is interstate.
+      expect((await gstService.isInterstatePO('s1')).isInterstate).toBe(true);
+
+      // Switch the default entity to 27: the SAME supplier is now intrastate.
+      // This is the whole point of the multi-entity default rule.
+      (companyProfileService.getDefault as jest.Mock).mockResolvedValue({ stateCode: '27' });
+      expect((await gstService.isInterstatePO('s1')).isInterstate).toBe(false);
+    });
+
+    it('PROPAGATES a company-profile failure instead of assuming intrastate', async () => {
+      // bug-hunt financial-gst-14: a lookup failure must never be swallowed into "intrastate",
+      // which would book CGST/SGST on a supply that owes IGST.
+      (mockPrisma.supplier_gst_numbers.findFirst as jest.Mock).mockResolvedValue({ stateCode: '27' });
+      (companyProfileService.getDefault as jest.Mock).mockRejectedValue(
+        new Error('No default company profile is configured')
+      );
+
+      await expect(gstService.isInterstatePO('s1')).rejects.toThrow('No default company profile');
+    });
+
+    it('propagates the same failure on the sale side', async () => {
+      (mockPrisma.customers.findUnique as jest.Mock).mockResolvedValue({
+        billingStateId: 'st-1',
+        billingState: { stateCode: '27' },
+      });
+      (companyProfileService.getDefault as jest.Mock).mockRejectedValue(
+        new Error('No default company profile is configured')
+      );
+
+      await expect(gstService.isInterstateSale('c1')).rejects.toThrow('No default company profile');
+    });
+
+    it('propagates the failure on the state-id authority too', async () => {
+      (mockPrisma.indian_states.findUnique as jest.Mock).mockResolvedValue({ stateCode: '27' });
+      (companyProfileService.getDefault as jest.Mock).mockRejectedValue(
+        new Error('No default company profile is configured')
+      );
+
+      await expect(gstService.isInterstateByStateId('st-1')).rejects.toThrow('No default company profile');
+    });
+  });
+
   describe('validateGSTNumber', () => {
     it('should validate correct GST number with matching state', () => {
       expect(gstService.validateGSTNumber('29AABCU9603R1ZM', '29')).toBe(true);

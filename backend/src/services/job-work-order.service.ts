@@ -17,6 +17,7 @@ import { Prisma, job_work_orders } from '@prisma/client';
 import prisma from '../config/database';
 import { BusinessError } from '../errors';
 import { setJwoStatus } from './helpers/jwo-status.helper';
+import { companyProfileService } from './company-profile.service';
 import {
   toCurrency,
   multiplyCurrency,
@@ -204,11 +205,9 @@ class JobWorkOrderService {
       );
     }
 
-    // Get company profile for state comparison
-    const company = await prisma.company_profile.findFirst({
-      where: { isActive: true },
-      select: { stateCode: true },
-    });
+    // Our state, from the DEFAULT entity. Was findFirst({isActive}) — which picks an arbitrary
+    // row once more than one entity exists, and would silently tax against the wrong firm.
+    const company = await companyProfileService.getDefault();
 
     // Get processor's primary GST state
     const processor = await prisma.suppliers.findUnique({
@@ -224,7 +223,7 @@ class JobWorkOrderService {
     // Extract state code from GSTIN (first 2 digits)
     const processorGstin = processor?.gst_numbers[0]?.gstNumber || '';
     const processorStateCode = processorGstin.substring(0, 2);
-    const companyStateCode = company?.stateCode || '';
+    const companyStateCode = company.stateCode;
 
     const isInterstate = processorStateCode !== companyStateCode && processorStateCode !== '';
 

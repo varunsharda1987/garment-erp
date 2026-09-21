@@ -7,6 +7,7 @@ import { cleanupOldTempFiles } from './middleware/upload.middleware';
 import { initializeCache, closeCache } from './lib/cache';
 import { PermissionService } from './services/permission.service';
 import { systemSettingsService } from './services/system-settings.service';
+import { companyProfileService } from './services/company-profile.service';
 import { aiSettingsService } from './services/ai/ai-settings.service';
 import { startIdleSweep as startWhatsappIdleSweep, shutdownAll as shutdownWhatsapp } from './services/whatsapp.service';
 import { closeBrowser as closePdfRenderer } from './services/html-renderer.service';
@@ -44,6 +45,11 @@ async function startServer() {
 
     // Load system settings and seed defaults if missing
     await systemSettingsService.preloadDefaults();
+
+    // Load the company identity every document and GST decision reads. Self-heals like
+    // PermissionService.ensureSeeded() above, and warms the snapshot that the synchronous
+    // PDF render helpers depend on — they throw rather than guess if this never ran.
+    await companyProfileService.ensureSeededAndWarm();
 
     // Initialize AI from database settings (overrides .env if configured in UI)
     await aiSettingsService.initializeFromDatabase();

@@ -26,7 +26,8 @@ import prisma from '../../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError } from '../../errors';
 import { addCurrency, roundToCent, toCurrency } from '../../utils/currency';
-import { COMPANY_CONFIG, DEFAULT_HSN_CODES } from '../../config/company.config';
+import { DEFAULT_HSN_CODES } from '../../config/company.config';
+import { companyProfileService } from '../company-profile.service';
 import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, inrWords } from './format';
@@ -125,12 +126,14 @@ async function loadPrimaryBank(): Promise<ProformaInvoiceBank> {
       branchName: account.branchName,
     };
   }
+  // No primary bank_accounts row — fall back to the company entity's own bank details.
+  const company = await companyProfileService.getDefault();
   return {
-    bankName: 'ICICI Bank',
-    accountHolderName: COMPANY_CONFIG.name,
-    accountNumber: '532505000026',
-    ifscCode: 'ICIC0005325',
-    branchName: 'Mansarovar',
+    bankName: company.bankName ?? EM_DASH,
+    accountHolderName: company.name,
+    accountNumber: company.bankAccountNumber ?? EM_DASH,
+    ifscCode: company.bankIfscCode ?? EM_DASH,
+    branchName: company.bankBranch ?? EM_DASH,
   };
 }
 

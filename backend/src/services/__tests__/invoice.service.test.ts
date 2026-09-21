@@ -43,23 +43,28 @@ describe('InvoiceService', () => {
     });
     testUserId = user.id;
 
-    // Get or create a test state (for GST calculations)
-    const existingState = await prisma.indian_states.findFirst({
-      where: { isActive: true },
+    // GST classification compares the customer's state against the DEFAULT company entity's
+    // state (COMPANY_STATE_ID was retired 2026-09-21). This suite wants an INTRASTATE supply,
+    // so put the test customer in whatever state the company is actually in.
+    //
+    // Deliberately reads the company rather than repointing it: there is no TEST_DATABASE_URL,
+    // so this suite runs against the LIVE database — mutating company_profile.stateId here
+    // would change real GST classification for real invoices if the run died before cleanup.
+    const company = await prisma.company_profile.findFirst({
+      where: { isDefault: true },
+      select: { stateId: true, stateCode: true },
     });
-    if (existingState) {
-      testStateId = existingState.id;
-    } else {
-      const state = await prisma.indian_states.create({
-        data: {
-          stateName: `${testPrefix} State`,
-          stateCode: '99',
-          stateType: 'STATE',
-          isActive: true,
-        },
-      });
-      testStateId = state.id;
+    const companyState =
+      (company?.stateId ? await prisma.indian_states.findUnique({ where: { id: company.stateId } }) : null) ??
+      (company?.stateCode
+        ? await prisma.indian_states.findUnique({ where: { stateCode: company.stateCode } })
+        : null) ??
+      (await prisma.indian_states.findFirst({ where: { isActive: true } }));
+
+    if (!companyState) {
+      throw new Error('No indian_states row available to anchor the GST test');
     }
+    testStateId = companyState.id;
 
     // Create test customer
     const customer = await prisma.customers.create({
@@ -93,9 +98,6 @@ describe('InvoiceService', () => {
       },
     });
     testOrderId = order.id;
-
-    // Set the company state ID for GST calculations
-    process.env.COMPANY_STATE_ID = testStateId;
   });
 
   afterAll(async () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ interface AvailableWorkOrder {
 }
 
 export default function CuttingChart() {
+  const { company } = useCompanyProfile();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const preSelectedWorkOrderId = searchParams.get('workOrderId');
@@ -393,7 +395,7 @@ export default function CuttingChart() {
                   <CardTitle className="text-lg">Order Details</CardTitle>
                   <div className="flex items-center gap-3">
                     {chartData.styleId && <MiniMarkerBadge styleId={chartData.styleId} editable={false} />}
-                    <span className="text-lg font-bold text-primary tracking-wide">KASHAYA FABS</span>
+                    <span className="text-lg font-bold text-primary tracking-wide">{company.name}</span>
                   </div>
                 </div>
               </CardHeader>

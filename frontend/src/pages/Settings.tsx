@@ -10,10 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Lock, Loader2, Eye, EyeOff, AlertCircle, Settings2, Save } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getDefaultCompanyProfile } from '@/services/companyProfile.service';
+import { COMPANY_PROFILE_QUERY_KEY } from '@/hooks/useCompanyProfile';
+import { Lock, Loader2, Eye, EyeOff, AlertCircle, Settings2, Save, Building2, ChevronRight } from 'lucide-react';
 
 export default function Settings() {
   const { user: currentUser } = useAuthStore();
+  const { can } = usePermissions();
+  const isAdmin = can('admin');
   const [isSaving, setIsSaving] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -108,10 +114,14 @@ export default function Settings() {
     <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="mb-6">
         <h1 className="text-3xl font-display font-medium text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account settings and preferences</p>
+        <p className="text-muted-foreground mt-1">Company details, system defaults and integrations</p>
       </div>
 
       <div className="grid gap-6">
+        {isAdmin && <CompanyProfileCard />}
+
+        {isAdmin && <IntegrationLinks />}
+
         {/* Change Password Card */}
         <Card>
           <CardHeader>
@@ -240,6 +250,149 @@ export default function Settings() {
         <SystemDefaultsCard />
       </div>
     </div>
+  );
+}
+
+/**
+ * The default company entity, summarised. This is the entity whose GSTIN, address and MSME
+ * number appear on every invoice, purchase order and challan.
+ */
+function CompanyProfileCard() {
+  const navigate = useNavigate();
+  const {
+    data: company,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: COMPANY_PROFILE_QUERY_KEY,
+    queryFn: getDefaultCompanyProfile,
+    staleTime: 30 * 60 * 1000,
+  });
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+        <div>
+          <CardTitle>Company profile</CardTitle>
+          <CardDescription>Printed on every invoice, purchase order and challan</CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => navigate('/settings/company')}>
+          Manage entities
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center h-20">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : isError || !company ? (
+          <div className="flex items-start gap-3 p-4 bg-warning-muted border border-warning/20 rounded-lg">
+            <AlertCircle className="h-5 w-5 text-warning mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="font-medium">No default company entity is configured.</p>
+              <p className="mt-1">Documents will refuse to render a letterhead until one is set.</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate('/settings/company/new')}>
+                Add entity
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-4">
+            <div className="h-16 w-16 rounded border bg-muted/40 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {company.logoUrl ? (
+                <img
+                  src={`${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '')}${company.logoUrl}`}
+                  alt={company.name}
+                  className="max-h-16 object-contain"
+                />
+              ) : (
+                <Building2 className="h-6 w-6 text-muted-foreground" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">{company.name}</span>
+                <Badge>Default</Badge>
+              </div>
+              <dl className="mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">GSTIN</dt>
+                  <dd className="font-mono">{company.gstin}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">State</dt>
+                  <dd>
+                    {company.stateName} ({company.stateCode})
+                  </dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">Udyam</dt>
+                  <dd>{company.msmeNumber || '—'}</dd>
+                </div>
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground">PAN</dt>
+                  <dd>{company.pan || '—'}</dd>
+                </div>
+                <div className="flex gap-2 sm:col-span-2">
+                  <dt className="text-muted-foreground flex-shrink-0">Address</dt>
+                  <dd className="truncate">
+                    {company.address}, {company.city} {company.pincode}
+                  </dd>
+                </div>
+              </dl>
+              <Button
+                variant="link"
+                size="sm"
+                className="px-0 mt-1"
+                onClick={() => navigate(`/settings/company/${company.id}`)}
+              >
+                Edit these details
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** The settings that live on their own pages, gathered here so they stop being scattered. */
+function IntegrationLinks() {
+  const navigate = useNavigate();
+  const links: Array<{ title: string; description: string; path: string }> = [
+    { title: 'Tally Integration', description: 'Connection, ledgers and voucher settings', path: '/settings/tally' },
+    { title: 'GST e-Invoice', description: 'IRP credentials and IRN generation', path: '/settings/einvoice' },
+    { title: 'AI Settings', description: 'Assistant provider, model and API key', path: '/ai-settings' },
+    {
+      title: 'Export Templates',
+      description: 'Document and report export layouts',
+      path: '/settings/export-templates',
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Integrations &amp; templates</CardTitle>
+        <CardDescription>Configured on their own pages</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2">
+        {links.map((link) => (
+          <button
+            key={link.path}
+            type="button"
+            onClick={() => navigate(link.path)}
+            className="text-left border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{link.title}</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{link.description}</p>
+          </button>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 

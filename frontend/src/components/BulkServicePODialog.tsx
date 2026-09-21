@@ -32,7 +32,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsByProcessor, bulkGenerateServiceJWOs } from '@/services/serviceRequirement.service';
 import type { ServiceRequirement } from '@/types/serviceRequirement.types';
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
-import { COMPANY_CONFIG } from '@/config/company.config';
+import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 
 interface BulkServicePODialogProps {
   open: boolean;
@@ -58,6 +58,7 @@ export default function BulkServicePODialog({
   requirementIds,
   onComplete,
 }: BulkServicePODialogProps) {
+  const { company } = useCompanyProfile();
   const [loading, setLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [groupedData, setGroupedData] = useState<{
@@ -198,9 +199,9 @@ export default function BulkServicePODialog({
         <div className="bg-muted/30 rounded-lg p-3 mb-4">
           <div className="flex items-center gap-2 text-sm">
             <Building2 className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">From:</span> {COMPANY_CONFIG.name}
+            <span className="font-medium">From:</span> {company.name}
             <span className="text-muted-foreground">|</span>
-            <span>GSTIN: {COMPANY_CONFIG.gstin}</span>
+            <span>GSTIN: {company.gstin}</span>
           </div>
         </div>
 

@@ -18,6 +18,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { seedCompanyProfile as seedCompanyProfileCanonical } from '../prisma/seeds/company-profile.seed';
 
 const prisma = new PrismaClient();
 
@@ -31,27 +32,6 @@ interface ProcessTypeData {
   processCategory: string; // FABRIC (meters) or GARMENT (pieces)
   tolerancePercent: number;
 }
-
-const COMPANY_PROFILE = {
-  name: 'KASHAYA FABS',
-  legalName: 'Kashaya Fabs (Proprietorship)',
-  gstin: '08DCDPS0146D1ZU',
-  pan: 'DCDPS0146D',
-  stateCode: '08',
-  stateName: 'Rajasthan',
-  address: 'H1-51, Riico Industrial Area, Mansarovar',
-  city: 'Jaipur',
-  pincode: '302020',
-  phone: null,
-  email: null,
-  website: null,
-  bankName: null,
-  bankBranch: null,
-  bankAccountNumber: null,
-  bankIfscCode: null,
-  logoUrl: null,
-  signatureUrl: null,
-};
 
 const PROCESS_TYPES: ProcessTypeData[] = [
   // FABRIC processing (meters) - SAC 998821
@@ -169,26 +149,23 @@ const PROCESS_TYPES: ProcessTypeData[] = [
   },
 ];
 
+/**
+ * Delegates to the canonical seed rather than carrying its own copy of the company details.
+ *
+ * This script used to create the row from a local literal — which is how the address came to be
+ * spelled two ways ("H1-51, Riico Industrial Area" here vs "H-1, 51, RIICO Industrial Area" in
+ * company.config.ts), with PDFKit documents printing one and Handlebars documents the other.
+ * It also created the row without isDefault, which now breaks every document.
+ */
 async function seedCompanyProfile() {
   console.log('Seeding company_profile...');
+  await seedCompanyProfileCanonical();
 
-  const existing = await prisma.company_profile.findFirst({
-    where: { isActive: true },
-  });
-
-  if (existing) {
-    console.log('  Company profile already exists:', existing.gstin);
-    return existing;
+  const profile = await prisma.company_profile.findFirst({ where: { isDefault: true } });
+  if (!profile) {
+    throw new Error('Company profile seed did not produce a default entity');
   }
-
-  const profile = await prisma.company_profile.create({
-    data: {
-      ...COMPANY_PROFILE,
-      isActive: true,
-    },
-  });
-
-  console.log('  Created company profile:', profile.gstin);
+  console.log('  Default company entity:', profile.gstin);
   return profile;
 }
 

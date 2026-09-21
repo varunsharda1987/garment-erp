@@ -10,6 +10,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
+import { CompanyProfileNotLoadedError } from '../services/company-profile.service';
 import { updateWosrReceivedQuantity } from '../services/work-order-service-requirement.service';
 import logger from '../utils/logger';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
@@ -443,6 +444,18 @@ class JobWorkOrderController {
         if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
           warning = `Created as DRAFT, but GST rate for ${body.processType} is unresolved — commercial totals are pending until the rate is confirmed in Process Type Master.`;
           logger.warn(`[JWO] ${warning} (${jobWorkNumber})`);
+        } else if (error instanceof CompanyProfileNotLoadedError) {
+          // The job work order row is ALREADY written above. Rethrowing here would answer 500
+          // "Failed to create job work order" while leaving a real DRAFT behind — the user
+          // believes nothing was created and creates it again.
+          //
+          // Interstate cannot be decided without our own state code, so totals stay null. That
+          // is exactly the R1 contract already used for an unresolved GST rate: creation is
+          // allowed as a DRAFT, and document generation is what blocks.
+          warning =
+            'Created as DRAFT, but commercial totals are pending: no default company entity is ' +
+            'configured, so CGST/SGST vs IGST cannot be determined. Set one under Settings → Company Profile.';
+          logger.warn(`[JWO] ${warning} (${jobWorkNumber})`);
         } else {
           throw error;
         }
@@ -854,7 +867,12 @@ class JobWorkOrderController {
           try {
             await jobWorkOrderService.computeCommercialTotals(id);
           } catch (error) {
-            if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
+            if (
+              (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) ||
+              // Same degradation as an unresolved rate: qtyBillable has already been written,
+              // so failing here would leave the settled quantity saved but the subtotal blank.
+              error instanceof CompanyProfileNotLoadedError
+            ) {
               await prisma.job_work_orders.update({
                 where: { id },
                 data: { subtotal: roundToCent(multiplyCurrency(receivedQty, jwo.agreedRatePerMeter)).toNumber() },

@@ -22,6 +22,7 @@ import {
 } from '../schemas/buyerTrf.schema';
 import { EASYBUY_TRF_DEFAULTS, TRF_BO_NUMBER_NOT_REQUIRED } from '../constants/buyer-trf.constants';
 import { washCareService } from './washCare.service';
+import { companyProfileService } from './company-profile.service';
 
 /** Fields the list screen searches. Registered in listSearchCoverage.test.ts. */
 const TRF_SEARCH_FIELDS = [
@@ -228,15 +229,17 @@ class BuyerTrfService {
     /* ── Fabric, via the CAD row ── */
     Object.assign(values, await this.fabricPrefill(styleId, note));
 
-    /* ── Us ── */
-    const company = await prisma.company_profile.findFirst({ where: { isActive: true } });
-    if (company) {
-      values.manufacturerName = company.name;
-      sources.manufacturerName = 'company profile';
-      note('applicantContact', company.contactPerson, 'company profile', 'Our contact name');
-      note('applicantPhone', company.phone, 'company profile', 'Our telephone');
-      note('applicantEmail', company.email, 'company profile', 'Our email');
-    }
+    /* ── Us ── the DEFAULT entity, not just any active row.
+       The buyer's lab rings the named TRF contact, NOT the accounts contact that invoices
+       print — hence contactPhone/contactEmail rather than phone/email. The two shared one
+       pair of columns until 2026-09-21. Falls back to the main contact if no lab contact is
+       set, which is the behaviour these three fields had before the split. */
+    const company = await companyProfileService.getDefault();
+    values.manufacturerName = company.name;
+    sources.manufacturerName = 'company profile';
+    note('applicantContact', company.contactPerson, 'company profile', 'Our contact name');
+    note('applicantPhone', company.contactPhone ?? company.phone, 'company profile', 'Our telephone');
+    note('applicantEmail', company.contactEmail ?? company.email, 'company profile', 'Our email');
 
     if (values.boNumber === undefined) values.boNumber = TRF_BO_NUMBER_NOT_REQUIRED;
 

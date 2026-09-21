@@ -493,6 +493,109 @@ describe.each(MODULES)('$name — create/update round-trip persists every field'
 });
 
 /**
+ * Company profile — default-entity round-trip and the single-default invariant.
+ *
+ * Bespoke rather than a MODULES entry because there is no "create then GET /:id" flow to
+ * exercise here: the row already exists and is the one every document masthead reads.
+ *
+ * RESTORING THE ORIGINAL VALUES IN afterAll IS MANDATORY. This suite runs against the live
+ * database (there is no TEST_DATABASE_URL), and this single row supplies the GSTIN, address and
+ * state code printed on every invoice, purchase order and challan. A leaked test value here is
+ * not a dirty fixture — it is a wrong GSTIN on a real statutory document.
+ */
+describe('company_profile — default entity round-trip', () => {
+  const base = '/api/company-profiles';
+  let original: Record<string, unknown>;
+  let defaultId: string;
+
+  it('GET /default returns the one entity every document uses', async () => {
+    const res = await request(app).get(`${base}/default`).set(authHeader).expect(200);
+    original = (res.body.data ?? res.body) as Record<string, unknown>;
+    defaultId = original.id as string;
+
+    expect(defaultId).toBeTruthy();
+    expect(original.isDefault).toBe(true);
+    // Identity a document cannot render without.
+    expect(original.gstin).toBeTruthy();
+    expect(original.stateCode).toBeTruthy();
+    expect(original.name).toBeTruthy();
+  });
+
+  it('exactly one entity is the default', async () => {
+    const res = await request(app).get(base).set(authHeader).expect(200);
+    const rows = (res.body.data ?? res.body) as Array<Record<string, unknown>>;
+    expect(rows.filter((r) => r.isDefault === true)).toHaveLength(1);
+  });
+
+  it('PUT persists every field, including the ones that used to live in code', async () => {
+    const update = {
+      // msmeNumber and tagline were hardcoded in company-block.ts until 2026-09-21 — the
+      // whole point of this module is that they are now editable, so assert them explicitly.
+      msmeNumber: `${RUN}-UDYAM`,
+      tagline: `${RUN} tagline`,
+      cin: `${RUN}CIN`,
+      iec: `${RUN}IEC`,
+      tan: `${RUN}TAN`,
+      bankName: `${RUN} Bank`,
+      bankBranch: `${RUN} Branch`,
+      invoiceTerms: `${RUN} term one\n${RUN} term two`,
+      jurisdiction: `${RUN} jurisdiction`,
+      // The accounts contact (what invoices print) is distinct from contactPhone/contactEmail
+      // (the lab contact on a TRF). Both must round-trip independently.
+      phone: '9000000001',
+      contactPhone: '9000000002',
+    };
+
+    await request(app).put(`${base}/${defaultId}`).set(authHeader).send(update).expect(200);
+
+    const res = await request(app).get(`${base}/${defaultId}`).set(authHeader).expect(200);
+    const fetched = (res.body.data ?? res.body) as Record<string, unknown>;
+    for (const [key, sent] of Object.entries(update)) {
+      expectFieldPersisted(fetched, key, sent);
+    }
+    // An update must not clobber the identity fields it never touched.
+    expect(fetched.gstin).toBe(original.gstin);
+    expect(fetched.stateCode).toBe(original.stateCode);
+    expect(fetched.isDefault).toBe(true);
+  });
+
+  it('rejects a state code that disagrees with the GSTIN', async () => {
+    // The GSTIN prefix IS the state code; a mismatch silently flips CGST/SGST to IGST.
+    await request(app)
+      .put(`${base}/${defaultId}`)
+      .set(authHeader)
+      .send({ gstin: '08DCDPS0146D1ZU', stateCode: '27' })
+      .expect(400);
+  });
+
+  it('refuses to archive the default entity', async () => {
+    // Archiving it would leave the system with no entity to render a letterhead from.
+    await request(app).put(`${base}/${defaultId}`).set(authHeader).send({ isActive: false }).expect(400);
+  });
+
+  afterAll(async () => {
+    if (!original || !defaultId) return;
+    const restore: Record<string, unknown> = {};
+    for (const key of [
+      'msmeNumber',
+      'tagline',
+      'cin',
+      'iec',
+      'tan',
+      'bankName',
+      'bankBranch',
+      'invoiceTerms',
+      'jurisdiction',
+      'phone',
+      'contactPhone',
+    ]) {
+      if (key in original) restore[key] = original[key];
+    }
+    await request(app).put(`${base}/${defaultId}`).set(authHeader).send(restore);
+  });
+});
+
+/**
  * Buyer Test Requirement Form — bespoke round-trip.
  *
  * Bespoke rather than a MODULES entry because a TRF needs a customer, a style and a sale order

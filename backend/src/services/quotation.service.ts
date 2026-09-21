@@ -11,6 +11,7 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService, GSTCalculation } from './gst.service';
+import { companyProfileService } from './company-profile.service';
 import { addCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
 import { generateAtomicQuotationNumber } from '../utils/atomicCodeGenerator';
 import { applySearch } from '../utils/search-filter';
@@ -214,11 +215,13 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
       let totalWithTax: number | null = null;
 
       if (data.includeTaxEstimate) {
-        // Get company's state ID from environment variable
-        const COMPANY_STATE_ID = process.env.COMPANY_STATE_ID;
+        // Our state comes from the default company entity, not the COMPANY_STATE_ID env var —
+        // that was a third, independently-drifting source of "our state" (the other two being
+        // company.config.ts and the company_profile row).
+        const companyStateId = (await companyProfileService.getDefault()).stateId;
 
-        if (!COMPANY_STATE_ID) {
-          logDebug('COMPANY_STATE_ID not set, skipping tax estimation');
+        if (!companyStateId) {
+          logDebug('Default company entity has no linked state, skipping tax estimation');
         } else {
           // Determine place of supply
           placeOfSupplyId = data.placeOfSupplyId || customer.billingStateId || null;
@@ -228,7 +231,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
             // Header-level taxRate is only used for the legacy calculateGST aggregate;
             // per-item GST below uses calculateLineItemGST with proper price slab logic.
             taxRate = data.taxRate || 5; // Base rate for garments ≤₹2,500; per-item calc overrides for >₹2,500
-            gstCalc = await gstService.calculateGST(totalAmount, taxRate, COMPANY_STATE_ID, placeOfSupplyId);
+            gstCalc = await gstService.calculateGST(totalAmount, taxRate, companyStateId, placeOfSupplyId);
 
             totalWithTax = totalAmount + gstCalc.totalTax;
 
@@ -242,8 +245,11 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         }
       }
 
-      // Calculate per-item GST if tax estimation is enabled
-      const isInterstate = placeOfSupplyId ? (process.env.COMPANY_STATE_ID || '') !== placeOfSupplyId : false;
+      // Calculate per-item GST if tax estimation is enabled.
+      // Routed through the single gstService authority rather than comparing raw state UUIDs
+      // against an env var (bug-hunt financial-gst-14 — the comparison that could silently
+      // classify an interstate supply as intrastate).
+      const isInterstate = placeOfSupplyId ? await gstService.isInterstateByStateId(placeOfSupplyId) : false;
 
       // Build items with GST (if estimation enabled)
       const itemsForCreate = await Promise.all(
@@ -652,14 +658,9 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         throw new NotFoundError('Quotation not found');
       }
 
-      // Get company's state ID from environment variable
-      const COMPANY_STATE_ID = process.env.COMPANY_STATE_ID;
-
-      if (!COMPANY_STATE_ID) {
-        throw new ValidationError('COMPANY_STATE_ID environment variable is not set');
-      }
-
-      const isInterstate = COMPANY_STATE_ID !== placeOfSupplyId;
+      // Single interstate authority — was a raw UUID compare against the COMPANY_STATE_ID env
+      // var, which drifted independently of the company profile and of company.config.ts.
+      const isInterstate = await gstService.isInterstateByStateId(placeOfSupplyId);
       const items = quotation.quotation_items || [];
 
       // Calculate per-item GST (header sums via decimal.js — bug-hunt orders-17)

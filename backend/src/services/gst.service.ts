@@ -12,7 +12,7 @@
  */
 
 import prisma from '../config/database';
-import { COMPANY_CONFIG } from '../config/company.config';
+import { companyProfileService } from './company-profile.service';
 import { ValidationError } from '../errors';
 import { logDebug, logError, logWarn } from '../utils/logger';
 import { roundToCent, percentOf, addCurrency, toCurrency } from '../utils/currency';
@@ -304,11 +304,25 @@ class GSTServiceClass {
   }
 
   /**
+   * Our own state code — the single comparand for every interstate decision below.
+   *
+   * Reads the DEFAULT company entity. Propagates if the profile cannot be resolved: a
+   * failure here must never be swallowed into "intrastate", because that silently books
+   * CGST/SGST on a supply that owes IGST (bug-hunt financial-gst-14, same reasoning).
+   */
+  private async ourStateCode(): Promise<string> {
+    const company = await companyProfileService.getDefault();
+    return company.stateCode;
+  }
+
+  /**
    * Determine if a PO is interstate based on supplier's primary GST registration
-   * Compares supplier's state code with company's state code (COMPANY_CONFIG.stateCode)
+   * Compares supplier's state code with the default company entity's state code
    */
   async isInterstatePO(supplierId: string): Promise<InterstatePOResult> {
     try {
+      const homeStateCode = await this.ourStateCode();
+
       // Try primary GST number first
       const primaryGst = await prisma.supplier_gst_numbers.findFirst({
         where: { supplierId, isPrimary: true },
@@ -317,7 +331,7 @@ class GSTServiceClass {
 
       if (primaryGst) {
         return {
-          isInterstate: primaryGst.stateCode !== COMPANY_CONFIG.stateCode,
+          isInterstate: primaryGst.stateCode !== homeStateCode,
           supplierStateCode: primaryGst.stateCode,
         };
       }
@@ -330,7 +344,7 @@ class GSTServiceClass {
 
       if (anyGst) {
         return {
-          isInterstate: anyGst.stateCode !== COMPANY_CONFIG.stateCode,
+          isInterstate: anyGst.stateCode !== homeStateCode,
           supplierStateCode: anyGst.stateCode,
         };
       }
@@ -346,7 +360,7 @@ class GSTServiceClass {
 
       if (supplier?.billing_state?.stateCode) {
         return {
-          isInterstate: supplier.billing_state.stateCode !== COMPANY_CONFIG.stateCode,
+          isInterstate: supplier.billing_state.stateCode !== homeStateCode,
           supplierStateCode: supplier.billing_state.stateCode,
         };
       }
@@ -364,10 +378,10 @@ class GSTServiceClass {
 
   /**
    * Single interstate authority for state-ID based classification (bug-hunt financial-gst-14).
-   * Compares the place-of-supply state row's stateCode against COMPANY_CONFIG.stateCode — the
-   * same source isInterstatePO/isInterstateSale use — instead of comparing raw state UUIDs
-   * against the COMPANY_STATE_ID env var. Lookup failures propagate; they must not default
-   * the tax classification to intrastate.
+   * Compares the place-of-supply state row's stateCode against the default company entity's
+   * state code — the same source isInterstatePO/isInterstateSale use — instead of comparing
+   * raw state UUIDs against the COMPANY_STATE_ID env var. Lookup failures propagate; they must
+   * not default the tax classification to intrastate.
    */
   async isInterstateByStateId(placeOfSupplyStateId: string): Promise<boolean> {
     const state = await prisma.indian_states.findUnique({
@@ -377,7 +391,7 @@ class GSTServiceClass {
     if (!state) {
       throw new ValidationError('Place-of-supply state not found — cannot determine GST classification');
     }
-    return state.stateCode !== COMPANY_CONFIG.stateCode;
+    return state.stateCode !== (await this.ourStateCode());
   }
 
   /**
@@ -395,7 +409,7 @@ class GSTServiceClass {
 
       if (customer?.billingState?.stateCode) {
         return {
-          isInterstate: customer.billingState.stateCode !== COMPANY_CONFIG.stateCode,
+          isInterstate: customer.billingState.stateCode !== (await this.ourStateCode()),
           supplierStateCode: customer.billingState.stateCode,
         };
       }

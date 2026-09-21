@@ -17,6 +17,7 @@ import QRCode from 'qrcode';
 import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from '../config/company.config';
+import { companyProfileService, type CompanySnapshot } from './company-profile.service';
 import path from 'path';
 import fs from 'fs';
 import { logWarn } from '../utils/logger';
@@ -52,6 +53,20 @@ const SIZE_COLUMNS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', '3XL'];
 
 class DocumentGeneratorService {
   /**
+   * The company entity every letterhead in this file prints.
+   *
+   * Synchronous on purpose: the drawXxxPage helpers take (doc, y) and render inline, so making
+   * them async would ripple through the entire generator. The snapshot is warmed at boot by
+   * companyProfileService.ensureSeededAndWarm().
+   *
+   * Throws rather than falling back to COMPANY_CONFIG if the cache is cold — printing a
+   * superseded GSTIN on a tax invoice is worse than failing to print one at all.
+   */
+  private get company(): CompanySnapshot {
+    return companyProfileService.getCompanySync();
+  }
+
+  /**
    * Get company bank details (primary account)
    */
   private async getCompanyBankDetails() {
@@ -59,15 +74,18 @@ class DocumentGeneratorService {
       where: { isPrimaryAccount: true, isActive: true },
     });
 
-    return (
-      bankAccount || {
-        bankName: 'ICICI Bank',
-        accountHolderName: COMPANY_CONFIG.name,
-        accountNumber: '532505000026',
-        ifscCode: 'ICIC0005325',
-        branchName: 'Mansarovar',
-      }
-    );
+    if (bankAccount) return bankAccount;
+
+    // No primary bank_accounts row — use the company entity's own bank details rather than a
+    // hardcoded account number, which would print someone else's bank on a real invoice.
+    const company = await companyProfileService.getDefault();
+    return {
+      bankName: company.bankName ?? '',
+      accountHolderName: company.name,
+      accountNumber: company.bankAccountNumber ?? '',
+      ifscCode: company.bankIfscCode ?? '',
+      branchName: company.bankBranch ?? '',
+    };
   }
 
   /**
@@ -178,25 +196,25 @@ class DocumentGeneratorService {
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+      .text(this.company.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
     doc
       .fontSize(9)
       .font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+      .text(`${this.company.address}, ${this.company.city} - ${this.company.pincode}`, marginLeft, y, {
         align: 'center',
         width: pageWidth - 60,
       });
     y += 12;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  MSME: ${COMPANY_CONFIG.msmeNumber || 'N/A'}`, marginLeft, y, {
+    doc.text(`GSTIN: ${this.company.gstin}  |  MSME: ${this.company.msmeNumber || 'N/A'}`, marginLeft, y, {
       align: 'center',
       width: pageWidth - 60,
     });
     y += 12;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+    doc.text(`Ph: ${this.company.phone}  |  Email: ${this.company.email}`, marginLeft, y, {
       align: 'center',
       width: pageWidth - 60,
     });
@@ -250,7 +268,7 @@ class DocumentGeneratorService {
     y += 14;
 
     doc.font('Helvetica');
-    doc.text(`State: ${COMPANY_CONFIG.state} (${COMPANY_CONFIG.stateCode})`, marginLeft, y);
+    doc.text(`State: ${this.company.stateName} (${this.company.stateCode})`, marginLeft, y);
     const placeOfSupply = invoice.placeOfSupply?.stateName || invoice.customers?.billingState?.stateName || '-';
     doc.text(`Place of Supply: ${placeOfSupply}`, marginRight - 200, y, { width: 200, align: 'right' });
     y += 18;
@@ -769,7 +787,7 @@ class DocumentGeneratorService {
     // Signature section
     const pageWidth = doc.page.width;
     y += 20;
-    doc.text(`For ${COMPANY_CONFIG.name}`, pageWidth - 180, y);
+    doc.text(`For ${this.company.name}`, pageWidth - 180, y);
     y += 30;
     doc.text('Authorised Signatory', pageWidth - 180, y);
   }
@@ -785,7 +803,7 @@ class DocumentGeneratorService {
 
     const bankDetails = await this.getCompanyBankDetails();
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = COMPANY_CONFIG.name;
+    workbook.creator = this.company.name;
     workbook.created = new Date();
 
     const ws = workbook.addWorksheet('Tax Invoice');
@@ -837,19 +855,19 @@ class DocumentGeneratorService {
 
     // Company Name
     ws.mergeCells(`A${row}:J${row}`);
-    ws.getCell(`A${row}`).value = COMPANY_CONFIG.name;
+    ws.getCell(`A${row}`).value = this.company.name;
     ws.getCell(`A${row}`).style = subHeaderStyle;
     row++;
 
     // Company Address
     ws.mergeCells(`A${row}:J${row}`);
-    ws.getCell(`A${row}`).value = `${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`;
+    ws.getCell(`A${row}`).value = `${this.company.address}, ${this.company.city} - ${this.company.pincode}`;
     ws.getCell(`A${row}`).alignment = { horizontal: 'center' };
     row++;
 
     // GSTIN
     ws.mergeCells(`A${row}:J${row}`);
-    ws.getCell(`A${row}`).value = `GSTIN: ${COMPANY_CONFIG.gstin}`;
+    ws.getCell(`A${row}`).value = `GSTIN: ${this.company.gstin}`;
     ws.getCell(`A${row}`).alignment = { horizontal: 'center' };
     row += 2;
 
@@ -977,14 +995,17 @@ class DocumentGeneratorService {
    * Generate WhatsApp share link
    */
   generateWhatsAppLink(phone: string, documentType: string, documentName: string, downloadUrl: string): string {
+    // Cosmetic, non-statutory: a share link must not fail just because the profile cache is
+    // cold, so this is the one caller that tolerates a null snapshot.
+    const c = companyProfileService.getCompanySyncOrNull();
     const message = `Hello,
 
 Please find your ${documentType}:
 📄 ${documentName}
 🔗 ${downloadUrl}
 
-From ${COMPANY_CONFIG.name}
-📞 ${COMPANY_CONFIG.phone}`;
+From ${c?.name ?? COMPANY_CONFIG.name}
+📞 ${c?.phone ?? COMPANY_CONFIG.phone}`;
 
     // Clean phone number (remove spaces, dashes, add country code if missing)
     let cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
@@ -1085,25 +1106,25 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+      .text(this.company.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
     doc
       .fontSize(9)
       .font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+      .text(`${this.company.address}, ${this.company.city} - ${this.company.pincode}`, marginLeft, y, {
         align: 'center',
         width: pageWidth - 60,
       });
     y += 12;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  MSME: ${COMPANY_CONFIG.msmeNumber || 'N/A'}`, marginLeft, y, {
+    doc.text(`GSTIN: ${this.company.gstin}  |  MSME: ${this.company.msmeNumber || 'N/A'}`, marginLeft, y, {
       align: 'center',
       width: pageWidth - 60,
     });
     y += 12;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+    doc.text(`Ph: ${this.company.phone}  |  Email: ${this.company.email}`, marginLeft, y, {
       align: 'center',
       width: pageWidth - 60,
     });
@@ -1302,7 +1323,7 @@ From ${COMPANY_CONFIG.name}
     y += 14;
 
     // Determine if interstate based on placeOfSupply
-    const isInterstate = quotation.placeOfSupply && quotation.placeOfSupply.stateCode !== COMPANY_CONFIG.stateCode;
+    const isInterstate = quotation.placeOfSupply && quotation.placeOfSupply.stateCode !== this.company.stateCode;
 
     // GST breakdown (estimated). Derive the printed rate from the ACTUAL tax amount over the taxable
     // base, not the stale flat header taxRate: quotations recalculate estimated GST from per-item HSN
@@ -1465,19 +1486,19 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+      .text(this.company.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
     doc
       .fontSize(9)
       .font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+      .text(`${this.company.address}, ${this.company.city} - ${this.company.pincode}`, marginLeft, y, {
         align: 'center',
         width: pageWidth - 60,
       });
     y += 12;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+    doc.text(`Ph: ${this.company.phone}  |  Email: ${this.company.email}`, marginLeft, y, {
       align: 'center',
       width: pageWidth - 60,
     });
@@ -1773,7 +1794,7 @@ From ${COMPANY_CONFIG.name}
     const marginLeft = 30;
 
     // Cover page
-    this.drawCatalogueCover(doc, options.catalogueName || `${COMPANY_CONFIG.name} Style Catalogue`, styles.length);
+    this.drawCatalogueCover(doc, options.catalogueName || `${this.company.name} Style Catalogue`, styles.length);
 
     // Index page (if requested)
     if (options.includeIndex) {
@@ -1907,13 +1928,13 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(18)
       .font('Helvetica')
-      .text(COMPANY_CONFIG.name, 50, pageHeight / 3 + 50, { align: 'center', width: pageWidth - 100 });
+      .text(this.company.name, 50, pageHeight / 3 + 50, { align: 'center', width: pageWidth - 100 });
 
     // Style count
     doc.fontSize(14).text(`${styleCount} Styles`, 50, pageHeight / 3 + 80, { align: 'center', width: pageWidth - 100 });
 
     // Contact
-    doc.fontSize(10).text(`${COMPANY_CONFIG.phone}  |  ${COMPANY_CONFIG.email}`, 50, pageHeight - 60, {
+    doc.fontSize(10).text(`${this.company.phone}  |  ${this.company.email}`, 50, pageHeight - 60, {
       align: 'center',
       width: pageWidth - 100,
     });
@@ -2106,7 +2127,7 @@ From ${COMPANY_CONFIG.name}
           .fontSize(12)
           .font('Helvetica')
           .fillColor('#666')
-          .text(COMPANY_CONFIG.name, margin, margin + 35, { align: 'center' });
+          .text(this.company.name, margin, margin + 35, { align: 'center' });
 
         doc.moveDown(2);
 
@@ -2428,7 +2449,7 @@ From ${COMPANY_CONFIG.name}
           .fontSize(10)
           .font('Helvetica')
           .fillColor('#666')
-          .text(COMPANY_CONFIG.name, margin, margin + 25, { align: 'center' });
+          .text(this.company.name, margin, margin + 25, { align: 'center' });
 
         if (options.buyerCompany) {
           doc
@@ -2567,7 +2588,7 @@ From ${COMPANY_CONFIG.name}
             .fontSize(8)
             .font('Helvetica')
             .fillColor('#666')
-            .text(`${COMPANY_CONFIG.phone} | ${COMPANY_CONFIG.email}`, margin, pageHeight - 30, { align: 'left' });
+            .text(`${this.company.phone} | ${this.company.email}`, margin, pageHeight - 30, { align: 'left' });
 
           // Buyer info
           if (options.buyerContact) {
@@ -2626,7 +2647,7 @@ From ${COMPANY_CONFIG.name}
     ws.getCell('A1').alignment = { horizontal: 'center' };
 
     ws.mergeCells('A2:G2');
-    ws.getCell('A2').value = COMPANY_CONFIG.name;
+    ws.getCell('A2').value = this.company.name;
     ws.getCell('A2').alignment = { horizontal: 'center' };
 
     if (options.buyerCompany) {
@@ -2787,25 +2808,25 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
-      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+      .text(this.company.name, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
     doc
       .fontSize(9)
       .font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+      .text(`${this.company.address}, ${this.company.city} - ${this.company.pincode}`, marginLeft, y, {
         align: 'center',
         width: pageWidth - 60,
       });
     y += 12;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, {
+    doc.text(`GSTIN: ${this.company.gstin}  |  Ph: ${this.company.phone}`, marginLeft, y, {
       align: 'center',
       width: pageWidth - 60,
     });
     y += 12;
 
-    doc.text(`Email: ${COMPANY_CONFIG.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
+    doc.text(`Email: ${this.company.email}`, marginLeft, y, { align: 'center', width: pageWidth - 60 });
     y += 18;
 
     // ── Horizontal Line ──
@@ -2841,19 +2862,19 @@ From ${COMPANY_CONFIG.name}
     // Supplier info (left side)
     doc.fontSize(9).font('Helvetica');
     doc.text(supplier?.name || 'N/A', marginLeft, y, { width: midPoint - marginLeft - 20 });
-    doc.text(COMPANY_CONFIG.name, midPoint + 10, y, { width: midPoint - 40 });
+    doc.text(this.company.name, midPoint + 10, y, { width: midPoint - 40 });
     y += 12;
 
     if (supplier?.address) {
       doc.text(supplier.address, marginLeft, y, { width: midPoint - marginLeft - 20 });
     }
-    doc.text(`${COMPANY_CONFIG.city}, ${COMPANY_CONFIG.state}`, midPoint + 10, y, { width: midPoint - 40 });
+    doc.text(`${this.company.city}, ${this.company.stateName}`, midPoint + 10, y, { width: midPoint - 40 });
     y += 12;
 
     if ((supplier as any)?.gstin) {
       doc.text(`GSTIN: ${(supplier as any).gstin}`, marginLeft, y, { width: midPoint - marginLeft - 20 });
     }
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}`, midPoint + 10, y, { width: midPoint - 40 });
+    doc.text(`GSTIN: ${this.company.gstin}`, midPoint + 10, y, { width: midPoint - 40 });
     y += 12;
 
     // Contact details
@@ -2980,7 +3001,7 @@ From ${COMPANY_CONFIG.name}
     y += 15;
 
     doc.fontSize(9).font('Helvetica');
-    doc.text('For ' + COMPANY_CONFIG.name, marginLeft, y);
+    doc.text('For ' + this.company.name, marginLeft, y);
     y += 40;
 
     doc.text('Authorized Signatory', marginLeft, y);
@@ -3214,7 +3235,7 @@ From ${COMPANY_CONFIG.name}
         // ═══════════════════════════════════════════
         doc.fontSize(14).font('Helvetica-Bold').text('CUTTING CHART', mL, y, { align: 'center', width: cW });
         y += 18;
-        doc.fontSize(10).font('Helvetica-Bold').text(COMPANY_CONFIG.name, mL, y, { align: 'center', width: cW });
+        doc.fontSize(10).font('Helvetica-Bold').text(this.company.name, mL, y, { align: 'center', width: cW });
         y += 14;
         doc
           .moveTo(mL, y)
@@ -3583,7 +3604,7 @@ From ${COMPANY_CONFIG.name}
         y += 6;
         doc.fontSize(7).font('Helvetica').fillColor('#999');
         doc.text(
-          `Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | ${COMPANY_CONFIG.name}`,
+          `Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | ${this.company.name}`,
           mL,
           y,
           { align: 'center', width: cW }
@@ -3664,19 +3685,19 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(12)
       .font('Helvetica-Bold')
-      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
+      .text(this.company.name, marginLeft, y, { align: 'center', width: availableWidth });
     y += 16;
 
     doc
       .fontSize(8)
       .font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+      .text(`${this.company.address}, ${this.company.city} - ${this.company.pincode}`, marginLeft, y, {
         align: 'center',
         width: availableWidth,
       });
     y += 11;
 
-    doc.text(`Ph: ${COMPANY_CONFIG.phone}  |  Email: ${COMPANY_CONFIG.email}`, marginLeft, y, {
+    doc.text(`Ph: ${this.company.phone}  |  Email: ${this.company.email}`, marginLeft, y, {
       align: 'center',
       width: availableWidth,
     });
@@ -3853,7 +3874,7 @@ From ${COMPANY_CONFIG.name}
       .fontSize(7)
       .fillColor('#999')
       .text(
-        `Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`,
+        `Generated on ${new Date().toLocaleString('en-IN')} | ${this.company.name}`,
         marginLeft,
         doc.page.height - 30,
         { align: 'center', width: availableWidth }
@@ -3926,7 +3947,7 @@ From ${COMPANY_CONFIG.name}
     let y = 30;
 
     // Brand colors from company config
-    const colors = COMPANY_CONFIG.brandColors || {
+    const colors = this.company.brandColors || {
       primary: '#B85C38',
       accent: '#C49A2A',
       header: '#C4522A',
@@ -3950,19 +3971,19 @@ From ${COMPANY_CONFIG.name}
       .fontSize(12)
       .font('Helvetica-Bold')
       .fillColor(colors.text)
-      .text(COMPANY_CONFIG.name, marginLeft, y, { align: 'center', width: availableWidth });
+      .text(this.company.name, marginLeft, y, { align: 'center', width: availableWidth });
     y += 16;
 
     doc
       .fontSize(8)
       .font('Helvetica')
-      .text(`${COMPANY_CONFIG.address}, ${COMPANY_CONFIG.city} - ${COMPANY_CONFIG.pincode}`, marginLeft, y, {
+      .text(`${this.company.address}, ${this.company.city} - ${this.company.pincode}`, marginLeft, y, {
         align: 'center',
         width: availableWidth,
       });
     y += 11;
 
-    doc.text(`GSTIN: ${COMPANY_CONFIG.gstin}  |  Ph: ${COMPANY_CONFIG.phone}`, marginLeft, y, {
+    doc.text(`GSTIN: ${this.company.gstin}  |  Ph: ${this.company.phone}`, marginLeft, y, {
       align: 'center',
       width: availableWidth,
     });
@@ -4197,7 +4218,7 @@ From ${COMPANY_CONFIG.name}
     doc
       .fontSize(7)
       .fillColor(colors.muted)
-      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${COMPANY_CONFIG.name}`, marginLeft, y, {
+      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${this.company.name}`, marginLeft, y, {
         align: 'center',
         width: availableWidth,
       });
@@ -4211,7 +4232,7 @@ From ${COMPANY_CONFIG.name}
     const data = await buildCostSheetDocData(costingId);
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = COMPANY_CONFIG.name;
+    workbook.creator = this.company.name;
     workbook.created = new Date();
 
     // Styles

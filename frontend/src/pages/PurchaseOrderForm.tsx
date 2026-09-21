@@ -58,10 +58,33 @@ import { formatCurrency } from '@/lib/currency';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
 import type { GreigeForRateCard, PrintingTypeV2 } from '@/types/processorRateCardV2.types';
 import { Trash2, Plus, Send, Save, ArrowLeft, Lock, X, Info, Eye, Check, FileText, Building2 } from 'lucide-react';
-import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
+import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Warehouse } from '@/types/inventory.types';
+
+/**
+ * Which GST heads apply: IGST for an out-of-state supplier, CGST+SGST for one in our own state.
+ *
+ * Extracted because this comparison was duplicated inline in two places in this file (the
+ * summary panel and the print preview) and had to be kept in step by hand.
+ *
+ * Returns `pending` while the company entity is still the pre-network placeholder. The split
+ * is deliberately NOT guessed in that window: the state code drives which tax heads a user
+ * sees, and showing CGST/SGST for a supply that owes IGST is worse than showing neither for a
+ * moment. Today the placeholder and the real entity are both state 08, so nothing changes in
+ * practice — this matters the day a second entity in another state becomes the default.
+ */
+function resolveGstHeads(
+  supplierStateCode: string | undefined,
+  homeStateCode: string,
+  isPlaceholder: boolean
+): { pending: boolean; isInterstate: boolean } {
+  if (isPlaceholder || !supplierStateCode) {
+    return { pending: !supplierStateCode ? false : true, isInterstate: false };
+  }
+  return { pending: false, isInterstate: supplierStateCode !== homeStateCode };
+}
 
 // ============================================
 // PO Category → Supplier Category Mapping
@@ -275,6 +298,7 @@ function createTrimItem(bomItem: StyleBOMEntry, calculatedQty: number | null): P
 
 export default function PurchaseOrderForm() {
   const navigate = useNavigate();
+  const { company, companyFullAddress, isPlaceholder: isCompanyPlaceholder } = useCompanyProfile();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
@@ -1942,7 +1966,11 @@ export default function PurchaseOrderForm() {
                     const supplierStateCode =
                       selectedSupplier?.gstNumbers?.find((g) => g.isPrimary)?.stateCode ||
                       selectedSupplier?.gstNumbers?.[0]?.stateCode;
-                    const isInterstate = supplierStateCode && supplierStateCode !== COMPANY_CONFIG.stateCode;
+                    const { pending: gstPending, isInterstate } = resolveGstHeads(
+                      supplierStateCode,
+                      company.stateCode,
+                      isCompanyPlaceholder
+                    );
 
                     return (
                       <>
@@ -1950,7 +1978,12 @@ export default function PurchaseOrderForm() {
                           <span className="text-muted-foreground">Subtotal:</span>
                           <span>{formatCurrency(subtotal)}</span>
                         </div>
-                        {isInterstate ? (
+                        {gstPending ? (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">GST ({avgGstRate.toFixed(1)}%):</span>
+                            <span>{formatCurrency(totalTax)}</span>
+                          </div>
+                        ) : isInterstate ? (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">IGST ({avgGstRate.toFixed(1)}%):</span>
                             <span>{formatCurrency(totalTax)}</span>
@@ -2112,19 +2145,19 @@ export default function PurchaseOrderForm() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0 space-y-1 text-sm">
-                <p className="font-semibold text-base">{COMPANY_CONFIG.name}</p>
-                <p className="text-muted-foreground">{getCompanyFullAddress()}</p>
+                <p className="font-semibold text-base">{company.name}</p>
+                <p className="text-muted-foreground">{companyFullAddress}</p>
                 <p className="mt-2">
                   <span className="text-muted-foreground">GSTIN: </span>
-                  <span className="font-medium">{COMPANY_CONFIG.gstin}</span>
+                  <span className="font-medium">{company.gstin}</span>
                 </p>
                 <p>
                   <span className="text-muted-foreground">Phone: </span>
-                  {COMPANY_CONFIG.phone}
+                  {company.phone}
                 </p>
                 <p>
                   <span className="text-muted-foreground">Email: </span>
-                  {COMPANY_CONFIG.email}
+                  {company.email}
                 </p>
               </CardContent>
             </Card>
@@ -2285,7 +2318,11 @@ export default function PurchaseOrderForm() {
                 const supplierStateCode =
                   selectedSupplier?.gstNumbers?.find((g) => g.isPrimary)?.stateCode ||
                   selectedSupplier?.gstNumbers?.[0]?.stateCode;
-                const isInterstate = supplierStateCode && supplierStateCode !== COMPANY_CONFIG.stateCode;
+                const { pending: gstPending, isInterstate } = resolveGstHeads(
+                  supplierStateCode,
+                  company.stateCode,
+                  isCompanyPlaceholder
+                );
 
                 return (
                   <>
@@ -2293,7 +2330,12 @@ export default function PurchaseOrderForm() {
                       <span className="text-muted-foreground">Subtotal:</span>
                       <span>{formatCurrency(subtotal)}</span>
                     </div>
-                    {isInterstate ? (
+                    {gstPending ? (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">GST ({avgGstRate}%):</span>
+                        <span>{formatCurrency(totalTax)}</span>
+                      </div>
+                    ) : isInterstate ? (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">IGST ({avgGstRate}%):</span>
                         <span>{formatCurrency(totalTax)}</span>

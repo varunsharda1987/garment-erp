@@ -38,7 +38,7 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsBySupplier, bulkGeneratePOs, previewPOs } from '@/services/mrp.service';
 import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types/mrp.types';
-import { COMPANY_CONFIG } from '@/config/company.config';
+import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { billableFromGreige, greigeFromBillable } from '@/utils/shrinkage';
 
@@ -74,6 +74,7 @@ export default function BulkPOGenerationDialog({
   onComplete,
   mode = 'PO',
 }: BulkPOGenerationDialogProps) {
+  const { company } = useCompanyProfile();
   const isJobWork = mode === 'JOBWORK';
   const partyNoun = isJobWork ? 'Processor' : 'Supplier';
   const [step, setStep] = useState<Step>('grouping');
@@ -602,7 +603,7 @@ export default function BulkPOGenerationDialog({
                     <CardHeader className="pb-3">
                       {/* Company (Buyer) info - compact */}
                       <div className="text-xs text-muted-foreground mb-2 pb-2 border-b">
-                        <span className="font-medium">From:</span> {COMPANY_CONFIG.name} | GSTIN: {COMPANY_CONFIG.gstin}
+                        <span className="font-medium">From:</span> {company.name} | GSTIN: {company.gstin}
                       </div>
                       <div className="flex items-center justify-between">
                         <div>

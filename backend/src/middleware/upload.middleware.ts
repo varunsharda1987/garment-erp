@@ -12,6 +12,7 @@ const tempImportDir = path.join(__dirname, '../../uploads/temp');
 const cadUploadDir = path.join(__dirname, '../../uploads/cad-files');
 const issueScreenshotDir = path.join(__dirname, '../../uploads/issue-screenshots');
 const buyerPoDocumentDir = path.join(__dirname, '../../uploads/po-documents');
+const companyAssetDir = path.join(__dirname, '../../uploads/company');
 
 // Create upload directories if they don't exist
 if (!fs.existsSync(uploadDir)) {
@@ -28,6 +29,9 @@ if (!fs.existsSync(issueScreenshotDir)) {
 }
 if (!fs.existsSync(buyerPoDocumentDir)) {
   fs.mkdirSync(buyerPoDocumentDir, { recursive: true });
+}
+if (!fs.existsSync(companyAssetDir)) {
+  fs.mkdirSync(companyAssetDir, { recursive: true });
 }
 
 // Storage configuration
@@ -195,6 +199,62 @@ export const uploadCadFile = (req: Request, res: Response, next: NextFunction): 
     next(new ValidationError(err instanceof Error ? err.message : 'File upload failed'));
   });
 };
+
+// ============================================
+// COMPANY BRANDING (logo + authorised signature)
+// ============================================
+
+const companyAssetStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, companyAssetDir);
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    // 'logo' | 'signature' — the multer field name, so the two never collide on disk.
+    cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const companyAssetFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedTypes = /jpeg|jpg|png|webp/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+  if (mimetype && extname) {
+    return cb(null, true);
+  }
+  cb(new Error('Only JPG, PNG and WEBP images are allowed'));
+};
+
+/** Factory so logo and signature share config but keep distinct field names. */
+const companyAssetUpload = (field: 'logo' | 'signature') =>
+  multer({
+    storage: companyAssetStorage,
+    limits: { fileSize: 2 * 1024 * 1024 }, // 2MB — these are embedded in every PDF
+    fileFilter: companyAssetFilter,
+  }).single(field);
+
+const wrapCompanyAsset =
+  (field: 'logo' | 'signature') =>
+  (req: Request, res: Response, next: NextFunction): void => {
+    companyAssetUpload(field)(req, res, (err: unknown) => {
+      if (!err) {
+        next();
+        return;
+      }
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          next(new ValidationError('Image is too large. Maximum size is 2MB.'));
+          return;
+        }
+        next(new ValidationError(err.message));
+        return;
+      }
+      next(new ValidationError(err instanceof Error ? err.message : 'Image upload failed'));
+    });
+  };
+
+export const uploadCompanyLogo = wrapCompanyAsset('logo');
+export const uploadCompanySignature = wrapCompanyAsset('signature');
 
 // ============================================
 // ISSUE REPORT SCREENSHOTS (PNG/JPG/WEBP)

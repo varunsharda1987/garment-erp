@@ -237,6 +237,25 @@ export default function SampleList() {
   // Define columns for DataTable
   const columns: Column<Sample>[] = [
     {
+      key: 'style',
+      header: 'Style',
+      render: (item) => (
+        <div>
+          {item.style ? (
+            <>
+              <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
+              {item.style.buyerStyleRef && (
+                <div className="text-xs text-muted-foreground line-clamp-1">({item.style.buyerStyleRef})</div>
+              )}
+              <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
+            </>
+          ) : (
+            <span className="text-muted-foreground">No style</span>
+          )}
+        </div>
+      ),
+    },
+    {
       key: 'sampleNumber',
       header: 'Sample #',
       render: (item) => (
@@ -260,25 +279,6 @@ export default function SampleList() {
         <Badge variant="secondary" className="text-xs">
           {SampleTypeLabels[item.sampleType] || item.sampleType}
         </Badge>
-      ),
-    },
-    {
-      key: 'style',
-      header: 'Style',
-      render: (item) => (
-        <div>
-          {item.style ? (
-            <>
-              <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
-              {item.style.buyerStyleRef && (
-                <div className="text-xs text-muted-foreground line-clamp-1">({item.style.buyerStyleRef})</div>
-              )}
-              <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
-            </>
-          ) : (
-            <span className="text-muted-foreground">No style</span>
-          )}
-        </div>
       ),
     },
     {

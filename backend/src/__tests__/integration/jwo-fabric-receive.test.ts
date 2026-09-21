@@ -355,7 +355,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: orphanJwoId, qtyReceivedMeters: 450, warehouseId });
+      .send({ jobWorkOrderId: orphanJwoId, qtyReceivedMeters: 500, warehouseId });
 
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/no greige lineage/i);
@@ -418,7 +418,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const viaGrn = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: gapJwoId, qtyReceivedMeters: 450, warehouseId });
+      .send({ jobWorkOrderId: gapJwoId, qtyReceivedMeters: 500, warehouseId });
     expect(viaGrn.status).toBe(201);
     // Booked. The job carries whichever master the identity ladder resolved — it may mint a
     // properly-identified finished fabric from jwo.fabric's greige rather than reuse fabricId
@@ -549,7 +549,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       const res = await request(app)
         .post('/api/grn/jwo/receive')
         .set(authHeader)
-        .send({ jobWorkOrderId: atomicJwoId, qtyReceivedMeters: 450, warehouseId });
+        .send({ jobWorkOrderId: atomicJwoId, qtyReceivedMeters: 500, warehouseId });
       expect(res.status).toBeGreaterThanOrEqual(400);
     } finally {
       spy.mockRestore();
@@ -573,9 +573,9 @@ describe('receiving dyed fabric on a job work order GRN', () => {
         jobWorkOrderId: baleJwoId,
         entryMode: 'BALE_WISE',
         details: [
-          { detailType: 'THAN', baleNumber: 1, sequenceNo: 1, meters: 150 },
-          { detailType: 'THAN', baleNumber: 1, sequenceNo: 2, meters: 148.5 },
-          { detailType: 'THAN', baleNumber: 2, sequenceNo: 3, meters: 151.5 },
+          { detailType: 'THAN', baleNumber: 1, sequenceNo: 1, meters: 168 },
+          { detailType: 'THAN', baleNumber: 1, sequenceNo: 2, meters: 166 },
+          { detailType: 'THAN', baleNumber: 2, sequenceNo: 3, meters: 166 },
         ],
         warehouseId,
       });
@@ -584,11 +584,11 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       where: { grnId: res.body.data.id },
       include: { grn_item_details: true },
     });
-    expect(Number(items[0].receivedQuantity)).toBe(450);
+    expect(Number(items[0].receivedQuantity)).toBe(500);
     expect(items[0].thanCount).toBe(3);
     expect(items[0].grn_item_details.map((d) => d.baleNumber).sort()).toEqual([1, 1, 2]);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: baleJwoId } });
-    expect(Number(jwo!.qtyReceivedMeters)).toBe(450);
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(500);
     expect(jwo!.thanCount).toBe(3);
   });
 
@@ -597,10 +597,10 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: countJwoId, qtyReceivedMeters: 450, thanCount: 12, foldLengthCm: 100, warehouseId });
+      .send({ jobWorkOrderId: countJwoId, qtyReceivedMeters: 500, thanCount: 12, foldLengthCm: 100, warehouseId });
     expect(res.status).toBe(201);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: countJwoId } });
-    expect(Number(jwo!.qtyReceivedMeters)).toBe(450); // not 12 × 100 / 100
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(500); // not 12 × 100 / 100
     expect(jwo!.thanCount).toBe(12);
   });
 
@@ -658,10 +658,11 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(challan1!.challanType).toBe('INWARD');
     expect(challan1!.id).toBe(jwo!.inwardChallanId);
 
-    // Part 2 — the final delivery.
+    // Part 2 — the final delivery. 190 brings the total to 490: 2 % short, inside the 3 % tolerance, so
+    // it closes without the short-close confirmation (the short cases are pinned further down).
     const part2 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
       jobWorkOrderId: partsJwoId,
-      qtyReceivedMeters: 180,
+      qtyReceivedMeters: 190,
       thanCount: 2,
       isFinal: true,
       receivedDate: '2026-09-19',
@@ -673,16 +674,16 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
     jwo = await prisma.job_work_orders.findUnique({ where: { id: partsJwoId } });
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
-    expect(Number(jwo!.qtyReceivedMeters)).toBe(480); // cumulative, not the last part
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(490); // cumulative, not the last part
     expect(jwo!.thanCount).toBe(5);
     expect(jwo!.receivedDate!.toISOString().slice(0, 10)).toBe('2026-09-19');
-    expect(Number(jwo!.actualShrinkage)).toBeCloseTo(4, 2); // (500 − 480) / 500 — on the TOTAL
+    expect(Number(jwo!.actualShrinkage)).toBeCloseTo(2, 2); // (500 − 490) / 500 — on the TOTAL
     expect(jwo!.qtyNormalLoss).not.toBeNull(); // the loss split ran once, on the total
     expect(jwo!.grnId).toBe(grn2);
     const item2 = await prisma.grn_items.findFirst({ where: { grnId: grn2 } });
     const lot2 = await prisma.fabric_stock.findFirst({ where: { grnItemId: item2!.id } });
     expect(lot2).not.toBeNull();
-    expect(Number(lot2!.quantityAvailable)).toBe(180);
+    expect(Number(lot2!.quantityAvailable)).toBe(190);
     expect(Number(lot1!.quantityAvailable)).toBe(300); // part 1's lot is untouched
     expect(
       await prisma.challans.count({
@@ -793,5 +794,162 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: capJwoId } });
     expect(jwo!.jwoStatus).toBe('PARTIALLY_RECEIVED');
     expect(Number(jwo!.qtyReceivedMeters)).toBe(300);
+  });
+
+  // ---- Closing short needs saying so (2026-09-19): the first real receipt closed DJ-ESSKY085LS-002 at
+  //      852.10 of 1,686.59 m by an unintended tick, and locked the second delivery out. ---------------
+  const receive = (body: Record<string, unknown>) =>
+    request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ warehouseId, ...body });
+
+  it('refuses a final receipt that leaves the total short beyond the tolerance unless the short close is confirmed', async () => {
+    const shortJwoId = await raiseAtProcessorJob(); // 500 expected, 3 % tolerance → anything under 485 is a short close
+
+    const unconfirmed = await receive({ jobWorkOrderId: shortJwoId, qtyReceivedMeters: 300, isFinal: true });
+    expect(unconfirmed.status).toBe(422);
+    expect(unconfirmed.body.error).toBe('BUSINESS_ERROR');
+    expect(unconfirmed.body.details?.reason).toBe('SHORT_CLOSE_UNCONFIRMED');
+    expect(unconfirmed.body.message).toMatch(/short/);
+    expect(unconfirmed.body.message).toMatch(/nothing more is expected/i);
+    expect(unconfirmed.body.message).toMatch(/300\.00 MTR received in total against 500\.00 MTR/);
+    expect(Number(unconfirmed.body.details.shortfall)).toBeCloseTo(200, 2);
+    // Nothing written: no receipt, job untouched.
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: shortJwoId } })).toBe(0);
+    let jwo = await prisma.job_work_orders.findUnique({ where: { id: shortJwoId } });
+    expect(jwo!.jwoStatus).toBe('AT_PROCESSOR');
+
+    // The stale-client shape — no isFinal at all, which the server defaults to "final" — is refused
+    // the same way. This is the door the owner's first receipt may have come through.
+    const stale = await receive({ jobWorkOrderId: shortJwoId, qtyReceivedMeters: 300 });
+    expect(stale.status).toBe(422);
+    expect(stale.body.details?.reason).toBe('SHORT_CLOSE_UNCONFIRMED');
+
+    // Said out loud → goes through, and the loss is booked against the processor.
+    const confirmed = await receive({
+      jobWorkOrderId: shortJwoId,
+      qtyReceivedMeters: 300,
+      isFinal: true,
+      shortCloseConfirmed: true,
+    });
+    expect(confirmed.status).toBe(201);
+    jwo = await prisma.job_work_orders.findUnique({ where: { id: shortJwoId } });
+    expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(300);
+    expect(Number(jwo!.qtyAbnormalLoss)).toBeGreaterThan(0);
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: shortJwoId } })).toBe(1);
+  });
+
+  it('asks nothing when the total is within tolerance, when the receipt is a part, or when the final part completes the total', async () => {
+    // Within the 3 % allowance: an ordinary shrinkage variance, no confirmation.
+    const withinJwoId = await raiseAtProcessorJob();
+    const within = await receive({ jobWorkOrderId: withinJwoId, qtyReceivedMeters: 490, isFinal: true });
+    expect(within.status).toBe(201);
+    expect((await prisma.job_work_orders.findUnique({ where: { id: withinJwoId } }))!.jwoStatus).toBe('STOCK_UPDATED');
+
+    // A part is never a short close — more is coming by definition.
+    const partsJwoId = await raiseAtProcessorJob();
+    const part = await receive({ jobWorkOrderId: partsJwoId, qtyReceivedMeters: 300, isFinal: false });
+    expect(part.status).toBe(201);
+    expect((await prisma.job_work_orders.findUnique({ where: { id: partsJwoId } }))!.jwoStatus).toBe(
+      'PARTIALLY_RECEIVED'
+    );
+
+    // The final part that completes the total closes without a flag, isFinal omitted or not.
+    const completing = await receive({ jobWorkOrderId: partsJwoId, qtyReceivedMeters: 200 });
+    expect(completing.status).toBe(201);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: partsJwoId } });
+    expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(500);
+  });
+
+  // ---- Close short — nothing more is coming: the mirror mistake (box unticked, nothing more came) ----
+  const closeShort = (id: string, body: Record<string, unknown>) =>
+    request(app).post(`/api/job-work-orders/${id}/close-short`).set(authHeader).send(body);
+
+  it('closes a part-received job on what came, behind the same confirmation, without filing another receipt', async () => {
+    // Nothing received at all: there is nothing to close on.
+    const bareJwoId = await raiseAtProcessorJob();
+    const bare = await closeShort(bareJwoId, { shortCloseConfirmed: true });
+    expect(bare.status).toBe(422);
+    expect(bare.body.message).toMatch(/nothing has been received/i);
+
+    // One part in (300 of 500), more was expected.
+    const jobId = await raiseAtProcessorJob();
+    const part = await receive({
+      jobWorkOrderId: jobId,
+      qtyReceivedMeters: 300,
+      isFinal: false,
+      receivedDate: '2026-09-18',
+      receivedChallan: 'CH-489',
+    });
+    expect(part.status).toBe(201);
+    const grnId1 = part.body.data.id as string;
+
+    // Unconfirmed → refused, job untouched.
+    const unconfirmed = await closeShort(jobId, {});
+    expect(unconfirmed.status).toBe(422);
+    expect(unconfirmed.body.details?.reason).toBe('SHORT_CLOSE_UNCONFIRMED');
+    expect(unconfirmed.body.message).toMatch(/nothing more/i);
+    expect(unconfirmed.body.message).toMatch(/300\.00 MTR in total against 500\.00 MTR/);
+    let jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(jwo!.jwoStatus).toBe('PARTIALLY_RECEIVED');
+    expect(jwo!.receivedDate).toBeNull();
+
+    // Confirmed → the job closes on the 300 already in: dated the day the last goods arrived, shrinkage
+    // and the loss split on that total, no new receipt / lot / challan.
+    const lotsBefore = await prisma.fabric_stock.count({ where: { fabricId: jwo!.finishedFabricId! } });
+    const confirmed = await closeShort(jobId, {
+      shortCloseConfirmed: true,
+      remarks: 'Dyer confirmed the rest was ruined',
+    });
+    expect(confirmed.status).toBe(200);
+    expect(Number(confirmed.body.lossSplit.qtyAbnormalLoss)).toBeGreaterThan(0);
+    jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(300);
+    expect(jwo!.receivedDate!.toISOString().slice(0, 10)).toBe('2026-09-18');
+    expect(Number(jwo!.actualShrinkage)).toBeCloseTo(40, 2); // (500 − 300) / 500
+    expect(Number(jwo!.qtyAbnormalLoss)).toBeGreaterThan(0);
+    expect(jwo!.remarks).toMatch(/CLOSED SHORT/);
+    expect(jwo!.remarks).toMatch(/Dyer confirmed the rest was ruined/);
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: jobId } })).toBe(1);
+    expect(
+      await prisma.challans.count({
+        where: { jobWorkOrderId: jobId, challanType: 'INWARD', status: { not: 'CANCELLED' } },
+      })
+    ).toBe(1);
+    expect(await prisma.fabric_stock.count({ where: { fabricId: jwo!.finishedFabricId! } })).toBe(lotsBefore);
+
+    // Closed means closed: no further receipt. (Close Order's debit-note gate is a hard block only for
+    // PO-backed jobs — a PO-less job closes with a warning — so it is not asserted here; the abnormal
+    // loss it would warn about is on the row.)
+    const late = await receive({ jobWorkOrderId: jobId, qtyReceivedMeters: 50 });
+    expect(late.status).toBe(422);
+    expect(late.body.message).toMatch(/already been received/i);
+
+    // Reversing the only receipt afterwards is the full pre-receive reset — close short adds no new state.
+    const reversed = await request(app)
+      .patch(`/api/grn/${grnId1}/reverse`)
+      .set(authHeader)
+      .send({ reason: 'Recorded on the wrong job' });
+    expect(reversed.status).toBe(200);
+    jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(jwo!.jwoStatus).toBe('ISSUED');
+    expect(jwo!.receivedDate).toBeNull();
+    expect(jwo!.grnId).toBeNull();
+  });
+
+  it('closes a part-received job that is within tolerance without asking', async () => {
+    const jobId = await raiseAtProcessorJob();
+    const part = await receive({ jobWorkOrderId: jobId, qtyReceivedMeters: 490, isFinal: false });
+    expect(part.status).toBe(201);
+    const closed = await closeShort(jobId, {});
+    expect(closed.status).toBe(200);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(490);
+    expect(Number(jwo!.qtyAbnormalLoss)).toBe(0);
   });
 });

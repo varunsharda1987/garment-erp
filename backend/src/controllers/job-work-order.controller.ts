@@ -43,6 +43,7 @@ import type {
   CreateJobWorkOrderInput,
   AddJwoComponentInput,
   CloseJwoInput,
+  CloseShortInput,
   DispatchJwoInput,
 } from '../schemas/jobWorkOrder.schema';
 
@@ -670,6 +671,27 @@ class JobWorkOrderController {
    * RECEIVED → CLOSED. Requires an invoice reference; abnormal loss requires a
    * debit note against the linked PO before closing.
    */
+  /**
+   * POST /api/job-work-orders/:id/close-short — nothing more is coming after a part.
+   * Wrapped in asyncHandler on the route: every refusal is a BusinessError (422 with details.reason).
+   */
+  async closeShort(req: Request, res: Response) {
+    const { id } = req.params;
+    const body = req.body as CloseShortInput;
+    const { jwo, lossSplit } = await jobWorkOrderService.closeShort(id, body);
+    res.json({
+      success: true,
+      data: jwo,
+      lossSplit: {
+        qtyNormalLoss: lossSplit.qtyNormalLoss.toNumber(),
+        qtyAbnormalLoss: lossSplit.qtyAbnormalLoss.toNumber(),
+        tolerancePercent: lossSplit.tolerancePercent.toNumber(),
+        actualShrinkage: jwo.actualShrinkage,
+      },
+      message: `${jwo.jobWorkNumber} closed short on ${Number(jwo.qtyReceivedMeters ?? 0).toFixed(2)} ${jwo.uom}`,
+    });
+  }
+
   async close(req: Request, res: Response) {
     try {
       const { id } = req.params;

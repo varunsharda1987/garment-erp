@@ -29,12 +29,20 @@ keywords:
   - receive in parts
   - final delivery
   - two deliveries
+  - close short
+  - short close
+  - nothing more coming
   - aadha maal aaya
   - kishton mein
+  - kam maal
+  - aur nahi aayega
   - रिसीव फ्रॉम प्रोसेसर
   - आधा माल आया
   - किश्तों में
   - आखिरी डिलीवरी
+  - कम माल
+  - और नहीं आएगा
+  - शॉर्ट क्लोज
   - मिल से माल आया
   - लेस वापस
   - माल वापस
@@ -91,9 +99,9 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 6. **Their challan no.** — the processor's challan number.
 7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent.
 8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
-9. **This is the final delivery** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. Tick it yourself to close the job short.
-10. If the quantity is short beyond the job's tolerance and the final-delivery box is ticked, a warning appears naming the metres beyond the allowance and saying a debit note against the processor will be needed before the job can close. You can still go ahead.
-11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked). The button stays disabled until you have a quantity, a warehouse and a valid date.
+9. **This is the final delivery — nothing more is expected from …** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. If you tick it while the total is short, the line under it turns red: **Short by … Only tick this if nothing more is coming from …**.
+10. If the total is short beyond the job's tolerance and the box is ticked, a warning names the metres beyond the allowance and the debit note that will be needed against the processor before the job can close.
+11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked). The button stays disabled until you have a quantity, a warehouse and a valid date. When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
 
 ### What that one click does
 - Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date and metres.
@@ -106,10 +114,11 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 A processor often returns a job in more than one delivery. Record each delivery as its own receipt:
 1. Open **Receive from processor** and enter the first delivery as above, with its own challan number and date.
 2. Untick **This is the final delivery** and click **Receive part & add to stock**. That part is in stock with its own inward challan, and the job shows **Partial Receipt** with **Received so far … of … expected — … still to come** in its Quantities card.
-3. For the next delivery open the dialog again. It shows **Received so far** and **Maximum you can still receive**, and the final-delivery box ticks itself once the total is reached. Leave it ticked on the last delivery and click **Receive & add to stock**.
+3. For the next delivery open the dialog again. It shows **Received so far** and **Maximum you can still receive**, and the final-delivery box ticks itself once the total is reached. Leave it ticked on the last delivery and click **Receive & add to stock**. If that last delivery still leaves the total short beyond the tolerance, the **Close … short?** confirmation appears — answer it only if nothing more is coming.
 4. The job moves to **Stock Updated**. Shrinkage and the loss split are worked out once, on the total of all parts, and the Actions card lists every **Return receipt**.
+5. If the processor will send nothing more after a part, open the job and click **Close short — nothing more is coming**, which appears under **Receive from processor** while the job is at **Partial Receipt**. The same confirmation appears, stating the total received and the shortfall; click **Yes — nothing more is coming, close it short**, or **Keep it open** if more may still come. The job closes on what was received — no new receipt, lot or challan is made — and when the shortfall is beyond the allowance a debit note against the processor is due; **Close Order** reminds you of it.
 
-If a part was recorded wrongly, an admin reverses that one receipt: its lot and inward challan go, the other parts stay, and the job's total is recomputed. Reversing the final part re-opens the job as **Partial Receipt**, so the last delivery can be entered again.
+If a part was recorded wrongly, an admin reverses that one receipt: its lot and inward challan go, the other parts stay, and the job's total is recomputed. Reversing the final part re-opens the job as **Partial Receipt**, so the last delivery can be entered again. That also undoes a **Close short** when the reversed receipt was the last one in.
 
 ## Piece work coming back (stitching, washing, handwork, kaaj-button)
 1. Open **Manufacturing → Job Work Dashboard**, click **Job Work Orders**, then open the order.
@@ -128,6 +137,8 @@ If a part was recorded wrongly, an admin reverses that one receipt: its lot and 
 - **Fold length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
 - Receiving more than **Maximum you can receive** is refused; the message shows the maximum. With parts the cap is on the total of all parts, and the message names the metres already received.
 - The final-delivery box follows the quantity only until you click it; after that it stays as you set it until the dialog is next opened.
+- A final delivery that leaves the total short beyond the tolerance cannot go in quietly. If the confirmation was somehow skipped (an old browser tab, for instance), the server refuses it with "This would close … short: … received in total against … expected back from … If more is still to come, receive this as a part. If nothing more is expected, confirm the short close." — reload the page and the confirmation appears.
+- **Close short — nothing more is coming** only appears on a job at **Partial Receipt**. A job with nothing received yet has nothing to close on, and a job already at **Stock Updated** is already closed.
 - A receipt with no quantity is refused with "Received quantity must be greater than 0" — nothing is written.
 - A return dated before the day the greige was sent is refused: "Date received 27-Aug-2026 is before the day the greige was sent (19-Sep-2026)". The date field will not go earlier than the send day.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

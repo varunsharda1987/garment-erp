@@ -10,11 +10,13 @@ import { Router } from 'express';
 import { jobWorkOrderController } from '../controllers/job-work-order.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
+import { asyncHandler } from '../middleware/asyncHandler';
 import {
   receivePreviewQuerySchema,
   createJobWorkOrderSchema,
   addJwoComponentSchema,
   closeJwoSchema,
+  closeShortSchema,
   issueJwoSchema,
   issueWithDetailsSchema,
   receiveJwoSchema,
@@ -52,6 +54,13 @@ router.post(
 router.delete('/:id/components/:componentId', jobWorkOrderController.removeComponent.bind(jobWorkOrderController));
 router.get('/:id/reconciliation', jobWorkOrderController.getReconciliation.bind(jobWorkOrderController));
 router.post('/:id/close', validateBody(closeJwoSchema), jobWorkOrderController.close.bind(jobWorkOrderController));
+// Nothing more is coming after a part: finalise a Partial Receipt job on what was received. A total
+// short beyond the tolerance must be confirmed (shortCloseConfirmed) — the same rule as a short final.
+router.post(
+  '/:id/close-short',
+  validateBody(closeShortSchema),
+  asyncHandler(jobWorkOrderController.closeShort.bind(jobWorkOrderController))
+);
 
 // Actions
 // no-body — recompute is triggered by the POST alone; all inputs live on the order

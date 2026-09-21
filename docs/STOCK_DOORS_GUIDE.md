@@ -153,6 +153,13 @@ and its own inward challan (`challans.grnId`); the job carries the running total
 on the total. Reversal is per receipt: that part's lot and challan go, the others stay, and the job is
 recomputed — reversing the final part re-opens the job as Partial Receipt.
 
+**Closing short needs a confirmation (both ways):** a final delivery that leaves the total short beyond the
+tolerance asks *"Close … short?"* and the server refuses the receipt unless it was confirmed
+(`shortCloseConfirmed`). A job left at Partial Receipt when nothing more is coming is closed with **Close short
+— nothing more is coming** on the job (`POST /api/job-work-orders/:id/close-short`), behind the same
+confirmation: it finalises on what was received, files no further receipt, and the shortfall becomes a loss
+against the processor (debit note before Close Order).
+
 **Important:**
 - This is NOT a purchase — material was always yours. The GRN *form* is for things you bought.
 - GST is on the SERVICE (processing charges), not the fabric — the return receipt is what the ITC report reads

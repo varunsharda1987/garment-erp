@@ -2634,6 +2634,11 @@ class GRNService {
        * receipt posts nothing and behaves exactly as before parts existed (2026-09-19).
        */
       isFinal?: boolean;
+      /**
+       * A closing receipt that leaves the total short beyond the tolerance is a SHORT CLOSE and is
+       * refused unless this is true — the caller has asked "nothing more is coming?" and been told yes.
+       */
+      shortCloseConfirmed?: boolean;
       remarks?: string;
       // Entry mode for bale/than tracking
       entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
@@ -2744,6 +2749,56 @@ class GRNService {
           `exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
           `plus ${overReceiptTolerance}% over-receipt tolerance (max ${maxReceivable.toFixed(2)} MTR)`
       );
+    }
+
+    // A receipt that CLOSES the job while the total is short beyond the tolerance is a SHORT CLOSE,
+    // and a short close must be said out loud. The owner's first real receipt (852.10 of 1,686.59 m)
+    // went in as final by an unintended tick and locked the second delivery out (2026-09-19); the
+    // same rule refuses a stale client that posts no isFinal at all. Same pure function and the same
+    // tolerance precedence (job → process type → 0) as the preview and applyLossSplit — nothing is
+    // re-derived here. Sits before the mint below so a refusal writes nothing.
+    if ((data.isFinal ?? true) && !data.shortCloseConfirmed) {
+      const cumulative = toNumber(roundToCent(addCurrency(receivedSoFar, qtyReceived)));
+      let split: ReturnType<typeof jobWorkOrderService.calculateLossSplit>;
+      try {
+        split = jobWorkOrderService.calculateLossSplit({
+          qtySent: jwo.qtySentMeters,
+          qtyReceived: cumulative,
+          qtyExpected: jwo.qtyBillable,
+          expectedShrinkagePercent: jwo.expectedShrinkage,
+          tolerancePercent: Number(jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0),
+          ratePerMeter: jwo.agreedRatePerMeter,
+        });
+      } catch (splitError) {
+        throw new BusinessError(
+          splitError instanceof Error ? splitError.message : 'Could not work out the loss split for this receipt'
+        );
+      }
+      if (split.isOverTolerance) {
+        const uom = jwo.uom;
+        const processorName = jwo.processor?.name ?? 'the processor';
+        const expected = split.qtyExpected.toNumber();
+        const shortfall = split.shortfall.toNumber();
+        const beyondAllowance = split.qtyAbnormalLoss.toNumber();
+        const tolerancePercent = split.tolerancePercent.toNumber();
+        throw new BusinessError(
+          `This would close ${jwo.jobWorkNumber} short: ${cumulative.toFixed(2)} ${uom} received in total against ` +
+            `${expected.toFixed(2)} ${uom} expected back from ${processorName} — ${shortfall.toFixed(2)} ${uom} short, ` +
+            `${beyondAllowance.toFixed(2)} ${uom} beyond the ${tolerancePercent}% allowance. ` +
+            `If more is still to come, receive this as a part (untick "This is the final delivery"). ` +
+            `If nothing more is expected, confirm the short close.`,
+          {
+            reason: 'SHORT_CLOSE_UNCONFIRMED',
+            qtyThisReceipt: qtyReceived,
+            cumulative,
+            expected,
+            shortfall,
+            beyondAllowance,
+            tolerancePercent,
+            debitNoteAmount: split.debitNoteAmount ? split.debitNoteAmount.toNumber() : null,
+          }
+        );
+      }
     }
 
     // grn_items.materialId is required, and it must name the material ARRIVING — the dyed lace

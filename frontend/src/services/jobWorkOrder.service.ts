@@ -69,6 +69,11 @@ export interface ReceiveToStockPayload {
    * true (default on the server) = the last delivery — the job closes on the cumulative total.
    */
   isFinal?: boolean;
+  /**
+   * Required (true) when the final delivery leaves the total short beyond the tolerance — the server
+   * refuses a short close that was not confirmed (details.reason SHORT_CLOSE_UNCONFIRMED).
+   */
+  shortCloseConfirmed?: boolean;
   entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
   /** Than-/bale-wise rows; the server sums them for the quantity and counts them for thanCount. */
   details?: Array<{ detailType: 'THAN'; baleNumber: number | null; sequenceNo: number; meters: number }>;
@@ -366,6 +371,18 @@ export const jobWorkOrderService = {
   async close(id: string, invoiceNumber?: string, remarks?: string): Promise<{ data: JobWorkOrder; warning?: string }> {
     const response = await api.post(`${BASE_URL}/${id}/close`, { invoiceNumber, remarks });
     return { data: response.data.data, warning: response.data.warning };
+  },
+
+  /**
+   * Nothing more is coming after a part: finalise a Partial Receipt job on what has been received.
+   * The shortfall becomes a loss against the processor; no further receipt is filed.
+   */
+  async closeShort(
+    id: string,
+    payload: { shortCloseConfirmed: boolean; remarks?: string }
+  ): Promise<{ data: JobWorkOrder; lossSplit: LossSplitResult }> {
+    const response = await api.post(`${BASE_URL}/${id}/close-short`, payload);
+    return response.data;
   },
 
   /**

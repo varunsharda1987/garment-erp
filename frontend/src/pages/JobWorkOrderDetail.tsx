@@ -137,6 +137,8 @@ export default function JobWorkOrderDetail() {
   const [qtyReceived, setQtyReceived] = useState('');
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
+  // Close short — nothing more is coming: the "Close … short?" confirmation on a Partial Receipt job.
+  const [closeShortOpen, setCloseShortOpen] = useState(false);
   // Phase 4c: operational issue dialog (greige lots + transport)
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
@@ -388,6 +390,36 @@ export default function JobWorkOrderDetail() {
       } else {
         toast.error(err.response?.data?.message || 'Failed to close job work order');
       }
+    },
+  });
+
+  // Close short — nothing more is coming. The figures in the confirmation are the server's own loss
+  // split for the total already received (the same preview the receive dialog uses); the page works
+  // out no money math.
+  const receivedSoFar = Number(jwo?.qtyReceivedMeters ?? 0);
+  const { data: closeShortPreview } = useQuery({
+    queryKey: ['jwo-receive-preview', id, receivedSoFar, 'close-short'],
+    queryFn: () => jobWorkOrderService.getReceivePreview(id!, receivedSoFar),
+    enabled: closeShortOpen && !!id && receivedSoFar > 0,
+  });
+  const closeShortMutation = useMutation({
+    mutationFn: () => jobWorkOrderService.closeShort(id!, { shortCloseConfirmed: true }),
+    onSuccess: (result) => {
+      const abnormal = Number(result.lossSplit?.qtyAbnormalLoss ?? 0);
+      toast.success(`${result.data.jobWorkNumber} closed short on ${receivedSoFar.toFixed(2)} ${result.data.uom}`, {
+        description:
+          abnormal > 0
+            ? `${abnormal.toFixed(2)} ${result.data.uom} abnormal loss — a debit note against the processor is needed before the job can be closed.`
+            : undefined,
+        duration: abnormal > 0 ? 8000 : undefined,
+      });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
+      queryClient.invalidateQueries({ queryKey: ['process-pos'] });
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Could not close the job short');
     },
   });
 
@@ -767,7 +799,7 @@ export default function JobWorkOrderDetail() {
                   </span>{' '}
                   of {jwo.qtyBillable.toFixed(2)} expected —{' '}
                   {Math.max(0, jwo.qtyBillable - (jwo.qtyReceivedMeters ?? 0)).toFixed(2)} {jwo.uom} still to come. Tick
-                  "This is the final delivery" on the last receipt.
+                  "This is the final delivery" on the last receipt, or use Close short if nothing more is coming.
                 </p>
               )}
 
@@ -1026,6 +1058,15 @@ export default function JobWorkOrderDetail() {
                     Receive Material
                   </Button>
                 ))}
+
+              {/* The mirror of the unintended-tick mistake: a part is in, the box was left unticked, and
+                  nothing more is coming. Closes on what was received, behind the same confirmation. */}
+              {currentStatus === 'PARTIALLY_RECEIVED' && !jwo.receivedDate && jwo.uom === 'MTR' && (
+                <Button className="w-full" variant="secondary" onClick={() => setCloseShortOpen(true)}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Close short — nothing more is coming
+                </Button>
+              )}
 
               {jwo.jwoStatus !== 'CLOSED' &&
                 ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.jwoStatus) && (
@@ -1550,6 +1591,43 @@ export default function JobWorkOrderDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Close … short? — nothing more is coming after a part. Figures come from the server's preview. */}
+      <ConfirmDialog
+        open={closeShortOpen}
+        onOpenChange={setCloseShortOpen}
+        title={`Close ${jwo.jobWorkNumber} short?`}
+        description={(() => {
+          const processor = jwo.processor?.name ?? 'the processor';
+          const uom = jwo.uom;
+          if (!closeShortPreview) {
+            return `Nothing more will be received on this job. It closes on the ${receivedSoFar.toFixed(2)} ${uom} already received.`;
+          }
+          const p = closeShortPreview;
+          if (!p.isOverTolerance) {
+            return (
+              `Nothing more will be received on this job. The total stays at ${receivedSoFar.toFixed(2)} ${uom} of the ` +
+              `${p.qtyExpected.toFixed(2)} ${uom} expected back from ${processor} — within the ${p.tolerancePercent}% ` +
+              `allowance. The job closes on that total.`
+            );
+          }
+          return (
+            `Nothing more will be received on this job. The total stays at ${receivedSoFar.toFixed(2)} ${uom} of the ` +
+            `${p.qtyExpected.toFixed(2)} ${uom} expected back from ${processor} — ${p.shortfall.toFixed(2)} ${uom} short, ` +
+            `${p.qtyAbnormalLoss.toFixed(2)} ${uom} beyond the ${p.tolerancePercent}% allowance. The job closes on that ` +
+            `total, the shortfall becomes a loss against ${processor}` +
+            (p.debitNoteAmount != null
+              ? `, and a debit note of about ₹${p.debitNoteAmount.toFixed(2)} is due against them.`
+              : '.') +
+            ` If more is still on its way, keep the job open and receive it as a part instead.`
+          );
+        })()}
+        confirmText="Yes — nothing more is coming, close it short"
+        cancelText="Keep it open"
+        variant="destructive"
+        isLoading={closeShortMutation.isPending}
+        onConfirm={() => closeShortMutation.mutate()}
+      />
 
       <ConfirmDialog
         open={deleteDialogOpen}

@@ -140,6 +140,20 @@ export const closeJwoSchema = z.object({
 export type CloseJwoInput = z.infer<typeof closeJwoSchema>;
 
 /**
+ * POST /api/job-work-orders/:id/close-short — nothing more is coming after a part.
+ *
+ * Finalises a PARTIALLY_RECEIVED job on what has already been received: shrinkage and the loss split
+ * are worked out on that total, no further receipt is filed. When the total is short beyond the
+ * tolerance the caller must confirm it (the same rule the receive door applies to a short final).
+ */
+export const closeShortSchema = z.object({
+  shortCloseConfirmed: z.boolean().optional().default(false),
+  remarks: z.string().max(500).optional(),
+});
+
+export type CloseShortInput = z.infer<typeof closeShortSchema>;
+
+/**
  * POST /api/job-work-orders/:id/issue — Phase 4c operational issue.
  * greigeStockLotId consumes that lot; challanNumber is the manual/vendor challan ref.
  */

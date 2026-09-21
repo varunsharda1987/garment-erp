@@ -41,6 +41,8 @@ type Tx = Prisma.TransactionClient;
  */
 export const JWO_GRN_INCLUDE = {
   processor: { select: { id: true, name: true } },
+  // Tolerance precedence is job → process type → 0; the short-close guard needs the process-type default.
+  processTypeMaster: { select: { tolerancePercent: true } },
   greigeStockLot: { select: { id: true, purchaseCost: true, greigeId: true } },
   // Phase 5b: fabric-roll source (EMBROIDERY) — cost basis is the source lot's WAC
   fabricStockLot: { select: { id: true, weightedAvgCost: true, fabricFinishType: true } },

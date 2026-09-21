@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import ReceiptDetailRows, {
   sumDetailRows,
   type ReceiptDetailRow,
@@ -41,6 +42,21 @@ interface ReceiveFromProcessorDialogProps {
 const NOT_A_STORE: WarehouseType[] = ['JOB_WORK', 'TRANSIT'];
 
 const fmt = (n: number | null | undefined) => (n == null ? '-' : Number(n).toFixed(2));
+
+/**
+ * The figures a short close is confirmed on. From the server's preview (asked for the cumulative
+ * quantity) or, when the server refused an unconfirmed short close, from that refusal's details —
+ * the dialog never works these out itself.
+ */
+interface ShortCloseFigures {
+  qtyThisReceipt: number;
+  cumulative: number;
+  expected: number;
+  shortfall: number;
+  beyondAllowance: number;
+  tolerancePercent: number;
+  debitNoteAmount: number | null;
+}
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fmtDay = (iso: string) => {
   const [y, m, d] = iso.slice(0, 10).split('-');
@@ -72,6 +88,11 @@ export default function ReceiveFromProcessorDialog({
   // null = untouched: the "final delivery" box follows the quantity (ticked once the expected total
   // is reached); a click pins it either way until the dialog is next opened.
   const [finalOverride, setFinalOverride] = useState<boolean | null>(null);
+  // "Close … short?" — open when a final receipt would leave the total short beyond the tolerance.
+  // `serverShort` carries the figures when it was the SERVER that refused (a fast click before the
+  // preview ran, or a stale tab that posted no isFinal); otherwise the preview's figures are used.
+  const [shortCloseOpen, setShortCloseOpen] = useState(false);
+  const [serverShort, setServerShort] = useState<ShortCloseFigures | null>(null);
 
   const { data: jwo } = useQuery({
     queryKey: ['job-work-order', jobWorkOrderId],
@@ -104,6 +125,8 @@ export default function ReceiveFromProcessorDialog({
       setQualityGrade('');
       setDefectMeters(0);
       setFinalOverride(null);
+      setShortCloseOpen(false);
+      setServerShort(null);
     }
     wasOpen.current = open;
   }, [open, today]);
@@ -155,7 +178,7 @@ export default function ReceiveFromProcessorDialog({
   const isFinal = finalOverride ?? autoFinal;
 
   const receiveMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: ({ shortCloseConfirmed }: { shortCloseConfirmed: boolean }) =>
       jobWorkOrderService.receiveToStock({
         jobWorkOrderId: jobWorkOrderId!,
         entryMode,
@@ -180,6 +203,8 @@ export default function ReceiveFromProcessorDialog({
         receivedDate,
         warehouseId,
         isFinal,
+        // Only ever true after the user has answered "Close … short?" — never sent by default.
+        shortCloseConfirmed: shortCloseConfirmed || undefined,
         processingQC:
           qualityGrade || defectMeters > 0
             ? { qualityGrade: qualityGrade || undefined, defectMeters: defectMeters > 0 ? defectMeters : undefined }
@@ -210,18 +235,63 @@ export default function ReceiveFromProcessorDialog({
       onOpenChange(false);
       onSuccess?.();
     },
-    onError: (err) => handleApiError(err, 'Could not receive from processor'),
+    onError: (err) => {
+      // The server is the authority on a short close. When it refused an unconfirmed one (a fast click
+      // before the preview ran, or a stale tab), ask the same question here instead of toasting.
+      const data = (err as { response?: { data?: { details?: Partial<ShortCloseFigures> & { reason?: string } } } })
+        ?.response?.data;
+      const d = data?.details;
+      if (d?.reason === 'SHORT_CLOSE_UNCONFIRMED') {
+        setServerShort({
+          qtyThisReceipt: Number(d.qtyThisReceipt ?? 0),
+          cumulative: Number(d.cumulative ?? 0),
+          expected: Number(d.expected ?? 0),
+          shortfall: Number(d.shortfall ?? 0),
+          beyondAllowance: Number(d.beyondAllowance ?? 0),
+          tolerancePercent: Number(d.tolerancePercent ?? 0),
+          debitNoteAmount: d.debitNoteAmount == null ? null : Number(d.debitNoteAmount),
+        });
+        setShortCloseOpen(true);
+        return;
+      }
+      handleApiError(err, 'Could not receive from processor');
+    },
   });
 
   if (!jobWorkOrderId) return null;
 
   const isLace = jwo?.fabricType === 'LACE';
   const uom = jwo?.uom ?? 'MTR';
+  const processorName = jwo?.processor?.name ?? 'the processor';
   // A return cannot be dated before the greige went out — the server refuses it too.
   const sentDay = jwo?.sentDate ? jwo.sentDate.slice(0, 10) : undefined;
   const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
   const canSubmit =
     effectiveQty > 0 && !!warehouseId && !!receivedDate && !dateBeforeSend && !receiveMutation.isPending;
+
+  // A final delivery that leaves the total short beyond the tolerance is a SHORT CLOSE: it is asked
+  // about, in words, before anything is sent. The server refuses it anyway if the question was skipped.
+  const shortClose: ShortCloseFigures | null =
+    serverShort ??
+    (preview && preview.isOverTolerance
+      ? {
+          qtyThisReceipt: effectiveQty,
+          cumulative: receivedSoFar + effectiveQty,
+          expected: preview.qtyExpected,
+          shortfall: preview.shortfall,
+          beyondAllowance: preview.qtyAbnormalLoss,
+          tolerancePercent: preview.tolerancePercent,
+          debitNoteAmount: preview.debitNoteAmount,
+        }
+      : null);
+  const handleSubmit = () => {
+    if (isFinal && preview?.isOverTolerance) {
+      setServerShort(null);
+      setShortCloseOpen(true);
+      return;
+    }
+    receiveMutation.mutate({ shortCloseConfirmed: false });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -480,12 +550,16 @@ export default function ReceiveFromProcessorDialog({
             />
             <div className="space-y-1">
               <Label htmlFor="rfp-final" className="font-normal">
-                This is the final delivery
+                This is the final delivery — nothing more is expected from {processorName}
               </Label>
-              <p className="text-xs text-muted-foreground">
-                {isFinal
-                  ? 'The job closes on the total received: shrinkage and any loss against the processor are worked out now.'
-                  : 'More is still to come. This part is booked into stock and the job stays open for the next delivery.'}
+              <p
+                className={`text-xs ${isFinal && preview?.isOverTolerance ? 'text-destructive' : 'text-muted-foreground'}`}
+              >
+                {isFinal && preview?.isOverTolerance
+                  ? `Short by ${fmt(preview.shortfall)} ${uom}. Only tick this if nothing more is coming from ${processorName}: the job closes and the shortfall becomes a loss against them.`
+                  : isFinal
+                    ? 'The job closes on the total received: shrinkage and any loss against the processor are worked out now.'
+                    : 'More is still to come. This part is booked into stock and the job stays open for the next delivery.'}
               </p>
             </div>
           </div>
@@ -495,11 +569,36 @@ export default function ReceiveFromProcessorDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={receiveMutation.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => receiveMutation.mutate()} disabled={!canSubmit}>
+          <Button onClick={handleSubmit} disabled={!canSubmit}>
             {receiveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isFinal ? 'Receive & add to stock' : 'Receive part & add to stock'}
           </Button>
         </DialogFooter>
+
+        {/* Close … short? — the one question that must be answered in words before a short final goes in. */}
+        <ConfirmDialog
+          open={shortCloseOpen}
+          onOpenChange={setShortCloseOpen}
+          title={`Close ${jwo?.jobWorkNumber ?? 'this job'} short?`}
+          description={
+            shortClose
+              ? `You are receiving ${fmt(shortClose.qtyThisReceipt)} ${uom}. That brings the total to ` +
+                `${fmt(shortClose.cumulative)} ${uom} of the ${fmt(shortClose.expected)} ${uom} expected back from ` +
+                `${processorName} — ${fmt(shortClose.shortfall)} ${uom} short, ${fmt(shortClose.beyondAllowance)} ${uom} ` +
+                `beyond the ${shortClose.tolerancePercent}% allowance. Confirm only if you do not expect anything more ` +
+                `from ${processorName} on this job: the job closes, the shortfall becomes a loss against them` +
+                (shortClose.debitNoteAmount != null
+                  ? `, and a debit note of about ₹${fmt(shortClose.debitNoteAmount)} is due against them.`
+                  : '.') +
+                ` If more is still on its way, go back and untick "This is the final delivery" to receive this as a part.`
+              : 'This delivery leaves the total short of what was expected back. Confirm only if nothing more is coming.'
+          }
+          confirmText="Yes — nothing more is coming, close it short"
+          cancelText="Go back"
+          variant="destructive"
+          isLoading={receiveMutation.isPending}
+          onConfirm={() => receiveMutation.mutate({ shortCloseConfirmed: true })}
+        />
       </DialogContent>
     </Dialog>
   );

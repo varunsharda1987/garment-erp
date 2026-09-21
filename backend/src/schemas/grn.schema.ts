@@ -116,6 +116,10 @@ export const receiveJwoToStockSchema = z.object({
   // PARTIALLY_RECEIVED; the final one runs the loss split on the cumulative total and closes the
   // return. Defaults to true so a lone full receipt behaves as before.
   isFinal: z.boolean().optional().default(true),
+  // A receipt that closes the job while the total is short beyond the tolerance is a SHORT CLOSE and
+  // must say so explicitly; without this the server refuses it (2026-09-19 — the first real receipt
+  // closed DJ-ESSKY085LS-002 at half the expected metres by an unintended tick).
+  shortCloseConfirmed: z.boolean().optional().default(false),
   remarks: z.string().max(1000).trim().optional().nullable(),
   // Entry mode for bale/than tracking (same modes as regular GRN)
   entryMode: entryModeEnum.optional().nullable(),

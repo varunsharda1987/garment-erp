@@ -15,6 +15,8 @@
 
 import { Prisma, job_work_orders } from '@prisma/client';
 import prisma from '../config/database';
+import { BusinessError } from '../errors';
+import { setJwoStatus } from './helpers/jwo-status.helper';
 import {
   toCurrency,
   multiplyCurrency,
@@ -340,6 +342,97 @@ class JobWorkOrderService {
     });
 
     return updated;
+  }
+
+  /**
+   * Close short — nothing more is coming (2026-09-19).
+   *
+   * Finalises a PARTIALLY_RECEIVED job on what has already been received: the same closing step the
+   * final receipt runs (shrinkage + loss split on the total, receivedDate, STOCK_UPDATED) without a
+   * receipt. Files no receipt, lot or challan — those exist per part — and touches MRP not at all
+   * (its deltas were applied per part). A total short beyond the tolerance is a SHORT CLOSE and must
+   * be confirmed, the same rule the receive door applies to a short final delivery. The mirror of
+   * the unintended-tick mistake: a box left unticked when nothing more came had no in-app exit.
+   */
+  async closeShort(
+    jwoId: string,
+    input: { shortCloseConfirmed?: boolean; remarks?: string }
+  ): Promise<{ jwo: job_work_orders; lossSplit: LossSplitResult }> {
+    const jwo = await prisma.job_work_orders.findUnique({
+      where: { id: jwoId },
+      include: {
+        processor: { select: { name: true } },
+        processTypeMaster: { select: { tolerancePercent: true } },
+        receivingGRNs: {
+          where: { status: 'ACCEPTED' },
+          select: { id: true, receivingDate: true },
+          orderBy: { receivingDate: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    if (!jwo) {
+      throw new BusinessError('Job work order not found');
+    }
+    const total = Number(jwo.qtyReceivedMeters ?? 0);
+    if (total <= 0 || jwo.receivingGRNs.length === 0) {
+      throw new BusinessError(`Nothing has been received on ${jwo.jobWorkNumber} — there is nothing to close on.`);
+    }
+    if (jwo.jwoStatus !== 'PARTIALLY_RECEIVED' || jwo.receivedDate) {
+      throw new BusinessError(
+        `${jwo.jobWorkNumber} is not part-received (status ${jwo.jwoStatus}). Close short is for a job that has ` +
+          `a part in and was expecting more.`
+      );
+    }
+
+    // Same pure function and the same tolerance precedence (job → process type → 0) as the receive
+    // door and applyLossSplit.
+    const tolerancePercent = Number(jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0);
+    const split = this.calculateLossSplit({
+      qtySent: jwo.qtySentMeters,
+      qtyReceived: total,
+      qtyExpected: jwo.qtyBillable,
+      expectedShrinkagePercent: jwo.expectedShrinkage,
+      tolerancePercent,
+      ratePerMeter: jwo.agreedRatePerMeter,
+    });
+    const processorName = jwo.processor?.name ?? 'the processor';
+    const uom = jwo.uom;
+    if (split.isOverTolerance && !input.shortCloseConfirmed) {
+      throw new BusinessError(
+        `This closes ${jwo.jobWorkNumber} short with nothing more received: ${total.toFixed(2)} ${uom} in total ` +
+          `against ${split.qtyExpected.toFixed(2)} ${uom} expected back from ${processorName} — ` +
+          `${split.shortfall.toFixed(2)} ${uom} short, ${split.qtyAbnormalLoss.toFixed(2)} ${uom} beyond the ` +
+          `${split.tolerancePercent.toNumber()}% allowance. Confirm only if nothing more is expected; otherwise ` +
+          `keep the job open and receive the rest as a part.`,
+        {
+          reason: 'SHORT_CLOSE_UNCONFIRMED',
+          qtyThisReceipt: 0,
+          cumulative: total,
+          expected: split.qtyExpected.toNumber(),
+          shortfall: split.shortfall.toNumber(),
+          beyondAllowance: split.qtyAbnormalLoss.toNumber(),
+          tolerancePercent: split.tolerancePercent.toNumber(),
+          debitNoteAmount: split.debitNoteAmount ? split.debitNoteAmount.toNumber() : null,
+        }
+      );
+    }
+
+    // Dated the day the last goods actually arrived — not the day of the click. §143 ageing and the
+    // return document read receivedDate.
+    const receivedDate = jwo.receivingGRNs[0].receivingDate;
+    const note =
+      `[CLOSED SHORT ${new Date().toISOString().slice(0, 10)}] nothing more expected from ${processorName}; ` +
+      `total ${total.toFixed(2)} of ${split.qtyExpected.toFixed(2)} ${uom}` +
+      (input.remarks?.trim() ? ` — ${input.remarks.trim()}` : '');
+    const updated = await prisma.$transaction(async (tx) => {
+      await this.applyLossSplit(jwoId, total, tx);
+      return setJwoStatus(tx, jwoId, 'STOCK_UPDATED', {
+        receivedDate,
+        remarks: jwo.remarks ? `${jwo.remarks}\n${note}` : note,
+      });
+    });
+    return { jwo: updated, lossSplit: split };
   }
 
   /**

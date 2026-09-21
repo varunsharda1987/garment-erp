@@ -807,6 +807,10 @@ const GST_RATE_HIGH = 18;
 const GST_RATE_LOW = 5;
 const APPAREL_PRICE_THRESHOLD = 2500;
 
+// An invoice rounds to the nearest rupee, so a legitimate round-off never exceeds this. Larger
+// means the billed total and the line amounts genuinely disagree — never post that as "rounding".
+const MAX_ROUND_OFF = 1;
+
 // Format amount for Tally XML (2 decimal places, handle -0)
 const amt = (n: number): string => (Object.is(n, -0) ? 0 : n).toFixed(2);
 
@@ -919,11 +923,19 @@ export function buildSalesVoucherXml(
     return invoice.isInterstate ? (item.igstRate ?? 0) : (item.cgstRate ?? 0) * 2;
   };
 
+  // Only lines that actually post a stock entry. The GST buckets below MUST use this same set:
+  // a zero-qty line that contributes tax but no sales credit makes the voucher unbalanced.
+  const postedItems = invoice.invoice_items.filter((item) => item.quantity > 0);
+
+  // Running total of the sales credit ACTUALLY written into the XML (each line is emitted at 2dp,
+  // so the per-line rounding is what must tie out — not the raw header subtotal).
+  let salesTotal = 0;
+
   // Build inventory entries for each line item
-  const inventoryLines = invoice.invoice_items
-    .filter((item) => item.quantity > 0)
+  const inventoryLines = postedItems
     .map((item) => {
-      const amount = Number(item.totalPrice);
+      const amount = round2(Number(item.totalPrice));
+      salesTotal = round2(salesTotal + amount);
       const qtyStr = `${item.quantity} ${unit}`;
       const rateStr = `${Number(item.unitPrice).toFixed(2)}/${unit}`;
       const stockName = item.description; // Use description as stock item name
@@ -950,9 +962,9 @@ export function buildSalesVoucherXml(
     })
     .join('');
 
-  // Aggregate GST by rate bucket (5% vs 18%)
+  // Aggregate GST by rate bucket (5% vs 18%) — same line set as the inventory entries above.
   const gstBuckets = new Map<string, { cgst: number; sgst: number; igst: number }>();
-  for (const item of invoice.invoice_items) {
+  for (const item of postedItems) {
     const rateKey = itemGstRate(item) >= GST_RATE_HIGH ? '18' : '5';
     const bucket = gstBuckets.get(rateKey) || { cgst: 0, sgst: 0, igst: 0 };
     bucket.cgst += Number(item.cgstAmount || 0);
@@ -961,24 +973,22 @@ export function buildSalesVoucherXml(
     gstBuckets.set(rateKey, bucket);
   }
 
-  // Build GST ledger entries
+  // Build GST ledger entries, tracking the tax credit ACTUALLY written (each bucket is rounded
+  // on its own, so the sum of the emitted values is what the voucher must balance against).
   let gstLines = '';
+  let gstTotal = 0;
+  const emitGst = (ledger: string, value: number) => {
+    const rounded = round2(value);
+    gstLines += ledgerEntry(ledger, rounded, false);
+    gstTotal = round2(gstTotal + rounded);
+  };
   for (const [rateKey, bucket] of gstBuckets) {
     const isHighRate = rateKey === '18';
     if (isIntraState) {
-      if (bucket.cgst > 0) {
-        const cgstLedger = isHighRate ? settings.tallyCgstLedger18 : settings.tallyCgstLedger;
-        gstLines += ledgerEntry(cgstLedger, round2(bucket.cgst), false);
-      }
-      if (bucket.sgst > 0) {
-        const sgstLedger = isHighRate ? settings.tallySgstLedger18 : settings.tallySgstLedger;
-        gstLines += ledgerEntry(sgstLedger, round2(bucket.sgst), false);
-      }
+      if (bucket.cgst > 0) emitGst(isHighRate ? settings.tallyCgstLedger18 : settings.tallyCgstLedger, bucket.cgst);
+      if (bucket.sgst > 0) emitGst(isHighRate ? settings.tallySgstLedger18 : settings.tallySgstLedger, bucket.sgst);
     } else {
-      if (bucket.igst > 0) {
-        const igstLedger = isHighRate ? settings.tallyIgstLedger18 : settings.tallyIgstLedger;
-        gstLines += ledgerEntry(igstLedger, round2(bucket.igst), false);
-      }
+      if (bucket.igst > 0) emitGst(isHighRate ? settings.tallyIgstLedger18 : settings.tallyIgstLedger, bucket.igst);
     }
   }
 
@@ -988,8 +998,10 @@ export function buildSalesVoucherXml(
   );
   const actualTotal = Number(invoice.totalAmount);
   const roundOff = round2(actualTotal - calculatedTotal);
+  // Below a paisa the line is dropped, so it contributes nothing to the balance.
+  const emittedRoundOff = Math.abs(roundOff) < 0.01 ? 0 : roundOff;
   const roundLine =
-    Math.abs(roundOff) < 0.01 ? '' : ledgerEntry(settings.tallyRoundOffLedger, Math.abs(roundOff), roundOff < 0);
+    emittedRoundOff === 0 ? '' : ledgerEntry(settings.tallyRoundOffLedger, Math.abs(roundOff), roundOff < 0);
 
   // Party ledger entry (debit the customer)
   const partyLine = ledgerEntry(partyLedgerName, actualTotal, true, invNo);
@@ -1007,6 +1019,33 @@ export function buildSalesVoucherXml(
         (invoice.eInvoiceAckNo ? `<IRNACKNO>${xe(invoice.eInvoiceAckNo)}</IRNACKNO>` : '') +
         (invoice.eInvoiceAckDate ? `<IRNACKDATE>${fmtDate(invoice.eInvoiceAckDate)}</IRNACKDATE>` : '')
       : '';
+
+  // Round-off is a RESIDUAL here (billed total minus computed total), so it would otherwise
+  // absorb any discrepancy however large and the voucher would still "balance" — a ₹9,999 bill
+  // backed by ₹1,050 of lines would post an ₹8,949 round-off. An invoice rounds to the nearest
+  // rupee, so anything past that is header-vs-lines disagreement, not rounding.
+  if (Math.abs(roundOff) > MAX_ROUND_OFF) {
+    throw new Error(
+      `Tally voucher round-off out of range for invoice ${invoice.invoiceNumber}: ` +
+        `${roundOff.toFixed(2)} (limit ±${MAX_ROUND_OFF.toFixed(2)}). ` +
+        `Billed total ${actualTotal.toFixed(2)} does not match the line amounts ` +
+        `${calculatedTotal.toFixed(2)}. Fix the invoice totals before pushing.`
+    );
+  }
+
+  // BALANCE ASSERTION (from B2B learnings). Tally rejects a voucher whose party debit does not
+  // equal the sum of its credits, and reports it only as a generic failure. Assert against the
+  // amounts ACTUALLY emitted above — not the invoice header — so per-line/per-bucket rounding and
+  // any header-vs-lines drift is caught here, with a message that names the real numbers.
+  const emittedCredits = round2(salesTotal + gstTotal + emittedRoundOff);
+  if (Math.abs(actualTotal - emittedCredits) >= 0.01) {
+    throw new Error(
+      `Tally voucher does not balance for invoice ${invoice.invoiceNumber}: ` +
+        `party debit ${actualTotal.toFixed(2)} ≠ credits ${emittedCredits.toFixed(2)} ` +
+        `(sales ${salesTotal.toFixed(2)} + GST ${gstTotal.toFixed(2)} + round-off ${emittedRoundOff.toFixed(2)}). ` +
+        `Recheck the invoice totals before pushing.`
+    );
+  }
 
   // Build the voucher XML
   return `<ENVELOPE>
@@ -1323,15 +1362,23 @@ export function buildCreditNoteVoucherXml(
   // Select sales ledger (reversed - so still same ledger but entries are reversed)
   const salesLedger = isIntraState ? settings.tallySalesLedgerIntra : settings.tallySalesLedgerInter;
 
-  // Check for rate (5% vs 18%)
-  const is18 = (rate: number | null) => (rate ?? 0) >= GST_RATE_HIGH / 2;
+  // gstRate on a credit-note line is the FULL rate (there is no cgst/igst rate breakdown on the
+  // item), so compare it against the full high rate — the same test the sales builder uses.
+  const is18 = (rate: number | null) => (rate ?? 0) >= GST_RATE_HIGH;
+
+  // Only lines that actually post a stock entry; the GST buckets below use the same set so a
+  // zero-qty line can never contribute tax without a matching sales reversal.
+  const postedItems = creditNote.items.filter((item) => item.quantity > 0);
+
+  // Running total of the sales reversal ACTUALLY written into the XML.
+  let salesTotal = 0;
 
   // Build inventory entries for each line item (RETURN: opposite of sales)
   // In credit note: stock is RETURNED to us (ISDEEMEDPOSITIVE = Yes)
-  const inventoryLines = creditNote.items
-    .filter((item) => item.quantity > 0)
+  const inventoryLines = postedItems
     .map((item) => {
-      const amount = Number(item.totalPrice);
+      const amount = round2(Number(item.totalPrice));
+      salesTotal = round2(salesTotal + amount);
       const qtyStr = `${item.quantity} ${unit}`;
       const rateStr = `${Number(item.unitPrice).toFixed(2)}/${unit}`;
       const stockName = item.description;
@@ -1359,9 +1406,9 @@ export function buildCreditNoteVoucherXml(
     })
     .join('');
 
-  // Aggregate GST by rate bucket (5% vs 18%)
+  // Aggregate GST by rate bucket (5% vs 18%) — same line set as the inventory entries above.
   const gstBuckets = new Map<string, { cgst: number; sgst: number; igst: number }>();
-  for (const item of creditNote.items) {
+  for (const item of postedItems) {
     const rateKey = is18(item.gstRate) ? '18' : '5';
     const bucket = gstBuckets.get(rateKey) || { cgst: 0, sgst: 0, igst: 0 };
     bucket.cgst += Number(item.cgstAmount || 0);
@@ -1373,22 +1420,19 @@ export function buildCreditNoteVoucherXml(
   // Build GST ledger entries (REVERSED: credit note reduces GST liability)
   // In credit note: GST entries are DEBITED (opposite of sales)
   let gstLines = '';
+  let gstTotal = 0;
+  const emitGst = (ledger: string, value: number) => {
+    const rounded = round2(value);
+    gstLines += ledgerEntry(ledger, rounded, true); // Debit
+    gstTotal = round2(gstTotal + rounded);
+  };
   for (const [rateKey, bucket] of gstBuckets) {
     const isHighRate = rateKey === '18';
     if (isIntraState) {
-      if (bucket.cgst > 0) {
-        const cgstLedger = isHighRate ? settings.tallyCgstLedger18 : settings.tallyCgstLedger;
-        gstLines += ledgerEntry(cgstLedger, round2(bucket.cgst), true); // Debit
-      }
-      if (bucket.sgst > 0) {
-        const sgstLedger = isHighRate ? settings.tallySgstLedger18 : settings.tallySgstLedger;
-        gstLines += ledgerEntry(sgstLedger, round2(bucket.sgst), true); // Debit
-      }
+      if (bucket.cgst > 0) emitGst(isHighRate ? settings.tallyCgstLedger18 : settings.tallyCgstLedger, bucket.cgst);
+      if (bucket.sgst > 0) emitGst(isHighRate ? settings.tallySgstLedger18 : settings.tallySgstLedger, bucket.sgst);
     } else {
-      if (bucket.igst > 0) {
-        const igstLedger = isHighRate ? settings.tallyIgstLedger18 : settings.tallyIgstLedger;
-        gstLines += ledgerEntry(igstLedger, round2(bucket.igst), true); // Debit
-      }
+      if (bucket.igst > 0) emitGst(isHighRate ? settings.tallyIgstLedger18 : settings.tallyIgstLedger, bucket.igst);
     }
   }
 
@@ -1401,9 +1445,11 @@ export function buildCreditNoteVoucherXml(
   );
   const actualTotal = Number(creditNote.totalAmount);
   const roundOff = round2(actualTotal - calculatedTotal);
+  // Below a paisa the line is dropped, so it contributes nothing to the balance.
+  const emittedRoundOff = Math.abs(roundOff) < 0.01 ? 0 : roundOff;
   // Credit note round-off: opposite direction
   const roundLine =
-    Math.abs(roundOff) < 0.01 ? '' : ledgerEntry(settings.tallyRoundOffLedger, Math.abs(roundOff), roundOff > 0);
+    emittedRoundOff === 0 ? '' : ledgerEntry(settings.tallyRoundOffLedger, Math.abs(roundOff), roundOff > 0);
 
   // Party ledger entry (CREDIT the customer - reduces their outstanding)
   // Reference the original invoice for bill adjustment
@@ -1412,6 +1458,28 @@ export function buildCreditNoteVoucherXml(
   // Buyer details
   const buyerName = creditNote.customer.name;
   const buyerState = creditNote.customer.billingState?.name || '';
+
+  // Same residual-round-off trap as the sales voucher (see there for why this bound exists).
+  if (Math.abs(roundOff) > MAX_ROUND_OFF) {
+    throw new Error(
+      `Tally credit note round-off out of range for ${creditNote.creditNoteNumber}: ` +
+        `${roundOff.toFixed(2)} (limit ±${MAX_ROUND_OFF.toFixed(2)}). ` +
+        `Total ${actualTotal.toFixed(2)} does not match the line amounts ` +
+        `${calculatedTotal.toFixed(2)}. Fix the credit note totals before pushing.`
+    );
+  }
+
+  // BALANCE ASSERTION (mirror of the sales voucher: here the party is CREDITED and every other
+  // line is a debit). Asserted against the amounts actually emitted above, not the header.
+  const emittedDebits = round2(salesTotal + gstTotal + emittedRoundOff);
+  if (Math.abs(actualTotal - emittedDebits) >= 0.01) {
+    throw new Error(
+      `Tally credit note does not balance for ${creditNote.creditNoteNumber}: ` +
+        `party credit ${actualTotal.toFixed(2)} ≠ debits ${emittedDebits.toFixed(2)} ` +
+        `(sales ${salesTotal.toFixed(2)} + GST ${gstTotal.toFixed(2)} + round-off ${emittedRoundOff.toFixed(2)}). ` +
+        `Recheck the credit note totals before pushing.`
+    );
+  }
 
   // Build the voucher XML
   return `<ENVELOPE>

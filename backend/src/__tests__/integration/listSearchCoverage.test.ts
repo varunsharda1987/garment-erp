@@ -325,6 +325,26 @@ describe('the style picker: what typing reaches, and how the list is ordered', (
     expect(activeOnly).not.toContain(codes.draft);
     expect(activeOnly).toContain(codes.active);
   });
+
+  // The greige/fabric master filter bars send repeated keys (?finishType=DYED&finishType=RAW) and
+  // may append an EMPTY range bound when a box is cleared. A blank bound under z.coerce.number()
+  // becomes `lte: 0` and empties the list with no error on screen; a repeated key hitting a scalar
+  // z.string() 400s the whole page. This is the cheap net for both — the behaviour itself is
+  // pinned in fabricGreigeFacets.test.ts.
+  it.each([
+    {
+      label: 'greige facets',
+      path: '/api/fabric-management/greige',
+      q: 'greigeQuality=PRINTING&greigeQuality=DYEING&weaveType=x&weaveType=y&minWidth=&maxWidth=',
+    },
+    {
+      label: 'fabric facets',
+      path: '/api/fabric-management/fabric',
+      q: 'finishType=DYED&finishType=RAW&colorName=a&colorName=b&isGeneric=all&minGSM=&maxWidth=',
+    },
+  ])('$label accept repeated keys and blank range bounds', async ({ path, q }) => {
+    await request(app).get(`${path}?${q}&limit=5`).set(authHeader).expect(200);
+  });
 });
 
 describe('the master pickers search word by word, not by phrase', () => {

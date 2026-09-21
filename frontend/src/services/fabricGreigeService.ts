@@ -17,9 +17,37 @@ import type {
   RemoveAllocationResponse,
   StyleForAllocation,
   PatternPartForAllocation,
+  GreigeQueryParams,
+  FabricQueryParams,
+  GreigeFacetOptions,
+  FabricFacetOptions,
 } from '../types/fabric-greige.types';
 
 const API_PREFIX = '/fabric-management';
+
+// ============================================
+// QUERY-STRING HELPERS
+// ============================================
+
+/**
+ * Append a multi-select facet as REPEATED KEYS: `?weaveType=Poplin&weaveType=Voile`.
+ *
+ * NOT `weaveType[]` — Express 5's default `simple` query parser keeps the brackets in the key
+ * name and the backend's Zod schema then strips the unknown key, silently losing the filter.
+ * NOT a comma-joined string either — these values are free text and may contain a comma.
+ */
+const appendList = (params: URLSearchParams, key: string, values?: string[]) => {
+  values?.forEach((v) => {
+    if (v !== '') params.append(key, v);
+  });
+};
+
+/** Append a numeric bound only when it is a real number — a blank bound must mean NO bound. */
+const appendNumber = (params: URLSearchParams, key: string, value?: number) => {
+  if (value !== undefined && value !== null && Number.isFinite(value)) {
+    params.append(key, String(value));
+  }
+};
 
 // ============================================
 // GREIGE MASTER SERVICES
@@ -27,15 +55,7 @@ const API_PREFIX = '/fabric-management';
 
 export const greigeService = {
   // Get all greige masters with pagination and filters
-  async getAll(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    supplierId?: string;
-    isActive?: string;
-    composition?: string;
-    weaveType?: string;
-  }): Promise<PaginatedResponse<GreigeMaster>> {
+  async getAll(params?: GreigeQueryParams): Promise<PaginatedResponse<GreigeMaster>> {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -43,11 +63,25 @@ export const greigeService = {
     if (params?.supplierId) queryParams.append('supplierId', params.supplierId);
     if (params?.isActive) queryParams.append('isActive', params.isActive);
     if (params?.composition) queryParams.append('composition', params.composition);
-    if (params?.weaveType) queryParams.append('weaveType', params.weaveType);
+
+    appendList(queryParams, 'greigeQuality', params?.greigeQuality);
+    appendList(queryParams, 'weaveType', params?.weaveType);
+    appendList(queryParams, 'genericGreigeName', params?.genericGreigeName);
+    appendNumber(queryParams, 'minWidth', params?.minWidth);
+    appendNumber(queryParams, 'maxWidth', params?.maxWidth);
+    appendNumber(queryParams, 'minShrinkage', params?.minShrinkage);
+    appendNumber(queryParams, 'maxShrinkage', params?.maxShrinkage);
 
     const url = `${API_PREFIX}/greige${queryParams.toString() ? `?${queryParams}` : ''}`;
     const response = await api.get<PaginatedResponse<GreigeMaster>>(url);
     return response.data;
+  },
+
+  /** Distinct values + range bounds for the list filter bar, in one call. */
+  async getFacets(isActive?: string): Promise<GreigeFacetOptions> {
+    const query = isActive ? `?isActive=${encodeURIComponent(isActive)}` : '';
+    const response = await api.get<{ data: GreigeFacetOptions }>(`${API_PREFIX}/greige/filter-options${query}`);
+    return response.data.data;
   },
 
   // Get single greige master by ID
@@ -153,16 +187,7 @@ export const greigeService = {
 
 export const fabricService = {
   // Get all fabric masters with pagination and filters
-  async getAll(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    greigeId?: string;
-    supplierId?: string;
-    isActive?: string;
-    colorName?: string;
-    finishType?: string;
-  }): Promise<PaginatedResponse<FabricMaster>> {
+  async getAll(params?: FabricQueryParams): Promise<PaginatedResponse<FabricMaster>> {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -170,12 +195,27 @@ export const fabricService = {
     if (params?.greigeId) queryParams.append('greigeId', params.greigeId);
     if (params?.supplierId) queryParams.append('supplierId', params.supplierId);
     if (params?.isActive) queryParams.append('isActive', params.isActive);
-    if (params?.colorName) queryParams.append('colorName', params.colorName);
-    if (params?.finishType) queryParams.append('finishType', params.finishType);
+    if (params?.isGeneric) queryParams.append('isGeneric', params.isGeneric);
+
+    appendList(queryParams, 'finishType', params?.finishType);
+    appendList(queryParams, 'genericGreigeName', params?.genericGreigeName);
+    appendList(queryParams, 'colorName', params?.colorName);
+    appendList(queryParams, 'source', params?.source);
+    appendNumber(queryParams, 'minGSM', params?.minGSM);
+    appendNumber(queryParams, 'maxGSM', params?.maxGSM);
+    appendNumber(queryParams, 'minWidth', params?.minWidth);
+    appendNumber(queryParams, 'maxWidth', params?.maxWidth);
 
     const url = `${API_PREFIX}/fabric${queryParams.toString() ? `?${queryParams}` : ''}`;
     const response = await api.get<PaginatedResponse<FabricMaster>>(url);
     return response.data;
+  },
+
+  /** Distinct values + range bounds for the list filter bar, in one call. */
+  async getFacets(isActive?: string): Promise<FabricFacetOptions> {
+    const query = isActive ? `?isActive=${encodeURIComponent(isActive)}` : '';
+    const response = await api.get<{ data: FabricFacetOptions }>(`${API_PREFIX}/fabric/filter-options${query}`);
+    return response.data.data;
   },
 
   // Get single fabric master by ID

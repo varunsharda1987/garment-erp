@@ -1,20 +1,26 @@
-import { useState, useEffect, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Layers } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Card, CardContent } from '../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import SearchInput from '../components/SearchInput';
 import DataTable from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { FilterBar, MultiSelectFilter, NumberRangeFilter, SelectFilter } from '../components/filters';
+import { GreigeCombobox } from '../components/GreigeCombobox';
+import { SupplierCombobox } from '../components/SupplierCombobox';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { usePagination } from '../hooks/usePagination';
+import { useListQuery, queryKeys } from '../hooks/useQuery';
+import { useFabricFacets, toFacetOptions } from '../hooks/useFacetOptions';
+import { applyUrlUpdates, getUrlList, getUrlLimit, getUrlNumber, getUrlPage } from '../lib/url-filters';
+import type { FilterUpdate } from '../lib/url-filters';
 import { fabricService } from '../services/fabricGreigeService';
-import type { FabricMaster, PaginatedResponse } from '../types/fabric-greige.types';
+import type { FabricMaster, FabricQueryParams } from '../types/fabric-greige.types';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -25,55 +31,132 @@ type Column<T> = {
   headerClassName?: string;
 };
 
+/** Enum-ish values as the filter dropdowns should read them. */
+const FINISH_TYPE_LABELS: Record<string, string> = {
+  DYED: 'Dyed',
+  PRINTED: 'Printed',
+  YARN_DYED: 'Yarn Dyed',
+  RAW: 'Raw',
+};
+
+/**
+ * fabric_master.source is free text, not a Prisma enum, and it has FIVE writers — two from the
+ * Fabric form and three that mint a finished fabric automatically:
+ *   STYLE_LINKED / STOCK        FabricForm
+ *   AUTO_FROM_MRP_JWO           mrp.service.ts
+ *   AUTO_FROM_MRP_GRN           grn.service.ts (a job-work receipt minting its own fabric)
+ *   AUTO_FROM_JOB_WORK          dyeing.controller.ts / printing.controller.ts
+ * The options themselves come from /fabric/filter-options, so a sixth writer would appear in the
+ * dropdown on its own; anything unmapped here simply falls back to its raw value.
+ */
+const SOURCE_LABELS: Record<string, string> = {
+  STYLE_LINKED: 'Style-linked',
+  STOCK: 'Stock',
+  AUTO_FROM_MRP_JWO: 'Auto — MRP job work',
+  AUTO_FROM_MRP_GRN: 'Auto — goods receipt',
+  AUTO_FROM_JOB_WORK: 'Auto — dyeing / printing',
+};
+
 export default function FabricList() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [fabrics, setFabrics] = useState<FabricMaster[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterActive, setFilterActive] = useState<string>('true');
+  const queryClient = useQueryClient();
 
-  // Use centralized pagination hook
-  const { currentPage, pageSize, setCurrentPage, setPageSize, resetPage } = usePagination({
-    defaultPageSize: 50,
-  });
+  // Filters live in the URL: row -> detail -> Back restores them, and a filtered view can be
+  // pasted to a colleague. `replace` so filter fiddling does not flood the history stack.
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const updateURLParams = useCallback(
+    (updates: Record<string, FilterUpdate>) => {
+      setSearchParams((prev) => applyUrlUpdates(prev, updates), { replace: true });
+    },
+    [setSearchParams]
+  );
+
+  const filters = useMemo<FabricQueryParams>(
+    () => ({
+      page: getUrlPage(searchParams),
+      limit: getUrlLimit(searchParams),
+      search: searchParams.get('search') ?? '',
+      // 'all' | 'true' | 'false' — defaulted here, so Clear (which empties the URL) returns to it
+      isActive: searchParams.get('isActive') ?? 'true',
+      isGeneric: searchParams.get('isGeneric') ?? 'all',
+      greigeId: searchParams.get('greigeId') ?? '',
+      supplierId: searchParams.get('supplierId') ?? '',
+      finishType: getUrlList(searchParams, 'finishType'),
+      genericGreigeName: getUrlList(searchParams, 'genericGreigeName'),
+      colorName: getUrlList(searchParams, 'colorName'),
+      source: getUrlList(searchParams, 'source'),
+      minGSM: getUrlNumber(searchParams, 'minGSM'),
+      maxGSM: getUrlNumber(searchParams, 'maxGSM'),
+      minWidth: getUrlNumber(searchParams, 'minWidth'),
+      maxWidth: getUrlNumber(searchParams, 'maxWidth'),
+    }),
+    [searchParams]
+  );
+
+  const {
+    data,
+    isLoading,
+    error: queryError,
+  } = useListQuery(
+    queryKeys.fabrics.list(filters as unknown as Record<string, unknown>),
+    () => fabricService.getAll(filters),
+    {
+      staleTime: 30_000,
+      // Bulk import navigates back here via the SPA router; without this the default 5-minute
+      // staleTime would show someone who just imported rows the pre-import list.
+      refetchOnMount: 'always',
+      // Keep the previous page on screen while the next loads — DataTable replaces the whole
+      // table AND its pager with a skeleton whenever `loading` is true.
+      placeholderData: (previous) => previous,
+    }
+  );
+
+  const fabrics = data?.data ?? [];
+  const total = data?.pagination.total ?? 0;
+  const totalPages = data?.pagination.totalPages ?? 0;
+  const error = queryError ? queryError.message : null;
+
+  const { data: facets } = useFabricFacets(filters.isActive ?? 'true');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [fabricToDelete, setFabricToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    resetPage();
-  }, [filterActive, searchTerm, resetPage]);
+  // SearchInput lists onChange in its debounce deps, so it fires ~300ms after MOUNT with the
+  // current value. Without this guard that unchanged fire would strip `page` from the URL and
+  // bounce anyone who opened a deep-linked page 3 back to page 1.
+  const searchRef = useRef(filters.search);
+  searchRef.current = filters.search;
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      if (value === searchRef.current) return;
+      updateURLParams({ search: value || undefined, page: undefined });
+    },
+    [updateURLParams]
+  );
 
-  useEffect(() => {
-    fetchFabrics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, filterActive, searchTerm]);
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.search) n++;
+    // isActive defaults to 'true' — "Active Only" is the resting state, not a filter the user set
+    if ((filters.isActive ?? 'true') !== 'true') n++;
+    if ((filters.isGeneric ?? 'all') !== 'all') n++;
+    if (filters.greigeId) n++;
+    if (filters.supplierId) n++;
+    if (filters.finishType?.length) n++;
+    if (filters.genericGreigeName?.length) n++;
+    if (filters.colorName?.length) n++;
+    if (filters.source?.length) n++;
+    if (filters.minGSM !== undefined || filters.maxGSM !== undefined) n++;
+    if (filters.minWidth !== undefined || filters.maxWidth !== undefined) n++;
+    return n;
+  }, [filters]);
 
-  const fetchFabrics = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response: PaginatedResponse<FabricMaster> = await fabricService.getAll({
-        page: currentPage,
-        limit: pageSize,
-        search: searchTerm,
-        isActive: filterActive,
-      });
-      setFabrics(response.data);
-      setTotal(response.pagination.total);
-      setTotalPages(response.pagination.totalPages);
-    } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load fabric masters', false);
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const clearFilters = useCallback(() => {
+    // Emptying the URL restores every default, including isActive -> 'true'
+    setSearchParams(new URLSearchParams(), { replace: true });
+  }, [setSearchParams]);
 
   const handleDeleteClick = (id: string, name: string) => {
     setFabricToDelete({ id, name });
@@ -89,7 +172,7 @@ export default function FabricList() {
         'Fabric deleted',
         `${fabricToDelete.name} has been successfully deleted. ${result.deletedCADs} CAD entries were also removed.`
       );
-      fetchFabrics();
+      queryClient.invalidateQueries({ queryKey: queryKeys.fabrics.all });
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete fabric master');
     } finally {
@@ -297,36 +380,113 @@ export default function FabricList() {
       {/* Search and Filter Bar */}
       <Card className="mb-4">
         <CardContent className="pt-6">
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search">Search</Label>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}`}
+          >
+            <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+              <Label htmlFor="search" className="text-sm font-medium">
+                Search
+              </Label>
               <SearchInput
                 placeholder="Search by code, name, or color..."
-                value={searchTerm}
-                onChange={setSearchTerm}
+                value={filters.search ?? ''}
+                onChange={handleSearchChange}
               />
             </div>
-            <div className="w-48">
-              <Label htmlFor="statusFilter">Status</Label>
-              <Select value={filterActive} onValueChange={setFilterActive}>
-                <SelectTrigger id="statusFilter">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Active Only</SelectItem>
-                  <SelectItem value="false">Inactive Only</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <SelectFilter
+              label="Status"
+              value={filters.isActive ?? 'true'}
+              onChange={(value) => updateURLParams({ isActive: value === 'true' ? undefined : value, page: undefined })}
+              options={[
+                { value: 'true', label: 'Active Only' },
+                { value: 'false', label: 'Inactive Only' },
+                { value: 'all', label: 'All' },
+              ]}
+            />
+
+            <MultiSelectFilter
+              label="Finish Type"
+              value={filters.finishType ?? []}
+              onChange={(value) => updateURLParams({ finishType: value, page: undefined })}
+              options={toFacetOptions(facets?.finishType, FINISH_TYPE_LABELS)}
+            />
+
+            <MultiSelectFilter
+              label="Generic Name"
+              value={filters.genericGreigeName ?? []}
+              onChange={(value) => updateURLParams({ genericGreigeName: value, page: undefined })}
+              options={toFacetOptions(facets?.genericGreigeName)}
+            />
+
+            <MultiSelectFilter
+              label="Colour"
+              value={filters.colorName ?? []}
+              onChange={(value) => updateURLParams({ colorName: value, page: undefined })}
+              options={toFacetOptions(facets?.colorName)}
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm font-medium">Greige</Label>
+              <GreigeCombobox
+                allowAll
+                value={filters.greigeId || ''}
+                onValueChange={(value) => updateURLParams({ greigeId: value || undefined, page: undefined })}
+                placeholder="All Greige"
+                className="w-[200px]"
+              />
             </div>
-          </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-sm font-medium">Supplier</Label>
+              <SupplierCombobox
+                allowAll
+                value={filters.supplierId || ''}
+                onValueChange={(value) => updateURLParams({ supplierId: value || undefined, page: undefined })}
+                className="w-[200px]"
+              />
+            </div>
+
+            <MultiSelectFilter
+              label="Source"
+              value={filters.source ?? []}
+              onChange={(value) => updateURLParams({ source: value, page: undefined })}
+              options={toFacetOptions(facets?.source, SOURCE_LABELS)}
+            />
+
+            <SelectFilter
+              label="Generic"
+              value={filters.isGeneric ?? 'all'}
+              onChange={(value) => updateURLParams({ isGeneric: value === 'all' ? undefined : value, page: undefined })}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'true', label: 'Generic only' },
+                { value: 'false', label: 'Style-specific' },
+              ]}
+            />
+
+            <NumberRangeFilter
+              label="GSM"
+              value={{ min: filters.minGSM, max: filters.maxGSM }}
+              onChange={({ min, max }) => updateURLParams({ minGSM: min, maxGSM: max, page: undefined })}
+            />
+
+            <NumberRangeFilter
+              label='Width (")'
+              value={{ min: filters.minWidth, max: filters.maxWidth }}
+              onChange={({ min, max }) => updateURLParams({ minWidth: min, maxWidth: max, page: undefined })}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
       {/* Results Summary */}
-      {!loading && fabrics.length > 0 && (
+      {!isLoading && fabrics.length > 0 && (
         <div className="mb-4 text-sm text-muted-foreground">
           Showing {fabrics.length} of {total} fabric masters
+          {activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} applied`}
         </div>
       )}
 
@@ -336,25 +496,25 @@ export default function FabricList() {
           data={fabrics}
           columns={columns}
           keyExtractor={(fabric) => fabric.id}
-          loading={loading}
+          loading={isLoading}
           error={error}
           emptyState={{
             icon: <Layers className="h-16 w-16" />,
             title: 'No fabric masters found',
             description:
-              searchTerm || filterActive !== 'true'
+              activeFilterCount > 0
                 ? 'Try adjusting your search or filter criteria'
                 : 'Create your first fabric master to get started',
-            actionLabel: !searchTerm && filterActive === 'true' ? 'Create First Fabric' : undefined,
-            onAction: !searchTerm && filterActive === 'true' ? () => navigate('/fabric/new') : undefined,
+            actionLabel: activeFilterCount === 0 ? 'Create First Fabric' : undefined,
+            onAction: activeFilterCount === 0 ? () => navigate('/fabric/new') : undefined,
           }}
           pagination={{
-            currentPage,
+            currentPage: filters.page ?? 1,
             totalPages,
-            pageSize,
+            pageSize: filters.limit ?? 50,
             totalItems: total,
-            onPageChange: setCurrentPage,
-            onPageSizeChange: setPageSize,
+            onPageChange: (page) => updateURLParams({ page: page > 1 ? page : undefined }),
+            onPageSizeChange: (size) => updateURLParams({ limit: size === 50 ? undefined : size, page: undefined }),
           }}
           onRowClick={(fabric) => navigate(`/fabric/${fabric.id}`)}
         />

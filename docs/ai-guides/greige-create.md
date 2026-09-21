@@ -20,15 +20,52 @@ keywords:
   - greige ka rate
   - रेट
   - दर
+  - filter greige
+  - greige filter
+  - find greige
+  - search greige
+  - greige kaise dhunde
+  - greige list filter
+  - filter lagao
+  - quality filter
+  - weave filter
+  - width filter
+  - फ़िल्टर
+  - फिल्टर
+  - खोजें
+  - ढूंढें
+  - छाँटें
+  - गुणवत्ता
+  - बुनाई
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/App.tsx
   - frontend/src/pages/GreigeForm.tsx
   - frontend/src/pages/GreigeList.tsx
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/filters/MultiSelectFilter.tsx
+  - frontend/src/components/filters/NumberRangeFilter.tsx
   - backend/src/schemas/fabricGreige.schema.ts
   - backend/src/services/greige.service.ts
 route: /greige/new
 ---
+
+## Find it before you add it
+
+The same cloth entered twice causes trouble later, so check the list first. On
+**Materials & Masters → Greige Master** the filter bar above the table narrows the list:
+
+- **Search** matches code, name or composition.
+- **Quality**, **Weave** and **Generic Name** each let you tick **several** values at once, so you
+  can look at Printing and Dyeing together. Each option shows how many entries use it.
+- **Width (")** and **Shrinkage (%)** take a Min and a Max box. Leave either box empty for no limit.
+- The line above the table reads, for example, *Showing 8 of 63 greige masters · 2 filters applied*.
+- **Clear N filters** at the end of the bar removes everything and returns Status to Active Only.
+
+Your filters stay in the page address, so opening a greige and pressing Back returns you to the
+same filtered list, and you can send the address to a colleague to show them the same view.
+
+If the cloth is already there, open it and edit it instead of adding a second entry.
 
 ## Steps
 

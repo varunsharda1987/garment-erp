@@ -16,6 +16,9 @@ interface GreigeComboboxProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  /** Prepend an "All Greige" option that clears the selection — for filter-bar use. */
+  allowAll?: boolean;
+  allLabel?: string;
 }
 
 /**
@@ -37,6 +40,8 @@ export function GreigeCombobox({
   placeholder = 'Select greige...',
   className,
   disabled = false,
+  allowAll = false,
+  allLabel = 'All Greige',
 }: GreigeComboboxProps) {
   // Keeps the last loaded page so a selection can hand back the whole row.
   const rowsRef = useRef<GreigeForRateCard[]>([]);
@@ -60,9 +65,12 @@ export function GreigeCombobox({
     },
   });
 
+  // Matches SupplierCombobox: the empty value is what the Combobox already emits to deselect.
+  const withAll = allowAll ? [{ value: '', label: allLabel, searchText: 'all greige' }, ...options] : options;
+
   return (
     <Combobox
-      options={options}
+      options={withAll}
       value={value}
       onValueChange={(next) => {
         onValueChange(next);

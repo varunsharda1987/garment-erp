@@ -63,25 +63,16 @@ export interface UpdateFabricMasterRequest extends Partial<CreateFabricMasterReq
 // Query Types
 // ============================================
 
-/**
- * Fabric query filters
- */
-export interface FabricQueryFilters {
-  page?: string | number;
-  limit?: string | number;
-  search?: string;
-  greigeId?: string;
-  supplierId?: string;
-  isActive?: string;
-  colorName?: string;
-  finishType?: string;
-}
+// FabricQueryFilters deleted: it had zero importers, and z.infer<typeof fabricQuerySchema>
+// (FabricQueryInput) is now the single source of truth for this endpoint's params.
 
 /**
- * Prisma where clause for fabric queries
+ * Prisma where clause for fabric queries.
+ * No `AND` member on purpose — see the note on GreigeWhereClause (greige.types.ts).
  */
 export interface FabricWhereClause {
   isActive?: boolean;
+  isGeneric?: boolean;
   OR?: Array<Record<string, { contains: string; mode: 'insensitive' }>>;
   greigeId?: string;
   suppliers?: {
@@ -90,8 +81,14 @@ export interface FabricWhereClause {
       isActive: boolean;
     };
   };
-  colorName?: { contains: string; mode: 'insensitive' };
-  finishType?: FabricFinishType;
+  // colorName moved from a single `contains` to an exact multi-select `in` — the values now come
+  // from /fabric/filter-options. Substring colour search is still served by `search`.
+  colorName?: { contains: string; mode: 'insensitive' } | { in: string[] };
+  finishType?: FabricFinishType | { in: FabricFinishType[] };
+  genericGreigeName?: string | { in: string[] };
+  source?: string | { in: string[] };
+  actualGSM?: { gte?: number; lte?: number }; // Int column
+  actualWidth?: { gte?: number; lte?: number }; // Decimal(10,2)
 }
 
 // ============================================

@@ -1,20 +1,24 @@
-import { useState, useEffect, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Layers, Upload, Download } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Card, CardContent } from '../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import SearchInput from '../components/SearchInput';
 import DataTable from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { FilterBar, MultiSelectFilter, NumberRangeFilter, SelectFilter } from '../components/filters';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
-import { usePagination } from '../hooks/usePagination';
+import { useListQuery, queryKeys } from '../hooks/useQuery';
+import { useGreigeFacets, toFacetOptions } from '../hooks/useFacetOptions';
+import { applyUrlUpdates, getUrlList, getUrlLimit, getUrlNumber, getUrlPage } from '../lib/url-filters';
+import type { FilterUpdate } from '../lib/url-filters';
 import { greigeService } from '../services/fabricGreigeService';
-import type { GreigeMaster, PaginatedResponse } from '../types/fabric-greige.types';
+import type { GreigeMaster, GreigeQueryParams } from '../types/fabric-greige.types';
 import api from '@/lib/api';
 
 // Local type definition to avoid import issues
@@ -26,55 +30,105 @@ type Column<T> = {
   headerClassName?: string;
 };
 
+/** GreigeQuality enum values as the filter dropdown should read them. */
+const GREIGE_QUALITY_LABELS: Record<string, string> = {
+  PRINTING: 'Printing',
+  DYEING: 'Dyeing',
+  SUPER_DYEING: 'Super Dyeing',
+};
+
 export default function GreigeList() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [greigeMasters, setGreigeMasters] = useState<GreigeMaster[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterActive, setFilterActive] = useState<string>('true');
+  const queryClient = useQueryClient();
 
-  // Use centralized pagination hook
-  const { currentPage, pageSize, setCurrentPage, setPageSize, resetPage } = usePagination({
-    defaultPageSize: 50,
-  });
+  // Filters live in the URL: row -> detail -> Back restores them, and a filtered view can be
+  // pasted to a colleague. `replace` so filter fiddling does not flood the history stack.
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const updateURLParams = useCallback(
+    (updates: Record<string, FilterUpdate>) => {
+      setSearchParams((prev) => applyUrlUpdates(prev, updates), { replace: true });
+    },
+    [setSearchParams]
+  );
+
+  const filters = useMemo<GreigeQueryParams>(
+    () => ({
+      page: getUrlPage(searchParams),
+      limit: getUrlLimit(searchParams),
+      search: searchParams.get('search') ?? '',
+      // 'all' | 'true' | 'false' — defaulted here, so Clear (which empties the URL) returns to it
+      isActive: searchParams.get('isActive') ?? 'true',
+      greigeQuality: getUrlList(searchParams, 'greigeQuality'),
+      weaveType: getUrlList(searchParams, 'weaveType'),
+      genericGreigeName: getUrlList(searchParams, 'genericGreigeName'),
+      minWidth: getUrlNumber(searchParams, 'minWidth'),
+      maxWidth: getUrlNumber(searchParams, 'maxWidth'),
+      minShrinkage: getUrlNumber(searchParams, 'minShrinkage'),
+      maxShrinkage: getUrlNumber(searchParams, 'maxShrinkage'),
+    }),
+    [searchParams]
+  );
+
+  const {
+    data,
+    isLoading,
+    error: queryError,
+  } = useListQuery(
+    queryKeys.greige.list(filters as unknown as Record<string, unknown>),
+    () => greigeService.getAll(filters),
+    {
+      staleTime: 30_000,
+      // GreigeBulkImport navigates back here via the SPA router; without this the default 5-minute
+      // staleTime would show someone who just imported 500 rows the pre-import list.
+      refetchOnMount: 'always',
+      // Keep the previous page on screen while the next loads — DataTable replaces the whole
+      // table AND its pager with a skeleton whenever `loading` is true.
+      placeholderData: (previous) => previous,
+    }
+  );
+
+  const greigeMasters = data?.data ?? [];
+  const total = data?.pagination.total ?? 0;
+  const totalPages = data?.pagination.totalPages ?? 0;
+  const error = queryError ? queryError.message : null;
+
+  const { data: facets } = useGreigeFacets(filters.isActive ?? 'true');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [greigeToDelete, setGreigeToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    resetPage();
-  }, [filterActive, searchTerm, resetPage]);
+  // SearchInput lists onChange in its debounce deps, so it fires ~300ms after MOUNT with the
+  // current value. Without this guard that unchanged fire would strip `page` from the URL and
+  // bounce anyone who opened a deep-linked page 3 back to page 1.
+  const searchRef = useRef(filters.search);
+  searchRef.current = filters.search;
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      if (value === searchRef.current) return;
+      updateURLParams({ search: value || undefined, page: undefined });
+    },
+    [updateURLParams]
+  );
 
-  useEffect(() => {
-    fetchGreigeMasters();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, filterActive, searchTerm]);
+  const activeFilterCount = useMemo(() => {
+    let n = 0;
+    if (filters.search) n++;
+    // isActive defaults to 'true' — "Active Only" is the resting state, not a filter the user set
+    if ((filters.isActive ?? 'true') !== 'true') n++;
+    if (filters.greigeQuality?.length) n++;
+    if (filters.weaveType?.length) n++;
+    if (filters.genericGreigeName?.length) n++;
+    if (filters.minWidth !== undefined || filters.maxWidth !== undefined) n++;
+    if (filters.minShrinkage !== undefined || filters.maxShrinkage !== undefined) n++;
+    return n;
+  }, [filters]);
 
-  const fetchGreigeMasters = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response: PaginatedResponse<GreigeMaster> = await greigeService.getAll({
-        page: currentPage,
-        limit: pageSize,
-        search: searchTerm,
-        isActive: filterActive,
-      });
-      setGreigeMasters(response.data);
-      setTotal(response.pagination.total);
-      setTotalPages(response.pagination.totalPages);
-    } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load greige masters', false);
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const clearFilters = useCallback(() => {
+    // Emptying the URL restores every default, including isActive -> 'true'
+    setSearchParams(new URLSearchParams(), { replace: true });
+  }, [setSearchParams]);
 
   const handleDeleteClick = (id: string, name: string) => {
     setGreigeToDelete({ id, name });
@@ -87,7 +141,7 @@ export default function GreigeList() {
     try {
       await greigeService.delete(greigeToDelete.id);
       handleApiSuccess('Greige deleted', `${greigeToDelete.name} has been successfully deleted.`);
-      fetchGreigeMasters();
+      queryClient.invalidateQueries({ queryKey: queryKeys.greige.all });
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete greige master');
     } finally {
@@ -310,36 +364,74 @@ export default function GreigeList() {
       {/* Search and Filter Bar */}
       <Card className="mb-4">
         <CardContent className="pt-6">
-          <div className="flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search">Search</Label>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}`}
+          >
+            <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+              <Label htmlFor="search" className="text-sm font-medium">
+                Search
+              </Label>
               <SearchInput
                 placeholder="Search by code, name, or composition..."
-                value={searchTerm}
-                onChange={setSearchTerm}
+                value={filters.search ?? ''}
+                onChange={handleSearchChange}
               />
             </div>
-            <div className="w-48">
-              <Label htmlFor="statusFilter">Status</Label>
-              <Select value={filterActive} onValueChange={setFilterActive}>
-                <SelectTrigger id="statusFilter">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="true">Active Only</SelectItem>
-                  <SelectItem value="false">Inactive Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+
+            <SelectFilter
+              label="Status"
+              value={filters.isActive ?? 'true'}
+              onChange={(value) => updateURLParams({ isActive: value === 'true' ? undefined : value, page: undefined })}
+              options={[
+                { value: 'true', label: 'Active Only' },
+                { value: 'false', label: 'Inactive Only' },
+                { value: 'all', label: 'All' },
+              ]}
+            />
+
+            <MultiSelectFilter
+              label="Quality"
+              value={filters.greigeQuality ?? []}
+              onChange={(value) => updateURLParams({ greigeQuality: value, page: undefined })}
+              options={toFacetOptions(facets?.greigeQuality, GREIGE_QUALITY_LABELS)}
+            />
+
+            <MultiSelectFilter
+              label="Weave"
+              value={filters.weaveType ?? []}
+              onChange={(value) => updateURLParams({ weaveType: value, page: undefined })}
+              options={toFacetOptions(facets?.weaveType)}
+            />
+
+            <MultiSelectFilter
+              label="Generic Name"
+              value={filters.genericGreigeName ?? []}
+              onChange={(value) => updateURLParams({ genericGreigeName: value, page: undefined })}
+              options={toFacetOptions(facets?.genericGreigeName)}
+            />
+
+            <NumberRangeFilter
+              label='Width (")'
+              value={{ min: filters.minWidth, max: filters.maxWidth }}
+              onChange={({ min, max }) => updateURLParams({ minWidth: min, maxWidth: max, page: undefined })}
+            />
+
+            <NumberRangeFilter
+              label="Shrinkage (%)"
+              value={{ min: filters.minShrinkage, max: filters.maxShrinkage }}
+              onChange={({ min, max }) => updateURLParams({ minShrinkage: min, maxShrinkage: max, page: undefined })}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
       {/* Results Summary */}
-      {!loading && greigeMasters.length > 0 && (
+      {!isLoading && greigeMasters.length > 0 && (
         <div className="mb-4 text-sm text-muted-foreground">
           Showing {greigeMasters.length} of {total} greige masters
+          {activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} applied`}
         </div>
       )}
 
@@ -349,25 +441,25 @@ export default function GreigeList() {
           data={greigeMasters}
           columns={columns}
           keyExtractor={(greige) => greige.id}
-          loading={loading}
+          loading={isLoading}
           error={error}
           emptyState={{
             icon: <Layers className="h-16 w-16" />,
             title: 'No greige masters found',
             description:
-              searchTerm || filterActive !== 'true'
+              activeFilterCount > 0
                 ? 'Try adjusting your search or filter criteria'
                 : 'Create your first greige master to get started',
-            actionLabel: !searchTerm && filterActive === 'true' ? 'Create First Greige' : undefined,
-            onAction: !searchTerm && filterActive === 'true' ? () => navigate('/greige/new') : undefined,
+            actionLabel: activeFilterCount === 0 ? 'Create First Greige' : undefined,
+            onAction: activeFilterCount === 0 ? () => navigate('/greige/new') : undefined,
           }}
           pagination={{
-            currentPage,
+            currentPage: filters.page ?? 1,
             totalPages,
-            pageSize,
+            pageSize: filters.limit ?? 50,
             totalItems: total,
-            onPageChange: setCurrentPage,
-            onPageSizeChange: setPageSize,
+            onPageChange: (page) => updateURLParams({ page: page > 1 ? page : undefined }),
+            onPageSizeChange: (size) => updateURLParams({ limit: size === 50 ? undefined : size, page: undefined }),
           }}
           onRowClick={(greige) => navigate(`/greige/${greige.id}`)}
         />

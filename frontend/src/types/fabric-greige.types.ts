@@ -398,6 +398,90 @@ export interface PaginatedResponse<T> {
 }
 
 // ============================================
+// LIST QUERY PARAMS + FACET OPTIONS
+// ============================================
+
+/**
+ * Multi-value fields are sent as REPEATED query keys (`?weaveType=A&weaveType=B`), never as a
+ * comma-joined string: these are free-text master-data values that may themselves contain a
+ * comma ("Red, Deep"), and splitting on ',' would turn one real value into two that match nothing.
+ *
+ * Range bounds are `number | undefined`; undefined means NO BOUND and must be omitted from the
+ * query entirely — a blank `&maxWidth=` coerced to 0 would silently empty the list.
+ */
+export interface GreigeQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  /** 'all' | 'true' | 'false' */
+  isActive?: string;
+  supplierId?: string;
+  composition?: string;
+  greigeQuality?: string[];
+  weaveType?: string[];
+  genericGreigeName?: string[];
+  minWidth?: number;
+  maxWidth?: number;
+  minShrinkage?: number;
+  maxShrinkage?: number;
+}
+
+export interface FabricQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  /** 'all' | 'true' | 'false' */
+  isActive?: string;
+  /** 'all' | 'true' | 'false' */
+  isGeneric?: string;
+  greigeId?: string;
+  supplierId?: string;
+  finishType?: string[];
+  genericGreigeName?: string[];
+  colorName?: string[];
+  source?: string[];
+  minGSM?: number;
+  maxGSM?: number;
+  minWidth?: number;
+  maxWidth?: number;
+}
+
+/** One dropdown entry, with how many rows carry that value ("Printing (42)"). */
+export interface FacetOption {
+  value: string;
+  count: number;
+}
+
+/** A FacetOption once it has a display label — the shape MultiSelect consumes. */
+export interface MultiSelectFacetOption {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface FacetRange {
+  min: number | null;
+  max: number | null;
+}
+
+export interface GreigeFacetOptions {
+  weaveType: FacetOption[];
+  genericGreigeName: FacetOption[];
+  greigeQuality: FacetOption[];
+  width: FacetRange;
+  shrinkage: FacetRange;
+}
+
+export interface FabricFacetOptions {
+  genericGreigeName: FacetOption[];
+  colorName: FacetOption[];
+  source: FacetOption[];
+  finishType: FacetOption[];
+  gsm: FacetRange;
+  width: FacetRange;
+}
+
+// ============================================
 // FABRIC STYLE ALLOCATION TYPES
 // ============================================
 

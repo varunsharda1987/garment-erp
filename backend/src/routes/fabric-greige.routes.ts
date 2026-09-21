@@ -50,6 +50,9 @@ router.get('/greige/export', authenticateToken, asyncHandler(greigeController.ex
 // Get unique generic greige names for dropdown (must come before :id route)
 router.get('/greige/generic-names', authenticateToken, asyncHandler(greigeController.getGenericGreigeNames));
 
+// Distinct facet values + range bounds for the list filter bar (must come before :id route)
+router.get('/greige/filter-options', authenticateToken, asyncHandler(greigeController.getGreigeFilterOptions));
+
 // Get next auto-generated greige code (must come before :id route)
 router.get('/greige/next-code', authenticateToken, asyncHandler(greigeController.getNextGreigeCode));
 
@@ -123,6 +126,9 @@ router.get('/fabric/statistics', authenticateToken, asyncHandler(fabricControlle
 
 // Get unique generic fabric names for dropdown
 router.get('/fabric/generic-names', authenticateToken, asyncHandler(fabricController.getGenericFabricNames));
+
+// Distinct facet values + range bounds for the list filter bar (must come before :id route)
+router.get('/fabric/filter-options', authenticateToken, asyncHandler(fabricController.getFabricFilterOptions));
 
 // Get next auto-generated fabric code
 router.get('/fabric/next-code', authenticateToken, asyncHandler(fabricController.getNextFabricCode));

@@ -88,7 +88,12 @@ export interface GreigeSupplierInput {
 // ============================================
 
 /**
- * Prisma where clause for greige queries
+ * Prisma where clause for greige queries.
+ *
+ * Deliberately has NO `AND` member: applySearch() writes where.AND through its own cast
+ * (search-filter.ts) so this hand-rolled interface stays assignable to Prisma's
+ * greige_masterWhereInput. Adding `AND?: unknown[]` here BREAKS that assignability and the
+ * count()/findMany() calls stop type-checking.
  */
 export interface GreigeWhereClause {
   isActive?: boolean;
@@ -100,7 +105,15 @@ export interface GreigeWhereClause {
     };
   };
   composition?: { contains: string; mode: 'insensitive' };
-  weaveType?: string;
+  // Multi-select facets resolve to `{ in: [...] }`; the scalar forms are kept so any existing
+  // single-value caller still type-checks.
+  weaveType?: string | { in: string[] };
+  genericGreigeName?: string | { in: string[] };
+  greigeQuality?: GreigeQuality | { in: GreigeQuality[] };
+  // Decimal(10,2) / Decimal(5,2) columns. Prisma's DecimalFilter accepts a plain JS number for
+  // gte/lte, so no Prisma.Decimal wrapping is required.
+  greigeWidth?: { gte?: number; lte?: number };
+  averageShrinkagePercent?: { gte?: number; lte?: number };
 }
 
 // ============================================

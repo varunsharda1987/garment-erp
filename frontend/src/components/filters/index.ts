@@ -34,3 +34,9 @@ export type { StatusFilterProps } from './StatusFilter';
 
 export { DateRangeFilter } from './DateRangeFilter';
 export type { DateRangeFilterProps, DateRangeValue } from './DateRangeFilter';
+
+export { MultiSelectFilter } from './MultiSelectFilter';
+export type { MultiSelectFilterProps, MultiSelectOption } from './MultiSelectFilter';
+
+export { NumberRangeFilter } from './NumberRangeFilter';
+export type { NumberRangeFilterProps, NumberRangeValue } from './NumberRangeFilter';

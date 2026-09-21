@@ -6,6 +6,8 @@
  */
 
 import { z } from 'zod';
+import { FabricFinishTypeEnum, GreigeQualityEnum } from './generated/prisma-enums';
+import { multiValue, queryNumber, toQueryList } from './common.schema';
 
 // ============================================================================
 // GREIGE MASTER SCHEMAS
@@ -132,6 +134,12 @@ export const bulkImportGreigeSchema = z.object({
 /**
  * Greige Query Params
  * GET /api/fabric-greige/greige
+ *
+ * Multi-select facets are REPEATED KEYS: `?weaveType=Poplin&weaveType=Voile`. A single value
+ * still works — toQueryList turns a scalar into a one-element array.
+ *
+ * Zod 4 STRIPS unknown keys and validateQuery does NOT 400 on them, so anything the controller
+ * reads MUST be declared here or it silently vanishes.
  */
 export const greigeQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
@@ -139,8 +147,20 @@ export const greigeQuerySchema = z.object({
   search: z.string().max(100).optional(),
   supplierId: z.string().uuid().optional(),
   composition: z.string().max(500).optional(),
-  weaveType: z.string().max(50).optional(),
+  // Left as a raw string on purpose: the controller compares against 'all'/'true'.
+  // z.coerce.boolean() would turn 'all' AND 'false' into true and invert the filter.
   isActive: z.string().optional(),
+
+  // --- multi-select facets ---
+  greigeQuality: z.preprocess(toQueryList, z.array(GreigeQualityEnum).max(25).optional()),
+  weaveType: multiValue(50),
+  genericGreigeName: multiValue(200),
+
+  // --- numeric ranges (blank-tolerant: '' means "no bound", never 0) ---
+  minWidth: queryNumber(z.number().nonnegative()),
+  maxWidth: queryNumber(z.number().nonnegative()),
+  minShrinkage: queryNumber(z.number().min(0).lt(100)),
+  maxShrinkage: queryNumber(z.number().min(0).lt(100)),
 });
 
 // ============================================================================
@@ -303,6 +323,9 @@ export const updateAllocationPatternPartsSchema = z.object({
 /**
  * Fabric Query Params
  * GET /api/fabric-greige/fabric
+ *
+ * Repeated-key multi-select, same contract as greigeQuerySchema. getAllFabricMasters reads
+ * req.validatedQuery, so a param missing from this object is a SILENT no-op, not an error.
  */
 export const fabricQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
@@ -310,9 +333,29 @@ export const fabricQuerySchema = z.object({
   search: z.string().max(100).optional(),
   supplierId: z.string().uuid().optional(),
   greigeId: z.string().uuid().optional(),
-  colorName: z.string().max(50).optional(),
-  finishType: z.string().max(50).optional(),
   isActive: z.string().optional(),
+
+  // --- multi-select facets ---
+  finishType: z.preprocess(toQueryList, z.array(FabricFinishTypeEnum).max(25).optional()),
+  genericGreigeName: multiValue(200),
+  // Was a single `contains`; now an exact multi-select fed from /fabric/filter-options.
+  // Substring colour search is still served by `search` (applySearch includes colorName).
+  colorName: multiValue(50),
+  // fabric_master.source is a plain String? column, NOT a Prisma enum, so it is deliberately
+  // validated as free text rather than a fixed list. Live data holds a third writer nobody had
+  // documented — AUTO_FROM_MRP_JWO (5 rows) alongside STYLE_LINKED and STOCK — and an enum here
+  // would 400 the whole list page the moment someone ticked the option /fabric/filter-options
+  // itself had offered them. Whatever the column contains stays filterable.
+  source: multiValue(50),
+
+  // --- tri-state boolean ---
+  isGeneric: z.enum(['all', 'true', 'false']).optional(),
+
+  // --- numeric ranges ---
+  minGSM: queryNumber(z.number().nonnegative()),
+  maxGSM: queryNumber(z.number().nonnegative()),
+  minWidth: queryNumber(z.number().nonnegative()),
+  maxWidth: queryNumber(z.number().nonnegative()),
 });
 
 // ============================================================================

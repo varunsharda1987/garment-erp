@@ -63,6 +63,54 @@ const blankToNumber = (v: unknown): unknown => {
 export const formNumber = (base: z.ZodNumber = z.number()) => z.preprocess(blankToNumber, base.optional().nullable());
 
 // ============================================================================
+// Query-string facets (multi-select) + numeric ranges
+// ============================================================================
+
+/**
+ * Query params arrive as RAW STRINGS, and a REPEATED key arrives as string[] — Express 5
+ * defaults to the `simple` query parser (node_modules/express/lib/application.js), i.e. Node's
+ * querystring.parse, which yields { k: ['a','b'] } for `?k=a&k=b`.
+ *
+ * CSV is deliberately NOT supported: genericGreigeName / colorName / weaveType are user-entered
+ * master data that may contain a comma ("Red, Deep"), so splitting on ',' would turn one real
+ * value into two that match nothing — a silently empty list.
+ *
+ * Frontend contract: URLSearchParams.append('weaveType', v). NOT 'weaveType[]' — the simple
+ * parser keeps the brackets in the key name and Zod then strips the unknown key.
+ *
+ * Normalises scalar|array -> string[], trims, drops blanks (a cleared control is often still
+ * appended as `&weaveType=`), and collapses "nothing left" to undefined so an empty selection
+ * means NO FILTER rather than `{ in: [] }`, which matches no rows at all.
+ */
+export const toQueryList = (v: unknown): unknown => {
+  if (v === undefined || v === null) return undefined;
+  const raw = Array.isArray(v) ? v : [v];
+  const out = raw.map((s) => (typeof s === 'string' ? s.trim() : s)).filter((s) => s !== '' && s != null);
+  return out.length ? out : undefined;
+};
+
+/** Multi-select free-text facet: `?weaveType=Poplin&weaveType=Voile` -> ['Poplin','Voile'] */
+export const multiValue = (maxLen = 200, maxCount = 50) =>
+  z.preprocess(toQueryList, z.array(z.string().min(1).max(maxLen)).max(maxCount).optional());
+
+/**
+ * Do NOT use z.coerce.number().optional() for a query range bound: it turns '' into 0, so a
+ * cleared `&maxWidth=` becomes `lte: 0` and returns an EMPTY list with no visible cause.
+ * Blank/absent must mean "no bound". Same bug class as formNumber above.
+ */
+const blankToQueryNumber = (v: unknown): unknown => {
+  if (v === '' || v === null || v === undefined) return undefined;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t === '' ? undefined : Number(t);
+  }
+  return v;
+};
+
+/** Optional numeric query param (range bound): ''→undefined (no bound), '44.5'→44.5. */
+export const queryNumber = (base: z.ZodNumber = z.number()) => z.preprocess(blankToQueryNumber, base.optional());
+
+// ============================================================================
 // Common ID Param Schemas
 // ============================================================================
 

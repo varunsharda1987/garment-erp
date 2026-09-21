@@ -16,12 +16,33 @@ keywords:
   - रंगाई
   - छपाई
   - चौड़ाई
+  - filter fabric
+  - fabric filter
+  - find fabric
+  - search fabric
+  - fabric kaise dhunde
+  - fabric list filter
+  - filter lagao
+  - colour filter
+  - color filter
+  - finish type filter
+  - gsm filter
+  - फ़िल्टर
+  - फिल्टर
+  - खोजें
+  - ढूंढें
+  - छाँटें
+  - रंग
+  - फिनिश
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/App.tsx
   - frontend/src/pages/FabricForm.tsx
   - frontend/src/pages/FabricList.tsx
   - frontend/src/constants/fabric-finish-types.ts
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/filters/MultiSelectFilter.tsx
+  - frontend/src/components/filters/NumberRangeFilter.tsx
   - backend/src/schemas/fabricGreige.schema.ts
   - backend/src/services/fabric.service.ts
 route: /fabric/new
@@ -30,6 +51,26 @@ route: /fabric/new
 ## Before you start
 
 The fabric should point at a greige. If the greige master does not exist yet, you can create it from inside this form, so you do not have to leave the page.
+
+## Find it before you add it
+
+Check the list first so you do not enter the same fabric twice. On
+**Materials & Masters → Fabric Master** the filter bar above the table narrows the list:
+
+- **Search** matches code, name or colour.
+- **Finish Type**, **Generic Name**, **Colour** and **Source** each let you tick **several** values
+  at once. Each option shows how many fabrics use it.
+- **Greige** and **Supplier** are search boxes — start typing to narrow the list, and pick
+  **All Greige** or **All Suppliers** to remove the filter.
+- **Generic** separates general stock fabric from style-specific fabric.
+- **GSM** and **Width (")** take a Min and a Max box. Leave either box empty for no limit.
+- The line above the table reads, for example, *Showing 12 of 30 fabric masters · 3 filters applied*.
+- **Clear N filters** at the end of the bar removes everything and returns Status to Active Only.
+
+Your filters stay in the page address, so opening a fabric and pressing Back returns you to the
+same filtered list, and you can send the address to a colleague to show them the same view.
+
+If the fabric already exists, open it and edit it rather than adding a second entry.
 
 ## Steps
 

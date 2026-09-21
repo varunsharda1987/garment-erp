@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { normalizeId, isUUID } from '../utils/id-helper';
-import { FabricFinishType } from '@prisma/client';
+import { FabricFinishType, Prisma } from '@prisma/client';
 import { FabricSupplierInput, FabricWhereClause, FabricUpdateData } from '../types/fabric.types';
+import { FabricQueryInput } from '../schemas/fabricGreige.schema';
 import { materialService } from '../services/material.service';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { ValidationError, NotFoundError } from '../errors';
@@ -20,9 +21,10 @@ import { applySearch } from '../utils/search-filter';
 
 // Get all fabric masters with pagination and filters
 export const getAllFabricMasters = async (req: Request, res: Response) => {
-  // BUG-FM7: Use req.validatedQuery (coerced by Zod) instead of req.query (raw strings)
-  // This avoids redundant parseInt calls and NaN from parseInt(undefined)
-  const validated = (req as any).validatedQuery ?? req.query;
+  // BUG-FM7: Use req.validatedQuery (coerced by Zod) instead of req.query (raw strings).
+  // Zod 4 STRIPS unknown keys, so EVERY param read below must exist in fabricQuerySchema —
+  // an undeclared one is dropped silently (validateQuery does not 400 on unknown keys).
+  const validated = ((req as Request & { validatedQuery?: unknown }).validatedQuery ?? req.query) as FabricQueryInput;
   const {
     page = 1,
     limit = 50,
@@ -30,8 +32,15 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
     greigeId = '',
     supplierId = '',
     isActive = 'true',
-    colorName = '',
-    finishType = '',
+    isGeneric = 'all',
+    colorName,
+    finishType,
+    genericGreigeName,
+    source,
+    minGSM,
+    maxGSM,
+    minWidth,
+    maxWidth,
   } = validated;
 
   // page and limit are already numbers from Zod transform, no parseInt needed
@@ -47,34 +56,65 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
     where.isActive = isActive === 'true';
   }
 
-  // Search filter (code, name, color)
+  // Generic / style-specific tri-state ('all' | 'true' | 'false')
+  if (isGeneric !== 'all') {
+    where.isGeneric = isGeneric === 'true';
+  }
+
+  // Search filter (code, name, color) — lands under where.AND, so the facets below survive it
   if (search) {
-    applySearch(where, search as string, ['fabricCode', 'fabricName', 'colorName']);
+    applySearch(where, search, ['fabricCode', 'fabricName', 'colorName']);
   }
 
   // Greige filter
   if (greigeId) {
-    where.greigeId = greigeId as string;
+    where.greigeId = greigeId;
   }
 
   // Supplier filter (via junction table)
   if (supplierId) {
     where.suppliers = {
       some: {
-        supplierId: supplierId as string,
+        supplierId,
         isActive: true,
       },
     };
   }
 
-  // Color filter
-  if (colorName) {
-    where.colorName = { contains: colorName as string, mode: 'insensitive' };
+  // ---- Multi-select facets --------------------------------------------------------------
+  // colorName is EXACT `in` now, not `contains`: the values come from /fabric/filter-options,
+  // and substring colour search is already covered by the search box above.
+  if (colorName?.length) {
+    where.colorName = { in: colorName };
+  }
+  if (finishType?.length) {
+    where.finishType = { in: finishType as FabricFinishType[] };
+  }
+  if (genericGreigeName?.length) {
+    where.genericGreigeName = { in: genericGreigeName };
+  }
+  // `source` is a nullable String? column — once this facet is set, legacy rows that never had a
+  // source written (NULL) drop out. Expected, but worth knowing.
+  if (source?.length) {
+    where.source = { in: source };
   }
 
-  // Finish type filter
-  if (finishType) {
-    where.finishType = finishType as FabricFinishType;
+  // ---- Numeric ranges -------------------------------------------------------------------
+  // actualGSM is an Int column: Prisma rejects a fractional bound, so snap in the direction that
+  // preserves the meaning (min 120.5 -> ints >= 121; max 120.5 -> ints <= 120).
+  if (minGSM !== undefined || maxGSM !== undefined) {
+    where.actualGSM = {
+      ...(minGSM !== undefined ? { gte: Math.ceil(minGSM) } : {}),
+      ...(maxGSM !== undefined ? { lte: Math.floor(maxGSM) } : {}),
+    };
+  }
+  // actualWidth is Decimal(10,2); DecimalFilter accepts plain numbers for gte/lte. Nullable, so a
+  // width bound excludes fabrics with no recorded width.
+  if (minWidth !== undefined || maxWidth !== undefined) {
+    where.actualWidth = {
+      ...(minWidth !== undefined ? { gte: minWidth } : {}),
+      ...(maxWidth !== undefined ? { lte: maxWidth } : {}),
+    };
   }
 
   // Get total count
@@ -1241,6 +1281,72 @@ export const getGenericFabricNames = async (req: Request, res: Response) => {
   res.json({
     data: allNames,
     count: allNames.length,
+  });
+};
+
+/**
+ * Distinct values + numeric bounds for the Fabric list's facet filters.
+ * GET /api/fabric-management/fabric/filter-options
+ *
+ * Deliberately SEPARATE from /fabric/generic-names above: that endpoint merges in names
+ * REGEX-DERIVED from greige_master.greigeName, so its values often do not exist in
+ * fabric_master.genericGreigeName and filtering by one returns zero rows. Every value returned
+ * here is a value that actually appears in fabric_master.
+ *
+ * Counts are scoped by isActive only — static option counts, not drill-down counts.
+ */
+export const getFabricFilterOptions = async (req: Request, res: Response) => {
+  const { isActive = 'true' } = req.query;
+
+  const base: Prisma.fabric_masterWhereInput = {};
+  if (isActive !== 'all') {
+    base.isActive = isActive === 'true';
+  }
+
+  const clean = (rows: Array<{ value: string | null; count: number }>) =>
+    rows
+      .filter((r): r is { value: string; count: number } => typeof r.value === 'string' && r.value.trim() !== '')
+      .sort((a, b) => a.value.localeCompare(b.value));
+
+  const [generic, colors, sources, finishes, bounds] = await Promise.all([
+    prisma.fabric_master.groupBy({
+      by: ['genericGreigeName'],
+      where: { ...base, genericGreigeName: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.fabric_master.groupBy({
+      by: ['colorName'],
+      where: { ...base, colorName: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.fabric_master.groupBy({
+      by: ['source'],
+      where: { ...base, source: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.fabric_master.groupBy({
+      by: ['finishType'],
+      where: { ...base, finishType: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.fabric_master.aggregate({
+      where: base,
+      _min: { actualGSM: true, actualWidth: true },
+      _max: { actualGSM: true, actualWidth: true },
+    }),
+  ]);
+
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+
+  res.json({
+    data: {
+      genericGreigeName: clean(generic.map((r) => ({ value: r.genericGreigeName, count: r._count._all }))),
+      colorName: clean(colors.map((r) => ({ value: r.colorName, count: r._count._all }))),
+      source: clean(sources.map((r) => ({ value: r.source, count: r._count._all }))),
+      finishType: clean(finishes.map((r) => ({ value: r.finishType, count: r._count._all }))),
+      gsm: { min: num(bounds._min.actualGSM), max: num(bounds._max.actualGSM) },
+      width: { min: num(bounds._min.actualWidth), max: num(bounds._max.actualWidth) },
+    },
   });
 };
 

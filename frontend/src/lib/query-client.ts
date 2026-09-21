@@ -145,6 +145,8 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => [...queryKeys.fabrics.lists(), filters] as const,
     details: () => [...queryKeys.fabrics.all, 'detail'] as const,
     detail: (id: string | number) => [...queryKeys.fabrics.details(), id] as const,
+    /** Distinct values for the list filter bar's dropdowns. */
+    facets: (isActive: string) => [...queryKeys.fabrics.all, 'facets', isActive] as const,
   },
 
   // Greige
@@ -154,6 +156,8 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => [...queryKeys.greige.lists(), filters] as const,
     details: () => [...queryKeys.greige.all, 'detail'] as const,
     detail: (id: string | number) => [...queryKeys.greige.details(), id] as const,
+    /** Distinct values for the list filter bar's dropdowns. */
+    facets: (isActive: string) => [...queryKeys.greige.all, 'facets', isActive] as const,
   },
 
   // Users

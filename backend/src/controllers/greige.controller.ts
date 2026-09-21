@@ -10,6 +10,7 @@ import {
   GreigeUpdateData,
 } from '../types/greige.types';
 import { ValidationError, NotFoundError } from '../errors';
+import { GreigeQueryInput } from '../schemas/fabricGreige.schema';
 import { generateCode } from '../utils/code-generator';
 import { materialService } from '../services/material.service';
 import { ensureMaterialRecord, syncMasterToMaterials } from '../services/helpers/material-sync.helper';
@@ -35,6 +36,10 @@ const serializeGreige = (greige: RawGreigeData): SerializedGreige => {
 
 // Get all greige masters with pagination and filters
 export const getAllGreigeMasters = async (req: Request, res: Response) => {
+  // validateQuery(greigeQuerySchema) has already coerced every param onto req.validatedQuery.
+  // req.query stays RAW under Express 5, so read the validated copy — that is what turns the
+  // facets into string[] and the range bounds into numbers.
+  const q = ((req as Request & { validatedQuery?: unknown }).validatedQuery ?? req.query) as GreigeQueryInput;
   const {
     page = 1,
     limit = 50,
@@ -42,11 +47,18 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
     supplierId = '',
     isActive = 'true',
     composition = '',
-    weaveType = '',
-  } = req.query;
+    greigeQuality,
+    weaveType,
+    genericGreigeName,
+    minWidth,
+    maxWidth,
+    minShrinkage,
+    maxShrinkage,
+  } = q;
 
-  const pageNum = Math.max(1, parseInt(page as string) || 1);
-  const limitNum = Math.max(1, parseInt(limit as string) || 50);
+  // page/limit are already numbers from the Zod transform — no parseInt, no NaN.
+  const pageNum = typeof page === 'number' ? page : 1;
+  const limitNum = typeof limit === 'number' ? limit : 50;
   const skip = (pageNum - 1) * limitNum;
 
   // Build where clause
@@ -57,29 +69,57 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
     where.isActive = isActive === 'true';
   }
 
-  // Search filter (code, name, composition)
+  // Search filter (code, name, composition). applySearch appends under where.AND, so every facet
+  // set below still narrows the result and can never be OR-ed away.
   if (search) {
-    applySearch(where, search as string, ['greigeCode', 'greigeName', 'composition']);
+    applySearch(where, search, ['greigeCode', 'greigeName', 'composition']);
   }
 
   // Supplier filter (via junction table)
   if (supplierId) {
     where.suppliers = {
       some: {
-        supplierId: supplierId as string,
+        supplierId,
         isActive: true,
       },
     };
   }
 
-  // Composition filter
+  // Composition filter (free text, substring)
   if (composition) {
-    where.composition = { contains: composition as string, mode: 'insensitive' };
+    where.composition = { contains: composition, mode: 'insensitive' };
   }
 
-  // Weave type filter
-  if (weaveType) {
-    where.weaveType = weaveType as string;
+  // ---- Multi-select facets --------------------------------------------------------------
+  // The schema already normalised scalar -> array, trimmed, dropped blanks and collapsed an
+  // empty selection to undefined. So "present" always means "at least one real value", and
+  // `{ in: [] }` (which matches nothing) can never be built here.
+  if (greigeQuality?.length) {
+    where.greigeQuality = { in: greigeQuality };
+  }
+  if (weaveType?.length) {
+    where.weaveType = { in: weaveType };
+  }
+  if (genericGreigeName?.length) {
+    where.genericGreigeName = { in: genericGreigeName };
+  }
+
+  // ---- Numeric ranges -------------------------------------------------------------------
+  // greigeWidth is Decimal(10,2) and averageShrinkagePercent Decimal(5,2); Prisma's DecimalFilter
+  // accepts plain JS numbers for gte/lte, so no Prisma.Decimal wrapping.
+  // NOTE: averageShrinkagePercent is NULLABLE — a shrinkage bound excludes rows with no recorded
+  // shrinkage. Correct facet behaviour, but it surprises people.
+  if (minWidth !== undefined || maxWidth !== undefined) {
+    where.greigeWidth = {
+      ...(minWidth !== undefined ? { gte: minWidth } : {}),
+      ...(maxWidth !== undefined ? { lte: maxWidth } : {}),
+    };
+  }
+  if (minShrinkage !== undefined || maxShrinkage !== undefined) {
+    where.averageShrinkagePercent = {
+      ...(minShrinkage !== undefined ? { gte: minShrinkage } : {}),
+      ...(maxShrinkage !== undefined ? { lte: maxShrinkage } : {}),
+    };
   }
 
   // Get total count
@@ -835,6 +875,71 @@ export const getGenericGreigeNames = async (req: Request, res: Response) => {
     .filter((name): name is string => name !== null && name.trim() !== '');
 
   res.json({ names });
+};
+
+/**
+ * Distinct values + numeric bounds for the Greige list's facet filters.
+ * GET /api/fabric-management/greige/filter-options
+ *
+ * ONE call for the whole filter bar. Returns `{ value, count }` per option so the UI can show
+ * "Printing (42)". /greige/generic-names above is left alone — GenericGreigeSelector and the
+ * style form read it — but it covers one facet only and returns a different envelope.
+ *
+ * Counts are scoped by isActive ONLY, not by the other facets currently ticked: these are static
+ * option counts, not drill-down counts. Making them dynamic means threading the live `where` in
+ * here, which is a separate change.
+ */
+export const getGreigeFilterOptions = async (req: Request, res: Response) => {
+  const { isActive = 'true' } = req.query;
+
+  const base: Prisma.greige_masterWhereInput = {};
+  if (isActive !== 'all') {
+    base.isActive = isActive === 'true';
+  }
+
+  // Non-generic on purpose: Prisma's groupBy types fight a dynamically-chosen `by` field.
+  const clean = (rows: Array<{ value: string | null; count: number }>) =>
+    rows
+      .filter((r): r is { value: string; count: number } => typeof r.value === 'string' && r.value.trim() !== '')
+      .sort((a, b) => a.value.localeCompare(b.value));
+
+  const [weave, generic, quality, bounds] = await Promise.all([
+    prisma.greige_master.groupBy({
+      by: ['weaveType'],
+      where: { ...base, weaveType: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.greige_master.groupBy({
+      by: ['genericGreigeName'],
+      where: { ...base, genericGreigeName: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.greige_master.groupBy({
+      by: ['greigeQuality'],
+      where: { ...base, greigeQuality: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.greige_master.aggregate({
+      where: base,
+      _min: { greigeWidth: true, averageShrinkagePercent: true },
+      _max: { greigeWidth: true, averageShrinkagePercent: true },
+    }),
+  ]);
+
+  const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+
+  res.json({
+    data: {
+      weaveType: clean(weave.map((r) => ({ value: r.weaveType, count: r._count._all }))),
+      genericGreigeName: clean(generic.map((r) => ({ value: r.genericGreigeName, count: r._count._all }))),
+      greigeQuality: clean(quality.map((r) => ({ value: r.greigeQuality, count: r._count._all }))),
+      width: { min: num(bounds._min.greigeWidth), max: num(bounds._max.greigeWidth) },
+      shrinkage: {
+        min: num(bounds._min.averageShrinkagePercent),
+        max: num(bounds._max.averageShrinkagePercent),
+      },
+    },
+  });
 };
 
 // Get next auto-generated greige code

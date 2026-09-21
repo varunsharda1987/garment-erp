@@ -201,10 +201,15 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
    */
   const qtyNum = parseFloat(quantity);
   const debouncedQty = useDebounced(Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 0, 300);
+  // The quantity is part of the card's key (the slab), so there is nothing to ask until it is
+  // typed. Quoting at a placeholder 1 m picks the lowest slab and reports "no rate card" for a
+  // processor who has one at the real quantity — the shape live data actually has (Aryan Dyeing
+  // holds a single card for GRG-0035, on the 1000-1500 m slab).
   const canQuote =
     RATE_CARD_PROCESS_TYPES.includes(processType) &&
     !!processorId &&
     !!greigeId &&
+    debouncedQty > 0 &&
     (processType !== 'PRINTING' || !!printingType);
 
   useEffect(() => {
@@ -224,7 +229,7 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
 
     (async () => {
       try {
-        const sentQty = debouncedQty || 1;
+        const sentQty = debouncedQty;
         const first = await quoteAt(sentQty);
         if (cancelled) return;
 
@@ -264,12 +269,22 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     };
   }, [canQuote, processorId, processType, greigeId, printingType, debouncedQty]);
 
+  /** Everything is chosen except the quantity the card's slab is keyed on. */
+  const needsQtyToQuote =
+    RATE_CARD_PROCESS_TYPES.includes(processType) &&
+    !!processorId &&
+    !!greigeId &&
+    (processType !== 'PRINTING' || !!printingType) &&
+    debouncedQty <= 0;
+
   // No card for this pair: the greige's own average is the honest starting figure, never invented.
+  // Held back until the card has actually been asked, so a figure never appears under a message
+  // that has not been earned.
   useEffect(() => {
-    if (!greige || shrinkageTouched.current) return;
+    if (!greige || shrinkageTouched.current || !canQuote) return;
     if (cardQuote?.shrinkagePercent != null) return;
     if (greige.averageShrinkagePercent != null) setExpectedShrinkage(String(greige.averageShrinkagePercent));
-  }, [greige, cardQuote]);
+  }, [greige, cardQuote, canQuote]);
 
   interface EmbroideryLotOption {
     id: string;
@@ -798,8 +813,13 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                         </p>
                       ) : greige?.averageShrinkagePercent != null && canQuote ? (
                         <p className="text-xs text-amber-600">
-                          No rate card for this processor on this greige — using {greige.greigeCode}&apos;s average{' '}
-                          {greige.averageShrinkagePercent}%. Enter the contracted figure if it differs.
+                          No rate card for this processor on this greige at {debouncedQty} {selected?.uom || 'MTR'} —
+                          using {greige.greigeCode}&apos;s average {greige.averageShrinkagePercent}%. Enter the
+                          contracted figure if it differs.
+                        </p>
+                      ) : greige && needsQtyToQuote ? (
+                        <p className="text-xs text-muted-foreground">
+                          Enter the quantity to read this processor&apos;s rate card — the rate depends on it.
                         </p>
                       ) : null}
                     </div>
@@ -897,7 +917,12 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                       </p>
                     ) : cardQuote?.status === 'NONE' && canQuote ? (
                       <p className="text-xs text-amber-600">
-                        No rate card for this processor on this greige — enter the agreed rate.
+                        No rate card for this processor on this greige at {debouncedQty} {selected?.uom || 'MTR'} —
+                        enter the agreed rate.
+                      </p>
+                    ) : needsQtyToQuote ? (
+                      <p className="text-xs text-muted-foreground">
+                        Enter the quantity to read this processor&apos;s rate card.
                       </p>
                     ) : null}
                   </div>

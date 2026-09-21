@@ -28,6 +28,7 @@ sources:
   - frontend/src/pages/SaleOrderDetail.tsx
   - backend/src/schemas/workOrder.schema.ts
   - backend/src/routes/workOrder.routes.ts
+  - backend/src/services/productionBlockingValidation.service.ts
 route: /production/work-orders/new
 ---
 
@@ -65,5 +66,7 @@ From a sale order, open **Orders & Sales → Sale Orders**, open the order and c
 Open the run and use **Push to Cutting** when materials are ready. Only runs still in **Pending** status can be edited with **Edit**.
 
 **Push to Cutting** checks, before it does anything: the style has an **approved Size Set Sample** (which needs an approved PP Sample, which needs an approved FIT Sample — Manufacturing → Sample Tracking); a **Production CAD** with an average exists for the style (Pre-Production → CAD Planning); and, for a run made from an order, the Order BOM is approved and its fabric is in stock. The message names whichever is missing — for example "No Size Set Sample exists for this style".
+
+For the fabric check, a BOM line that names a greige (the usual case — the finished fabric does not exist when the BOM is made) is answered by the dyed or printed fabric made **from that greige** that was received for this style through the job's **Receive from processor** action, or that has been allocated to the style in Fabric Master (**Allocate to Style**). Another style's fabric from the same greige does not count. If nothing matches, the message says "no finished fabric made from this greige has been received for this style yet" — receive the job-work return first, or allocate the fabric to the style.
 
 Only an **administrator** can override these checks: when materials are short, an admin sees the **Admin Override Required** dialog and must type an **Override Reason** of at least 10 characters; the override is recorded under **Admin → Override History**. Anyone else gets a message saying only an administrator can override — fix what is missing, or ask an admin.

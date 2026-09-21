@@ -53,6 +53,53 @@ interface CreationValidationResult {
   } | null;
 }
 
+type BomFabricLine = { fabricId: string | null; greigeId: string | null };
+type RunIdentity = { styleId: string; orderId: string | null };
+
+/**
+ * How much AVAILABLE finished fabric answers one Order BOM fabric/greige line.
+ *
+ * `order_bom_items.fabricId` is null BY DESIGN at BOM time — the finished fabric does not exist yet
+ * (see schema.prisma) — and it is stamped later only when the CAD row's style slot already carries a
+ * fabricId (`syncBomFabricId`). The first real order-backed run (ORD2026080025, 2026-09-21) had
+ * 1,704 m of dyed fabric in stock and this check read "Available: 0.00" because it keyed on that
+ * null column. So a line with no fabricId is answered by LINEAGE instead: lots of a fabric master
+ * processed FROM the line's greige (`fabric_master.greigeId`) that belong to this style — received
+ * for it (`fabric_stock.originStyleId`, stamped by the job-work return) or for this order
+ * (`originOrderId`), or whose master has been allocated to the style (`style_fabrics.fabricId`,
+ * the Fabric Master → Allocate to Style action). Another style's fabric from the same greige never
+ * counts. A stamped fabricId keeps the old rule: that master's lots, exactly what the cutting chart
+ * will plan against.
+ */
+async function availableFabricForBomLine(bom: BomFabricLine, run: RunIdentity): Promise<number> {
+  let where: Prisma.fabric_stockWhereInput;
+  if (bom.fabricId) {
+    where = { fabricId: bom.fabricId, status: 'AVAILABLE' };
+  } else if (bom.greigeId) {
+    where = {
+      status: 'AVAILABLE',
+      fabricMaster: { greigeId: bom.greigeId },
+      OR: [
+        { originStyleId: run.styleId },
+        ...(run.orderId ? [{ originOrderId: run.orderId }] : []),
+        { fabricMaster: { styleFabrics: { some: { style_components: { styleId: run.styleId } } } } },
+      ],
+    };
+  } else {
+    return 0;
+  }
+  const agg = await prisma.fabric_stock.aggregate({ where, _sum: { quantityAvailable: true } });
+  return Number(agg._sum.quantityAvailable || 0);
+}
+
+/** The one-line "what to do" appended to a shortage on a line the lineage lookup could not answer. */
+function fabricLineageHint(bom: BomFabricLine, available: number): string {
+  if (bom.fabricId || available > 0) return '';
+  return bom.greigeId
+    ? ' — no finished fabric made from this greige has been received for this style yet (receive the job-work return, or allocate the fabric to the style in Fabric Master)'
+    : ' — this BOM line names neither a fabric nor a greige, so no stock can be matched to it';
+}
+
 interface OverrideLogData {
   blockType: string;
   workOrderId?: string;
@@ -435,11 +482,7 @@ class ProductionBlockingValidationService {
 
       let availableStock = 0;
       if (isFabricType) {
-        const fabricStock = await prisma.fabric_stock.aggregate({
-          where: { fabricId: bom.fabricId || '', status: 'AVAILABLE' },
-          _sum: { quantityAvailable: true },
-        });
-        availableStock = Number(fabricStock._sum.quantityAvailable || 0);
+        availableStock = await availableFabricForBomLine(bom, workOrder);
       } else {
         if (!bom.materialId) continue;
         // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
@@ -456,10 +499,11 @@ class ProductionBlockingValidationService {
         const materialCode = isFabricType
           ? bom.fabric_master?.fabricCode || bom.greige?.greigeCode || ''
           : bom.material?.code || '';
+        const hint = isFabricType ? fabricLineageHint(bom, availableStock) : '';
 
         blockers.push({
           type: 'MATERIAL_SHORTAGE',
-          message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${totalRequired.toFixed(2)} ${bom.unit}, Available: ${availableStock.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}`,
+          message: `Insufficient stock for ${materialName} (${materialCode}). Required: ${totalRequired.toFixed(2)} ${bom.unit}, Available: ${availableStock.toFixed(2)} ${bom.unit}, Short: ${shortfall.toFixed(2)} ${bom.unit}${hint}`,
           severity: 'CRITICAL',
         });
       }
@@ -711,11 +755,7 @@ class ProductionBlockingValidationService {
 
       let availableStock = 0;
       if (isFabricType) {
-        const fabricStock = await prisma.fabric_stock.aggregate({
-          where: { fabricId: bom.fabricId || '', status: 'AVAILABLE' },
-          _sum: { quantityAvailable: true },
-        });
-        availableStock = Number(fabricStock._sum.quantityAvailable || 0);
+        availableStock = await availableFabricForBomLine(bom, workOrder);
       } else {
         if (!bom.materialId) {
           availableCount++; // No materialId means no stock check possible — skip

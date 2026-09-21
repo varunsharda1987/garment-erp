@@ -708,19 +708,26 @@ export default function JobWorkOrderDetail() {
                   </>
                 ) : jwo.fabricType === 'GREIGE' ? (
                   <div>
-                    {/* We ISSUE greige — the finished fabric gets its identity on receipt */}
+                    {/* We ISSUE greige — the finished fabric gets its identity on receipt.
+                        A hand-raised stock job names the greige on its header (that is what its
+                        rate and shrinkage were quoted on, and the only cloth it can be issued
+                        from); order-linked jobs still read it off the lot or the chain. */}
                     <Label className="text-muted-foreground">Greige</Label>
                     <p className="font-medium">
-                      {jwo.greigeStockLot?.greige?.greigeName ??
+                      {jwo.greige?.greigeName ??
+                        jwo.greigeStockLot?.greige?.greigeName ??
                         jwo.requirementLinks?.[0]?.materialRequirements?.orderBomItem?.greige?.greigeName ??
                         jwo.requirementLinks?.[0]?.materialRequirements?.materials?.name ??
                         '-'}
                     </p>
-                    {(jwo.greigeStockLot?.greige?.greigeCode ??
+                    {(jwo.greige?.greigeCode ??
+                      jwo.greigeStockLot?.greige?.greigeCode ??
                       jwo.requirementLinks?.[0]?.materialRequirements?.orderBomItem?.greige?.greigeCode) && (
                       <p className="text-xs text-muted-foreground">
-                        {jwo.greigeStockLot?.greige?.greigeCode ??
+                        {jwo.greige?.greigeCode ??
+                          jwo.greigeStockLot?.greige?.greigeCode ??
                           jwo.requirementLinks?.[0]?.materialRequirements?.orderBomItem?.greige?.greigeCode}
+                        {jwo.greige && !jwo.greigeStockLot ? ' — only lots of this greige can be issued' : ''}
                       </p>
                     )}
                   </div>

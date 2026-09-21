@@ -10,7 +10,7 @@
  * and Style sit ABOVE the branch: previously the Style field lived inside the service-process
  * branch, so on Dyeing it never rendered and the field could not be left blank on purpose.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -35,8 +35,11 @@ import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { styleService } from '@/services/style.service';
 import { getGreigeLace, getFinishedLace, createDyedLaceVariant } from '@/services/lace.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { GreigeCombobox } from '@/components/GreigeCombobox';
 import ColorPicker from '@/components/ColorPicker';
 import { billableFromGreige } from '@/utils/shrinkage';
+import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
+import type { GreigeForRateCard, PrintingTypeV2 } from '@/types/processorRateCardV2.types';
 import api from '@/lib/api';
 import type { CreateJobWorkOrderRequest } from '@/types/jobWorkOrder.types';
 
@@ -69,6 +72,26 @@ const SHADE_REQUIRED_PROCESS_TYPES: string[] = ['DYEING', 'PRINTING'];
  * Maps JWO process types to supplier categories for filtering the processor dropdown.
  * This ensures only relevant processors appear for each process type.
  */
+/** The print types a rate card is keyed on — a printer quotes pigment and discharge differently. */
+const PRINTING_TYPES: Array<{ value: PrintingTypeV2; label: string }> = [
+  { value: 'PIGMENT', label: 'Pigment' },
+  { value: 'PROCIAN', label: 'Procian' },
+  { value: 'DISCHARGE', label: 'Discharge' },
+  { value: 'PIGMENT_DISCHARGE', label: 'Pigment + Discharge' },
+];
+
+/** Processes a processor rate card can be quoted for (cards exist for these two only). */
+const RATE_CARD_PROCESS_TYPES: string[] = ['DYEING', 'PRINTING'];
+
+/** What the processor's rate card says for the chosen greige at this job's metres. */
+interface CardQuote {
+  ratePerMeter: number | null;
+  shrinkagePercent: number | null;
+  slabLabel: string | null;
+  /** 'CARD' the processor's own card · 'NONE' no card for this pair · 'FORBIDDEN' a 403 */
+  status: 'CARD' | 'NONE' | 'FORBIDDEN';
+}
+
 const PROCESS_TO_CATEGORY: Record<string, string> = {
   DYEING: 'DYEING_PRINTING',
   PRINTING: 'DYEING_PRINTING',
@@ -89,6 +112,16 @@ interface Props {
   onCreated: () => void;
 }
 
+/** Holds a value back until it stops changing — the quantity drives a rate lookup per keystroke. */
+function useDebounced<T>(value: T, ms: number): T {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return settled;
+}
+
 export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Props) {
   const navigate = useNavigate();
   const [processType, setProcessType] = useState<string>('');
@@ -107,10 +140,19 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   // EMBROIDERY (Phase 5b: fabric-roll embroidery is a JWO)
   const [fabricStockLotId, setFabricStockLotId] = useState<string>('');
   const [embroideryId, setEmbroideryId] = useState<string>('');
-  // Stock (style-less) fabric job — the three things an order-linked job reads off its chain
+  // Stock (style-less) fabric job — the things an order-linked job reads off its chain
   const [colorMasterId, setColorMasterId] = useState<string>('');
   const [sentWidthInches, setSentWidthInches] = useState<string>('');
   const [expectedShrinkage, setExpectedShrinkage] = useState<string>('');
+  // The greige going out: the processor rate card's key, and the job's contract once saved.
+  const [greigeId, setGreigeId] = useState<string>('');
+  const [greige, setGreige] = useState<GreigeForRateCard | null>(null);
+  const [printingType, setPrintingType] = useState<PrintingTypeV2 | ''>('');
+  const [cardQuote, setCardQuote] = useState<CardQuote | null>(null);
+  // Typing in either field pins it: the card may re-quote (a new slab, another greige) but it
+  // must never overwrite a number the user put there deliberately.
+  const rateTouched = useRef(false);
+  const shrinkageTouched = useRef(false);
   // Lace dyeing: greige out, dyed variant back
   const [material, setMaterial] = useState<'FABRIC' | 'LACE'>('FABRIC');
   const [greigeLaceId, setGreigeLaceId] = useState<string>('');
@@ -143,6 +185,91 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(shrink) || shrink <= 0) return null;
     return billableFromGreige(qty, shrink);
   }, [quantity, expectedShrinkage]);
+
+  /**
+   * The processor's rate card, read the moment there is enough to key it on.
+   *
+   * Until 2026-09-21 this dialog asked for neither the greige nor the print type, so the card —
+   * which is keyed on processor + process + greige (+ print type) + quantity slab — could not be
+   * found, and the operator typed the rate and the shrinkage from memory while every other screen
+   * filled them in (owner's report).
+   *
+   * Two lookups, deliberately: the card's shrinkage decides the metres the processor will BILL
+   * for, and the slab is chosen on those billable metres — the same basis the server records. A
+   * single lookup at the metres sent would put a boundary job in the wrong slab and file an
+   * honest card rate as a manual variance.
+   */
+  const qtyNum = parseFloat(quantity);
+  const debouncedQty = useDebounced(Number.isFinite(qtyNum) && qtyNum > 0 ? qtyNum : 0, 300);
+  const canQuote =
+    RATE_CARD_PROCESS_TYPES.includes(processType) &&
+    !!processorId &&
+    !!greigeId &&
+    (processType !== 'PRINTING' || !!printingType);
+
+  useEffect(() => {
+    if (!canQuote) {
+      setCardQuote(null);
+      return;
+    }
+    let cancelled = false;
+    const quoteAt = (meters: number) =>
+      processorRateCardV2Service.lookupRate(
+        processorId,
+        processType as 'DYEING' | 'PRINTING',
+        greigeId,
+        meters,
+        (printingType || undefined) as PrintingTypeV2 | undefined
+      );
+
+    (async () => {
+      try {
+        const sentQty = debouncedQty || 1;
+        const first = await quoteAt(sentQty);
+        if (cancelled) return;
+
+        const shrink = first?.shrinkagePercent ?? null;
+        // Re-quote on the billable metres when shrinkage moves them into another slab.
+        const billable = shrink != null ? billableFromGreige(sentQty, shrink) : sentQty;
+        const onBasis = billable !== sentQty ? await quoteAt(billable) : first;
+        if (cancelled) return;
+
+        const card = onBasis ?? first;
+        setCardQuote({
+          ratePerMeter: card?.ratePerMeter ?? null,
+          shrinkagePercent: shrink,
+          slabLabel: card?.slabLabel ?? null,
+          status: card ? 'CARD' : 'NONE',
+        });
+        if (shrink != null && !shrinkageTouched.current) setExpectedShrinkage(String(shrink));
+        if (card?.ratePerMeter != null && card.ratePerMeter > 0 && !rateTouched.current) {
+          setAgreedRate(String(card.ratePerMeter));
+        }
+      } catch (error) {
+        if (cancelled) return;
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        // A 403 is not "no rate card" — saying so would send the user looking for a card that
+        // exists. (The lookup routes were opened to every job-work role on 2026-09-21; this
+        // stays as the honest message if a deployment is ever mid-flight.)
+        setCardQuote({
+          ratePerMeter: null,
+          shrinkagePercent: null,
+          slabLabel: null,
+          status: status === 403 ? 'FORBIDDEN' : 'NONE',
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canQuote, processorId, processType, greigeId, printingType, debouncedQty]);
+
+  // No card for this pair: the greige's own average is the honest starting figure, never invented.
+  useEffect(() => {
+    if (!greige || shrinkageTouched.current) return;
+    if (cardQuote?.shrinkagePercent != null) return;
+    if (greige.averageShrinkagePercent != null) setExpectedShrinkage(String(greige.averageShrinkagePercent));
+  }, [greige, cardQuote]);
 
   interface EmbroideryLotOption {
     id: string;
@@ -241,6 +368,12 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     setColorMasterId('');
     setSentWidthInches('');
     setExpectedShrinkage('');
+    setGreigeId('');
+    setGreige(null);
+    setPrintingType('');
+    setCardQuote(null);
+    rateTouched.current = false;
+    shrinkageTouched.current = false;
     setMaterial('FABRIC');
     setGreigeLaceId('');
     setFinishedLaceId('');
@@ -252,6 +385,10 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     !isProcessRedirect &&
     !!processorId &&
     (parseFloat(quantity) || 0) > 0 &&
+    // The greige is what the rate card is quoted on and what issuance will hold the job to, so a
+    // dyeing/printing stock job cannot be raised without naming it. Finishing has no cards.
+    (!isStockFabricJob || !RATE_CARD_PROCESS_TYPES.includes(processType) || !!greigeId) &&
+    (!isStockFabricJob || processType !== 'PRINTING' || !!printingType) &&
     (!shadeRequired || !!colorMasterId) &&
     (!isLaceJob || (!!greigeLaceId && !!finishedLaceId)) &&
     (isKaaj
@@ -289,6 +426,8 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
               colorMasterId: colorMasterId || null,
               sentWidthInches: parseFloat(sentWidthInches) || null,
               expectedShrinkage: parseFloat(expectedShrinkage) || null,
+              greigeId: greigeId || null,
+              printingType: processType === 'PRINTING' ? printingType || null : null,
             }
           : {}),
         ...(isLaceJob
@@ -573,6 +712,44 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
               {isStockFabricJob && (
                 <div className="border rounded-md p-3 space-y-3">
                   <div className="space-y-2">
+                    <Label>
+                      Greige (cloth going out) {RATE_CARD_PROCESS_TYPES.includes(processType) ? '*' : '(optional)'}
+                    </Label>
+                    <GreigeCombobox
+                      value={greigeId}
+                      onValueChange={setGreigeId}
+                      onGreigeChange={setGreige}
+                      placeholder="Select the greige being sent"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {RATE_CARD_PROCESS_TYPES.includes(processType)
+                        ? "The rate and shrinkage come from this processor's rate card for this cloth. It is also what the job is held to — only lots of this greige can be issued against it."
+                        : 'Used for the expected shrinkage and to hold the job to one cloth at issue.'}
+                    </p>
+                  </div>
+
+                  {processType === 'PRINTING' && (
+                    <div className="space-y-2">
+                      <Label>Print type *</Label>
+                      <Select value={printingType} onValueChange={(v) => setPrintingType(v as PrintingTypeV2)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select the print type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRINTING_TYPES.map((p) => (
+                            <SelectItem key={p.value} value={p.value}>
+                              {p.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Printers quote each type separately, so the rate card needs it.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
                     <Label>Colour {shadeRequired ? '*' : '(optional)'}</Label>
                     <ColorPicker
                       value={colorMasterId || null}
@@ -605,8 +782,26 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                         max={99.99}
                         step={0.1}
                         value={expectedShrinkage}
-                        onChange={(e) => setExpectedShrinkage(e.target.value)}
+                        onChange={(e) => {
+                          shrinkageTouched.current = true;
+                          setExpectedShrinkage(e.target.value);
+                        }}
                       />
+                      {cardQuote?.shrinkagePercent != null ? (
+                        <p className="text-xs text-muted-foreground">
+                          From this processor&apos;s rate card: {cardQuote.shrinkagePercent}%
+                          {cardQuote.slabLabel ? ` (${cardQuote.slabLabel})` : ''}
+                        </p>
+                      ) : cardQuote?.status === 'FORBIDDEN' ? (
+                        <p className="text-xs text-amber-600">
+                          Rate cards are not readable for your role — ask an admin, or type the contracted figure.
+                        </p>
+                      ) : greige?.averageShrinkagePercent != null && canQuote ? (
+                        <p className="text-xs text-amber-600">
+                          No rate card for this processor on this greige — using {greige.greigeCode}&apos;s average{' '}
+                          {greige.averageShrinkagePercent}%. Enter the contracted figure if it differs.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                   {expectedBack !== null && (
@@ -677,8 +872,34 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                       min={0}
                       step={0.01}
                       value={agreedRate}
-                      onChange={(e) => setAgreedRate(e.target.value)}
+                      onChange={(e) => {
+                        rateTouched.current = true;
+                        setAgreedRate(e.target.value);
+                      }}
                     />
+                    {cardQuote?.ratePerMeter != null && cardQuote.ratePerMeter > 0 ? (
+                      <p
+                        className={
+                          Math.abs((parseFloat(agreedRate) || 0) - cardQuote.ratePerMeter) >= 0.005
+                            ? 'text-xs text-amber-600'
+                            : 'text-xs text-muted-foreground'
+                        }
+                      >
+                        Rate card: ₹
+                        {cardQuote.ratePerMeter.toLocaleString('en-IN', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        /m{cardQuote.slabLabel ? ` @ ${cardQuote.slabLabel}` : ''} for this quantity
+                        {Math.abs((parseFloat(agreedRate) || 0) - cardQuote.ratePerMeter) >= 0.005
+                          ? ' — differs from the typed rate'
+                          : ''}
+                      </p>
+                    ) : cardQuote?.status === 'NONE' && canQuote ? (
+                      <p className="text-xs text-amber-600">
+                        No rate card for this processor on this greige — enter the agreed rate.
+                      </p>
+                    ) : null}
                   </div>
                 )}
                 <div className="space-y-2">

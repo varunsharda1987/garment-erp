@@ -20,6 +20,12 @@ export type JwoRateSource = 'RATE_CARD' | 'ORDER_BOM' | 'MANUAL' | 'TBD';
 export interface JwoRateResolution {
   /** ₹/m the processor's rate card quotes at basisQuantityMeters (null = no card resolvable) */
   cardRatePerMeter: number | null;
+  /**
+   * The shrinkage % on that very card. Print-type aware by construction, unlike the
+   * processor+greige scan in shrinkage-resolver.helper, which reads two print types at different
+   * shrinkage as "ambiguous" and gives up. Callers that know the card should prefer this.
+   */
+  cardShrinkagePercent: number | null;
   rateCardId: string | null;
   slabId: string | null;
   slabLabel: string | null;
@@ -47,6 +53,7 @@ export async function resolveJwoRate(params: {
   const upstream = params.upstreamRatePerMeter != null ? Number(params.upstreamRatePerMeter) : null;
   const empty: JwoRateResolution = {
     cardRatePerMeter: null,
+    cardShrinkagePercent: null,
     rateCardId: null,
     slabId: null,
     slabLabel: null,
@@ -78,6 +85,7 @@ export async function resolveJwoRate(params: {
 
   return {
     cardRatePerMeter: fresh.ratePerMeter,
+    cardShrinkagePercent: fresh.shrinkagePercent ?? null,
     rateCardId: fresh.id,
     slabId: fresh.slabId,
     slabLabel: fresh.slabLabel,
@@ -97,7 +105,12 @@ export async function resolveJwoRate(params: {
 export function jwoRateProvenance(
   resolution: JwoRateResolution | null,
   agreedRatePerMeter: number,
-  options?: { isRateTbd?: boolean }
+  /**
+   * `fallbackBasisQuantity`: the basis to record when no card resolved. Without it a caller with
+   * no resolution (every piece/service job on the manual create surface) writes a null basis,
+   * losing the meters the rate was agreed on.
+   */
+  options?: { isRateTbd?: boolean; fallbackBasisQuantity?: number | null }
 ): {
   rateCardId: string | null;
   slabId: string | null;
@@ -111,7 +124,7 @@ export function jwoRateProvenance(
       rateCardId: null,
       slabId: null,
       rateSource: 'TBD',
-      rateBasisQuantity: resolution?.basisQuantityMeters ?? null,
+      rateBasisQuantity: resolution?.basisQuantityMeters ?? options?.fallbackBasisQuantity ?? null,
       costedRatePerMeter: resolution?.upstreamRatePerMeter ?? null,
       rateVarianceReason: null,
     };
@@ -127,7 +140,7 @@ export function jwoRateProvenance(
     // The document carries the card's own quote → RATE_CARD; anything else the operator/upstream
     // decided → MANUAL/ORDER_BOM (caller distinguishes via upstream when it matters)
     rateSource: agreedMatchesCard ? 'RATE_CARD' : resolution?.upstreamRatePerMeter != null ? 'ORDER_BOM' : 'MANUAL',
-    rateBasisQuantity: resolution?.basisQuantityMeters ?? null,
+    rateBasisQuantity: resolution?.basisQuantityMeters ?? options?.fallbackBasisQuantity ?? null,
     // The rate this document DIDN'T take, kept for the variance audit: the card quote when the
     // agreed rate deviates from it, else the upstream snapshot it superseded
     costedRatePerMeter: !agreedMatchesCard ? cardRate : (resolution?.upstreamRatePerMeter ?? null),

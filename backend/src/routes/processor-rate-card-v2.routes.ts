@@ -43,6 +43,18 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+
+// ── Rate LOOKUPS: reads that happen to be POSTs (the key is a 4-field composite, not a path) ──
+// Registered above the costSheets write guard on purpose. Every screen that quotes a processor
+// needs them — the job work order dialog, the processing form, fabric costing — but `costSheets`
+// is ADMIN/MERCHANDISER/ACCOUNTS while `jobWork` is ADMIN/PRODUCTION_MANAGER/PURCHASE, so a
+// production manager raising a job got a 403 and simply saw nothing fill in (2026-09-21).
+// open-write: read-only lookup over data any authenticated caller can already GET
+// (/greiges, /processors/:id/matrix); writes nothing.
+router.post('/lookup', validateBody(lookupRateSchema), asyncHandler(lookupRate));
+// open-write: read-only lace rate lookup; same reasoning as /lookup above.
+router.post('/lookup-lace', validateBody(lookupLaceRateSchema), asyncHandler(lookupLaceRate));
+
 router.use(requirePermissionForWrites('costSheets'));
 
 // Get summary dashboard for all processors
@@ -91,8 +103,7 @@ router.delete(
   asyncHandler(removeGreige)
 );
 
-// Lookup rate for fabric costing
-router.post('/lookup', validateBody(lookupRateSchema), asyncHandler(lookupRate));
+// (POST /lookup is registered above the write guard — see the note at the top.)
 
 // ==========================================
 // LACE RATE CARD ROUTES
@@ -127,7 +138,6 @@ router.delete(
   asyncHandler(removeLace)
 );
 
-// Lookup rate for lace costing
-router.post('/lookup-lace', validateBody(lookupLaceRateSchema), asyncHandler(lookupLaceRate));
+// (POST /lookup-lace is registered above the write guard — see the note at the top.)
 
 export default router;

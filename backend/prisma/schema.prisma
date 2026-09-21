@@ -4465,6 +4465,7 @@ model greige_master {
   orderBomItems            order_bom_items[]              @relation("bom_item_greige")
   costingFabricItems       style_costing_fabric_items[]
   jwoComponents            job_work_order_components[]
+  jobWorkOrders            job_work_orders[]              @relation("JobWorkOrderGreige")
   washCareCodes            customer_fabric_wash_care[]
   buyerTrfs                buyer_test_requirement_forms[]
 
@@ -7067,6 +7068,12 @@ model job_work_orders {
   inwardChallanId        String? // FK to new challans table (inbound)
   purchaseOrderId        String?   @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
   greigeStockLotId       String?   @db.VarChar(50) // FK to greige_stock (source greige)
+  /// The greige CLOTH this job was raised for — the SENT side, and the key the processor's rate
+  /// card was quoted on (processor + processType + greige + slab). Set on a hand-raised stock job
+  /// so the quoted rate and shrinkage become the contract: issuance refuses lots of another greige
+  /// (2026-09-21). An order-linked job leaves it null and derives the greige from its requirement
+  /// chain. What comes BACK is finishedFabricId; the lot actually consumed is greigeStockLotId.
+  greigeId               String?
   // Lace dyeing jobs (fabricType = 'LACE'). Held on the header rather than derived from the
   // requirement chain, because a lace JWO can also be raised by hand with no order behind it.
   greigeLaceId           String? // FK to lace_master — the greige lace SENT
@@ -7133,6 +7140,7 @@ model job_work_orders {
   inwardChallan           challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
   purchaseOrder           purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
   greigeStockLot          greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
+  greige                  greige_master?                    @relation("JobWorkOrderGreige", fields: [greigeId], references: [id])
   grn                     goods_receiving_notes?            @relation(fields: [grnId], references: [id])
   processTypeMaster       process_type_master?              @relation(fields: [processTypeId], references: [id])
   approvedBy              users?                            @relation("JobWorkApprover", fields: [approvedById], references: [id])
@@ -7175,6 +7183,7 @@ model job_work_orders {
   @@index([outwardChallanId])
   @@index([inwardChallanId])
   @@index([finishedFabricId])
+  @@index([greigeId])
   @@index([greigeLaceId])
   @@index([finishedLaceId])
   @@index([purchaseOrderId])

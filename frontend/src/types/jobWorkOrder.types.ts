@@ -166,6 +166,9 @@ export interface JobWorkOrder {
   colorName?: string | null;
   colorMasterId?: string | null;
   fabric?: { id: string; fabricCode: string; fabricName: string };
+  /** The greige named on the job's header — what its rate and shrinkage were quoted on. */
+  greigeId?: string | null;
+  greige?: { id: string; greigeCode: string; greigeName: string } | null;
   greigeLace?: {
     id: string;
     laceCode: string;
@@ -236,6 +239,14 @@ export interface CreateJobWorkOrderRequest {
   sentWidthInches?: number | null;
   /** Rate-card shrinkage; the server derives qtyBillable (expected fabric back) from it. */
   expectedShrinkage?: number | null;
+  /**
+   * The greige CLOTH going out. It keys the processor's rate card, so sending it lets the server
+   * fill the rate and the shrinkage from that card — and it becomes the job's contract: issuance
+   * then refuses lots of any other greige.
+   */
+  greigeId?: string | null;
+  /** PRINTING only — part of the rate card's key (pigment and discharge are priced differently). */
+  printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE' | null;
   /**
    * Lace dyeing (DYEING only, and never with a fabric): the greige lace sent and the dyed
    * variant expected back. Supplied together or not at all. When expectedShrinkage is omitted

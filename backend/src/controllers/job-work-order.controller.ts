@@ -37,6 +37,9 @@ import {
   JWO_GRN_UOMS,
 } from '../services/helpers/jwo-status.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
+import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
+import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
+import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
 import type {
@@ -103,6 +106,11 @@ const jwoInclude = {
     },
     orderBy: { receivingDate: 'asc' as const },
   },
+  // The greige this job names on its header (hand-raised stock jobs) — the cloth its rate and
+  // shrinkage were quoted on, and the only lots issuance will accept.
+  greige: {
+    select: { id: true, greigeCode: true, greigeName: true },
+  },
   // Greige identity for greige-processing jobs: the issued lot's master post-issue,
   // and the requirement→BOM chain before a lot exists (MRP drafts have fabricId null).
   greigeStockLot: {
@@ -141,8 +149,8 @@ class JobWorkOrderController {
 
       const body = req.body as CreateJobWorkOrderInput;
 
-      // Validate processor + optional style/colour, and resolve the process type master
-      const [processor, style, processTypeMaster, colorMaster] = await Promise.all([
+      // Validate processor + optional style/colour/greige, and resolve the process type master
+      const [processor, style, processTypeMaster, colorMaster, greige] = await Promise.all([
         prisma.suppliers.findUnique({ where: { id: body.processorId }, select: { id: true, name: true } }),
         body.styleId
           ? prisma.styles.findUnique({ where: { id: body.styleId }, select: { id: true, styleCode: true } })
@@ -154,10 +162,19 @@ class JobWorkOrderController {
               select: { id: true, colorName: true },
             })
           : Promise.resolve(null),
+        body.greigeId
+          ? prisma.greige_master.findUnique({
+              where: { id: body.greigeId },
+              select: { id: true, greigeCode: true, greigeName: true, averageShrinkagePercent: true },
+            })
+          : Promise.resolve(null),
       ]);
 
       if (!processor) {
         return res.status(404).json({ success: false, message: 'Processor (supplier) not found' });
+      }
+      if (body.greigeId && !greige) {
+        return res.status(404).json({ success: false, message: 'Greige not found' });
       }
       if (body.styleId && !style) {
         return res.status(404).json({ success: false, message: 'Style not found' });
@@ -262,11 +279,71 @@ class JobWorkOrderController {
       const laceShrinkage =
         greigeLace?.expectedShrinkagePercent != null ? Number(greigeLace.expectedShrinkagePercent) : null;
       const isFabricProcess = processTypeMaster.processCategory === 'FABRIC';
-      const expectedShrinkage = isFabricProcess ? (body.expectedShrinkage ?? laceShrinkage ?? null) : null;
+
+      // A greige on a cloth job is the processor rate card's key, so the card this job would be
+      // billed under can be read here — the figures no longer have to be typed from memory
+      // (owner, 2026-09-21: "it is not showing the shrinkage and the rates as per the processor").
+      // Two lookups on purpose: the card's shrinkage is what decides the billable metres, and the
+      // SLAB is chosen on those billable metres — the basis every other writer records
+      // (dyeing.controller, MRP). Quoting the rate at the metres sent would put a boundary job in
+      // the wrong slab and file an honest card rate as a manual variance.
+      const cardProcessingType: ProcessingTypeV2 | null =
+        body.greigeId && (body.processType === 'DYEING' || body.processType === 'PRINTING')
+          ? (body.processType as ProcessingTypeV2)
+          : null;
+      let cardShrinkage: number | null = null;
+      if (cardProcessingType && body.greigeId && body.expectedShrinkage == null) {
+        const atSentQty = await resolveJwoRate({
+          processorId: body.processorId,
+          processingType: cardProcessingType,
+          printingType: (body.printingType as PrintingTypeV2 | null) ?? null,
+          greigeId: body.greigeId,
+          basisQuantityMeters: body.quantity,
+        });
+        cardShrinkage = atSentQty.cardShrinkagePercent;
+        if (cardShrinkage == null) {
+          // No shrinkage on the card itself: the processor+greige scan (unambiguous cards only),
+          // then the greige master's own average — never invented.
+          cardShrinkage = await resolveJwoExpectedShrinkage({
+            supplied: null,
+            processorId: body.processorId,
+            greigeId: body.greigeId,
+          });
+        }
+        if (cardShrinkage == null && greige?.averageShrinkagePercent != null) {
+          cardShrinkage = Number(greige.averageShrinkagePercent);
+        }
+      }
+
+      const expectedShrinkage = isFabricProcess
+        ? (body.expectedShrinkage ?? cardShrinkage ?? laceShrinkage ?? null)
+        : null;
       const qtyBillable =
         expectedShrinkage === null
           ? null
           : roundToCent(applyShrinkageLoss(body.quantity, expectedShrinkage)).toNumber();
+
+      // The rate the card quotes at the metres the processor will bill for.
+      const rateBasisQuantity = qtyBillable ?? body.quantity;
+      let rateResolution: JwoRateResolution | null = null;
+      if (cardProcessingType && body.greigeId) {
+        rateResolution = await resolveJwoRate({
+          processorId: body.processorId,
+          processingType: cardProcessingType,
+          printingType: (body.printingType as PrintingTypeV2 | null) ?? null,
+          greigeId: body.greigeId,
+          basisQuantityMeters: rateBasisQuantity,
+        });
+      }
+      const agreedRatePerMeter = isKaaj ? 0 : body.agreedRate;
+      // Rate provenance: RATE_CARD when the agreed rate IS the card's quote, else MANUAL with the
+      // card rate kept as the variance audit. With no card (service jobs, no greige, no rate card
+      // for this pair) this is exactly the old MANUAL/TBD write — including the basis quantity,
+      // which a null resolution would otherwise wipe.
+      const provenance = jwoRateProvenance(rateResolution, agreedRatePerMeter, {
+        isRateTbd: !isKaaj && body.isRateTbd,
+        fallbackBasisQuantity: rateBasisQuantity,
+      });
 
       const jobWorkNumber = await generateJobWorkNumber(body.processType, style?.styleCode || 'STK');
 
@@ -288,6 +365,9 @@ class JobWorkOrderController {
               : processTypeMaster.processCategory === 'FABRIC'
                 ? 'GREIGE'
                 : null,
+          // The greige this job was raised for: the card's key, and from here on its contract —
+          // issuance refuses lots of any other cloth.
+          greigeId: greige?.id ?? null,
           greigeLaceId: greigeLace?.id ?? null,
           finishedLaceId: finishedLace?.id ?? null,
           fabricStockLotId: body.fabricStockLotId ?? null,
@@ -306,13 +386,17 @@ class JobWorkOrderController {
           // Fabric-lot JWOs are meters (consume a roll, receive via the MTR-only GRN path)
           // even when the process master's default unit is PCS (e.g. EMBROIDERY pieces)
           uom: body.uom || (body.fabricStockLotId ? 'MTR' : processTypeMaster.unitOfMeasure),
-          agreedRatePerMeter: isKaaj ? 0 : body.agreedRate,
+          agreedRatePerMeter,
           isRateTbd: isKaaj ? false : body.isRateTbd,
-          // Rate provenance (qty-rate audit 2026-08-24): this surface serves stock/sample and
-          // piece/service jobs with no greige lineage — no slab card applies, the operator's
-          // number IS the rate. Recording that honestly beats leaving the column null.
-          rateSource: !isKaaj && body.isRateTbd ? 'TBD' : 'MANUAL',
-          rateBasisQuantity: qtyBillable ?? body.quantity,
+          // Rate provenance (qty-rate audit 2026-08-24; rate card wired in 2026-09-21): a job that
+          // names its greige is priced by the processor's card and says so; a service job with no
+          // greige lineage has no slab card to apply, so the operator's number IS the rate.
+          rateCardId: provenance.rateCardId,
+          slabId: provenance.slabId,
+          rateSource: provenance.rateSource,
+          rateBasisQuantity: provenance.rateBasisQuantity,
+          costedRatePerMeter: provenance.costedRatePerMeter,
+          rateVarianceReason: provenance.rateVarianceReason,
           expectedReturnDate: body.expectedReturnDate ?? null,
           remarks: body.remarks ?? null,
           jwoStatus: 'DRAFT',

@@ -276,8 +276,12 @@ export async function validateIssue(
     laceLots.sort((a, b) => b.qty - a.qty);
   }
 
-  // The cloth this order's requirement chain calls for
+  // The cloth this order is about. A hand-raised stock job names it on the header — that is the
+  // greige its rate and shrinkage were quoted on, so it is the contract and comes first
+  // (2026-09-21). An order-linked job leaves the column null and derives it from the chain.
+  const greigeFromHeader = jwo.greigeId != null;
   const expectedGreigeId =
+    jwo.greigeId ??
     jwo.requirementLinks[0]?.material_requirements?.materials?.greigeId ??
     jwo.fabric?.greigeId ??
     jwo.labDip?.fabric?.greigeId ??
@@ -350,7 +354,10 @@ export async function validateIssue(
           code: ISSUE_ERROR_CODES.LOT_GREIGE_MISMATCH,
           message:
             `Lot ${row.greige?.greigeCode ?? ''} is ${row.greige?.greigeName ?? 'a different greige'}, ` +
-            `but this order's requirement chain calls for ${expectedGreige?.greigeCode ?? expectedGreigeId}.`,
+            `but this order ${greigeFromHeader ? 'was raised for' : "'s requirement chain calls for"} ` +
+            `${expectedGreige?.greigeCode ?? expectedGreigeId}` +
+            `${expectedGreige?.greigeName ? ` ${expectedGreige.greigeName}` : ''}. ` +
+            `Pick a lot of that greige, or raise a separate job work order.`,
         });
       }
       if (

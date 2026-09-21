@@ -3,7 +3,7 @@
  * Validation for the unified JWO API surface (Consolidation Phase 3).
  */
 import { z } from 'zod';
-import { ProcessTypeEnum } from './generated/prisma-enums';
+import { ProcessTypeEnum, PrintingTypeEnum } from './generated/prisma-enums';
 
 /**
  * The process types whose output is CLOTH — process_type_master.processCategory = 'FABRIC'.
@@ -55,6 +55,14 @@ export const createJobWorkOrderSchema = z
     sentWidthInches: z.number().positive().max(200).optional().nullable(),
     /// Must stay under 100: applyShrinkageLoss() throws at 100, where expected output is zero.
     expectedShrinkage: z.number().min(0).max(99.99).optional().nullable(),
+    /// The greige CLOTH going out. It is the processor rate card's key (processor + process +
+    /// greige + slab), so supplying it lets the server fill the rate and the shrinkage from that
+    /// card — and it becomes the job's contract: issuance then refuses lots of another greige.
+    /// Optional: order-linked and legacy jobs derive their greige from the requirement chain.
+    greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
+    /// PRINTING only — part of the rate card's key (a printer quotes pigment and discharge
+    /// differently). Used for the lookup; the job has no column of its own for it.
+    printingType: PrintingTypeEnum.optional().nullable(),
     // Lace dyeing: the greige lace SENT and the dyed variant expected BACK. Both are
     // lace_master rows — the variant is minted by POST /materials/lace/dyed-variant.
     greigeLaceId: z.string().uuid('Invalid greige lace ID').optional().nullable(),
@@ -95,6 +103,17 @@ export const createJobWorkOrderSchema = z
   // fabric id ride along would leave the receipt path a choice of two materials to stock.
   .refine((data) => !data.greigeLaceId || (!data.fabricId && !data.fabricStockLotId), {
     message: 'A lace job work order cannot also carry a fabric or a fabric stock lot',
+  })
+  // A greige cloth on a lace job would name two different materials as the thing going out.
+  .refine((data) => !data.greigeId || !data.greigeLaceId, {
+    message: 'A lace job work order sends greige lace, not greige cloth',
+  })
+  // Greige cloth only means something on a process whose output is cloth.
+  .refine((data) => !data.greigeId || FABRIC_PROCESS_TYPES.includes(data.processType as FabricProcessType), {
+    message: `Greige is only valid for fabric processes (${FABRIC_PROCESS_TYPES.join(', ')})`,
+  })
+  .refine((data) => !data.printingType || data.processType === 'PRINTING', {
+    message: 'printingType is only valid for PRINTING job work orders',
   });
 
 export type CreateJobWorkOrderInput = z.infer<typeof createJobWorkOrderSchema>;

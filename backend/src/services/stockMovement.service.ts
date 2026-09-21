@@ -1063,6 +1063,12 @@ class StockMovementService {
       sourceType: 'STOCK_MOVEMENT' | 'GREIGE_STOCK' | 'FABRIC_STOCK' | 'GRN' | 'PROCUREMENT' | 'CHALLAN';
       sourceId: string;
       sourceNumber: string;
+      /**
+       * Set only where the source row carries it natively, so the list can link to the material's
+       * ledger. Null on the greige/procurement/challan branches, which identify their material by
+       * master or free text rather than by a materials row — the link is simply not offered there.
+       */
+      materialId: string | null;
     }
 
     const results: UnifiedMovement[] = [];
@@ -1103,6 +1109,7 @@ class StockMovementService {
         sourceType: 'STOCK_MOVEMENT',
         sourceId: mov.id,
         sourceNumber: mov.referenceNumber || mov.id.slice(0, 8),
+        materialId: mov.materialId,
       });
     }
 
@@ -1162,6 +1169,7 @@ class StockMovementService {
         sourceType: 'GREIGE_STOCK',
         sourceId: gs.id,
         sourceNumber: gs.procurementId?.slice(0, 8) || gs.id.slice(0, 8),
+        materialId: null,
       });
     }
 
@@ -1225,6 +1233,7 @@ class StockMovementService {
         sourceType: 'PROCUREMENT',
         sourceId: proc.id,
         sourceNumber: proc.purchaseOrderNumber || proc.id.slice(0, 8),
+        materialId: null,
       });
     }
 
@@ -1289,6 +1298,7 @@ class StockMovementService {
           sourceType: 'GRN',
           sourceId: grn.id,
           sourceNumber: grn.grnNumber,
+          materialId: item.materialId,
         });
       }
     }
@@ -1340,6 +1350,7 @@ class StockMovementService {
             sourceType: 'CHALLAN',
             sourceId: challan.id,
             sourceNumber: challan.challanNumber,
+            materialId: item.materialId,
           });
         }
       }

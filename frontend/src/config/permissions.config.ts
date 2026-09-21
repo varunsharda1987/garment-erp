@@ -124,6 +124,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/manufacturing/challans': 'challans',
   '/manufacturing/dispatch': 'dispatch',
   '/processing/job-work': 'jobWork',
+  '/processing/processor-statement': 'jobWork',
   '/processing/batches': 'processingBatches',
   '/job-work-orders': 'jobWork',
   // Sending greige out to a mill is job work, not the finished-goods '/manufacturing/dispatch'
@@ -132,11 +133,18 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   // Tally integration (admin tools; prefix match covers all /settings/tally/* sub-pages)
   '/settings/tally': 'admin',
 
+  // Company profile — the entities we invoice as. Editing changes the GSTIN, letterhead and
+  // state code on every future document, so it is admin-only. (Prefix match covers
+  // /settings/company/new and /settings/company/:id.) Note the API's READS are open to any
+  // authenticated user, because the Purchase Order screens render the letterhead.
+  '/settings/company': 'admin',
+
   // Inventory
   '/inventory/dashboard': 'inventoryDashboard',
   '/inventory/stock-levels': 'stockLevels',
   '/inventory/stock-counts': 'stockCounts',
   '/inventory/movements': 'stockMovements',
+  '/inventory/material-ledger': 'stockMovements',
   '/greige-stock': 'greigeFabricStock',
   '/fabric-stock': 'greigeFabricStock',
   '/embroidery-stock': 'embroideryStock',

@@ -25,6 +25,8 @@ import {
   PendingUsersPage,
   Profile,
   Settings,
+  CompanyProfiles,
+  CompanyProfileForm,
   TallySettings,
   TallyCustomers,
   TallyInvoices,
@@ -90,6 +92,7 @@ import {
   WarehouseForm,
   StockLevelList,
   StockMovementList,
+  MaterialLedger,
   StockMovementDashboard,
   StockInForm,
   StockOutForm,
@@ -170,6 +173,7 @@ import {
   GRNDetail,
   UnifiedRequirementsPage,
   JobWorkDashboard,
+  ProcessorStatement,
   ProcessingBatchList,
   ProcessingBatchDetail,
   ProcessingBatchCreateForm,
@@ -360,6 +364,9 @@ function App() {
               {/* Profile & Settings */}
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/company" element={<CompanyProfiles />} />
+              <Route path="/settings/company/new" element={<CompanyProfileForm mode="create" />} />
+              <Route path="/settings/company/:id" element={<CompanyProfileForm mode="edit" />} />
               <Route path="/settings/export-templates" element={<TemplateManager />} />
               <Route path="/settings/tally" element={<TallySettings />} />
               <Route path="/settings/tally/customers" element={<TallyCustomers />} />
@@ -589,6 +596,7 @@ function App() {
               <Route path="/inventory/warehouses/:id/edit" element={<WarehouseForm />} />
               <Route path="/inventory/movement-dashboard" element={<StockMovementDashboard />} />
               <Route path="/inventory/movements" element={<StockMovementList />} />
+              <Route path="/inventory/material-ledger" element={<MaterialLedger />} />
               <Route path="/inventory/movements/stock-in" element={<StockInForm />} />
               <Route path="/inventory/movements/stock-out" element={<StockOutForm />} />
               <Route path="/inventory/movements/transfer" element={<StockTransferForm />} />
@@ -649,6 +657,7 @@ function App() {
 
               {/* Job Work Processing (Multi-Stage) */}
               <Route path="/processing/job-work" element={<JobWorkDashboard />} />
+              <Route path="/processing/processor-statement" element={<ProcessorStatement />} />
               <Route path="/processing/batches" element={<ProcessingBatchList />} />
               <Route path="/processing/batches/new" element={<ProcessingBatchCreateForm />} />
               <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />

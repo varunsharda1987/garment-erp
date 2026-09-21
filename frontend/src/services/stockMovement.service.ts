@@ -239,6 +239,8 @@ export interface UnifiedMovement {
   sourceType: 'STOCK_MOVEMENT' | 'GREIGE_STOCK' | 'FABRIC_STOCK' | 'GRN' | 'PROCUREMENT' | 'CHALLAN';
   sourceId: string;
   sourceNumber: string;
+  /** Present only where the source row carries it; null means no ledger link is offered. */
+  materialId: string | null;
 }
 
 // Pending Inward Item (unified dashboard)

@@ -11,6 +11,8 @@
 import { Router } from 'express';
 import { jobWorkStatutoryController } from '../controllers/job-work-statutory.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
+import { validateQuery } from '../middleware/validation.middleware';
+import { processorStatementQuerySchema } from '../schemas/jobWorkStatutory.schema';
 
 const router = Router();
 
@@ -33,5 +35,13 @@ router.get('/itc-04', jobWorkStatutoryController.getITC04Extract.bind(jobWorkSta
 // GET /api/job-work-statutory/vendor-performance
 // Vendor Performance Report
 router.get('/vendor-performance', jobWorkStatutoryController.getVendorPerformance.bind(jobWorkStatutoryController));
+
+// GET /api/job-work-statutory/processor-statement
+// Greige-wise reconciliation for one processor — the statement sent to them for confirmation
+router.get(
+  '/processor-statement',
+  validateQuery(processorStatementQuerySchema),
+  jobWorkStatutoryController.getProcessorStatement.bind(jobWorkStatutoryController)
+);
 
 export default router;

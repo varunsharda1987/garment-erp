@@ -151,7 +151,17 @@ export default function StockMovementList() {
       header: 'Material',
       render: (mov) => (
         <div>
-          <div className="text-sm font-medium text-foreground">{mov.materialCode}</div>
+          {mov.materialId ? (
+            <Link
+              to={`/inventory/material-ledger?materialId=${mov.materialId}`}
+              className="text-sm font-medium text-foreground hover:underline"
+              title="Open this material's ledger"
+            >
+              {mov.materialCode}
+            </Link>
+          ) : (
+            <div className="text-sm font-medium text-foreground">{mov.materialCode}</div>
+          )}
           <div className="text-xs text-muted-foreground">{mov.materialName}</div>
         </div>
       ),

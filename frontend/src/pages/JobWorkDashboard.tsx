@@ -66,6 +66,9 @@ export default function JobWorkDashboard() {
           <Button variant="outline" onClick={() => navigate('/job-work-orders')}>
             Job Work Orders
           </Button>
+          <Button variant="outline" onClick={() => navigate('/processing/processor-statement')}>
+            Processor Statement
+          </Button>
           {/* Statutory report PDFs (kf design) */}
           <Button
             variant="outline"

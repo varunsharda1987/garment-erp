@@ -177,7 +177,14 @@ export const supplierQuerySchema = z.object({
     .transform((val) => (val ? parseInt(val, 10) : 10))
     .pipe(z.number().int().min(1).max(1000)),
   search: z.string().optional(),
-  category: SupplierCategoryEnum.optional(), // Filter by a single category (returns suppliers that have this category)
+  /**
+   * Filter by a single category (returns suppliers that have it), OR by the meta-category
+   * 'PROCESSOR', which `supplier.service.ts` expands to every processing category (dyeing,
+   * embroidery, CMT, washing, …). That branch has existed in the service since the job-work
+   * consolidation but was unreachable over HTTP: this schema rejected the value before the
+   * service ever saw it, so the picker 400'd. Not a Prisma enum member — hence the union.
+   */
+  category: z.union([SupplierCategoryEnum, z.literal('PROCESSOR')]).optional(),
   rating: z
     .string()
     .optional()

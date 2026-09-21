@@ -11,6 +11,8 @@
 import { Request, Response } from 'express';
 import { jobWorkStatutoryService } from '../services/job-work-statutory.service';
 import { documentFacadeService } from '../services/document-facade.service';
+import { getProcessorStatement, ProcessorNotFoundError } from '../services/processor-statement.service';
+import type { ProcessorStatementQueryInput } from '../schemas/jobWorkStatutory.schema';
 
 function sendReportPdf(res: Response, pdf: Buffer, filename: string): void {
   res.setHeader('Content-Type', 'application/pdf');
@@ -137,6 +139,46 @@ class JobWorkStatutoryController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to generate report',
+      });
+    }
+  }
+
+  /**
+   * GET /api/job-work-statutory/processor-statement
+   * Greige-wise reconciliation for ONE processor over a period — the statement we send them
+   * to confirm. `?format=pdf` returns the printable copy; without it, JSON for the screen.
+   *
+   * Query params are read from `validatedQuery`: Zod's coerced Dates live only there
+   * (`validation.middleware.ts:56-75` — `req.query` re-parses the URL and returns raw strings).
+   */
+  async getProcessorStatement(req: Request, res: Response) {
+    const query = (req as Request & { validatedQuery?: unknown }).validatedQuery as ProcessorStatementQueryInput;
+
+    try {
+      const statement = await getProcessorStatement(query.processorId, query.periodStart, query.periodEnd);
+
+      if (query.format === 'pdf') {
+        const pdf = await documentFacadeService.generateProcessorStatementPDF(query.processorId, {
+          start: query.periodStart,
+          end: query.periodEnd,
+        });
+        const stamp = (d: Date) => d.toISOString().slice(0, 10);
+        return sendReportPdf(
+          res,
+          pdf,
+          `ProcessorStatement-${statement.processor.code}-${stamp(query.periodStart)}-${stamp(query.periodEnd)}.pdf`
+        );
+      }
+
+      res.json({ success: true, data: statement });
+    } catch (error) {
+      if (error instanceof ProcessorNotFoundError) {
+        return res.status(404).json({ success: false, message: 'Processor not found' });
+      }
+      console.error('Processor statement error:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate the processor statement',
       });
     }
   }

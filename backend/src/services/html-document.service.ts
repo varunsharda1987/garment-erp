@@ -22,6 +22,8 @@ export type KfTemplateName =
   | 'report-job-work-ageing'
   | 'report-itc-04'
   | 'report-vendor-performance'
+  | 'report-processor-statement'
+  | 'report-material-ledger'
   // Phase B (kf-style templates authored in-house)
   | 'proforma-invoice'
   | 'order-form'

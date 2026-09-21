@@ -1,6 +1,6 @@
 // Stock Level List - View all stock levels
 import { useEffect, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, TrendingDown, Package, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -102,7 +102,20 @@ export default function StockLevelList() {
     {
       key: 'code',
       header: 'Material Code',
-      render: (stock) => <div className="font-medium text-foreground">{stock.materials?.code}</div>,
+      render: (stock) =>
+        stock.materialId ? (
+          // "Why is this figure what it is" is one click away: the ledger for this material in
+          // this warehouse shows every receipt and issue behind the number on this row.
+          <Link
+            to={`/inventory/material-ledger?materialId=${stock.materialId}${stock.warehouseId ? `&warehouseId=${stock.warehouseId}` : ''}`}
+            className="font-medium text-foreground hover:underline"
+            title="Open this material's ledger"
+          >
+            {stock.materials?.code}
+          </Link>
+        ) : (
+          <div className="font-medium text-foreground">{stock.materials?.code}</div>
+        ),
     },
     {
       key: 'name',

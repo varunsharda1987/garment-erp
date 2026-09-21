@@ -21,6 +21,9 @@ import {
   buildItc04ReportData,
   buildVendorPerformanceReportData,
 } from './document-data/reports.doc-data';
+import { buildProcessorStatementDocData } from './document-data/processor-statement.doc-data';
+import { buildMaterialLedgerDocData } from './document-data/material-ledger.doc-data';
+import type { LedgerQuery } from './material-ledger.service';
 // Phase B — kf-style templates authored in-house for the documents the design
 // package never covered. Each replaces a pdfkit generator, same fallback rules.
 import { buildProformaInvoiceDocData } from './document-data/proforma-invoice.doc-data';
@@ -143,6 +146,18 @@ export const documentFacadeService = {
   async generateVendorPerformanceReportPDF(period?: { start: Date; end: Date }): Promise<Buffer> {
     const data = await buildVendorPerformanceReportData(period);
     return renderDocument('report-vendor-performance', data as unknown as Record<string, unknown>);
+  },
+
+  /** The copy a processor signs back — see the doc-data for what it deliberately omits. */
+  async generateProcessorStatementPDF(processorId: string, period: { start: Date; end: Date }): Promise<Buffer> {
+    const data = await buildProcessorStatementDocData(processorId, period);
+    return renderDocument('report-processor-statement', data as unknown as Record<string, unknown>);
+  },
+
+  /** One material's receipts and issues with a running balance — an internal document. */
+  async generateMaterialLedgerPDF(materialId: string, query: LedgerQuery): Promise<Buffer> {
+    const data = await buildMaterialLedgerDocData(materialId, query);
+    return renderDocument('report-material-ledger', data as unknown as Record<string, unknown>);
   },
 
   // ── Phase B cut-overs (pdfkit fallback retained, same as Phase A) ──────────

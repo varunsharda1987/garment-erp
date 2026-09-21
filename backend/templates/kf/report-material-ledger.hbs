@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Material Ledger — {{materialCode}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/reports.css">
+<style>
+  /* Print fit: the report layer is screen-first (1280px) but A4 portrait is ~794px. Narrow the
+     layout to 1040 and zoom by the ratio that maps it onto the sheet, and fix the table layout —
+     otherwise the document column stretches and the Balance column falls off the right edge. */
+  .report{max-width:1040px;}
+  @media print{ .report{zoom:.76;} table{page-break-inside:auto;} tr{page-break-inside:avoid;} thead{display:table-header-group;} }
+  .report table{table-layout:fixed;}
+  .report thead th{white-space:normal;}
+  .report td{word-break:break-word;}
+  .sub-note{display:block;color:#666;font-size:10px;}
+  .flag{display:block;color:#8a5a00;font-size:10px;}
+  .neg{color:#a33;}
+</style>
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Material Ledger<span>{{materialCode}} &middot; {{materialName}}</span></h1>
+    <div class="report-meta">
+      <strong>{{upper companyName}}</strong>
+      GSTIN {{companyGstin}}<br>
+      {{periodLabel}} &middot; {{warehouseLabel}}<br>
+      {{materialType}}
+    </div>
+  </div>
+
+  <div class="kpis">
+    {{#if hasOpening}}
+    <div class="kpi"><div class="label">Opening</div><div class="value">{{opening}}</div><div class="sub">before this period</div></div>
+    {{/if}}
+    <div class="kpi"><div class="label">Received</div><div class="value">{{kpiIn}}</div><div class="sub">in this period</div></div>
+    <div class="kpi"><div class="label">Issued</div><div class="value">{{kpiOut}}</div><div class="sub">in this period</div></div>
+    <div class="kpi{{#if driftLabel}} is-critical{{/if}}">
+      <div class="label">Closing</div><div class="value">{{kpiClosing}}</div>
+      <div class="sub">{{#if driftLabel}}stock shows {{onHandStockLevels}}{{else}}agrees with stock{{/if}}</div>
+    </div>
+    {{#unless hasOpening}}
+    {{!-- Without a From date there is no opening figure, which would leave a blank tile. On hand
+          is the useful fourth reading: it is what Closing is being checked against. --}}
+    <div class="kpi"><div class="label">On hand now</div><div class="value">{{onHandStockLevels}}</div><div class="sub">per stock records</div></div>
+    {{/unless}}
+  </div>
+
+  {{#if driftLabel}}
+  <div class="callout">
+    <b>The books and the shelf disagree</b>
+    {{driftLabel}}. A movement is missing from the ledger, or a quantity was changed without one. Reconcile before
+    relying on either figure.
+  </div>
+  {{/if}}
+
+  {{#if isEmpty}}
+    <div class="empty"><b>No movements</b>Nothing was received or issued for this material in this period.</div>
+  {{else}}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:70px">Date</th>
+        <th style="width:150px">Document</th>
+        <th style="width:190px">Party / Destination</th>
+        <th style="width:84px">Lot</th>
+        <th class="num" style="width:78px">In</th>
+        <th class="num" style="width:78px">Out</th>
+        <th class="num" style="width:86px">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#if hasOpening}}
+      <tr class="grp">
+        <td colspan="6">Opening balance</td>
+        <td class="num">{{opening}}</td>
+      </tr>
+      {{/if}}
+      {{#each rows}}
+      <tr>
+        <td>{{this.date}}</td>
+        <td>
+          {{this.kindLabel}}
+          <span class="sub-note">{{this.docType}} {{this.docNumber}}</span>
+        </td>
+        <td>
+          {{this.party}}
+          {{#if this.remarks}}<span class="sub-note">{{this.remarks}}</span>{{/if}}
+          {{#each this.flags}}<span class="flag">{{this}}</span>{{/each}}
+        </td>
+        <td>{{this.lot}}</td>
+        <td class="num">{{this.inQty}}</td>
+        <td class="num">{{this.outQty}}</td>
+        <td class="num{{#if this.negative}} neg{{/if}}">{{this.balance}}</td>
+      </tr>
+      {{/each}}
+      <tr class="grp">
+        <td colspan="4">Total for the period</td>
+        <td class="num">{{totalIn}}</td>
+        <td class="num">{{totalOut}}</td>
+        <td class="num">{{kpiClosing}}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{#if warnings.length}}
+  <div class="callout">
+    <b>Worth checking</b>
+    {{#each warnings}}{{this}}<br>{{/each}}
+  </div>
+  {{/if}}
+
+  <div class="report-foot">
+    <span>Closing = opening + received &minus; issued &middot; on hand per stock records: {{onHandStockLevels}}{{#if onHandLots}} &middot; lots {{onHandLots}}{{/if}}</span>
+    <span>{{companyName}} &middot; generated {{generatedOn}}</span>
+  </div>
+</div>
+</body>
+</html>

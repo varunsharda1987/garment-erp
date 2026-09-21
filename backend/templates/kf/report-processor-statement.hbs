@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Processor Statement — {{processorName}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/reports.css">
+<style>
+  /* Print fit. The report layer is screen-first (max-width 1280px) but A4 portrait is only
+     ~794px, so a full-width 8-column table silently loses its right-hand columns off the page
+     — which for THIS document means losing Short/Over and Closing, the two figures the
+     processor is being asked to confirm. Narrow the layout to 1040px first, then zoom by the
+     ratio that maps it onto the sheet (1040 × .76 ≈ 790px): scaling alone from 1280 would
+     have to drop to .62 and shrink every figure by a further fifth. */
+  .report{max-width:1040px;}
+  @media print{ .report{zoom:.76;} .sign-grid{page-break-inside:avoid;} table{page-break-inside:auto;} tr{page-break-inside:avoid;} }
+  /* Fixed layout, or the job-description column stretches to fit its longest line and pushes
+     Closing off the right edge — the one column this statement exists to communicate. */
+  .report table{table-layout:fixed;}
+  .report thead th{white-space:normal;}
+  .mat td:first-child, .job td:first-child{word-break:break-word;}
+  .mat td{font-weight:600;}
+  .job td{font-size:11px;color:#444;}
+  .job td:first-child{padding-left:22px;}
+  .job .recv{display:block;color:#666;}
+  .agreed{display:block;color:#666;font-weight:400;}
+  .sign-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:26px;}
+  .sign-grid .open-box{min-height:74px;padding:8px 10px;}
+  .sign-grid .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#666;}
+</style>
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Processor Statement<span>Greige-wise reconciliation &middot; {{periodLabel}}</span></h1>
+    <div class="report-meta">
+      <strong>{{upper companyName}}</strong>
+      GSTIN {{companyGstin}}<br>
+      <strong>{{processorName}}</strong> ({{processorCode}}){{#if processorGstin}}<br>GSTIN {{processorGstin}}{{/if}}
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Opening with you</div><div class="value">{{kpiOpening}}</div><div class="sub">at {{periodLabel}}</div></div>
+    <div class="kpi"><div class="label">Sent in period</div><div class="value">{{kpiSent}}</div><div class="sub">returned unprocessed {{kpiReturned}}</div></div>
+    <div class="kpi"><div class="label">Received back</div><div class="value">{{kpiReceived}}</div><div class="sub">agreed shrinkage {{kpiShrinkage}}</div></div>
+    <div class="kpi"><div class="label">Closing with you</div><div class="value">{{kpiClosing}}</div><div class="sub">short/over {{kpiShortfall}}</div></div>
+  </div>
+
+  {{#if kpiPiecesNote}}
+  <div class="callout">{{kpiPiecesNote}}</div>
+  {{/if}}
+
+  {{#if isEmpty}}
+    <div class="empty"><b>Nothing to reconcile</b>No material was sent to or received from this processor in this period, and nothing was outstanding before it.</div>
+  {{/if}}
+
+  {{#each sections}}
+  <table>
+    <thead>
+      <tr>
+        <th style="width:404px">{{this.title}}</th>
+        <th class="num" style="width:68px">Opening</th>
+        <th class="num" style="width:68px">Sent</th>
+        <th class="num" style="width:68px">Received</th>
+        <th class="num" style="width:62px">Returned</th>
+        <th class="num" style="width:70px">Agreed shrinkage</th>
+        <th class="num" style="width:92px">Short / Over</th>
+        <th class="num" style="width:68px">Closing</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each this.rows}}
+      <tr class="mat">
+        <td>{{this.code}} &middot; {{this.name}}{{#if this.unitMixed}} <span class="muted">(mixed units)</span>{{/if}}</td>
+        <td class="num">{{this.opening}}</td>
+        <td class="num">{{this.sent}}</td>
+        <td class="num">{{this.received}}</td>
+        <td class="num">{{this.returned}}</td>
+        <td class="num">{{this.shrinkage}}</td>
+        <td class="num">{{this.shortfall}}</td>
+        <td class="num">{{this.closing}}</td>
+      </tr>
+        {{#each this.jobs}}
+        <tr class="job">
+          <td>
+            {{this.jobWorkNumber}} &middot; {{this.processType}} &middot; sent {{this.sentDate}} &middot; challan {{this.challanNumbers}}{{#if this.virtual}} <span class="muted">(already with you)</span>{{/if}}
+            {{#if this.agreedLabel}}<span class="agreed">{{this.agreedLabel}}</span>{{/if}}
+            {{#if this.damaged}}<span class="agreed">damaged {{this.damaged}}</span>{{/if}}
+            {{!-- Deliveries are listed here, under the job they belong to, rather than in the
+                  Received column: each one needs a number AND a date, which is far wider than a
+                  quantity column, and widening that column pushed Closing off the sheet. --}}
+            {{#each this.receipts}}<span class="recv">received {{this}}</span>{{/each}}
+          </td>
+          <td class="num">&nbsp;</td>
+          <td class="num">{{this.sentQty}}</td>
+          <td class="num">{{this.receivedQty}}</td>
+          <td class="num">{{this.returned}}</td>
+          <td class="num">{{this.shrinkage}}</td>
+          <td class="num">{{this.shortfall}}</td>
+          <td class="num">{{this.balance}}</td>
+        </tr>
+        {{/each}}
+      {{/each}}
+      <tr class="grp">
+        <td>Total</td>
+        <td class="num">{{this.totals.opening}}</td>
+        <td class="num">{{this.totals.sent}}</td>
+        <td class="num">{{this.totals.received}}</td>
+        <td class="num">{{this.totals.returned}}</td>
+        <td class="num">{{this.totals.shrinkage}}</td>
+        <td class="num">{{this.totals.shortfall}}</td>
+        <td class="num">{{this.totals.closing}}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{/each}}
+
+  <div class="callout">
+    <b>How to read this statement</b>
+    <b>Closing</b> is what our records say is still with you &mdash; unprocessed or in process &mdash; and is the figure
+    we are asking you to confirm. <b>Agreed shrinkage</b> is the percentage quoted on each job, so it is not a claim
+    against you. <b>Short / Over</b> is the only difference either of us needs to discuss: it compares what came back
+    with what was due after that agreed shrinkage. If a challan or a delivery below is missing or wrong, mark it on
+    this sheet and send it back &mdash; we will correct our records against yours.
+  </div>
+
+  <div class="sign-grid">
+    <div class="open-box"><div class="lbl">Prepared by</div>{{companyName}}<br>{{generatedOn}}</div>
+    <div class="open-box"><div class="lbl">Confirmed by processor</div>Name, signature &amp; stamp</div>
+    <div class="open-box"><div class="lbl">Date</div></div>
+  </div>
+
+  <div class="report-foot">
+    <span>Closing = opening + sent &minus; received &minus; returned &minus; agreed shrinkage &minus; short/over</span>
+    <span>{{companyName}} &middot; generated {{generatedOn}}</span>
+  </div>
+</div>
+</body>
+</html>

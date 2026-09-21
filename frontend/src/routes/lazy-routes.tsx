@@ -47,6 +47,8 @@ export const UserForm = lazy(() => import('../pages/UserForm'));
 export const PendingUsersPage = lazy(() => import('../pages/PendingUsersPage'));
 export const Profile = lazy(() => import('../pages/Profile'));
 export const Settings = lazy(() => import('../pages/Settings'));
+export const CompanyProfiles = lazy(() => import('../pages/CompanyProfiles'));
+export const CompanyProfileForm = lazy(() => import('../pages/CompanyProfileForm'));
 export const TallySettings = lazy(() => import('../pages/TallySettings'));
 export const TallyCustomers = lazy(() => import('../pages/TallyCustomers'));
 export const TallyInvoices = lazy(() => import('../pages/TallyInvoices'));
@@ -177,6 +179,7 @@ export const WarehouseList = lazy(() => import('../pages/WarehouseList'));
 export const WarehouseForm = lazy(() => import('../pages/WarehouseForm'));
 export const StockLevelList = lazy(() => import('../pages/StockLevelList'));
 export const StockMovementList = lazy(() => import('../pages/StockMovementList'));
+export const MaterialLedger = lazy(() => import('../pages/MaterialLedger'));
 export const StockMovementDashboard = lazy(() => import('../pages/StockMovementDashboard'));
 export const StockInForm = lazy(() => import('../pages/StockInForm'));
 export const StockOutForm = lazy(() => import('../pages/StockOutForm'));
@@ -232,6 +235,7 @@ export const UnifiedRequirementsPage = lazy(() => import('../pages/UnifiedRequir
 // Job Work Processing (Multi-Stage)
 // ============================================================================
 export const JobWorkDashboard = lazy(() => import('../pages/JobWorkDashboard'));
+export const ProcessorStatement = lazy(() => import('../pages/ProcessorStatement'));
 export const ProcessingBatchList = lazy(() => import('../pages/ProcessingBatchList'));
 export const ProcessingBatchDetail = lazy(() => import('../pages/ProcessingBatchDetail'));
 export const ProcessingBatchCreateForm = lazy(() => import('../pages/ProcessingBatchCreateForm'));

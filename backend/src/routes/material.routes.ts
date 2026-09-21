@@ -20,6 +20,8 @@ import {
   createCategorySchema,
   categoryQuerySchema,
 } from '../schemas/material.schema';
+import { materialLedgerQuerySchema } from '../schemas/materialLedger.schema';
+import { getMaterialLedgerHandler } from '../controllers/material-ledger.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
@@ -63,6 +65,20 @@ router.post('/', validateBody(createMaterialSchema), asyncHandler(createMaterial
  * @access  Private (Authenticated users)
  */
 router.get('/', validateQuery(materialQuerySchema), asyncHandler(getAllMaterials));
+
+/**
+ * @route   GET /api/materials/:id/ledger
+ * @desc    Every receipt and issue for one material, with a running balance
+ * @access  Private (Authenticated users) — a read, so open after authentication
+ *
+ * Declared BEFORE /:id so the more specific path wins.
+ */
+router.get(
+  '/:id/ledger',
+  validateParams(materialIdParamSchema),
+  validateQuery(materialLedgerQuerySchema),
+  asyncHandler(getMaterialLedgerHandler)
+);
 
 /**
  * @route   GET /api/materials/:id

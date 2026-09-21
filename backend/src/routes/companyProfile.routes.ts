@@ -7,18 +7,29 @@ import {
   updateCompanyProfileSchema,
   setDefaultCompanyProfileSchema,
 } from '../schemas/companyProfile.schema';
-import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { flexIdParamSchema } from '../schemas/common.schema';
 import { uploadCompanyLogo, uploadCompanySignature } from '../middleware/upload.middleware';
 
 const router = Router();
 
 router.use(authenticateToken);
-// Reads stay open, writes are admin-only. Deliberately NOT the router-wide requireAdmin() that
-// Tally/e-Invoice use: those hold secrets, whereas this is the letterhead every Purchase Order
-// screen renders — gating reads to admins would 403 every non-admin's letterhead into a
-// permanent fallback. Reuses the existing 'admin' key, so no permission-catalogue churn.
-router.use(requirePermissionForWrites('admin'));
+
+// Reads are open to any signed-in user, writes are the HARDCODED admin floor.
+//
+// Two deliberate halves, and both matter:
+//
+// 1. Reads must NOT be admin-gated. This is the letterhead every Purchase Order screen renders,
+//    so gating reads would 403 every non-admin into a permanent fallback — which is why this
+//    router does not simply `router.use(requireAdmin())` the way Tally/e-Invoice do.
+//
+// 2. Writes use requireAdmin(), NOT requirePermissionForWrites('admin'). The latter consults
+//    role_permissions, where this deployment currently grants the 'admin' key to EVERY role —
+//    so it let a MERCHANDISER change the company GSTIN (caught by company-perms.test.ts before
+//    release). requireAdmin() is the floor the Permissions page cannot lower, and its own
+//    contract names integrations settings; a statutory identity printed on every invoice
+//    belongs in exactly that category.
+const adminOnly = requireAdmin();
 
 // GET /api/company-profiles/default — the entity every document uses (before /:id)
 router.get('/default', asyncHandler(companyProfileController.getDefault.bind(companyProfileController)));
@@ -36,6 +47,7 @@ router.get(
 // POST /api/company-profiles
 router.post(
   '/',
+  adminOnly,
   validateBody(createCompanyProfileSchema),
   asyncHandler(companyProfileController.create.bind(companyProfileController))
 );
@@ -43,6 +55,7 @@ router.post(
 // PUT /api/company-profiles/:id
 router.put(
   '/:id',
+  adminOnly,
   validateParams(flexIdParamSchema),
   validateBody(updateCompanyProfileSchema),
   asyncHandler(companyProfileController.update.bind(companyProfileController))
@@ -51,6 +64,7 @@ router.put(
 // POST /api/company-profiles/:id/set-default — switches the entity every future document uses
 router.post(
   '/:id/set-default',
+  adminOnly,
   validateParams(flexIdParamSchema),
   validateBody(setDefaultCompanyProfileSchema),
   asyncHandler(companyProfileController.setDefault.bind(companyProfileController))
@@ -61,6 +75,7 @@ router.post(
 // multer MUST run before any body validation or the multipart body is never parsed.
 router.post(
   '/:id/logo',
+  adminOnly,
   validateParams(flexIdParamSchema),
   uploadCompanyLogo,
   asyncHandler(companyProfileController.uploadLogo.bind(companyProfileController))
@@ -69,6 +84,7 @@ router.post(
 // POST /api/company-profiles/:id/signature — no-body (multipart/form-data, as above)
 router.post(
   '/:id/signature',
+  adminOnly,
   validateParams(flexIdParamSchema),
   uploadCompanySignature,
   asyncHandler(companyProfileController.uploadSignature.bind(companyProfileController))

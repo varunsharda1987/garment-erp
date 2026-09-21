@@ -127,7 +127,11 @@ function dirtyPaths() {
  */
 function assertNothingUncommitted(files) {
   const dirty = dirtyPaths();
-  if (!dirty) return;
+  if (!dirty) {
+    // Fail open — but say so. A silent pass here is indistinguishable from a verified one.
+    console.warn('git unavailable: recording without a committed-state check.');
+    return;
+  }
 
   const atRisk = [];
   for (const file of files) {

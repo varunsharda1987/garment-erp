@@ -552,6 +552,377 @@ function RowErrorRow({ row }: { row: FabricCostingRow }) {
   );
 }
 
+function getFinishTypeBadge(finishType: string | null) {
+  switch (finishType) {
+    case 'DYED':
+      return (
+        <Badge variant="secondary" className="bg-info-muted text-info">
+          Dyed
+        </Badge>
+      );
+    case 'PRINTED':
+      return (
+        <Badge variant="secondary" className="bg-accent/10 text-accent">
+          Printed
+        </Badge>
+      );
+    case 'YARN_DYED':
+      return (
+        <Badge variant="secondary" className="bg-success-muted text-success">
+          Yarn Dyed
+        </Badge>
+      );
+    case 'RAW':
+      return (
+        <Badge variant="secondary" className="bg-muted text-foreground">
+          Raw
+        </Badge>
+      );
+    default:
+      return (
+        <Badge variant="secondary" className="bg-muted text-muted-foreground">
+          -
+        </Badge>
+      );
+  }
+}
+
+/**
+ * Every data cell of a fabric row, in header order.
+ *
+ * The table body forks into a nested (date → quantity → greige) view and a simple view. The
+ * fork was made on 2026-02-03 (72657703) by copy-pasting this row, and the copies then drifted:
+ * the nested one never received the Print Type dropdown, kept a print gate that had already
+ * been replaced, and disagreed with the simple one about the fabric requirement of the very
+ * same row. Only the GROUPING differs between the two views — the cells never should have.
+ *
+ * Both views render this now, so there is nothing left to diverge.
+ */
+function FabricRowCells({
+  row,
+  orderQuantity,
+  processors,
+  onChange,
+  onLookup,
+  onProcessorChange,
+}: {
+  row: FabricCostingRow;
+  orderQuantity: number;
+  processors: ProcessorInfo[];
+  onChange: (updates: Partial<FabricCostingRow>) => void;
+  onLookup: (overrides?: Partial<FabricCostingRow>) => void;
+  onProcessorChange: (value: string) => void;
+}) {
+  /*
+   * ONE rule for both views: a per-row quantity of 0 or blank means "use the order quantity".
+   * That is exactly what RowQtyInput promises — it coerces 0/blank/garbage to undefined on
+   * commit — so `||` is the operator that matches the contract and `??` is the one that
+   * contradicts it.
+   *
+   * Before this, the nested view used `??` for Fabric Req while the simple view used `||`, so
+   * the same row reported a different requirement depending only on which view you happened to
+   * land in (BH-0148). Each view was also inconsistent with ITSELF, using one operator for
+   * Fabric Req and the other for Greige Req — the nested view could even pass its own `> 0`
+   * guard on the global quantity and then compute the requirement with 0.
+   */
+  const effectiveQty = row.rowQuantity || orderQuantity;
+  const hasRequirement = row.cadMeters > 0 && effectiveQty > 0;
+  const greigeName = row.greigeName || row.fabricName;
+  // parseGreigeName's regex is greige-shaped; style-prefixed fabric names would mis-split
+  const parsed = row.greigeName ? parseGreigeName(row.greigeName) : { line1: row.fabricName ?? '', line2: '' };
+  const isApproved = row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED';
+  const noProcessing = row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW';
+
+  return (
+    <>
+      {/* Fabric Info */}
+      <TableCell className="px-1 overflow-hidden">
+        <div>
+          <div className="flex items-center gap-1">
+            <p className="font-medium text-xs" title={greigeName ?? undefined}>
+              {parsed.line1}
+            </p>
+            {row.readyFabricCost && (
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1 py-0 bg-success-muted text-success border-success/20 flex-shrink-0"
+              >
+                ₹{row.readyFabricCost}
+              </Badge>
+            )}
+            <StockBadge row={row} effectiveQty={effectiveQty} />
+            {isApproved && (
+              <Badge
+                variant="outline"
+                className="text-[9px] px-1 py-0 bg-warning-muted text-warning border-warning/20 flex-shrink-0 gap-0.5"
+                title="Approved costing — skipped on save. Unapprove on the Options page to edit."
+              >
+                <Lock className="h-2.5 w-2.5" />
+                {row.costingApprovalStatus === 'APPROVED' ? 'Approved' : 'Alternate'}
+              </Badge>
+            )}
+          </div>
+          {parsed.line2 && <p className="text-[10px] text-muted-foreground">{parsed.line2}</p>}
+          <p className="text-[10px] text-muted-foreground truncate">{row.componentName}</p>
+          {row.greigeCode && (
+            <p className="text-[9px] text-muted-foreground truncate" title={`Greige Code: ${row.greigeCode}`}>
+              {row.greigeCode}
+            </p>
+          )}
+          {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
+            <p className="text-[10px] text-muted-foreground truncate" title={row.fabricName}>
+              Fabric: {row.fabricName}
+            </p>
+          )}
+        </div>
+      </TableCell>
+
+      {/* Color (from style fabric) */}
+      <TableCell className="px-1 text-center">
+        {row.colorName ? (
+          <Badge
+            variant="outline"
+            className="text-[10px] px-1.5 py-0"
+            title={`Color from style definition${row.colorMasterId ? ` (ID: ${row.colorMasterId})` : ''}`}
+          >
+            {row.colorName}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-[10px]">-</span>
+        )}
+        {row.batchGroupTotalQuantity != null && (
+          <div className="text-[9px] text-info mt-0.5" title="Combined batch quantity for rate slab">
+            {row.batchGroupTotalQuantity.toFixed(0)}m batch
+          </div>
+        )}
+        {row.batchSavings != null && row.batchSavings > 0 && (
+          <div
+            className="text-[9px] text-success font-medium"
+            title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
+          >
+            save ₹{row.batchSavings.toFixed(2)}/m
+          </div>
+        )}
+      </TableCell>
+
+      {/* CAD */}
+      <TableCell className="px-1 text-center text-xs">
+        <div className="flex items-center justify-center gap-0.5">
+          <span
+            className={row.cadMeters === 0 ? 'text-destructive font-medium' : ''}
+            title="Per-piece fabric consumption (calculated from CAD Planning)"
+          >
+            {row.cadMeters.toFixed(3)}
+          </span>
+          {row.cadMeters === 0 && (
+            <span
+              className="text-destructive cursor-help text-[10px]"
+              title="CAD consumption not set. Complete CAD Planning for this style first."
+            >
+              ⚠️
+            </span>
+          )}
+        </div>
+      </TableCell>
+
+      {/* Qty (pcs) */}
+      <TableCell className="px-1 text-center">
+        <RowQtyInput
+          rowQuantity={row.rowQuantity}
+          effectiveGlobalQty={orderQuantity}
+          className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          onCommit={(qty) => onChange({ rowQuantity: qty })}
+        />
+      </TableCell>
+
+      {/* Cutable Width */}
+      <TableCell className="px-1 text-center text-xs">{row.width ? `${row.width}"` : '-'}</TableCell>
+
+      {/* Finish Type */}
+      <TableCell className="px-1 text-center">{getFinishTypeBadge(row.finishType)}</TableCell>
+
+      {/* Cost Mode Toggle */}
+      <TableCell className="px-1">
+        <div className="flex items-center gap-1 justify-center">
+          <span className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-muted-foreground'}`}>
+            B
+          </span>
+          <Switch
+            checked={row.costInputMode === 'LANDED_PRICE'}
+            onCheckedChange={(checked) =>
+              onChange({
+                costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
+                // Switching to landed price seeds the ready-fabric price when there is one —
+                // kept from the nested view, which was the only branch that did this.
+                landedPricePerMeter: checked ? row.readyFabricCost || null : null,
+              })
+            }
+            className="scale-75"
+          />
+          <span
+            className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-muted-foreground'}`}
+          >
+            L
+          </span>
+        </div>
+      </TableCell>
+
+      {/* Greige + Transport */}
+      <TableCell className="px-1">
+        {row.costInputMode === 'LANDED_PRICE' ? (
+          <div className="flex items-center justify-center gap-0.5">
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="Landed ₹"
+              className="w-16 text-center text-xs h-7 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              value={row.landedPricePerMeter || ''}
+              onChange={(e) => onChange({ landedPricePerMeter: parseFloat(e.target.value) || null })}
+            />
+            {row.readyFabricCost && row.landedPricePerMeter !== row.readyFabricCost && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-5 w-5 p-0 text-success hover:text-success hover:bg-success-muted"
+                onClick={() => onChange({ landedPricePerMeter: row.readyFabricCost })}
+                title={`Use fabric master price: ₹${row.readyFabricCost}/m`}
+              >
+                <RefreshCw className="w-2.5 h-2.5" />
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-0.5">
+            {/* Shared cell — the inline total math that used to live in the nested copy was
+                overwritten by calculateRowTotals anyway, and used its own shrinkage formula. */}
+            <GreigeCostCell row={row} onChange={onChange} />
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="+Trp"
+              title="Transport cost per meter"
+              className="w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              value={row.transportCostPerMeter || ''}
+              onChange={(e) => onChange({ transportCostPerMeter: parseFloat(e.target.value) || null })}
+            />
+          </div>
+        )}
+      </TableCell>
+
+      {/* Processor */}
+      <TableCell className="px-1 text-center">
+        {noProcessing ? (
+          <span className="text-muted-foreground text-xs">-</span>
+        ) : (
+          <div className="flex items-center justify-center gap-0.5">
+            <Combobox
+              value={row.processorId || ''}
+              onValueChange={onProcessorChange}
+              options={processors.map((p) => ({ value: p.id, label: p.name }))}
+              placeholder="Select"
+              searchPlaceholder="Search processor..."
+              emptyText="No processors found"
+              className="w-[150px] h-7 text-[10px]"
+              hideChevron
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={() => onLookup()}
+              disabled={row.isLoading || !row.processorId || !row.greigeId}
+              title="Fetch the processor rate again"
+            >
+              {row.isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+            </Button>
+          </div>
+        )}
+      </TableCell>
+
+      {/* Colors */}
+      <TableCell className="px-1 text-center">
+        <ColorsCell row={row} onChange={onChange} />
+      </TableCell>
+
+      {/* Print Type */}
+      <TableCell className="px-1 text-center">
+        <PrintTypeCell row={row} onChange={onChange} onLookup={onLookup} />
+      </TableCell>
+
+      {/* Screen */}
+      <TableCell className="px-1 text-center">
+        <ScreenCell row={row} onChange={onChange} />
+      </TableCell>
+
+      {/* Processing Cost */}
+      <TableCell className="px-1 text-center">
+        <ProcessingCostCell row={row} />
+      </TableCell>
+
+      {/* Shrinkage Cost */}
+      <TableCell className="px-1 text-center">
+        {row.shrinkageValue ? (
+          <div>
+            <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
+            {row.shrinkagePercent && <div className="text-[9px] text-muted-foreground">{row.shrinkagePercent}%</div>}
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-xs">-</span>
+        )}
+      </TableCell>
+
+      {/* Total Cost */}
+      <TableCell className="px-1 text-center">
+        {row.totalCostPerMeter ? (
+          <span className="font-bold text-xs text-success">₹{row.totalCostPerMeter.toFixed(2)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">-</span>
+        )}
+      </TableCell>
+
+      {/* Part Cost (CAD × Total ₹/m) */}
+      <TableCell className="px-1 text-center">
+        {row.totalCostPerMeter && row.cadMeters > 0 ? (
+          <span className="text-xs font-medium">₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}</span>
+        ) : (
+          <span className="text-muted-foreground text-xs">-</span>
+        )}
+      </TableCell>
+
+      {/* Fabric Req (CAD × Qty) */}
+      <TableCell className="px-1 text-center">
+        {hasRequirement ? (
+          <span className="text-xs">
+            {(effectiveQty * row.cadMeters).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          </span>
+        ) : (
+          <span className="text-muted-foreground text-xs">-</span>
+        )}
+      </TableCell>
+
+      {/* Greige Req (Fabric Req ÷ (1 - Shrinkage%)) */}
+      <TableCell className="px-1 text-center">
+        {hasRequirement ? (
+          (() => {
+            const shrinkage = row.shrinkagePercent || 0;
+            const greigeReq = divideByShrinkage(row.cadMeters * effectiveQty, shrinkage);
+            return (
+              <span
+                className="text-xs"
+                title={shrinkage > 0 ? `Fabric req ÷ (1 - ${shrinkage}% shrinkage)` : 'No shrinkage applied'}
+              >
+                {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            );
+          })()
+        ) : (
+          <span className="text-muted-foreground text-xs">-</span>
+        )}
+      </TableCell>
+    </>
+  );
+}
+
 export default function FabricCostingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -2036,42 +2407,6 @@ export default function FabricCostingPage() {
     };
   };
 
-  // Get finish type badge color
-  const getFinishTypeBadge = (finishType: string | null) => {
-    switch (finishType) {
-      case 'DYED':
-        return (
-          <Badge variant="secondary" className="bg-info-muted text-info">
-            Dyed
-          </Badge>
-        );
-      case 'PRINTED':
-        return (
-          <Badge variant="secondary" className="bg-accent/10 text-accent">
-            Printed
-          </Badge>
-        );
-      case 'YARN_DYED':
-        return (
-          <Badge variant="secondary" className="bg-success-muted text-success">
-            Yarn Dyed
-          </Badge>
-        );
-      case 'RAW':
-        return (
-          <Badge variant="secondary" className="bg-muted text-foreground">
-            Raw
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="secondary" className="bg-muted text-muted-foreground">
-            -
-          </Badge>
-        );
-    }
-  };
-
   return (
     <div className="p-6 max-w-full mx-auto">
       {/* Header */}
@@ -2621,354 +2956,14 @@ export default function FabricCostingPage() {
                                     return (
                                       <React.Fragment key={row.id}>
                                         <TableRow>
-                                          {/* Fabric Info */}
-                                          <TableCell className="px-1 overflow-hidden">
-                                            <div>
-                                              {(() => {
-                                                const greigeName = row.greigeName || row.fabricName;
-                                                // parseGreigeName's regex is greige-shaped; style-prefixed
-                                                // fabric names would mis-split — render them whole
-                                                const parsed = row.greigeName
-                                                  ? parseGreigeName(row.greigeName)
-                                                  : { line1: row.fabricName ?? '', line2: '' };
-                                                return (
-                                                  <>
-                                                    <div className="flex items-center gap-1">
-                                                      <p className="font-medium text-xs" title={greigeName}>
-                                                        {parsed.line1}
-                                                      </p>
-                                                      {row.readyFabricCost && (
-                                                        <Badge
-                                                          variant="outline"
-                                                          className="text-[9px] px-1 py-0 bg-success-muted text-success border-success/20 flex-shrink-0"
-                                                        >
-                                                          ₹{row.readyFabricCost}
-                                                        </Badge>
-                                                      )}
-                                                      <StockBadge
-                                                        row={row}
-                                                        effectiveQty={row.rowQuantity || orderQuantity}
-                                                      />
-                                                    </div>
-                                                    {parsed.line2 && (
-                                                      <p className="text-[10px] text-muted-foreground">
-                                                        {parsed.line2}
-                                                      </p>
-                                                    )}
-                                                  </>
-                                                );
-                                              })()}
-                                              <p className="text-[10px] text-muted-foreground truncate">
-                                                {row.componentName}
-                                              </p>
-                                              {row.greigeCode && (
-                                                <p
-                                                  className="text-[9px] text-muted-foreground truncate"
-                                                  title={`Greige Code: ${row.greigeCode}`}
-                                                >
-                                                  {row.greigeCode}
-                                                </p>
-                                              )}
-                                              {row.greigeName &&
-                                                row.fabricName &&
-                                                row.greigeName !== row.fabricName && (
-                                                  <p
-                                                    className="text-[10px] text-muted-foreground truncate"
-                                                    title={row.fabricName}
-                                                  >
-                                                    Fabric: {row.fabricName}
-                                                  </p>
-                                                )}
-                                            </div>
-                                          </TableCell>
-
-                                          {/* Color (from style fabric) */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.colorName ? (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[10px] px-1.5 py-0"
-                                                title={`Color from style definition${row.colorMasterId ? ` (ID: ${row.colorMasterId})` : ''}`}
-                                              >
-                                                {row.colorName}
-                                              </Badge>
-                                            ) : (
-                                              <span className="text-muted-foreground text-[10px]">-</span>
-                                            )}
-                                            {row.batchGroupTotalQuantity != null && (
-                                              <div
-                                                className="text-[9px] text-info mt-0.5"
-                                                title="Combined batch quantity for rate slab"
-                                              >
-                                                {row.batchGroupTotalQuantity.toFixed(0)}m batch
-                                              </div>
-                                            )}
-                                            {row.batchSavings != null && row.batchSavings > 0 && (
-                                              <div
-                                                className="text-[9px] text-success font-medium"
-                                                title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
-                                              >
-                                                save ₹{row.batchSavings.toFixed(2)}/m
-                                              </div>
-                                            )}
-                                          </TableCell>
-
-                                          {/* CAD */}
-                                          <TableCell className="px-1 text-center text-xs">
-                                            <div className="flex items-center justify-center gap-0.5">
-                                              <span
-                                                className={row.cadMeters === 0 ? 'text-destructive font-medium' : ''}
-                                                title="Per-piece fabric consumption (calculated from CAD Planning)"
-                                              >
-                                                {row.cadMeters.toFixed(3)}
-                                              </span>
-                                              {row.cadMeters === 0 && (
-                                                <span
-                                                  className="text-destructive cursor-help text-[10px]"
-                                                  title="No CAD data - set consumption in CAD Planning first"
-                                                >
-                                                  !
-                                                </span>
-                                              )}
-                                            </div>
-                                          </TableCell>
-
-                                          {/* Qty (pcs) */}
-                                          <TableCell className="px-1 text-center">
-                                            <RowQtyInput
-                                              rowQuantity={row.rowQuantity}
-                                              effectiveGlobalQty={orderQuantity}
-                                              className="h-7 w-full text-xs text-center px-1"
-                                              onCommit={(qty) => updateRow(index, { rowQuantity: qty })}
-                                            />
-                                          </TableCell>
-
-                                          {/* Width */}
-                                          <TableCell className="px-1 text-center text-xs">{row.width}"</TableCell>
-
-                                          {/* Finish */}
-                                          <TableCell className="px-1 text-center">
-                                            {getFinishTypeBadge(row.finishType)}
-                                          </TableCell>
-
-                                          {/* Mode Toggle (Build-up vs Landed) */}
-                                          <TableCell className="px-1 text-center">
-                                            <div className="flex items-center justify-center gap-0.5">
-                                              <span
-                                                className={`text-[9px] ${row.costInputMode === 'BUILD_UP' ? 'text-info font-semibold' : 'text-muted-foreground'}`}
-                                              >
-                                                B
-                                              </span>
-                                              <Switch
-                                                checked={row.costInputMode === 'LANDED_PRICE'}
-                                                onCheckedChange={(checked) => {
-                                                  updateRow(index, {
-                                                    costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
-                                                    // When switching to landed price, default to ready fabric cost if available
-                                                    landedPricePerMeter: checked ? row.readyFabricCost || null : null,
-                                                  });
-                                                }}
-                                                className="scale-75"
-                                              />
-                                              <span
-                                                className={`text-[9px] ${row.costInputMode === 'LANDED_PRICE' ? 'text-success font-semibold' : 'text-muted-foreground'}`}
-                                              >
-                                                L
-                                              </span>
-                                            </div>
-                                          </TableCell>
-
-                                          {/* Greige + Transport Cost */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.costInputMode === 'BUILD_UP' ? (
-                                              <div className="flex items-center gap-0.5 justify-center">
-                                                {/* Shared cell — the inline total math that used to
-                                                    live here was overwritten by calculateRowTotals
-                                                    anyway, and used its own shrinkage formula. */}
-                                                <GreigeCostCell
-                                                  row={row}
-                                                  onChange={(updates) => updateRow(index, updates)}
-                                                />
-                                                <span className="text-[10px] text-muted-foreground">+</span>
-                                                <Input
-                                                  type="number"
-                                                  step="0.1"
-                                                  className="h-7 w-10 text-xs text-center px-0.5"
-                                                  value={row.transportCostPerMeter || ''}
-                                                  onChange={(e) => {
-                                                    const transportCost = parseFloat(e.target.value) || 0;
-                                                    const greigeCost = row.greigeCostPerMeter || 0;
-                                                    const shrinkageValue = row.shrinkageValue || 0;
-                                                    const processingCost = row.processingCostPerMeter || 0;
-                                                    const screenCost = row.screenCostPerMeter || 0;
-                                                    const total =
-                                                      greigeCost +
-                                                      transportCost +
-                                                      shrinkageValue +
-                                                      processingCost +
-                                                      screenCost;
-                                                    updateRow(index, {
-                                                      transportCostPerMeter: transportCost,
-                                                      totalCostPerMeter: total,
-                                                    });
-                                                  }}
-                                                  placeholder="Trp"
-                                                  title="Transport cost per meter"
-                                                />
-                                              </div>
-                                            ) : (
-                                              <Input
-                                                type="number"
-                                                step="0.01"
-                                                className="h-7 w-full text-xs text-center"
-                                                value={row.landedPricePerMeter || ''}
-                                                onChange={(e) => {
-                                                  const landedPrice = parseFloat(e.target.value) || 0;
-                                                  updateRow(index, {
-                                                    landedPricePerMeter: landedPrice,
-                                                    totalCostPerMeter: landedPrice,
-                                                  });
-                                                }}
-                                                placeholder="Landed ₹/m"
-                                                title="Landed price per meter (includes all costs)"
-                                              />
-                                            )}
-                                          </TableCell>
-
-                                          {/* Processor Selection */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            ) : (
-                                              <div className="flex items-center justify-center gap-0.5">
-                                                <Combobox
-                                                  value={row.processorId || ''}
-                                                  onValueChange={(value) => handleProcessorChange(index, row, value)}
-                                                  options={processors.map((p) => ({ value: p.id, label: p.name }))}
-                                                  placeholder="Select"
-                                                  searchPlaceholder="Search processor..."
-                                                  emptyText="No processors found"
-                                                  className="w-[150px] h-7 text-[10px]"
-                                                  hideChevron
-                                                />
-                                                <Button
-                                                  variant="ghost"
-                                                  size="sm"
-                                                  className="h-6 w-6 p-0"
-                                                  onClick={() => lookupRate(index)}
-                                                  disabled={row.isLoading || !row.processorId || !row.greigeId}
-                                                >
-                                                  {row.isLoading ? (
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                  ) : (
-                                                    <RefreshCw className="w-3 h-3" />
-                                                  )}
-                                                </Button>
-                                              </div>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Colors */}
-                                          <TableCell className="px-1 text-center">
-                                            <ColorsCell row={row} onChange={(updates) => updateRow(index, updates)} />
-                                          </TableCell>
-
-                                          {/* Print Type — the control this branch never had */}
-                                          <TableCell className="px-1 text-center">
-                                            <PrintTypeCell
-                                              row={row}
-                                              onChange={(updates) => updateRow(index, updates)}
-                                              onLookup={(overrides) => lookupRate(index, overrides)}
-                                            />
-                                          </TableCell>
-
-                                          {/* Screen */}
-                                          <TableCell className="px-1 text-center">
-                                            <ScreenCell row={row} onChange={(updates) => updateRow(index, updates)} />
-                                          </TableCell>
-
-                                          {/* Processing Cost */}
-                                          <TableCell className="px-1 text-center">
-                                            <ProcessingCostCell row={row} />
-                                          </TableCell>
-
-                                          {/* Shrinkage Cost */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.shrinkageValue ? (
-                                              <div>
-                                                <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
-                                                {row.shrinkagePercent && (
-                                                  <div className="text-[9px] text-muted-foreground">
-                                                    {row.shrinkagePercent}%
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Total Cost */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.totalCostPerMeter ? (
-                                              <span className="text-xs font-semibold text-success">
-                                                ₹{row.totalCostPerMeter.toFixed(2)}
-                                              </span>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Part Cost (CAD × Total) */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.totalCostPerMeter && row.cadMeters > 0 ? (
-                                              <span className="text-xs font-medium">
-                                                ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
-                                              </span>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Fabric Req (CAD × Qty) */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.cadMeters > 0 && (row.rowQuantity || orderQuantity) > 0 ? (
-                                              <span className="text-xs">
-                                                {((row.rowQuantity ?? orderQuantity) * row.cadMeters).toLocaleString(
-                                                  undefined,
-                                                  { maximumFractionDigits: 0 }
-                                                )}
-                                              </span>
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
-                                          </TableCell>
-
-                                          {/* Greige Req (adjusted for shrinkage) */}
-                                          <TableCell className="px-1 text-center">
-                                            {row.cadMeters > 0 && (row.rowQuantity || orderQuantity) > 0 ? (
-                                              (() => {
-                                                const qty = row.rowQuantity ?? orderQuantity;
-                                                const fabricReq = row.cadMeters * qty;
-                                                const shrinkage = row.shrinkagePercent || 0;
-                                                const greigeReq = divideByShrinkage(fabricReq, shrinkage);
-                                                return (
-                                                  <span
-                                                    className="text-xs"
-                                                    title={
-                                                      shrinkage > 0
-                                                        ? `Fabric req ÷ (1 - ${shrinkage}% shrinkage)`
-                                                        : 'No shrinkage applied'
-                                                    }
-                                                  >
-                                                    {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                  </span>
-                                                );
-                                              })()
-                                            ) : (
-                                              <span className="text-muted-foreground text-xs">-</span>
-                                            )}
-                                          </TableCell>
+                                          <FabricRowCells
+                                            row={row}
+                                            orderQuantity={orderQuantity}
+                                            processors={processors}
+                                            onChange={(updates) => updateRow(index, updates)}
+                                            onLookup={(overrides) => lookupRate(index, overrides)}
+                                            onProcessorChange={(value) => handleProcessorChange(index, row, value)}
+                                          />
                                         </TableRow>
                                         <RowErrorRow row={row} />
                                       </React.Fragment>
@@ -3035,345 +3030,14 @@ export default function FabricCostingPage() {
                               <React.Fragment key={row.id}>
                                 {/* Main Row */}
                                 <TableRow>
-                                  {/* Fabric Info */}
-                                  <TableCell className="px-1 overflow-hidden">
-                                    <div>
-                                      {(() => {
-                                        const greigeName = row.greigeName || row.fabricName;
-                                        // parseGreigeName's regex is greige-shaped; style-prefixed
-                                        // fabric names would mis-split — render them whole
-                                        const parsed = row.greigeName
-                                          ? parseGreigeName(row.greigeName)
-                                          : { line1: row.fabricName ?? '', line2: '' };
-                                        return (
-                                          <>
-                                            <div className="flex items-center gap-1">
-                                              <p className="font-medium text-xs" title={greigeName}>
-                                                {parsed.line1}
-                                              </p>
-                                              {row.readyFabricCost && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="text-[9px] px-1 py-0 bg-success-muted text-success border-success/20 flex-shrink-0"
-                                                >
-                                                  ₹{row.readyFabricCost}
-                                                </Badge>
-                                              )}
-                                              <StockBadge row={row} effectiveQty={row.rowQuantity || orderQuantity} />
-                                              {(row.costingApprovalStatus === 'APPROVED' ||
-                                                row.costingApprovalStatus === 'ALTERNATE_APPROVED') && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="text-[9px] px-1 py-0 bg-warning-muted text-warning border-warning/20 flex-shrink-0 gap-0.5"
-                                                  title="Approved costing — skipped on save. Unapprove on the Options page to edit."
-                                                >
-                                                  <Lock className="h-2.5 w-2.5" />
-                                                  {row.costingApprovalStatus === 'APPROVED' ? 'Approved' : 'Alternate'}
-                                                </Badge>
-                                              )}
-                                            </div>
-                                            {parsed.line2 && (
-                                              <p className="text-[10px] text-muted-foreground">{parsed.line2}</p>
-                                            )}
-                                          </>
-                                        );
-                                      })()}
-                                      <p className="text-[10px] text-muted-foreground truncate">{row.componentName}</p>
-                                      {row.greigeCode && (
-                                        <p
-                                          className="text-[9px] text-muted-foreground truncate"
-                                          title={`Greige Code: ${row.greigeCode}`}
-                                        >
-                                          {row.greigeCode}
-                                        </p>
-                                      )}
-                                      {row.greigeName && row.fabricName && row.greigeName !== row.fabricName && (
-                                        <p
-                                          className="text-[10px] text-muted-foreground truncate"
-                                          title={row.fabricName}
-                                        >
-                                          Fabric: {row.fabricName}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </TableCell>
-
-                                  {/* Color (from style fabric) */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.colorName ? (
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[10px] px-1.5 py-0"
-                                        title={`Color from style definition${row.colorMasterId ? ` (ID: ${row.colorMasterId})` : ''}`}
-                                      >
-                                        {row.colorName}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted-foreground text-[10px]">-</span>
-                                    )}
-                                    {row.batchGroupTotalQuantity != null && (
-                                      <div
-                                        className="text-[9px] text-info mt-0.5"
-                                        title="Combined batch quantity for rate slab"
-                                      >
-                                        {row.batchGroupTotalQuantity.toFixed(0)}m batch
-                                      </div>
-                                    )}
-                                    {row.batchSavings != null && row.batchSavings > 0 && (
-                                      <div
-                                        className="text-[9px] text-success font-medium"
-                                        title={`Individual rate: ₹${row.individualRate?.toFixed(2)}/m`}
-                                      >
-                                        save ₹{row.batchSavings.toFixed(2)}/m
-                                      </div>
-                                    )}
-                                  </TableCell>
-
-                                  {/* CAD */}
-                                  <TableCell className="px-1 text-center text-xs">
-                                    <div className="flex items-center justify-center gap-0.5">
-                                      <span
-                                        className={row.cadMeters === 0 ? 'text-destructive font-medium' : ''}
-                                        title="Per-piece fabric consumption (calculated from CAD Planning)"
-                                      >
-                                        {row.cadMeters.toFixed(3)}
-                                      </span>
-                                      {row.cadMeters === 0 && (
-                                        <span
-                                          className="text-destructive cursor-help text-[10px]"
-                                          title="CAD consumption not set. Complete CAD Planning for this style first."
-                                        >
-                                          ⚠️
-                                        </span>
-                                      )}
-                                    </div>
-                                  </TableCell>
-
-                                  {/* Row Quantity */}
-                                  <TableCell className="px-1 text-center">
-                                    <RowQtyInput
-                                      rowQuantity={row.rowQuantity}
-                                      effectiveGlobalQty={orderQuantity}
-                                      className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                      onCommit={(qty) => updateRow(index, { rowQuantity: qty })}
-                                    />
-                                  </TableCell>
-
-                                  {/* Cutable Width */}
-                                  <TableCell className="px-1 text-center text-xs">
-                                    {row.width ? `${row.width}"` : '-'}
-                                  </TableCell>
-
-                                  {/* Finish Type */}
-                                  <TableCell className="px-1 text-center">
-                                    {getFinishTypeBadge(row.finishType)}
-                                  </TableCell>
-
-                                  {/* Cost Mode Toggle */}
-                                  <TableCell className="px-1">
-                                    <div className="flex items-center gap-1 justify-center">
-                                      <span
-                                        className={`text-[10px] ${row.costInputMode === 'BUILD_UP' ? 'font-medium' : 'text-muted-foreground'}`}
-                                      >
-                                        B
-                                      </span>
-                                      <Switch
-                                        checked={row.costInputMode === 'LANDED_PRICE'}
-                                        onCheckedChange={(checked) =>
-                                          updateRow(index, {
-                                            costInputMode: checked ? 'LANDED_PRICE' : 'BUILD_UP',
-                                          })
-                                        }
-                                        className="scale-75"
-                                      />
-                                      <span
-                                        className={`text-[10px] ${row.costInputMode === 'LANDED_PRICE' ? 'font-medium' : 'text-muted-foreground'}`}
-                                      >
-                                        L
-                                      </span>
-                                    </div>
-                                  </TableCell>
-
-                                  {/* Greige + Transport Combined */}
-                                  <TableCell className="px-1">
-                                    {row.costInputMode === 'LANDED_PRICE' ? (
-                                      <div className="flex items-center justify-center gap-0.5">
-                                        <Input
-                                          type="number"
-                                          step="0.01"
-                                          placeholder="Landed ₹"
-                                          className="w-16 text-center text-xs h-7 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                          value={row.landedPricePerMeter || ''}
-                                          onChange={(e) =>
-                                            updateRow(index, {
-                                              landedPricePerMeter: parseFloat(e.target.value) || null,
-                                            })
-                                          }
-                                        />
-                                        {row.readyFabricCost && row.landedPricePerMeter !== row.readyFabricCost && (
-                                          <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-5 w-5 p-0 text-success hover:text-success hover:bg-success-muted"
-                                            onClick={() =>
-                                              updateRow(index, {
-                                                landedPricePerMeter: row.readyFabricCost,
-                                              })
-                                            }
-                                            title={`Use fabric master price: ₹${row.readyFabricCost}/m`}
-                                          >
-                                            <RefreshCw className="w-2.5 h-2.5" />
-                                          </Button>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="flex flex-col items-center gap-0.5">
-                                        {/* Greige Cost */}
-                                        <GreigeCostCell row={row} onChange={(updates) => updateRow(index, updates)} />
-                                        {/* Transport Cost */}
-                                        <div className="flex flex-col items-center">
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="+Trp"
-                                            className="w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                            value={row.transportCostPerMeter || ''}
-                                            onChange={(e) =>
-                                              updateRow(index, {
-                                                transportCostPerMeter: parseFloat(e.target.value) || null,
-                                              })
-                                            }
-                                          />
-                                        </div>
-                                      </div>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Processor Selection */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.costInputMode === 'LANDED_PRICE' || row.finishType === 'RAW' ? (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    ) : (
-                                      <div className="flex items-center justify-center gap-0.5">
-                                        <Combobox
-                                          value={row.processorId || ''}
-                                          onValueChange={(value) => handleProcessorChange(index, row, value)}
-                                          options={processors.map((p) => ({ value: p.id, label: p.name }))}
-                                          placeholder="Select"
-                                          searchPlaceholder="Search processor..."
-                                          emptyText="No processors found"
-                                          className="w-[150px] h-7 text-[10px]"
-                                          hideChevron
-                                        />
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0"
-                                          onClick={() => lookupRate(index)}
-                                          disabled={row.isLoading || !row.processorId || !row.greigeId}
-                                        >
-                                          {row.isLoading ? (
-                                            <Loader2 className="w-3 h-3 animate-spin" />
-                                          ) : (
-                                            <RefreshCw className="w-3 h-3" />
-                                          )}
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Colors */}
-                                  <TableCell className="px-1 text-center">
-                                    <ColorsCell row={row} onChange={(updates) => updateRow(index, updates)} />
-                                  </TableCell>
-
-                                  {/* Print Type */}
-                                  <TableCell className="px-1 text-center">
-                                    <PrintTypeCell
-                                      row={row}
-                                      onChange={(updates) => updateRow(index, updates)}
-                                      onLookup={(overrides) => lookupRate(index, overrides)}
-                                    />
-                                  </TableCell>
-
-                                  {/* Screen */}
-                                  <TableCell className="px-1 text-center">
-                                    <ScreenCell row={row} onChange={(updates) => updateRow(index, updates)} />
-                                  </TableCell>
-
-                                  {/* Processing Cost */}
-                                  <TableCell className="px-1 text-center">
-                                    <ProcessingCostCell row={row} />
-                                  </TableCell>
-
-                                  {/* Shrinkage Cost */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.shrinkageValue ? (
-                                      <div>
-                                        <span className="text-xs">₹{row.shrinkageValue.toFixed(2)}</span>
-                                        {row.shrinkagePercent && (
-                                          <div className="text-[9px] text-muted-foreground">
-                                            {row.shrinkagePercent}%
-                                          </div>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Total Cost */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.totalCostPerMeter ? (
-                                      <span className="font-bold text-xs">₹{row.totalCostPerMeter.toFixed(2)}</span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Part Cost (CAD × Total ₹/m) */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.totalCostPerMeter && row.cadMeters > 0 ? (
-                                      <span className="text-xs">
-                                        ₹{(row.cadMeters * row.totalCostPerMeter).toFixed(2)}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Fabric Requirement (CAD × Qty) */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.cadMeters > 0 ? (
-                                      <span className="text-xs">
-                                        {((row.rowQuantity || orderQuantity) * row.cadMeters).toLocaleString(
-                                          undefined,
-                                          { maximumFractionDigits: 0 }
-                                        )}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </TableCell>
-
-                                  {/* Greige Requirement (Fabric Req ÷ (1 - Shrinkage%)) */}
-                                  <TableCell className="px-1 text-center">
-                                    {row.cadMeters > 0 ? (
-                                      (() => {
-                                        const qty = row.rowQuantity ?? orderQuantity;
-                                        const fabricReq = row.cadMeters * qty;
-                                        const shrinkage = row.shrinkagePercent || 0;
-                                        const greigeReq = divideByShrinkage(fabricReq, shrinkage);
-                                        return (
-                                          <span className="text-xs">
-                                            {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                          </span>
-                                        );
-                                      })()
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">-</span>
-                                    )}
-                                  </TableCell>
+                                  <FabricRowCells
+                                    row={row}
+                                    orderQuantity={orderQuantity}
+                                    processors={processors}
+                                    onChange={(updates) => updateRow(index, updates)}
+                                    onLookup={(overrides) => lookupRate(index, overrides)}
+                                    onProcessorChange={(value) => handleProcessorChange(index, row, value)}
+                                  />
                                 </TableRow>
                                 <RowErrorRow row={row} />
                               </React.Fragment>

@@ -29,7 +29,7 @@ sources:
   - frontend/src/pages/LaceForm.tsx
   - frontend/src/pages/LaceList.tsx
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
-route: /laces
+route: /materials/lace
 ---
 
 ## Before you start

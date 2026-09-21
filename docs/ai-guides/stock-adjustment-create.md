@@ -30,7 +30,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockAdjustmentForm.tsx
   - frontend/src/pages/StockMovementList.tsx
-route: /stock/adjustments/new
+route: /inventory/movements/adjustment
 ---
 
 ## Before you start

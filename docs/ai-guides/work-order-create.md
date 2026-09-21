@@ -28,7 +28,7 @@ sources:
   - frontend/src/pages/SaleOrderDetail.tsx
   - backend/src/schemas/workOrder.schema.ts
   - backend/src/routes/workOrder.routes.ts
-route: /work-orders/new
+route: /production/work-orders/new
 ---
 
 Note: in this ERP a work order is shown as a **Production Run**. Both words mean the same thing.

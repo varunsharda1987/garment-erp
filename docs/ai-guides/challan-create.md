@@ -37,7 +37,7 @@ sources:
   - frontend/src/pages/ChallanForm.tsx
   - frontend/src/pages/ChallanList.tsx
   - frontend/src/types/challan.types.ts
-route: /challans/new
+route: /manufacturing/challans/new
 ---
 
 ## Before you start

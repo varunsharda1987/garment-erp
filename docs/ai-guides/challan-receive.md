@@ -31,7 +31,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ChallanDetail.tsx
   - frontend/src/pages/ChallanList.tsx
-route: /challans
+route: /manufacturing/challans
 ---
 
 ## Before you start

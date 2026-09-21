@@ -32,7 +32,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/MachinePartForm.tsx
   - frontend/src/pages/MachinePartList.tsx
-route: /machine-parts/new
+route: /materials/machine-part/new
 ---
 
 ## Steps

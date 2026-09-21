@@ -31,7 +31,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/TestingLabs.tsx
   - frontend/src/pages/TestingDashboard.tsx
-route: /testing/labs
+route: /testing-labs
 ---
 
 ## Steps

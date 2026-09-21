@@ -26,7 +26,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FGStockList.tsx
-route: /fg-stock
+route: /inventory/fg-stock
 ---
 
 ## Steps

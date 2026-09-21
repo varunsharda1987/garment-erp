@@ -45,7 +45,7 @@ sources:
   - frontend/src/types/genericTrim.types.ts
   - frontend/src/services/genericTrim.service.ts
   - frontend/src/config/trimTypeRegistry.ts
-route: /trims/drawstring
+route: /materials/drawstring/new
 ---
 
 ## Steps

@@ -26,7 +26,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceSendOut.tsx
   - frontend/src/pages/EmbroideryPieceDashboard.tsx
-route: /embroidery/pieces/send
+route: /embroidery-stock/piece-send-out
 ---
 
 ## Before you start

@@ -30,7 +30,7 @@ sources:
   - frontend/src/pages/TestTemplateForm.tsx
   - frontend/src/pages/TestTemplates.tsx
   - frontend/src/pages/TestingDashboard.tsx
-route: /testing/templates/new
+route: /test-templates/new
 ---
 
 ## Before you start

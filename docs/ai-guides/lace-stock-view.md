@@ -35,7 +35,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/LaceStockList.tsx
   - frontend/src/pages/LaceStockDetail.tsx
-route: /laces/stock
+route: /lace-stock
 ---
 
 ## Steps to view lace stock list

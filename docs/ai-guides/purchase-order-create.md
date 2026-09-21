@@ -24,7 +24,7 @@ sources:
   - frontend/src/pages/PurchaseOrderDetail.tsx
   - frontend/src/types/purchaseOrder.types.ts
   - backend/src/schemas/purchaseOrder.schema.ts
-route: /purchase-orders/new
+route: /procurement/purchase-orders/new
 ---
 
 ## Before you start

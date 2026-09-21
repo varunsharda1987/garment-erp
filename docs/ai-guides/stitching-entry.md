@@ -36,7 +36,7 @@ sources:
   - backend/src/schemas/production.schema.ts
   - backend/src/routes/stitching.routes.ts
   - backend/src/controllers/stitching.controller.ts
-route: /stitching
+route: /manufacturing/stitching
 ---
 
 Stitching has two parts: first create a **stitching issue** from a cutting transfer slip, then record **daily output** on that issue.

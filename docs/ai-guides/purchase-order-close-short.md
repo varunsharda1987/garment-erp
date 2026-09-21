@@ -31,7 +31,7 @@ sources:
   - frontend/src/types/purchaseOrder.types.ts
   - backend/src/schemas/purchaseOrder.schema.ts
   - backend/src/services/purchaseOrder.service.ts
-route: /purchase-orders
+route: /procurement/purchase-orders
 ---
 
 ## When to use this

@@ -29,7 +29,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/HSNSACMasterList.tsx
-route: /hsn-sac
+route: /hsn-sac-masters
 ---
 
 ## Before you start

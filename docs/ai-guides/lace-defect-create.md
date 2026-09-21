@@ -31,7 +31,7 @@ sources:
   - frontend/src/pages/LaceDefectForm.tsx
   - frontend/src/pages/LaceDefectList.tsx
   - frontend/src/types/laceDefect.types.ts
-route: /laces/defects/new
+route: /lace-defects/new
 ---
 
 ## Before you start

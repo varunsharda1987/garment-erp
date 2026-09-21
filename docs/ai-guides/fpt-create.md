@@ -34,7 +34,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricPhysicalTestForm.tsx
   - frontend/src/pages/FabricPhysicalTests.tsx
-route: /testing/fabric-tests/new
+route: /fabric-physical-tests/new
 ---
 
 ## Before you start

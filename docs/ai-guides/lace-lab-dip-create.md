@@ -29,7 +29,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/LaceLabDipForm.tsx
   - frontend/src/pages/LaceLabDipList.tsx
-route: /processing/lace/lab-dips/new
+route: /lace-lab-dips/new
 ---
 
 ## Before you start

@@ -33,7 +33,7 @@ sources:
   - frontend/src/components/job-work/GreigeLotRows.tsx
   - frontend/src/pages/DispatchToProcessor.tsx
   - backend/src/schemas/jobWorkOrder.schema.ts
-route: /job-work-orders/new
+route: /job-work-orders
 ---
 
 ## Before you start

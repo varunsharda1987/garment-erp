@@ -44,7 +44,7 @@ sources:
   - frontend/src/components/fabric/WashCareCodes.tsx
   - backend/src/schemas/buyerTrf.schema.ts
   - backend/src/constants/buyer-trf.constants.ts
-route: /test-requirement-forms
+route: /test-requirement-forms/new
 ---
 
 ## Steps

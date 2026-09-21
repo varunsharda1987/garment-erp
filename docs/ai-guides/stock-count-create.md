@@ -31,7 +31,7 @@ sources:
   - frontend/src/pages/StockCountForm.tsx
   - frontend/src/pages/StockCountList.tsx
   - frontend/src/pages/StockCountDetail.tsx
-route: /stock/counts/new
+route: /inventory/stock-counts/new
 ---
 
 ## Before you start

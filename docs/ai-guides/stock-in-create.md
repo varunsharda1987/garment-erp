@@ -32,7 +32,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockInForm.tsx
   - frontend/src/pages/StockMovementList.tsx
-route: /stock/in/new
+route: /inventory/movements/stock-in
 ---
 
 ## Before you start

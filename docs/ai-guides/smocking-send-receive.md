@@ -33,7 +33,7 @@ sources:
   - frontend/src/pages/SmockingDashboard.tsx
   - frontend/src/pages/SmockingSendOut.tsx
   - frontend/src/pages/SmockingReceive.tsx
-route: /smocking
+route: /manufacturing/smocking
 ---
 
 ## View smocking dashboard

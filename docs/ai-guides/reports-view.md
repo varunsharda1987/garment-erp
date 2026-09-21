@@ -35,7 +35,7 @@ sources:
   - frontend/src/pages/StyleFabricReport.tsx
   - frontend/src/pages/FabricUsageReport.tsx
   - frontend/src/pages/GSTReports.tsx
-route: /reports
+route: /reports/style-fabric
 ---
 
 ## Available reports

@@ -29,7 +29,7 @@ sources:
   - frontend/src/pages/DispatchPODForm.tsx
   - frontend/src/pages/DispatchDeliveryNoteDetail.tsx
   - frontend/src/types/dispatch.types.ts
-route: /dispatch/delivery-notes
+route: /manufacturing/dispatch
 ---
 
 ## Before you start

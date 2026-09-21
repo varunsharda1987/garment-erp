@@ -34,7 +34,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockOutForm.tsx
   - frontend/src/pages/StockMovementList.tsx
-route: /stock/out/new
+route: /inventory/movements/stock-out
 ---
 
 ## Before you start

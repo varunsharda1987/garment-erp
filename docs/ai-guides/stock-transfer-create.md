@@ -28,7 +28,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockTransferForm.tsx
   - frontend/src/pages/StockMovementList.tsx
-route: /stock/transfers/new
+route: /inventory/movements/transfer
 ---
 
 ## Before you start

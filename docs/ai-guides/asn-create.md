@@ -27,7 +27,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ASNCreateForm.tsx
   - frontend/src/pages/ASNDetail.tsx
-route: /asn/new
+route: /manufacturing/dispatch/asn/new
 ---
 
 ## Before you start

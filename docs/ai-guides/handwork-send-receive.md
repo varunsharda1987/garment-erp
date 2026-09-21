@@ -29,7 +29,7 @@ sources:
   - frontend/src/pages/HandworkDashboard.tsx
   - frontend/src/pages/HandworkSendOut.tsx
   - frontend/src/pages/HandworkReceive.tsx
-route: /handwork
+route: /manufacturing/handwork
 ---
 
 Handwork is an external process done after stitching (post-stitching, pre-finishing). This guide covers sending stitched pieces to a handwork vendor and receiving them back.

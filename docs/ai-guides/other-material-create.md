@@ -26,7 +26,7 @@ sources:
   - frontend/src/pages/OtherMaterialForm.tsx
   - frontend/src/types/otherMaterial.types.ts
   - frontend/src/services/otherMaterial.service.ts
-route: /other-materials/new
+route: /materials/other/new
 ---
 
 ## Steps

@@ -31,7 +31,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockDashboard.tsx
-route: /stock/dashboard
+route: /inventory/dashboard
 ---
 
 ## Steps

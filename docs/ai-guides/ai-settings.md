@@ -39,7 +39,7 @@ sources:
   - frontend/src/services/ai-settings.service.ts
   - frontend/src/components/Sidebar.tsx
   - backend/src/services/ai/ai-settings.service.ts
-route: /settings/ai
+route: /ai-settings
 ---
 
 ## Steps

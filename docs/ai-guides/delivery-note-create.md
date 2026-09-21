@@ -32,7 +32,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/DispatchDeliveryNoteForm.tsx
   - backend/src/schemas/dispatch.schema.ts
-route: /dispatch/delivery-notes/new
+route: /manufacturing/dispatch/delivery/new
 ---
 
 ## Before you start

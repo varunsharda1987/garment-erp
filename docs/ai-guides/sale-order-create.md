@@ -72,7 +72,7 @@ sources:
   - frontend/src/services/saleOrder.service.ts
   - backend/src/schemas/saleOrder.schema.ts
   - backend/src/routes/saleOrder.routes.ts
-route: /sale-orders/new
+route: /sale-orders
 ---
 
 ## Before you start

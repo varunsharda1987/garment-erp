@@ -29,7 +29,7 @@ sources:
   - frontend/src/components/FabricIssuanceSection.tsx
   - backend/src/schemas/production.schema.ts
   - backend/src/routes/cutting.routes.ts
-route: /cutting
+route: /manufacturing/cutting
 ---
 
 A cutting entry has two parts: first create a **batch** from the Cutting Chart, then record each **lay** on that batch.

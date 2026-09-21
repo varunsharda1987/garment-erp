@@ -26,7 +26,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceReceive.tsx
   - frontend/src/pages/EmbroideryPieceDashboard.tsx
-route: /embroidery/pieces/receive
+route: /embroidery-stock/piece-receive
 ---
 
 ## Before you start

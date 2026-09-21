@@ -35,7 +35,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/GarmentPhysicalTestForm.tsx
   - frontend/src/pages/GarmentPhysicalTests.tsx
-route: /testing/garment-tests/new
+route: /garment-physical-tests/new
 ---
 
 ## Before you start

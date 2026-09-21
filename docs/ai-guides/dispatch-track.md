@@ -36,7 +36,7 @@ sources:
   - frontend/src/pages/DispatchList.tsx
   - frontend/src/pages/DispatchDeliveryNoteDetail.tsx
   - frontend/src/types/dispatch.types.ts
-route: /dispatch
+route: /manufacturing/dispatch
 ---
 
 ## Steps

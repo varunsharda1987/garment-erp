@@ -27,7 +27,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceDashboard.tsx
-route: /embroidery/pieces
+route: /embroidery-stock/pieces
 ---
 
 ## Steps

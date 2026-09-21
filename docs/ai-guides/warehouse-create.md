@@ -28,7 +28,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/WarehouseForm.tsx
   - frontend/src/pages/WarehouseList.tsx
-route: /warehouses/new
+route: /inventory/warehouses/new
 ---
 
 ## Steps

@@ -24,7 +24,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/LaceStockAging.tsx
-route: /laces/stock/aging
+route: /lace-stock/aging
 ---
 
 ## Steps

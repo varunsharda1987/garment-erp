@@ -30,6 +30,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
+  - frontend/src/pages/ProcessorRateCardPage.tsx
 route: /fabric-costing
 ---
 
@@ -103,12 +104,16 @@ The table shows all fabrics from CAD Planning. For each row:
    - Rate auto-looks up from Rate Cards based on:
      - Processor
      - Greige type
+     - Print Type (printing only)
      - Quantity (uses combined batch quantity if same greige + color)
+   - For a printed fabric the rate is fetched once Print Type is set. Until then the Process
+     column reads "Print type?" rather than leaving you guessing.
 
 4. **For Printing - additional fields:**
    - Number of Colors
-   - Print Type (Rotary/Flat Bed/Digital)
-   - Screen Type - affects screen cost calculation
+   - Print Type (Pigment / Procian / Discharge / Pig+Dis) - rates are held separately per
+     print type, so the rate cannot be fetched until this is set
+   - Screen (Rotary / Flat Belt / Table) - affects screen cost calculation
    - Screen cost is amortized over the total meters
 
 5. **Shrinkage:**
@@ -151,7 +156,12 @@ The table shows:
 
 - **CAD data required** - Without CAD Planning data, fabric consumption (m/pc) is unknown and costing won't work properly.
 
-- **Rate card not found** - If no rate matches the processor + greige + quantity combination, a warning appears. Add the rate in Processor Rate Cards.
+- **Rate card not found** - If no rate matches the processor + greige + print type + quantity
+  combination, a warning panel above the table names the exact reason, and the affected rows
+  show a red "no rate card" marker in the Process column. The reason stays on screen until it
+  is fixed. Click **Go to Rate Cards** in the panel to open the Rate Card page with that
+  processor, process type and print type already selected. Rows with no processor rate are
+  skipped on save and named, so add the rate and fetch it again before saving.
 
 - **Batch quantity** - Fabrics with same greige + same color are batched together for rate lookup. The combined quantity may hit a lower rate slab.
 

@@ -15,6 +15,15 @@ keywords:
   - build-up costing
   - transport cost
   - screen cost
+  - no rate card
+  - no processor rate
+  - rate not found
+  - print type
+  - pigment
+  - procian
+  - discharge
+  - why is the rate blank
+  - costing not saving
   # Hinglish
   - fabric costing karna
   - CAD ki costing
@@ -23,6 +32,11 @@ keywords:
   - shrinkage kitna hai
   - meter ka cost
   - processor rate card
+  - rate nahi mil raha
+  - rate kyun nahi aa raha
+  - rate card nahi hai
+  - print type kya hai
+  - costing save nahi ho rahi
   # Devanagari (MANDATORY)
   - फैब्रिक कॉस्टिंग
   - कैड कॉस्टिंग
@@ -33,10 +47,16 @@ keywords:
   - मीटर का रेट
   - ट्रांसपोर्ट कॉस्ट
   - लैंडेड प्राइस
+  - रेट नहीं मिल रहा
+  - रेट कार्ड नहीं है
+  - प्रिंट टाइप
+  - पिगमेंट
+  - कॉस्टिंग सेव नहीं हो रही
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
   - frontend/src/pages/CADPlanningPage.tsx
+  - frontend/src/pages/ProcessorRateCardPage.tsx
 route: /fabric-costing
 ---
 
@@ -93,15 +113,22 @@ Fill in these fields:
    
 3. **Processor** - Select the dyeing/printing mill
    - Choose from the dropdown
-   - For DYEING: rate lookup happens automatically
-   - For PRINTING: select print type first
-   
+   - For DYEING: the rate is fetched automatically
+   - For PRINTING: the rate is fetched automatically once **Print Type** is set. If it is
+     not set yet, the page tells you to choose one and the Process cell reads "Print type?"
+
 4. **Colors** (printing only) - Number of colors/screens
 
-5. **Print Type** (printing only) - Select screen type
-   - Options: Rotary, Flat Bed, Digital, etc.
+5. **Print Type** (printing only) - The printing method the rate card is priced by
+   - Options: Pigment, Procian, Discharge, Pig+Dis
+   - Rates are held separately per print type, so the rate cannot be found until this is set
+   - Changing it clears the fetched rate and fetches again
 
-6. Click **Get Rate** (refresh icon next to processor) to fetch:
+6. **Screen** (printing only) - The screen type used
+   - Options: Rotary, Flat Belt, Table
+   - The screen cost per meter appears under the dropdown once colors are entered
+
+7. Click the refresh icon next to the processor to fetch again at any time:
    - Processing cost per meter (from rate card)
    - Shrinkage percentage
    - Screen cost per screen (for printing)
@@ -147,7 +174,15 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
 
 - **No CAD data**: If you see "No CAD Data Found" warning, go to CAD Planning first
 - **Missing greige rate**: Enter a rate or set it on the Greige Master
-- **Wrong processor**: Make sure processor has the rate card for this greige
+- **No processor rate**: If the processor has no rate for this combination, a warning panel
+  appears above the table naming the exact reason - for example that the processor has no
+  quantity slabs set, does not rate this greige, or does not rate this print type. The
+  affected rows show a red "no rate card" marker in the Process column, and the reason stays
+  on screen until it is fixed. Click **Go to Rate Cards** in the panel: the Rate Card page
+  opens with that processor, process type and print type already selected.
+- **Rows with no processor rate are not saved**: Save skips them and names them, because the
+  total would otherwise be greige + transport only and would understate the fabric cost in
+  the cost sheet and MRP. Add the missing rate, fetch it again, then save.
 - **Quantity matters**: Rate slabs depend on quantity - higher quantity = better rate
 - **Approved rows**: You cannot modify a row with approved costing - unapprove first on the Options page
 

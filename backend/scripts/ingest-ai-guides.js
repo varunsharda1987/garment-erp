@@ -14,6 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const cp = require('child_process');
 const { PrismaClient } = require('@prisma/client');
 
 const REPO_ROOT = path.join(__dirname, '../..');
@@ -22,6 +23,7 @@ const MANIFEST_PATH = path.join(GUIDES_DIR, 'manifest.json');
 
 const prisma = new PrismaClient();
 const dryRun = process.argv.includes('--dry-run');
+const allowDirty = process.argv.includes('--allow-dirty');
 
 function sha1(text) {
   return crypto.createHash('sha1').update(text).digest('hex').slice(0, 12);
@@ -83,6 +85,82 @@ function stripQuotes(value) {
   return value.replace(/^["']|["']$/g, '');
 }
 
+/**
+ * Paths git reports as changed, relative to the repo root, forward-slashed.
+ * Returns null when git can't be consulted — an unknown state must not block the ingest.
+ */
+function dirtyPaths() {
+  let out;
+  try {
+    out = cp.execSync('git status --porcelain', { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 1e8 });
+  } catch {
+    return null; // not a git checkout, or git unavailable
+  }
+  const paths = new Set();
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue;
+    let p = line.slice(3).trim();
+    // Renames read "old -> new"; the new path is the one on disk we would hash
+    const arrow = p.indexOf(' -> ');
+    if (arrow !== -1) p = p.slice(arrow + 4);
+    paths.add(p.replace(/^"|"$/g, ''));
+  }
+  return paths;
+}
+
+/**
+ * Refuse to hash anything that is still uncommitted.
+ *
+ * manifest.json records WHICH COMMITTED STATE each guide was written against. Hashing a file
+ * that is only in the working tree freezes that uncommitted content into the record, so the
+ * guide reads "current" against a version that was never in git — and check-ai-guides.js
+ * stops flagging it, permanently. There is no error and nothing to notice.
+ *
+ * That stranded 9 guides on 2026-09-21, two of them (fabric-create, greige-create) describing
+ * list screens that had just been rebuilt. The guides most in need of rewriting became the
+ * ones the tooling promised were fine. The same class of silence is why the fabric-costing
+ * guides spent months telling the team that "Print Type" offers Rotary / Flat Bed / Digital.
+ *
+ * Only files THIS ingest would hash are checked — unrelated work in the tree can't corrupt
+ * the manifest, and in a repo where several people edit at once, blocking on that would just
+ * train everyone to reach for --allow-dirty.
+ */
+function assertNothingUncommitted(files) {
+  const dirty = dirtyPaths();
+  if (!dirty) return;
+
+  const atRisk = [];
+  for (const file of files) {
+    const guidePath = `docs/ai-guides/${file}`;
+    if (dirty.has(guidePath)) atRisk.push(`${guidePath} — the guide itself`);
+
+    const { meta } = parseFrontmatter(fs.readFileSync(path.join(GUIDES_DIR, file), 'utf8'));
+    const sources = Array.isArray(meta.sources) ? meta.sources : [];
+    for (const src of sources) {
+      if (dirty.has(src)) atRisk.push(`${src} — source of ${meta.slug || path.basename(file, '.md')}`);
+    }
+  }
+  if (atRisk.length === 0) return;
+
+  const unique = [...new Set(atRisk)].sort();
+  console.error('\nRefusing to ingest: these files are not committed yet.\n');
+  unique.slice(0, 20).forEach((p) => console.error(`  ${p}`));
+  if (unique.length > 20) console.error(`  ...and ${unique.length - 20} more`);
+  console.error(
+    '\nThe manifest records which COMMITTED state each guide was written against.\n' +
+      'Hashing an uncommitted file freezes working-tree content into that record, so the\n' +
+      'guide reads "current" against a version that is not in git and is never flagged\n' +
+      'stale again.\n\n' +
+      'Commit the work first (rewriting any guide whose screen changed), then ingest on a\n' +
+      'clean tree and commit manifest.json on its own.\n\n' +
+      'Use --dry-run to check what would be ingested without writing anything.\n' +
+      'Use --allow-dirty only if you intend to record uncommitted state.\n'
+  );
+  const err = new Error('guide sources have uncommitted changes');
+  err.handled = true;
+  throw err;
+}
+
 async function main() {
   if (!fs.existsSync(GUIDES_DIR)) {
     console.log(`No guides directory at ${GUIDES_DIR} — nothing to ingest.`);
@@ -93,6 +171,17 @@ async function main() {
   if (files.length === 0) {
     console.log('No guide files found.');
     return;
+  }
+
+  // --dry-run writes no manifest, so it cannot record anything and needs no guard
+  if (!dryRun && !allowDirty) {
+    assertNothingUncommitted(files);
+  } else if (allowDirty && !dryRun) {
+    console.warn(
+      '\n--allow-dirty: recording hashes of UNCOMMITTED files.\n' +
+        'Any guide hashed against working-tree content will read "current" against a version\n' +
+        'that is not in git, and will never be flagged stale again.\n'
+    );
   }
 
   const manifest = {};
@@ -189,7 +278,8 @@ async function main() {
 
 main()
   .catch((error) => {
-    console.error('Ingest failed:', error);
+    // A refusal has already explained itself — a stack trace would only bury the reason
+    if (!error.handled) console.error('Ingest failed:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

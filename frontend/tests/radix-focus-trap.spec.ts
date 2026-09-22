@@ -1,4 +1,4 @@
-import { test, expect, type Locator } from '@playwright/test';
+import { test, expect, type BrowserContext, type Locator, type Page } from '@playwright/test';
 import { loginUser } from './helpers/auth.helper';
 
 /**
@@ -29,14 +29,42 @@ function comboboxWithText(scope: Locator, text: string): Locator {
   return scope.getByRole('combobox').filter({ hasText: text });
 }
 
+// Serial, and the whole file costs ONE login. The API's authLimiter allows 5 auth requests per
+// 15 min per IP (NODE_ENV=production) and only refunds SUCCESSFUL ones, so a login per test
+// drained the budget across back-to-back runs and the suite started failing at the sign-in
+// screen rather than at the focus trap — a red result that said nothing about Radix.
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Radix focus-trap singleton', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginUser(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  let context: BrowserContext;
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    // The auth token lives in localStorage, which is per-origin per-CONTEXT — so one login here
+    // covers every page opened from this context.
+    context = await browser.newContext();
+    const loginPage = await context.newPage();
+    await loginUser(loginPage, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await loginPage.close();
+  });
+
+  test.afterAll(async () => {
+    await context.close();
+  });
+
+  // A FRESH page per test, not a shared one: these tests deliberately end with dialogs and
+  // popovers open, and that leaked into the next test when the page was reused.
+  test.beforeEach(async () => {
+    page = await context.newPage();
     await page.goto('/sale-orders');
     await page.waitForLoadState('networkidle');
   });
 
-  test('a combobox inside a Sheet accepts typing and keeps focus', async ({ page }) => {
+  test.afterEach(async () => {
+    await page.close();
+  });
+
+  test('a combobox inside a Sheet accepts typing and keeps focus', async () => {
     await page.getByRole('button', { name: 'New Sale Order' }).click();
 
     // The Sheet is a Radix Dialog underneath, so it owns a focus trap of its own.
@@ -62,7 +90,7 @@ test.describe('Radix focus-trap singleton', () => {
     ).toBe(true);
   });
 
-  test('a combobox inside a Dialog stacked over a Sheet stays typeable', async ({ page }) => {
+  test('a combobox inside a Dialog stacked over a Sheet stays typeable', async () => {
     await page.getByRole('button', { name: 'New Sale Order' }).click();
     await expect(page.getByRole('dialog', { name: 'New Sale Order' })).toBeVisible();
 
@@ -87,7 +115,7 @@ test.describe('Radix focus-trap singleton', () => {
     ).toBe(true);
   });
 
-  test('a Select inside a Dialog opens, closes, and returns focus to its trigger', async ({ page }) => {
+  test('a Select inside a Dialog opens, closes, and returns focus to its trigger', async () => {
     await page.getByRole('button', { name: 'New Sale Order' }).click();
     await page.getByRole('button', { name: 'Add Item' }).click();
     const itemDialog = page.getByRole('dialog', { name: 'Add Item' });

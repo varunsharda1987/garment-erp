@@ -252,6 +252,17 @@ function checkShrinkageDivide(tsFiles) {
 }
 
 /** Check (B2): en-IN currency toLocaleString must set maximumFractionDigits — BLOCKING new + ratchet. */
+function checkDateFormat(tsFiles) {
+  console.log(`
+${c.cyan}Checking date formatting...${c.reset}`);
+  return runRatchetedCheck(
+    'ad-hoc date format(s) bypassing the shared date helper',
+    detectors.dateFormatDrift(tsFiles),
+    'date-format-baseline.json',
+    "Every user-visible date reads 19-Sep-2026. Import formatDate/formatDateTime/formatTime from backend/src/utils/date.ts or @/lib/date instead of toLocale*String, a date-fns month-name pattern, or a local formatDate(). ISO output (yyyy-MM-dd, toISOString) is wire format and is never flagged. Mark a genuine exception // allow-date-format, or add the key to scripts/hooks/date-format-baseline.json."
+  );
+}
+
 function checkCurrencyFormat(tsFiles) {
   console.log(`\n${c.cyan}Checking en-IN currency formatting...${c.reset}`);
   return runRatchetedCheck(
@@ -1240,6 +1251,7 @@ function runAllModeChecks() {
   if (!checkStrictNumberSchema(schemaFiles)) ok = false;
   if (!checkShrinkageDivide(tsFiles)) ok = false;
   if (!checkCurrencyFormat(tsFiles)) ok = false;
+  if (!checkDateFormat(tsFiles)) ok = false;
   if (!checkControllerReparse(tsFiles)) ok = false;
   if (!checkGlobalPrismaInTx(tsFiles)) ok = false;
   if (!checkDecimalCompare(tsFiles)) ok = false;
@@ -1358,6 +1370,7 @@ function main() {
     checksRun++;
     if (!checkShrinkageDivide(categories.typescript)) allPassed = false;
     if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
+    if (!checkDateFormat(categories.typescript)) allPassed = false;
     // Phase-3 guardrails: dual-schema re-parse, rollback-escaping writes, Decimal string-compare,
     // count-based numbering (BLOCKING new + ratchet)
     if (!checkControllerReparse(categories.typescript)) allPassed = false;

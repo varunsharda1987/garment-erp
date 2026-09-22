@@ -271,6 +271,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Datetime schema | `z.string().datetime()` in a schema (rejects `YYYY-MM-DD` from `<input type="date">`) | Use `z.coerce.date()` (or mark `// allow-datetime`) |
 | Divide-by-shrinkage | Raw `/ (1 - x/100)` (→ Infinity at 100%) | Use `divideByShrinkage()` from `backend/src/utils/currency.ts` |
 | Currency format | `toLocaleString('en-IN', {minimumFractionDigits:2})` with no `maximumFractionDigits` (prints `₹563.796`) | Add `maximumFractionDigits: 2` |
+| Date format drift | Any `toLocaleDateString`/`toLocaleTimeString`; `toLocaleString` **on a Date receiver only** (200 of this repo's calls are MONEY on a Number — a blind fix prints `NaN` on a customer's invoice); a date-fns month-name pattern (`MMM`/`LLL`); or a local `formatDate`/`formatDateTime`/`formatTime` redefinition. `month:'short'` renders **`19 Sept 2026` on Node and `19 Sep 2026` in Chrome**, so one record printed two different strings on a PDF and on screen | Import `formatDate`/`formatDateTime`/`formatTime` from `backend/src/utils/date.ts` or `@/lib/date`. ISO output (`yyyy-MM-dd`, `toISOString`) is **wire format** and is never flagged. Per-line escape `// allow-date-format` |
 | Unguarded CAD delete | A `fabric_width_cad` delete with no `validateCADModification`, or a `style_fabrics`/`style_components` delete with no unlink first (cascade destroys APPROVED CAD planning + costing) | Guard with `validateCADModification(id, 'delete')`, or unlink `fabric_width_cad.updateMany({ styleFabricId: null })` first (see `style.service.ts`) |
 | CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
 | Strict number schema | An optional `z.number()` on a form-fed numeric field (`price…units` names): HTML inputs post strings and `''` when blank, so every save carrying that field 400s (six of seven trim forms could not add a supplier row, 2026-09-10) | Use `formNumber(z.number()…)` from `backend/src/schemas/common.schema.ts` (or mark `// allow-strict-number` for typed-client-only fields) |
@@ -279,6 +280,61 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
 
 **Money math** should route through the existing (previously-unused) helpers: `backend/src/utils/currency.ts` (decimal.js: guarded divide, `roundToCent`, weighted average) and `backend/src/services/gst.service.ts` (the GST-rate authority) — do not re-derive rates/rounding on raw floats.
+
+## Dates: one format, one helper
+
+**Every user-visible date reads `19-Sep-2026`.** With time: `19-Sep-2026 02:05 pm` on screens,
+`19-Sep-2026 14:05` on printed documents and "Generated on" footers.
+
+There is exactly ONE implementation, copied to both sides and byte-identical except `parseDMY`:
+
+- **`backend/src/utils/date.ts`**
+- **`frontend/src/lib/date.ts`** — import as `@/lib/date`
+
+```ts
+formatDate(value, fallback?)        // 19-Sep-2026
+formatTime(value, fallback?)        // 02:05 pm
+formatTime24(value, fallback?)      // 14:05
+formatDateTime(value, fallback?)    // 19-Sep-2026 02:05 pm   — screens
+formatDateTime24(value, fallback?)  // 19-Sep-2026 14:05      — documents, footers
+formatDateRange(from, to, ?)        // 19-Sep-2026 – 25-Sep-2026, collapsing when both ends match
+toDateInputValue(value)             // 2026-09-19 in IST — the ONLY blessed ISO producer
+parseDMY(input)                     // backend only — reads it back, rejecting 31/02
+```
+
+Default fallback is `'—'`. `formatDate(0)` is `01-Jan-1970`: a real 0 is an instant, not a missing
+value — only `null` / `undefined` / `''` / `NaN` hit the fallback, mirroring the money rule.
+
+### Three traps this cost us
+
+1. **NEVER `month: 'short'`.** ICU disagrees with itself across runtimes — verified on this machine:
+   `toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})` gives
+   **`19 Sept 2026` on Node 24** and **`19 Sep 2026` in Chrome**. So the PDF and the screen printed
+   two different strings for the same record. Nobody chose that; ICU version skew did. The month name
+   now comes from a hardcoded table and is built with `formatToParts`, never `.format()`.
+2. **`toLocaleString` is on `Number.prototype` too, and 200 of this repo's calls are MONEY.**
+   `document-generator.service.ts` mixes rupee amounts at `:655` with a date at `:1191` in one file.
+   A blind `s/toLocaleString/` prints `NaN` on an invoice that only regenerates when a customer asks
+   for one — it fails in production, weeks later, to a customer. The guard matches a **Date receiver
+   only**; so must any fix.
+3. **Timezone is pinned to IST** (`Asia/Kolkata`). Nothing in the repo pinned one before, so a server
+   in UTC rendered dates a day early for anything after 05:30 IST. This is also why
+   `.toISOString().split('T')[0]` is wrong for input values — it is UTC, and reports *yesterday*.
+   Use `toDateInputValue()`.
+
+### Never reformatted — these are wire formats, not display
+
+ISO values (`yyyy-MM-dd`, `toISOString`, `z.coerce.date()` schemas), `<input type="date">` values,
+`components/filters/DateRangeFilter.tsx` (its `>`/`<` compares depend on ISO lexicographic ordering —
+reformatting breaks filtering **silently**), document numbers (`atomicCodeGenerator`,
+`TS-YYYYMMDD-NNNN`), download filenames, and the external contracts: the NIC IRP payload builder,
+`utils/tally-xml.ts` + `tally.service.ts` (YYYYMMDD), `utils/logger.ts` (parsed by
+`scripts/skills/validation-rejections.js`). Relative labels ("3 days ago", a chat sidebar's
+"Yesterday") stay relative.
+
+Enforced by the *date format drift* smart-check. Unit tests: `backend/src/__tests__/unit/date.test.ts`
+— the only tests in this repo that assert a formatted date string, so they are the whole safety net.
+
 
 ## CRITICAL: Keep the AI Assistant's Guides in Sync (MANDATORY)
 

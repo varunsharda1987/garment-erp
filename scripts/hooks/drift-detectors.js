@@ -381,6 +381,102 @@ function currencyFormat(relFiles) {
   return out;
 }
 
+// --- dateFormatDrift (2026-09-22) -------------------------------------------------------------
+// Every user-visible date in this app reads `19-Sep-2026`, produced by ONE helper:
+// backend/src/utils/date.ts and its byte-identical twin frontend/src/lib/date.ts.
+//
+// Before those existed there were 65 copy-pasted formatDate closures, ~330 ad-hoc call sites (51
+// with no locale argument at all, so they rendered in the VIEWER'S OS locale) and four duplicate
+// backend formatters that had already drifted: `month: 'short'` renders "19 Sept 2026" on Node and
+// "19 Sep 2026" in Chrome, so one record printed two different strings on a PDF and on screen.
+// Nobody chose that; ICU version skew did.
+//
+// Four rules. ISO output ('yyyy-MM-dd', toISOString) is WIRE format, not display, and is never
+// flagged. Per-line opt-out: // allow-date-format
+const DATE_FORMAT_ALLOWLIST = [
+  // the helpers themselves
+  'backend/src/utils/date.ts',
+  'frontend/src/lib/date.ts',
+  // external contracts — these formats are dictated by someone else
+  'backend/src/services/einvoice/einvoice-payload.builder.ts',
+  'backend/src/services/einvoice/nic-irp-provider.ts',
+  'backend/src/utils/tally-xml.ts',
+  'backend/src/services/tally.service.ts',
+  'backend/src/utils/logger.ts',
+  'backend/src/utils/atomicCodeGenerator.ts',
+  // ISO lexicographic compare drives the filtering; reformatting breaks it silently
+  'frontend/src/components/filters/DateRangeFilter.tsx',
+];
+
+function dateFormatDrift(relFiles) {
+  const out = [];
+  const DATE_SUFFIX = /(Date|Time|At|On|Deadline|Expiry|Timestamp)$/;
+  const DATE_WORDS = new Set([
+    'date',
+    'timestamp',
+    'dob',
+    'deadline',
+    'expiry',
+    'eta',
+    'now',
+    'when',
+  ]);
+
+  for (const rel of relFiles) {
+    if (!/\.(ts|tsx)$/.test(rel)) continue;
+    const norm = rel.split(String.fromCharCode(92)).join('/');
+    if (DATE_FORMAT_ALLOWLIST.some((a) => norm.endsWith(a))) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const rawLines = (readRel(rel) || '').split('\n');
+    const seen = new Map();
+
+    const flag = (idx, detail) => {
+      const line = lineOf(content, idx);
+      const ctx = [rawLines[line - 3], rawLines[line - 2], rawLines[line - 1]].join('\n');
+      if (/allow-date-format/.test(ctx)) return;
+      const n = (seen.get(detail) || 0) + 1;
+      seen.set(detail, n);
+      // Per-occurrence key: many files carry the IDENTICAL string more than once and
+      // runRatchetedCheck de-dupes by key, so a second one would slip past the baseline.
+      out.push({ key: `${norm} :: ${detail}${n > 1 ? ` #${n}` : ''}`, file: rel, line, detail });
+    };
+
+    // Rule 1 — any toLocaleDateString / toLocaleTimeString.
+    let re = /\.toLocale(?:Date|Time)String\s*\(/g;
+    let m;
+    while ((m = re.exec(content))) {
+      flag(m.index, 'toLocale*String on a date — use formatDate/formatTime from the date helper');
+    }
+
+    // Rule 2 — toLocaleString, but ONLY on a Date receiver. 200 of this repo's calls are MONEY on a
+    // Number; a blind match here would train everyone to ignore the check (and a blind FIX would
+    // print NaN on a customer's invoice weeks later).
+    re = /(new\s+Date\s*\([^;{}\n]*?\)|[A-Za-z0-9_$]+(?:[?!]?\.[A-Za-z0-9_$]+)*)\s*\.toLocaleString\s*\(/g;
+    while ((m = re.exec(content))) {
+      const recv = m[1];
+      const isNewDate = /^new\s+Date\s*\(/.test(recv);
+      const seg = recv.split('.').pop();
+      const looksDate = DATE_SUFFIX.test(seg) || DATE_WORDS.has(seg.toLowerCase());
+      if (!isNewDate && !looksDate) continue;
+      flag(m.index, 'toLocaleString on a Date — use formatDateTime from the date helper');
+    }
+
+    // Rule 3 — date-fns format() with a month NAME. 'yyyy-MM-dd' is ISO wire format: not flagged.
+    re = /\bformat\s*\(\s*[^;{}]*?,\s*'([^']*(?:MMM|LLL)[^']*)'\s*\)/g;
+    while ((m = re.exec(content))) {
+      flag(m.index, `date-fns month-name pattern '${m[1]}' — use the date helper`);
+    }
+
+    // Rule 4 — a local redefinition of a helper that already exists.
+    re = /^[ \t]*(?:export\s+)?(?:const|function)\s+(formatDate|formatDateTime|formatTime|formatDateTime24|formatTime24)\b/gm;
+    while ((m = re.exec(content))) {
+      flag(m.index, `local ${m[1]}() redefinition — import it from the date helper instead`);
+    }
+  }
+  return out;
+}
+
 // C1 — controller re-parses req.body/req.query with its own schema after route-level validation.
 // Two independently-maintained schemas for one request ALWAYS drift (Phase-3: the cost-sheet edit
 // endpoint silently discarded every edit because the route schema and controller schema shared zero
@@ -1903,6 +1999,7 @@ module.exports = {
   strictNumberSchema,
   shrinkageDivide,
   currencyFormat,
+  dateFormatDrift,
   controllerReparse,
   globalPrismaInTx,
   decimalCompare,

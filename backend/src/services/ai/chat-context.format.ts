@@ -15,7 +15,8 @@ export function formatPageContext(pageRoute?: string, pageGuide?: { slug: string
   );
 }
 
-function formatTime(iso: string): string {
+/** `14:05`, or `--:--` when the trail carries an unparseable timestamp. */
+function hhmm(iso: string): string {
   return formatTime24(iso, '--:--');
 }
 
@@ -23,7 +24,7 @@ export function formatRecentSearchMisses(misses?: TrailSearchMiss[]): string {
   if (!misses || misses.length === 0) return '';
   const lines = misses.slice(0, 10).map((miss) => {
     const where = miss.pageRoute ? ` on ${miss.pageRoute}` : '';
-    return `- ${formatTime(miss.at)}${where} typed "${miss.term}" into ${miss.endpoint} → 0 results`;
+    return `- ${hhmm(miss.at)}${where} typed "${miss.term}" into ${miss.endpoint} → 0 results`;
   });
   return (
     `\nRECENT SEARCHES THAT FOUND NOTHING (newest first):\n${lines.join('\n')}\n` +
@@ -36,7 +37,7 @@ export function formatRecentErrors(errors?: TrailError[]): string {
   if (!errors || errors.length === 0) return '';
   const lines = errors.slice(0, 10).map((error) => {
     const where = error.pageRoute ? ` (on ${error.pageRoute})` : '';
-    return `- ${formatTime(error.at)} ${error.method} ${error.url} → ${error.status}: "${error.message}"${where}`;
+    return `- ${hhmm(error.at)} ${error.method} ${error.url} → ${error.status}: "${error.message}"${where}`;
   });
   return (
     `\nRECENT ERRORS THE USER HIT (newest first):\n${lines.join('\n')}\n` +

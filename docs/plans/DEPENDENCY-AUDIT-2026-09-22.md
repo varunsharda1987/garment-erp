@@ -73,9 +73,9 @@ No major versions. This alone clears most of the HIGH advisories.
 
 | # | Action | Clears |
 |---|---|---|
-| 1.1 | ⛔ `cd backend && npm update` — **ATTEMPTED 2026-09-22, REVERTED.** See §12 | *(would have cleared 31 advisories, 43 → 12)* |
+| 1.1 | ✅ **DONE `c8ceb767`** as a SPLIT — targeted update of 31 named direct deps, excluding `@types/express`, `prisma`, `@prisma/client`, `puppeteer-core`. Blanket `npm update` is still forbidden here (§12) | Backend advisories **43 → 26**. express 5.2.1, multer 2.4.0, pg 8.23.0, helmet 8.3.0, winston 3.19.0, jsonwebtoken 9.0.3, openai 6.49.0, bullmq 5.81.5, ioredis 5.11.1, jest 30.5.2 + transitive HIGHs |
 | 1.2 | ✅ `cd frontend && npm update` — **DONE `cce7e4f8`**, advisories 12 → 1 | **axios 1.12.2 → 1.20.0** and **react-router-dom 7.9.4 → 7.18.4** — the two worst frontend HIGHs — plus react 19.3.0, react-hook-form 7.88.0, @tanstack/* , @playwright/test 1.63.0 |
-| 1.3 | ⏸ **zod `4.1.12` → `4.6.5` in BOTH workspaces, same commit** — held at 4.1.12 on both sides until 1.1 can land | Shared schema contract — a split version is a silent validation drift |
+| 1.3 | ✅ **DONE `c8ceb767`** — zod `4.1.12` → `4.6.5` in BOTH workspaces, one commit | Shared schema contract — a split version is a silent validation drift |
 
 **Verify:** `cd frontend && npx tsc -b` (**not** `tsc --noEmit -p tsconfig.json` — the root tsconfig
 doesn't cover `src/`), `cd backend && npm run type-check`, then `node scripts/skills/test-all.js`.
@@ -361,6 +361,25 @@ most of the 26 HIGHs.
 
 **zod stays at 4.1.12 on both sides** (rule 1.3): the backend cannot move, so the frontend was held
 back to keep the contract aligned.
+
+### Resolution — backend landed as a split (`c8ceb767`)
+
+Same day. `backend/node_modules` was first restored (it had drifted ahead of its lockfile when the
+revert's `npm install` hit `EBUSY`): **stop the API → `npm install` → `npx prisma generate` →
+`pm2-safe-restart`**. Both native locks clear only with the app stopped; that is the procedure for
+any backend dependency work here.
+
+Then a **targeted `npm update` over 31 named direct dependencies** rather than a blanket sweep,
+excluding the four troublemakers — `@types/express` (its caret pulls
+`@types/express-serve-static-core` 5.1.3; verified held at **5.1.0**), `prisma` + `@prisma/client`
+(Phase 3.6), and `puppeteer-core` (exact-pinned with the PDF pipeline). Backend advisories
+**43 → 26**, `tsc --noEmit` 0 errors, and zod reached 4.6.5 on both sides in the same commit.
+
+Everything still HIGH in the backend needs a MAJOR — nodemailer 10, puppeteer-core 25,
+whatsapp-web.js, prisma 7 (all Phase 3) — plus `xlsx`, which no version fixes (Phase 5).
+
+**Standing rule for this repo: never run a blanket `npm update` in `backend/`.** Update named
+packages, and keep `@types/express*` out until the `req.query` helper exists.
 
 ### What this review did not verify
 DeepSeek's serving claim ("already serving V4.1-Flash") beyond the docs page quoted above;

@@ -136,10 +136,13 @@ export default function SampleForm() {
 
   const fetchStyles = async (customerId: string) => {
     try {
-      // Get customer name first
-      const customer = customers.find((c) => c.id === customerId);
+      // Filter on the FK, not on a free-text search for the customer's name.
+      // The name search matched styles.customerName, so two customers whose names
+      // share a substring would each pull the other's styles into this picker — and
+      // if `customers` had not loaded yet it searched for '' and returned every
+      // ACTIVE style regardless of buyer.
       const response = await api.get<{ data: Style[] }>(
-        `/styles?limit=1000&search=${encodeURIComponent(customer?.name || '')}&status=ACTIVE`
+        `/styles?limit=1000&customerId=${encodeURIComponent(customerId)}&status=ACTIVE`
       );
       setStyles(response.data.data);
     } catch (err) {

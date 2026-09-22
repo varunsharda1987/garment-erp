@@ -111,8 +111,15 @@ describe('permission-based visibility (mirrors Sidebar filter logic)', () => {
     expect(unknown, `navigation.ts names keys no switch exists for: ${unknown.join(', ')}`).toEqual([]);
   });
 
-  it('Team & Settings shows only messaging items + Process Guide to staff without admin keys', () => {
-    expect(visibleItems(STAFF_KEYS, 'Team & Settings')).toEqual(['My WhatsApp', 'Message Staff', 'Process Guide']);
+  it('Team & Settings shows only messaging items + Process Guide + Settings to staff without admin keys', () => {
+    // Settings carries no `permission` on purpose — it is how every user reaches Change Password
+    // (see the comment on the item in navigation.ts). The test used to omit it and was red.
+    expect(visibleItems(STAFF_KEYS, 'Team & Settings')).toEqual([
+      'My WhatsApp',
+      'Message Staff',
+      'Process Guide',
+      'Settings',
+    ]);
   });
 
   it('Team & Settings shows the full admin section when every key is held', () => {

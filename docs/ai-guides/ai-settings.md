@@ -79,7 +79,7 @@ route: /ai-settings
 ### Select a Model
 1. After choosing a provider, the **Model** dropdown appears
 2. Select the model you want to use:
-   - **DeepSeek**: V4 Flash (fast/cheap) or V4 Pro (smarter)
+   - **DeepSeek**: Flash (fast/cheap) or V4 Pro (smarter)
    - **Kimi**: K3 (flagship), K2.7 Code (coding), K2.6 (vision)
    - **Ollama**: Llama 3.1, Mistral, Qwen 2
    - **OpenAI**: GPT-4 Turbo, GPT-4o, GPT-3.5 Turbo

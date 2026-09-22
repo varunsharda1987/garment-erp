@@ -134,7 +134,7 @@ class ReportGeneratorService {
       materialType: sl.materials?.materialType || 'N/A',
       quantity: Number(sl.quantity || 0).toString(),
       unit: sl.unit,
-      lastUpdated: sl.lastUpdated?.toISOString().split('T')[0] || '',
+      lastUpdated: sl.lastUpdated ?? null,
     }));
 
     const columns = [
@@ -143,7 +143,7 @@ class ReportGeneratorService {
       { fieldName: 'materialType', displayName: 'Type', width: 15 },
       { fieldName: 'quantity', displayName: 'Quantity', width: 15, format: 'number' as const },
       { fieldName: 'unit', displayName: 'Unit', width: 10 },
-      { fieldName: 'lastUpdated', displayName: 'Last Updated', width: 15 },
+      { fieldName: 'lastUpdated', displayName: 'Last Updated', width: 15, format: 'date' as const },
     ];
 
     return this.writeReport(filePath, format, {
@@ -226,7 +226,7 @@ class ReportGeneratorService {
     const data = orders.map((o) => ({
       orderNumber: o.orderNumber,
       customerName: o.customers?.name || 'N/A',
-      orderDate: o.createdAt.toISOString().split('T')[0],
+      orderDate: o.createdAt,
       status: o.status,
       totalQuantity: o.totalQuantity,
       totalAmount: Number(o.totalAmount || 0).toFixed(2),
@@ -235,7 +235,7 @@ class ReportGeneratorService {
     const columns = [
       { fieldName: 'orderNumber', displayName: 'Order Number', width: 20 },
       { fieldName: 'customerName', displayName: 'Customer', width: 30 },
-      { fieldName: 'orderDate', displayName: 'Order Date', width: 15 },
+      { fieldName: 'orderDate', displayName: 'Order Date', width: 15, format: 'date' as const },
       { fieldName: 'status', displayName: 'Status', width: 15 },
       { fieldName: 'totalQuantity', displayName: 'Total Qty', width: 12, format: 'number' as const },
       { fieldName: 'totalAmount', displayName: 'Total Amount', width: 15, format: 'currency' as const },
@@ -273,8 +273,8 @@ class ReportGeneratorService {
       status: wo.status,
       totalQuantity: wo.totalQuantity,
       completedQuantity: wo.completedQuantity || 0,
-      plannedStartDate: wo.plannedStartDate?.toISOString().split('T')[0] || '',
-      plannedEndDate: wo.plannedEndDate?.toISOString().split('T')[0] || '',
+      plannedStartDate: wo.plannedStartDate ?? null,
+      plannedEndDate: wo.plannedEndDate ?? null,
     }));
 
     const columns = [
@@ -284,8 +284,8 @@ class ReportGeneratorService {
       { fieldName: 'status', displayName: 'Status', width: 15 },
       { fieldName: 'totalQuantity', displayName: 'Target Qty', width: 12, format: 'number' as const },
       { fieldName: 'completedQuantity', displayName: 'Completed', width: 12, format: 'number' as const },
-      { fieldName: 'plannedStartDate', displayName: 'Start Date', width: 15 },
-      { fieldName: 'plannedEndDate', displayName: 'Target Date', width: 15 },
+      { fieldName: 'plannedStartDate', displayName: 'Start Date', width: 15, format: 'date' as const },
+      { fieldName: 'plannedEndDate', displayName: 'Target Date', width: 15, format: 'date' as const },
     ];
 
     return this.writeReport(filePath, format, {

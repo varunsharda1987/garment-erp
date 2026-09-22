@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import fs from 'fs';
 import { z } from 'zod';
+import { parseDMY } from '../utils/date';
 
 export interface ImportColumn {
   fieldName: string;
@@ -382,8 +383,15 @@ class ImportService {
     switch (type) {
       case 'number':
         return Number(value);
-      case 'date':
-        return new Date(String(value));
+      case 'date': {
+        const raw = String(value);
+        // Day-first FIRST. `new Date("05/03/2026")` silently reads as May 3rd (MM/DD),
+        // so a 5-March row exported and re-imported came back as 3 May with nothing to
+        // see. parseDMY reads `19-Sep-2026` and `05/03/2026` day-first — the formats we
+        // emit — and rejects impossible days like 31/02 rather than rolling them into
+        // March. ISO (`2026-09-19`) does not match it and falls through unchanged.
+        return parseDMY(raw) ?? new Date(raw);
+      }
       case 'boolean':
         const convertBoolValue = String(value).toLowerCase();
         return ['true', '1', 'yes'].includes(convertBoolValue);

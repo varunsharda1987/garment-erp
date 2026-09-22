@@ -26,10 +26,14 @@ class ExportService {
   async exportToCSV(options: ExportOptions): Promise<string> {
     const { columns, data } = options;
 
-    // Map field names for json2csv parser
+    // Map field names for json2csv parser.
+    // A function `value` (rather than the bare field path) is what lets the column's
+    // `format` reach the CSV at all — before this, CSV ignored formats entirely and
+    // emitted whatever json2csv made of a raw Date.
     const fields = columns.map((col) => ({
       label: col.displayName,
-      value: col.fieldName,
+      value: (row: Record<string, unknown>) =>
+        this.formatValueForCsv(this.getNestedValue(row, col.fieldName), col.format),
     }));
 
     const json2csvParser = new Parser({ fields });
@@ -76,13 +80,21 @@ class ExportService {
       width: col.width || 15,
     }));
 
-    // Add data rows
+    // Add data rows.
+    // The number format is stamped PER CELL, not by re-assigning worksheet.columns:
+    // that assignment already happened above, after the header row existed, and
+    // re-assigning it once data rows exist shifts the rows.
     data.forEach((row) => {
       const rowData = columns.map((col) => {
         const value = this.getNestedValue(row, col.fieldName);
         return this.formatValue(value, col.format);
       });
-      worksheet.addRow(rowData);
+      const addedRow = worksheet.addRow(rowData);
+      columns.forEach((col, i) => {
+        if (col.format === 'date' && addedRow.getCell(i + 1).value instanceof Date) {
+          addedRow.getCell(i + 1).numFmt = 'dd-mmm-yyyy';
+        }
+      });
     });
 
     // Auto-fit columns
@@ -90,7 +102,9 @@ class ExportService {
       if (column) {
         let maxLength = 0;
         column.eachCell?.({ includeEmpty: true }, (cell) => {
-          const cellLength = cell.value ? cell.value.toString().length : 10;
+          // A Date stringifies to ~45 characters ("Sat Sep 19 2026 00:00:00 GMT+0530 …"),
+          // which would pin the column to the 50-char cap. It RENDERS as dd-mmm-yyyy.
+          const cellLength = cell.value instanceof Date ? 12 : cell.value ? cell.value.toString().length : 10;
           if (cellLength > maxLength) {
             maxLength = cellLength;
           }
@@ -211,14 +225,19 @@ class ExportService {
   }
 
   /**
-   * Format value based on format type
+   * Format value for the EXCEL path.
+   *
+   * A `date` column is handed through as a real `Date` so ExcelJS writes a true
+   * date cell; `exportToExcel` then stamps `numFmt: 'dd-mmm-yyyy'` on it. Writing
+   * a pre-formatted string here would display correctly and **sort alphabetically**
+   * — Apr before Jan — which is the whole reason this path is separate from CSV.
    */
   private formatValue(value: unknown, format?: string): unknown {
     if (value === null || value === undefined) return '';
 
     switch (format) {
       case 'date':
-        return value instanceof Date ? value.toLocaleDateString() : value;
+        return value;
       case 'number':
         return typeof value === 'number' ? value.toFixed(2) : value;
       case 'currency':
@@ -228,6 +247,20 @@ class ExportService {
       default:
         return value;
     }
+  }
+
+  /**
+   * Format value for the CSV path, where everything is ultimately text.
+   *
+   * Dates emit `19-Sep-2026`. That is re-import-safe by construction:
+   * `new Date("19-Sep-2026")` parses correctly, whereas `new Date("05/03/2026")`
+   * silently reads as May 3rd. `Sep` has no MM/DD reading, so the alpha month
+   * removes the ambiguity rather than relying on the reader's locale.
+   */
+  private formatValueForCsv(value: unknown, format?: string): unknown {
+    if (value === null || value === undefined) return '';
+    if (format === 'date' || value instanceof Date) return formatDate(value as Date);
+    return this.formatValue(value, format);
   }
 
   /**

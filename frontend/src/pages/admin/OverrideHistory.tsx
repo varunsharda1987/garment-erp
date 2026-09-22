@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card';
 import { ShieldAlert, Download, Search, FileText, Clock, User, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import { formatDate, formatTime, formatDateTime } from '@/lib/date';
 
 interface OverrideHistoryItem {
   id: string;
@@ -101,7 +102,7 @@ export default function OverrideHistory() {
 
       // CSV rows
       const rows = filteredOverrides.map((override) => [
-        new Date(override.overriddenAt).toLocaleString(),
+        formatDateTime(new Date(override.overriddenAt)),
         `${override.overriddenBy.firstName} ${override.overriddenBy.lastName}`,
         override.overriddenBy.email,
         override.blockType,
@@ -256,9 +257,9 @@ export default function OverrideHistory() {
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <div className="font-medium">{new Date(override.overriddenAt).toLocaleDateString()}</div>
+                        <div className="font-medium">{formatDate(new Date(override.overriddenAt))}</div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(override.overriddenAt).toLocaleTimeString()}
+                          {formatTime(new Date(override.overriddenAt))}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(override.overriddenAt), { addSuffix: true })}
@@ -343,7 +344,7 @@ export default function OverrideHistory() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-xs text-muted-foreground">Date & Time</Label>
-                  <p className="text-sm font-medium">{new Date(selectedOverride.overriddenAt).toLocaleString()}</p>
+                  <p className="text-sm font-medium">{formatDateTime(new Date(selectedOverride.overriddenAt))}</p>
                 </div>
                 <div>
                   <Label className="text-xs text-muted-foreground">Type</Label>

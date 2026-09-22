@@ -14,7 +14,8 @@ import type { DeliveryNote, RecordPODRequest, DeliveryConfirmation } from '@/typ
 import { DeliveryConfirmationLabels } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, Truck, Package, FileText, ClipboardCheck } from 'lucide-react';
-import { format } from 'date-fns';
+
+import { formatDate } from '@/lib/date';
 
 export default function DispatchPODForm() {
   const navigate = useNavigate();
@@ -191,7 +192,7 @@ export default function DispatchPODForm() {
               <div>
                 <Label className="text-muted-foreground">Dispatch Date</Label>
                 <p className="font-medium">
-                  {deliveryNote.deliveryDate ? format(new Date(deliveryNote.deliveryDate), 'dd MMM yyyy') : '-'}
+                  {deliveryNote.deliveryDate ? formatDate(new Date(deliveryNote.deliveryDate)) : '-'}
                 </p>
               </div>
             </div>

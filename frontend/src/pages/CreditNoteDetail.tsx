@@ -33,6 +33,7 @@ import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } fr
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { useState } from 'react';
+import { formatDate } from '@/lib/date';
 
 export default function CreditNoteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -98,16 +99,6 @@ export default function CreditNoteDetail() {
     },
     onError: (err) => handleApiError(err, 'Failed to push credit note to Tally'),
   });
-
-  // Helpers
-  const formatDate = (value: string | Date | undefined) => {
-    if (!value) return '-';
-    return new Date(value).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
 
   if (isLoading) {
     return (
@@ -201,16 +192,7 @@ export default function CreditNoteDetail() {
                 </TooltipTrigger>
                 <TooltipContent>
                   {creditNote.tallyPushedAt ? (
-                    <p>
-                      Pushed on{' '}
-                      {new Date(creditNote.tallyPushedAt).toLocaleDateString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+                    <p>Pushed on {formatDate(new Date(creditNote.tallyPushedAt))}</p>
                   ) : creditNote.tallyLastError ? (
                     <p className="text-red-500">Error: {creditNote.tallyLastError}</p>
                   ) : (
@@ -425,14 +407,7 @@ export default function CreditNoteDetail() {
                       <div>
                         <p className="text-sm font-medium text-green-700">Pushed to Tally</p>
                         <p className="text-xs text-muted-foreground">
-                          Voucher: {creditNote.tallyVoucherNumber} •{' '}
-                          {new Date(creditNote.tallyPushedAt).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          Voucher: {creditNote.tallyVoucherNumber} • {formatDate(new Date(creditNote.tallyPushedAt))}
                         </p>
                       </div>
                     </>

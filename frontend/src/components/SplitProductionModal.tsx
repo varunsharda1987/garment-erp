@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import workOrderService from '../services/workOrder.service';
 import type { WorkOrder, SplitWorkOrderDTO } from '../types/production.types';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { formatDate } from '@/lib/date';
 
 interface SplitProductionModalProps {
   isOpen: boolean;
@@ -215,7 +216,7 @@ export default function SplitProductionModal({
               <div className="font-medium text-info mb-1">Split Summary</div>
               <div className="text-info">
                 Moving <strong>{getTotalSplitQuantity()}</strong> pieces to a new production run with dispatch date{' '}
-                <strong>{new Date(plannedDispatchDate).toLocaleDateString()}</strong>
+                <strong>{formatDate(new Date(plannedDispatchDate))}</strong>
               </div>
               <div className="text-info mt-1">
                 Remaining in {workOrder.workOrderNumber}:{' '}

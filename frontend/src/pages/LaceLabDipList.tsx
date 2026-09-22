@@ -15,6 +15,7 @@ import type { LaceLabDip, LabDipStatus, LabDipListFilters } from '../types/laceL
 import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS } from '../types/laceLabDip.types';
 import { notify } from '../lib/notify';
 import { Plus, Search, Eye, Trash2, RefreshCw, ArrowRight } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 export default function LaceLabDipList() {
   const navigate = useNavigate();
@@ -95,15 +96,6 @@ export default function LaceLabDipList() {
       const err = error as { response?: { data?: { error?: string } } };
       notify.error(err.response?.data?.error || 'Failed to delete lab dip');
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   // Filter lab dips by search term

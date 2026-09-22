@@ -5,6 +5,7 @@ import type { ProductionStatusItem } from '@/types/productionStatus.types';
 import StageProgressBar from './StageProgressBar';
 import BlockerTags from './BlockerTags';
 import QuickActions from './QuickActions';
+import { formatDate } from '@/lib/date';
 
 interface StatusListItemProps {
   item: ProductionStatusItem;
@@ -27,15 +28,6 @@ export default function StatusListItem({ item }: StatusListItemProps) {
       return 'bg-success-muted border-success hover:bg-success-muted';
     }
     return 'bg-info-muted border-info hover:bg-info-muted';
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const formatCurrency = (value: number) => {

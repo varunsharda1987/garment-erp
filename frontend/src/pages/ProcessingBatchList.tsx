@@ -14,6 +14,7 @@ import processingBatchService from '../services/processingBatch.service';
 import type { ProcessingBatch, MaterialType, BatchStatus, ProcessingBatchFilters } from '../types/processing.types';
 import { notify } from '../lib/notify';
 import { Search, RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, Layers, Plus } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 // Status colors
 const STATUS_COLORS: Record<BatchStatus, string> = {
@@ -87,15 +88,6 @@ export default function ProcessingBatchList() {
 
   const handleSearch = () => {
     fetchBatches();
-  };
-
-  const formatDate = (dateString: string | Date | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getMaterialName = (batch: ProcessingBatch): string => {

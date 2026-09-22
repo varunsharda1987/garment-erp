@@ -17,6 +17,7 @@ import { sampleService } from '@/services/sample.service';
 import { handleApiSuccess, handleApiError } from '@/lib/api-error-handler';
 import { useWhatsappStatus } from '@/hooks/useWhatsapp';
 import type { Sample } from '@/types/sample.types';
+import { formatDate } from '@/lib/date';
 
 interface NotifyBuyerDialogProps {
   open: boolean;
@@ -41,7 +42,7 @@ function buildBuyerMessage(
   const styleBit = s.style?.styleCode
     ? ` for style ${s.style.styleCode}${buyerRef}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
     : '';
-  const dateStr = sentDate ? new Date(sentDate).toLocaleDateString('en-IN') : '';
+  const dateStr = sentDate ? formatDate(new Date(sentDate)) : '';
   return [
     `Dear ${greet},`,
     '',

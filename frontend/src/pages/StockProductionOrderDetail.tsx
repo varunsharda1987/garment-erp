@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getSPOById, updateSPO, approveSPO, generateWorkOrders } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
 import type { StockProductionOrderStatus } from '@/types/stockProductionOrder.types';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 // Extended style detail with color/size options (returned by API but not in base Style type)
 interface StyleColorOption {
@@ -239,9 +240,7 @@ export default function StockProductionOrderDetail() {
             <CardTitle className="text-sm text-muted-foreground">Target Date</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-medium">
-              {spo.targetDate ? new Date(spo.targetDate).toLocaleDateString() : 'Not set'}
-            </div>
+            <div className="font-medium">{spo.targetDate ? formatDate(new Date(spo.targetDate)) : 'Not set'}</div>
           </CardContent>
         </Card>
         <Card>
@@ -370,7 +369,7 @@ export default function StockProductionOrderDetail() {
             </div>
             <div>
               <span className="text-muted-foreground">Created at</span>
-              <div>{new Date(spo.createdAt).toLocaleString()}</div>
+              <div>{formatDateTime(new Date(spo.createdAt))}</div>
             </div>
             <div>
               <span className="text-muted-foreground">Approved by</span>

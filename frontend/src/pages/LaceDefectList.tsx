@@ -24,6 +24,7 @@ import {
   CLAIM_STATUS_TRANSITIONS,
 } from '../types/laceDefect.types';
 import { notify } from '../lib/notify';
+import { formatDate } from '@/lib/date';
 import {
   Plus,
   Search,
@@ -126,15 +127,6 @@ export default function LaceDefectList() {
   const handleSearch = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
     fetchDefects();
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const formatCurrency = (value: number | null | undefined) => {

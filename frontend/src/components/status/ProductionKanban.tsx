@@ -6,6 +6,7 @@ import { AlertCircle, Package, Calendar, TrendingUp } from 'lucide-react';
 import type { OrderStatusItem } from '@/types/orderProductionStatus.types';
 import type { ProductionStage } from '@/types/style.types';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/date';
 
 interface ProductionKanbanProps {
   items: OrderStatusItem[];
@@ -84,14 +85,6 @@ const STAGE_SHORT_LABELS: Record<string, string> = {
 
 function KanbanCard({ item, onClick }: { item: OrderStatusItem; onClick?: () => void }) {
   const navigate = useNavigate();
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-    });
-  };
 
   const formatCurrency = (value: number) => {
     if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;

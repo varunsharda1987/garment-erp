@@ -26,6 +26,7 @@ import { getTallyInvoices, pushInvoiceToTally } from '@/services/tally.service';
 import type { InvoiceTallyStatus } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 export default function TallyInvoicesPage() {
   const queryClient = useQueryClient();
@@ -114,23 +115,6 @@ export default function TallyInvoicesPage() {
     } else {
       handleApiError(new Error(`All ${failCount} invoice(s) failed`), 'Bulk push failed');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusIcon = (invoice: InvoiceTallyStatus) => {

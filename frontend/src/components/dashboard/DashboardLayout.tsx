@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 import { RefreshCw, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { formatTime } from '@/lib/date';
 
 interface DashboardLayoutProps {
   title: string;
@@ -42,7 +43,7 @@ export function DashboardLayout({
           {lastUpdated && (
             <span className="text-sm text-muted-foreground flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              Updated {lastUpdated.toLocaleTimeString()}
+              Updated {formatTime(lastUpdated)}
             </span>
           )}
           {headerActions}

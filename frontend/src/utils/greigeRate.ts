@@ -16,6 +16,7 @@
  */
 
 import type { FabricForCosting, GreigeCostSource, LiveGreigeCostSource } from '../types/fabricCosting.types';
+import { formatDate } from '@/lib/date';
 
 /** Money equality at paise resolution — these are Decimal(10,2) round-trips. */
 export function sameRate(a: number | null, b: number | null): boolean {
@@ -118,8 +119,7 @@ export function describeLiveRate(row: {
   if (row.liveGreigeCostSourceSupplier) parts.push(row.liveGreigeCostSourceSupplier);
   if (row.liveGreigeCostSourceDate) {
     const d = new Date(row.liveGreigeCostSourceDate);
-    if (!isNaN(d.getTime()))
-      parts.push(d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }));
+    if (!isNaN(d.getTime())) parts.push(formatDate(d));
   }
   return parts.filter(Boolean).join(' · ');
 }

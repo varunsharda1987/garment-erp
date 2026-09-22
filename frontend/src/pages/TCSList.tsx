@@ -30,20 +30,13 @@ import {
 import { getTCSEntries, createTCS, updateTCSStatus, deleteTCS } from '@/services/tcs.service';
 import type { TCSEntry, CreateTCSRequest, TCSStatus } from '@/types/tcs.types';
 import { TCS_STATUS_LABELS, TCS_STATUS_COLORS, TCS_SECTIONS } from '@/types/tcs.types';
+import { formatDate } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const FINANCIAL_YEARS = ['2025-26', '2024-25', '2023-24'];
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function formatAmount(amount: number): string {
   return amount.toLocaleString('en-IN', {

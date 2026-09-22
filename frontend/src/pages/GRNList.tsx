@@ -12,6 +12,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
 import { PackageOpen, Eye } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 type Column<T> = {
   key: string;
@@ -68,14 +69,6 @@ export default function GRNList() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getStatusVariant = (status: GRNStatus) => {

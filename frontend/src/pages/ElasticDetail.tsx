@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
+import { formatDateTime } from '@/lib/date';
 
 export default function ElasticDetail() {
   const navigate = useNavigate();
@@ -353,11 +354,11 @@ export default function ElasticDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-foreground">{new Date(elastic.createdAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(elastic.createdAt))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{new Date(elastic.updatedAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(elastic.updatedAt))}</p>
                 </div>
               </div>
             </CardContent>

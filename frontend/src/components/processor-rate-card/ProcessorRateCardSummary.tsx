@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { processorRateCardV2Service } from '../../services/processorRateCardV2.service';
+import { formatDate } from '@/lib/date';
 import type {
   ProcessorRateCardSummary as SummaryType,
   ProcessorSummary,
@@ -344,7 +345,7 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
                     {/* Last Updated */}
                     {processor.lastUpdatedAt && (
                       <div className="mt-3 pt-2 border-t border-gray-100 text-xs text-muted-foreground">
-                        Updated: {new Date(processor.lastUpdatedAt).toLocaleDateString()}
+                        Updated: {formatDate(new Date(processor.lastUpdatedAt))}
                       </div>
                     )}
                   </div>

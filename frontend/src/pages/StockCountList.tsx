@@ -13,6 +13,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
 import stockCountService from '../services/stockCount.service';
 import type { StockCount, CountStatus, CountType } from '../types/inventory.types';
+import { formatDate } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -114,9 +115,7 @@ export default function StockCountList() {
     {
       key: 'countDate',
       header: 'Count Date',
-      render: (count) => (
-        <div className="text-sm text-foreground">{new Date(count.countDate).toLocaleDateString()}</div>
-      ),
+      render: (count) => <div className="text-sm text-foreground">{formatDate(new Date(count.countDate))}</div>,
     },
     {
       key: 'progress',

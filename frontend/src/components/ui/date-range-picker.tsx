@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { format, isSameDay } from 'date-fns';
+import { isSameDay } from 'date-fns';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 
@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { formatDate } from '@/lib/date';
 
 interface DateRangePickerProps {
   value: DateRange | undefined;
@@ -43,10 +44,10 @@ export function DateRangePicker({
             {value?.from ? (
               value.to ? (
                 <>
-                  {format(value.from, 'dd MMM')} - {format(value.to, 'dd MMM yy')}
+                  {formatDate(value.from)} - {formatDate(value.to)}
                 </>
               ) : (
-                format(value.from, 'dd MMM yyyy')
+                formatDate(value.from)
               )
             ) : (
               <span>{placeholder}</span>

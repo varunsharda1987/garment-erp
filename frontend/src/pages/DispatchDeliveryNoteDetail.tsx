@@ -10,7 +10,8 @@ import { DeliveryStatusLabels, DeliveryStatusColors, DeliveryConfirmationLabels 
 import { handleApiError } from '@/lib/api-error-handler';
 import { BuyerPoCard } from '@/components/sale-order';
 import { ArrowLeft, Loader2, Truck, Package, ClipboardCheck, CheckCircle } from 'lucide-react';
-import { format } from 'date-fns';
+
+import { formatDate } from '@/lib/date';
 
 /**
  * Read-only Delivery Note detail (finding B10-02, BUG-DASH10 fix: corrected route path).
@@ -107,7 +108,7 @@ export default function DispatchDeliveryNoteDetail() {
             </div>
             <div>
               <span className="text-muted-foreground">Dispatch Date:</span>{' '}
-              {note.deliveryDate ? format(new Date(note.deliveryDate), 'dd MMM yyyy') : '-'}
+              {note.deliveryDate ? formatDate(new Date(note.deliveryDate)) : '-'}
             </div>
             <div>
               <span className="text-muted-foreground">Total Pieces:</span> {totalPieces.toLocaleString()}
@@ -168,7 +169,7 @@ export default function DispatchDeliveryNoteDetail() {
                 {transport?.expectedDeliveryDate && (
                   <div>
                     <span className="text-muted-foreground">Expected Delivery:</span>{' '}
-                    {format(new Date(transport.expectedDeliveryDate), 'dd MMM yyyy')}
+                    {formatDate(new Date(transport.expectedDeliveryDate))}
                   </div>
                 )}
               </>
@@ -191,7 +192,7 @@ export default function DispatchDeliveryNoteDetail() {
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div>
               <span className="text-muted-foreground">Delivered On:</span>{' '}
-              {pod.deliveryDate ? format(new Date(pod.deliveryDate), 'dd MMM yyyy') : '-'}
+              {pod.deliveryDate ? formatDate(new Date(pod.deliveryDate)) : '-'}
             </div>
             <div>
               <span className="text-muted-foreground">Received By:</span> {pod.receivedBy || '-'}

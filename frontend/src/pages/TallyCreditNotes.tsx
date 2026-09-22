@@ -27,6 +27,7 @@ import { getTallyCreditNotes, pushCreditNoteToTally } from '@/services/tally.ser
 import type { CreditNoteTallyStatus } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 export default function TallyCreditNotesPage() {
   const queryClient = useQueryClient();
@@ -115,23 +116,6 @@ export default function TallyCreditNotesPage() {
     } else {
       handleApiError(new Error(`All ${failCount} credit note(s) failed`), 'Bulk push failed');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusIcon = (creditNote: CreditNoteTallyStatus) => {

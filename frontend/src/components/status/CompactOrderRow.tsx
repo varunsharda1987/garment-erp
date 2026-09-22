@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { AlertCircle, Package, ChevronRight } from 'lucide-react';
 import type { OrderStatusItem } from '@/types/orderProductionStatus.types';
 import { cn } from '@/lib/utils';
+import { formatDate } from '@/lib/date';
 
 interface CompactOrderRowProps {
   item: OrderStatusItem;
@@ -31,14 +32,6 @@ const STAGE_SHORT_LABELS: Record<string, string> = {
 
 export default function CompactOrderRow({ item, onExpand }: CompactOrderRowProps) {
   const navigate = useNavigate();
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-    });
-  };
 
   const formatCurrency = (value: number) => {
     if (value >= 10000000) return `₹${(value / 10000000).toFixed(1)}Cr`;

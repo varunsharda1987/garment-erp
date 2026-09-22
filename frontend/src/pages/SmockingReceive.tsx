@@ -19,6 +19,7 @@ import { externalProcessService } from '../services/external-process.service';
 import { ArrowLeft } from 'lucide-react';
 import type { ExternalProcessReceiveRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
+import { formatDate } from '@/lib/date';
 
 export default function SmockingReceive() {
   const navigate = useNavigate();
@@ -186,7 +187,7 @@ export default function SmockingReceive() {
               </div>
               <div>
                 <span className="text-muted-foreground">Send Date:</span>{' '}
-                <strong>{new Date(sendOut.sendDate).toLocaleDateString()}</strong>
+                <strong>{formatDate(new Date(sendOut.sendDate))}</strong>
               </div>
               <div>
                 <span className="text-muted-foreground">Agreed Rate:</span>{' '}

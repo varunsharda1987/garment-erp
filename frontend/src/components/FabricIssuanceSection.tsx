@@ -11,6 +11,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
 import type { FabricIssuanceData, FabricIssuanceAnalysis, IssuedChallan } from '@/types/production.types';
 import { useNavigate } from 'react-router-dom';
+import { formatDate } from '@/lib/date';
 
 interface FabricIssuanceSectionProps {
   workOrderId: string;
@@ -299,7 +300,7 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                   return (
                     <TableRow key={challan.id}>
                       <TableCell className="font-medium">{challan.challanNumber}</TableCell>
-                      <TableCell>{new Date(challan.challanDate).toLocaleDateString('en-IN')}</TableCell>
+                      <TableCell>{formatDate(new Date(challan.challanDate))}</TableCell>
                       <TableCell>
                         <Badge
                           className={

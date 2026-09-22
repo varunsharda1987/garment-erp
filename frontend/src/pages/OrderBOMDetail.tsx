@@ -39,6 +39,7 @@ import {
   createFromCostSheet,
 } from '../services/orderBom.service';
 import type { OrderBOM, OrderBOMItem, FabricCadOption } from '../types/orderBom.types';
+import { formatDate } from '@/lib/date';
 
 const OrderBOMDetail = () => {
   const navigate = useNavigate();
@@ -499,12 +500,12 @@ const OrderBOMDetail = () => {
               <div className="mt-3 text-sm text-muted-foreground space-y-1">
                 <div>
                   Created by: {bom.createdBy ? `${bom.createdBy.firstName} ${bom.createdBy.lastName}` : 'N/A'} on{' '}
-                  {new Date(bom.createdAt).toLocaleDateString()}
+                  {formatDate(new Date(bom.createdAt))}
                 </div>
                 {bom.approvedBy && (
                   <div>
                     Approved by: {`${bom.approvedBy.firstName} ${bom.approvedBy.lastName}`} on{' '}
-                    {bom.approvedAt ? new Date(bom.approvedAt).toLocaleDateString() : 'N/A'}
+                    {bom.approvedAt ? formatDate(new Date(bom.approvedAt)) : 'N/A'}
                   </div>
                 )}
                 {bom.sourceCostSheetId && (

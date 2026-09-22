@@ -54,6 +54,7 @@ import TrimIssuanceSection from '@/components/TrimIssuanceSection';
 import ThreadIssuanceSection from '@/components/ThreadIssuanceSection';
 import PackagingIssuanceSection from '@/components/PackagingIssuanceSection';
 import WipSummarySection from '@/components/WipSummarySection';
+import { formatDate } from '@/lib/date';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -313,14 +314,6 @@ export default function WorkOrderDetail() {
       default:
         return 'secondary' as const;
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   const calculateProgress = () => {

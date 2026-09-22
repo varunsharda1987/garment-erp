@@ -60,6 +60,7 @@ import type { CADTableData } from '../types/cad-planning.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
 import { CADOrderHistoryTable } from '../components/cad/CADOrderHistoryTable';
+import { formatDate } from '@/lib/date';
 
 // ============================================
 // INTERFACES
@@ -601,7 +602,7 @@ export default function CADPlanningPage() {
             <div className="text-sm">
               <span className="font-medium text-success">CAD Plan Approved</span>
               {style.approvedCadDate && (
-                <span className="text-success ml-2">on {new Date(style.approvedCadDate).toLocaleDateString()}</span>
+                <span className="text-success ml-2">on {formatDate(new Date(style.approvedCadDate))}</span>
               )}
             </div>
           </div>
@@ -1142,7 +1143,7 @@ function CADHistoryGroupCard({ group, index }: CADHistoryGroupCardProps) {
                         )}
                       </td>
                       <td className="p-2 border-b text-muted-foreground text-xs">
-                        {new Date(cad.updatedAt).toLocaleDateString()}
+                        {formatDate(new Date(cad.updatedAt))}
                       </td>
                     </tr>
                   ))}

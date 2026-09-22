@@ -14,6 +14,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
 import { ClipboardList } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -94,14 +95,6 @@ export default function WorkOrderList() {
       default:
         return 'secondary' as const;
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
   };
 
   const calculateProgress = (workOrder: WorkOrder) => {

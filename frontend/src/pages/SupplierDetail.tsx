@@ -10,6 +10,7 @@ import type { Supplier, SupplierCategory } from '@/types/supplier.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Mail, Phone, Building2, MapPin, CreditCard, Calendar, Star, Banknote } from 'lucide-react';
+import { formatDateTime } from '@/lib/date';
 
 export default function SupplierDetail() {
   const navigate = useNavigate();
@@ -376,11 +377,11 @@ export default function SupplierDetail() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-foreground">{new Date(supplier.createdAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(supplier.createdAt))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{new Date(supplier.updatedAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(supplier.updatedAt))}</p>
                 </div>
                 {supplier.users && (
                   <div>

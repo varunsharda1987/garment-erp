@@ -72,6 +72,7 @@ import {
 
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 import { CADPartMultiSelect } from './CADPartMultiSelect';
+import { formatDate } from '@/lib/date';
 
 /**
  * Field styling by type for visual differentiation
@@ -2490,7 +2491,7 @@ export function CADSpreadsheetTable({
                           </Badge>
                         </TableCell>
                         <TableCell>{stock.rollNumbers || '-'}</TableCell>
-                        <TableCell>{new Date(stock.receivedDate).toLocaleDateString()}</TableCell>
+                        <TableCell>{formatDate(new Date(stock.receivedDate))}</TableCell>
                         <TableCell>
                           <Button size="sm" onClick={() => handleSelectStock(stock.id)}>
                             Select

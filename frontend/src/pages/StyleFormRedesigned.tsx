@@ -93,6 +93,7 @@ import { getUploadUrl } from '../config/api.config';
 import api from '../lib/api';
 import { FABRIC_FINISH_TYPES, type FabricFinishType } from '../constants/fabric-finish-types';
 import { MiniMarkerBadge } from '../components/cad/MiniMarkerBadge';
+import { formatTime, formatDateTime } from '@/lib/date';
 
 // Enums
 type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
@@ -2318,7 +2319,7 @@ export default function StyleFormRedesigned() {
               ) : lastAutoSaved ? (
                 <>
                   <div className="w-2 h-2 rounded-full bg-success-muted" />
-                  <span>Auto-saved {lastAutoSaved.toLocaleTimeString()}</span>
+                  <span>Auto-saved {formatTime(lastAutoSaved)}</span>
                 </>
               ) : null}
             </div>
@@ -3771,7 +3772,7 @@ export default function StyleFormRedesigned() {
               You have unsaved changes from a previous session.
               {pendingLocalRestore?.timestamp && (
                 <span className="block mt-1 text-xs">
-                  Last edited: {new Date(pendingLocalRestore.timestamp).toLocaleString()}
+                  Last edited: {formatDateTime(new Date(pendingLocalRestore.timestamp))}
                 </span>
               )}
             </DialogDescription>

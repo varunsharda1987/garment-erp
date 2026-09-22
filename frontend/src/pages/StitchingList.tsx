@@ -34,7 +34,8 @@ import type {
 } from '@/types/stitching.types';
 import { StitchingIssueStatusLabels, StitchingIssueStatusColors } from '@/types/stitching.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
+import { formatDate } from '@/lib/date';
 
 export default function StitchingList() {
   const navigate = useNavigate();
@@ -379,10 +380,8 @@ export default function StitchingList() {
                           <span className="text-sm">{issue.workOrder?.style?.buyerStyleRef || '—'}</span>
                         </TableCell>
                         <TableCell>{issue.contractor?.name || issue.manager?.name || '-'}</TableCell>
-                        <TableCell>
-                          {issue.startDate ? format(new Date(issue.startDate), 'dd MMM yyyy') : '—'}
-                        </TableCell>
-                        <TableCell>{issue.endDate ? format(new Date(issue.endDate), 'dd MMM yyyy') : '—'}</TableCell>
+                        <TableCell>{issue.startDate ? formatDate(new Date(issue.startDate)) : '—'}</TableCell>
+                        <TableCell>{issue.endDate ? formatDate(new Date(issue.endDate)) : '—'}</TableCell>
                         <TableCell className="text-center">
                           {issue.startDate && issue.endDate
                             ? Math.max(1, differenceInCalendarDays(new Date(issue.endDate), new Date(issue.startDate)))
@@ -522,7 +521,7 @@ export default function StitchingList() {
                               )}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              Transferred: {format(new Date(slip.transferDate), 'dd MMM yyyy')}
+                              Transferred: {formatDate(new Date(slip.transferDate))}
                               {slip.issuedTo && ` • Contractor: ${slip.issuedTo}`}
                             </div>
                           </div>

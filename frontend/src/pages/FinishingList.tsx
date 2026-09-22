@@ -35,7 +35,8 @@ import type {
 } from '@/types/finishing.types';
 import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
+import { formatDate } from '@/lib/date';
 
 export default function FinishingList() {
   const navigate = useNavigate();
@@ -379,10 +380,8 @@ export default function FinishingList() {
                           <span className="text-sm">{issue.workOrder?.style?.buyerStyleRef || '—'}</span>
                         </TableCell>
                         <TableCell>{issue.contractor?.name || issue.manager?.name || '-'}</TableCell>
-                        <TableCell>
-                          {issue.startDate ? format(new Date(issue.startDate), 'dd MMM yyyy') : '—'}
-                        </TableCell>
-                        <TableCell>{issue.endDate ? format(new Date(issue.endDate), 'dd MMM yyyy') : '—'}</TableCell>
+                        <TableCell>{issue.startDate ? formatDate(new Date(issue.startDate)) : '—'}</TableCell>
+                        <TableCell>{issue.endDate ? formatDate(new Date(issue.endDate)) : '—'}</TableCell>
                         <TableCell className="text-center">
                           {issue.startDate && issue.endDate
                             ? Math.max(1, differenceInCalendarDays(new Date(issue.endDate), new Date(issue.startDate)))
@@ -513,8 +512,7 @@ export default function FinishingList() {
                         <span className="text-sm text-muted-foreground">{slip.styleName}</span>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {slip.workOrderNumber} | {slip.totalGoodPieces} pcs |{' '}
-                        {format(new Date(slip.transferDate), 'dd MMM yyyy')}
+                        {slip.workOrderNumber} | {slip.totalGoodPieces} pcs | {formatDate(new Date(slip.transferDate))}
                         {slip.issuedTo && ` | From: ${slip.issuedTo}`}
                       </div>
                     </div>

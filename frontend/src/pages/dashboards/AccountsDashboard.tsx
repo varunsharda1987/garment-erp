@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import api from '@/lib/api';
 import { formatCurrencyWhole, formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 interface AccountsStats {
   outstandingInvoices: number;
@@ -223,7 +224,7 @@ export default function AccountsDashboard() {
               return (
                 <span className={isOverdue ? 'text-destructive' : ''}>
                   <Clock className="h-4 w-4 inline mr-1" />
-                  {date.toLocaleDateString()}
+                  {formatDate(date)}
                 </span>
               );
             },

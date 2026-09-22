@@ -12,6 +12,7 @@ import { Loader2, Save, TestTube, QrCode, Check, X, AlertTriangle } from 'lucide
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getEInvoiceSettings, updateEInvoiceSettings, testEInvoiceConnection } from '@/services/einvoice.service';
 import type { EInvoiceSettings, EInvoiceSettingsUpdateRequest } from '@/types/einvoice.types';
+import { formatDateTime } from '@/lib/date';
 
 export default function EInvoiceSettingsPage() {
   const queryClient = useQueryClient();
@@ -283,7 +284,7 @@ export default function EInvoiceSettingsPage() {
                 </div>
                 {testResult.tokenExpiry && (
                   <p className="text-muted-foreground mt-1 ml-6">
-                    Token valid until {new Date(testResult.tokenExpiry).toLocaleString('en-IN')}
+                    Token valid until {formatDateTime(new Date(testResult.tokenExpiry))}
                   </p>
                 )}
               </div>

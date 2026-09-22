@@ -10,6 +10,7 @@ import {
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { logError } from '../lib/logger';
+import { formatDate } from '@/lib/date';
 
 interface Fabric {
   id: string;
@@ -309,9 +310,7 @@ export default function FabricUsageReport() {
                                           {stock.purchaseCost ? `₹${stock.purchaseCost.toFixed(2)}` : '-'}
                                         </td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">
-                                          {stock.receivedDate
-                                            ? new Date(stock.receivedDate).toLocaleDateString()
-                                            : 'N/A'}
+                                          {stock.receivedDate ? formatDate(new Date(stock.receivedDate)) : 'N/A'}
                                         </td>
                                       </tr>
                                     ))}

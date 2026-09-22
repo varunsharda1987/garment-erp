@@ -9,6 +9,7 @@ import type { Material } from '@/types/material.types';
 import { UnitLabels } from '@/types/material.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { ArrowLeft, Edit, Package, Layers, Building2, FileText, AlertTriangle, Warehouse } from 'lucide-react';
+import { formatDateTime } from '@/lib/date';
 
 export default function MaterialDetail() {
   const navigate = useNavigate();
@@ -291,11 +292,11 @@ export default function MaterialDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-foreground">{new Date(material.createdAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(material.createdAt))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{new Date(material.updatedAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(material.updatedAt))}</p>
                 </div>
               </div>
             </CardContent>

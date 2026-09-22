@@ -19,6 +19,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
 import stockMovementService, { type UnifiedMovement } from '../services/stockMovement.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { formatDate } from '@/lib/date';
 
 type Column<T> = {
   key: string;
@@ -118,7 +119,7 @@ export default function StockMovementList() {
     {
       key: 'date',
       header: 'Date',
-      render: (mov) => <div className="text-sm text-foreground">{new Date(mov.date).toLocaleDateString()}</div>,
+      render: (mov) => <div className="text-sm text-foreground">{formatDate(new Date(mov.date))}</div>,
     },
     {
       key: 'direction',

@@ -19,6 +19,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { extractRateSlabChange } from '@/lib/rate-slab-change';
 import { ShoppingCart, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -127,14 +128,6 @@ export default function OrderList() {
     } finally {
       setOrderToDelete(null);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getPriorityVariant = (priority: Priority) => {

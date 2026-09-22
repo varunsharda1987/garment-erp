@@ -33,18 +33,11 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function getStatusBadgeClasses(status: DocumentStatus): string {
   return DocumentStatusColors[status] ?? 'bg-muted text-foreground';

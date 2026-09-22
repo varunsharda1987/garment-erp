@@ -16,6 +16,7 @@ import {
 import processingBatchService from '../services/processingBatch.service';
 import type { ProcessingBatch, BatchStatus } from '../types/processing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatDate } from '@/lib/date';
 
 const STATUS_COLORS: Record<BatchStatus, string> = {
   ACTIVE: 'bg-info-muted text-info border-info/20',
@@ -97,10 +98,6 @@ export default function ProcessingBatchDetail() {
     }
   };
 
-  const formatDate = (value: string | Date | undefined) => {
-    if (!value) return '-';
-    return new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
   const formatQty = (value: number | undefined) =>
     Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
   const formatCost = (value: number | undefined) =>

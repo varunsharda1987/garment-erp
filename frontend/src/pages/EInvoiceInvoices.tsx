@@ -30,6 +30,7 @@ import { getEInvoiceInvoices, generateIrn, cancelIrn, preflightEInvoice } from '
 import type { EInvoiceInvoiceRow, EInvoicePreflightResult } from '@/types/einvoice.types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 const CANCEL_REASONS = [
   { value: '1', label: 'Duplicate' },
@@ -170,9 +171,6 @@ export default function EInvoiceInvoicesPage() {
       handleApiError(new Error(`All ${failCount} invoice(s) failed`), 'Bulk generation failed');
     }
   };
-
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const getStatusBadge = (row: EInvoiceInvoiceRow) => {
     if (row.eInvoiceStatus === 'GENERATED') {

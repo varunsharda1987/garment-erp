@@ -14,6 +14,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { FileText, Plus } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 // Local type definition
 type Column<T> = {
@@ -113,14 +114,6 @@ export default function QuotationList() {
     } finally {
       setQuotationToDelete(null);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getStatusVariant = (status: QuotationStatus) => {

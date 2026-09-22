@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { User, Mail, Phone, Calendar, Shield, Loader2 } from 'lucide-react';
 import type { UpdateUserData } from '@/types/user.types';
+import { formatDate } from '@/lib/date';
 
 export default function Profile() {
   const { user: currentUser, setUser } = useAuthStore();
@@ -242,13 +243,7 @@ export default function Profile() {
                     <p className="text-xs text-muted-foreground">Account creation date</p>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {new Date(currentUser.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </p>
+                <p className="text-sm text-muted-foreground">{formatDate(new Date(currentUser.createdAt))}</p>
               </div>
             )}
           </CardContent>

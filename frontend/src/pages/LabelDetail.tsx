@@ -10,6 +10,7 @@ import { getLabelCategoryTerm } from '@/types/label.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { Badge } from '@/components/ui/badge';
+import { formatDateTime } from '@/lib/date';
 import {
   ArrowLeft,
   Edit,
@@ -379,11 +380,11 @@ export default function LabelDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-foreground">{new Date(label.createdAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(label.createdAt))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{new Date(label.updatedAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(label.updatedAt))}</p>
                 </div>
               </div>
             </CardContent>

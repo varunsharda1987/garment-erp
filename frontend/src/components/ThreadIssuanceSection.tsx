@@ -11,6 +11,7 @@ import workOrderService from '@/services/workOrder.service';
 import type { ThreadIssuanceData, ThreadIssuanceItem, IssuedChallan } from '@/types/production.types';
 import { THREAD_PLY_LABELS, THREAD_PACKAGING_LABELS } from '@/types/thread.types';
 import { useNavigate } from 'react-router-dom';
+import { formatDate } from '@/lib/date';
 
 interface ThreadIssuanceSectionProps {
   workOrderId: string;
@@ -221,7 +222,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
                       {challan.challanNumber}
                     </Badge>
                     <span className="text-muted-foreground">
-                      {new Date(challan.challanDate).toLocaleDateString()} — {challan.items.length} item(s)
+                      {formatDate(new Date(challan.challanDate))} — {challan.items.length} item(s)
                     </span>
                     <Badge variant={challan.status === 'ISSUED' ? 'default' : 'outline'} className="text-xs">
                       {challan.status}

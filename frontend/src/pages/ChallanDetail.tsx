@@ -23,8 +23,9 @@ import { ChallanTypeLabels, ChallanTypeColors, ChallanStatusLabels, ChallanStatu
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Send, X, ArrowRight, Loader2, Printer, PackageCheck } from 'lucide-react';
-import { format } from 'date-fns';
+
 import { openPDF } from '@/lib/document-utils';
+import { formatDate } from '@/lib/date';
 
 export default function ChallanDetail() {
   const { id } = useParams<{ id: string }>();
@@ -224,25 +225,21 @@ export default function ChallanDetail() {
             </div>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
-                <span className="text-muted-foreground">Date:</span>{' '}
-                {format(new Date(challan.challanDate), 'dd MMM yyyy')}
+                <span className="text-muted-foreground">Date:</span> {formatDate(new Date(challan.challanDate))}
               </div>
               {challan.expectedDate && (
                 <div>
-                  <span className="text-muted-foreground">Expected:</span>{' '}
-                  {format(new Date(challan.expectedDate), 'dd MMM yyyy')}
+                  <span className="text-muted-foreground">Expected:</span> {formatDate(new Date(challan.expectedDate))}
                 </div>
               )}
               {challan.issuedDate && (
                 <div>
-                  <span className="text-muted-foreground">Issued:</span>{' '}
-                  {format(new Date(challan.issuedDate), 'dd MMM yyyy')}
+                  <span className="text-muted-foreground">Issued:</span> {formatDate(new Date(challan.issuedDate))}
                 </div>
               )}
               {challan.receivedDate && (
                 <div>
-                  <span className="text-muted-foreground">Received:</span>{' '}
-                  {format(new Date(challan.receivedDate), 'dd MMM yyyy')}
+                  <span className="text-muted-foreground">Received:</span> {formatDate(new Date(challan.receivedDate))}
                 </div>
               )}
             </div>

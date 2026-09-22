@@ -9,6 +9,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
 import { FileText, Calendar } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,12 +101,6 @@ interface GSTR3BSummary {
 // ---------------------------------------------------------------------------
 // Date helpers
 // ---------------------------------------------------------------------------
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-}
 
 function toISODate(date: Date): string {
   const y = date.getFullYear();

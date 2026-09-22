@@ -29,7 +29,8 @@ import { DeliveryStatusLabels, DeliveryStatusColors, ASNStatusLabels, ASNStatusC
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { AssignTransportDialog } from '@/components/dispatch/AssignTransportDialog';
 import { ASNActionDialog, type ASNAction } from '@/components/dispatch/ASNActionDialog';
-import { format } from 'date-fns';
+
+import { formatDate } from '@/lib/date';
 
 export default function DispatchList() {
   const navigate = useNavigate();
@@ -315,9 +316,7 @@ export default function DispatchList() {
                         <TableCell className="font-medium">{dn.deliveryNumber}</TableCell>
                         <TableCell>{dn.order?.orderNumber || '-'}</TableCell>
                         <TableCell>{dn.customer?.billingName || dn.customer?.name || '-'}</TableCell>
-                        <TableCell>
-                          {dn.deliveryDate ? format(new Date(dn.deliveryDate), 'dd MMM yyyy') : '-'}
-                        </TableCell>
+                        <TableCell>{dn.deliveryDate ? formatDate(new Date(dn.deliveryDate)) : '-'}</TableCell>
                         <TableCell className="text-right">
                           {dn.items?.reduce((sum, item) => sum + item.quantity, 0) || 0}
                         </TableCell>
@@ -329,7 +328,7 @@ export default function DispatchList() {
                               <div className="font-medium">{dn.ext.pod.customerGrnNumber}</div>
                               {dn.ext.pod.customerGrnDate && (
                                 <div className="text-muted-foreground text-xs">
-                                  {format(new Date(dn.ext.pod.customerGrnDate), 'dd MMM yyyy')}
+                                  {formatDate(new Date(dn.ext.pod.customerGrnDate))}
                                 </div>
                               )}
                             </div>
@@ -474,13 +473,13 @@ export default function DispatchList() {
                       >
                         <TableCell className="font-medium">{asn.asnNumber}</TableCell>
                         <TableCell>{asn.order?.orderNumber || '-'}</TableCell>
-                        <TableCell>{format(new Date(asn.requestedShipDate), 'dd MMM yyyy')}</TableCell>
+                        <TableCell>{formatDate(new Date(asn.requestedShipDate))}</TableCell>
                         <TableCell className="text-right">{asn.plannedDispatchQty}</TableCell>
                         <TableCell className="text-right">{asn.cartonsPlanned}</TableCell>
                         <TableCell>
                           {asn.appointmentDate ? (
                             <div>
-                              <div>{format(new Date(asn.appointmentDate), 'dd MMM yyyy')}</div>
+                              <div>{formatDate(new Date(asn.appointmentDate))}</div>
                               {asn.appointmentTime && (
                                 <div className="text-sm text-muted-foreground">{asn.appointmentTime}</div>
                               )}

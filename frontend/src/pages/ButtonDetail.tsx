@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatDateTime } from '@/lib/date';
 
 export default function ButtonDetail() {
   const navigate = useNavigate();
@@ -362,11 +363,11 @@ export default function ButtonDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-foreground">{new Date(button.createdAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(button.createdAt))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{new Date(button.updatedAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(button.updatedAt))}</p>
                 </div>
               </div>
             </CardContent>

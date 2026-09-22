@@ -12,6 +12,7 @@ import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import api from '@/lib/api';
+import { formatDate } from '@/lib/date';
 
 interface ProductionStats {
   ordersInProduction: number;
@@ -183,7 +184,7 @@ export default function ProductionDashboard() {
               return (
                 <span className={isOverdue ? 'text-destructive font-medium' : ''}>
                   <Clock className="h-4 w-4 inline mr-1" />
-                  {date.toLocaleDateString()}
+                  {formatDate(date)}
                 </span>
               );
             },

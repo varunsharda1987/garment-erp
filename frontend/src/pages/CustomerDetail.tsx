@@ -55,6 +55,7 @@ import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets'
 import { CustomerAddressDialog } from '@/components/CustomerAddressDialog';
 import { CustomerContactDialog } from '@/components/CustomerContactDialog';
 import { toast } from 'sonner';
+import { formatDateTime } from '@/lib/date';
 
 // BUG-CU7 fix: Type-safe Customer usage with proper imports (no unsafe casts)
 // BUG-CU10 fix: Using Customer type from customer.types.ts instead of duplicate local interface
@@ -539,11 +540,11 @@ export default function CustomerDetail() {
                 <CardContent className="space-y-3">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                    <p className="text-foreground">{new Date(customer.createdAt).toLocaleString()}</p>
+                    <p className="text-foreground">{formatDateTime(new Date(customer.createdAt))}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                    <p className="text-foreground">{new Date(customer.updatedAt).toLocaleString()}</p>
+                    <p className="text-foreground">{formatDateTime(new Date(customer.updatedAt))}</p>
                   </div>
                 </CardContent>
               </Card>

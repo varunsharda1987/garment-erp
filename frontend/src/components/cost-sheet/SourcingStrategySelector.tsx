@@ -5,6 +5,7 @@
 
 import { useState } from 'react';
 import type { FabricCostCalculationResult } from '../../types/fabricCosting.types';
+import { formatDate } from '@/lib/date';
 
 interface SourcingStrategySelectorProps {
   isOpen: boolean;
@@ -101,16 +102,6 @@ export default function SourcingStrategySelector({
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return '-';
     return `₹${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return null;
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch {
-      return null;
-    }
   };
 
   const getRateSourceLabel = (source: string | null | undefined) => {

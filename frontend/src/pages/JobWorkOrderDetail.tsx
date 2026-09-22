@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -59,6 +59,7 @@ import { openPDF } from '@/lib/document-utils';
 import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage';
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
+import { formatDate } from '@/lib/date';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -885,7 +886,7 @@ export default function JobWorkOrderDetail() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Sent Date</Label>
-                  <p className="font-medium">{jwo.sentDate ? format(new Date(jwo.sentDate), 'dd MMM yyyy') : '-'}</p>
+                  <p className="font-medium">{jwo.sentDate ? formatDate(new Date(jwo.sentDate)) : '-'}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Need By</Label>
@@ -900,14 +901,12 @@ export default function JobWorkOrderDetail() {
                         : ''
                     }`}
                   >
-                    {jwo.expectedReturnDate ? format(new Date(jwo.expectedReturnDate), 'dd MMM yyyy') : '-'}
+                    {jwo.expectedReturnDate ? formatDate(new Date(jwo.expectedReturnDate)) : '-'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Received Date</Label>
-                  <p className="font-medium">
-                    {jwo.receivedDate ? format(new Date(jwo.receivedDate), 'dd MMM yyyy') : '-'}
-                  </p>
+                  <p className="font-medium">{jwo.receivedDate ? formatDate(new Date(jwo.receivedDate)) : '-'}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Days Outstanding</Label>
@@ -1174,7 +1173,7 @@ export default function JobWorkOrderDetail() {
                           </span>
                           <span className="text-xs text-muted-foreground">
                             {qty != null ? `${Number(qty).toFixed(2)} ${jwo.uom}` : ''}
-                            {r.receivingDate ? ` · ${format(new Date(r.receivingDate), 'dd-MMM-yyyy')}` : ''}
+                            {r.receivingDate ? ` · ${formatDate(new Date(r.receivingDate))}` : ''}
                           </span>
                         </Button>
                       );
@@ -1233,7 +1232,7 @@ export default function JobWorkOrderDetail() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Due Date (Section 143)</span>
                 <span className="font-medium">
-                  {jwo.statutoryDueDate ? format(new Date(jwo.statutoryDueDate), 'dd MMM yyyy') : '-'}
+                  {jwo.statutoryDueDate ? formatDate(new Date(jwo.statutoryDueDate)) : '-'}
                 </span>
               </div>
               <div className="flex justify-between">

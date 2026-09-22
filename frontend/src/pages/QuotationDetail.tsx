@@ -20,6 +20,7 @@ import { formatCurrency } from '@/lib/currency';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send, ShoppingCart } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 export default function QuotationDetail() {
   const navigate = useNavigate();
@@ -77,24 +78,6 @@ export default function QuotationDetail() {
     } catch (err) {
       handleApiError(err, 'Failed to delete quotation');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusVariant = (status: string) => {

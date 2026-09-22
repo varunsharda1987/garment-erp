@@ -54,6 +54,7 @@ import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { SizeBreakupDialog } from '@/components/orders/SizeBreakupDialog';
+import { formatDate } from '@/lib/date';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -459,7 +460,7 @@ export default function OrderDetail() {
 
             {costing.varianceCalculatedAt && (
               <div className="mt-2 text-xs text-muted-foreground">
-                Calculated: {new Date(costing.varianceCalculatedAt).toLocaleDateString()}
+                Calculated: {formatDate(new Date(costing.varianceCalculatedAt))}
               </div>
             )}
 
@@ -563,11 +564,11 @@ export default function OrderDetail() {
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">Order Date</div>
-              <div className="mt-1">{new Date(order.orderDate).toLocaleDateString()}</div>
+              <div className="mt-1">{formatDate(new Date(order.orderDate))}</div>
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">Expected Delivery</div>
-              <div className="mt-1">{new Date(order.expectedDeliveryDate).toLocaleDateString()}</div>
+              <div className="mt-1">{formatDate(new Date(order.expectedDeliveryDate))}</div>
             </div>
             <div>
               <div className="text-sm font-medium text-muted-foreground">Total Quantity</div>
@@ -919,9 +920,9 @@ export default function OrderDetail() {
                       <div className="text-sm text-muted-foreground">Delivery Date</div>
                       <div>
                         {item.deliveryDate
-                          ? new Date(item.deliveryDate).toLocaleDateString()
+                          ? formatDate(new Date(item.deliveryDate))
                           : order.expectedDeliveryDate
-                            ? new Date(order.expectedDeliveryDate).toLocaleDateString()
+                            ? formatDate(new Date(order.expectedDeliveryDate))
                             : 'N/A'}
                       </div>
                     </div>
@@ -1155,11 +1156,11 @@ export default function OrderDetail() {
                       </div>
                       <div>
                         <div className="text-muted-foreground">Planned Start</div>
-                        <div className="font-medium">{new Date(wo.plannedStartDate).toLocaleDateString()}</div>
+                        <div className="font-medium">{formatDate(new Date(wo.plannedStartDate))}</div>
                       </div>
                       <div>
                         <div className="text-muted-foreground">Planned End</div>
-                        <div className="font-medium">{new Date(wo.plannedEndDate).toLocaleDateString()}</div>
+                        <div className="font-medium">{formatDate(new Date(wo.plannedEndDate))}</div>
                       </div>
                     </div>
 

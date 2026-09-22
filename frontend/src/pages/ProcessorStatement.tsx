@@ -21,6 +21,7 @@ import { formatQuantity } from '@/lib/formatters';
 import { openPDF } from '@/lib/document-utils';
 import { getProcessorStatement, processorStatementPdfPath } from '@/services/processorStatement.service';
 import type { ProcessorStatement as Statement, StatementJobLine, StatementUom } from '@/types/processorStatement.types';
+import { formatDate } from '@/lib/date';
 
 function thisMonth(): { from: string; to: string } {
   const now = new Date();
@@ -38,8 +39,7 @@ function shortfallText(value: number, unit: StatementUom): string {
   return value > 0 ? `${qty(Math.abs(value), unit)} short` : `${qty(Math.abs(value), unit)} over`;
 }
 
-const fmtDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtDate = (value: string | null) => (value ? formatDate(new Date(value)) : '—');
 
 function JobRow({ job }: { job: StatementJobLine }) {
   return (

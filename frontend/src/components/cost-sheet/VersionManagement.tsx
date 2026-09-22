@@ -4,6 +4,7 @@
  */
 
 import { useState } from 'react';
+import { formatDateTime as formatDate } from '@/lib/date';
 
 interface CostSheetVersion {
   id: string;
@@ -44,16 +45,6 @@ export default function VersionManagement({
 
   const formatCurrency = (amount: number) => {
     return `₹${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getVarianceColor = (variance: number | null) => {

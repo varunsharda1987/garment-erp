@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+
 import { MessageCircle, Loader2, Users, Plus, X, Search } from 'lucide-react';
 
 import {
@@ -32,6 +32,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { whatsappService, toWaNumber } from '@/services/whatsapp.service';
 import { useWhatsappStatus } from '@/hooks/useWhatsapp';
 import type { JobWorkOrder } from '@/types/jobWorkOrder.types';
+import { formatDate } from '@/lib/date';
 
 interface JwoWhatsAppSendDialogProps {
   jwo: JobWorkOrder | null;
@@ -69,7 +70,7 @@ function buildCaption(jwo: JobWorkOrder): string {
     lines.push(`Rate: ₹${jwo.agreedRatePerMeter}/${jwo.uom}`);
   }
   if (jwo.expectedReturnDate) {
-    lines.push(`Need by: ${format(new Date(jwo.expectedReturnDate), 'dd MMM yyyy')}`);
+    lines.push(`Need by: ${formatDate(new Date(jwo.expectedReturnDate))}`);
   }
   return lines.join('\n');
 }

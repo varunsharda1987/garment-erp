@@ -15,6 +15,7 @@ import { AGING_BUCKET_COLORS } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Clock, RefreshCw } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 const BUCKET_ORDER: LaceStockAgingItem['agingBucket'][] = ['0-30', '31-60', '61-90', '90+'];
 
@@ -137,7 +138,7 @@ export default function LaceStockAging() {
                       <td className="px-4 py-3 text-right">{item.quantityAvailable.toLocaleString()}m</td>
                       <td className="px-4 py-3 text-right">{formatCurrency(item.weightedAvgCost)}</td>
                       <td className="px-4 py-3 text-right">{formatCurrency(item.totalValue)}</td>
-                      <td className="px-4 py-3">{new Date(item.receivedDate).toLocaleDateString('en-IN')}</td>
+                      <td className="px-4 py-3">{formatDate(new Date(item.receivedDate))}</td>
                       <td className="px-4 py-3 text-right font-medium">{item.agingDays}</td>
                       <td className="px-4 py-3 text-center">
                         <Badge className={AGING_BUCKET_COLORS[item.agingBucket]}>{item.agingBucket}</Badge>

@@ -30,6 +30,7 @@ import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { formatCurrency } from '../lib/currency';
+import { formatDate } from '@/lib/date';
 
 export default function EmbroideryAvailableStock() {
   const navigate = useNavigate();
@@ -215,9 +216,9 @@ export default function EmbroideryAvailableStock() {
       so.quantitySent,
       so.quantityReceived || '',
       so.status,
-      new Date(so.sendDate).toLocaleDateString(),
-      so.expectedReturnDate ? new Date(so.expectedReturnDate).toLocaleDateString() : '',
-      so.actualReturnDate ? new Date(so.actualReturnDate).toLocaleDateString() : '',
+      formatDate(new Date(so.sendDate)),
+      so.expectedReturnDate ? formatDate(new Date(so.expectedReturnDate)) : '',
+      so.actualReturnDate ? formatDate(new Date(so.actualReturnDate)) : '',
       so.agreedRate,
     ]);
     const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');
@@ -498,16 +499,14 @@ export default function EmbroideryAvailableStock() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">{getStatusBadge(so.status)}</td>
-                          <td className="px-4 py-3 text-center text-foreground">
-                            {new Date(so.sendDate).toLocaleDateString()}
-                          </td>
+                          <td className="px-4 py-3 text-center text-foreground">{formatDate(new Date(so.sendDate))}</td>
                           <td className="px-4 py-3 text-center">
                             {so.expectedReturnDate ? (
                               <span
                                 className={`flex items-center justify-center gap-1 ${isOverdue(so.expectedReturnDate, so.status) ? 'text-destructive font-medium' : 'text-foreground'}`}
                               >
                                 {isOverdue(so.expectedReturnDate, so.status) && <AlertTriangle className="h-3 w-3" />}
-                                {new Date(so.expectedReturnDate).toLocaleDateString()}
+                                {formatDate(new Date(so.expectedReturnDate))}
                               </span>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -588,7 +587,7 @@ export default function EmbroideryAvailableStock() {
                             </td>
                             <td className="p-3 text-right">{parseFloat(stock.finishedWidth).toFixed(1)}&quot;</td>
                             <td className="p-3">
-                              {stock.receivedDate ? new Date(stock.receivedDate).toLocaleDateString() : '—'}
+                              {stock.receivedDate ? formatDate(new Date(stock.receivedDate)) : '—'}
                             </td>
                             <td className="p-3 text-center">
                               <span className={agingDays > 7 ? 'text-destructive font-medium' : ''}>{agingDays}</span>

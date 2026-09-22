@@ -37,7 +37,8 @@ import { finishingIssueService } from '@/services/finishing.service';
 import type { FinishingIssue, FinishingStatus, RecordDailyOutputRequest } from '@/types/finishing.types';
 import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { format } from 'date-fns';
+
+import { formatDate } from '@/lib/date';
 
 interface OutputEntry {
   colorId: string;
@@ -536,7 +537,7 @@ export default function FinishingDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Issue Date</span>
-                <span className="font-medium">{format(new Date(issue.issueDate), 'dd MMM yyyy')}</span>
+                <span className="font-medium">{formatDate(new Date(issue.issueDate))}</span>
               </div>
             </CardContent>
           </Card>
@@ -556,19 +557,19 @@ export default function FinishingDetail() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Expected Completion</span>
                 <span className="font-medium">
-                  {issue.expectedCompletionDate ? format(new Date(issue.expectedCompletionDate), 'dd MMM yyyy') : '-'}
+                  {issue.expectedCompletionDate ? formatDate(new Date(issue.expectedCompletionDate)) : '-'}
                 </span>
               </div>
               {issue.startDate && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Started On</span>
-                  <span className="font-medium">{format(new Date(issue.startDate), 'dd MMM yyyy')}</span>
+                  <span className="font-medium">{formatDate(new Date(issue.startDate))}</span>
                 </div>
               )}
               {issue.endDate && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Completed On</span>
-                  <span className="font-medium">{format(new Date(issue.endDate), 'dd MMM yyyy')}</span>
+                  <span className="font-medium">{formatDate(new Date(issue.endDate))}</span>
                 </div>
               )}
             </CardContent>
@@ -656,7 +657,7 @@ export default function FinishingDetail() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{format(new Date(output.outputDate), 'dd MMM yyyy')}</span>
+                          <span className="font-medium">{formatDate(new Date(output.outputDate))}</span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-success">Finished: {totalFinished}</span>

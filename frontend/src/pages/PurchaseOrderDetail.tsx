@@ -52,6 +52,7 @@ import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { formatDate } from '@/lib/date';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
 // NOTE: the backend serializer maps the Prisma `styles` relation key to `style`
@@ -285,14 +286,6 @@ export default function PurchaseOrderDetail() {
       default:
         return 'secondary';
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const calculateReceivingProgress = () => {
@@ -645,7 +638,7 @@ export default function PurchaseOrderDetail() {
             )}
             {isDeliveryLocationAmended && purchaseOrder.deliveryLocationAmendedAt && (
               <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-                Amended on {new Date(purchaseOrder.deliveryLocationAmendedAt).toLocaleDateString()}{' '}
+                Amended on {formatDate(new Date(purchaseOrder.deliveryLocationAmendedAt))}{' '}
                 {purchaseOrder.deliveryLocationAmendedBy && (
                   <>
                     by {purchaseOrder.deliveryLocationAmendedBy.firstName}{' '}

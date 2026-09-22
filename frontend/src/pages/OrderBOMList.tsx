@@ -14,6 +14,7 @@ import { handleApiError } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
 import { listOrderBOMs, getStatusBadgeColor } from '../services/orderBom.service';
 import type { OrderBOM, OrderBOMStatus } from '../types/orderBom.types';
+import { formatDate } from '@/lib/date';
 
 const OrderBOMList = () => {
   const navigate = useNavigate();
@@ -163,7 +164,7 @@ const OrderBOMList = () => {
                           {bom.totalMaterialCost ? formatCurrency(bom.totalMaterialCost) : '-'}
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {new Date(bom.createdAt).toLocaleDateString()}
+                          {formatDate(new Date(bom.createdAt))}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Button variant="ghost" size="sm" onClick={() => navigate(`/order-bom/${bom.id}`)}>

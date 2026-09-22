@@ -26,8 +26,9 @@ import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
 import { externalProcessService } from '../services/external-process.service';
 import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, Search, XCircle } from 'lucide-react';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import type { ExternalProcessSendOut, ExternalProcessStatus } from '../types/external-process.types';
+import { formatDate } from '@/lib/date';
 
 const STATUS_BADGES: Record<
   ExternalProcessStatus,
@@ -228,13 +229,13 @@ export default function EmbroideryPieceDashboard() {
                     <TableCell className="text-right">
                       {s.quantityReceived != null ? `${s.quantityReceived} PCS` : '—'}
                     </TableCell>
-                    <TableCell>{format(new Date(s.sendDate), 'dd MMM yyyy')}</TableCell>
+                    <TableCell>{formatDate(new Date(s.sendDate))}</TableCell>
                     <TableCell>
                       {s.actualReturnDate ? (
-                        format(new Date(s.actualReturnDate), 'dd MMM yyyy')
+                        formatDate(new Date(s.actualReturnDate))
                       ) : s.expectedReturnDate ? (
                         <span className={isOverdue(s) ? 'text-destructive font-medium' : 'text-muted-foreground'}>
-                          {format(new Date(s.expectedReturnDate), 'dd MMM yyyy')}
+                          {formatDate(new Date(s.expectedReturnDate))}
                           {isOverdue(s) && ' (Overdue)'}
                         </span>
                       ) : (

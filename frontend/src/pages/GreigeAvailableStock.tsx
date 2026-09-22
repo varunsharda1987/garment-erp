@@ -30,6 +30,7 @@ import {
 import { logError } from '../lib/logger';
 import { toast } from 'sonner';
 import { getSystemSettingByKey } from '../services/system-settings.service';
+import { formatDate } from '@/lib/date';
 
 const PAGE_SIZE = 25;
 // BUG-GR10 fix: Default aging threshold; overridden by STOCK_AGING_THRESHOLD_DAYS system setting
@@ -672,9 +673,7 @@ export default function GreigeAvailableStock() {
                                             {entry.rollNumbers || '-'}
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground">
-                                            {entry.receivedDate
-                                              ? new Date(entry.receivedDate).toLocaleDateString('en-IN')
-                                              : '-'}
+                                            {entry.receivedDate ? formatDate(new Date(entry.receivedDate)) : '-'}
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground">
                                             {entry.invoiceNumber || '-'}

@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cadPlanningService } from '@/services/cad-planning.service';
 import { notify } from '@/lib/notify';
+import { formatDate } from '@/lib/date';
 
 interface CADOrderHistoryItem {
   source: string;
@@ -142,14 +143,6 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
     } finally {
       setCloning(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getVarianceDisplay = (variance: number | null, percent: number | null) => {

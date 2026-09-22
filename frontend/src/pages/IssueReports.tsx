@@ -18,6 +18,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getAllIssueReports, updateIssueReport } from '@/services/issue-report.service';
 import { IssueStatusBadge } from '@/components/ReportIssueDialog';
 import type { IssueReport, IssueStatus } from '@/types/issueReport.types';
+import { formatDateTime as formatDate } from '@/lib/date';
 
 /** Opens the session trail (what the reporter did just before) when one was captured. */
 function TrailCell({ report, onOpen }: { report: IssueReport; onOpen: (report: IssueReport) => void }) {
@@ -74,11 +75,6 @@ export default function IssueReports() {
 
   const reports = data?.data ?? [];
   const pagination = data?.pagination;
-
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) +
-    ', ' +
-    new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   const openNotes = (report: IssueReport) => {
     setNotesReport(report);

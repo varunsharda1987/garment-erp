@@ -29,6 +29,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import type { PendingCuttingInfo } from '@/services/grn.service';
+import { formatDate } from '@/lib/date';
 
 export default function GRNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -151,15 +152,6 @@ export default function GRNDetail() {
       default:
         return 'secondary';
     }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (isLoading) {

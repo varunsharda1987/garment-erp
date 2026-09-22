@@ -25,6 +25,7 @@ import {
 import { notify } from '../lib/notify';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { ArrowLeft, Package, ArrowRightLeft, History, MapPin, DollarSign, Undo2 } from 'lucide-react';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 export default function LaceStockDetail() {
   const { id } = useParams<{ id: string }>();
@@ -92,26 +93,6 @@ export default function LaceStockDetail() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getAgingBucket = (days: number): string => {

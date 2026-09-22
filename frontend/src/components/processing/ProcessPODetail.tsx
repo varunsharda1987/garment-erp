@@ -23,9 +23,10 @@ import { Badge } from '@/components/ui/badge';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import { ProcessPOStatusLabels, ProcessPOStatusColors } from '@/types/printing.types';
-import { format } from 'date-fns';
+
 import { cn } from '@/lib/utils';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { formatDate } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -197,9 +198,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Order Date</p>
-                <p className="font-medium">
-                  {processPO.poDate ? format(new Date(processPO.poDate), 'dd MMM yyyy') : '-'}
-                </p>
+                <p className="font-medium">{processPO.poDate ? formatDate(new Date(processPO.poDate)) : '-'}</p>
               </div>
             </div>
           </CardContent>
@@ -289,7 +288,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Sent Date</p>
-              <p className="font-medium">{jwo?.sentDate ? format(new Date(jwo.sentDate), 'dd MMM yyyy') : '-'}</p>
+              <p className="font-medium">{jwo?.sentDate ? formatDate(new Date(jwo.sentDate)) : '-'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Expected Return</p>
@@ -301,7 +300,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
                     : ''
                 )}
               >
-                {jwo?.expectedReturnDate ? format(new Date(jwo.expectedReturnDate), 'dd MMM yyyy') : '-'}
+                {jwo?.expectedReturnDate ? formatDate(new Date(jwo.expectedReturnDate)) : '-'}
                 {jwo?.expectedReturnDate &&
                   new Date(jwo.expectedReturnDate) < new Date() &&
                   !jwo?.receivedDate &&
@@ -310,13 +309,11 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Received Date</p>
-              <p className="font-medium">
-                {jwo?.receivedDate ? format(new Date(jwo.receivedDate), 'dd MMM yyyy') : '-'}
-              </p>
+              <p className="font-medium">{jwo?.receivedDate ? formatDate(new Date(jwo.receivedDate)) : '-'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">QC Date</p>
-              <p className="font-medium">{jwo?.qcDate ? format(new Date(jwo.qcDate), 'dd MMM yyyy') : '-'}</p>
+              <p className="font-medium">{jwo?.qcDate ? formatDate(new Date(jwo.qcDate)) : '-'}</p>
             </div>
           </div>
         </CardContent>
@@ -339,7 +336,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">QC Date</p>
-                <p className="font-medium">{jwo.qcDate ? format(new Date(jwo.qcDate), 'dd MMM yyyy') : '-'}</p>
+                <p className="font-medium">{jwo.qcDate ? formatDate(new Date(jwo.qcDate)) : '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Approved Qty (mtrs)</p>
@@ -377,9 +374,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Return Date</p>
-                <p className="font-medium">
-                  {jwo?.returnedDate ? format(new Date(jwo.returnedDate), 'dd MMM yyyy') : '-'}
-                </p>
+                <p className="font-medium">{jwo?.returnedDate ? formatDate(new Date(jwo.returnedDate)) : '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Return Reason</p>

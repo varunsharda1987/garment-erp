@@ -25,6 +25,7 @@ import {
 } from '../types/laceDefect.types';
 import { notify } from '../lib/notify';
 import { ArrowLeft, Save, AlertTriangle, Info } from 'lucide-react';
+import { formatDateTime as formatDate } from '@/lib/date';
 
 export default function LaceDefectForm() {
   const { id } = useParams<{ id: string }>();
@@ -137,17 +138,6 @@ export default function LaceDefectForm() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const formatCurrency = (value: number | null | undefined) => {

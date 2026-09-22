@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 // ============================================
 // Types
@@ -932,7 +933,7 @@ export default function GRNForm() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Expected Delivery:</span>
-                  <p>{new Date(selectedPO.expectedDeliveryDate).toLocaleDateString('en-IN')}</p>
+                  <p>{formatDate(new Date(selectedPO.expectedDeliveryDate))}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">PO Status:</span>

@@ -39,8 +39,9 @@ import type { LabDip } from '@/types/printing.types';
 import { LabDipStatusLabels, LabDipStatusColors } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { formatDate, formatDateTime24 } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -480,27 +481,19 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <p className="text-sm text-muted-foreground">Submission Date</p>
-              <p className="font-medium">
-                {labDip.submissionDate ? format(new Date(labDip.submissionDate), 'dd MMM yyyy') : '-'}
-              </p>
+              <p className="font-medium">{labDip.submissionDate ? formatDate(new Date(labDip.submissionDate)) : '-'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Expected Date</p>
-              <p className="font-medium">
-                {labDip.expectedDate ? format(new Date(labDip.expectedDate), 'dd MMM yyyy') : '-'}
-              </p>
+              <p className="font-medium">{labDip.expectedDate ? formatDate(new Date(labDip.expectedDate)) : '-'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Received Date</p>
-              <p className="font-medium">
-                {labDip.receivedDate ? format(new Date(labDip.receivedDate), 'dd MMM yyyy') : '-'}
-              </p>
+              <p className="font-medium">{labDip.receivedDate ? formatDate(new Date(labDip.receivedDate)) : '-'}</p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Approval Date</p>
-              <p className="font-medium">
-                {labDip.approvalDate ? format(new Date(labDip.approvalDate), 'dd MMM yyyy') : '-'}
-              </p>
+              <p className="font-medium">{labDip.approvalDate ? formatDate(new Date(labDip.approvalDate)) : '-'}</p>
             </div>
           </div>
         </CardContent>
@@ -531,9 +524,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Approval Date</p>
-                <p className="font-medium">
-                  {labDip.approvalDate ? format(new Date(labDip.approvalDate), 'dd MMM yyyy') : '-'}
-                </p>
+                <p className="font-medium">{labDip.approvalDate ? formatDate(new Date(labDip.approvalDate)) : '-'}</p>
               </div>
             </div>
           </CardContent>
@@ -617,13 +608,13 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
               <div>
                 <p className="text-sm text-muted-foreground">Sent to Buyer Date</p>
                 <p className="font-medium">
-                  {labDip.sentToBuyerDate ? format(new Date(labDip.sentToBuyerDate), 'dd MMM yyyy') : '-'}
+                  {labDip.sentToBuyerDate ? formatDate(new Date(labDip.sentToBuyerDate)) : '-'}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Buyer Approval Date</p>
                 <p className="font-medium">
-                  {labDip.buyerApprovalDate ? format(new Date(labDip.buyerApprovalDate), 'dd MMM yyyy') : '-'}
+                  {labDip.buyerApprovalDate ? formatDate(new Date(labDip.buyerApprovalDate)) : '-'}
                 </p>
               </div>
               <div>
@@ -694,9 +685,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Created At</p>
-              <p className="font-medium">
-                {labDip.createdAt ? format(new Date(labDip.createdAt), 'dd MMM yyyy HH:mm') : '-'}
-              </p>
+              <p className="font-medium">{labDip.createdAt ? formatDateTime24(new Date(labDip.createdAt)) : '-'}</p>
             </div>
           </div>
         </CardContent>

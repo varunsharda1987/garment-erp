@@ -31,7 +31,8 @@ import type {
 } from '@/types/cutting.types';
 import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
+import { formatDate } from '@/lib/date';
 
 export default function CuttingList() {
   const [searchParams] = useSearchParams();
@@ -304,12 +305,8 @@ export default function CuttingList() {
                           <span className="text-sm">{batch.workOrder?.style?.buyerStyleRef || '—'}</span>
                         </TableCell>
                         <TableCell>{batch.component?.componentName || '—'}</TableCell>
-                        <TableCell>
-                          {batch.startedAt ? format(new Date(batch.startedAt), 'dd MMM yyyy') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {batch.completedAt ? format(new Date(batch.completedAt), 'dd MMM yyyy') : '—'}
-                        </TableCell>
+                        <TableCell>{batch.startedAt ? formatDate(new Date(batch.startedAt)) : '—'}</TableCell>
+                        <TableCell>{batch.completedAt ? formatDate(new Date(batch.completedAt)) : '—'}</TableCell>
                         <TableCell className="text-center">
                           {batch.startedAt && batch.completedAt
                             ? Math.max(

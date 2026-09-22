@@ -30,6 +30,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import stockCountService from '@/services/stockCount.service';
 import type { StockCountItem, CountStatus } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 const STATUS_CONFIG: Record<
   CountStatus,
@@ -142,27 +143,6 @@ export default function StockCountDetail() {
       setSavingItemId(null);
     },
   });
-
-  // Helpers
-  const formatDate = (value: string | Date | undefined) => {
-    if (!value) return '-';
-    return new Date(value).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (value: string | Date | undefined) => {
-    if (!value) return '-';
-    return new Date(value).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const formatQty = (value: number | undefined | null) => {
     if (value === undefined || value === null) return '-';

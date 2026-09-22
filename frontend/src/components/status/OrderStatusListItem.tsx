@@ -25,6 +25,7 @@ import EnhancedBlockerCard from '../production/EnhancedBlockerCard';
 import QuickActions from './QuickActions';
 import ProductionTrackingInlineForm from '@/components/production/ProductionTrackingInlineForm';
 import { useAuthStore } from '@/stores/auth.store';
+import { formatDate } from '@/lib/date';
 
 interface OrderStatusListItemProps {
   item: OrderStatusItem;
@@ -65,15 +66,6 @@ export default function OrderStatusListItem({
       return 'bg-success-muted border-success hover:bg-success-muted';
     }
     return 'bg-info-muted border-info hover:bg-info-muted';
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const formatCurrency = (value: number) => {

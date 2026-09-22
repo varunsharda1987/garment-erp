@@ -15,6 +15,7 @@ import { formatCurrency } from '../lib/currency';
 import { EditStockModal } from '../components/fabric/EditStockModal';
 import { fabricStockService } from '../services/fabricStockService';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/date';
 
 interface PatternPart {
   id: string;
@@ -251,7 +252,7 @@ export default function FabricAvailableStock() {
       stock.rackNumber || '',
       stock.purchaseCost ? (stock.quantityAvailable * stock.purchaseCost).toFixed(2) : '',
       stock.agingDays || 0,
-      new Date(stock.receivedDate).toLocaleDateString(),
+      formatDate(new Date(stock.receivedDate)),
     ]);
 
     const csv = [headers, ...rows].map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n');

@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { differenceInCalendarDays } from 'date-fns';
+import { formatDate } from '@/lib/date';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -204,15 +205,6 @@ export default function PrintingList() {
       searchParams.delete('status');
     }
     setSearchParams(searchParams);
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   // ---- Return Unprocessed ----

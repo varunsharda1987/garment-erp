@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { openUploadedFile } from '@/lib/document-utils';
 import { getErrorMessage } from '@/lib/api-error-handler';
+import { formatDate } from '@/lib/date';
 
 export interface BuyerPoSummary {
   id: string;
@@ -73,7 +74,7 @@ export function BuyerPoCard({ buyerPos, saleOrderNumber }: BuyerPoCardProps) {
                       ? `${po.deliveryAddress.label}${po.deliveryAddress.city?.cityName ? `, ${po.deliveryAddress.city.cityName}` : ''}`
                       : 'No location set'}
                   </span>
-                  {po.poDate && <span>PO dated {new Date(po.poDate).toLocaleDateString()}</span>}
+                  {po.poDate && <span>PO dated {formatDate(new Date(po.poDate))}</span>}
                 </div>
               </div>
               {po.documentUrl ? (

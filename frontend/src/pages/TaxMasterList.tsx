@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { getAllTaxMasters, createTaxMaster, updateTaxMaster, deleteTaxMaster } from '@/services/taxMaster.service';
 import type { TaxMaster, TaxType, CreateTaxMasterRequest, UpdateTaxMasterRequest } from '@/types/taxMaster.types';
+import { formatDate } from '@/lib/date';
 
 const TAX_TYPES: TaxType[] = ['GST', 'IGST', 'CGST', 'SGST', 'CESS', 'CUSTOM', 'TDS', 'TCS'];
 
@@ -246,10 +247,8 @@ export default function TaxMasterList() {
                     </TableCell>
                     <TableCell className="text-right font-medium">{Number(item.taxRate)}%</TableCell>
                     <TableCell className="font-mono">{item.hsnSacCode || '-'}</TableCell>
-                    <TableCell>{new Date(item.applicableFrom).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {item.applicableTo ? new Date(item.applicableTo).toLocaleDateString() : 'No end'}
-                    </TableCell>
+                    <TableCell>{formatDate(new Date(item.applicableFrom))}</TableCell>
+                    <TableCell>{item.applicableTo ? formatDate(new Date(item.applicableTo)) : 'No end'}</TableCell>
                     <TableCell>
                       <Badge variant={item.isActive ? 'default' : 'destructive'}>
                         {item.isActive ? 'Active' : 'Inactive'}

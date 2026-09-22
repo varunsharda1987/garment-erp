@@ -17,6 +17,7 @@ import type { EmbroiderySendOut, EmbroideryReceiveRequest } from '../types/embro
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { formatDate } from '@/lib/date';
 
 export default function EmbroideryStockReceive() {
   const navigate = useNavigate();
@@ -293,7 +294,7 @@ export default function EmbroideryStockReceive() {
                         {pendingSendOuts.map((so) => (
                           <SelectItem key={so.id} value={so.id}>
                             {so.sourceFabricStock?.fabricMaster?.fabricCode} → {so.embroidery?.designName} |{' '}
-                            {so.quantitySent}m | Sent: {new Date(so.sendDate).toLocaleDateString()}
+                            {so.quantitySent}m | Sent: {formatDate(new Date(so.sendDate))}
                             {isOverdue(so.expectedReturnDate) && ' ⚠️ OVERDUE'}
                           </SelectItem>
                         ))}
@@ -356,7 +357,7 @@ export default function EmbroideryStockReceive() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Send Date:</span>
-                        <p className="font-medium">{new Date(sendOut.sendDate).toLocaleDateString()}</p>
+                        <p className="font-medium">{formatDate(new Date(sendOut.sendDate))}</p>
                       </div>
                       {sendOut.expectedReturnDate && (
                         <div>
@@ -365,7 +366,7 @@ export default function EmbroideryStockReceive() {
                             className={`font-medium ${isOverdue(sendOut.expectedReturnDate) ? 'text-destructive' : 'text-foreground'}`}
                           >
                             <Clock className="h-3 w-3 inline mr-1" />
-                            {new Date(sendOut.expectedReturnDate).toLocaleDateString()}
+                            {formatDate(new Date(sendOut.expectedReturnDate))}
                           </p>
                         </div>
                       )}

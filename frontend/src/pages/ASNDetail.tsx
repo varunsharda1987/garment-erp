@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
 import {
   ArrowLeft,
   FileText,
@@ -42,6 +41,7 @@ import { asnService } from '@/services/dispatch.service';
 import type { ApproveASNRequest } from '@/types/dispatch.types';
 import { ASNStatusLabels, ASNStatusColors } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatDate } from '@/lib/date';
 
 export default function ASNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -130,10 +130,6 @@ export default function ASNDetail() {
   });
 
   // Helpers
-  const formatDate = (value: string | undefined) => {
-    if (!value) return '-';
-    return format(new Date(value), 'dd MMM yyyy');
-  };
 
   if (isLoading) {
     return (

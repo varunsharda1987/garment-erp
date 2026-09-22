@@ -57,6 +57,7 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { normalizeEnumRecord } from '@/lib/utils';
+import { formatDate } from '@/lib/date';
 import {
   ShoppingBag,
   Clock,
@@ -247,14 +248,6 @@ export default function PurchaseOrderList() {
       setCancelDialogOpen(false);
       setCancelReason('');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const getStatusVariant = (status: PurchaseOrderStatus) => {

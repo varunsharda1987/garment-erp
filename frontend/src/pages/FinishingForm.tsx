@@ -16,6 +16,7 @@ import { finishingIssueService, finishingSummaryService } from '@/services/finis
 import { handleApiSuccess } from '@/lib/api-error-handler';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import type { CreateFinishingIssueRequest, FinishingIncomingTransferSlip } from '@/types/finishing.types';
+import { formatDate } from '@/lib/date';
 
 interface SKUEntry {
   colorId: string | null;
@@ -309,9 +310,7 @@ export default function FinishingForm() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Transfer Date:</span>
-                      <div className="font-medium">
-                        {new Date(selectedTransferSlip.transferDate).toLocaleDateString()}
-                      </div>
+                      <div className="font-medium">{formatDate(new Date(selectedTransferSlip.transferDate))}</div>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Total Pieces:</span>

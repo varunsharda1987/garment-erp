@@ -19,7 +19,8 @@ import {
 import DataTable, { type Column } from '@/components/DataTable';
 import { handleApiError } from '@/lib/api-error-handler';
 import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw } from 'lucide-react';
-import { format } from 'date-fns';
+
+import { formatDate } from '@/lib/date';
 
 export default function ChallanList() {
   const navigate = useNavigate();
@@ -139,7 +140,7 @@ export default function ChallanList() {
     {
       key: 'challanDate',
       header: 'Date',
-      render: (challan) => format(new Date(challan.challanDate), 'dd MMM yyyy'),
+      render: (challan) => formatDate(new Date(challan.challanDate)),
     },
     {
       key: 'quantity',

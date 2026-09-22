@@ -21,6 +21,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { queryKeys } from '@/lib/query-client';
+import { formatDate } from '@/lib/date';
 
 interface SKULine {
   styleId: string;
@@ -277,7 +278,7 @@ export default function ASNCreateForm() {
                           <span className="font-medium">{order.orderNumber}</span>
                           <span className="text-sm text-muted-foreground">
                             {order.customer?.name} • {order.totalQuantity} pcs •{' '}
-                            {format(new Date(order.expectedDeliveryDate), 'dd MMM yyyy')}
+                            {formatDate(new Date(order.expectedDeliveryDate))}
                           </span>
                         </div>
                       </CommandItem>
@@ -306,7 +307,7 @@ export default function ASNCreateForm() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Expected Delivery</p>
-                  <p className="font-medium">{format(new Date(selectedOrder.expectedDeliveryDate), 'dd MMM yyyy')}</p>
+                  <p className="font-medium">{formatDate(new Date(selectedOrder.expectedDeliveryDate))}</p>
                 </div>
               </div>
             </div>

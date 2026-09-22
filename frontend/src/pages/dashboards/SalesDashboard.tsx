@@ -12,6 +12,7 @@ import { TableWidget } from '@/components/dashboard/TableWidget';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
 import { formatCurrencyWhole, formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 interface SalesStats {
   activeOrders: number;
@@ -213,7 +214,7 @@ export default function SalesDashboard() {
                 return (
                   <span className={isExpired ? 'text-destructive' : ''}>
                     <Clock className="h-4 w-4 inline mr-1" />
-                    {date.toLocaleDateString()}
+                    {formatDate(date)}
                   </span>
                 );
               },

@@ -41,6 +41,7 @@ import {
   type VarianceAlert,
 } from '@/services/manufacturingAlerts.service';
 import { usePermissions } from '@/hooks/usePermissions';
+import { formatTime } from '@/lib/date';
 
 /**
  * Where each alert drills down to.
@@ -328,7 +329,7 @@ export default function ManufacturingControlCenter() {
         {isFetchingAny
           ? 'Updating…'
           : lastUpdated
-            ? `Updated ${lastUpdated.toLocaleTimeString()} · auto-refresh every 60s`
+            ? `Updated ${formatTime(lastUpdated)} · auto-refresh every 60s`
             : 'Not yet loaded'}
       </p>
 

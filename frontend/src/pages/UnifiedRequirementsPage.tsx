@@ -102,6 +102,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { formatDate } from '@/lib/date';
 import {
   FileText,
   RefreshCw,
@@ -815,10 +816,6 @@ function MaterialRequirementsTab({
     } finally {
       setIsRecalculating(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   return (
@@ -2673,7 +2670,7 @@ function OutsourcedWorkTab({
       row.jwoNumber || '',
       // MRP-35: the table renders dates as en-IN; the export used the machine locale, so the same
       // date came out in two formats depending on who ran it.
-      new Date(row.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      formatDate(new Date(row.createdAt)),
     ]);
 
     // MRP-35: values were wrapped in quotes without escaping the quotes inside them, so a fabric
@@ -2758,10 +2755,6 @@ function OutsourcedWorkTab({
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   return (

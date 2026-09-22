@@ -17,6 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { stitchingIssueService, stitchingSummaryService } from '@/services/stitching.service';
 import { handleApiSuccess } from '@/lib/api-error-handler';
 import type { CreateStitchingIssueRequest, IncomingTransferSlip } from '@/types/stitching.types';
+import { formatDate } from '@/lib/date';
 
 interface SKUEntry {
   colorId: string | null;
@@ -372,7 +373,7 @@ export default function StitchingForm() {
                                     {slip.totalGoodPieces} pcs
                                   </Badge>
                                   <span className="text-xs text-muted-foreground">
-                                    {new Date(slip.transferDate).toLocaleDateString()}
+                                    {formatDate(new Date(slip.transferDate))}
                                   </span>
                                 </div>
                               </label>

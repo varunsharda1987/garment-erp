@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 interface FGStockItem {
   id: string;
@@ -240,7 +241,7 @@ export default function FGStockList() {
                         </TableCell>
                         <TableCell>{item.workOrder?.workOrderNumber || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">
-                          {new Date(item.lastUpdated).toLocaleDateString()}
+                          {formatDate(new Date(item.lastUpdated))}
                         </TableCell>
                       </TableRow>
                     ))}

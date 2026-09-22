@@ -31,6 +31,7 @@ import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SampleActionMenu } from '@/components/samples/SampleActionMenu';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { formatDate } from '@/lib/date';
 
 type GroupByMode = 'none' | 'type' | 'customer' | 'overdue';
 
@@ -216,15 +217,6 @@ export default function SampleList() {
       searchParams.delete('status');
     }
     setSearchParams(searchParams);
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   const isOverdue = (sample: Sample) => {

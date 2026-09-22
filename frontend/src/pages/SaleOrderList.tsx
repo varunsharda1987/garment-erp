@@ -36,6 +36,7 @@ import { SaleOrderForm } from '@/components/sale-order';
 import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/saleOrder.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -67,14 +68,6 @@ const STATUS_OPTIONS: Array<{ value: SaleOrderStatus; label: string }> = [
   { value: 'DELIVERED', label: 'Delivered' },
   { value: 'CANCELLED', label: 'Cancelled' },
 ];
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-};
 
 export default function SaleOrderList() {
   const queryClient = useQueryClient();

@@ -35,6 +35,7 @@ import {
   getAuditLog,
 } from '@/services/permission.service';
 import type { PermissionMatrixResponse, PermissionAuditEntry } from '@/types/permission.types';
+import { formatDateTime } from '@/lib/date';
 
 // Role display names and colors
 const ROLE_CONFIG: Record<UserRole, { name: string; color: string }> = {
@@ -554,7 +555,7 @@ export default function PermissionManagement() {
                           by {log.users?.firstName} {log.users?.lastName}
                         </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground">{formatDateTime(new Date(log.timestamp))}</div>
                     </div>
                   ))}
                 </div>

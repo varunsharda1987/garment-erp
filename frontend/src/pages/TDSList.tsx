@@ -30,20 +30,13 @@ import {
 import { getTDSEntries, createTDS, updateTDSStatus, deleteTDS } from '@/services/tds.service';
 import type { TDSEntry, CreateTDSRequest, TDSStatus } from '@/types/tds.types';
 import { TDS_STATUS_LABELS, TDS_STATUS_COLORS, TDS_SECTIONS } from '@/types/tds.types';
+import { formatDate } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const FINANCIAL_YEARS = ['2025-26', '2024-25', '2023-24'];
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function formatAmount(amount: number): string {
   return amount.toLocaleString('en-IN', {

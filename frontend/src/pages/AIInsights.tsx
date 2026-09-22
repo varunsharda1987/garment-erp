@@ -39,11 +39,7 @@ import {
   getSearchMisses,
 } from '@/services/ai-insights.service';
 import type { UnansweredQuestion, WeakMatch, SearchMissGroup } from '@/types/aiInsights.types';
-
-const formatDate = (dateString: string) =>
-  new Date(dateString).toLocaleDateString([], { day: 'numeric', month: 'short' }) +
-  ', ' +
-  new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+import { formatDateTime as formatDate } from '@/lib/date';
 
 function StatCard({ label, value, icon: Icon }: { label: string; value: number | undefined; icon: typeof BarChart3 }) {
   return (

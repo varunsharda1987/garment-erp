@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { fabricPhysicalTestsService } from '@/services/testing.service';
 import type { FabricPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatDate } from '@/lib/date';
 
 export default function FabricPhysicalTests() {
   const navigate = useNavigate();
@@ -75,15 +76,6 @@ export default function FabricPhysicalTests() {
       default:
         return <Badge variant="outline">{result}</Badge>;
     }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   return (

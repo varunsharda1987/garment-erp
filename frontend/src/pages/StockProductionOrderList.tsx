@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { getAllSPOs, createSPO, deleteSPO } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { formatDate } from '@/lib/date';
 import type {
   StockProductionOrder,
   StockProductionOrderStatus,
@@ -260,7 +261,7 @@ export default function StockProductionOrderList() {
                         {spo.status.replace('_', ' ')}
                       </Badge>
                     </TableCell>
-                    <TableCell>{spo.targetDate ? new Date(spo.targetDate).toLocaleDateString() : '-'}</TableCell>
+                    <TableCell>{spo.targetDate ? formatDate(new Date(spo.targetDate)) : '-'}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{spo.priority}</Badge>
                     </TableCell>

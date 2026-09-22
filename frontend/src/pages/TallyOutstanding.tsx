@@ -21,6 +21,7 @@ import {
 import { getTallyOutstanding } from '@/services/tally.service';
 
 import { formatCurrency } from '@/lib/currency';
+import { formatDateTime as formatDate } from '@/lib/date';
 
 export default function TallyOutstandingPage() {
   const [search, setSearch] = useState('');
@@ -32,16 +33,6 @@ export default function TallyOutstandingPage() {
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     retry: 1,
   });
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   // Filter and search data
   const filteredData =

@@ -27,6 +27,7 @@ import { getTallyDebitNotes, pushDebitNoteToTally } from '@/services/tally.servi
 import type { DebitNoteTallyStatus } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 export default function TallyDebitNotesPage() {
   const queryClient = useQueryClient();
@@ -115,23 +116,6 @@ export default function TallyDebitNotesPage() {
     } else {
       handleApiError(new Error(`All ${failCount} debit note(s) failed`), 'Bulk push failed');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusIcon = (debitNote: DebitNoteTallyStatus) => {

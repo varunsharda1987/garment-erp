@@ -21,6 +21,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getTrail } from '@/lib/session-trail';
 import { createIssueReport, getMyIssueReports } from '@/services/issue-report.service';
 import type { IssueStatus } from '@/types/issueReport.types';
+import { formatDateTime as formatDate } from '@/lib/date';
 
 interface ReportIssueDialogProps {
   open: boolean;
@@ -127,11 +128,6 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
   });
 
   const canSubmit = title.trim().length >= 3 && !submitMutation.isPending;
-
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString([], { day: 'numeric', month: 'short' }) +
-    ', ' +
-    new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

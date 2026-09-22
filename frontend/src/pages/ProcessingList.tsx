@@ -54,6 +54,7 @@ import {
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { differenceInCalendarDays } from 'date-fns';
+import { formatDate } from '@/lib/date';
 
 type Column<T> = {
   key: string;
@@ -277,15 +278,6 @@ export default function ProcessingList() {
     } finally {
       setItemToDelete(null);
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   // Return handlers

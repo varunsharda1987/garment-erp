@@ -18,6 +18,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
 import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 
 // ---- Supplier / PO search types ----
 interface SupplierOption {
@@ -50,12 +51,6 @@ const emptyLineItem = (key: number): LineItem => ({
 });
 
 // ---- Helpers ----
-const formatDate = (dateString: string) =>
-  new Date(dateString).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
 
 const REASONS: DebitNoteReason[] = [
   'PURCHASE_RETURN',

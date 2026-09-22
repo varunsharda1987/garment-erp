@@ -67,6 +67,7 @@ import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { getErrorMessage } from '../lib/api-error-handler';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
+import { formatDate, formatTime } from '@/lib/date';
 
 // Helper to validate UUID format
 const isValidUUID = (str: string): boolean => {
@@ -2289,16 +2290,7 @@ export default function FabricCostingPage() {
     const byDate: Record<string, (FabricCostingRow & { _originalIndex: number })[]> = {};
     fabricRows.forEach((row, index) => {
       const dateKey = row.createdAt
-        ? new Date(row.createdAt).toLocaleDateString('en-IN', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-          }) +
-          ' ' +
-          new Date(row.createdAt).toLocaleTimeString('en-IN', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })
+        ? formatDate(new Date(row.createdAt)) + ' ' + formatTime(new Date(row.createdAt))
         : 'New (Unsaved)';
 
       if (!byDate[dateKey]) byDate[dateKey] = [];
@@ -2809,7 +2801,7 @@ export default function FabricCostingPage() {
                     <div className="text-xs text-muted-foreground space-y-1">
                       <p>{run.fabricCount} fabrics</p>
                       <p>₹{run.totalFabricCost?.toFixed(2) ?? '0.00'}/garment</p>
-                      <p className="text-muted-foreground">{new Date(run.createdAt).toLocaleDateString()}</p>
+                      <p className="text-muted-foreground">{formatDate(new Date(run.createdAt))}</p>
                     </div>
                   </div>
                 ))}

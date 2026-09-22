@@ -12,6 +12,7 @@ import { getGenericGreigeStock } from '../services/style-stock.service';
 import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import { WashCareCodes } from '@/components/fabric/WashCareCodes';
+import { formatDateTime } from '@/lib/date';
 
 interface GreigeStock {
   greigeId: string;
@@ -431,11 +432,11 @@ export default function GreigeDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                <div className="text-base text-foreground">{new Date(greige.createdAt).toLocaleString()}</div>
+                <div className="text-base text-foreground">{formatDateTime(new Date(greige.createdAt))}</div>
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                <div className="text-base text-foreground">{new Date(greige.updatedAt).toLocaleString()}</div>
+                <div className="text-base text-foreground">{formatDateTime(new Date(greige.updatedAt))}</div>
               </div>
               {greige.createdBy && (
                 <div>

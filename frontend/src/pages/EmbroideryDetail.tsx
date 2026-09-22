@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { Embroidery } from '@/types/embroidery.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { formatDateTime } from '@/lib/date';
 import {
   ArrowLeft,
   Edit,
@@ -328,11 +329,11 @@ export default function EmbroideryDetail() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Created At</label>
-                  <p className="text-foreground">{new Date(embroidery.createdAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(embroidery.createdAt))}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
-                  <p className="text-foreground">{new Date(embroidery.updatedAt).toLocaleString()}</p>
+                  <p className="text-foreground">{formatDateTime(new Date(embroidery.updatedAt))}</p>
                 </div>
               </div>
             </CardContent>

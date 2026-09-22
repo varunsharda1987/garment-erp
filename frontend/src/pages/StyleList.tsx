@@ -26,6 +26,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import ExportButton from '@/components/ExportButton';
 import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle, FileEdit, Send } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
+import { formatDate } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -649,7 +650,7 @@ export default function StyleList() {
       header: 'Deleted',
       render: (style) => (
         <div className="text-sm text-muted-foreground">
-          {style.updatedAt ? new Date(style.updatedAt).toLocaleDateString() : '-'}
+          {style.updatedAt ? formatDate(new Date(style.updatedAt)) : '-'}
         </div>
       ),
     },

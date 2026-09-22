@@ -74,6 +74,7 @@ import type {
   CreateSORequest,
 } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 /** A style's colourway row (`color_options`), as `GET /styles/:id` serialises it. */
 interface StyleColourway {
@@ -545,7 +546,7 @@ export default function SaleOrderDetail() {
                   </div>
                   <div className="text-muted-foreground">
                     {po.totalQuantity} pcs
-                    {po.expectedDeliveryDate && ` · due ${new Date(po.expectedDeliveryDate).toLocaleDateString()}`}
+                    {po.expectedDeliveryDate && ` · due ${formatDate(new Date(po.expectedDeliveryDate))}`}
                   </div>
                 </div>
               ))}
@@ -592,7 +593,7 @@ export default function SaleOrderDetail() {
             <CardTitle className="text-sm text-muted-foreground">Sale Date</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-medium">{new Date(so.saleDate).toLocaleDateString()}</div>
+            <div className="font-medium">{formatDate(new Date(so.saleDate))}</div>
           </CardContent>
         </Card>
         <Card>
@@ -600,9 +601,7 @@ export default function SaleOrderDetail() {
             <CardTitle className="text-sm text-muted-foreground">Buyer Deadline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-medium">
-              {so.buyerDeadline ? new Date(so.buyerDeadline).toLocaleDateString() : 'Not set'}
-            </div>
+            <div className="font-medium">{so.buyerDeadline ? formatDate(new Date(so.buyerDeadline)) : 'Not set'}</div>
           </CardContent>
         </Card>
         <Card>
@@ -611,7 +610,7 @@ export default function SaleOrderDetail() {
           </CardHeader>
           <CardContent>
             <div className="font-medium">
-              {so.expectedShipDate ? new Date(so.expectedShipDate).toLocaleDateString() : 'Not set'}
+              {so.expectedShipDate ? formatDate(new Date(so.expectedShipDate)) : 'Not set'}
             </div>
           </CardContent>
         </Card>
@@ -664,7 +663,7 @@ export default function SaleOrderDetail() {
                           ? `${po.deliveryAddress.label}${po.deliveryAddress.city?.cityName ? `, ${po.deliveryAddress.city.cityName}` : ''}`
                           : 'No location set'}
                       </span>
-                      {po.poDate && <span>PO dated {new Date(po.poDate).toLocaleDateString()}</span>}
+                      {po.poDate && <span>PO dated {formatDate(new Date(po.poDate))}</span>}
                       {po.documentUrl ? (
                         <button
                           type="button"
@@ -912,7 +911,7 @@ export default function SaleOrderDetail() {
             </div>
             <div>
               <span className="text-muted-foreground">Created at</span>
-              <div>{new Date(so.createdAt).toLocaleString()}</div>
+              <div>{formatDateTime(new Date(so.createdAt))}</div>
             </div>
             <div>
               <span className="text-muted-foreground">Approved by</span>

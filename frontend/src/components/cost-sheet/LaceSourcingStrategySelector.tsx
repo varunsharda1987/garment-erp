@@ -8,6 +8,7 @@ import type { LaceCostCalculationResult } from '../../types/laceCosting.types';
 import { createDyedLaceVariant, calculateLaceCost } from '../../services/lace.service';
 import ColorPicker from '../ColorPicker';
 import { SupplierCombobox } from '../SupplierCombobox';
+import { formatDate } from '@/lib/date';
 
 export interface LaceStrategySelection {
   sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
@@ -233,16 +234,6 @@ export default function LaceSourcingStrategySelector({
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return '-';
     return `₹${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return null;
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch {
-      return null;
-    }
   };
 
   const getRateSourceLabel = (source: string | null | undefined) => {

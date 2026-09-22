@@ -22,6 +22,7 @@ interface RelatedSample {
 }
 type SampleWithRelated = Sample & { relatedSamples?: RelatedSample[] };
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatDate } from '@/lib/date';
 import {
   TestTube,
   ArrowLeft,
@@ -98,7 +99,7 @@ export default function SampleDetail() {
     const styleBit = s.style?.styleCode
       ? ` for style ${s.style.styleCode}${buyerRef}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
       : '';
-    const dateStr = sentDate ? new Date(sentDate).toLocaleDateString('en-IN') : '';
+    const dateStr = sentDate ? formatDate(new Date(sentDate)) : '';
     return [
       `Dear ${greet},`,
       '',
@@ -141,15 +142,6 @@ export default function SampleDetail() {
     } finally {
       setNotifying(false);
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
   };
 
   if (isLoading) {

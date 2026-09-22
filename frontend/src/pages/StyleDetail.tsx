@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { updateBOMItem } from '@/services/style-material-bom.service';
 import { notify } from '../lib/notify';
 import { Pencil } from 'lucide-react';
+import { formatDateTime } from '@/lib/date';
 
 /**
  * Inline editor for a BOM row's style-specific rate. Lets a price be set even when the
@@ -961,7 +962,7 @@ export default function StyleDetail() {
                         {tracking.lastUpdatedDate && (
                           <div className="mt-6 bg-muted p-4 rounded">
                             <p className="text-sm text-muted-foreground">
-                              Last Updated: {new Date(tracking.lastUpdatedDate).toLocaleString()}
+                              Last Updated: {formatDateTime(new Date(tracking.lastUpdatedDate))}
                             </p>
                             {tracking.lastUpdatedStage && (
                               <p className="text-sm text-muted-foreground">

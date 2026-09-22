@@ -19,6 +19,7 @@ import {
 import { useDebounce } from '../hooks/useDebounce';
 import { logError } from '../lib/logger';
 import { cn } from '../lib/utils';
+import { formatDate as formatDate2, formatTime } from '@/lib/date';
 
 interface ConversationSidebarProps {
   activeConversationId?: string;
@@ -80,19 +81,23 @@ export function ConversationSidebar({
     archiveMutation.mutate(conversation);
   };
 
+  // Deliberately RELATIVE, like every chat sidebar: today shows a time, then
+  // "Yesterday", then a weekday, and only past a week an absolute date. The
+  // relative rungs are exempt from the one-format rule; the absolute one is not.
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return formatTime(date);
     } else if (diffDays === 1) {
       return 'Yesterday';
     } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
+      // allow-date-format: a weekday name, not a date
+      return date.toLocaleDateString('en-GB', { weekday: 'short' });
     } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return formatDate2(date);
     }
   };
 

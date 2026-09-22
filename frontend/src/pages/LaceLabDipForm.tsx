@@ -20,6 +20,7 @@ import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS, LAB_DIP_STATUS_TRANSITION
 import type { Lace } from '../types/lace.types';
 import { notify } from '../lib/notify';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Send, Package, UserCheck } from 'lucide-react';
+import { formatDateTime as formatDate } from '@/lib/date';
 
 export default function LaceLabDipForm() {
   const navigate = useNavigate();
@@ -162,17 +163,6 @@ export default function LaceLabDipForm() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusIcon = (status: LabDipStatus) => {

@@ -42,6 +42,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 export default function InvoiceDetail() {
   const navigate = useNavigate();
@@ -198,24 +199,6 @@ export default function InvoiceDetail() {
     } finally {
       setIsCancellingIrn(false);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusVariant = (status: string) => {

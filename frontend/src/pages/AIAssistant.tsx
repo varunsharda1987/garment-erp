@@ -28,6 +28,7 @@ import { useSpeechInput } from '../hooks/useSpeechInput';
 import { logError } from '../lib/logger';
 import { getTrail, lastPageBefore } from '../lib/session-trail';
 import { cn } from '../lib/utils';
+import { formatTime } from '@/lib/date';
 
 interface AIStatus {
   enabled: boolean;
@@ -286,13 +287,6 @@ export default function AIAssistant() {
     void sendMessage(ask);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, aiStatus]);
-
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   // Loading state
   if (!aiStatus) {

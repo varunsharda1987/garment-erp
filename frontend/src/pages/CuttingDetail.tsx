@@ -47,7 +47,8 @@ import {
   Send,
   Printer,
 } from 'lucide-react';
-import { format } from 'date-fns';
+
+import { formatDate } from '@/lib/date';
 
 export default function CuttingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -565,7 +566,7 @@ export default function CuttingDetail() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <Label className="text-muted-foreground text-xs uppercase">Cutting Date</Label>
-              <p className="font-medium">{format(new Date(batch.cuttingDate), 'dd MMM yyyy')}</p>
+              <p className="font-medium">{formatDate(new Date(batch.cuttingDate))}</p>
             </div>
             <div>
               <Label className="text-muted-foreground text-xs uppercase">Work Order</Label>
@@ -881,7 +882,7 @@ export default function CuttingDetail() {
                   return (
                     <TableRow key={lay.id}>
                       <TableCell className="font-mono font-medium">#{lay.layNumber}</TableCell>
-                      <TableCell>{format(new Date(lay.layDate), 'dd MMM yyyy')}</TableCell>
+                      <TableCell>{formatDate(new Date(lay.layDate))}</TableCell>
                       <TableCell className="text-right">{layers}</TableCell>
                       <TableCell>
                         {lay.layFabrics && lay.layFabrics.length > 0 ? (
@@ -1098,9 +1099,7 @@ export default function CuttingDetail() {
                         <div className="flex items-center gap-4">
                           <div>
                             <p className="font-medium text-sm">{issue.slipNumber}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(issue.issueDate), 'dd MMM yyyy')}
-                            </p>
+                            <p className="text-xs text-muted-foreground">{formatDate(new Date(issue.issueDate))}</p>
                           </div>
                           <div>
                             <p className="text-sm">

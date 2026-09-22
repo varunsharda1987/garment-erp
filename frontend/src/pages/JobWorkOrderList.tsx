@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { format } from 'date-fns';
+
 import {
   Factory,
   AlertTriangle,
@@ -40,6 +40,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import type { JobWorkOrder, JobWorkOrderQueryParams } from '@/types/jobWorkOrder.types';
+import { formatDate } from '@/lib/date';
 
 const PROCESS_TYPES = [
   { value: 'DYEING', label: 'Dyeing' },
@@ -363,7 +364,7 @@ export default function JobWorkOrderList() {
                         <TableCell className="text-right">
                           {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${jwo.uom}` : '-'}
                         </TableCell>
-                        <TableCell>{jwo.sentDate ? format(new Date(jwo.sentDate), 'dd MMM yyyy') : '-'}</TableCell>
+                        <TableCell>{jwo.sentDate ? formatDate(new Date(jwo.sentDate)) : '-'}</TableCell>
                         <TableCell>
                           {jwo.expectedReturnDate ? (
                             <span
@@ -376,7 +377,7 @@ export default function JobWorkOrderList() {
                                   : ''
                               }
                             >
-                              {format(new Date(jwo.expectedReturnDate), 'dd MMM yyyy')}
+                              {formatDate(new Date(jwo.expectedReturnDate))}
                             </span>
                           ) : (
                             '-'

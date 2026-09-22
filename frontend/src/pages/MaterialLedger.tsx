@@ -21,6 +21,7 @@ import { formatQuantity, formatMaterialType } from '@/lib/formatters';
 import { openPDF } from '@/lib/document-utils';
 import { getMaterialLedger, materialLedgerPdfPath } from '@/services/materialLedger.service';
 import type { LedgerRow, MaterialLedger as Ledger } from '@/types/materialLedger.types';
+import { formatDate } from '@/lib/date';
 
 const KIND_LABEL: Record<string, string> = {
   RECEIPT: 'Received',
@@ -57,8 +58,7 @@ function unitLabel(unit: string): string {
   return unit.toLowerCase();
 }
 
-const fmtDate = (value: string) =>
-  new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const fmtDate = (value: string) => formatDate(new Date(value));
 
 function Row({ row, unit }: { row: LedgerRow; unit: string }) {
   const doc = SOURCE_LABEL[row.source.type] ?? row.source.type;

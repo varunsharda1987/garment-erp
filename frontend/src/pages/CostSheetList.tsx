@@ -48,6 +48,7 @@ import {
   createCostSheetVersion,
 } from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
+import { formatDate } from '@/lib/date';
 
 const CostSheetList = () => {
   const navigate = useNavigate();
@@ -462,16 +463,7 @@ const CostSheetList = () => {
                       {/* Date Created */}
                       <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        <span>
-                          Created:{' '}
-                          {new Date(sheet.createdAt).toLocaleDateString('en-IN', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+                        <span>Created: {formatDate(new Date(sheet.createdAt))}</span>
                       </div>
 
                       {/* Linked Orders */}

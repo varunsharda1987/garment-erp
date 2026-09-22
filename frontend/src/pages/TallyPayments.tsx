@@ -31,6 +31,7 @@ import { getTallyPayments, pushPaymentToTally } from '@/services/tally.service';
 import type { PaymentTallyStatus } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency } from '@/lib/currency';
+import { formatDate, formatDateTime } from '@/lib/date';
 
 const PaymentMethodIcon: Record<string, React.ReactNode> = {
   CASH: <Banknote className="h-4 w-4" />,
@@ -129,23 +130,6 @@ export default function TallyPaymentsPage() {
     } else {
       handleApiError(new Error(`All ${failCount} receipt(s) failed`), 'Bulk push failed');
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const getStatusIcon = (payment: PaymentTallyStatus) => {

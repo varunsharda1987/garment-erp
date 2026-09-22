@@ -138,6 +138,7 @@ Shipment, Photoshoot, Production) have no prerequisite and can be created at any
 ## Traps
 
 - **Customer is required** — You cannot create a sample without selecting a customer.
+- **Draft styles do not appear in the Style list** — the picker offers only styles whose status is **Active**, and only those belonging to the customer you selected. A style saved with **Save as Draft** on the Style page stays hidden here until it is published to Active. Nothing on the form says so, so a style you just created and cannot find is almost always still a draft.
 - **Style options needed for colorways/size sets** — If adding colorways (PP Sample) or size sets, the selected style must have color and size options defined.
 - **Colorways and size sets are locked after creation** — These can only be set when creating the sample, not when editing.
 - **Measurements can always be edited** — Unlike colorways/size sets, measurements can be added, updated, or deleted at any time.

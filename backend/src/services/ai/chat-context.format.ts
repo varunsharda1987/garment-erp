@@ -4,6 +4,7 @@
  */
 
 import type { TrailError, TrailSearchMiss } from '../../schemas/ai.schema';
+import { formatTime24 } from '../../utils/date';
 
 export function formatPageContext(pageRoute?: string, pageGuide?: { slug: string; title: string }): string {
   if (!pageRoute) return '';
@@ -15,9 +16,7 @@ export function formatPageContext(pageRoute?: string, pageGuide?: { slug: string
 }
 
 function formatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '--:--';
-  return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return formatTime24(iso, '--:--');
 }
 
 export function formatRecentSearchMisses(misses?: TrailSearchMiss[]): string {

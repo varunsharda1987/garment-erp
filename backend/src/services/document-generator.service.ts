@@ -18,6 +18,7 @@ import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from '../config/company.config';
 import { companyProfileService, type CompanySnapshot } from './company-profile.service';
+import { formatDate, formatDateTime24 } from '../utils/date';
 import path from 'path';
 import fs from 'fs';
 import { logWarn } from '../utils/logger';
@@ -343,7 +344,7 @@ class DocumentGeneratorService {
     doc
       .fontSize(8)
       .fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+      .text(`Generated on ${formatDateTime24(new Date())}`, marginLeft, doc.page.height - 30, {
         align: 'center',
         width: pageWidth - 60,
       });
@@ -1020,11 +1021,15 @@ From ${c?.name ?? COMPANY_CONFIG.name}
   }
 
   /**
-   * Format date helper
+   * Format date helper — delegates to the shared `utils/date` helper so this
+   * PDFKit fallback renders dates identically to the Chrome/Handlebars path.
+   *
+   * `document-facade.service.ts` falls back to this generator whenever Chrome is
+   * missing or crashes. While this method had its own `month: 'short'` body, a
+   * Chrome outage silently changed every document's date format mid-incident.
    */
   private formatDate(date: Date | string): string {
-    const d = new Date(date);
-    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    return formatDate(date);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1188,7 +1193,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc
       .fontSize(8)
       .fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+      .text(`Generated on ${formatDateTime24(new Date())}`, marginLeft, doc.page.height - 30, {
         align: 'center',
         width: pageWidth - 60,
       });
@@ -1582,7 +1587,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc
       .fontSize(8)
       .fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+      .text(`Generated on ${formatDateTime24(new Date())}`, marginLeft, doc.page.height - 30, {
         align: 'center',
         width: pageWidth - 60,
       });
@@ -3012,7 +3017,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc
       .fontSize(8)
       .fillColor('#999')
-      .text(`Generated on ${new Date().toLocaleString('en-IN')}`, marginLeft, doc.page.height - 30, {
+      .text(`Generated on ${formatDateTime24(new Date())}`, marginLeft, doc.page.height - 30, {
         align: 'center',
         width: pageWidth - 60,
       });
@@ -3301,12 +3306,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
           .fillColor('#C2410C')
           .text(`${totalCutQty.toLocaleString()} (${extraPercent}% extra)`, col2X + 70, dy);
         doc.fillColor('#000');
-        drawField(
-          'Date:',
-          new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-          col3X,
-          dy
-        );
+        drawField('Date:', formatDate(new Date()), col3X, dy);
         dy += 16;
         // Max Cutable Qty based on available fabric stock
         doc.font('Helvetica').fontSize(8).fillColor('#666').text('Max Cutable:', detailX, dy);
@@ -3603,12 +3603,10 @@ From ${c?.name ?? COMPANY_CONFIG.name}
           .stroke('#DDD');
         y += 6;
         doc.fontSize(7).font('Helvetica').fillColor('#999');
-        doc.text(
-          `Generated on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} | ${this.company.name}`,
-          mL,
-          y,
-          { align: 'center', width: cW }
-        );
+        doc.text(`Generated on ${formatDate(new Date())} | ${this.company.name}`, mL, y, {
+          align: 'center',
+          width: cW,
+        });
 
         doc.end();
       } catch (err) {
@@ -3873,12 +3871,10 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc
       .fontSize(7)
       .fillColor('#999')
-      .text(
-        `Generated on ${new Date().toLocaleString('en-IN')} | ${this.company.name}`,
-        marginLeft,
-        doc.page.height - 30,
-        { align: 'center', width: availableWidth }
-      );
+      .text(`Generated on ${formatDateTime24(new Date())} | ${this.company.name}`, marginLeft, doc.page.height - 30, {
+        align: 'center',
+        width: availableWidth,
+      });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -4218,7 +4214,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc
       .fontSize(7)
       .fillColor(colors.muted)
-      .text(`Generated on ${new Date().toLocaleString('en-IN')} | ${this.company.name}`, marginLeft, y, {
+      .text(`Generated on ${formatDateTime24(new Date())} | ${this.company.name}`, marginLeft, y, {
         align: 'center',
         width: availableWidth,
       });

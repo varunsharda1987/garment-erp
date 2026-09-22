@@ -12,6 +12,7 @@ import path from 'path';
 import Handlebars from 'handlebars';
 import { htmlToPdf } from './html-renderer.service';
 import { roundToCent } from '../utils/currency';
+import { formatDate } from '../utils/date';
 
 export type KfTemplateName =
   | 'job-work-order'
@@ -59,12 +60,10 @@ hb.registerHelper('inr', (value: unknown): string => {
   });
 });
 
-hb.registerHelper('dateDMY', (value: unknown): string => {
-  if (!value) return EM_DASH;
-  const d = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(d.getTime())) return EM_DASH;
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-});
+// No template in backend/templates/kf/*.hbs currently calls this — the adapters pre-format dates
+// via fmtDate before the template ever sees them. Kept (rather than deleted) so that if a template
+// ever does call it, it produces the same `19-Sep-2026` as everything else instead of drifting.
+hb.registerHelper('dateDMY', (value: unknown): string => formatDate(value as Date | string | null | undefined));
 
 hb.registerHelper('qty', (value: unknown, uom?: unknown): string => {
   if (value === null || value === undefined || value === '') return EM_DASH;

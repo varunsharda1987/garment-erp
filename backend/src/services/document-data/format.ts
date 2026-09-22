@@ -6,22 +6,20 @@
  */
 import { roundToCent } from '../../utils/currency';
 import { amountToWords } from '../../config/company.config';
+import { EM_DASH as SHARED_EM_DASH, formatDate, formatDateTime24 } from '../../utils/date';
 
-export const EM_DASH = '—';
+export const EM_DASH = SHARED_EM_DASH;
 
-export function fmtDate(value: Date | string | null | undefined): string {
-  if (!value) return EM_DASH;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return EM_DASH;
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-export function fmtDateTime(value: Date | string | null | undefined): string {
-  if (!value) return EM_DASH;
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return EM_DASH;
-  return `${fmtDate(d)} ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-}
+/**
+ * Dates on every printed document. These are now thin aliases of the shared helper
+ * (`utils/date`) — the ONE place the `19-Sep-2026` format is defined.
+ *
+ * The old bodies used `month: 'short'`, which Node renders as "Sept" and Chrome as
+ * "Sep", so the same record printed differently on a PDF and on screen. Do not
+ * reintroduce a local implementation here.
+ */
+export const fmtDate = formatDate;
+export const fmtDateTime = formatDateTime24;
 
 /** en-IN 2dp, no currency symbol (templates carry ₹ in headers) */
 export function fmtMoney(value: number | string | null | undefined): string {

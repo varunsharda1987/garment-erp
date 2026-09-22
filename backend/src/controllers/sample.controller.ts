@@ -8,6 +8,7 @@ import * as wa from '../services/whatsapp.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { applySearch } from '../utils/search-filter';
 import { gateSampleVerdict, logSampleVerdictOverride } from '../services/helpers/sample-verdict.helper';
+import { formatDate } from '../utils/date';
 
 /**
  * Sample Controller
@@ -999,7 +1000,8 @@ export const notifyBuyer = async (req: Request, res: Response) => {
   const styleBit = sample.styles?.styleCode
     ? ` for style ${formatStyleCodeWithRef(sample.styles.styleCode, sample.styles.buyerStyleRef)}${sample.styles.styleName ? ` (${sample.styles.styleName})` : ''}`
     : '';
-  const sentOn = sample.sentDate ? new Date(sample.sentDate).toLocaleDateString('en-IN') : '';
+  // Goes out to the buyer over WhatsApp — used to read "19/9/2026" (unpadded, ambiguous abroad).
+  const sentOn = sample.sentDate ? formatDate(sample.sentDate) : '';
   const message =
     text?.trim() ||
     [

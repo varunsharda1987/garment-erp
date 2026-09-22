@@ -14,6 +14,7 @@ import { NicIrpError } from './einvoice/nic-irp-provider';
 import { preflightInvoice, PreflightResult } from './einvoice/einvoice-preflight';
 import { logError, logInfo } from '../utils/logger';
 import { applySearch } from '../utils/search-filter';
+import { formatDateTime24 } from '../utils/date';
 
 const CANCEL_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -236,7 +237,7 @@ class EInvoiceService {
       if (Date.now() > deadline) {
         return {
           success: false,
-          error: `The 24-hour cancel window expired on ${new Date(deadline).toLocaleString('en-IN')}. Issue a credit note instead.`,
+          error: `The 24-hour cancel window expired on ${formatDateTime24(deadline)}. Issue a credit note instead.`,
         };
       }
     }

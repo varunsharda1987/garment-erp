@@ -3,6 +3,7 @@ import { Parser } from 'json2csv';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { Readable } from 'stream';
+import { formatDate, formatDateTime24 } from '../utils/date';
 
 export interface ExportColumn {
   fieldName: string;
@@ -136,7 +137,10 @@ class ExportService {
       }
 
       // Add metadata
-      doc.fontSize(10).font('Helvetica').text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .text(`Generated: ${formatDateTime24(new Date())}`, { align: 'right' });
       doc.moveDown();
 
       // Calculate column widths (simple equal distribution)
@@ -265,8 +269,8 @@ class ExportService {
       // Invoice details
       doc.fontSize(10).font('Helvetica');
       doc.text(`Invoice Number: ${invoice.invoiceNumber}`, { align: 'right' });
-      doc.text(`Invoice Date: ${new Date(invoice.invoiceDate).toLocaleDateString('en-IN')}`, { align: 'right' });
-      doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-IN')}`, { align: 'right' });
+      doc.text(`Invoice Date: ${formatDate(invoice.invoiceDate)}`, { align: 'right' });
+      doc.text(`Due Date: ${formatDate(invoice.dueDate)}`, { align: 'right' });
       doc.moveDown();
 
       // Customer details (using billing name)
@@ -395,7 +399,7 @@ class ExportService {
       doc
         .fontSize(8)
         .fillColor('#999')
-        .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50, { align: 'center' });
+        .text(`Generated on ${formatDateTime24(new Date())}`, 50, doc.page.height - 50, { align: 'center' });
 
       doc.end();
     });
@@ -420,8 +424,8 @@ class ExportService {
       // Quotation details
       doc.fontSize(10).font('Helvetica');
       doc.text(`Quotation Number: ${quotation.quotationNumber}`, { align: 'right' });
-      doc.text(`Quotation Date: ${new Date(quotation.quotationDate).toLocaleDateString('en-IN')}`, { align: 'right' });
-      doc.text(`Valid Until: ${new Date(quotation.validUntil).toLocaleDateString('en-IN')}`, { align: 'right' });
+      doc.text(`Quotation Date: ${formatDate(quotation.quotationDate)}`, { align: 'right' });
+      doc.text(`Valid Until: ${formatDate(quotation.validUntil)}`, { align: 'right' });
       doc.text(`Status: ${quotation.status}`, { align: 'right' });
       doc.moveDown();
 
@@ -527,7 +531,7 @@ class ExportService {
       doc
         .fontSize(8)
         .fillColor('#999')
-        .text(`Generated on ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 50, { align: 'center' });
+        .text(`Generated on ${formatDateTime24(new Date())}`, 50, doc.page.height - 50, { align: 'center' });
 
       doc.end();
     });

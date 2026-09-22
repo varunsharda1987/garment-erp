@@ -53,18 +53,20 @@ export default defineConfig({
     // Code splitting for better caching
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Core React dependencies
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // Query and state management
-          'vendor-query': ['@tanstack/react-query'],
-          // UI components (Radix). One entry: the meta-package pulls every primitive in behind it,
-          // so this no longer has to track a hand-maintained list that silently missed new ones.
-          'vendor-ui': ['radix-ui'],
-          // Form handling
-          'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
-          // Date handling
-          'vendor-date': ['date-fns'],
+        // Rolldown (vite 8) rejects the object form of `manualChunks` outright — it is
+        // function-only there, and itself deprecated in favour of `codeSplitting.groups`.
+        // `test` matches MODULE IDS, not package names, which is the trap below.
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-react', test: /node_modules[\\/](react|react-dom|react-router-dom)[\\/]/ },
+            { name: 'vendor-query', test: /node_modules[\\/]@tanstack[\\/]react-query[\\/]/ },
+            // Both spellings deliberately. `radix-ui` is only the barrel that re-exports
+            // @radix-ui/react-*; matching the meta-package alone would put the re-export in this
+            // chunk and scatter every actual primitive elsewhere.
+            { name: 'vendor-ui', test: /node_modules[\\/](radix-ui|@radix-ui)[\\/]/ },
+            { name: 'vendor-forms', test: /node_modules[\\/](react-hook-form|@hookform[\\/]resolvers|zod)[\\/]/ },
+            { name: 'vendor-date', test: /node_modules[\\/]date-fns[\\/]/ },
+          ],
         },
       },
     },

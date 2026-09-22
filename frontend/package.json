@@ -75,7 +75,7 @@
     "@types/node": "^26.6.2",
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.4",
+    "@vitejs/plugin-react": "^6.1.1",
     "@vitest/ui": "^5.0.1",
     "autoprefixer": "^10.4.21",
     "baseline-browser-mapping": "^2.9.8",
@@ -88,7 +88,7 @@
     "tailwindcss": "^3.4.18",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "^7.1.7",
+    "vite": "^8.3.0",
     "vitest": "^5.0.1"
   }
 }

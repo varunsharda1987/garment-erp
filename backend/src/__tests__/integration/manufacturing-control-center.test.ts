@@ -1,7 +1,9 @@
 import request from 'supertest';
+import { UserRole } from '@prisma/client';
 import app from '../../app';
 import prisma from '../../config/database';
 import { getAuthHeader } from '../helpers/test-utils';
+import { scopeForRole } from '../../config/control-center-panels';
 
 /**
  * The Manufacturing Control Center's contract.
@@ -58,6 +60,56 @@ describe('Manufacturing Control Center', () => {
       const acc = await prisma.users.findFirst({ where: { role: 'ACCOUNTS', isActive: true, isApproved: true } });
       if (!acc) return; // deployment has no ACCOUNTS user; nothing to assert
       await request(app).get('/api/manufacturing/alerts').set(getAuthHeader(acc.id, 'ACCOUNTS')).expect(200);
+    });
+  });
+
+  /**
+   * Role shapes CONTENT, not access. The page varies; the API does not refuse anyone.
+   */
+  describe('role scoping', () => {
+    const asRole = async (role: UserRole, path = '/api/manufacturing/alerts') => {
+      const u = await prisma.users.findFirst({ where: { role, isActive: true, isApproved: true } });
+      if (!u) return null;
+      const res = await request(app).get(path).set(getAuthHeader(u.id, role)).expect(200);
+      return res.body.data;
+    };
+
+    it('serves each role exactly the alert rows its map declares, in that order', async () => {
+      for (const role of Object.values(UserRole)) {
+        const data = await asRole(role);
+        if (!data) continue; // no user holds this role in this deployment
+
+        const expected = scopeForRole(role);
+        expect({ role, panels: data.panels }).toEqual({ role, panels: expected });
+        // The object is built in the role's order, so its keys are that order.
+        expect({ role, keys: Object.keys(data.alerts) }).toEqual({ role, keys: expected.alerts });
+      }
+    });
+
+    it('OMITS an out-of-scope alert rather than reporting it as zero', async () => {
+      const data = await asRole(UserRole.ACCOUNTS);
+      if (!data) return;
+
+      // The honesty guarantee: on this page a zero means "we looked and found nothing". A row that
+      // was never computed must be absent, so it can never be read as a clean bill of health.
+      expect(data.alerts).not.toHaveProperty('stuckCutting');
+      expect(data.alerts).not.toHaveProperty('qualityFailures');
+      expect(data.alerts.overdueChallans).toBeDefined();
+    });
+
+    it('totals quickStats from the in-scope rows only', async () => {
+      const data = await asRole(UserRole.ACCOUNTS);
+      if (!data) return;
+
+      const sum = Object.values(data.alerts).reduce((n: number, a) => n + (a as { count: number }).count, 0);
+      expect(data.quickStats.totalAlerts).toBe(sum);
+    });
+
+    it('still answers /pipeline for a role whose page does not show it', async () => {
+      // Proves the scoping stayed presentation and did not silently become a permission gate.
+      const data = await asRole(UserRole.ACCOUNTS, '/api/manufacturing/pipeline');
+      if (!data) return;
+      expect(Array.isArray(data.orders)).toBe(true);
     });
   });
 

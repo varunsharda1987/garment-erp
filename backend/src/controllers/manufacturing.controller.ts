@@ -3,8 +3,12 @@ import { manufacturingAlertsService } from '../services/manufacturing-alerts.ser
 import { manufacturingPipelineService } from '../services/manufacturing-pipeline.service';
 
 class ManufacturingController {
-  async getAlerts(_req: Request, res: Response) {
-    const data = await manufacturingAlertsService.getAlerts();
+  /**
+   * The role shapes WHAT IS SHOWN, not what may be read — see control-center-panels.ts. Reads stay
+   * open to every signed-in user, per the convention in auth.middleware.ts.
+   */
+  async getAlerts(req: Request, res: Response) {
+    const data = await manufacturingAlertsService.getAlerts(req.user?.role);
     res.json({ success: true, data });
   }
 

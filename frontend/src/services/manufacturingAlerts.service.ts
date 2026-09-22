@@ -28,16 +28,36 @@ export interface VarianceAlert {
   date: string;
 }
 
+/** The four blocks the page can render. */
+export type SectionKey = 'pipeline' | 'alerts' | 'vendors' | 'variance';
+
+export type AlertKey =
+  | 'overdueLabDips'
+  | 'overdueProcessPOs'
+  | 'overdueExternalWork'
+  | 'stuckCutting'
+  | 'qualityFailures'
+  | 'pendingApprovals'
+  | 'overdueChallans';
+
+/**
+ * What this role's page should show, decided by the server (`control-center-panels.ts`).
+ *
+ * The frontend deliberately keeps NO copy of the role→panel map: one source of truth means the
+ * two cannot drift. Both lists are ORDERED — render in the order given.
+ */
+export interface ControlCenterPanels {
+  sections: SectionKey[];
+  alerts: AlertKey[];
+}
+
 export interface ManufacturingAlertsResponse {
-  alerts: {
-    overdueLabDips: AlertCount;
-    overdueProcessPOs: AlertCount;
-    overdueExternalWork: AlertCount;
-    stuckCutting: AlertCount;
-    qualityFailures: AlertCount;
-    pendingApprovals: AlertCount;
-    overdueChallans: AlertCount;
-  };
+  /**
+   * Only the rows in scope for this role. A key that is ABSENT was never computed — which is not
+   * the same as a row that came back zero, and must never be rendered as one.
+   */
+  alerts: Partial<Record<AlertKey, AlertCount>>;
+  panels: ControlCenterPanels;
   vendorSummary: VendorSummary[];
   quickStats: {
     totalAlerts: number;
@@ -102,23 +122,22 @@ export class ControlCenterShapeError extends Error {
   }
 }
 
-const ALERT_KEYS = [
-  'overdueLabDips',
-  'overdueProcessPOs',
-  'overdueExternalWork',
-  'stuckCutting',
-  'qualityFailures',
-  'pendingApprovals',
-  'overdueChallans',
-] as const;
-
 function assertAlertsShape(raw: unknown): ManufacturingAlertsResponse {
   const missing: string[] = [];
   const body = raw as Partial<ManufacturingAlertsResponse> | null | undefined;
 
   if (!body || typeof body !== 'object') throw new ControlCenterShapeError('Alerts', ['(empty response)']);
   if (!body.alerts || typeof body.alerts !== 'object') missing.push('alerts');
-  else for (const key of ALERT_KEYS) if (!(key in body.alerts)) missing.push(`alerts.${key}`);
+  if (!body.panels || !Array.isArray(body.panels.sections) || !Array.isArray(body.panels.alerts)) {
+    missing.push('panels');
+  } else if (body.alerts) {
+    // Validate against what the SERVER said this role should get, not a fixed list of seven.
+    // A scoped payload is correct, not malformed — but a row the server promised and then failed
+    // to send is still a broken payload, and the page must say so rather than draw a zero.
+    for (const key of body.panels.alerts) {
+      if (!(key in body.alerts)) missing.push(`alerts.${key}`);
+    }
+  }
   if (!body.quickStats || typeof body.quickStats !== 'object') missing.push('quickStats');
   if (!Array.isArray(body.vendorSummary)) missing.push('vendorSummary');
   if (!Array.isArray(body.varianceAlerts)) missing.push('varianceAlerts');

@@ -35,9 +35,12 @@ import {
 import {
   manufacturingAlertsService,
   type AlertCount,
+  type AlertKey,
+  type SectionKey,
   type VendorSummary,
   type VarianceAlert,
 } from '@/services/manufacturingAlerts.service';
+import { usePermissions } from '@/hooks/usePermissions';
 
 /**
  * Where each alert drills down to.
@@ -221,6 +224,17 @@ function StatCard({
 
 export default function ManufacturingControlCenter() {
   const navigate = useNavigate();
+  const { userRole } = usePermissions();
+
+  // Purely so someone can tell at a glance why their page differs from a colleague's. Title Case
+  // from the enum: MERCHANDISER → "Merchandiser", PRODUCTION_MANAGER → "Production Manager".
+  const roleLabel = userRole
+    ? userRole
+        .toLowerCase()
+        .split('_')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')
+    : null;
 
   // Two independent queries, not one. A heavy pipeline query must never be able to blank the
   // exceptions inbox, and each gets the cadence it deserves.
@@ -239,9 +253,19 @@ export default function ManufacturingControlCenter() {
     refetchOnWindowFocus: true,
   });
 
+  const data = alertsQuery.data;
+  // The SERVER decides what this role sees (control-center-panels.ts). The page keeps no role map
+  // of its own, so the two cannot drift — and usePermissions() is never the authority here.
+  const panels = data?.panels;
+  const showsSection = (key: SectionKey) => !!panels?.sections.includes(key);
+
   const pipelineQuery = useQuery({
     queryKey: CONTROL_CENTER_KEYS.pipeline,
     queryFn: manufacturingAlertsService.getPipeline,
+    // Only ask when this role actually shows the pipeline — it runs several validation queries per
+    // order, and there is no point paying for a section nobody will see. Costs one round trip of
+    // serialisation behind the alerts response, which is the cheaper trade.
+    enabled: showsSection('pipeline'),
     // Slower: this runs several validation queries per order.
     refetchInterval: 120000,
     staleTime: 0,
@@ -249,7 +273,6 @@ export default function ManufacturingControlCenter() {
     refetchOnWindowFocus: true,
   });
 
-  const data = alertsQuery.data;
   const alerts = data?.alerts;
   const vendorSummary = data?.vendorSummary ?? [];
   const quickStats = data?.quickStats;
@@ -266,8 +289,10 @@ export default function ManufacturingControlCenter() {
     void pipelineQuery.refetch();
   };
 
-  // First paint only. Background refreshes show in the header, not as a full-page spinner.
-  if (alertsQuery.isLoading && pipelineQuery.isLoading) {
+  // First paint only, and gated on ALERTS alone: that response carries `panels`, so nothing else
+  // can be decided until it lands. (Checking the pipeline query too would break here — a disabled
+  // query reports isLoading false, so the guard would fall through before alerts arrived.)
+  if (alertsQuery.isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <LoadingSpinner />
@@ -275,10 +300,13 @@ export default function ManufacturingControlCenter() {
     );
   }
 
-  // Which checks ran at all. A feeder with nothing to look at is NOT "all clear" — that distinction
-  // is the whole point: the page used to render a confident green tick over seven checks that had
-  // no rows to examine and one that was structurally incapable of firing.
-  const alertEntries = alerts ? Object.entries(alerts) : [];
+  // Walk the server's order explicitly rather than relying on JSON key order. A feeder with nothing
+  // to look at is NOT "all clear" — that distinction is the whole point: the page used to render a
+  // confident green tick over seven checks that had no rows to examine and one that was
+  // structurally incapable of firing.
+  const alertEntries = (panels?.alerts ?? [])
+    .map((key) => [key, alerts?.[key]] as const)
+    .filter((entry): entry is readonly [AlertKey, AlertCount] => entry[1] != null);
   const firingAlerts = alertEntries.filter(([, a]) => a.count > 0);
 
   return (
@@ -290,7 +318,11 @@ export default function ManufacturingControlCenter() {
         </Button>
       </PageHeader>
 
-      <p className="text-muted-foreground -mt-4 mb-4">What needs your attention right now</p>
+      <p className="text-muted-foreground -mt-4 mb-4">
+        What needs your attention right now
+        {/* Cosmetic only — the server's `panels` decides what renders, never this. */}
+        {roleLabel && <span className="text-xs"> · {roleLabel} view</span>}
+      </p>
 
       <p className="text-xs text-muted-foreground">
         {isFetchingAny
@@ -313,179 +345,196 @@ export default function ManufacturingControlCenter() {
         </Alert>
       )}
 
-      {/* Quick Stats. `null` renders as "—": an unknown number must never be drawn as zero. */}
+      {/* Quick Stats. `null` renders as "—": an unknown number must never be drawn as zero.
+          Cards follow the sections this role has, so no card summarises data absent from the page. */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Alerts"
-          value={quickStats?.totalAlerts ?? null}
-          icon={AlertTriangle}
-          variant={quickStats?.totalAlerts ? 'danger' : 'default'}
-        />
-        <StatCard title="Items with Vendors" value={quickStats?.itemsWithVendors ?? null} icon={Package} />
-        <StatCard
-          title="Due This Week"
-          value={quickStats?.dueThisWeek ?? null}
-          icon={Clock}
-          variant={quickStats?.dueThisWeek ? 'warning' : 'default'}
-        />
-        <StatCard
-          title="Blocked Orders"
-          value={pipelineQuery.data?.counts.blocked ?? null}
-          icon={Factory}
-          variant={pipelineQuery.data?.counts.blocked ? 'danger' : 'default'}
-        />
+        {showsSection('alerts') && (
+          <StatCard
+            title="Total Alerts"
+            value={quickStats?.totalAlerts ?? null}
+            icon={AlertTriangle}
+            variant={quickStats?.totalAlerts ? 'danger' : 'default'}
+          />
+        )}
+        {showsSection('vendors') && (
+          <>
+            <StatCard title="Items with Vendors" value={quickStats?.itemsWithVendors ?? null} icon={Package} />
+            <StatCard
+              title="Due This Week"
+              value={quickStats?.dueThisWeek ?? null}
+              icon={Clock}
+              variant={quickStats?.dueThisWeek ? 'warning' : 'default'}
+            />
+          </>
+        )}
+        {showsSection('pipeline') && (
+          <StatCard
+            title="Blocked Orders"
+            value={pipelineQuery.data?.counts.blocked ?? null}
+            icon={Factory}
+            variant={pipelineQuery.data?.counts.blocked ? 'danger' : 'default'}
+          />
+        )}
       </div>
 
-      <PipelineSection
-        data={pipelineQuery.data}
-        isLoading={pipelineQuery.isLoading}
-        error={pipelineQuery.error as Error | null}
-        onRetry={() => void pipelineQuery.refetch()}
-      />
+      {showsSection('pipeline') && (
+        <PipelineSection
+          data={pipelineQuery.data}
+          isLoading={pipelineQuery.isLoading}
+          error={pipelineQuery.error as Error | null}
+          onRetry={() => void pipelineQuery.refetch()}
+        />
+      )}
 
       {/* Alerts Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            Alerts Requiring Action
-          </CardTitle>
-          <CardDescription>Click any alert to view and resolve the items</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {alertsQuery.error ? (
-            <div className="p-8 text-center text-muted-foreground">
-              <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive" />
-              <p className="text-lg font-medium text-foreground">Checks did not run</p>
-              <p className="text-sm">{(alertsQuery.error as Error).message}</p>
-            </div>
-          ) : firingAlerts.length > 0 ? (
-            <div className="divide-y">
-              {firingAlerts.map(([key, alert]) => (
-                <AlertRow
-                  key={key}
-                  alertKey={key}
-                  alert={alert}
-                  onClick={() => {
-                    const route = ALERT_CONFIG[key]?.route;
-                    if (route) navigate(route);
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="p-6">
-              <div className="text-center text-muted-foreground mb-4">
-                <CheckCircle className="h-10 w-10 mx-auto mb-3 text-success" />
-                <p className="text-lg font-medium text-foreground">
-                  All {alertEntries.length} checks ran · nothing needs action
-                </p>
+      {showsSection('alerts') && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Alerts Requiring Action
+            </CardTitle>
+            <CardDescription>Click any alert to view and resolve the items</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {alertsQuery.error ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-destructive" />
+                <p className="text-lg font-medium text-foreground">Checks did not run</p>
+                <p className="text-sm">{(alertsQuery.error as Error).message}</p>
               </div>
-              {/* Show the work. "Nothing found" is only trustworthy if you can see what was looked at. */}
-              <div className="border rounded-lg divide-y text-sm">
-                {alertEntries.map(([key, alert]) => (
-                  <div key={key} className="flex items-center justify-between px-4 py-2">
-                    <span className="text-muted-foreground">{ALERT_CONFIG[key]?.label ?? key}</span>
-                    <span className="text-muted-foreground tabular-nums">{alert.count}</span>
-                  </div>
+            ) : firingAlerts.length > 0 ? (
+              <div className="divide-y">
+                {firingAlerts.map(([key, alert]) => (
+                  <AlertRow
+                    key={key}
+                    alertKey={key}
+                    alert={alert}
+                    onClick={() => {
+                      const route = ALERT_CONFIG[key]?.route;
+                      if (route) navigate(route);
+                    }}
+                  />
                 ))}
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="p-6">
+                <div className="text-center text-muted-foreground mb-4">
+                  <CheckCircle className="h-10 w-10 mx-auto mb-3 text-success" />
+                  <p className="text-lg font-medium text-foreground">
+                    All {alertEntries.length} checks ran · nothing needs action
+                  </p>
+                </div>
+                {/* Show the work. "Nothing found" is only trustworthy if you can see what was looked at. */}
+                <div className="border rounded-lg divide-y text-sm">
+                  {alertEntries.map(([key, alert]) => (
+                    <div key={key} className="flex items-center justify-between px-4 py-2">
+                      <span className="text-muted-foreground">{ALERT_CONFIG[key]?.label ?? key}</span>
+                      <span className="text-muted-foreground tabular-nums">{alert.count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Vendor Tracker Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Truck className="h-5 w-5" />
-            Materials with External Vendors
-          </CardTitle>
-          <CardDescription>Track materials at mills and processors</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {vendorSummary.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Items</TableHead>
-                    <TableHead className="text-right">Qty</TableHead>
-                    <TableHead className="text-right">Oldest</TableHead>
-                    <TableHead>Expected Back</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {vendorSummary.map((vendor, idx) => (
-                    <TableRow
-                      key={`${vendor.vendorId}-${vendor.type}-${idx}`}
-                      className={vendor.status === 'OVERDUE' ? 'bg-destructive/5' : ''}
-                    >
-                      <TableCell className="font-medium">{vendor.vendorName}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{vendor.type}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{vendor.itemsOut}</TableCell>
-                      <TableCell className="text-right">
-                        {vendor.totalQty.toLocaleString('en-IN')} {vendor.unit}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span
-                          className={
-                            vendor.oldestSendoutDays >= 14
-                              ? 'text-destructive font-medium'
-                              : vendor.oldestSendoutDays >= 7
-                                ? 'text-warning font-medium'
-                                : ''
-                          }
-                        >
-                          {vendor.oldestSendoutDays} days
-                        </span>
-                      </TableCell>
-                      <TableCell>{vendor.nextExpectedBack || '-'}</TableCell>
-                      <TableCell>
-                        <VendorStatusBadge status={vendor.status} />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            // Navigate to appropriate list filtered by vendor
-                            const routes: Record<string, string> = {
-                              DYEING: `/manufacturing/dyeing`,
-                              PRINTING: `/manufacturing/printing`,
-                              SMOCKING: `/manufacturing/smocking`,
-                              HANDWORK: `/manufacturing/handwork`,
-                              EMBROIDERY_PIECE: `/embroidery-stock/pieces`,
-                            };
-                            navigate(routes[vendor.type] || '/processing/batches');
-                          }}
-                        >
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+      {showsSection('vendors') && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Materials with External Vendors
+            </CardTitle>
+            <CardDescription>Track materials at mills and processors</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {vendorSummary.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Vendor</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Items</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Oldest</TableHead>
+                      <TableHead>Expected Back</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="p-8 text-center text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No materials currently with external vendors.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {vendorSummary.map((vendor, idx) => (
+                      <TableRow
+                        key={`${vendor.vendorId}-${vendor.type}-${idx}`}
+                        className={vendor.status === 'OVERDUE' ? 'bg-destructive/5' : ''}
+                      >
+                        <TableCell className="font-medium">{vendor.vendorName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{vendor.type}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{vendor.itemsOut}</TableCell>
+                        <TableCell className="text-right">
+                          {vendor.totalQty.toLocaleString('en-IN')} {vendor.unit}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={
+                              vendor.oldestSendoutDays >= 14
+                                ? 'text-destructive font-medium'
+                                : vendor.oldestSendoutDays >= 7
+                                  ? 'text-warning font-medium'
+                                  : ''
+                            }
+                          >
+                            {vendor.oldestSendoutDays} days
+                          </span>
+                        </TableCell>
+                        <TableCell>{vendor.nextExpectedBack || '-'}</TableCell>
+                        <TableCell>
+                          <VendorStatusBadge status={vendor.status} />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              // Navigate to appropriate list filtered by vendor
+                              const routes: Record<string, string> = {
+                                DYEING: `/manufacturing/dyeing`,
+                                PRINTING: `/manufacturing/printing`,
+                                SMOCKING: `/manufacturing/smocking`,
+                                HANDWORK: `/manufacturing/handwork`,
+                                EMBROIDERY_PIECE: `/embroidery-stock/pieces`,
+                              };
+                              navigate(routes[vendor.type] || '/processing/batches');
+                            }}
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No materials currently with external vendors.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* P5.4: Variance Watchtower Section */}
-      <VarianceWatchtower varianceAlerts={data?.varianceAlerts || []} navigate={navigate} />
+      {showsSection('variance') && (
+        <VarianceWatchtower varianceAlerts={data?.varianceAlerts || []} navigate={navigate} />
+      )}
     </div>
   );
 }

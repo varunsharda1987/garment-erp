@@ -1,5 +1,6 @@
-import { JobWorkOrderStatus } from '@prisma/client';
+import { JobWorkOrderStatus, UserRole } from '@prisma/client';
 import prisma from '../config/database';
+import { scopeForRole, type AlertKey, type ControlCenterScope, type SectionKey } from '../config/control-center-panels';
 import { JWO_AT_PROCESSOR_STATUSES, JWO_RECEIVED_STATUSES } from './helpers/jwo-status.helper';
 import { systemSettingsService } from './system-settings.service';
 import { UNRESOLVED_TEST_FAILURE } from './helpers/test-failure.helper';
@@ -40,15 +41,13 @@ interface VarianceAlert {
 }
 
 interface ManufacturingAlertsResponse {
-  alerts: {
-    overdueLabDips: AlertCount;
-    overdueProcessPOs: AlertCount;
-    overdueExternalWork: AlertCount;
-    stuckCutting: AlertCount;
-    qualityFailures: AlertCount;
-    pendingApprovals: AlertCount;
-    overdueChallans: AlertCount;
-  };
+  /**
+   * Only the rows in scope for the caller's role, in that role's order. A key that is ABSENT was
+   * never computed — it is not the same as a row that came back zero.
+   */
+  alerts: Partial<Record<AlertKey, AlertCount>>;
+  /** Which blocks this role's page should render, and in what order. See control-center-panels.ts. */
+  panels: ControlCenterScope;
   vendorSummary: VendorSummary[];
   quickStats: {
     totalAlerts: number;
@@ -114,7 +113,21 @@ class ManufacturingAlertsService {
     return oldest;
   }
 
-  async getAlerts(): Promise<ManufacturingAlertsResponse> {
+  /**
+   * @param role the caller's role. Decides which panels and alert rows are computed at all — see
+   *   `control-center-panels.ts`. An out-of-scope alert is ABSENT from the response, never zero:
+   *   this page was rebuilt so that a zero always means "we looked and found nothing", and a zero
+   *   meaning "not your job" would put the dishonesty straight back.
+   */
+  async getAlerts(role?: UserRole | string): Promise<ManufacturingAlertsResponse> {
+    const scope = scopeForRole(role);
+    const wantsAlert = (key: AlertKey) => scope.alerts.includes(key);
+    const wantsSection = (key: SectionKey) => scope.sections.includes(key);
+
+    /** Run a query only when its alert row is in scope; otherwise skip the database entirely. */
+    const ifWanted = <T>(key: AlertKey, query: () => Promise<T>): Promise<T | null> =>
+      wantsAlert(key) ? query() : Promise.resolve(null);
+
     const today = new Date();
     const weekFromNow = new Date();
     weekFromNow.setDate(weekFromNow.getDate() + 7);
@@ -149,74 +162,86 @@ class ManufacturingAlertsService {
     ] = await Promise.all([
       // 1. Overdue Lab Dips - submitted but not received, past expected date (or past the grace
       //    window when no expected date was ever set — see overdueOr)
-      prisma.lab_dips.findMany({
-        where: {
-          status: 'SUBMITTED',
-          receivedDate: null,
-          isActive: true,
-          ...overdueOr('expectedDate', ['submissionDate'], today, graceCutoff),
-        },
-        select: { submissionDate: true },
-      }),
+      ifWanted('overdueLabDips', () =>
+        prisma.lab_dips.findMany({
+          where: {
+            status: 'SUBMITTED',
+            receivedDate: null,
+            isActive: true,
+            ...overdueOr('expectedDate', ['submissionDate'], today, graceCutoff),
+          },
+          select: { submissionDate: true },
+        })
+      ),
 
       // 2. Overdue Process POs (job_work_orders) - at processor but not received, past expected date
-      prisma.job_work_orders.findMany({
-        where: {
-          jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
-          receivedDate: null,
-          isActive: true,
-          ...overdueOr('expectedReturnDate', ['sentDate'], today, graceCutoff),
-        },
-        select: { sentDate: true },
-      }),
+      ifWanted('overdueProcessPOs', () =>
+        prisma.job_work_orders.findMany({
+          where: {
+            jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
+            receivedDate: null,
+            isActive: true,
+            ...overdueOr('expectedReturnDate', ['sentDate'], today, graceCutoff),
+          },
+          select: { sentDate: true },
+        })
+      ),
 
       // 3. Overdue External Work - sent but not fully received, past expected date
-      prisma.external_process_send_outs.findMany({
-        where: {
-          status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
-          actualReturnDate: null,
-          isActive: true,
-          ...overdueOr('expectedReturnDate', ['sendDate'], today, graceCutoff),
-        },
-        select: { sendDate: true },
-      }),
+      ifWanted('overdueExternalWork', () =>
+        prisma.external_process_send_outs.findMany({
+          where: {
+            status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
+            actualReturnDate: null,
+            isActive: true,
+            ...overdueOr('expectedReturnDate', ['sendDate'], today, graceCutoff),
+          },
+          select: { sendDate: true },
+        })
+      ),
 
       // 4. Stuck Cutting Batches - in progress but no update in X days
-      prisma.cutting_batches.findMany({
-        where: {
-          status: 'IN_PROGRESS',
-          updatedAt: { lt: stuckThresholdDate },
-          isActive: true,
-        },
-        select: { updatedAt: true },
-        orderBy: { updatedAt: 'asc' },
-      }),
+      ifWanted('stuckCutting', () =>
+        prisma.cutting_batches.findMany({
+          where: {
+            status: 'IN_PROGRESS',
+            updatedAt: { lt: stuckThresholdDate },
+            isActive: true,
+          },
+          select: { updatedAt: true },
+          orderBy: { updatedAt: 'asc' },
+        })
+      ),
 
       // 5. Quality Failures - failures that still need someone. See UNRESOLVED_TEST_FAILURE for why
       //    a bare `overallTestResult: 'FAIL'` made this tile permanently un-clearable.
-      Promise.all([
-        prisma.fabric_physical_tests.count({ where: UNRESOLVED_TEST_FAILURE }),
-        prisma.garment_physical_tests.count({ where: UNRESOLVED_TEST_FAILURE }),
-        // Oldest across BOTH kinds — this looked only at fabric, so an ageing garment failure
-        // reported "0 days".
-        prisma.fabric_physical_tests.findFirst({
-          where: UNRESOLVED_TEST_FAILURE,
-          select: { createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-        prisma.garment_physical_tests.findFirst({
-          where: UNRESOLVED_TEST_FAILURE,
-          select: { createdAt: true },
-          orderBy: { createdAt: 'asc' },
-        }),
-      ]),
+      ifWanted('qualityFailures', () =>
+        Promise.all([
+          prisma.fabric_physical_tests.count({ where: UNRESOLVED_TEST_FAILURE }),
+          prisma.garment_physical_tests.count({ where: UNRESOLVED_TEST_FAILURE }),
+          // Oldest across BOTH kinds — this looked only at fabric, so an ageing garment failure
+          // reported "0 days".
+          prisma.fabric_physical_tests.findFirst({
+            where: UNRESOLVED_TEST_FAILURE,
+            select: { createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          }),
+          prisma.garment_physical_tests.findFirst({
+            where: UNRESOLVED_TEST_FAILURE,
+            select: { createdAt: true },
+            orderBy: { createdAt: 'asc' },
+          }),
+        ])
+      ),
 
       // 6. Pending Buyer Approvals - lab dips awaiting buyer approval
-      prisma.lab_dips.findMany({
-        where: { buyerApprovalStatus: 'PENDING', isActive: true },
-        select: { sentToBuyerDate: true },
-        orderBy: { sentToBuyerDate: 'asc' },
-      }),
+      ifWanted('pendingApprovals', () =>
+        prisma.lab_dips.findMany({
+          where: { buyerApprovalStatus: 'PENDING', isActive: true },
+          select: { sentToBuyerDate: true },
+          orderBy: { sentToBuyerDate: 'asc' },
+        })
+      ),
 
       // 7. Overdue Challans - outward challans whose goods have not come back.
       //
@@ -228,44 +253,48 @@ class ManufacturingAlertsService {
       // The `jobWorkOrderId: null` arm is load-bearing: an orphan challan with no job link is
       // exactly the row nobody can close from data alone (CH2607-0001, 500 units at Manish Textiles
       // since 2026-07-29), and it is the single most important thing this alert can surface.
-      prisma.challans.findMany({
-        where: {
-          challanType: 'OUTWARD',
-          status: { in: ['ISSUED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED'] },
-          receivedDate: null,
-          AND: [
-            overdueOr('expectedDate', ['issuedDate', 'challanDate'], today, graceCutoff),
-            {
-              OR: [
-                // Orphan: neither a header link nor a per-job dispatch link.
-                { jobWorkOrderId: null, jobWorkOutward: { none: {} } },
-                // The header's job is still open.
-                { jobWorkOrder: { jwoStatus: { notIn: SETTLED_JWO_STATUSES } } },
-                // A consolidated dispatch leaves the header NULL and links each job through
-                // outwardChallanId instead, so ANY job on the truck still being open keeps the
-                // whole challan visible. Without this arm, one returned job would hide the rest.
-                { jobWorkOutward: { some: { jwoStatus: { notIn: SETTLED_JWO_STATUSES } } } },
-              ],
-            },
-          ],
-        },
-        select: { issuedDate: true, challanDate: true },
-      }),
+      ifWanted('overdueChallans', () =>
+        prisma.challans.findMany({
+          where: {
+            challanType: 'OUTWARD',
+            status: { in: ['ISSUED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED'] },
+            receivedDate: null,
+            AND: [
+              overdueOr('expectedDate', ['issuedDate', 'challanDate'], today, graceCutoff),
+              {
+                OR: [
+                  // Orphan: neither a header link nor a per-job dispatch link.
+                  { jobWorkOrderId: null, jobWorkOutward: { none: {} } },
+                  // The header's job is still open.
+                  { jobWorkOrder: { jwoStatus: { notIn: SETTLED_JWO_STATUSES } } },
+                  // A consolidated dispatch leaves the header NULL and links each job through
+                  // outwardChallanId instead, so ANY job on the truck still being open keeps the
+                  // whole challan visible. Without this arm, one returned job would hide the rest.
+                  { jobWorkOutward: { some: { jwoStatus: { notIn: SETTLED_JWO_STATUSES } } } },
+                ],
+              },
+            ],
+          },
+          select: { issuedDate: true, challanDate: true },
+        })
+      ),
 
       // 8. Vendor Summary - group external work by supplier.
       //    `unit` joins the grouping key so the row can report what it actually holds instead of
       //    the hardcoded 'pcs' this used to print over MTR work. A vendor holding both PCS and MTR
       //    work correctly splits into two rows — you cannot sum pieces and metres.
-      prisma.external_process_send_outs.groupBy({
-        by: ['supplierId', 'processType', 'unit'],
-        where: {
-          status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
-          isActive: true,
-        },
-        _count: { id: true },
-        _sum: { quantitySent: true },
-        _min: { sendDate: true, expectedReturnDate: true },
-      }),
+      wantsSection('vendors')
+        ? prisma.external_process_send_outs.groupBy({
+            by: ['supplierId', 'processType', 'unit'],
+            where: {
+              status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
+              isActive: true,
+            },
+            _count: { id: true },
+            _sum: { quantitySent: true },
+            _min: { sendDate: true, expectedReturnDate: true },
+          })
+        : Promise.resolve([]),
 
       // 9. Due This Week — across BOTH vendor populations.
       //
@@ -273,26 +302,29 @@ class ManufacturingAlertsService {
       // factory actually uses, and the one the vendor table below already includes) never reached
       // the tile: it read 0 with fabric genuinely due back at a dyer. The quick stats must be
       // derived from the same population as the table they sit above.
-      Promise.all([
-        prisma.external_process_send_outs.count({
-          where: {
-            status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
-            isActive: true,
-            expectedReturnDate: { gte: today, lte: weekFromNow },
-          },
-        }),
-        prisma.job_work_orders.count({
-          where: {
-            jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
-            isActive: true,
-            expectedReturnDate: { gte: today, lte: weekFromNow },
-          },
-        }),
-      ]),
+      wantsSection('vendors')
+        ? Promise.all([
+            prisma.external_process_send_outs.count({
+              where: {
+                status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
+                isActive: true,
+                expectedReturnDate: { gte: today, lte: weekFromNow },
+              },
+            }),
+            prisma.job_work_orders.count({
+              where: {
+                jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
+                isActive: true,
+                expectedReturnDate: { gte: today, lte: weekFromNow },
+              },
+            }),
+          ])
+        : Promise.resolve([] as number[]),
     ]);
 
-    // Process quality failures (combined FPT + GPT)
-    const [fptFailCount, gptFailCount, oldestFptFail, oldestGptFail] = qualityFailures;
+    // Process quality failures (combined FPT + GPT). Null when the row is out of scope for this
+    // role — the queries above were never run.
+    const [fptFailCount, gptFailCount, oldestFptFail, oldestGptFail] = qualityFailures ?? [0, 0, null, null];
     const totalQualityFailures = fptFailCount + gptFailCount;
     const oldestQualityFailDays = this.oldestDaysAmong(
       [oldestFptFail, oldestGptFail].filter((r): r is { createdAt: Date } => r != null),
@@ -403,47 +435,59 @@ class ManufacturingAlertsService {
     // `oldestDays` is a max over the whole set, not `rows[0]` after an `orderBy`: Postgres sorts
     // NULLs LAST on ASC, so a set whose oldest row had a null anchor reported "overdue, 0 days".
     // The anchor lists mirror the fallback chains in each query's overdueOr.
-    const alerts = {
-      overdueLabDips: {
+    //
+    // Only in-scope rows are built. An out-of-scope key is ABSENT, never `{count: 0}` — a zero on
+    // this page means "we looked and found nothing", and must not come to mean "not your job".
+    const computed: Record<AlertKey, AlertCount | null> = {
+      overdueLabDips: overdueLabDips && {
         count: overdueLabDips.length,
         oldestDays: this.oldestDaysAmong(overdueLabDips, ['submissionDate']),
       },
-      overdueProcessPOs: {
+      overdueProcessPOs: overdueProcessPOs && {
         count: overdueProcessPOs.length,
         oldestDays: this.oldestDaysAmong(overdueProcessPOs, ['sentDate']),
       },
-      overdueExternalWork: {
+      overdueExternalWork: overdueExternalWork && {
         count: overdueExternalWork.length,
         oldestDays: this.oldestDaysAmong(overdueExternalWork, ['sendDate']),
       },
-      stuckCutting: {
+      stuckCutting: stuckCutting && {
         count: stuckCutting.length,
         oldestDays: this.oldestDaysAmong(stuckCutting, ['updatedAt']),
       },
-      qualityFailures: {
+      qualityFailures: qualityFailures && {
         count: totalQualityFailures,
         oldestDays: oldestQualityFailDays,
       },
-      pendingApprovals: {
+      pendingApprovals: pendingApprovals && {
         count: pendingApprovals.length,
         oldestDays: this.oldestDaysAmong(pendingApprovals, ['sentToBuyerDate']),
       },
-      overdueChallans: {
+      overdueChallans: overdueChallans && {
         count: overdueChallans.length,
         oldestDays: this.oldestDaysAmong(overdueChallans, ['issuedDate', 'challanDate']),
       },
     };
 
-    // Calculate quick stats
+    // Built in the role's own order, so the page can render straight from it.
+    const alerts: Partial<Record<AlertKey, AlertCount>> = {};
+    for (const key of scope.alerts) {
+      const value = computed[key];
+      if (value) alerts[key] = value;
+    }
+
+    // Quick stats are derived from the IN-SCOPE population only, so the cards never total something
+    // the rows beneath them cannot explain.
     const totalAlerts = Object.values(alerts).reduce((sum, a) => sum + a.count, 0);
     const itemsWithVendors = vendorSummary.reduce((sum, v) => sum + v.itemsOut, 0);
     const overdueCount = vendorSummary.filter((v) => v.status === 'OVERDUE').reduce((sum, v) => sum + v.itemsOut, 0);
 
     // P5.4: Fetch variance alerts
-    const varianceAlerts = await this.getVarianceAlerts();
+    const varianceAlerts = wantsSection('variance') ? await this.getVarianceAlerts() : [];
 
     return {
       alerts,
+      panels: scope,
       vendorSummary,
       quickStats: {
         totalAlerts,

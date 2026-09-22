@@ -86,6 +86,45 @@ describe('export/import date round-trip', () => {
     });
   });
 
+  describe('the two formatter contracts', () => {
+    // Exercised through a cast because these are the private seam between the
+    // three export paths — and getting them the wrong way round is silent:
+    // a raw Date reaching a TEXT path prints 45 characters of
+    // "Sat Sep 19 2026 00:00:00 GMT+0530 (India Standard Time)".
+    const svc = exportService as unknown as {
+      formatValue(v: unknown, f?: string): unknown;
+      formatValueForCsv(v: unknown, f?: string): unknown;
+    };
+
+    it('formatValue hands a Date through untouched — the EXCEL cell', () => {
+      expect(svc.formatValue(orderDate, 'date')).toBeInstanceOf(Date);
+    });
+
+    it('formatValueForCsv renders text — used by CSV *and* the PDF table', () => {
+      expect(svc.formatValueForCsv(orderDate, 'date')).toBe('19-Sep-2026');
+    });
+
+    it('formatValueForCsv catches a Date even when the column declares no format', () => {
+      expect(svc.formatValueForCsv(orderDate)).toBe('19-Sep-2026');
+    });
+
+    it('neither formatter mangles money', () => {
+      expect(svc.formatValue(1234.5, 'currency')).toBe('₹1234.50');
+      expect(svc.formatValueForCsv(1234.5, 'currency')).toBe('₹1234.50');
+    });
+  });
+
+  describe('PDF', () => {
+    it('renders the date as text, not as a 45-character Date.toString()', async () => {
+      const buffer = await exportService.exportToPDF({ columns, data, filename: 'test.pdf' });
+      expect(buffer.length).toBeGreaterThan(0);
+      // PDFKit compresses its content streams, so assert the contract at the seam the
+      // PDF table actually uses rather than grepping the bytes.
+      const svc = exportService as unknown as { formatValueForCsv(v: unknown, f?: string): unknown };
+      expect(svc.formatValueForCsv(orderDate, 'date')).not.toContain('GMT');
+    });
+  });
+
   describe('re-import', () => {
     const asFile = (text: string) =>
       ({

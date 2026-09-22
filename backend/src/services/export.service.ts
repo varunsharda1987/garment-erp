@@ -192,7 +192,10 @@ class ExportService {
         columns.forEach((col, index) => {
           const xPosition = doc.page.margins.left + index * columnWidth;
           const value = this.getNestedValue(row, col.fieldName);
-          const formattedValue = this.formatValue(value, col.format);
+          // Text path, like CSV — NOT formatValue, which hands a raw Date through for
+          // the Excel cell. `.toString()` on that would print the 45-character
+          // "Sat Sep 19 2026 00:00:00 GMT+0530 (India Standard Time)" into the table.
+          const formattedValue = this.formatValueForCsv(value, col.format);
 
           doc.rect(xPosition, yPosition, columnWidth, 20).stroke('#CCC');
           doc.fontSize(9).text(formattedValue?.toString() || '', xPosition + 5, yPosition + 5, {

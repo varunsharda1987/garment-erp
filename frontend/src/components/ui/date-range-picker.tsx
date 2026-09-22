@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 
@@ -58,13 +58,18 @@ export function DateRangePicker({
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align={align}>
           <Calendar
-            initialFocus
+            autoFocus
             mode="range"
             defaultMonth={value?.from}
             selected={value}
             onSelect={(range) => {
               onChange(range);
-              if (range?.from && range?.to) {
+              // react-day-picker 10 completes the range on the FIRST click — addToRange returns
+              // `{from: d, to: d}` unless `min` is set — so closing on `from && to` shut the
+              // popover before an end date could be picked and no range was selectable at all.
+              // Close once the two ends actually differ; a deliberate single-day pick stays open
+              // and is dismissed by clicking away.
+              if (range?.from && range?.to && !isSameDay(range.from, range.to)) {
                 setOpen(false);
               }
             }}

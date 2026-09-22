@@ -197,7 +197,7 @@ export function SampleActionMenu({
             mode="single"
             selected={completionDate}
             onSelect={(date) => date && setCompletionDate(date)}
-            initialFocus
+            autoFocus
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCompleteDialogOpen(false)} disabled={isUpdating}>

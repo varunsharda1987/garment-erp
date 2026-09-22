@@ -100,11 +100,11 @@ Ordered by ascending risk. **Do not batch.**
 
 | # | Package | From → To | Risk / what to check |
 |---|---|---|---|
-| 3.1 | jsdom *(frontend only — the backend has none)* | 27.2.0 → 29.1.1 | Test-only. Safest major |
-| 3.2 | dotenv | 16.6.1 → 18.0.2 | Boot config — confirm the API starts and reads `.env` |
-| 3.3 | **openai** | 6.9.1 → **7.21.0** | **Powers the live AI assistant** via DeepSeek. Only breaking change is Node ≥ 22; running v24.11.1 ✅. **Verify the assistant end-to-end after this one** |
-| 3.4 | nodemailer | 8.0.5 → 10.0.10 | Two majors. Send a test email |
-| 3.5 | puppeteer-core + whatsapp-web.js | 24.38 → 25.11 | Exact-pinned. Drives PDF/document rendering — regenerate an invoice and a challan |
+| 3.1 | ✅ **DONE `035e234b`** jsdom *(frontend only)* | 27.2.0 → 29.1.1 | Test-only. Safest major |
+| 3.2 | ✅ **DONE `c19cd7e4`** dotenv | 16.6.1 → 18.0.2 | Precedence preserved (`.env.local` still wins); added `quiet: true` to kill v17's per-load banner |
+| 3.3 | ✅ **DONE `903731ee`** **openai** | 6.9.1 → **7.21.0** | Node ≥ 22 is the only breaking change. Assistant answered a real question on deepseek-flash afterwards |
+| 3.4 | ✅ **DONE `f96f2891`** nodemailer | 8.0.5 → 10.0.10 | Cleared 2 HIGHs. Dormant (no SMTP configured). `@types/nodemailer` is stuck at 8.0.2, so tsc is **not** proof — runtime surface checked directly |
+| 3.5 | ⚠️ **DONE `66250935`** puppeteer-core *(whatsapp-web.js NOT bumped)* | 24.38 → 25.11 | **Clears no advisories** — see §13. Our direct copy is now out of the vulnerable range; PDFs verified by rendering a challan (byte-identical) and a JWO |
 | 3.6 | **prisma + @prisma/client** | 6.19.1 → **7.10.0** | ⚠ **Re-scoped in §11.2 — a project, not a line item.** v7 rejects `url` in the datasource block, requires `prisma.config.ts` plus a driver adapter (`@prisma/adapter-pg`) at `database.ts:30`, and the `prisma-client` generator changes the import path in 323 files. Its only smoke test runs against the live DB (§8.1). 8.0 is in RC — **do not** jump to it |
 | 3.7 | **tailwindcss** | 3.4.18 → **4.3.3** | ⚠ **Sized in §11.3 — a project, not a line item.** CSS-first config rewrite, plus 844 opacity-modifier sites, a global `fontSize` override, hand-duplicated utilities and a removed `safelist`. Highest *visual* regression risk — walk the main pages in a browser |
 | 3.8 | ~~**typescript** 5.9.3 → **7.0.2**~~ | — | ⛔ **BLOCKED — see §11.1.** The native compiler cannot run under the `node bin/tsc` build gate (both workspaces), `typescript-eslint` supports `<6.1.0` only (canary included), and `route-write-guard.test.ts` uses the compiler API. Owner decision 2026-09-22: **stay on 5.9.3** |
@@ -162,7 +162,7 @@ BullMQ's recommended minimum is Redis 6.2; on 5.0 it "kind of works". Consumers:
 | # | Item | Location |
 |---|---|---|
 | 6.1 | Drop `@anthropic-ai/sdk` (0.69, 58 minors behind) and `@google/generative-ai` — statically imported at boot, never executed | `AIProviderFactory.ts:14-19` |
-| 6.2 | Retired model IDs in admin dropdowns: `claude-3-opus-20240229`, `gpt-4-vision-preview`, `gpt-3.5-turbo`, `gemini-1.5-*` | `backend/src/services/ai/ai-settings.service.ts:60-72` |
+| 6.2 | ✅ **DONE `781ffe0f` + `f167b724`** — every dropdown ID was retired, not just some; the provider classes' hardcoded defaults and both vision SKUs too. See §13 | `backend/src/services/ai/ai-settings.service.ts`, `providers/{OpenAI,Anthropic,Gemini}Provider.ts`, `docs/ai-guides/ai-settings.md` |
 
 ---
 
@@ -380,6 +380,36 @@ whatsapp-web.js, prisma 7 (all Phase 3) — plus `xlsx`, which no version fixes 
 
 **Standing rule for this repo: never run a blanket `npm update` in `backend/`.** Update named
 packages, and keep `@types/express*` out until the `req.query` helper exists.
+
+---
+
+## 13. Phases 2, 3.1–3.5 and 6.2 — 2026-09-22
+
+**Phase 2 (`56243b1e`).** eslint 9.39.5 → 10.11.0, `@eslint/js` → 10.0.1, globals 14 → 17,
+`@types/node` → 26.6.2, `@types/supertest` → 7.2.1. No config change needed — `backend/eslint.config.js`
+already uses the object form of `plugins`. Lint 402 → 488, and the 86 new problems are exactly
+ESLint 10's two new rules (`preserve-caught-error` 58, `no-useless-assignment` 28).
+
+**Phase 3.5 does not do what this plan expected.** The whole puppeteer cluster is one flaw —
+`extract-zip`'s symlink path traversal — reached via `whatsapp-web.js → puppeteer →
+@puppeteer/browsers → extract-zip`. **whatsapp-web.js 1.34.7 is the latest and hard-pins
+`puppeteer: 24.38.0` exactly**, so it nests its own vulnerable copy regardless. npm's suggested
+"fix" is `whatsapp-web.js@1.34.2` — *older* than what runs here, i.e. a downgrade to fall below the
+advisory range. **Not taken.** Bumping our direct `puppeteer-core` to 25.11.0 still matters: it is
+the copy every invoice, challan, JWO and GRN PDF goes through, and it is now outside the vulnerable
+19.8.4–24.43.1 window. The tree holds two copies by design. Those ~5 HIGHs need upstream.
+
+**6.2 was Phase 0's bug four more times.** Not "some retired IDs" — *every* non-DeepSeek entry was
+dead (`gpt-4-turbo`/`gpt-4o`/`gpt-3.5-turbo`, `claude-3-*`, `gemini-1.5-*`), checked against each
+provider's own docs. The dropdown alone was not enough: `OpenAIProvider`, `AnthropicProvider` and
+`GeminiProvider` each hardcoded a retired **default**, so switching provider without naming a model
+failed the same way, and both dedicated vision SKUs (`gpt-4-vision-preview`, `gemini-1.5-flash`)
+are gone — current models are multimodal. Kimi and Ollama entries were left alone: no evidence
+either way, and Ollama's are the user's own local models.
+
+**Advisory position after the day:** backend 43 → **24**, frontend 12 → **1**. Everything still
+HIGH needs either a MAJOR that is its own project (prisma 7) or upstream action
+(whatsapp-web.js/puppeteer), except `xlsx` — Phase 5, where no version will ever help.
 
 ### What this review did not verify
 DeepSeek's serving claim ("already serving V4.1-Flash") beyond the docs page quoted above;

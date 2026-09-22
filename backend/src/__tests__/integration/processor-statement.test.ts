@@ -15,12 +15,9 @@
  */
 
 import request from 'supertest';
-import { Unit } from '@prisma/client';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
-import greigeStockService from '../../services/greige-stock.service';
-import { createChallan } from '../../services/challan.service';
 
 const RUN = `PST${Date.now().toString(36).toUpperCase()}`;
 
@@ -218,51 +215,17 @@ beforeAll(async () => {
     data: { challanDate: new Date(`${B_SENT_ON}T00:00:00Z`), issuedDate: new Date(`${B_SENT_ON}T00:00:00Z`) },
   });
 
-  // The return is seeded through the same two writers the controller uses, NOT through
-  // POST /api/dyeing/process-pos/:id/return-unprocessed — because that endpoint cannot succeed.
-  // It guards on `job.status` (dyeing.controller.ts:2252, printing.controller.ts:2220), the legacy
-  // JobWorkStatus column that was retired and dropped; the row only has `jwoStatus`. So the check
-  // reads undefined, never matches AT_MILL, and refuses every job with "Job status is undefined".
-  // Reported separately. What is pinned here is the STATEMENT's reading of a return, which must
-  // keep working whichever door eventually writes one.
-  await greigeStockService.returnGreigeStock(lotId, SEND_B, userId, undefined, {
-    referenceType: 'JOB_WORK_ORDER',
-    referenceId: jwoB,
-    notes: `${RUN} unprocessed greige returned`,
-  });
-  const inward = await createChallan({
-    challanType: 'INWARD',
-    challanDate: new Date(`${B_RETURNED_ON}T00:00:00Z`),
-    fromType: 'VENDOR',
-    fromId: dyerId,
-    fromName: `${RUN} Dyer`,
-    toType: 'WAREHOUSE',
-    toName: `${RUN} Warehouse`,
-    jobWorkOrderId: jwoB,
-    issuedById: userId,
-    unit: Unit.METER,
-    remarks: `${RUN} unprocessed greige returned`,
-    items: [
-      {
-        itemType: 'GREIGE',
-        greigeStockId: lotId,
-        description: `${RUN} unprocessed greige returned`,
-        quantity: SEND_B,
-        unit: Unit.METER,
-        jobWorkOrderId: jwoB,
-      },
-    ],
-  });
-  await prisma.job_work_orders.update({
-    where: { id: jwoB },
-    data: {
-      inwardChallanId: inward.id,
-      jwoStatus: 'CANCELLED',
-      qtyReceivedMeters: 0,
-      receivedDate: new Date(`${B_RETURNED_ON}T00:00:00Z`),
-      remarks: `[RETURNED UNPROCESSED] ${SEND_B} meters returned`,
-    },
-  });
+  // Driven through the Job Work Order screen's own endpoint, which did not exist before
+  // 2026-09-21 — the only door was the Dyeing/Printing page, and that refused every job because
+  // its guard read `job.status`, the legacy JobWorkStatus column that was retired and dropped.
+  // Both doors now call the same writer; this call failing again is the regression signal.
+  const returned = await request(app)
+    .post(`/api/job-work-orders/${jwoB}/return-unprocessed`)
+    .set(authHeader)
+    .send({ returnedQty: SEND_B, returnDate: B_RETURNED_ON, remarks: `${RUN} shade rejected` });
+  if (returned.status >= 400) {
+    throw new Error(`unprocessed return failed: ${returned.status} ${JSON.stringify(returned.body)}`);
+  }
 });
 
 afterAll(async () => {
@@ -391,6 +354,46 @@ describe('processor statement over the real endpoints', () => {
     const aug = greigeRow((await statement(AUG)).body);
     const sep = greigeRow((await statement(SEP)).body);
     expect(aug.closing).toBe(sep.opening);
+  });
+
+  it('credits the greige back and files an inward challan when it comes back untouched', async () => {
+    // The return is what job B's whole fixture is; assert the side effects the screen promises.
+    const job = await prisma.job_work_orders.findUnique({ where: { id: jwoB } });
+    expect(job!.jwoStatus).toBe('CANCELLED'); // nothing was processed — off every receivable list
+    expect(Number(job!.qtyReceivedMeters)).toBe(0);
+    expect(job!.remarks).toMatch(/\[RETURNED UNPROCESSED\]/);
+    expect(job!.inwardChallanId).toBeTruthy();
+
+    const challan = await prisma.challans.findUnique({
+      where: { id: job!.inwardChallanId! },
+      include: { items: true },
+    });
+    expect(challan!.challanType).toBe('INWARD');
+    expect(challan!.fromId).toBe(dyerId);
+    expect(Number(challan!.items[0].quantity)).toBe(SEND_B);
+
+    // and the metres are back on the shelf, with a ledger row saying why
+    const credit = await prisma.greige_stock_transaction.findFirst({
+      where: { stockId: lotId, transactionType: 'RETURN', referenceId: jwoB },
+    });
+    expect(credit).toBeTruthy();
+  });
+
+  it('will not let an unprocessed return erase a job that already received cloth back', async () => {
+    // This path zeroes qtyReceivedMeters and cancels the order. Run against job A — received in
+    // two parts and settled — it would erase both receipts while their stock and inward challans
+    // stayed, so it has to refuse and point at the short close instead.
+    const res = await request(app)
+      .post(`/api/job-work-orders/${jwoA}/return-unprocessed`)
+      .set(authHeader)
+      .send({ returnedQty: 100, returnDate: '2026-09-20' });
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(JSON.stringify(res.body)).toMatch(/close it short|still with the processor/i);
+
+    const job = await prisma.job_work_orders.findUnique({ where: { id: jwoA } });
+    expect(Number(job!.qtyReceivedMeters)).toBe(PART_1 + PART_2); // untouched
+    expect(job!.jwoStatus).toBe('STOCK_UPDATED');
   });
 
   it('refuses a backwards period and an unknown processor', async () => {

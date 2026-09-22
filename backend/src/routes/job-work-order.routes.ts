@@ -17,6 +17,7 @@ import {
   addJwoComponentSchema,
   closeJwoSchema,
   closeShortSchema,
+  returnUnprocessedSchema,
   issueJwoSchema,
   issueWithDetailsSchema,
   receiveJwoSchema,
@@ -60,6 +61,13 @@ router.post(
   '/:id/close-short',
   validateBody(closeShortSchema),
   asyncHandler(jobWorkOrderController.closeShort.bind(jobWorkOrderController))
+);
+// The third ending: the processor sent it back untouched. Credits the lot, files the inward
+// challan and cancels the job in one transaction — same writer the Dyeing/Printing pages use.
+router.post(
+  '/:id/return-unprocessed',
+  validateBody(returnUnprocessedSchema),
+  asyncHandler(jobWorkOrderController.returnUnprocessed.bind(jobWorkOrderController))
 );
 
 // Actions

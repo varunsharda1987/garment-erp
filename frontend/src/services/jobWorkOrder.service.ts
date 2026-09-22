@@ -386,6 +386,25 @@ export const jobWorkOrderService = {
   },
 
   /**
+   * The processor sent it back untouched: credits the lot, files the inward challan and closes
+   * the job, in one transaction. Same writer the Dyeing and Printing pages use.
+   */
+  async returnUnprocessed(
+    id: string,
+    payload: { returnedQty: number; returnDate?: string; remarks?: string }
+  ): Promise<{
+    jobWorkOrderId: string;
+    jobWorkNumber: string;
+    returnedQty: number;
+    creditedTo: 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
+    inwardChallanId: string;
+    inwardChallanNumber: string;
+  }> {
+    const response = await api.post(`${BASE_URL}/${id}/return-unprocessed`, payload);
+    return response.data.data;
+  },
+
+  /**
    * Get available bale/than details for a greige stock lot (for bale/than-level issuance).
    * Returns the individual thans grouped by bale, with remaining meters.
    */

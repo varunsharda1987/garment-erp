@@ -38,6 +38,8 @@ import {
   JWO_GRN_UOMS,
 } from '../services/helpers/jwo-status.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
+import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
+import { UnauthorizedError } from '../errors';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
@@ -48,6 +50,7 @@ import type {
   AddJwoComponentInput,
   CloseJwoInput,
   CloseShortInput,
+  ReturnUnprocessedInput,
   DispatchJwoInput,
 } from '../schemas/jobWorkOrder.schema';
 
@@ -786,6 +789,32 @@ class JobWorkOrderController {
         actualShrinkage: jwo.actualShrinkage,
       },
       message: `${jwo.jobWorkNumber} closed short on ${Number(jwo.qtyReceivedMeters ?? 0).toFixed(2)} ${jwo.uom}`,
+    });
+  }
+
+  /**
+   * The processor sent the material back untouched. Until 2026-09-21 this could only be recorded
+   * from the Dyeing and Printing pages — and not even there, since their guard read a retired
+   * column and refused every job. Same writer as those pages now.
+   */
+  async returnUnprocessed(req: Request, res: Response) {
+    const { id } = req.params;
+    const body = req.body as ReturnUnprocessedInput;
+    const userId = req.user?.userId || req.user?.id;
+    if (!userId) throw new UnauthorizedError();
+
+    const result = await returnJobWorkUnprocessed({
+      jobWorkOrderId: id,
+      returnedQty: Number(body.returnedQty),
+      returnDate: body.returnDate,
+      remarks: body.remarks,
+      userId,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: `${result.jobWorkNumber}: ${result.returnedQty} back on challan ${result.inwardChallanNumber}`,
     });
   }
 

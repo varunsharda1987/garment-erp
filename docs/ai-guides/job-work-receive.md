@@ -8,6 +8,16 @@ keywords:
   - receive and add to stock
   - receive via GRN
   - job work return
+  - returned unprocessed
+  - return unprocessed
+  - came back untouched
+  - mill sent it back
+  - bina kaam ke wapas
+  - wapas aa gaya
+  - shade reject
+  - बिना प्रोसेस वापस
+  - वापस आ गया
+  - मिल ने वापस भेज दिया
   - mill se maal aaya
   - maal wapas
   - kapda wapas
@@ -63,7 +73,9 @@ sources:
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/pages/JobWorkOrderList.tsx
   - frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx
+  - frontend/src/components/job-work/ReturnFromProcessorDialog.tsx
   - frontend/src/components/job-work/ReceiptDetailRows.tsx
+  - backend/src/services/helpers/jwo-return-unprocessed.helper.ts
   - frontend/src/components/WarehouseCombobox.tsx
   - frontend/src/services/jobWorkOrder.service.ts
   - frontend/src/pages/GRNList.tsx
@@ -119,6 +131,17 @@ A processor often returns a job in more than one delivery. Record each delivery 
 5. If the processor will send nothing more after a part, open the job and click **Close short — nothing more is coming**, which appears under **Receive from processor** while the job is at **Partial Receipt**. The same confirmation appears, stating the total received and the shortfall; click **Yes — nothing more is coming, close it short**, or **Keep it open** if more may still come. The job closes on what was received — no new receipt, lot or challan is made — and when the shortfall is beyond the allowance a debit note against the processor is due; **Close Order** reminds you of it.
 
 If a part was recorded wrongly, an admin reverses that one receipt: its lot and inward challan go, the other parts stay, and the job's total is recomputed. Reversing the final part re-opens the job as **Partial Receipt**, so the last delivery can be entered again. That also undoes a **Close short** when the reversed receipt was the last one in.
+
+## It came back untouched
+When the processor sends the material back without working on it at all — wrong shade, they could not take the job — open the job work order and click **Returned unprocessed** in the Actions card. It sits under **Receive from processor** and shows only while the job is at **Issued**, **In Transit** or **At Processor** and nothing has been received yet.
+
+1. **How much came back** defaults to everything that was sent. Leave it unless only part of it came back.
+2. Set **Date it came back**, and say **Why** if it helps the next person (e.g. "shade rejected").
+3. Click **Record the return & close the job**.
+
+The material goes straight back on the shelf, an inward challan is filed against the processor, and the job closes as **Cancelled** with a `[RETURNED UNPROCESSED]` note — it drops off every "at processor" and receivable list, and stops counting against the processor on the Processor Statement. The same action is on the Dyeing and Printing pages as **Return Unprocessed**.
+
+If you enter less than was sent, the dialog warns you: the job still closes, and the difference is then accounted for nowhere. If the processor is keeping part of it, wait and record the return once it is all back. If some of it already came back **processed**, this is the wrong action — use **Close short** instead, and the system will refuse this one and say so.
 
 ## Piece work coming back (stitching, washing, handwork, kaaj-button)
 1. Open **Manufacturing → Job Work Dashboard**, click **Job Work Orders**, then open the order.

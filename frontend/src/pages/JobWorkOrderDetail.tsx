@@ -25,6 +25,7 @@ import {
   Trash2,
   Ban,
   MessageCircle,
+  Undo2,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrder.service';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
+import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
 import { evaluateLotRows, round2, type IssueLotRow } from '@/components/job-work/lot-rows';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
@@ -139,6 +141,8 @@ export default function JobWorkOrderDetail() {
   const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
   // Close short — nothing more is coming: the "Close … short?" confirmation on a Partial Receipt job.
   const [closeShortOpen, setCloseShortOpen] = useState(false);
+  // Returned unprocessed — the processor sent it back untouched.
+  const [returnUnprocessedOpen, setReturnUnprocessedOpen] = useState(false);
   // Phase 4c: operational issue dialog (greige lots + transport)
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
@@ -1075,6 +1079,18 @@ export default function JobWorkOrderDetail() {
                 </Button>
               )}
 
+              {/* The third ending: it came back exactly as it went out. Only while nothing has been
+                  received — once a delivery is in, Close short is the right action, and this path
+                  would zero that receipt. */}
+              {['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR'].includes(currentStatus) &&
+                !jwo.receivedDate &&
+                receivedSoFar === 0 && (
+                  <Button className="w-full" variant="outline" onClick={() => setReturnUnprocessedOpen(true)}>
+                    <Undo2 className="mr-2 h-4 w-4" />
+                    Returned unprocessed
+                  </Button>
+                )}
+
               {jwo.jwoStatus !== 'CLOSED' &&
                 ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.jwoStatus) && (
                   <Button
@@ -1238,6 +1254,17 @@ export default function JobWorkOrderDetail() {
         open={receiveFromProcessorOpen}
         onOpenChange={setReceiveFromProcessorOpen}
         jobWorkOrderId={jwo.id}
+      />
+
+      {/* Returned unprocessed — it came back exactly as it went out */}
+      <ReturnFromProcessorDialog
+        open={returnUnprocessedOpen}
+        onOpenChange={setReturnUnprocessedOpen}
+        jobWorkOrderId={jwo.id}
+        jobWorkNumber={jwo.jobWorkNumber}
+        processorName={jwo.processor?.name ?? 'The processor'}
+        qtySent={Number(jwo.qtySentMeters ?? 0)}
+        uom={jwo.uom}
       />
 
       {/* Receive Dialog — piece work only */}

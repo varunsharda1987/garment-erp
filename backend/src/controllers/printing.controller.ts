@@ -19,6 +19,7 @@ import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import greigeStockService from '../services/greige-stock.service';
 import { isJwoDead, JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES } from '../services/helpers/jwo-status.helper';
+import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 // BUG-PRT5 fix: Import decimal.js helpers for safe cost calculations
 import {
@@ -1778,8 +1779,17 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
-  if (job.status !== 'READY_TO_SEND') {
-    throw new BusinessError(`Cannot send. Job status is ${job.status}, expected READY_TO_SEND`);
+  // Same retired-column bug as return-unprocessed: `status` is gone, so this read `undefined`,
+  // never matched READY_TO_SEND, and Send to Mill refused every job. Issuance is the authority
+  // on whether an order can go out — acquireIssueMutex claims it atomically and refuses a dead
+  // or already-issued job with its own message, naming the date — so all this adds is failing
+  // before a finished-fabric master is minted for a job that was never going to ship.
+  if (!JWO_PRE_ISSUE_STATUSES.includes(job.jwoStatus)) {
+    throw new BusinessError(
+      `${job.jobWorkNumber} is ${String(job.jwoStatus ?? 'unknown')
+        .toLowerCase()
+        .replace(/_/g, ' ')} — only an order that has not been issued can be sent.`
+    );
   }
 
   // Finished fabric identity (pre-tx: a minted master with a failed issue is a harmless
@@ -2209,77 +2219,19 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
-  // Landmine No.1 fix: a cancelled/closed job's material was already credited back —
-  // receiving (or re-returning) against it would double-count stock
-  if (isJwoDead(job.jwoStatus)) {
-    throw new BusinessError(
-      `${job.jobWorkNumber} is ${job.jwoStatus?.toLowerCase()} — its stock was already credited back. Contact the office to re-open the job if material physically arrived.`
-    );
-  }
-  if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
-    throw new BusinessError(`Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL`);
-  }
-
-  // Credit back to greige_stock via the shared return path: guarded against over-crediting,
-  // writes the greige_stock_transaction ledger row, and keeps central stock_levels in step
-  // (the old bare update here silently drifted the Stock Levels page — landmine №4).
-  if (job.greigeStockLotId) {
-    await greigeStockService.returnGreigeStock(job.greigeStockLotId, returnedQtyMeters, userId, undefined, {
-      referenceType: 'JOB_WORK_ORDER',
-      referenceId: job.id,
-      notes: `Unprocessed greige returned — ${job.jobWorkNumber}${remarks ? ` (${remarks})` : ''}`,
-    });
-  }
-
-  // Auto-create INWARD challan for returned greige
-  let inwardChallanId: string | null = null;
-  try {
-    const challan = await createChallan({
-      challanType: 'INWARD',
-      challanDate: returnDate ? new Date(returnDate) : new Date(),
-      fromType: 'VENDOR',
-      fromId: job.processorId,
-      fromName: job.processor?.name || 'Mill',
-      toType: 'WAREHOUSE',
-      toName: 'Main Warehouse',
-      purchaseOrderId: job.purchaseOrderId ?? undefined,
-      jobWorkOrderId: job.id,
-      issuedById: userId,
-      unit: Unit.METER,
-      remarks: `Unprocessed greige returned${remarks ? ': ' + remarks : ''}`,
-      items: [
-        {
-          itemType: 'GREIGE',
-          fabricId: job.fabricId,
-          greigeStockId: job.greigeStockLotId || undefined,
-          description: `Unprocessed greige fabric returned - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
-          quantity: returnedQtyMeters,
-          unit: Unit.METER,
-          jobWorkOrderId: job.id,
-        },
-      ],
-    });
-    inwardChallanId = challan.id;
-  } catch (challanError) {
-    logger.error('Failed to create inward challan for returned unprocessed greige', {
-      error: challanError,
-      jobId: job.id,
-      returnedQtyMeters,
-    });
-  }
-
-  // Update job status — use CANCELLED since RETURNED is not in enum
-  await prisma.job_work_orders.update({
-    where: { id: job.id },
-    data: {
-      inwardChallanId,
-      jwoStatus: 'CANCELLED',
-      remarks:
-        `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQtyMeters} meters returned on ${(returnDate ? new Date(returnDate) : new Date()).toISOString().split('T')[0]}. ${remarks || ''}`.trim(),
-      qtyReceivedMeters: 0, // Nothing was processed
-      receivedDate: returnDate ? new Date(returnDate) : new Date(),
-    },
+  // Every guard, the stock credit, the inward challan and the job close live in ONE writer, so
+  // this page, the Dyeing page and the Job Work Order screen cannot drift into three different
+  // versions of "the mill sent it back untouched". The guard that used to sit here read
+  // `job.status` — the legacy JobWorkStatus column, retired and dropped — so it saw undefined,
+  // never matched AT_MILL and refused every job; the service checks `jwoStatus` instead.
+  const returned = await returnJobWorkUnprocessed({
+    jobWorkOrderId: job.id,
+    returnedQty: returnedQtyMeters,
+    returnDate: returnDate ? new Date(returnDate) : undefined,
+    remarks,
+    userId,
   });
+  const inwardChallanId = returned.inwardChallanId;
 
   // Legacy shadow PO: cancel it too. Guarded echo (landmine №7): leaves a
   // partially-received PO alone.

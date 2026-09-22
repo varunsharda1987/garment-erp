@@ -4,6 +4,7 @@
  */
 import { z } from 'zod';
 import { ProcessTypeEnum, PrintingTypeEnum } from './generated/prisma-enums';
+import { formNumber } from './common.schema';
 
 /**
  * The process types whose output is CLOTH — process_type_master.processCategory = 'FABRIC'.
@@ -171,6 +172,20 @@ export const closeShortSchema = z.object({
 });
 
 export type CloseShortInput = z.infer<typeof closeShortSchema>;
+
+/**
+ * POST /api/job-work-orders/:id/return-unprocessed — the processor sent it back untouched.
+ *
+ * The third way a job can end, alongside "received" and "closed short". `formNumber` because the
+ * dialog is an HTML form: a numeric input posts a string, and '' when cleared.
+ */
+export const returnUnprocessedSchema = z.object({
+  returnedQty: formNumber(z.number().positive('Enter how much came back')),
+  returnDate: z.preprocess((v) => (v === '' || v === null ? undefined : v), z.coerce.date().optional()),
+  remarks: z.string().max(500).optional(),
+});
+
+export type ReturnUnprocessedInput = z.infer<typeof returnUnprocessedSchema>;
 
 /**
  * POST /api/job-work-orders/:id/issue — Phase 4c operational issue.

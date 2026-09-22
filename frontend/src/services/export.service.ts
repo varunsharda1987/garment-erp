@@ -28,7 +28,8 @@ class ExportService {
 
       // Create blob and download
       const blob = new Blob([response.data], {
-        type: response.headers['content-type'],
+        // Header values are not necessarily strings in axios' types; Blob wants a string.
+        type: String(response.headers['content-type'] ?? ''),
       });
 
       const url = window.URL.createObjectURL(blob);

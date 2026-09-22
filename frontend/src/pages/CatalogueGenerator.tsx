@@ -422,8 +422,10 @@ export default function CatalogueGenerator() {
       });
 
       // Check if response is an error (JSON content type)
-      const contentType = response.headers['content-type'];
-      if (contentType && contentType.includes('application/json')) {
+      // axios types a header as string | number | boolean | string[] | AxiosHeaders | null,
+      // so narrow before matching rather than assuming a string.
+      const contentType = String(response.headers['content-type'] ?? '');
+      if (contentType.includes('application/json')) {
         const text = await (response.data as Blob).text();
         const errorData = JSON.parse(text);
         throw new Error(errorData.message || 'Failed to generate catalogue');

@@ -38,6 +38,14 @@ ls frontend/src/components/ui/
 ### If a shadcn/ui component doesn't exist:
 1. Install it using: `npx shadcn@latest add <component-name>`
 2. Then use it in your code
+3. **Rewrite its Radix import before committing.** The CLI emits `import * as X from '@radix-ui/react-x'`; this project takes primitives from the meta-package instead — `import { X as XPrimitive } from 'radix-ui'` — and the pre-commit hook blocks a direct `@radix-ui/react-*` entry in `frontend/package.json`. Remove any the CLI added.
+
+⚠ **Never run `npx shadcn@latest add --overwrite` on an existing component.** Several carry
+undocumented hand edits that are valid TypeScript with no test coverage, so an overwrite reverts
+them silently: `popover.tsx` (`z-[200]`, so popovers clear dialogs), `tabs.tsx` (project palette
+tokens, 26 consumers), `badge.tsx`/`button.tsx` (eslint-disable lines the lint job needs). And
+`combobox.tsx`, `multi-select.tsx`, `date-range-picker.tsx` and `toaster.tsx` are not registry
+components at all. Edit by hand.
 
 ### Example (CORRECT):
 ```tsx
@@ -266,7 +274,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Unguarded CAD delete | A `fabric_width_cad` delete with no `validateCADModification`, or a `style_fabrics`/`style_components` delete with no unlink first (cascade destroys APPROVED CAD planning + costing) | Guard with `validateCADModification(id, 'delete')`, or unlink `fabric_width_cad.updateMany({ styleFabricId: null })` first (see `style.service.ts`) |
 | CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
 | Strict number schema | An optional `z.number()` on a form-fed numeric field (`price…units` names): HTML inputs post strings and `''` when blank, so every save carrying that field 400s (six of seven trim forms could not add a supplier row, 2026-09-10) | Use `formNumber(z.number()…)` from `backend/src/schemas/common.schema.ts` (or mark `// allow-strict-number` for typed-client-only fields) |
-| Radix singleton split (no baseline) | Two resolved versions of `@radix-ui/react-focus-scope` or `@radix-ui/react-dismissable-layer` in `frontend/package-lock.json`. Radix pins these internals exactly and keeps its focus-trap stack in module scope, so a second copy means a Sheet/Dialog never pauses for a Popover inside it and steals focus back — no combobox inside any dialog could be typed in (Sale Order Primary Style, 2026-09-14; introduced by bumping `react-dialog` alone in `8ca11d39`) | Bump the stale `@radix-ui/*` sibling in `frontend/package.json` so every package pins the same internals, then `cd frontend && npm install && npm dedupe`. Never `resolve.dedupe` or npm `overrides` |
+| Radix singleton split (no baseline) | **(a)** any `@radix-ui/react-*` declared directly in `frontend/package.json` (only `@radix-ui/react-icons` is allowed — it is an icon set, not a primitive); **(b)** two resolved copies of a package holding module-scope state: `react-focus-scope`, `react-dismissable-layer`, `react-focus-guards`, `aria-hidden`, `react-remove-scroll(-bar)`, `react`, `react-dom`. Radix pins its internals to EXACT versions and keeps its focus-trap stack in module scope, so a second copy means a Sheet/Dialog never pauses for a Popover inside it and steals focus back — no combobox inside any dialog could be typed in (Sale Order Primary Style, 2026-09-14; introduced by bumping `react-dialog` alone in `8ca11d39`) | Import the namespace from the meta-package — `import { Dialog as DialogPrimitive } from 'radix-ui'` — and delete the direct entry. To move to a newer generation, bump **`radix-ui`** itself: one version number owns every primitive, so a partial bump is not an operation that exists. Never `resolve.dedupe` or npm `overrides` |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
 

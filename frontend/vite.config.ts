@@ -58,15 +58,9 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           // Query and state management
           'vendor-query': ['@tanstack/react-query'],
-          // UI components (Radix)
-          'vendor-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-popover',
-          ],
+          // UI components (Radix). One entry: the meta-package pulls every primitive in behind it,
+          // so this no longer has to track a hand-maintained list that silently missed new ones.
+          'vendor-ui': ['radix-ui'],
           // Form handling
           'vendor-forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
           // Date handling

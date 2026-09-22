@@ -1085,40 +1085,111 @@ function checkBuildGates() {
 // popover inside it: 17 dialog-hosted comboboxes could not be typed in (Sale Order "Primary
 // Style", found 2026-09-14). `npm dedupe` cannot reconcile an exact-pin split — bump the
 // stale sibling(s) instead. No baseline: a split is never intentional.
-const RADIX_SINGLETONS = ['@radix-ui/react-focus-scope', '@radix-ui/react-dismissable-layer'];
+//
+// 2026-09-22: the 18 primitives were replaced by the `radix-ui` meta-package — one curated
+// manifest whose deps are a single internally-consistent generation, pinned exactly. "Bump one
+// sibling" stopped being an operation that exists, so the first rule below enforces that SHAPE
+// rather than policing 18 version numbers. The second rule still watches the packages whose
+// duplication actually breaks things, because npm can nest a second copy for other reasons.
+
+/** Primitives must arrive via `radix-ui`. react-icons is an icon set, not a primitive. */
+const RADIX_DIRECT_DEP_ALLOWLIST = new Set(['@radix-ui/react-icons']);
+
+// Packages holding MUTABLE MODULE-SCOPE state: a second copy is a second stack/counter, so the
+// app misbehaves at runtime with nothing to see at compile time. Each verified 2026-09-22.
+const SINGLETONS = [
+  ['@radix-ui/react-focus-scope', 'focusScopesStack — nested traps stop pausing each other'],
+  ['@radix-ui/react-dismissable-layer', 'layer stack — outside-click and Esc reach the wrong layer'],
+  ['@radix-ui/react-focus-guards', 'count/guards — focus sentinels leak'],
+  ['aria-hidden', 'counterMap/lockCount — siblings stay hidden after close'],
+  ['react-remove-scroll', 'lock counter — body scroll never unlocks'],
+  ['react-remove-scroll-bar', 'lock counter — body scroll never unlocks'],
+  ['react', 'two renderers — hooks throw outright'],
+  ['react-dom', 'two renderers — hooks throw outright'],
+];
+
+// Pure render helpers: no shared state, so duplicates cost bundle size, not correctness. Warned
+// about rather than blocked, so nobody is trained to ignore a red check.
+const PURE_HELPERS = [
+  '@radix-ui/react-slot',
+  '@radix-ui/react-primitive',
+  '@radix-ui/react-compose-refs',
+  '@radix-ui/react-presence',
+];
 
 function checkRadixSingletons() {
-  console.log(`\n${c.cyan}Checking Radix focus-trap packages resolve to a single copy...${c.reset}`);
-  let lock;
+  console.log(`\n${c.cyan}Checking Radix primitives resolve to a single copy...${c.reset}`);
+  // Resolve from REPO_ROOT, not process.cwd(): the check used to silently no-op whenever the hook
+  // ran from anywhere but the repo root.
+  const root = detectors.REPO_ROOT;
+  let lock, pkg;
   try {
-    lock = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'frontend/package-lock.json'), 'utf-8'));
+    lock = JSON.parse(fs.readFileSync(path.join(root, 'frontend/package-lock.json'), 'utf-8'));
+    pkg = JSON.parse(fs.readFileSync(path.join(root, 'frontend/package.json'), 'utf-8'));
   } catch (e) {
-    console.log(`${c.yellow}  ⚠ could not read frontend/package-lock.json: ${e.message}${c.reset}`);
+    console.log(`${c.yellow}  ⚠ could not read frontend/package.json or package-lock.json: ${e.message}${c.reset}`);
     return true; // fail-open on our own hook error — never block on a hook bug
   }
-  const packages = lock.packages || {};
+
   let ok = true;
-  for (const name of RADIX_SINGLETONS) {
+
+  // Rule 1 (shape): no primitive may be declared directly.
+  const strays = Object.keys(pkg.dependencies || {})
+    .filter((d) => d.startsWith('@radix-ui/') && !RADIX_DIRECT_DEP_ALLOWLIST.has(d))
+    .sort();
+  if (strays.length) {
+    ok = false;
+    console.log(`${c.red}  ✗ ${strays.length} Radix primitive(s) declared directly in frontend/package.json${c.reset}`);
+    for (const d of strays) console.log(`${c.red}      ${d}${c.reset}`);
+    console.log(`${c.dim}    Radix pins its internals to EXACT versions, so a direct entry can demand a different${c.reset}`);
+    console.log(`${c.dim}    focus-scope than the meta-package does and npm is forced to nest a second copy.${c.reset}`);
+    console.log(`${c.dim}    Use the namespace from 'radix-ui' instead:${c.reset}`);
+    console.log(`${c.dim}      import { Dialog as DialogPrimitive } from 'radix-ui';${c.reset}`);
+    console.log(`${c.dim}    and remove the entry. To move to a newer generation bump 'radix-ui' itself.${c.reset}`);
+  }
+
+  // Rule 2 (state): every stateful package resolves to exactly one copy.
+  const packages = lock.packages || {};
+  const copiesOf = (name) => {
     const suffix = `node_modules/${name}`;
-    const entries = Object.keys(packages)
-      .filter(k => k === suffix || k.endsWith(`/${suffix}`))
-      .map(k => ({ key: k, version: packages[k].version }));
-    const versions = [...new Set(entries.map(e => e.version))];
+    return Object.keys(packages)
+      .filter((k) => k === suffix || k.endsWith(`/${suffix}`))
+      .map((k) => ({ key: k, version: packages[k].version }));
+  };
+
+  let split = false;
+  for (const [name, why] of SINGLETONS) {
+    const entries = copiesOf(name);
+    const versions = [...new Set(entries.map((e) => e.version))];
     if (entries.length > 1 || versions.length > 1) {
       ok = false;
+      split = true;
       console.log(`${c.red}  ✗ ${name} is installed ${entries.length} times (${versions.join(', ')})${c.reset}`);
+      console.log(`${c.red}      breaks: ${why}${c.reset}`);
       for (const e of entries) console.log(`${c.red}      ${e.key} → ${e.version}${c.reset}`);
     }
   }
+
   if (ok) {
-    console.log(`${c.green}  ✓ One copy each of ${RADIX_SINGLETONS.join(', ')}${c.reset}`);
-  } else {
-    console.log(`${c.dim}    Two copies = two focus-trap stacks: a Dialog/Sheet never pauses for a Popover inside it and${c.reset}`);
-    console.log(`${c.dim}    steals focus back, so no combobox inside a dialog can be typed in. Find the @radix-ui/* sibling${c.reset}`);
-    console.log(`${c.dim}    still pinning the older internal (cd frontend && npm ls <pkg> --all), bump it in frontend/package.json${c.reset}`);
-    console.log(`${c.dim}    to a version pinning the same one, then: npm install && npm dedupe.${c.reset}`);
-    console.log(`${c.dim}    Never paper over with vite resolve.dedupe or npm overrides — that hides the split, it does not fix it.${c.reset}`);
+    console.log(`${c.green}  ✓ Primitives come from 'radix-ui'; one copy each of ${SINGLETONS.length} stateful packages${c.reset}`);
+  } else if (split) {
+    console.log(`${c.dim}    Two copies = two module-level stacks: a Dialog/Sheet never pauses for a Popover inside${c.reset}`);
+    console.log(`${c.dim}    it and steals focus back, so no combobox inside a dialog can be typed in.${c.reset}`);
+    console.log(`${c.dim}    Inspect with: cd frontend && npm ls <pkg> --all${c.reset}`);
+    console.log(`${c.dim}    Never paper over with vite resolve.dedupe or npm overrides — that hides the split.${c.reset}`);
   }
+
+  // Advisory: pure helpers have no shared state, so a split here is bundle bloat only.
+  const bloated = PURE_HELPERS.map((name) => ({
+    name,
+    versions: [...new Set(copiesOf(name).map((e) => e.version))],
+  })).filter((r) => r.versions.length > 1);
+  if (bloated.length) {
+    console.log(`${c.yellow}  ⚠ ${bloated.length} pure helper(s) resolve to multiple versions (bundle bloat, not a bug):${c.reset}`);
+    for (const b of bloated) console.log(`${c.yellow}      ${b.name} → ${b.versions.join(', ')}${c.reset}`);
+    console.log(`${c.dim}    Usually clears with: cd frontend && npm dedupe${c.reset}`);
+  }
+
   return ok;
 }
 
@@ -1254,8 +1325,9 @@ function main() {
   checksRun++;
   if (!checkBuildGates()) allPassed = false;
 
-  // Always: one copy of each Radix focus-trap package (one lockfile parse). Always-on rather than
-  // gated on package-lock.json being staged, so a split that arrived via --no-verify is caught too.
+  // Always: primitives come from the `radix-ui` meta-package and every stateful package resolves
+  // to one copy (two small JSON parses). Always-on rather than gated on package.json being staged,
+  // so a split that arrived via --no-verify is caught too.
   checksRun++;
   if (!checkRadixSingletons()) allPassed = false;
 

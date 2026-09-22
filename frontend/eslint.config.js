@@ -12,7 +12,9 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs['recommended-latest'],
+      // v7 moved the flat-config preset under .flat; the top-level key of the same name is now
+      // the legacy eslintrc config, which ESLint 10 rejects (`plugins` as an array).
+      reactHooks.configs.flat['recommended-latest'],
       reactRefresh.configs.vite,
     ],
     languageOptions: {

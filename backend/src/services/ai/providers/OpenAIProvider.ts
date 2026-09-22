@@ -23,7 +23,7 @@ export class OpenAIProvider implements IAIProvider {
   private client: OpenAI;
   private defaultModel: string;
 
-  constructor(apiKey: string, model: string = 'gpt-4-turbo') {
+  constructor(apiKey: string, model: string = 'gpt-5.6') {
     this.client = new OpenAI({ apiKey });
     this.defaultModel = model;
   }
@@ -82,7 +82,8 @@ export class OpenAIProvider implements IAIProvider {
   async analyzeImage(request: AIImageAnalysisRequest): Promise<AIImageAnalysisResponse> {
     try {
       const completion = await this.client.chat.completions.create({
-        model: 'gpt-4-vision-preview',
+        // gpt-4-vision-preview is retired; the current models are multimodal.
+        model: 'gpt-5.6',
         messages: [
           {
             role: 'user',

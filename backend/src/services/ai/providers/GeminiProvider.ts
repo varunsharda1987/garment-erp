@@ -23,7 +23,7 @@ export class GeminiProvider implements IAIProvider {
   private client: GoogleGenerativeAI;
   private defaultModel: string;
 
-  constructor(apiKey: string, model: string = 'gemini-1.5-pro') {
+  constructor(apiKey: string, model: string = 'gemini-3.5-flash') {
     this.client = new GoogleGenerativeAI(apiKey);
     this.defaultModel = model;
   }
@@ -80,7 +80,8 @@ export class GeminiProvider implements IAIProvider {
 
   async analyzeImage(request: AIImageAnalysisRequest): Promise<AIImageAnalysisResponse> {
     try {
-      const model = this.client.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      // No separate vision SKU any more — the current Flash models are multimodal.
+      const model = this.client.getGenerativeModel({ model: 'gemini-3.5-flash' });
 
       // Fetch image and convert to base64 if it's a URL
       let imagePart: { inlineData: { data: string; mimeType: string } };

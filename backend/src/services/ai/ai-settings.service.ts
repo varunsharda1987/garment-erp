@@ -58,18 +58,22 @@ export const PROVIDER_MODELS: Record<string, Array<{ value: string; label: strin
     { value: 'mistral', label: 'Mistral' },
     { value: 'qwen2', label: 'Qwen 2' },
   ],
+  // Checked against each provider's own model docs on 2026-09-22. Every entry here used to be a
+  // retired ID (gpt-4-turbo / gpt-4o / gpt-3.5-turbo, claude-3-*, gemini-1.5-*) — picking one from
+  // the dropdown would have failed at the API with no warning, the same trap deepseek-v4-flash set.
   openai: [
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-    { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+    { value: 'gpt-6-astra', label: 'GPT-6 Astra (Flagship)' },
+    { value: 'gpt-5.6', label: 'GPT-5.6 (Balanced)' },
   ],
   anthropic: [
-    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
-    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+    { value: 'claude-opus-5', label: 'Claude Opus 5 (Most capable)' },
+    { value: 'claude-sonnet-5', label: 'Claude Sonnet 5 (Balanced)' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5 (Fast, cheap)' },
   ],
   google: [
-    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+    { value: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (Latest)' },
+    { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Balanced)' },
+    { value: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite (Cheapest)' },
   ],
 };
 

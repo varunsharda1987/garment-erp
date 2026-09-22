@@ -4,7 +4,7 @@
 import { Request, Response } from 'express';
 import StyleImportService from '../services/style-import.service';
 import { StyleImportCSVRow } from '../types/style-import.types';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { ValidationError } from '../errors';
 
 class StyleImportController {
@@ -32,7 +32,7 @@ class StyleImportController {
       req.file.originalname.endsWith('.xlsx')
     ) {
       // Parse Excel
-      csvRows = this.parseExcel(req.file.buffer);
+      csvRows = await this.parseExcel(req.file.buffer);
     } else {
       throw new ValidationError('Invalid file format. Please upload a CSV or Excel file.');
     }
@@ -222,17 +222,17 @@ class StyleImportController {
     ];
 
     // Create Excel workbook
-    const wb = XLSX.utils.book_new();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Kashaya Fabs ERP';
+    wb.created = new Date();
 
-    // Create sheet data with headers, required/optional row, and sample data
-    const sheetData = [headerRow, requiredRow, ...sampleData];
-    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    const ws = wb.addWorksheet('Style Import Template');
+    ws.addRows([headerRow, requiredRow, ...sampleData]);
 
     // Set column widths for better readability
-    const colWidths = columns.map((col) => ({ wch: Math.max(col.header.length + 2, 20) }));
-    ws['!cols'] = colWidths;
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Style Import Template');
+    ws.columns.forEach((col, i) => {
+      col.width = Math.max((columns[i]?.header.length ?? 0) + 2, 20);
+    });
 
     // Add instructions sheet
     const instructionsData = [
@@ -264,12 +264,13 @@ class StyleImportController {
       ['- Customer MUST exist in the system before import'],
       ["- Brand categories are created automatically if they don't exist"],
     ];
-    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
-    wsInstructions['!cols'] = [{ wch: 25 }, { wch: 80 }];
-    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+    const wsInstructions = wb.addWorksheet('Instructions');
+    wsInstructions.addRows(instructionsData);
+    wsInstructions.getColumn(1).width = 25;
+    wsInstructions.getColumn(2).width = 80;
 
     // Generate buffer
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename=style_import_template.xlsx');
@@ -356,13 +357,22 @@ class StyleImportController {
   /**
    * Parse Excel file
    */
-  private parseExcel(buffer: Buffer): StyleImportCSVRow[] {
-    const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+  private async parseExcel(buffer: Buffer): Promise<StyleImportCSVRow[]> {
+    const workbook = new ExcelJS.Workbook();
+    // Cast to handle Buffer/ArrayBuffer type differences between Node versions (same as
+    // import.service.ts, which reads uploads the same way).
+    await workbook.xlsx.load(buffer as unknown as ArrayBuffer);
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return [];
 
-    // Get raw data as array of arrays to check for indicator row
-    const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as string[][];
+    // Array-of-arrays, so the Required/Optional indicator row can be detected below. exceljs rows
+    // and columns are 1-based and `row.values` carries a leading hole, so drop index 0. Everything
+    // is stringified because the old reader ran with raw:false.
+    const rawData: string[][] = [];
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      const values = (row.values as unknown[]).slice(1);
+      rawData.push(values.map((v) => (v === null || v === undefined ? '' : String(v))));
+    });
 
     if (rawData.length < 2) {
       return [];

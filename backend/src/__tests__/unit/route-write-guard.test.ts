@@ -31,10 +31,41 @@ interface Finding {
   route: string;
 }
 
-function guardName(node: ts.Node): string | null {
+function guardCall(node: ts.Node): string | null {
   if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && GUARDS.has(node.expression.text)) {
     return node.expression.text;
   }
+  return null;
+}
+
+/**
+ * `const adminOnly = requireAdmin();` — the route then passes the IDENTIFIER, not the call.
+ * companyProfile.routes.ts hoists its guard that way (deliberately: requireAdmin() is the floor
+ * the Permissions page cannot lower), and without following the alias the scan called all five of
+ * its admin-only writes unguarded. A guard suite sitting red on false positives guards nothing —
+ * a genuinely unguarded route would have hidden in the same noise.
+ */
+function collectGuardAliases(sf: ts.SourceFile): Set<string> {
+  const aliases = new Set<string>();
+  const visit = (node: ts.Node) => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.initializer &&
+      guardCall(node.initializer)
+    ) {
+      aliases.add(node.name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return aliases;
+}
+
+function guardName(node: ts.Node, aliases: Set<string>): string | null {
+  const direct = guardCall(node);
+  if (direct) return direct;
+  if (ts.isIdentifier(node) && aliases.has(node.text)) return node.text;
   return null;
 }
 
@@ -43,6 +74,8 @@ function scanFile(file: string): { unguarded: Finding[]; authorizeCalls: Finding
   const src = fs.readFileSync(file, 'utf8');
   const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
   const lineOf = (node: ts.Node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+  // Pre-pass, so an alias declared anywhere in the file counts — not only above the routes.
+  const guardAliases = collectGuardAliases(sf);
 
   // Router-level guards: `X.use(guard)` covers everything on X; `X.use('/p', guard)` covers paths under /p
   const routerGuards = new Map<string, string[]>(); // router → list of path prefixes ('' = all)
@@ -63,7 +96,7 @@ function scanFile(file: string): { unguarded: Finding[]; authorizeCalls: Finding
           if (verb === 'use') {
             const args = node.arguments;
             const last = args[args.length - 1];
-            if (last && guardName(last)) {
+            if (last && guardName(last, guardAliases)) {
               const prefix = args.length === 2 && ts.isStringLiteral(args[0]) ? args[0].text : '';
               routerGuards.set(router, [...(routerGuards.get(router) ?? []), prefix]);
             }
@@ -82,7 +115,7 @@ function scanFile(file: string): { unguarded: Finding[]; authorizeCalls: Finding
     const routePath = args[0] && ts.isStringLiteral(args[0]) ? args[0].text : '?';
     const prefixes = routerGuards.get(router) ?? [];
     const coveredByRouter = prefixes.some((p) => p === '' || routePath.startsWith(p));
-    const coveredInline = args.some((a) => guardName(a) !== null);
+    const coveredInline = args.some((a) => guardName(a, guardAliases) !== null);
 
     // `// open-write: reason` on the line(s) immediately above the call
     const statement = node.parent;

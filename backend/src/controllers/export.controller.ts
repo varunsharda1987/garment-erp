@@ -4,6 +4,7 @@ import exportService from '../services/export.service';
 import templateService from '../services/template.service';
 import prisma from '../config/database';
 import { NotFoundError, ValidationError } from '../errors';
+import { toDateInputValue } from '../utils/date';
 
 /**
  * Validate and sanitize columnConfig from JSON storage.
@@ -82,7 +83,7 @@ export const exportData = async (req: Request, res: Response) => {
   const exportOptions = {
     columns: columnConfig,
     data,
-    filename: `${module}_export_${new Date().toISOString().split('T')[0]}`,
+    filename: `${module}_export_${toDateInputValue(new Date())}`,
     title: template?.templateName || `${module} Export`,
   };
 

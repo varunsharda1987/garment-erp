@@ -24,6 +24,7 @@
 import { ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
 import { productionBlockingValidationService } from './productionBlockingValidation.service';
+import { toDateInputValue } from '../utils/date';
 
 /** Orders examined per call. Beyond this the response reports `truncated`. */
 const PIPELINE_LIMIT = 50;
@@ -130,7 +131,7 @@ class ManufacturingPipelineService {
           quantity: item.totalQuantity,
           nextStage,
           workOrderCount,
-          expectedDeliveryDate: due ? due.toISOString().split('T')[0] : null,
+          expectedDeliveryDate: due ? toDateInputValue(due) : null,
           daysToDelivery: due ? Math.ceil((due.getTime() - now) / 86_400_000) : null,
           isBlocked: verdict.isBlocked,
           blockers: verdict.blockers as PipelineBlocker[],

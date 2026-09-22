@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Send } from 'lucide-react';
 import { sampleService } from '@/services/sample.service';
 import { handleApiSuccess, handleApiError } from '@/lib/api-error-handler';
+import { toDateInputValue } from '@/lib/date';
 
 interface MarkAsSentDialogProps {
   open: boolean;
@@ -23,7 +24,7 @@ interface MarkAsSentDialogProps {
 
 export function MarkAsSentDialog({ open, onOpenChange, sampleId, onSuccess }: MarkAsSentDialogProps) {
   const [form, setForm] = useState({
-    sentDate: new Date().toISOString().split('T')[0],
+    sentDate: toDateInputValue(new Date()),
     courierMode: '',
     trackingNumber: '',
   });

@@ -25,6 +25,7 @@ import type { ColorSearchResult } from '@/types/color.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { toDateInputValue } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -50,7 +51,7 @@ const PRINT_CHEMISTRIES: { value: PrintChemistry; label: string }[] = [
 
 export default function LabDipCreateForm({ processType, backPath, title }: LabDipCreateFormProps) {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
 
   // Style selection
   const [styleSearch, setStyleSearch] = useState('');

@@ -19,14 +19,14 @@ import { externalProcessService } from '../services/external-process.service';
 import { ArrowLeft } from 'lucide-react';
 import type { ExternalProcessReceiveRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 export default function HandworkReceive() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
   const [selectedSendOutId, setSelectedSendOutId] = useState(id || '');
-  const [actualReturnDate, setActualReturnDate] = useState(new Date().toISOString().split('T')[0]);
+  const [actualReturnDate, setActualReturnDate] = useState(toDateInputValue(new Date()));
   const [actualCost, setActualCost] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');

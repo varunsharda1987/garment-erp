@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Send, X, ArrowRight, Loader2, Printer, PackageCheck } from 'lucide-react';
 
 import { openPDF } from '@/lib/document-utils';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 export default function ChallanDetail() {
   const { id } = useParams<{ id: string }>();
@@ -38,7 +38,7 @@ export default function ChallanDetail() {
 
   // Receive dialog state (finding B10-08) — wires challanService.receiveChallan (PUT /challans/:id/receive)
   const [receiveOpen, setReceiveOpen] = useState(false);
-  const [receivedDate, setReceivedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [receivedDate, setReceivedDate] = useState(toDateInputValue(new Date()));
   const [receiveRemarks, setReceiveRemarks] = useState('');
   // Per-item received/damaged quantities keyed by challan_item id (strings for controlled inputs).
   const [receiveRows, setReceiveRows] = useState<Record<string, { receivedQty: string; damagedQty: string }>>({});
@@ -96,7 +96,7 @@ export default function ChallanDetail() {
       rows[item.id] = { receivedQty: String(outstanding), damagedQty: '' };
     }
     setReceiveRows(rows);
-    setReceivedDate(new Date().toISOString().split('T')[0]);
+    setReceivedDate(toDateInputValue(new Date()));
     setReceiveRemarks('');
     setReceiveOpen(true);
   }

@@ -102,7 +102,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import {
   FileText,
   RefreshCw,
@@ -2681,7 +2681,7 @@ function OutsourcedWorkTab({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `outsourced-work-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `outsourced-work-${toDateInputValue(new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };

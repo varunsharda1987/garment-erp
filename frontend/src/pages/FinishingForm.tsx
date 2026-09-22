@@ -16,7 +16,7 @@ import { finishingIssueService, finishingSummaryService } from '@/services/finis
 import { handleApiSuccess } from '@/lib/api-error-handler';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import type { CreateFinishingIssueRequest, FinishingIncomingTransferSlip } from '@/types/finishing.types';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface SKUEntry {
   colorId: string | null;
@@ -49,7 +49,7 @@ export default function FinishingForm() {
   // Form data
   const [selectedTransferSlipId, setSelectedTransferSlipId] = useState<string>('');
   const [workOrderId, setWorkOrderId] = useState<string>('');
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [issueDate, setIssueDate] = useState(toDateInputValue(new Date()));
   const [contractorId, setContractorId] = useState<string>('');
   const [expectedCompletionDate, setExpectedCompletionDate] = useState<string>('');
   const [remarks, setRemarks] = useState('');
@@ -128,7 +128,7 @@ export default function FinishingForm() {
     // Set default expected completion (5 days from issue for finishing)
     const expected = new Date();
     expected.setDate(expected.getDate() + 5);
-    setExpectedCompletionDate(expected.toISOString().split('T')[0]);
+    setExpectedCompletionDate(toDateInputValue(expected));
   };
 
   const updateSKUQuantity = (index: number, value: number) => {

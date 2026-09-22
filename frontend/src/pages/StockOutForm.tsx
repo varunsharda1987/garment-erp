@@ -39,6 +39,7 @@ import type { Supplier } from '../types/supplier.types';
 import type { CreateChallanInput, ChallanType } from '../types/challan.types';
 import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
+import { toDateInputValue } from '@/lib/date';
 import {
   getAllowedMaterialTypes,
   MATERIAL_SUPPLIER_CATEGORIES,
@@ -190,7 +191,7 @@ export default function StockOutForm() {
 
   // Form state
   const [challanType, setChallanType] = useState<ChallanType>('OUTWARD');
-  const [challanDate, setChallanDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [challanDate, setChallanDate] = useState<string>(toDateInputValue(new Date()));
   const [warehouseId, setWarehouseId] = useState('');
   const [remarks, setRemarks] = useState('');
 

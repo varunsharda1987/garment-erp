@@ -42,7 +42,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
-import { formatDate, formatDateTime } from '@/lib/date';
+import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
 
 export default function InvoiceDetail() {
   const navigate = useNavigate();
@@ -61,7 +61,7 @@ export default function InvoiceDetail() {
 
   // Payment form state
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [paymentDate, setPaymentDate] = useState(toDateInputValue(new Date()));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [paymentRemarks, setPaymentRemarks] = useState('');
@@ -114,7 +114,7 @@ export default function InvoiceDetail() {
 
       // Reset form
       setPaymentAmount('');
-      setPaymentDate(new Date().toISOString().split('T')[0]);
+      setPaymentDate(toDateInputValue(new Date()));
       setPaymentMethod('BANK_TRANSFER');
       setReferenceNumber('');
       setPaymentRemarks('');

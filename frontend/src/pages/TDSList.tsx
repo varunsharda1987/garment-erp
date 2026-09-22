@@ -30,7 +30,7 @@ import {
 import { getTDSEntries, createTDS, updateTDSStatus, deleteTDS } from '@/services/tds.service';
 import type { TDSEntry, CreateTDSRequest, TDSStatus } from '@/types/tds.types';
 import { TDS_STATUS_LABELS, TDS_STATUS_COLORS, TDS_SECTIONS } from '@/types/tds.types';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,7 +76,7 @@ const EMPTY_FORM: CreateTDSRequest = {
   tdsAmount: 0,
   netAmount: 0,
   certificateNo: '',
-  deductionDate: new Date().toISOString().split('T')[0],
+  deductionDate: toDateInputValue(new Date()),
   financialYear: getFinancialYear(new Date().toISOString()),
   quarter: getQuarter(new Date().toISOString()),
   remarks: '',

@@ -17,7 +17,7 @@ import type { EmbroiderySendOut, EmbroideryReceiveRequest } from '../types/embro
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 export default function EmbroideryStockReceive() {
   const navigate = useNavigate();
@@ -44,7 +44,7 @@ export default function EmbroideryStockReceive() {
     quantityReceived: '',
     quantityDamaged: '',
     receivedWidth: '',
-    actualReturnDate: new Date().toISOString().split('T')[0],
+    actualReturnDate: toDateInputValue(new Date()),
     actualCost: '',
     invoiceNumber: '',
     invoiceDate: '',

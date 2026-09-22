@@ -14,6 +14,7 @@ import type { AdjustmentReason } from '../schemas/stockMovement.schema';
 // BUG-STK8 fix: Use decimal.js helpers for precision-safe arithmetic
 import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber } from '../utils/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { toDateInputValue } from '../utils/date';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -2073,7 +2074,7 @@ class StockMovementService {
     const overdueInward = await this.getPendingInward({ overdueOnly: true, limit: 1000 });
 
     return {
-      date: today.toISOString().split('T')[0],
+      date: toDateInputValue(today),
       received: {
         total: grnCount + dyeingReceived + printingReceived + externalReceived,
         grn: grnCount,

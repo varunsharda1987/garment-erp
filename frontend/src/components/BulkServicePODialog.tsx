@@ -33,6 +33,7 @@ import { groupRequirementsByProcessor, bulkGenerateServiceJWOs } from '@/service
 import type { ServiceRequirement } from '@/types/serviceRequirement.types';
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
+import { toDateInputValue } from '@/lib/date';
 
 interface BulkServicePODialogProps {
   open: boolean;
@@ -90,7 +91,7 @@ export default function BulkServicePODialog({
       // Convert to processor groups with default delivery dates
       const defaultDate = new Date();
       defaultDate.setDate(defaultDate.getDate() + 14); // 2 weeks from now
-      const dateString = defaultDate.toISOString().split('T')[0];
+      const dateString = toDateInputValue(defaultDate);
 
       const groups: ProcessorGroup[] = Object.entries(result.groups).map(([processorId, requirements]) => {
         const processor = requirements[0]?.assignedProcessor || requirements[0]?.preferredProcessor;
@@ -315,7 +316,7 @@ export default function BulkServicePODialog({
                             type="date"
                             value={group.deliveryDate}
                             onChange={(e) => handleDeliveryDateChange(group.processorId, e.target.value)}
-                            min={new Date().toISOString().split('T')[0]}
+                            min={toDateInputValue(new Date())}
                           />
                         </div>
                         <div className="space-y-2">

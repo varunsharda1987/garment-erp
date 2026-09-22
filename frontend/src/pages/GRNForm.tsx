@@ -23,7 +23,7 @@ import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 // ============================================
 // Types
@@ -100,7 +100,7 @@ export default function GRNForm() {
   const [selectedPOId, setSelectedPOId] = useState(preselectedPOId || '');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [warehouseId, setWarehouseId] = useState('');
-  const [receivingDate, setReceivingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [receivingDate, setReceivingDate] = useState(toDateInputValue(new Date()));
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   const [remarks, setRemarks] = useState('');

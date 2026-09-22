@@ -74,7 +74,7 @@ import type {
   CreateSORequest,
 } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
-import { formatDate, formatDateTime } from '@/lib/date';
+import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
 
 /** A style's colourway row (`color_options`), as `GET /styles/:id` serialises it. */
 interface StyleColourway {
@@ -95,13 +95,6 @@ const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   DELIVERED: 'bg-success-muted text-success',
   CANCELLED: 'bg-destructive/10 text-destructive',
 };
-
-/** Pre-fill for the Start Production date input (YYYY-MM-DD for <input type="date">) */
-function toDateInputValue(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
-}
 
 export default function SaleOrderDetail() {
   const { id } = useParams<{ id: string }>();

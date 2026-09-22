@@ -36,6 +36,7 @@ import {
 } from '@/components/job-work/lot-rows';
 import { jobWorkOrderService, type DispatchOrderInput, type DispatchableOrder } from '@/services/jobWorkOrder.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { toDateInputValue } from '@/lib/date';
 
 /**
  * Blockers no lot selection can clear. Everything else the server reports on a dispatchable order
@@ -53,7 +54,7 @@ export default function DispatchToProcessor() {
   const queryClient = useQueryClient();
 
   const [processorId, setProcessorId] = useState('');
-  const [sentDate, setSentDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [sentDate, setSentDate] = useState(() => toDateInputValue(new Date()));
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [challanNumber, setChallanNumber] = useState('');
   const [widthAcknowledged, setWidthAcknowledged] = useState(false);

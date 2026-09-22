@@ -41,6 +41,7 @@ import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { billableFromGreige, greigeFromBillable } from '@/utils/shrinkage';
+import { toDateInputValue } from '@/lib/date';
 
 interface POGenerationResult {
   totalPOs: number;
@@ -124,7 +125,7 @@ export default function BulkPOGenerationDialog({
 
       const defaultDate = new Date();
       defaultDate.setDate(defaultDate.getDate() + 14);
-      const dateString = defaultDate.toISOString().split('T')[0];
+      const dateString = toDateInputValue(defaultDate);
 
       const groups: SupplierGroup[] = Object.entries(result.groups).map(([supplierId, requirements]) => ({
         supplierId,
@@ -541,7 +542,7 @@ export default function BulkPOGenerationDialog({
                                 type="date"
                                 value={group.deliveryDate}
                                 onChange={(e) => handleDeliveryDateChange(group.supplierId, e.target.value)}
-                                min={new Date().toISOString().split('T')[0]}
+                                min={toDateInputValue(new Date())}
                               />
                             </div>
                             <div className="space-y-2">

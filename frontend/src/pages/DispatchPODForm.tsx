@@ -15,7 +15,7 @@ import { DeliveryConfirmationLabels } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, Truck, Package, FileText, ClipboardCheck } from 'lucide-react';
 
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 export default function DispatchPODForm() {
   const navigate = useNavigate();
@@ -26,7 +26,7 @@ export default function DispatchPODForm() {
   const [isSaving, setIsSaving] = useState(false);
 
   // POD Form state
-  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [deliveryDate, setDeliveryDate] = useState(toDateInputValue(new Date()));
   const [deliveryTime, setDeliveryTime] = useState('');
   const [receivedBy, setReceivedBy] = useState('');
   const [designation, setDesignation] = useState('');

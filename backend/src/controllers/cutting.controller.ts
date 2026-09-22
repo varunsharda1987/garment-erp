@@ -21,6 +21,7 @@ import { productionBlockingValidationService } from '../services/productionBlock
 import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils/currency';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { applySearch } from '../utils/search-filter';
+import { toDateInputValue } from '../utils/date';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -2250,7 +2251,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     orderQty: workOrder.totalQuantity,
     color: selectedColor?.colorName || 'All Colors',
     colorId: colorId || null,
-    cuttingDate: new Date().toISOString().split('T')[0],
+    cuttingDate: toDateInputValue(new Date()),
 
     // Available colors for this work order
     availableColors: uniqueColors.map((c) => ({

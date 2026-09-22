@@ -14,6 +14,7 @@ import type { FabricMaster } from '../types/fabric-greige.types';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
+import { toDateInputValue } from '@/lib/date';
 
 export default function FabricStockEntry() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function FabricStockEntry() {
     purchaseCost: '',
     qualityGrade: 'A' as 'A' | 'B' | 'DEFECT',
     stockType: 'GENERIC' as 'EXCESS' | 'PLANNED_STOCK' | 'GENERIC' | 'RETURNED' | 'VARIANCE_UNUSED',
-    receivedDate: new Date().toISOString().split('T')[0],
+    receivedDate: toDateInputValue(new Date()),
     notes: '',
   });
 

@@ -11,6 +11,7 @@ import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 // BUG-CHN5 fix: Use decimal.js for quantity calculations to avoid floating-point errors
 import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
+import { toDateInputValue } from '../utils/date';
 
 // ============================================
 // TYPES
@@ -733,7 +734,7 @@ export async function getTodaySummary() {
   }));
 
   return {
-    date: today.toISOString().split('T')[0],
+    date: toDateInputValue(today),
     totalChallans: challans.length,
     // BUG-CHN5 fix: Use decimal.js for safe summation
     totalQuantity: toNumber(challans.reduce((sum, c) => sum.plus(toCurrency(c.totalQuantity)), toCurrency(0))),

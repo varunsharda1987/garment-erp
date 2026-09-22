@@ -21,6 +21,7 @@ import api from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
+import { toDateInputValue } from '@/lib/date';
 
 interface AvailableWorkOrder {
   id: string;
@@ -55,7 +56,7 @@ export default function CuttingChart() {
 
   // Cutting parameters (editable)
   const [extraPercent, setExtraPercent] = useState(1);
-  const [cuttingDate, setCuttingDate] = useState(new Date().toISOString().split('T')[0]);
+  const [cuttingDate, setCuttingDate] = useState(toDateInputValue(new Date()));
   const [selectedLots, setSelectedLots] = useState<Record<string, string[]>>({});
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [pdfBlobUrl, setPdfBlobUrl] = useState('');

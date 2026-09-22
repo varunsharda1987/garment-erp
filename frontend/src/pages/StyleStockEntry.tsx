@@ -15,6 +15,7 @@ import { CheckCircle, XCircle, Package, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { FABRIC_FINISH_TYPES } from '@/constants/fabric-finish-types';
+import { toDateInputValue } from '@/lib/date';
 
 interface StockFormData {
   fabricId: string;
@@ -74,7 +75,7 @@ export default function StyleStockEntry() {
             warehouseLocation: '',
             qualityGrade: 'A',
             purchaseCost: '',
-            receivedDate: new Date().toISOString().split('T')[0],
+            receivedDate: toDateInputValue(new Date()),
             patternPartId: fabric.allocatedPatternParts?.[0]?.id || '',
             fabricFinishType: fabric.fabricFinishType || '',
           };

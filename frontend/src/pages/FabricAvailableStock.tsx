@@ -15,7 +15,7 @@ import { formatCurrency } from '../lib/currency';
 import { EditStockModal } from '../components/fabric/EditStockModal';
 import { fabricStockService } from '../services/fabricStockService';
 import { toast } from 'sonner';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface PatternPart {
   id: string;
@@ -260,7 +260,7 @@ export default function FabricAvailableStock() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `fabric-stock-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `fabric-stock-${toDateInputValue(new Date())}.csv`;
     a.click();
   };
 

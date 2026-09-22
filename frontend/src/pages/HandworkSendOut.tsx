@@ -23,6 +23,7 @@ import type { AxiosError } from 'axios';
 import type { CreateExternalProcessSendOutRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { toDateInputValue } from '@/lib/date';
 
 // BUG-MFG22 fix: API response types to replace `any` in map callbacks
 interface WorkOrderApiResponse {
@@ -97,7 +98,7 @@ export default function HandworkSendOut() {
   const [selectedStitchingIssueId, setSelectedStitchingIssueId] = useState('');
   const [skuQtys, setSkuQtys] = useState<Record<string, number>>({});
 
-  const [sendDate, setSendDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sendDate, setSendDate] = useState(toDateInputValue(new Date()));
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [agreedRate, setAgreedRate] = useState('');
   const [remarks, setRemarks] = useState('');

@@ -18,6 +18,7 @@ import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import type { ProcessPO } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { toDateInputValue } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -37,7 +38,7 @@ export default function ReturnUnprocessedDialog({
   onSuccess,
 }: ReturnUnprocessedDialogProps) {
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
 
   // Form state
   const [returnedQtyMeters, setReturnedQtyMeters] = useState<number>(0);

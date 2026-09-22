@@ -13,6 +13,7 @@ import { jobWorkStatutoryService } from '../services/job-work-statutory.service'
 import { documentFacadeService } from '../services/document-facade.service';
 import { getProcessorStatement, ProcessorNotFoundError } from '../services/processor-statement.service';
 import type { ProcessorStatementQueryInput } from '../schemas/jobWorkStatutory.schema';
+import { toDateInputValue } from '../utils/date';
 
 function sendReportPdf(res: Response, pdf: Buffer, filename: string): void {
   res.setHeader('Content-Type', 'application/pdf');
@@ -162,7 +163,7 @@ class JobWorkStatutoryController {
           start: query.periodStart,
           end: query.periodEnd,
         });
-        const stamp = (d: Date) => d.toISOString().slice(0, 10);
+        const stamp = (d: Date) => toDateInputValue(d);
         return sendReportPdf(
           res,
           pdf,

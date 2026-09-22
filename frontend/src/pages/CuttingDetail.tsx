@@ -48,7 +48,7 @@ import {
   Printer,
 } from 'lucide-react';
 
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 export default function CuttingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -64,7 +64,7 @@ export default function CuttingDetail() {
   const [, setIsLoadingLays] = useState(false);
 
   // Lay input form
-  const [layDate, setLayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [layDate, setLayDate] = useState(toDateInputValue(new Date()));
   const [layerLength, setLayerLength] = useState<string>(''); // single-fabric fallback
   const [fabricLayerLengths, setFabricLayerLengths] = useState<Record<string, string>>({}); // per-fabric
   const [numberOfLayers, setNumberOfLayers] = useState<string>('');
@@ -77,7 +77,7 @@ export default function CuttingDetail() {
   // Issue to stitching
   const [stitchingData, setStitchingData] = useState<StitchingIssueSummary | null>(null);
   const [showIssueForm, setShowIssueForm] = useState(false);
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [issueDate, setIssueDate] = useState(toDateInputValue(new Date()));
   const [issuedToId, setIssuedToId] = useState('');
   const [issueRemarks, setIssueRemarks] = useState('');
   const [issueQtys, setIssueQtys] = useState<Record<string, number>>({});
@@ -366,7 +366,7 @@ export default function CuttingDetail() {
     setIssueQtys({});
     setIssuedToId('');
     setIssueRemarks('');
-    setIssueDate(new Date().toISOString().split('T')[0]);
+    setIssueDate(toDateInputValue(new Date()));
   };
 
   const handleIssueToStitching = async () => {

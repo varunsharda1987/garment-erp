@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { dedupeSkuRows, generateTransferSlipNumber } from './cutting.utils';
 import { nextSeededSequence } from '../utils/seeded-sequence';
 import { applySearch } from '../utils/search-filter';
+import { toDateInputValue } from '../utils/date';
 
 // ============================================
 // Helper Functions
@@ -1312,7 +1313,7 @@ export const disposeDefects = async (req: Request, res: Response) => {
   }
 
   // Update issue remarks with disposition record
-  const dispositionNote = `[${new Date().toISOString().split('T')[0]}] ${totalDefects} defective pcs marked as ${disposition}. ${remarks || ''}`;
+  const dispositionNote = `[${toDateInputValue(new Date())}] ${totalDefects} defective pcs marked as ${disposition}. ${remarks || ''}`;
   const existingRemarks = issue.remarks || '';
 
   await prisma.stitching_issues.update({

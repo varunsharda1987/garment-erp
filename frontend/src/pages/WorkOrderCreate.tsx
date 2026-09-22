@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import api from '@/lib/api';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import type { Priority } from '@/types/production.types';
+import { toDateInputValue } from '@/lib/date';
 
 interface Style {
   id: string;
@@ -43,9 +44,9 @@ export default function WorkOrderCreate() {
 
   // Form state
   const [styleId, setStyleId] = useState('');
-  const [plannedStartDate, setPlannedStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [plannedStartDate, setPlannedStartDate] = useState(toDateInputValue(new Date()));
   const [plannedEndDate, setPlannedEndDate] = useState(
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    toDateInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
   );
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [remarks, setRemarks] = useState('');

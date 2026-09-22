@@ -16,6 +16,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
+import { toDateInputValue } from '@/lib/date';
 
 interface InvoiceLineItem extends InvoiceItemInput {
   _key: string; // Unique key for React rendering
@@ -38,7 +39,7 @@ export default function InvoiceForm() {
   // Form state
   const [customerId, setCustomerId] = useState('');
   const [orderId, setOrderId] = useState('');
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [invoiceDate, setInvoiceDate] = useState(toDateInputValue(new Date()));
   const [dueDate, setDueDate] = useState('');
   const [remarks, setRemarks] = useState('');
 

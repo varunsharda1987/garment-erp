@@ -53,6 +53,7 @@ import { styleService } from '@/services/style.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
+import { toDateInputValue } from '@/lib/date';
 
 interface CatalogueStyle {
   id: string;
@@ -436,7 +437,7 @@ export default function CatalogueGenerator() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = `${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${toDateInputValue(new Date())}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

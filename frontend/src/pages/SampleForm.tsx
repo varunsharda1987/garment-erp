@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import api from '@/lib/api';
+import { toDateInputValue } from '@/lib/date';
 
 interface Style {
   id: string;
@@ -99,7 +100,7 @@ export default function SampleForm() {
       defaultDate.setDate(defaultDate.getDate() + 7);
       setFormData((prev) => ({
         ...prev,
-        requiredDate: defaultDate.toISOString().split('T')[0],
+        requiredDate: toDateInputValue(defaultDate),
       }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

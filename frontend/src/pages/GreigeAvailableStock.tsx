@@ -30,7 +30,7 @@ import {
 import { logError } from '../lib/logger';
 import { toast } from 'sonner';
 import { getSystemSettingByKey } from '../services/system-settings.service';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 const PAGE_SIZE = 25;
 // BUG-GR10 fix: Default aging threshold; overridden by STOCK_AGING_THRESHOLD_DAYS system setting
@@ -312,7 +312,7 @@ export default function GreigeAvailableStock() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `greige-stock-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `greige-stock-${toDateInputValue(new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('Exported to CSV');

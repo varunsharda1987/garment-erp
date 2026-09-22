@@ -17,6 +17,7 @@ import stockCountService from '../services/stockCount.service';
 import stockLevelService from '../services/stockLevel.service';
 import { CountType } from '../types/inventory.types';
 import { logError } from '../lib/logger';
+import { toDateInputValue } from '@/lib/date';
 
 export default function StockCountForm() {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export default function StockCountForm() {
   const [formData, setFormData] = useState({
     warehouseId: '',
     countType: '' as CountType | '',
-    countDate: new Date().toISOString().split('T')[0],
+    countDate: toDateInputValue(new Date()),
     remarks: '',
   });
 

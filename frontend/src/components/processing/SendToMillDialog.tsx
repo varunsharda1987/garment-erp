@@ -26,6 +26,7 @@ import { dyeingService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import type { ProcessPO } from '@/types/printing.types';
+import { toDateInputValue } from '@/lib/date';
 
 interface SendToMillDialogProps {
   open: boolean;
@@ -36,7 +37,7 @@ interface SendToMillDialogProps {
 }
 
 export default function SendToMillDialog({ open, onOpenChange, po, processType, onSent }: SendToMillDialogProps) {
-  const [sentDate, setSentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [sentDate, setSentDate] = useState<string>(toDateInputValue(new Date()));
   const [lotId, setLotId] = useState<string>('');
   const [challanNumber, setChallanNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
@@ -50,7 +51,7 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
 
   useEffect(() => {
     if (!open) return;
-    setSentDate(new Date().toISOString().split('T')[0]);
+    setSentDate(toDateInputValue(new Date()));
     setLotId('');
     setChallanNumber('');
     setVehicleNumber('');

@@ -20,6 +20,7 @@ import type { FilterUpdate } from '../lib/url-filters';
 import { greigeService } from '../services/fabricGreigeService';
 import type { GreigeMaster, GreigeQueryParams } from '../types/fabric-greige.types';
 import api from '@/lib/api';
+import { toDateInputValue } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -182,7 +183,7 @@ export default function GreigeList() {
       ];
 
       // Download file
-      XLSX.writeFile(wb, `Greige_Masters_${new Date().toISOString().split('T')[0]}.xlsx`);
+      XLSX.writeFile(wb, `Greige_Masters_${toDateInputValue(new Date())}.xlsx`);
 
       handleApiSuccess('Export successful', `${response.data.data.length} greige masters exported`);
     } catch (err: unknown) {

@@ -2,6 +2,7 @@ import { POCategory } from '@prisma/client';
 import prisma from '../config/database';
 import { lookupRate, lookupLaceRate } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
+import { formatDate } from '../utils/date';
 
 // ============================================
 // TYPES
@@ -218,7 +219,7 @@ async function resolveGreigeRate(ctx: RateResolutionContext): Promise<RateResolu
     if (master?.lastPurchaseRate && Number(master.lastPurchaseRate) > 0) {
       return {
         rate: Number(master.lastPurchaseRate),
-        source: `Last purchase${master.lastPurchaseAt ? ` (${master.lastPurchaseAt.toISOString().slice(0, 10)})` : ''}`,
+        source: `Last purchase${master.lastPurchaseAt ? ` (${formatDate(master.lastPurchaseAt)})` : ''}`,
       };
     }
   }

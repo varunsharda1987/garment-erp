@@ -30,7 +30,7 @@ import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { formatCurrency } from '../lib/currency';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 export default function EmbroideryAvailableStock() {
   const navigate = useNavigate();
@@ -226,7 +226,7 @@ export default function EmbroideryAvailableStock() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `embroidery-send-outs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `embroidery-send-outs-${toDateInputValue(new Date())}.csv`;
     a.click();
   };
 
@@ -258,7 +258,7 @@ export default function EmbroideryAvailableStock() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `embroidered-stock-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `embroidered-stock-${toDateInputValue(new Date())}.csv`;
     a.click();
   };
 

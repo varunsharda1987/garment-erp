@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { getAllTaxMasters, createTaxMaster, updateTaxMaster, deleteTaxMaster } from '@/services/taxMaster.service';
 import type { TaxMaster, TaxType, CreateTaxMasterRequest, UpdateTaxMasterRequest } from '@/types/taxMaster.types';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 const TAX_TYPES: TaxType[] = ['GST', 'IGST', 'CGST', 'SGST', 'CESS', 'CUSTOM', 'TDS', 'TCS'];
 
@@ -43,7 +43,7 @@ export default function TaxMasterList() {
     taxRate: 0,
     hsnSacCode: '',
     description: '',
-    applicableFrom: new Date().toISOString().split('T')[0],
+    applicableFrom: toDateInputValue(new Date()),
     applicableTo: '',
   });
 
@@ -107,7 +107,7 @@ export default function TaxMasterList() {
       taxRate: 0,
       hsnSacCode: '',
       description: '',
-      applicableFrom: new Date().toISOString().split('T')[0],
+      applicableFrom: toDateInputValue(new Date()),
       applicableTo: '',
     });
     setDialogOpen(true);
@@ -122,8 +122,8 @@ export default function TaxMasterList() {
       taxRate: Number(item.taxRate),
       hsnSacCode: item.hsnSacCode || '',
       description: item.description || '',
-      applicableFrom: item.applicableFrom ? new Date(item.applicableFrom).toISOString().split('T')[0] : '',
-      applicableTo: item.applicableTo ? new Date(item.applicableTo).toISOString().split('T')[0] : '',
+      applicableFrom: item.applicableFrom ? toDateInputValue(new Date(item.applicableFrom)) : '',
+      applicableTo: item.applicableTo ? toDateInputValue(new Date(item.applicableTo)) : '',
     });
     setDialogOpen(true);
   }

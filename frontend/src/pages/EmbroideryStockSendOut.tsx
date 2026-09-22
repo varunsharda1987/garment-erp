@@ -24,6 +24,7 @@ import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { toDateInputValue } from '@/lib/date';
 
 interface FabricStock {
   id: string;
@@ -72,7 +73,7 @@ export default function EmbroideryStockSendOut() {
   const [formData, setFormData] = useState({
     quantitySent: '',
     sentWidth: '',
-    sendDate: new Date().toISOString().split('T')[0],
+    sendDate: toDateInputValue(new Date()),
     expectedReturnDate: '',
     agreedRate: '',
     forStyleId: '',

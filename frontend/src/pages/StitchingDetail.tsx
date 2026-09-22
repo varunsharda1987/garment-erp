@@ -41,7 +41,7 @@ import type { StitchingIssue, StitchingIssueStatus, RecordDailyOutputRequest } f
 import { StitchingIssueStatusLabels, StitchingIssueStatusColors } from '@/types/stitching.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface OutputEntry {
   colorId: string;
@@ -65,7 +65,7 @@ export default function StitchingDetail() {
 
   // Record Output Modal
   const [showOutputModal, setShowOutputModal] = useState(false);
-  const [outputDate, setOutputDate] = useState(new Date().toISOString().split('T')[0]);
+  const [outputDate, setOutputDate] = useState(toDateInputValue(new Date()));
   const [outputRemarks, setOutputRemarks] = useState('');
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
 

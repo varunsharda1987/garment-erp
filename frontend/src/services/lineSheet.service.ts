@@ -4,6 +4,7 @@
  */
 
 import api from '../lib/api';
+import { toDateInputValue } from '@/lib/date';
 
 export interface LineSheetOptions {
   styleIds: string[];
@@ -44,7 +45,7 @@ export const lineSheetService = {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename || `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
+    link.download = filename || `LineSheet_${toDateInputValue(new Date())}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -59,7 +60,7 @@ export const lineSheetService = {
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = filename || `LineSheet_${new Date().toISOString().split('T')[0]}.xlsx`;
+    link.download = filename || `LineSheet_${toDateInputValue(new Date())}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

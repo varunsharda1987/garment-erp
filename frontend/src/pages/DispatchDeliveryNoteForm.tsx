@@ -24,6 +24,7 @@ import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { notify } from '@/lib/notify';
 import { logError } from '@/lib/logger';
 import { ArrowLeft, Package, Plus, Save, Trash2, Truck } from 'lucide-react';
+import { toDateInputValue } from '@/lib/date';
 
 interface ColorOption {
   id: string;
@@ -86,7 +87,7 @@ export default function DispatchDeliveryNoteForm() {
   // Form state
   const [orderId, setOrderId] = useState('');
   const [customerId, setCustomerId] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [deliveryDate, setDeliveryDate] = useState(toDateInputValue(new Date()));
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<ItemRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);

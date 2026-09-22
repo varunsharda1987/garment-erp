@@ -2,6 +2,7 @@
 import api from '../lib/api';
 import { logApiError } from '../lib/logger';
 import type { ExportRequest } from '../types/export.types';
+import { toDateInputValue } from '@/lib/date';
 
 class ExportService {
   /**
@@ -16,7 +17,7 @@ class ExportService {
 
       // Extract filename from Content-Disposition header or generate one
       const contentDisposition = response.headers['content-disposition'];
-      let filename = `${module}_export_${new Date().toISOString().split('T')[0]}.${options.format}`;
+      let filename = `${module}_export_${toDateInputValue(new Date())}.${options.format}`;
 
       if (contentDisposition) {
         // Match filename with or without quotes, properly handling the closing quote

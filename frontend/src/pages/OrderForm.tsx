@@ -20,6 +20,7 @@ import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
 import { toast } from 'sonner';
 import CostSheetComparisonModal from '../components/cost-sheet/CostSheetComparisonModal';
+import { toDateInputValue } from '@/lib/date';
 import {
   Search,
   Check,
@@ -72,7 +73,7 @@ export default function OrderForm() {
 
   // Form state
   const [customerId, setCustomerId] = useState('');
-  const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
+  const [orderDate, setOrderDate] = useState(toDateInputValue(new Date()));
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [paymentTerms, setPaymentTerms] = useState('');
@@ -145,7 +146,7 @@ export default function OrderForm() {
   });
 
   // Get today's date for default
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
 
   useEffect(() => {
     const loadData = async () => {

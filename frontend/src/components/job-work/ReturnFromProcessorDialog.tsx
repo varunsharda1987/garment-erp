@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { invalidateControlCenter } from '@/lib/control-center-keys';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { toDateInputValue } from '@/lib/date';
 
 interface ReturnFromProcessorDialogProps {
   open: boolean;
@@ -34,7 +35,7 @@ interface ReturnFromProcessorDialogProps {
   onSuccess?: () => void;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => toDateInputValue(new Date());
 
 export default function ReturnFromProcessorDialog({
   open,

@@ -21,13 +21,13 @@ import { formatQuantity } from '@/lib/formatters';
 import { openPDF } from '@/lib/document-utils';
 import { getProcessorStatement, processorStatementPdfPath } from '@/services/processorStatement.service';
 import type { ProcessorStatement as Statement, StatementJobLine, StatementUom } from '@/types/processorStatement.types';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 function thisMonth(): { from: string; to: string } {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const iso = (d: Date) => toDateInputValue(d);
   return { from: iso(first), to: iso(last) };
 }
 

@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { stitchingIssueService, stitchingSummaryService } from '@/services/stitching.service';
 import { handleApiSuccess } from '@/lib/api-error-handler';
 import type { CreateStitchingIssueRequest, IncomingTransferSlip } from '@/types/stitching.types';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface SKUEntry {
   colorId: string | null;
@@ -75,7 +75,7 @@ export default function StitchingForm() {
   // Form data
   const [selectedSlipIds, setSelectedSlipIds] = useState<string[]>([]);
   const [workOrderId, setWorkOrderId] = useState<string>('');
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [issueDate, setIssueDate] = useState(toDateInputValue(new Date()));
   const [contractorId, setContractorId] = useState<string>('');
   const [expectedCompletionDate, setExpectedCompletionDate] = useState<string>('');
   const [remarks, setRemarks] = useState('');
@@ -165,7 +165,7 @@ export default function StitchingForm() {
       if (!expectedCompletionDate) {
         const expected = new Date();
         expected.setDate(expected.getDate() + 7);
-        setExpectedCompletionDate(expected.toISOString().split('T')[0]);
+        setExpectedCompletionDate(toDateInputValue(expected));
       }
     } else {
       setWorkOrderId('');
@@ -187,7 +187,7 @@ export default function StitchingForm() {
       if (!expectedCompletionDate) {
         const expected = new Date();
         expected.setDate(expected.getDate() + 7);
-        setExpectedCompletionDate(expected.toISOString().split('T')[0]);
+        setExpectedCompletionDate(toDateInputValue(expected));
       }
     } else {
       setSelectedSlipIds([]);

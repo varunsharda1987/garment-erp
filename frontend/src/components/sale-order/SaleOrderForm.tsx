@@ -17,6 +17,7 @@ import { SaleOrderItemsTable } from './SaleOrderItemsTable';
 import type { DisplayItem } from './SaleOrderItemsTable';
 import type { SaleOrder, CreateSORequest, UpdateSORequest, SOItemInput } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
+import { toDateInputValue } from '@/lib/date';
 
 interface SaleOrderFormProps {
   open: boolean;
@@ -25,12 +26,6 @@ interface SaleOrderFormProps {
   saleOrder?: SaleOrder;
   mode: 'create' | 'edit';
   isSubmitting?: boolean;
-}
-
-function toDateInputValue(iso?: string | null): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
 }
 
 export function SaleOrderForm({

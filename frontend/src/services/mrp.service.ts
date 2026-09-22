@@ -4,6 +4,7 @@
  */
 
 import api from '@/lib/api';
+import { toDateInputValue } from '@/lib/date';
 import type {
   MaterialRequirement,
   CalculateRequirementsRequest,
@@ -321,7 +322,7 @@ export async function getOrderRequirements(
  * Get overdue requirements
  */
 export async function getOverdueRequirements(filters?: Partial<RequirementFilters>): Promise<RequirementListResponse> {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
   return getRequirements({
     ...filters,
     requiredDateTo: today,

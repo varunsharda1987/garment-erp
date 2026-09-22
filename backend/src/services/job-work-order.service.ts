@@ -18,6 +18,7 @@ import prisma from '../config/database';
 import { BusinessError } from '../errors';
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { companyProfileService } from './company-profile.service';
+import { formatDate } from '../utils/date';
 import {
   toCurrency,
   multiplyCurrency,
@@ -421,7 +422,7 @@ class JobWorkOrderService {
     // return document read receivedDate.
     const receivedDate = jwo.receivingGRNs[0].receivingDate;
     const note =
-      `[CLOSED SHORT ${new Date().toISOString().slice(0, 10)}] nothing more expected from ${processorName}; ` +
+      `[CLOSED SHORT ${formatDate(new Date())}] nothing more expected from ${processorName}; ` +
       `total ${total.toFixed(2)} of ${split.qtyExpected.toFixed(2)} ${uom}` +
       (input.remarks?.trim() ? ` — ${input.remarks.trim()}` : '');
     const updated = await prisma.$transaction(async (tx) => {

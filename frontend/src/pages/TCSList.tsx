@@ -30,7 +30,7 @@ import {
 import { getTCSEntries, createTCS, updateTCSStatus, deleteTCS } from '@/services/tcs.service';
 import type { TCSEntry, CreateTCSRequest, TCSStatus } from '@/types/tcs.types';
 import { TCS_STATUS_LABELS, TCS_STATUS_COLORS, TCS_SECTIONS } from '@/types/tcs.types';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -71,7 +71,7 @@ const EMPTY_FORM: CreateTCSRequest = {
   tcsRate: 0,
   saleAmount: 0,
   tcsAmount: 0,
-  collectionDate: new Date().toISOString().split('T')[0],
+  collectionDate: toDateInputValue(new Date()),
   financialYear: getFinancialYear(new Date().toISOString()),
   quarter: getQuarter(new Date().toISOString()),
   remarks: '',

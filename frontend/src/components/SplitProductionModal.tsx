@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import workOrderService from '../services/workOrder.service';
 import type { WorkOrder, SplitWorkOrderDTO } from '../types/production.types';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface SplitProductionModalProps {
   isOpen: boolean;
@@ -55,7 +55,7 @@ export default function SplitProductionModal({
     // Set default dispatch date to one week from today
     const defaultDate = new Date();
     defaultDate.setDate(defaultDate.getDate() + 7);
-    setPlannedDispatchDate(defaultDate.toISOString().split('T')[0]);
+    setPlannedDispatchDate(toDateInputValue(defaultDate));
   }, [workOrder]);
 
   const handleQuantityChange = (index: number, value: string) => {

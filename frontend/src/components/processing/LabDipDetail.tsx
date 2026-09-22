@@ -41,7 +41,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
 
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
-import { formatDate, formatDateTime24 } from '@/lib/date';
+import { formatDate, formatDateTime24, toDateInputValue } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -80,7 +80,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
   const [rejectRemarks, setRejectRemarks] = useState('');
 
   // Buyer approval forms
-  const [sentToBuyerDate, setSentToBuyerDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sentToBuyerDate, setSentToBuyerDate] = useState(toDateInputValue(new Date()));
   const [sendToBuyerRemarks, setSendToBuyerRemarks] = useState('');
   const [buyerRemarks, setBuyerRemarks] = useState('');
 

@@ -4,6 +4,7 @@ import { scopeForRole, type AlertKey, type ControlCenterScope, type SectionKey }
 import { JWO_AT_PROCESSOR_STATUSES, JWO_RECEIVED_STATUSES } from './helpers/jwo-status.helper';
 import { systemSettingsService } from './system-settings.service';
 import { UNRESOLVED_TEST_FAILURE } from './helpers/test-failure.helper';
+import { toDateInputValue } from '../utils/date';
 
 /**
  * A job that can no longer bring material back. Deliberately "definitively done" rather than the
@@ -367,7 +368,7 @@ class ManufacturingAlertsService {
         // external_process_send_outs.unit is PCS | MTR — report what the row holds, not a guess.
         unit: v.unit === 'MTR' ? 'meters' : 'pcs',
         oldestSendoutDays: oldestDays,
-        nextExpectedBack: expectedBack ? expectedBack.toISOString().split('T')[0] : null,
+        nextExpectedBack: expectedBack ? toDateInputValue(expectedBack) : null,
         status,
       };
     });
@@ -421,7 +422,7 @@ class ManufacturingAlertsService {
         // job_work_orders.uom is MTR | PCS | KG — a piece-work job used to render "500 meters".
         unit: v.uom === 'PCS' ? 'pcs' : v.uom === 'KG' ? 'kg' : 'meters',
         oldestSendoutDays: oldestDays,
-        nextExpectedBack: expectedBack ? expectedBack.toISOString().split('T')[0] : null,
+        nextExpectedBack: expectedBack ? toDateInputValue(expectedBack) : null,
         status,
       });
     }
@@ -537,7 +538,7 @@ class ManufacturingAlertsService {
           description: `WO: ${batch.workOrder?.workOrderNumber || 'N/A'} - ${variance > 0 ? 'Over' : 'Under'} by ${Math.abs(variance).toFixed(1)}%`,
           variancePercent: variance,
           route: `/manufacturing/cutting/${batch.id}`,
-          date: batch.updatedAt.toISOString().split('T')[0],
+          date: toDateInputValue(batch.updatedAt),
         });
       }
     }
@@ -586,7 +587,7 @@ class ManufacturingAlertsService {
               description: `Over-received by ${variancePercent.toFixed(1)}% (${received} vs ${ordered} ordered)`,
               variancePercent,
               route: `/procurement/grn/${grn.id}`,
-              date: grn.createdAt.toISOString().split('T')[0],
+              date: toDateInputValue(grn.createdAt),
             });
             break; // One alert per GRN
           } else if (variancePercent < -varianceThreshold) {
@@ -597,7 +598,7 @@ class ManufacturingAlertsService {
               description: `Under-received by ${Math.abs(variancePercent).toFixed(1)}% (${received} vs ${ordered} ordered)`,
               variancePercent,
               route: `/procurement/grn/${grn.id}`,
-              date: grn.createdAt.toISOString().split('T')[0],
+              date: toDateInputValue(grn.createdAt),
             });
             break;
           }
@@ -642,7 +643,7 @@ class ManufacturingAlertsService {
           description: `Cost ${variancePercent > 0 ? 'over' : 'under'} by ${Math.abs(variancePercent).toFixed(1)}%`,
           variancePercent,
           route: `/orders/${orderId}`,
-          date: costing.updatedAt.toISOString().split('T')[0],
+          date: toDateInputValue(costing.updatedAt),
         });
       }
     }

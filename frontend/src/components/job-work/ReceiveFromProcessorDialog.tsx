@@ -28,6 +28,7 @@ import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { warehouseService } from '@/services/warehouse.service';
 import type { WarehouseType } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { toDateInputValue } from '@/lib/date';
 
 interface ReceiveFromProcessorDialogProps {
   open: boolean;
@@ -71,7 +72,7 @@ export default function ReceiveFromProcessorDialog({
   onSuccess,
 }: ReceiveFromProcessorDialogProps) {
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().split('T')[0];
+  const today = toDateInputValue(new Date());
 
   // Numbers are held as numbers and normalised at the input, never as raw strings: '' or NaN
   // reaching the payload is a known 400 class on this frontend.

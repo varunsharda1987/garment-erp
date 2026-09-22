@@ -7,6 +7,7 @@ import type { JobWorkSummary, ProcessingBatch } from '../types/processing.types'
 import { handleApiError } from '@/lib/api-error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { openPDF } from '@/lib/document-utils';
+import { toDateInputValue } from '@/lib/date';
 
 export default function JobWorkDashboard() {
   const navigate = useNavigate();
@@ -82,8 +83,8 @@ export default function JobWorkDashboard() {
             size="sm"
             onClick={() => {
               const now = new Date();
-              const start = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().slice(0, 10);
-              const end = now.toISOString().slice(0, 10);
+              const start = toDateInputValue(new Date(now.getFullYear(), now.getMonth() - 2, 1));
+              const end = toDateInputValue(now);
               openPDF(`/job-work-statutory/itc-04?periodStart=${start}&periodEnd=${end}&format=pdf`);
             }}
           >
@@ -94,8 +95,8 @@ export default function JobWorkDashboard() {
             size="sm"
             onClick={() => {
               const now = new Date();
-              const start = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().slice(0, 10);
-              const end = now.toISOString().slice(0, 10);
+              const start = toDateInputValue(new Date(now.getFullYear(), now.getMonth() - 2, 1));
+              const end = toDateInputValue(now);
               openPDF(`/job-work-statutory/vendor-performance?periodStart=${start}&periodEnd=${end}&format=pdf`);
             }}
           >

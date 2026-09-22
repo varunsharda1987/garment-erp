@@ -38,7 +38,7 @@ import type { FinishingIssue, FinishingStatus, RecordDailyOutputRequest } from '
 import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface OutputEntry {
   colorId: string;
@@ -72,20 +72,20 @@ export default function FinishingDetail() {
 
   // Record Output Modal
   const [showOutputModal, setShowOutputModal] = useState(false);
-  const [outputDate, setOutputDate] = useState(new Date().toISOString().split('T')[0]);
+  const [outputDate, setOutputDate] = useState(toDateInputValue(new Date()));
   const [outputRemarks, setOutputRemarks] = useState('');
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
 
   // Polybag Entry Modal (packing stage)
   const [showPolybagModal, setShowPolybagModal] = useState(false);
-  const [polybagDate, setPolybagDate] = useState(new Date().toISOString().split('T')[0]);
+  const [polybagDate, setPolybagDate] = useState(toDateInputValue(new Date()));
   const [polybagRemarks, setPolybagRemarks] = useState('');
   const [polybagEntries, setPolybagEntries] = useState<PackEntry[]>([]);
 
   // Carton Packing Modal (packing stage)
   const [showCartonModal, setShowCartonModal] = useState(false);
   const [cartonNumber, setCartonNumber] = useState('');
-  const [cartonDate, setCartonDate] = useState(new Date().toISOString().split('T')[0]);
+  const [cartonDate, setCartonDate] = useState(toDateInputValue(new Date()));
   const [cartonRemarks, setCartonRemarks] = useState('');
   const [cartonEntries, setCartonEntries] = useState<PackEntry[]>([]);
 
@@ -262,7 +262,7 @@ export default function FinishingDetail() {
 
   const openPolybagModal = () => {
     setPolybagEntries(buildPackEntries());
-    setPolybagDate(new Date().toISOString().split('T')[0]);
+    setPolybagDate(toDateInputValue(new Date()));
     setPolybagRemarks('');
     setShowPolybagModal(true);
   };
@@ -270,7 +270,7 @@ export default function FinishingDetail() {
   const openCartonModal = () => {
     setCartonEntries(buildPackEntries());
     setCartonNumber('');
-    setCartonDate(new Date().toISOString().split('T')[0]);
+    setCartonDate(toDateInputValue(new Date()));
     setCartonRemarks('');
     setShowCartonModal(true);
   };

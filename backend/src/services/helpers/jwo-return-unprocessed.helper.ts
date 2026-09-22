@@ -30,6 +30,7 @@ import { isJwoDead, JWO_AT_PROCESSOR_STATUSES } from './jwo-status.helper';
 import { BusinessError, NotFoundError, ValidationError } from '../../errors';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './material-sync.helper';
 import { toCurrency, toNumber } from '../../utils/currency';
+import { toDateInputValue } from '../../utils/date';
 
 export type ReturnedTo = 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
 
@@ -205,9 +206,10 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
           jwoStatus: 'CANCELLED',
           qtyReceivedMeters: 0,
           receivedDate: returnDate,
-          remarks: `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQty} ${job.uom} returned on ${
-            returnDate.toISOString().split('T')[0]
-          }.${remarks ? ` ${remarks}` : ''}`.trim(),
+          remarks:
+            `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQty} ${job.uom} returned on ${toDateInputValue(
+              returnDate
+            )}.${remarks ? ` ${remarks}` : ''}`.trim(),
         },
       });
 

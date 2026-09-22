@@ -29,6 +29,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
+import { formatDate } from '../utils/date';
 
 type Tx = Prisma.TransactionClient;
 
@@ -172,7 +173,7 @@ export async function validateIssue(
   if (jwo.sentDate) {
     blockers.push({
       code: ISSUE_ERROR_CODES.ALREADY_ISSUED,
-      message: `${jwo.jobWorkNumber} was already issued on ${jwo.sentDate.toISOString().slice(0, 10)}.`,
+      message: `${jwo.jobWorkNumber} was already issued on ${formatDate(jwo.sentDate)}.`,
     });
   }
   if (jwo.jwoStatus === 'CANCELLED' || jwo.jwoStatus === 'CLOSED') {
@@ -519,7 +520,7 @@ async function acquireIssueMutex(tx: Tx, jwo: JwoForIssue, issueDate: Date): Pro
   }
   throw new JobWorkOrderError(
     ISSUE_ERROR_CODES.ALREADY_ISSUED,
-    `${jwo.jobWorkNumber} was already issued${now?.sentDate ? ` on ${now.sentDate.toISOString().slice(0, 10)}` : ''}.`
+    `${jwo.jobWorkNumber} was already issued${now?.sentDate ? ` on ${formatDate(now.sentDate)}` : ''}.`
   );
 }
 

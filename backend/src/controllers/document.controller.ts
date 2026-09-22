@@ -17,6 +17,7 @@ import prisma from '../config/database';
 import path from 'path';
 import fs from 'fs';
 import { ValidationError, NotFoundError } from '../errors';
+import { toDateInputValue } from '../utils/date';
 
 // Clean up expired temp catalogue files (older than 24 hours) on startup
 function cleanupTempCatalogues() {
@@ -263,7 +264,7 @@ class DocumentController {
 
     const pdfBuffer = await renderCatalogue(filters, options);
 
-    const filename = `Catalogue_${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    const filename = `Catalogue_${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${toDateInputValue(new Date())}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -482,7 +483,7 @@ class DocumentController {
 
     const pdfBuffer = await documentFacadeService.generateLineSheetPDF(selection, { legacy: legacy === true });
 
-    const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
+    const filename = `LineSheet_${toDateInputValue(new Date())}.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -505,7 +506,7 @@ class DocumentController {
 
     const excelBuffer = await documentGeneratorService.generateLineSheetExcel(styleIds, options);
 
-    const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const filename = `LineSheet_${toDateInputValue(new Date())}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

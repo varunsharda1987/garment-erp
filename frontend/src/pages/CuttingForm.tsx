@@ -17,6 +17,7 @@ import { Scissors, ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import api from '@/lib/api';
+import { toDateInputValue } from '@/lib/date';
 
 interface AvailableWorkOrder {
   id: string;
@@ -88,7 +89,7 @@ export default function CuttingForm() {
   const [formData, setFormData] = useState({
     workOrderId: preSelectedWorkOrderId || '',
     componentId: '',
-    cuttingDate: new Date().toISOString().split('T')[0],
+    cuttingDate: toDateInputValue(new Date()),
     fabricStockId: '',
     actualFabricWidth: 0,
     cadAverageUsed: 0,

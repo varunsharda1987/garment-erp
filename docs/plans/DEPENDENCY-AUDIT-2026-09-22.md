@@ -18,7 +18,7 @@ sequencing.
 | Workspace | Outdated | Advisories |
 |---|---|---|
 | frontend | 30 | 12 — 7 high, 0 critical |
-| backend | 41 | **44 — 1 critical, 26 high**, 15 moderate, 2 low |
+| backend | 41 | **44 — 1 critical, 26 high**, 15 moderate, 2 low *(43, 0 critical after Phase 0)* |
 
 ---
 
@@ -34,7 +34,11 @@ sequencing.
 | react-day-picker 10 | `6bc61034` |
 | lucide-react 1.47 | `b74a5999` |
 
-All frontend. **Backend has received nothing** — its 44 advisories are untouched.
+All frontend — until **Phase 0, done 2026-09-22**: handlebars `4.7.9` (pin kept exact);
+`AI_MODEL` flipped to `deepseek-flash` through `PUT /api/ai-settings` (provider re-initialised
+live — log: `Initialized with model: deepseek-flash`); dropdown + `DeepSeekProvider.ts` updated;
+`.env` corrected. Verified: the assistant answered a real question on `deepseek-flash`, challan
+CH2609-0145 rendered (127 KB PDF), backend critical advisories **1 → 0** (44 → 43 total).
 
 ---
 

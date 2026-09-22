@@ -1,7 +1,7 @@
 /**
  * DeepSeek Provider Implementation
  *
- * Adapter for DeepSeek's V4 models (deepseek-v4-flash, deepseek-v4-pro)
+ * Adapter for DeepSeek's V4 models (deepseek-flash, deepseek-v4-pro)
  * Uses OpenAI-compatible API format
  *
  * Key benefits:
@@ -13,10 +13,10 @@
  * Configuration (in .env):
  *   AI_PROVIDER=deepseek
  *   AI_API_KEY=your-deepseek-api-key  (from https://platform.deepseek.com)
- *   AI_MODEL=deepseek-v4-flash        (optional, defaults to deepseek-v4-flash)
+ *   AI_MODEL=deepseek-flash        (optional, defaults to deepseek-flash)
  *
  * Available models:
- *   - deepseek-v4-flash (fastest, cheapest, recommended for ERP chat)
+ *   - deepseek-flash (fastest, cheapest, recommended for ERP chat)
  *   - deepseek-v4-pro   (slower, smarter, for complex reasoning)
  */
 
@@ -38,7 +38,7 @@ import {
 const DEEPSEEK_BASE_URL = 'https://api.deepseek.com';
 
 // Available DeepSeek models
-export type DeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro' | 'deepseek-chat' | 'deepseek-reasoner';
+export type DeepSeekModel = 'deepseek-flash' | 'deepseek-v4-pro' | 'deepseek-chat' | 'deepseek-reasoner';
 
 export class DeepSeekProvider implements IAIProvider {
   private client: OpenAI;
@@ -48,9 +48,9 @@ export class DeepSeekProvider implements IAIProvider {
    * Create a new DeepSeek provider instance
    *
    * @param apiKey DeepSeek API key (from https://platform.deepseek.com)
-   * @param model Model to use (default: deepseek-v4-flash)
+   * @param model Model to use (default: deepseek-flash)
    */
-  constructor(apiKey: string, model: string = 'deepseek-v4-flash') {
+  constructor(apiKey: string, model: string = 'deepseek-flash') {
     // Use OpenAI client with DeepSeek's base URL (OpenAI-compatible API)
     this.client = new OpenAI({
       apiKey,

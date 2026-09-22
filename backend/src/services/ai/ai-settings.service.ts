@@ -44,7 +44,8 @@ export const AVAILABLE_PROVIDERS = [
 // Model options per provider
 export const PROVIDER_MODELS: Record<string, Array<{ value: string; label: string }>> = {
   deepseek: [
-    { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (Fast, Cheap)' },
+    // `deepseek-v4-flash` is a retired alias DeepSeek still routes (to V4.1-Flash) for now.
+    { value: 'deepseek-flash', label: 'DeepSeek Flash (Fast, Cheap)' },
     { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (Smarter)' },
   ],
   kimi: [

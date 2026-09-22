@@ -9,9 +9,11 @@ import { swaggerSpec } from './config/swagger';
 import helmet from 'helmet';
 import connectTimeout from 'connect-timeout';
 
-// Load environment variables from backend/.env (local takes priority)
-dotenv.config({ path: path.join(__dirname, '../.env.local') });
-dotenv.config({ path: path.join(__dirname, '../.env') });
+// Load environment variables from backend/.env (local takes priority — dotenv never overwrites an
+// already-set key, so the first call wins). `quiet` suppresses the "injected env" banner dotenv 17+
+// prints on every load; this daemon's PM2 log is shared with three other businesses.
+dotenv.config({ path: path.join(__dirname, '../.env.local'), quiet: true });
+dotenv.config({ path: path.join(__dirname, '../.env'), quiet: true });
 
 // Import logger
 import { logInfo, logWarn } from './utils/logger';

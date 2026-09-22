@@ -73,9 +73,9 @@ No major versions. This alone clears most of the HIGH advisories.
 
 | # | Action | Clears |
 |---|---|---|
-| 1.1 | `cd backend && npm update` | express 5.2.1, multer 2.4.0, express-rate-limit 8.7.0, jsonwebtoken 9.0.3, pg 8.23.0, helmet 8.3.0, winston 3.19.0, jest 30.5.2, @typescript-eslint 8.70.1, @sentry/* 10.75.1, + transitive HIGHs (brace-expansion, minimatch, picomatch, flatted, defu, js-yaml, jws, tmp, ip-address, fast-xml-parser, form-data, path-to-regexp) |
-| 1.2 | `cd frontend && npm update` | **axios 1.12.2 → 1.20.0** and **react-router-dom 7.9.4 → 7.18.4** — the two worst frontend HIGHs — plus react 19.3.0, react-hook-form 7.88.0, @tanstack/* , @playwright/test 1.63.0 |
-| 1.3 | **zod `4.1.12` → `4.6.5` in BOTH workspaces, same commit** | Shared schema contract — a split version is a silent validation drift |
+| 1.1 | ⛔ `cd backend && npm update` — **ATTEMPTED 2026-09-22, REVERTED.** See §12 | *(would have cleared 31 advisories, 43 → 12)* |
+| 1.2 | ✅ `cd frontend && npm update` — **DONE `cce7e4f8`**, advisories 12 → 1 | **axios 1.12.2 → 1.20.0** and **react-router-dom 7.9.4 → 7.18.4** — the two worst frontend HIGHs — plus react 19.3.0, react-hook-form 7.88.0, @tanstack/* , @playwright/test 1.63.0 |
+| 1.3 | ⏸ **zod `4.1.12` → `4.6.5` in BOTH workspaces, same commit** — held at 4.1.12 on both sides until 1.1 can land | Shared schema contract — a split version is a silent validation drift |
 
 **Verify:** `cd frontend && npx tsc -b` (**not** `tsc --noEmit -p tsconfig.json` — the root tsconfig
 doesn't cover `src/`), `cd backend && npm run type-check`, then `node scripts/skills/test-all.js`.
@@ -328,6 +328,39 @@ retired, and the union at `providers/DeepSeekProvider.ts:41` needs the same edit
    `eslint-plugin-react-hooks@7` moved its flat preset to `configs.flat['recommended-latest']`
    and the top-level key of the same name became the legacy config, which ESLint 10 rejects
    outright — expect the same class of change from the backend's own plugins.
+
+---
+
+## 12. Phase 1 outcome — 2026-09-22
+
+**Frontend: landed (`cce7e4f8`).** Advisories **12 → 1**; only the lockfile moved (every range
+already covered its target). The survivor is `xlsx`, `fixAvailable:false` — Phase 5, not a bump.
+Two real type errors came with axios 1.20, which tightened header values to
+`string | number | boolean | string[] | AxiosHeaders | null`; both sites assumed a string and were
+narrowed at the read. `@playwright/test` 1.63 needs browser build 1243 — run
+`npx playwright install chromium` after pulling, or the suite cannot launch.
+
+**Backend: attempted and reverted. Phase 1.1 is NOT the low-risk step this plan assumed.**
+`npm update` there produces **2227 typecheck errors**, from two causes:
+
+1. **1655 errors — `@types/express-serve-static-core` 5.1.0 → 5.1.3** retypes `req.query` values
+   as `string | string[]`. Roughly a hundred controllers pass `req.query.x` straight into
+   `string` parameters. It is a **transitive** of `@types/express`, so pinning it back needs npm
+   `overrides`, which CLAUDE.md forbids. The real fix is a query-param helper applied across the
+   controllers — its own task, not a dependency sweep. Pinning `@types/express` itself back to
+   5.0.3 does **not** help: the caret still resolves the child to 5.1.3.
+2. **120 errors — the generated Prisma client.** `@prisma/client` 6.19.1 → 6.19.3 invalidates it,
+   and `npx prisma generate` fails with `EPERM … query_engine-windows.dll.node` because the running
+   API holds the DLL. Prisma is Phase 3.6 anyway and should not have moved inside Phase 1.
+
+**Sequencing consequence:** re-attempting 1.1 needs the API stopped first — `npm install` also hits
+`EBUSY` on `@msgpackr-extract`'s native binding while the API runs. Stop the app, install, generate,
+start. Treat backend 1.1 as its own change with a maintenance window, and split it: everything
+except `@types/express*` and `prisma`/`@prisma/client` is genuinely low-risk and would still clear
+most of the 26 HIGHs.
+
+**zod stays at 4.1.12 on both sides** (rule 1.3): the backend cannot move, so the frontend was held
+back to keep the contract aligned.
 
 ### What this review did not verify
 DeepSeek's serving claim ("already serving V4.1-Flash") beyond the docs page quoted above;

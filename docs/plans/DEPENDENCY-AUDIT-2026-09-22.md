@@ -153,7 +153,7 @@ BullMQ's recommended minimum is Redis 6.2; on 5.0 it "kind of works". Consumers:
 
 | # | Item | Action |
 |---|---|---|
-| 5.1 | **xlsx 0.18.5** — HIGH (prototype pollution + ReDoS), `fixAvailable: false`, **both workspaces** | SheetJS left npm; the npm package is frozen and will never be patched. Migrate to `exceljs` (backend already depends on it) or pull SheetJS from their own CDN registry |
+| 5.1 | ✅ **DONE** — backend `0679d382`, frontend `10662a25` | Backend → **exceljs** (already a dependency). Frontend → **`@e965/xlsx` 0.20.3**, NOT exceljs: its browser build is 947KB against xlsx's 420KB, measured and rejected. See §14 |
 
 ---
 
@@ -410,6 +410,39 @@ either way, and Ollama's are the user's own local models.
 **Advisory position after the day:** backend 43 → **24**, frontend 12 → **1**. Everything still
 HIGH needs either a MAJOR that is its own project (prisma 7) or upstream action
 (whatsapp-web.js/puppeteer), except `xlsx` — Phase 5, where no version will ever help.
+
+---
+
+## 14. Phase 5 — xlsx is gone. Frontend advisories: **0**
+
+Five files, not the sprawl the plan implied: one backend controller and four frontend pages.
+
+**Backend (`0679d382`) → exceljs**, which `export.service.ts` and `import.service.ts` already used,
+so it follows an existing pattern. Two translations mattered: `sheet_to_json(sheet, {header:1})`
+has no exceljs equivalent and was rebuilt with `eachRow` (dropping the leading hole in
+`row.values`, stringifying every cell because the old reader ran `raw:false`) — the
+Required/Optional indicator-row detection depends on that exact shape; and `parseExcel` became
+async, its only caller already being an async handler.
+
+**Frontend (`10662a25`) → `@e965/xlsx` 0.20.3, deliberately NOT exceljs.** The plan suggested
+exceljs for both, but its browser build is **947KB minified against xlsx's 420KB chunk** — more
+than doubling a bundle to fix an advisory is a bad trade. `@e965/xlsx` is the maintained SheetJS
+line on npm with the identical API surface (`read`, `write`, `writeFile`, `utils.aoa_to_sheet` /
+`json_to_sheet` / `book_new` / `book_append_sheet` / `sheet_to_json`), so the change was one import
+line per file. Our 0.18.5 predated both fixes — prototype pollution landed in 0.19.3, ReDoS in
+0.20.2. Cost: +65KB on that chunk (420,041 → 485,400).
+
+**Not moved server-side, though the endpoints exist.** `GET /api/import/:module/template` and the
+upload parsers are already there, but these pages parse client-side to render a **preview table**
+before the user commits an import. Routing that through the server means a two-step upload/confirm
+flow and new endpoints — a redesign, not a dependency swap.
+
+Verified in the browser, both directions: Download Template → `Greige_Import_Template.xlsx`
+(18,740 bytes, valid zip); the same file fed back into the picker rendered its preview; Export →
+`Greige_Masters_2026-09-22.xlsx` (56,239 bytes, valid zip). Zero console errors.
+
+**Position: frontend 12 → 0 advisories, backend 43 → 23.** Every backend survivor now needs either
+upstream action (whatsapp-web.js/puppeteer, §13) or a project-sized major (prisma 7).
 
 ### What this review did not verify
 DeepSeek's serving claim ("already serving V4.1-Flash") beyond the docs page quoted above;

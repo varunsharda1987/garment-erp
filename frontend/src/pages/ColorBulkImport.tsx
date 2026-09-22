@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Upload, Download, FileSpreadsheet, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { logDebug, logError } from '../lib/logger';
 import { colorService } from '@/services/colorService';
 import type { ColorImportRow, ColorBulkImportResult } from '@/types/color.types';

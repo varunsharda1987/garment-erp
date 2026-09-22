@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Layers, Upload, Download } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';

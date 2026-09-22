@@ -60,7 +60,7 @@ route: /ai-settings
    - **DeepSeek (Recommended)** - Cheapest, fast, good quality
    - **Kimi (Moonshot)** - 1M context window, good for documents
    - **Ollama (Local)** - Free, requires local Ollama server
-   - **OpenAI** - GPT-4, high quality, expensive
+   - **OpenAI** - GPT, high quality, expensive
    - **Anthropic** - Claude, best quality, expensive
    - **Google** - Gemini, good quality
 
@@ -82,9 +82,9 @@ route: /ai-settings
    - **DeepSeek**: Flash (fast/cheap) or V4 Pro (smarter)
    - **Kimi**: K3 (flagship), K2.7 Code (coding), K2.6 (vision)
    - **Ollama**: Llama 3.1, Mistral, Qwen 2
-   - **OpenAI**: GPT-4 Turbo, GPT-4o, GPT-3.5 Turbo
-   - **Anthropic**: Claude 3.5 Sonnet, Claude 3 Opus
-   - **Google**: Gemini 1.5 Pro, Gemini 1.5 Flash
+   - **OpenAI**: GPT-6 Astra (Flagship) or GPT-5.6 (Balanced)
+   - **Anthropic**: Claude Opus 5 (Most capable), Claude Sonnet 5 (Balanced), Claude Haiku 4.5 (Fast, cheap)
+   - **Google**: Gemini 3.8 Flash (Latest), Gemini 3.5 Flash (Balanced), Gemini 3.5 Flash Lite (Cheapest)
 
 ### Test Connection
 1. Click **Test Connection** to verify your settings work

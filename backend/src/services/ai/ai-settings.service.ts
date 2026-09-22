@@ -36,7 +36,7 @@ export const AVAILABLE_PROVIDERS = [
   { value: 'deepseek', label: 'DeepSeek (Recommended)', description: 'Cheapest, fast, good quality' },
   { value: 'kimi', label: 'Kimi (Moonshot)', description: '1M context, good for documents' },
   { value: 'ollama', label: 'Ollama (Local)', description: 'Free, requires local setup' },
-  { value: 'openai', label: 'OpenAI', description: 'GPT-4, high quality, expensive' },
+  { value: 'openai', label: 'OpenAI', description: 'GPT, high quality, expensive' },
   { value: 'anthropic', label: 'Anthropic', description: 'Claude, best quality, expensive' },
   { value: 'google', label: 'Google', description: 'Gemini, good quality' },
 ] as const;

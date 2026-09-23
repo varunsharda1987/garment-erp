@@ -5,6 +5,7 @@ import { JWO_AT_PROCESSOR_STATUSES, JWO_RECEIVED_STATUSES } from './helpers/jwo-
 import { systemSettingsService } from './system-settings.service';
 import { UNRESOLVED_TEST_FAILURE } from './helpers/test-failure.helper';
 import { toDateInputValue } from '../utils/date';
+import { unitShort } from '../utils/units';
 
 /**
  * A job that can no longer bring material back. Deliberately "definitively done" rather than the
@@ -420,7 +421,7 @@ class ManufacturingAlertsService {
         itemsOut: v._count.id,
         totalQty: Number(v._sum.qtySentMeters) || 0,
         // job_work_orders.uom is MTR | PCS | KG — a piece-work job used to render "500 meters".
-        unit: v.uom === 'PCS' ? 'pcs' : v.uom === 'KG' ? 'kg' : 'meters',
+        unit: unitShort(v.uom),
         oldestSendoutDays: oldestDays,
         nextExpectedBack: expectedBack ? toDateInputValue(expectedBack) : null,
         status,

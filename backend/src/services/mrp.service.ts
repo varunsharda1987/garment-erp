@@ -59,6 +59,7 @@ import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
 import { applySearch } from '../utils/search-filter';
+import { normalizeUnit, unitLabel, unitToJwoUom } from '../utils/units';
 
 /**
  * All master FK fields derived from MASTER_CONFIG (single source of truth).
@@ -650,52 +651,18 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
 }
 
 /**
- * Normalize unit strings to valid Prisma Unit enum values
- * Maps common abbreviations and variations to standard enum values
+ * A BOM line's stored unit (pcs / meters / MTR / METER …) → the requirement's Unit enum, read
+ * through the one alias table in utils/units.ts. A spelling that is not a stock unit (the BOM's
+ * `lot`) or a missing one still becomes PIECE with a warning — the requirement column is an enum
+ * and MRP has always counted those lines in pieces; fixing the BOM data is the real cure.
  */
-function normalizeUnit(unit: string | null | undefined): Unit {
-  if (!unit) {
-    logWarn(
-      '[MRP] normalizeUnit called with null/undefined unit — defaulting to PIECE. This may cause incorrect quantity calculations if the actual unit is METER, YARD, or KILOGRAM. Fix: ensure all BOM items have a unit value set.'
-    );
-    return Unit.PIECE;
-  }
-
-  const normalized = unit.toUpperCase().trim();
-
-  // Direct matches - check if already a valid Unit enum value
-  if (Object.values(Unit).includes(normalized as Unit)) {
-    return normalized as Unit;
-  }
-
-  // Common mappings for abbreviations and variations
-  const unitMap: Record<string, Unit> = {
-    PCS: Unit.PIECE,
-    PC: Unit.PIECE,
-    PIECES: Unit.PIECE,
-    METERS: Unit.METER,
-    MTR: Unit.METER,
-    M: Unit.METER,
-    YARDS: Unit.YARD,
-    YD: Unit.YARD,
-    KG: Unit.KILOGRAM,
-    KGS: Unit.KILOGRAM,
-    KILOGRAMS: Unit.KILOGRAM,
-    DOZ: Unit.DOZEN,
-    DOZENS: Unit.DOZEN,
-    SETS: Unit.SET,
-    TUBES: Unit.TUBE,
-    CONES: Unit.CONE,
-    SPOOLS: Unit.SPOOL,
-    BOXES: Unit.BOX,
-  };
-
-  if (unitMap[normalized]) {
-    return unitMap[normalized];
-  }
-
+function toRequirementUnit(unit: string | null | undefined): Unit {
+  const resolved = normalizeUnit(unit);
+  if (resolved) return resolved;
   logWarn(
-    `[MRP] normalizeUnit: unrecognized unit '${unit}' — defaulting to PIECE. Add a mapping for this unit in normalizeUnit() or fix the BOM data.`
+    unit
+      ? `[MRP] unit '${unit}' is not a stock unit — counting it as PIECE. Fix the BOM line's unit.`
+      : '[MRP] BOM line has no unit — counting it as PIECE. This may be wrong if it is METER, YARD or KILOGRAM; set the unit on the BOM line.'
   );
   return Unit.PIECE;
 }
@@ -1803,7 +1770,7 @@ export async function calculateRequirementsFromOrder(
                 quantityPerUnit,
                 wastagePercent,
                 totalRequired: sizeRequired,
-                unit: normalizeUnit(bomItem.unit),
+                unit: toRequirementUnit(bomItem.unit),
                 availableStock: 0, // Label stock not tracked per-size currently
                 allocatedFromStock: 0,
                 shortfall: sizeRequired,
@@ -1942,7 +1909,7 @@ export async function calculateRequirementsFromOrder(
           quantityPerUnit,
           wastagePercent,
           totalRequired,
-          unit: normalizeUnit(bomItem.unit),
+          unit: toRequirementUnit(bomItem.unit),
           availableStock: 0,
           allocatedFromStock: 0,
           shortfall: totalRequired,
@@ -1977,7 +1944,7 @@ export async function calculateRequirementsFromOrder(
           // RETURNED metre; that × (1 − s) conversion happens where the job work order is raised,
           // exactly as it does for fabric.
           totalRequired,
-          unit: normalizeUnit(bomItem.unit),
+          unit: toRequirementUnit(bomItem.unit),
           availableStock: 0,
           allocatedFromStock: 0,
           shortfall: totalRequired,
@@ -2018,7 +1985,7 @@ export async function calculateRequirementsFromOrder(
           quantityPerUnit,
           wastagePercent,
           totalRequired,
-          unit: normalizeUnit(bomItem.unit),
+          unit: toRequirementUnit(bomItem.unit),
           availableStock,
           allocatedFromStock,
           shortfall,
@@ -2059,7 +2026,7 @@ export async function calculateRequirementsFromOrder(
           quantityPerUnit,
           wastagePercent,
           totalRequired, // Same quantity needs processing
-          unit: normalizeUnit(bomItem.unit),
+          unit: toRequirementUnit(bomItem.unit),
           availableStock: 0, // Processing doesn't have stock
           allocatedFromStock: 0,
           shortfall: totalRequired, // Full amount needs processing
@@ -2101,7 +2068,7 @@ export async function calculateRequirementsFromOrder(
           quantityPerUnit,
           wastagePercent,
           totalRequired,
-          unit: normalizeUnit(bomItem.unit),
+          unit: toRequirementUnit(bomItem.unit),
           availableStock,
           allocatedFromStock,
           shortfall,
@@ -3113,24 +3080,6 @@ export function processingBillableQty(greigeQty: number | Prisma.Decimal, shrink
   return toNumber(roundToCent(applyShrinkageLoss(greigeQty, shrinkagePercent)));
 }
 
-/** MRP-15: Prisma `Unit` → the short codes job_work_orders.uom uses. */
-export function unitToJwoUom(unit: string | null | undefined): string {
-  switch (unit) {
-    case 'METER':
-      return 'MTR';
-    case 'YARD':
-      return 'YDS';
-    case 'KILOGRAM':
-      return 'KG';
-    case 'GRAM':
-      return 'GM';
-    case 'PIECE':
-      return 'PCS';
-    default:
-      return 'MTR';
-  }
-}
-
 export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumber: string) {
   return {
     jobWorkNumber,
@@ -3780,7 +3729,7 @@ export async function generatePOFromRequirements(
     // to the SUMMED quantity, so a bundle of items priced differently was billed entirely at
     // whichever happened to be first. Use the value-weighted average, which reproduces the exact
     // line-total sum, and refuse to guess when the units differ.
-    const jwoUnits = [...new Set(poItems.map((item) => normalizeUnit(item.unit)))];
+    const jwoUnits = [...new Set(poItems.map((item) => toRequirementUnit(item.unit)))];
     if (jwoUnits.length > 1) {
       throw new Error(
         `Cannot create one job work order for requirements measured in different units (${jwoUnits.join(', ')}). ` +
@@ -3788,6 +3737,15 @@ export async function generatePOFromRequirements(
       );
     }
     const jwoUom = jwoUnits[0] ?? 'METER';
+    // A job work order is billed in MTR / PCS / KG only. Anything else used to be written as "MTR"
+    // — a dozen buttons billed as a dozen metres — so refuse before any row is written.
+    const jwoUomCode = unitToJwoUom(jwoUom);
+    if (!jwoUomCode) {
+      throw new Error(
+        `A job work order is billed in metres, pieces or kilograms; these requirements are in ${unitLabel(jwoUom)}. ` +
+          `Change the requirement's unit or raise the job work order by hand.`
+      );
+    }
     const totalJobValue = poItems.reduce(
       (sum, item) => toNumber(addCurrency(sum, multiplyCurrency(item.quantity, item.unitPrice))),
       0
@@ -3927,7 +3885,7 @@ export async function generatePOFromRequirements(
               greigeWidthInches,
               askedFinishedWidthInches,
               ratePerMeter,
-              uom: unitToJwoUom(jwoUom), // MRP-15: carry the requirement's real unit
+              uom: jwoUomCode, // MRP-15: carry the requirement's real unit
               expectedShrinkage: impliedShrinkage,
               expectedReturnDate: new Date(expectedDeliveryDate),
               requirementNumbers: requirements.map((r) => r.requirementNumber),

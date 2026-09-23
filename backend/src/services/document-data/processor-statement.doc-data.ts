@@ -14,6 +14,7 @@
 import { getProcessorStatement, type MaterialKind, type StatementSection } from '../processor-statement.service';
 import { buildCompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtQty } from './format';
+import { unitShort } from '../../utils/units';
 
 export interface ProcessorStatementPeriod {
   start: Date;
@@ -98,16 +99,9 @@ function titleCase(value: string): string {
     .join(' ');
 }
 
-function unitSuffix(uom: string): string {
-  const u = uom.toUpperCase();
-  if (u === 'PCS') return 'pcs';
-  if (u === 'KG') return 'kg';
-  return 'm';
-}
-
 /** "1,704.00 m" — a real zero prints as 0.00, only nulls become an em-dash. */
 function qty(value: number, uom: string): string {
-  return `${fmtQty(value, uom === 'PCS' ? 'PCS' : undefined)} ${unitSuffix(uom)}`;
+  return `${fmtQty(value, uom)} ${unitShort(uom)}`;
 }
 
 /**
@@ -132,7 +126,7 @@ function mapSection(section: StatementSection): StatementDocSection {
 
   return {
     title: section.title,
-    unitSuffix: unitSuffix(uom),
+    unitSuffix: unitShort(uom),
     rows: section.rows.map((row) => ({
       code: row.material.code,
       name: row.material.name,

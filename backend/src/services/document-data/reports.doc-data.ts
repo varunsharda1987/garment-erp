@@ -12,6 +12,7 @@
 import jobWorkStatutoryService, { Section143AgeingItem, VendorPerformanceItem } from '../job-work-statutory.service';
 import { buildCompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtDateTime, fmtMoney, fmtPct, fmtQty, lakhShort } from './format';
+import { unitShort } from '../../utils/units';
 
 export interface ReportPeriod {
   start: Date;
@@ -28,15 +29,6 @@ function titleCase(value: string): string {
     .filter((w) => w.length > 0)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(' ');
-}
-
-/** Unit suffix as the design package prints it: "210.00 m", "480 pcs" */
-function unitSuffix(uom: string): string {
-  const u = uom.toUpperCase();
-  if (u === 'MTR' || u === 'M' || u === 'METERS') return 'm';
-  if (u === 'PCS' || u === 'PIECES') return 'pcs';
-  if (u === 'KG' || u === 'KGS') return 'kg';
-  return uom.toLowerCase();
 }
 
 function periodLabel(period: ReportPeriod): string {
@@ -122,7 +114,7 @@ export async function buildAgeingReportData(asOfDate?: Date): Promise<AgeingRepo
       processorName: item.processorName,
       processType: titleCase(item.processType),
       sentDate: fmtDate(item.sentDate),
-      balance: `${fmtQty(item.balanceQty, item.unit)} ${unitSuffix(item.unit)}`,
+      balance: `${fmtQty(item.balanceQty, item.unit)} ${unitShort(item.unit)}`,
       value: fmtMoney(item.balanceValue),
       daysOutstanding: item.daysOutstanding,
       daysRemaining: item.daysRemaining < 0 ? `${MINUS}${Math.abs(item.daysRemaining)}` : String(item.daysRemaining),
@@ -306,8 +298,8 @@ export async function buildVendorPerformanceReportData(period?: ReportPeriod): P
       processorName: item.processorName,
       processType: titleCase(item.processType),
       ordersCompleted: item.ordersCompleted,
-      issued: `${fmtQty(item.totalIssued, uom)} ${unitSuffix(uom)}`,
-      expected: `${fmtQty(item.totalExpected, uom)} ${unitSuffix(uom)}`,
+      issued: `${fmtQty(item.totalIssued, uom)} ${unitShort(uom)}`,
+      expected: `${fmtQty(item.totalExpected, uom)} ${unitShort(uom)}`,
       tolerance: fmtPct(item.tolerancePercent),
       shortfall: fmtPct(item.shortfallPercent),
       physicalLoss: fmtPct(item.physicalLossPercent),

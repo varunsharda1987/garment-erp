@@ -21,6 +21,8 @@ import {
   subtractCurrency,
   toCurrency,
 } from '../../utils/currency';
+import { isKaajButtonJob, jobWorkCharges } from '../helpers/grn-line-value.helper';
+import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 
@@ -141,13 +143,13 @@ export interface GrnDocData {
   valuation: GrnValuationBlock | null;
 }
 
-/** "PCS" → "Pcs" (column header), "piece" (prose), "pcs" (inline count) */
+/**
+ * "PCS" → "Pcs" (column header), "piece" (prose), "pcs" (inline count) — from the unit registry,
+ * which reads the job's MTR/PCS/KG and a PO line's METER/PIECE alike. The local copy knew only
+ * PCS/MTR/KG, so a PO receipt (unit METER) printed "METER" in its Sec 02 heading.
+ */
 function uomForms(uom: string): { header: string; word: string; short: string } {
-  const u = uom.toUpperCase();
-  if (u === 'PCS') return { header: 'Pcs', word: 'piece', short: 'pcs' };
-  if (u === 'MTR') return { header: 'Mtr', word: 'metre', short: 'mtr' };
-  if (u === 'KG') return { header: 'Kg', word: 'kg', short: 'kg' };
-  return { header: uom, word: uom.toLowerCase(), short: uom.toLowerCase() };
+  return { header: unitHeader(uom), word: unitWord(uom), short: unitShort(uom) };
 }
 
 function userName(user: { firstName: string; lastName: string } | null | undefined): string | null {
@@ -222,7 +224,7 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
       sn: idx + 1,
       material: item.materials.name,
       subline: bits.length > 0 ? bits.join(' · ') : null,
-      uom: item.unit,
+      uom: unitHeader(item.unit),
       ordered: fmtQty(item.orderedQuantity.toString(), item.unit),
       received: fmtQty(item.receivedQuantity.toString(), item.unit),
       accepted: fmtQty(item.acceptedQuantity.toString(), item.unit),
@@ -300,19 +302,14 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
       }, toCurrency(0));
     }
 
-    // Job charges — KAAJ_BUTTON prices two operations, everything else qty × rate
-    const isKaaj = jwo.processType === 'KAAJ_BUTTON' || jwo.processTypeMaster?.code === 'KAAJ_BUTTON';
-    let jobCharges: ReturnType<typeof toCurrency>;
+    // Job charges — one definition shared with the GRN list's Value column (grn-line-value.helper)
+    const { amount: jobCharges } = jobWorkCharges(jwo, acceptedSum);
     let jobChargesBasis: string;
-    if (isKaaj) {
-      const bhCount = jwo.buttonholeCount ?? 0;
-      const bCount = jwo.buttonCount ?? 0;
+    if (isKaajButtonJob(jwo)) {
       const bhRate = jwo.buttonholeRatePerUnit != null ? jwo.buttonholeRatePerUnit.toString() : '0';
       const bRate = jwo.buttonRatePerUnit != null ? jwo.buttonRatePerUnit.toString() : '0';
-      jobCharges = addCurrency(multiplyCurrency(bhCount, bhRate), multiplyCurrency(bCount, bRate));
-      jobChargesBasis = `${bhCount} kaaj × ₹${fmtMoney(bhRate)} + ${bCount} buttons × ₹${fmtMoney(bRate)}`;
+      jobChargesBasis = `${jwo.buttonholeCount ?? 0} kaaj × ₹${fmtMoney(bhRate)} + ${jwo.buttonCount ?? 0} buttons × ₹${fmtMoney(bRate)}`;
     } else {
-      jobCharges = multiplyCurrency(acceptedSum, jwo.agreedRatePerMeter.toString());
       jobChargesBasis = `${fmtQty(acceptedSum.toNumber(), uom)} accepted × ₹${fmtMoney(jwo.agreedRatePerMeter.toString())}`;
     }
 

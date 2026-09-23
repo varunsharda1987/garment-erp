@@ -18,6 +18,7 @@ import {
 } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
+import { unitHeader, unitShort, unitWord } from '../../utils/units';
 
 const jwoDocInclude = {
   processor: {
@@ -264,7 +265,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
         sn: idx + 1,
         item: componentItemName(c),
         subline: componentSubline(c),
-        uom: c.unit,
+        uom: unitHeader(c.unit),
         qty: fmtQty(Number(c.qtySent), c.unit),
         rate: rateStr,
         value: valueStr,
@@ -280,7 +281,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       sn: 1,
       item: lot.greige.greigeName,
       subline: `Lot ${lot.greige.greigeCode} · ${fmtQty(Number(lot.greigeWidth))}″ greige width`,
-      uom: jwo.uom,
+      uom: unitHeader(jwo.uom),
       qty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
       rate: rate != null ? fmtMoney(Number(rate)) : EM_DASH,
       value: value != null ? fmtMoney(value) : EM_DASH,
@@ -294,7 +295,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       sn: 1,
       item: lot.fabricMaster.fabricName,
       subline: `Lot ${lot.fabricMaster.fabricCode}`,
-      uom: jwo.uom,
+      uom: unitHeader(jwo.uom),
       qty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
       rate: fmtMoney(Number(lot.weightedAvgCost)),
       value: fmtMoney(value),
@@ -309,7 +310,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       sn: 1,
       item: jwo.greigeLace.laceName,
       subline: [jwo.greigeLace.laceCode, 'lot assigned on despatch challan'].filter(Boolean).join(' · '),
-      uom: jwo.uom,
+      uom: unitHeader(jwo.uom),
       qty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
       rate: bomLaceRate != null ? fmtMoney(bomLaceRate) : EM_DASH,
       value: value != null ? fmtMoney(value) : EM_DASH,
@@ -333,7 +334,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       sn: 1,
       item: greigeName,
       subline: sublineBits.join(' · '),
-      uom: jwo.uom,
+      uom: unitHeader(jwo.uom),
       qty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
       rate: bomGreigeRate != null ? fmtMoney(bomGreigeRate) : EM_DASH,
       value: value != null ? fmtMoney(value) : EM_DASH,
@@ -343,9 +344,10 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   // else: no components, no lot, no requirement link — template renders the hatched .open row
 
   // ── 03 — expected output, job charges & tax ──────────────────────────────
-  const uomForRate = (ptm?.unitOfMeasure ?? jwo.uom).toUpperCase();
-  const isMeters = uomForRate === 'MTR';
-  const rateColLabel = isMeters ? 'Rate/Mtr' : 'Rate/Pc';
+  // MTR / PCS / KG / TRIP read through the unit registry — this was `=== 'MTR'`, so a KG job
+  // printed Rate/Pc, "per piece" and "pcs".
+  const uomForRate = ptm?.unitOfMeasure ?? jwo.uom;
+  const rateColLabel = `Rate/${unitHeader(uomForRate)}`;
   const toleranceRaw = jwo.tolerancePercent ?? ptm?.tolerancePercent ?? null;
   const toleranceStr = fmtPct(toleranceRaw != null ? Number(toleranceRaw) : null);
 
@@ -360,7 +362,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   } else if (jwo.expectedShrinkage != null && Number(jwo.expectedShrinkage) > 0) {
     expectedQty = applyShrinkageLoss(qtySent, jwo.expectedShrinkage);
   }
-  const expQtyStr = fmtQty(expectedQty.toNumber(), isMeters ? 'MTR' : 'PCS');
+  const expQtyStr = fmtQty(expectedQty.toNumber(), uomForRate);
   // The % column beside Exp. Qty is the SHRINKAGE that produced it — not the loss tolerance
   const shrinkageColStr = fmtPct(jwo.expectedShrinkage != null ? Number(jwo.expectedShrinkage) : null);
 
@@ -495,12 +497,12 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     fgCharges,
     fgValue,
     fgRate,
-    fgRateUnit: isMeters ? 'per metre' : 'per piece',
+    fgRateUnit: `per ${unitWord(uomForRate)}`,
     expQtyStr,
-    uomShort: isMeters ? 'm' : 'pcs',
+    uomShort: unitShort(uomForRate),
     gstExcluded: fmtMoney(jwo.totalTaxAmount != null ? Number(jwo.totalTaxAmount) : null),
     toleranceStr,
-    uomHead: isMeters ? 'Mtr' : 'Pcs',
+    uomHead: unitHeader(uomForRate),
     issuedQty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
     issuedRemark: challan ? `Per challan ${challan.challanNumber}` : 'Per dispatch challan — to follow',
   };

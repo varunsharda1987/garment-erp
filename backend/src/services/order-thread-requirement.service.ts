@@ -23,6 +23,7 @@ import { processThreadQuantityInput, calculateReorderQuantity } from './thread-c
 import { createUnifiedPO, UnifiedPOCreationInput } from './unified-po-creation.service';
 import { materialService } from './material.service';
 import { applySearch } from '../utils/search-filter';
+import { normalizeUnit } from '../utils/units';
 
 // ==================== TYPES ====================
 
@@ -563,21 +564,11 @@ async function ensureMaterialForThread(threadId: string): Promise<string | null>
 }
 
 /**
- * Map ThreadPackagingType to Unit enum for PO items
+ * Map ThreadPackagingType to Unit enum for PO items. CONE_5K / CONE_10K are cones of a given
+ * length, which the registry's alias table already reads as CONE.
  */
 function packagingTypeToUnit(packagingType: ThreadPackagingType): Unit {
-  switch (packagingType) {
-    case 'SPOOL':
-      return 'SPOOL' as Unit;
-    case 'CONE':
-    case 'CONE_5K':
-    case 'CONE_10K':
-      return 'CONE' as Unit;
-    case 'TUBE':
-      return 'TUBE' as Unit;
-    default:
-      return 'PIECE' as Unit;
-  }
+  return normalizeUnit(packagingType) ?? Unit.PIECE;
 }
 
 /**

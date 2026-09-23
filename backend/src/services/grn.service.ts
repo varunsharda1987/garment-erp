@@ -49,6 +49,7 @@ import {
   resolveOrMintJwoArrivingMaterial,
   stampJwoFinishedFabric,
 } from './helpers/jwo-arriving-material.helper';
+import { grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError } from '../errors';
 import {
@@ -494,6 +495,9 @@ class GRNService {
       'jobWorkOrder.style.styleCode',
       'jobWorkOrder.style.buyerStyleRef',
       'jobWorkOrder.style.styleName',
+      // The list names what came in, so what came in must find the receipt.
+      'grn_items[].materials.name',
+      'grn_items[].materials.code',
       'remarks',
     ]);
 
@@ -521,6 +525,7 @@ class GRNService {
             select: {
               id: true,
               poNumber: true,
+              poDate: true,
               expectedDeliveryDate: true,
               status: true,
             },
@@ -535,22 +540,64 @@ class GRNService {
           },
           // Phase 4b: PO-less GRNs identify by their Job Work Order
           jobWorkOrder: {
-            select: { id: true, jobWorkNumber: true, processType: true },
+            select: {
+              id: true,
+              jobWorkNumber: true,
+              processType: true,
+              sentDate: true,
+              uom: true,
+              agreedRatePerMeter: true,
+              buttonholeCount: true,
+              buttonCount: true,
+              buttonholeRatePerUnit: true,
+              buttonRatePerUnit: true,
+              processTypeMaster: { select: { name: true, code: true } },
+            },
           },
           warehouses: {
             select: { id: true, warehouseCode: true, warehouseName: true },
           },
-          grn_items: true,
+          grn_items: {
+            include: {
+              materials: { select: { code: true, name: true, materialType: true } },
+              purchase_order_items: { select: { unitPrice: true } },
+            },
+          },
         },
       }),
       prisma.goods_receiving_notes.count({ where }),
     ]);
 
     return {
-      data: grns.map((grn) => ({
-        ...grn,
-        itemCount: grn.grn_items.length,
-      })),
+      data: grns.map((grn) => {
+        // A PO-backed receipt is priced by its PO line; only a PO-less job-work return falls to
+        // the processor's charge (grn-line-value.helper).
+        const jwo = !grn.poId ? grn.jobWorkOrder : null;
+        // The PO line is read for its price only. Left on the item, the serializer would rename
+        // purchaseOrderItems → `items` and nest an `items` key inside every item.
+        const items = grn.grn_items.map(({ purchase_order_items, ...item }) => {
+          const rate = grnLineRate({ ...item, purchase_order_items }, jwo);
+          const value = rate != null ? roundToCent(multiplyCurrency(item.acceptedQuantity, rate)) : null;
+          return { ...item, rate, value };
+        });
+
+        // null = unpriced: a line with no rate leaves the total unknown rather than silently short.
+        let totalValue: ReturnType<typeof toCurrency> | null;
+        if (jwo && isKaajButtonJob(jwo)) {
+          // Kaaj-button has no per-unit rate — the processor bills buttonholes + buttons.
+          const accepted = addCurrency(...grn.grn_items.map((i) => i.acceptedQuantity));
+          totalValue = roundToCent(jobWorkCharges(jwo, accepted).amount);
+        } else {
+          totalValue = items.every((i) => i.value != null) ? addCurrency(...items.map((i) => i.value)) : null;
+        }
+
+        return {
+          ...grn,
+          grn_items: items.map((i) => ({ ...i, rate: i.rate?.toNumber() ?? null, value: i.value?.toNumber() ?? null })),
+          itemCount: items.length,
+          totalValue: totalValue?.toNumber() ?? null,
+        };
+      }),
       pagination: {
         page,
         limit,

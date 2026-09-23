@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 import { flexMaterialId } from './common.schema';
-import { MovementTypeEnum, CountTypeEnum, CountStatusEnum, MaterialTypeEnum } from './generated/prisma-enums';
+import { MovementTypeEnum, CountTypeEnum, CountStatusEnum, MaterialTypeEnum, UnitEnum } from './generated/prisma-enums';
 
 // Movement type enum - imported from Prisma enums
 export const MovementType = MovementTypeEnum;
@@ -26,7 +26,7 @@ export const createStockMovementSchema = z.object({
   materialType: MaterialTypeEnum,
   movementType: MovementType,
   quantity: z.number().positive('Quantity must be positive'),
-  unit: z.string().min(1).max(20),
+  unit: UnitEnum,
   referenceNumber: z.string().max(50).optional(),
   referenceType: z.string().max(50).optional(),
   reason: z.string().max(500).optional(),

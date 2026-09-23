@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import type { ActionDefinition, Payload, ActionContext, StepResult } from '../ai-action-types';
 import { internalFetch, resolveEntity } from '../ai-action-types';
+import { UnitEnum } from '../../../schemas/generated/prisma-enums';
 
 // ── Style ────────────────────────────────────────────────────────────────────
 // customerName is a free-text column on styles, NOT a foreign key — no resolution needed.
@@ -282,30 +283,11 @@ const createStockProductionOrder: ActionDefinition = {
 
 // ── Purchase order ───────────────────────────────────────────────────────────
 
-const UNITS = [
-  'METER',
-  'PIECE',
-  'KILOGRAM',
-  'SET',
-  'YARD',
-  'DOZEN',
-  'GROSS',
-  'TUBE',
-  'CONE',
-  'SPOOL',
-  'BOX',
-  'PAIR',
-  'PACK',
-  'GRAM',
-  'LITER',
-  'ROLL',
-] as const;
-
 const poTool = z.object({
   supplierName: z.string().min(1),
   materialName: z.string().min(1),
   quantity: z.number().positive(),
-  unit: z.enum(UNITS),
+  unit: UnitEnum,
   unitPrice: z.number().positive(),
   expectedDeliveryDate: z.string().min(4).max(30),
 });
@@ -318,7 +300,7 @@ const poExec = z.object({
       z.object({
         materialId: z.string().min(1).max(100),
         orderedQuantity: z.number().positive(),
-        unit: z.enum(UNITS),
+        unit: UnitEnum,
         unitPrice: z.number().positive(),
       })
     )
@@ -346,7 +328,7 @@ const createPurchaseOrder: ActionDefinition = {
           supplierName: { type: 'string', description: 'Supplier name or code' },
           materialName: { type: 'string', description: 'Material name or code to buy' },
           quantity: { type: 'number' },
-          unit: { type: 'string', enum: UNITS },
+          unit: { type: 'string', enum: [...UnitEnum.options] },
           unitPrice: { type: 'number', description: 'Rate per unit — must be greater than zero' },
           expectedDeliveryDate: { type: 'string', description: 'YYYY-MM-DD' },
         },

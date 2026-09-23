@@ -12,6 +12,7 @@ import { Prisma, StockStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { normalizeUnit } from '../utils/units';
 
 export type TrimType = 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING' | 'MACHINE_PART' | 'OTHER_MATERIAL';
 
@@ -178,12 +179,9 @@ class TrimStockService {
       // Skip when called from stock routing (parent already handles this)
       if (!data.skipMaterialSync) {
         const materialId = await ensureMaterialRecord(data.masterId, data.trimType, tx);
-        const unitMap: Record<string, string> = {
-          METERS: 'METER',
-          PIECES: 'PIECE',
-        };
-        const upperUnit = stockData.unit.toUpperCase();
-        const unitForStockLevel = unitMap[upperUnit] || upperUnit;
+        // Trim stock tables store 'pieces' / 'meters'; stock_levels takes the enum. An unreadable unit
+        // passes undefined so the helper records the material's own unit instead of a bad string.
+        const unitForStockLevel = normalizeUnit(stockData.unit) ?? undefined;
         await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unitForStockLevel, tx);
       }
 

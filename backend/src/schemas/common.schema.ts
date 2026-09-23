@@ -12,31 +12,12 @@ import { z } from 'zod';
 // ============================================================================
 
 /**
- * Unit — must list EVERY value in the Prisma `Unit` enum (schema.prisma).
- * Previously PO / GRN / unified-PO each had a different partial subset, so
- * creating a PO/GRN with PAIR/PACK/GRAM/LITER/ROLL returned 400. Keep this the
- * single shared enum for all PO/GRN/unified-PO unit fields.
+ * Unit — generated from the Prisma `Unit` enum, never re-typed. PO / GRN / unified-PO each once
+ * had a different partial subset (creating a PO/GRN with PAIR/PACK/GRAM/LITER/ROLL returned 400),
+ * and the material schema still carried 9 of the 16 until 2026-09-23. Labels, abbreviations and
+ * the alias table live in `utils/units.ts`.
  */
-export const UnitEnum = z.enum([
-  'METER',
-  'PIECE',
-  'KILOGRAM',
-  'SET',
-  'YARD',
-  'DOZEN',
-  'GROSS',
-  'TUBE',
-  'CONE',
-  'SPOOL',
-  'BOX',
-  'PAIR',
-  'PACK',
-  'GRAM',
-  'LITER',
-  'ROLL',
-]);
-
-export type Unit = z.infer<typeof UnitEnum>;
+export { UnitEnum, type Unit } from './generated/prisma-enums';
 
 // ============================================================================
 // Form-posted numbers

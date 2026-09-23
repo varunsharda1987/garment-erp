@@ -12,6 +12,21 @@ import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
+import { normalizeUnit, unitLabel } from '../utils/units';
+
+/**
+ * challan_items.unit is free text (schema default 'PCS'); a stock movement takes the Unit enum.
+ * It used to be cast straight across, so a 'PCS' line reached Prisma as an invalid enum value.
+ * Read it through the registry; a blank line counts in pieces as it always has; anything the
+ * registry cannot read is refused rather than guessed.
+ */
+function stockUnitOf(unit: string | null | undefined): Unit {
+  if (!unit) return Unit.PIECE;
+  const resolved = normalizeUnit(unit);
+  if (!resolved)
+    throw new Error(`Challan line unit '${unitLabel(unit)}' is not a stock unit — correct the line's unit.`);
+  return resolved;
+}
 
 // ============================================
 // TYPES
@@ -496,7 +511,7 @@ export async function issueChallan(id: string, userId?: string) {
                   materialId: item.materialId,
                   warehouseId: warehouse.id,
                   quantity: new Decimal(qty),
-                  unit: (item.unit || 'PIECE') as Unit,
+                  unit: stockUnitOf(item.unit),
                   referenceType: 'CHALLAN',
                   referenceId: existing.id,
                   referenceNumber: existing.challanNumber,
@@ -932,7 +947,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
                   materialId: item.materialId,
                   warehouseId: warehouse.id,
                   quantity: new Decimal(receivedQty),
-                  unit: (item.unit || 'PIECE') as Unit,
+                  unit: stockUnitOf(item.unit),
                   referenceType: 'CHALLAN',
                   referenceId: id,
                   remarks: `Received via challan`,

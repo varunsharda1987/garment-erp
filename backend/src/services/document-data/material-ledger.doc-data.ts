@@ -10,6 +10,7 @@
 import { getMaterialLedger, type LedgerQuery, type LedgerRow } from '../material-ledger.service';
 import { buildCompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtQty } from './format';
+import { unitShort } from '../../utils/units';
 
 export interface MaterialLedgerDocRow {
   date: string;
@@ -81,16 +82,8 @@ const SOURCE_LABEL: Record<string, string> = {
   MANUAL: 'Manual',
 };
 
-function unitLabel(unit: string): string {
-  const u = unit.trim().toUpperCase();
-  if (u === 'METER' || u === 'METERS' || u === 'MTR' || u === 'M') return 'm';
-  if (u === 'PIECE' || u === 'PIECES' || u === 'PCS') return 'pcs';
-  if (u === 'KG' || u === 'KGS') return 'kg';
-  return unit.toLowerCase();
-}
-
 function qty(value: number, unit: string): string {
-  return `${fmtQty(value, unitLabel(unit) === 'pcs' ? 'PCS' : undefined)} ${unitLabel(unit)}`;
+  return `${fmtQty(value, unit)} ${unitShort(unit)}`;
 }
 
 function mapRow(row: LedgerRow, unit: string): MaterialLedgerDocRow {
@@ -140,7 +133,7 @@ export async function buildMaterialLedgerDocData(
     materialCode: ledger.material.code,
     materialName: ledger.material.name,
     materialType: ledger.material.materialType.replace(/_/g, ' ').toLowerCase(),
-    unitLabel: unitLabel(unit),
+    unitLabel: unitShort(unit),
     periodLabel,
     warehouseLabel: ledger.filters.warehouseName ?? 'All warehouses',
     hasOpening: ledger.opening != null,

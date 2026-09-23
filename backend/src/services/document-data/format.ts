@@ -7,6 +7,7 @@
 import { roundToCent } from '../../utils/currency';
 import { amountToWords } from '../../config/company.config';
 import { EM_DASH as SHARED_EM_DASH, formatDate, formatDateTime24 } from '../../utils/date';
+import { isCountUnit } from '../../utils/units';
 
 export const EM_DASH = SHARED_EM_DASH;
 
@@ -32,13 +33,12 @@ export function fmtMoney(value: number | string | null | undefined): string {
   });
 }
 
-const INTEGER_UNITS = new Set(['PCS', 'PIECE', 'PIECES', 'CONE', 'CONES', 'NOS', 'SET', 'SETS', 'TRIP', 'DOZEN']);
-
+/** Counted units (pieces, cones, sets…) print whole; measured ones (m, kg) print 2dp — per the unit registry. */
 export function fmtQty(value: number | string | null | undefined, uom?: string | null): string {
   if (value === null || value === undefined || value === '') return EM_DASH;
   const n = Number(value);
   if (Number.isNaN(n)) return EM_DASH;
-  const digits = uom && INTEGER_UNITS.has(uom.toUpperCase()) ? 0 : 2;
+  const digits = isCountUnit(uom) ? 0 : 2;
   return n.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 

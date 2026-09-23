@@ -12,7 +12,9 @@
 
 import prisma from '../../config/database';
 import { materialService } from '../material.service';
-import { logInfo, logError } from '../../utils/logger';
+import { logInfo, logError, logWarn } from '../../utils/logger';
+import { normalizeUnit } from '../../utils/units';
+import type { Unit } from '../../schemas/generated/prisma-enums';
 // Single source of truth for ALL 27 master-backed material types (material-identity project:
 // previously only 11 were configured here, so ensureMaterialRecord threw "Unknown master type"
 // for every extended trim — hook_eye, ribbon, sequin, etc. — breaking their stock operations).
@@ -187,7 +189,12 @@ export async function syncStockLevelQuantity(
       } else {
         // Record the material's REAL unit (fabric/greige in metres, etc.). Only fall back to PIECE
         // if the master genuinely has no unit — never as a blind default (bug-hunt BH-0304).
-        let resolvedUnit = unit;
+        // Callers pass their stock table's spelling ('meters', 'pieces', 'METER'); read it through
+        // the registry — it used to reach the enum column as-is via `as any`.
+        let resolvedUnit: Unit | null = normalizeUnit(unit);
+        if (unit && !resolvedUnit) {
+          logWarn(`[MaterialSync] unit '${unit}' is not a stock unit — recording material ${materialId}'s own unit`);
+        }
         if (!resolvedUnit) {
           const material = await client.materials.findUnique({
             where: { id: materialId },
@@ -204,7 +211,7 @@ export async function syncStockLevelQuantity(
             materialId,
             warehouseId: createWarehouseId,
             quantity: change,
-            unit: resolvedUnit as any,
+            unit: resolvedUnit,
             lastUpdated: new Date(),
           },
           update: {

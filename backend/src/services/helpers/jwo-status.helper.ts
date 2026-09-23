@@ -12,6 +12,9 @@
  */
 
 import { Prisma, PrismaClient, JobWorkOrderStatus } from '@prisma/client';
+import { BusinessError } from '../../errors';
+import { jwoUomToUnit } from '../../utils/units';
+import type { Unit } from '../../schemas/generated/prisma-enums';
 
 type DbClient = Prisma.TransactionClient | PrismaClient;
 
@@ -48,10 +51,23 @@ export const JWO_RECEIVED_STATUSES: JobWorkOrderStatus[] = ['RECEIVED', 'QUALITY
  * metre job with no greige lot slipped through, was stamped RECEIVED with no stock, and was then
  * locked out of the GRN as "already received".
  *
- * YDS/GM (mrp.service.ts unitToJwoUom) are deliberately absent: the GRN cannot convert units, so a
- * yard job must stay on the legacy route. No YARD/GRAM material exists today.
+ * Only MTR: the GRN cannot convert units. MRP no longer mints YDS/GM jobs at all — utils/units.ts
+ * `unitToJwoUom` maps a stock unit to MTR / PCS / KG or refuses it.
  */
 export const JWO_GRN_UOMS: string[] = ['MTR'];
+
+/**
+ * The stock unit a job's goods move in, for its challans and stock movements. One reading for every
+ * path: issuance used to make a KG job PIECE (`uom === 'MTR' ? METER : PIECE`) while the unprocessed
+ * return made the same job METER (`uom === 'PCS' ? PIECE : METER`).
+ */
+export function jwoStockUnit(uom: string | null | undefined): Unit {
+  const unit = jwoUomToUnit(uom);
+  if (!unit) {
+    throw new BusinessError(`Job work order unit '${uom ?? ''}' is not one stock can move in (MTR, PCS, KG or TRIP).`);
+  }
+  return unit;
+}
 
 /**
  * Set a JWO's status.

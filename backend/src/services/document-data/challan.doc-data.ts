@@ -9,6 +9,7 @@ import { NotFoundError } from '../../errors';
 import { addCurrency, roundToCent, multiplyCurrency, toCurrency } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
+import { unitHeader } from '../../utils/units';
 
 const challanDocInclude = {
   items: {
@@ -195,7 +196,7 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
       description: item.description,
       subline: itemSubline(item),
       hsn: itemHsn(item),
-      uom: item.unit,
+      uom: unitHeader(item.unit),
       qty: fmtQty(Number(item.quantity), item.unit),
       value: valueStr,
       // The trailing sequence alone is enough when the whole challan is one order. On a

@@ -23,6 +23,7 @@ import path from 'path';
 import fs from 'fs';
 import { logWarn } from '../utils/logger';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { unitHeader } from '../utils/units';
 import { buildCostSheetDocData, formatPurpose, formatStatus } from './document-data/cost-sheet.doc-data';
 
 // Types
@@ -2282,7 +2283,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
             doc.text(material?.name || '-', margin, y, { width: 200 });
             doc.text(item.materialType || '-', margin + 200, y, { width: 80 });
             doc.text(String(item.quantityPerGarment || '-'), margin + 280, y, { width: 50 });
-            doc.text(item.unit || '-', margin + 330, y, { width: 50 });
+            doc.text(unitHeader(item.unit) || '-', margin + 330, y, { width: 50 });
             y += 15;
           });
         } else {
@@ -3125,7 +3126,11 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       xPos += col.qty;
 
       // Unit
-      doc.text(item.unit || '-', xPos + 2, textY + 5, { width: col.unit - 4, align: 'center', lineBreak: false });
+      doc.text(unitHeader(item.unit) || '-', xPos + 2, textY + 5, {
+        width: col.unit - 4,
+        align: 'center',
+        lineBreak: false,
+      });
       xPos += col.unit;
 
       // HSN
@@ -4127,7 +4132,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       xPos += colWidths.description;
       doc.text(qty.toString(), xPos + 3, y + 4, { width: colWidths.qty - 6, align: 'center' });
       xPos += colWidths.qty;
-      doc.text(item.unit || Unit.PIECE, xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
+      doc.text(unitHeader(item.unit || Unit.PIECE), xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
       xPos += colWidths.unit;
       doc.text(
         rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—',
@@ -4162,7 +4167,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       width: colWidths.qty - 6,
       align: 'center',
     });
-    doc.text(challan.unit, marginLeft + qtyColStart + colWidths.qty + 3, y + 5, {
+    doc.text(unitHeader(challan.unit), marginLeft + qtyColStart + colWidths.qty + 3, y + 5, {
       width: colWidths.unit - 6,
       align: 'center',
     });
@@ -4476,7 +4481,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
           type: trim.type,
           name: trim.name,
           qty: trim.qtyNum,
-          unit: trim.unit,
+          unit: unitHeader(trim.unit),
           rate: trim.rateNum,
           total: trim.totalNum,
         });

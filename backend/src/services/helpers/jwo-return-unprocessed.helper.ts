@@ -26,7 +26,7 @@ import prisma from '../../config/database';
 import { createChallan } from '../challan.service';
 import greigeStockService from '../greige-stock.service';
 import { restoreLaceStock } from '../laceStock.service';
-import { isJwoDead, JWO_AT_PROCESSOR_STATUSES } from './jwo-status.helper';
+import { isJwoDead, jwoStockUnit, JWO_AT_PROCESSOR_STATUSES } from './jwo-status.helper';
 import { BusinessError, NotFoundError, ValidationError } from '../../errors';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './material-sync.helper';
 import { toCurrency, toNumber } from '../../utils/currency';
@@ -177,7 +177,7 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
           purchaseOrderId: job.purchaseOrderId ?? undefined,
           jobWorkOrderId: job.id,
           issuedById: userId,
-          unit: job.uom === 'PCS' ? Unit.PIECE : Unit.METER,
+          unit: jwoStockUnit(job.uom),
           remarks: `Unprocessed ${target.toLowerCase()} returned${remarks ? ': ' + remarks : ''}`,
           items: [
             {
@@ -188,7 +188,7 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
               fabricStockId: job.fabricStockLotId ?? undefined,
               description: `Unprocessed ${target.toLowerCase()} returned${styleLabel}`,
               quantity: returnedQty,
-              unit: job.uom === 'PCS' ? Unit.PIECE : Unit.METER,
+              unit: jwoStockUnit(job.uom),
               jobWorkOrderId: job.id,
             },
           ],

@@ -27,6 +27,7 @@ import { Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import { applySearch } from '../utils/search-filter';
+import type { Unit } from '../schemas/generated/prisma-enums';
 
 // ============================================
 // Types for Material Controller
@@ -206,9 +207,9 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     whereClause.materialType = { in: materialTypes as any[] };
   }
 
-  // Unit filter - cast to Unit enum type
+  // Unit filter — the query schema already validated it against the generated UnitEnum
   if (unit) {
-    whereClause.unit = unit as 'METER' | 'PIECE' | 'KILOGRAM' | 'SET' | 'YARD' | 'DOZEN' | 'GROSS' | 'TUBE' | 'CONE';
+    whereClause.unit = unit as Unit;
   }
 
   const [materials, total] = await Promise.all([

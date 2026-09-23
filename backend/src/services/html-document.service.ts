@@ -13,6 +13,7 @@ import Handlebars from 'handlebars';
 import { htmlToPdf } from './html-renderer.service';
 import { roundToCent } from '../utils/currency';
 import { formatDate } from '../utils/date';
+import { fmtQty } from './document-data/format';
 
 export type KfTemplateName =
   | 'job-work-order'
@@ -65,15 +66,11 @@ hb.registerHelper('inr', (value: unknown): string => {
 // ever does call it, it produces the same `19-Sep-2026` as everything else instead of drifting.
 hb.registerHelper('dateDMY', (value: unknown): string => formatDate(value as Date | string | null | undefined));
 
-hb.registerHelper('qty', (value: unknown, uom?: unknown): string => {
-  if (value === null || value === undefined || value === '') return EM_DASH;
-  const n = Number(value);
-  if (Number.isNaN(n)) return EM_DASH;
-  const unit = typeof uom === 'string' ? uom.toUpperCase() : '';
-  const integerUnits = ['PCS', 'PIECE', 'PIECES', 'CONE', 'CONES', 'NOS', 'SET', 'TRIP'];
-  const digits = integerUnits.includes(unit) ? 0 : 2;
-  return n.toLocaleString('en-IN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
-});
+// Same rule as the adapters' fmtQty (whole numbers for counted units, per the unit registry).
+// Handlebars passes its options hash last, so a call with no uom arrives here as an object.
+hb.registerHelper('qty', (value: unknown, uom?: unknown): string =>
+  fmtQty(value as number | string | null | undefined, typeof uom === 'string' ? uom : null)
+);
 
 hb.registerHelper('pct', (value: unknown): string => {
   if (value === null || value === undefined || value === '') return EM_DASH;

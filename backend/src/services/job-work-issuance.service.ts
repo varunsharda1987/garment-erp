@@ -26,7 +26,7 @@ import greigeStockService from './greige-stock.service';
 import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
-import { setJwoStatus } from './helpers/jwo-status.helper';
+import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { formatDate } from '../utils/date';
@@ -448,7 +448,7 @@ function earliestExpectedReturn(dates: (Date | null | undefined)[]): Date | unde
 function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInput[] {
   const { jwo, lots, laceLots, fabricLotRow } = v;
   const isMeters = jwo.uom === 'MTR';
-  const unit = isMeters ? Unit.METER : Unit.PIECE;
+  const unit = jwoStockUnit(jwo.uom);
   const description = `${jwo.processType} job work — ${jwo.jobWorkNumber}${jwo.style?.styleCode ? ` (${jwo.style.styleCode})` : ''}`;
 
   if (laceLots.length > 0) {
@@ -850,7 +850,7 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
             jobWorkOrderId: jwo.id,
             vehicleNumber: opts.vehicleNumber || undefined,
             issuedById: opts.userId,
-            unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
+            unit: jwoStockUnit(jwo.uom),
             remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
             // When the goods are due back. Left NULL until 2026-09-21, which made the Control
             // Center's overdue-challan alert unfireable — Prisma's `{ lt: today }` skips NULLs.
@@ -1042,8 +1042,9 @@ export async function dispatchJobWorkOrders(input: DispatchInput): Promise<Dispa
 
   const issueDate = input.sentDate ?? new Date();
   const processorName = v.validations[0].jwo.processor?.name || 'Processor';
-  // Lines carry their own unit; the header takes METER only when every order is metered.
-  const allMeters = v.validations.every((x) => x.jwo.uom === 'MTR');
+  // Lines carry their own unit; the header takes the orders' unit only when they all share one.
+  const orderUnits = new Set(v.validations.map((x) => jwoStockUnit(x.jwo.uom)));
+  const headerUnit = orderUnits.size === 1 ? [...orderUnits][0] : Unit.PIECE;
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -1066,7 +1067,7 @@ export async function dispatchJobWorkOrders(input: DispatchInput): Promise<Dispa
           toName: processorName,
           vehicleNumber: input.vehicleNumber || undefined,
           issuedById: input.userId,
-          unit: allMeters ? Unit.METER : Unit.PIECE,
+          unit: headerUnit,
           remarks:
             `Consolidated dispatch — ${v.validations.length} job work orders` +
             (input.challanNumber ? `. Manual challan ref: ${input.challanNumber}` : ''),
@@ -1340,7 +1341,7 @@ export async function issueJobWorkOrderWithDetails(
           jobWorkOrderId: jwo.id,
           vehicleNumber: opts.vehicleNumber || undefined,
           issuedById: opts.userId,
-          unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
+          unit: jwoStockUnit(jwo.uom),
           remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
           // See the with-details path: a NULL expectedDate is invisible to the overdue alert.
           expectedDate: jwo.expectedReturnDate ?? undefined,

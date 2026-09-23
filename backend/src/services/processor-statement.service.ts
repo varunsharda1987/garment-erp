@@ -46,13 +46,14 @@ import {
   toNumber,
 } from '../utils/currency';
 import { resolveJwoGreige } from './helpers/jwo-greige.helper';
+import { unitToJwoUom, type JwoUom } from '../utils/units';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
 export type MaterialKind = 'GREIGE' | 'LACE' | 'FABRIC' | 'GARMENT';
-export type Uom = 'MTR' | 'PCS' | 'KG';
+export type Uom = JwoUom;
 export type EventType = 'SENT' | 'RECEIVED' | 'RETURNED' | 'SHRINKAGE' | 'SHORTFALL';
 export type RefKind = 'CHALLAN' | 'TRANSFER' | 'GRN' | 'JOB' | 'SEND_OUT';
 
@@ -258,13 +259,12 @@ const SETTLED_STATUSES = new Set(['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'
 /**
  * Units are spelt three ways across the tables this reads — `METER`/`PIECE` on challans and
  * GRNs, `MTR`/`PCS`/`KG` on the job, `meters` on greige lots — so every quantity is normalised
- * once here rather than compared as free text.
+ * once here (through the registry's alias table) rather than compared as free text. A blank or
+ * unreadable unit is bucketed as metres, as the statement always has: every job it covers is
+ * fabric or lace unless its row says otherwise.
  */
 export function normalizeUom(uom: string | null | undefined): Uom {
-  const u = (uom ?? '').trim().toUpperCase();
-  if (u === 'PCS' || u === 'PIECE' || u === 'PIECES' || u === 'NOS') return 'PCS';
-  if (u === 'KG' || u === 'KGS' || u === 'KILOGRAM' || u === 'KILOGRAMS') return 'KG';
-  return 'MTR';
+  return unitToJwoUom(uom) ?? 'MTR';
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   unitWord,
 } from '../../utils/units';
 import { UnitEnum } from '../../schemas/generated/prisma-enums';
+import { materialQuerySchema, updateMaterialSchema } from '../../schemas/material.schema';
 
 /**
  * Guards on the unit registry — the one place a unit is named, abbreviated and read back.
@@ -126,6 +127,17 @@ describe('unit registry', () => {
       expect(unitToJwoUom('YARD')).toBeNull();
       expect(unitToJwoUom(null)).toBeNull();
     });
+  });
+
+  it('lets a material be saved or filtered in any of the 16 units (the schema used to know 9)', () => {
+    for (const unit of UnitEnum.options) {
+      expect(updateMaterialSchema.safeParse({ unit }).success).toBe(true);
+      expect(materialQuerySchema.safeParse({ unit }).success).toBe(true);
+    }
+    // BD-0088 is a PACK material — editing it was refused before.
+    expect(updateMaterialSchema.safeParse({ unit: 'PACK' }).success).toBe(true);
+    // A spelling is not a unit: the form must post the enum value.
+    expect(updateMaterialSchema.safeParse({ unit: 'KG' }).success).toBe(false);
   });
 
   it('is identical to its frontend twin except for the Unit import', () => {

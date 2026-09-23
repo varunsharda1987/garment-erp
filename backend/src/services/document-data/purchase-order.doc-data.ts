@@ -13,6 +13,7 @@ import { BusinessError, NotFoundError } from '../../errors';
 import { addCurrency, roundToCent, toCurrency } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty, gstinState, inrWords } from './format';
+import { unitHeader } from '../../utils/units';
 
 const poDocInclude = {
   suppliers: {
@@ -136,7 +137,7 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
       name: itemName(item),
       code: item.materials?.code ?? null,
       hsn: item.hsnCode ?? item.materials?.hsnCode ?? EM_DASH,
-      uom: item.unit,
+      uom: unitHeader(item.unit),
       qty: fmtQty(Number(item.orderedQuantity), item.unit),
       rate: fmtMoney(Number(item.unitPrice)),
       taxable: fmtMoney(Number(item.totalPrice)),

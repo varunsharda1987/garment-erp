@@ -20,6 +20,8 @@ import {
   round2,
   splitAddress,
 } from './einvoice-payload.builder';
+import { normalizeUnit } from '../../utils/units';
+import type { Unit } from '../../schemas/generated/prisma-enums';
 
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/;
 const DOC_NO_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9/-]{0,15}$/;
@@ -36,30 +38,35 @@ const SUP_TYP_MAP: Record<string, string> = {
   DEEMED_EXPORT: 'DEXP',
 };
 
-/** Normalize free-text units to IRP UQC codes. */
-const UQC_MAP: Record<string, string> = {
-  PCS: 'PCS',
-  PC: 'PCS',
+/**
+ * IRP UQC code per stock unit. The HSN master's free-text unit is read through the unit registry
+ * first (utils/units.ts), so every spelling — PCS, pieces, MTR, meters, KG, KILOGRAM — resolves
+ * in one place instead of in a local alias list that knew KG but not KILOGRAM.
+ * A unit with no UQC here (CONE, SPOOL) keeps the historical PCS fallback.
+ */
+const UQC_BY_UNIT: Partial<Record<Unit, string>> = {
   PIECE: 'PCS',
-  PIECES: 'PCS',
-  NOS: 'NOS',
-  MTR: 'MTR',
-  MTRS: 'MTR',
   METER: 'MTR',
-  METERS: 'MTR',
-  METRE: 'MTR',
-  KG: 'KGS',
-  KGS: 'KGS',
+  KILOGRAM: 'KGS',
   SET: 'SET',
-  SETS: 'SET',
   PAIR: 'PRS',
-  PAIRS: 'PRS',
-  PRS: 'PRS',
-  DOZ: 'DOZ',
   DOZEN: 'DOZ',
   BOX: 'BOX',
   ROLL: 'ROL',
+  YARD: 'YDS',
+  GRAM: 'GMS',
+  LITER: 'LTR',
+  GROSS: 'GRS',
+  PACK: 'PAC',
+  TUBE: 'TUB',
 };
+
+/** HSN master unit → UQC. NOS is its own UQC (a count of numbers) and passes through unchanged. */
+function toUqc(rawUnit: string): string {
+  if (rawUnit.trim().toUpperCase() === 'NOS') return 'NOS';
+  const unit = normalizeUnit(rawUnit);
+  return (unit && UQC_BY_UNIT[unit]) ?? 'PCS';
+}
 
 export interface PreflightResult {
   eligible: boolean;
@@ -303,12 +310,12 @@ export async function preflightInvoice(invoiceId: string): Promise<PreflightResu
       problems.push(`Line ${lineNo}: intra-state invoice but IGST amount is set.`);
     }
 
-    const rawUnit = (unitByHsn.get(hsn) ?? 'PCS').trim().toUpperCase();
+    const rawUnit = unitByHsn.get(hsn) ?? 'PCS';
     items.push({
       description: item.description,
       hsnCode: hsn,
       quantity: item.quantity,
-      unit: UQC_MAP[rawUnit] ?? 'PCS',
+      unit: toUqc(rawUnit),
       unitPrice: num(item.unitPrice),
       totalPrice: num(item.totalPrice),
       gstRate: round2(gstRate),

@@ -1,9 +1,5 @@
 import { z } from 'zod';
-
-/**
- * Material Unit Enum - matches Prisma Unit enum
- */
-export const MaterialUnitEnum = z.enum(['METER', 'PIECE', 'KILOGRAM', 'SET', 'YARD', 'DOZEN', 'GROSS', 'TUBE', 'CONE']);
+import { UnitEnum } from './generated/prisma-enums';
 
 /**
  * Supplier relationship schema for materials
@@ -36,7 +32,7 @@ export const createMaterialSchema = z.object({
     .max(200, 'Material name must not exceed 200 characters')
     .trim(),
   categoryId: z.string().uuid('Invalid category ID format'),
-  unit: MaterialUnitEnum,
+  unit: UnitEnum,
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
   hsnCode: z.string().trim().optional(),
@@ -73,7 +69,7 @@ export const updateMaterialSchema = z.object({
     .trim()
     .optional(),
   categoryId: z.string().uuid('Invalid category ID format').optional(),
-  unit: MaterialUnitEnum.optional(),
+  unit: UnitEnum.optional(),
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
   hsnCode: z.string().trim().optional(),
@@ -112,7 +108,7 @@ export const materialQuerySchema = z.object({
   search: z.string().trim().optional(),
   categoryId: z.string().uuid('Invalid category ID format').optional(),
   supplierId: z.string().uuid('Invalid supplier ID format').optional(),
-  unit: MaterialUnitEnum.optional(),
+  unit: UnitEnum.optional(),
   // Pickers list alphabetically by code; the Materials page keeps newest-first (the default)
   sortBy: z.enum(['code', 'name', 'createdAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
@@ -166,4 +162,3 @@ export type MaterialIdParamInput = z.infer<typeof materialIdParamSchema>;
 export type MaterialSupplierInput = z.infer<typeof materialSupplierSchema>;
 export type CategoryQueryInput = z.infer<typeof categoryQuerySchema>;
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
-export type MaterialUnit = z.infer<typeof MaterialUnitEnum>;

@@ -247,7 +247,14 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
 
   // Generate new version ID
   const newVersionId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-  const newVersionNumber = sourceCostSheet.version + 1;
+  // Versions are unique per (styleId, purpose, version) and a style can hold several width
+  // combinations in one purpose, so source.version + 1 may already be taken — use the next free one.
+  const latestInPurpose = await prisma.style_costing.findFirst({
+    where: { styleId: sourceCostSheet.styleId, purpose: sourceCostSheet.purpose },
+    orderBy: { version: 'desc' },
+    select: { version: true },
+  });
+  const newVersionNumber = Math.max(sourceCostSheet.version, latestInPurpose?.version ?? 0) + 1;
 
   // Create new version by cloning the approved cost sheet, and supersede/lock the old
   // version in the SAME transaction — a failure between the two writes must not leave
@@ -320,6 +327,30 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
         cadFabricConsumption: sourceCostSheet.cadFabricConsumption,
         cadUnit: sourceCostSheet.cadUnit,
         cadWastagePercent: sourceCostSheet.cadWastagePercent,
+        smockingCost: sourceCostSheet.smockingCost,
+
+        // A version is the same sheet re-issued: it keeps its mode, its agreed customer price and
+        // its budgets. Leaving these out made every new version a COSTING sheet with no closed
+        // cost (ESSKY091LS v2, 2026-08-25: RAW_MATERIAL_CALCULATION → COSTING, ₹290 dropped).
+        // Approvals (closedCostApprovedAt/ById) are deliberately NOT copied — v2 starts PENDING.
+        purpose: sourceCostSheet.purpose,
+        closedCost: sourceCostSheet.closedCost,
+        closedCostCurrency: sourceCostSheet.closedCostCurrency,
+        closedCostNotes: sourceCostSheet.closedCostNotes,
+        fabricBudget: sourceCostSheet.fabricBudget,
+        trimsBudget: sourceCostSheet.trimsBudget,
+        cmtBudget: sourceCostSheet.cmtBudget,
+        embroideryBudget: sourceCostSheet.embroideryBudget,
+        accessoriesBudget: sourceCostSheet.accessoriesBudget,
+        totalBudget: sourceCostSheet.totalBudget,
+        fabricBufferPercent: sourceCostSheet.fabricBufferPercent,
+        trimsBufferPercent: sourceCostSheet.trimsBufferPercent,
+        cmtBufferPercent: sourceCostSheet.cmtBufferPercent,
+        embroideryBufferPercent: sourceCostSheet.embroideryBufferPercent,
+        accessoriesBufferPercent: sourceCostSheet.accessoriesBufferPercent,
+        orderId: sourceCostSheet.orderId,
+        orderItemId: sourceCostSheet.orderItemId,
+
         // Note: widthCombinationHash and widthCombinationDescription are copied if they exist
         // These fields use @map in Prisma schema, so we access them conditionally
         ...((sourceCostSheet as any).widthCombinationHash && {

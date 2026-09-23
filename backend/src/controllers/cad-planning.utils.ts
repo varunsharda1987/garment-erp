@@ -135,6 +135,46 @@ export function calculateCadAverage(
 }
 
 /**
+ * The width a CAD row starts at when a greige is picked and no width was typed.
+ * Business rules: 63" greige → 52", 48" greige → 40", otherwise the greige's min finished width.
+ */
+export function defaultCutableWidthForGreige(greige: {
+  greigeWidth: number | Prisma.Decimal | null;
+  expectedFinishedWidthMin: number | Prisma.Decimal | null;
+}): number {
+  const greigeWidth = greige.greigeWidth ? Number(greige.greigeWidth) : null;
+  if (greigeWidth && greigeWidth >= 63) return 52;
+  if (greigeWidth && greigeWidth >= 48) return 40;
+  return greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 44;
+}
+
+/**
+ * Should a CAD row update write the greige default width?
+ *
+ * The CAD table saves only the fields that changed, so a save that omits the width is NOT a
+ * request to clear it. Deciding on the request alone reset every typed width (41.5" → 40") on the
+ * next size/layer-length save. The default applies only when no width was sent AND either the
+ * greige is changing, the width was explicitly cleared, or the row has no width yet.
+ */
+export function shouldApplyDefaultCutableWidth(args: {
+  requestWidth: number | null | undefined;
+  requestGreigeId: string | null | undefined;
+  existingGreigeId: string | null;
+  existingWidth: number | Prisma.Decimal | null;
+}): boolean {
+  const { requestWidth, requestGreigeId, existingGreigeId, existingWidth } = args;
+  const effectiveGreigeId = requestGreigeId !== undefined ? requestGreigeId : existingGreigeId;
+  if (!effectiveGreigeId) return false;
+  if (requestWidth !== undefined && requestWidth !== null && requestWidth !== 0) return false;
+
+  const greigeChanging = !!requestGreigeId && requestGreigeId !== existingGreigeId;
+  const widthCleared = requestWidth === null || requestWidth === 0;
+  // Number(): a Prisma Decimal is an object, so a bare truthiness check never sees a stored 0
+  const rowHasNoWidth = !existingWidth || Number(existingWidth) === 0;
+  return greigeChanging || widthCleared || rowHasNoWidth;
+}
+
+/**
  * Validate cutable width against greige's finished width range
  * @param cutableWidth - The width to validate
  * @param greige - The greige master record

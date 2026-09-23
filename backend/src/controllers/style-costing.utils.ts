@@ -405,6 +405,30 @@ export const UpdateCostSheetSchema = z
   .omit({ styleId: true }) as typeof typedPartialForInference;
 
 // ============================================================================
+// Width combination label
+// ============================================================================
+
+/**
+ * The width combination a sheet is filed under ("40-40" / `40" + 40"`), derived from its fabric
+ * lines. Create and update must both use it: update used to leave the label from creation, so a
+ * version re-costed at 41.5" was still listed under 40".
+ */
+export function widthCombinationOf(fabricDetails: Pick<FabricDetail, 'fabricWidth'>[]): {
+  widthCombinationHash: string;
+  widthCombinationDescription: string;
+} {
+  const fabricWidths = fabricDetails
+    .map((f) => Number(f.fabricWidth))
+    .filter((w) => Number.isFinite(w) && w > 0)
+    .sort((a, b) => a - b);
+  return {
+    widthCombinationHash: fabricWidths.length > 0 ? fabricWidths.join('-') : 'default',
+    widthCombinationDescription:
+      fabricWidths.length > 0 ? fabricWidths.map((w) => `${w}"`).join(' + ') : 'Default Width',
+  };
+}
+
+// ============================================================================
 // CAD row ↔ fabricDetails pairing
 // ============================================================================
 

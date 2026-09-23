@@ -14,6 +14,8 @@ import {
   calculateCadAverage,
   validateCutableWidth,
   validateCADModification,
+  defaultCutableWidthForGreige,
+  shouldApplyDefaultCutableWidth,
   StyleCADSummary,
   ComponentCADSummary,
   FabricCADSummary,
@@ -3121,10 +3123,18 @@ export async function updateCADTableRow(req: Request, res: Response) {
   let validatedWidth = cutableWidth;
   const effectiveGreigeId = greigeId !== undefined ? greigeId : existingCad.greigeId;
 
-  // Apply default width if:
-  // 1. Greige is changing (new greige selected), OR
-  // 2. Width is empty/0 and greige already exists (placeholder default should be applied)
-  if (effectiveGreigeId && (!validatedWidth || validatedWidth === 0)) {
+  // Apply the greige default width only when no width was sent AND the greige is changing, the
+  // width was cleared, or the row has none yet. A save that merely omits the width (the table
+  // sends changed fields only) must keep the stored width — see shouldApplyDefaultCutableWidth.
+  if (
+    effectiveGreigeId &&
+    shouldApplyDefaultCutableWidth({
+      requestWidth: cutableWidth,
+      requestGreigeId: greigeId,
+      existingGreigeId: existingCad.greigeId,
+      existingWidth: existingCad.cutableWidth,
+    })
+  ) {
     const greige = await prisma.greige_master.findUnique({
       where: { id: effectiveGreigeId },
     });
@@ -3133,17 +3143,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
       throw new NotFoundError('Greige', effectiveGreigeId);
     }
 
-    // Set default based on greige width
-    // Business rules: 63" greige → 52", 48" greige → 40"
-    const greigeWidth = greige.greigeWidth ? Number(greige.greigeWidth) : null;
-    if (greigeWidth && greigeWidth >= 63) {
-      validatedWidth = 52;
-    } else if (greigeWidth && greigeWidth >= 48) {
-      validatedWidth = 40;
-    } else {
-      // Fallback to min finished width
-      validatedWidth = greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : 44;
-    }
+    validatedWidth = defaultCutableWidthForGreige(greige);
 
     // Validate width against greige range
     const validation = validateCutableWidth(validatedWidth, greige, isEmbroidery ?? existingCad.isEmbroidery);

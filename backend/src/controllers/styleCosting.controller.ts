@@ -27,6 +27,7 @@ import {
   UpdateCostSheetSchema,
   parseJsonArray,
   matchFabricDetailsToCadRows,
+  widthCombinationOf,
 } from './style-costing.utils';
 
 // ============================================================================
@@ -94,13 +95,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   });
 
   // Generate width combination hash and description from fabric widths
-  const fabricWidths = validatedData.fabricDetails
-    .map((f) => f.fabricWidth)
-    .filter((w) => w > 0)
-    .sort((a, b) => a - b);
-  const widthCombinationHash = fabricWidths.length > 0 ? fabricWidths.join('-') : 'default';
-  const widthCombinationDescription =
-    fabricWidths.length > 0 ? fabricWidths.map((w) => `${w}"`).join(' + ') : 'Default Width';
+  const { widthCombinationHash, widthCombinationDescription } = widthCombinationOf(validatedData.fabricDetails);
 
   // Check if a cost sheet with the same width combination already exists
   if (existingCostSheet) {
@@ -990,6 +985,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     ...((validatedData.fabricDetails || pairedFabricDetails.length > 0) && {
       fabricDetails: pairedFabricDetails as unknown as Prisma.InputJsonValue,
     }),
+    // The width label follows the fabric lines it was derived from on create
+    ...(validatedData.fabricDetails && widthCombinationOf(validatedData.fabricDetails)),
     fabricTotal,
 
     ...(validatedData.trimsDetails && { trimsDetails: JSON.parse(JSON.stringify(validatedData.trimsDetails)) }),

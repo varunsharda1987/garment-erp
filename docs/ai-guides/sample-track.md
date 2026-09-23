@@ -42,6 +42,7 @@ sources:
   - frontend/src/pages/SampleList.tsx
   - frontend/src/pages/SampleDetail.tsx
   - frontend/src/components/samples/SampleActionMenu.tsx
+  - frontend/src/components/samples/SampleTestingPanel.tsx
 route: /samples
 ---
 
@@ -133,6 +134,9 @@ On the **Sample Detail** page:
    - **Measurements** — spec vs actual measurements with pass/fail status
    - **Colorways** — for PP samples, shows colors sent with approval status
    - **Size Set** — for size set samples, shows sizes with quantities
+   - **Lab Tests** — every time this sample went to a testing lab: the test requirement form for
+     each round, and the fabric and garment results that came back. See the guide "Send a sample for
+     lab testing and record the result".
 
 4. **Right panel** shows:
    - **Shipping Info** — sent date, courier mode, tracking number, received date

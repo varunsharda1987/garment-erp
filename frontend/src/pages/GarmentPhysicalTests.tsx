@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Shirt, Plus, Search, Filter, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, X } from 'lucide-react';
+import {
+  Shirt,
+  Plus,
+  Search,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  RefreshCw,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +21,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { garmentPhysicalTestsService } from '@/services/testing.service';
 import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { usePermissions } from '@/hooks/usePermissions';
+import { LabResultDialog } from '@/components/samples/LabResultDialog';
+
+/**
+ * A sample's garment test (done on the PP sample before it is sent) is recorded on the sample's Lab
+ * Tests tab; this page also lets you record or retest any garment test — including a production run's,
+ * created with Create GPT against a work order.
+ */
+type ResultDialogState = { mode: 'result' | 'retest'; test: GarmentPhysicalTest };
 
 export default function GarmentPhysicalTests() {
   const navigate = useNavigate();
@@ -23,6 +44,9 @@ export default function GarmentPhysicalTests() {
   const [pendingBuyerApproval, setPendingBuyerApproval] = useState(searchParams.get('pendingBuyerApproval') === 'true');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [resultDialog, setResultDialog] = useState<ResultDialogState | null>(null);
+  const { can } = usePermissions();
+  const canWrite = can('testing');
   const pageSize = 20;
 
   useEffect(() => {
@@ -333,10 +357,37 @@ export default function GarmentPhysicalTests() {
                     </div>
                   )}
                 </div>
+                {canWrite && (
+                  <div className="ml-4 flex shrink-0 flex-col gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setResultDialog({ mode: 'result', test })}>
+                      {test.overallTestResult === 'PENDING' ? 'Record result' : 'Edit result'}
+                    </Button>
+                    {['FAIL', 'RETEST_REQUIRED'].includes(test.overallTestResult) &&
+                      !test.adminOverride &&
+                      !test._count?.retests && (
+                        <Button size="sm" variant="outline" onClick={() => setResultDialog({ mode: 'retest', test })}>
+                          <RotateCcw className="mr-1 h-4 w-4" />
+                          Retest
+                        </Button>
+                      )}
+                  </div>
+                )}
               </div>
             </Card>
           ))}
         </div>
+      )}
+
+      {resultDialog && (
+        <LabResultDialog
+          open={!!resultDialog}
+          onOpenChange={(open) => !open && setResultDialog(null)}
+          kind="garment"
+          existingTestId={resultDialog.mode === 'result' ? resultDialog.test.id : null}
+          previousTest={resultDialog.mode === 'retest' ? resultDialog.test : null}
+          styleId={resultDialog.test.styleId}
+          onSaved={() => void fetchTests()}
+        />
       )}
 
       {/* Pagination */}

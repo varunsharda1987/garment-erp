@@ -14,6 +14,9 @@ keywords:
   - physical testing
   - finished garment test
   - testing lab
+  - pp sample garment test
+  - record garment test result
+  - garment retest
   # Hinglish
   - GPT banana
   - garment test karna
@@ -22,6 +25,7 @@ keywords:
   - quality testing karna
   - test lab mein bhejana
   - garment quality
+  - garment test ka result
   # Devanagari (MANDATORY)
   - जीपीटी
   - गारमेंट टेस्ट
@@ -31,14 +35,27 @@ keywords:
   - सीम स्ट्रेंथ
   - रंग पक्कापन
   - फिजिकल टेस्टिंग
+  - गारमेंट टेस्ट रिजल्ट
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/GarmentPhysicalTestForm.tsx
   - frontend/src/pages/GarmentPhysicalTests.tsx
+  - frontend/src/components/samples/SampleTestingPanel.tsx
+  - frontend/src/components/samples/LabResultDialog.tsx
 route: /garment-physical-tests/new
 ---
 
-## Before you start
+## Which way in
+
+- **Testing a sample** — the usual case. The garment test is done on the PP sample **before it is sent
+  to the buyer**, when there is no work order yet. Do it from the sample: **Manufacturing → Sample
+  Tracking**, open the sample, **Lab Tests** tab, **Send for lab testing**, then **Record result** on
+  the round. No work order is needed. See the guide "Send a sample for lab testing and record the
+  result".
+- **Testing garments from a production run** — use the **Create GPT** form below; it needs a work
+  order.
+
+## Before you start (Create GPT form)
 
 - A **Work Order** must already exist for the garment you want to test
 - The Work Order should have a Style linked to it
@@ -68,7 +85,8 @@ route: /garment-physical-tests/new
 
 ## Traps
 
-- **Work Order is required**: You cannot create a GPT without selecting a Work Order first.
+- **Work Order is required on this form**: the **Create GPT** form is for production runs. A sample's
+  garment test has no work order and is recorded from the sample's **Lab Tests** tab instead.
 - **Style is required**: Either auto-filled from the Work Order or manually selected.
 - **Test starts as PENDING**: Results (shrinkage, seam strength, color fastness) are recorded later after the lab completes testing.
 - **Buyer approval checkbox**: If checked, the test will show "Buyer Approval Pending" badge until buyer approval is recorded.
@@ -76,7 +94,10 @@ route: /garment-physical-tests/new
 ## After saving
 
 - The test is created with status **PENDING**.
-- The test appears in the Garment Physical Tests list with its auto-generated test number.
-- Later, record test results (shrinkage %, seam strength, color fastness) to mark the test as PASS, FAIL, CONDITIONAL_PASS, or RETEST_REQUIRED.
-- If buyer approval was required, record buyer approval separately.
-- If the test fails, you can create a retest record linked to the original test.
+- The test appears in the Garment Physical Tests list with its auto-generated test number. A sample's
+  garment test shows **None — sample test** as its work order, with its form and sample number beside
+  the test number (click it to open the sample's **Lab Tests** tab).
+- When the lab answers, click **Record result** on the test's card and enter the lab report no., date,
+  result and optional readings. Click **Edit result** later to correct it.
+- If the test fails, click **Retest** on its card (shown only on a failure not yet retested). Optionally
+  pick the new test requirement form; a second test goes on a second form.

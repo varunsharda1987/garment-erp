@@ -296,6 +296,8 @@ export interface GarmentPhysicalTest {
   sentToLabDate: string | null;
   testingLabId: string | null;
   sampleQuantity: number | null;
+  testReportNumber: string | null;
+  testResultReceivedDate: string | null;
   prewashLength: number | null;
   prewashWidth: number | null;
   prewashChest: number | null;
@@ -337,6 +339,8 @@ export interface GarmentPhysicalTest {
   style?: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null } | null;
   trfId?: string | null;
   trf?: TestTrfSummary | null;
+  /** List endpoint only. */
+  _count?: { retests: number };
 }
 
 export interface CreateGarmentPhysicalTestInput extends LabReportInput, GarmentReadingInput {

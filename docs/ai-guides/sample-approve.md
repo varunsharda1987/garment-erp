@@ -30,6 +30,7 @@ sources:
   - frontend/src/pages/SampleList.tsx
   - frontend/src/components/samples/SampleActionMenu.tsx
   - frontend/src/components/RecordFeedbackDialog.tsx
+  - backend/src/services/productionBlockingValidation.service.ts
 route: /samples
 ---
 
@@ -71,6 +72,14 @@ new sample instead.
 - Samples must be marked as sent before you can record buyer feedback — the system refuses an approval or rejection before that, with "mark it Sent and record the buyer's feedback"
 - For a stock style with no real buyer (the customer is the house brand), still mark the sample **Sent** and then **Record Feedback** — that is the quickest route; only an administrator can skip it, with a written reason that is logged under **Admin → Override History**
 - Only FIT, PP and Size Set samples can create revisions; other sample types need a new sample
+- If the sample's latest lab test failed (or its result is not recorded yet), the **Record Buyer
+  Feedback** dialog shows an amber warning naming the test requirement form and report number when you
+  pick **Approved** or **Approved (with comments)**. It is only a warning — you can still save the
+  approval. The lab rounds are on the sample's **Lab Tests** tab.
+- For a **Shipment Sample**, if the buyer has **Blocks Dispatch** ticked for Shipment Sample on the
+  customer's Sample Requirements, bulk dispatch needs BOTH this approval AND a passed latest lab round
+  on the style's samples (normally the PP sample's garment test). Approving alone does not release
+  dispatch.
 
 ## After recording feedback
 

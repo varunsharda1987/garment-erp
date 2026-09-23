@@ -14,6 +14,9 @@ keywords:
   - testing lab
   - quality control
   - quality test
+  - record fabric test result
+  - fabric retest
+  - fabric test failed
   # Hinglish
   - FPT banana
   - fabric test karna
@@ -22,6 +25,8 @@ keywords:
   - fabric quality
   - test lab bhejo
   - cloth test
+  - fabric test ka result
+  - fabric dobara test
   # Devanagari
   - एफपीटी
   - फैब्रिक टेस्ट
@@ -30,12 +35,18 @@ keywords:
   - कपड़ा टेस्ट
   - गुणवत्ता जांच
   - टेस्टिंग लैब
+  - फैब्रिक टेस्ट रिजल्ट
+  - फैब्रिक रीटेस्ट
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricPhysicalTestForm.tsx
   - frontend/src/pages/FabricPhysicalTests.tsx
+  - frontend/src/components/samples/LabResultDialog.tsx
 route: /fabric-physical-tests/new
 ---
+
+The fabric test is done on the fabric lot **after it is inwarded** — not on a sample. (A sample's
+test is the garment test, recorded on the sample's **Lab Tests** tab.)
 
 ## Before you start
 
@@ -84,9 +95,29 @@ route: /fabric-physical-tests/new
 
 11. Click **Create Test** to save.
 
+## Recording the lab's result
+
+1. Open **Manufacturing → Testing (FPT/GPT)**, then **Fabric Physical Tests**.
+2. On the test's card click **Record result** (it says **Edit result** once a result is in).
+3. Enter the **Lab report no.**, **Result received on** and the **Result** (Pass, Conditional pass,
+   Fail, Retest required). For a fail, fill **Why it failed**. Optionally add the **Report link**,
+   **Remarks** and **Detailed readings** (GSM, construction, count, shrinkage, colour fastness,
+   pilling, spirality).
+4. Click **Save result**.
+
+## Retesting a failed fabric test
+
+1. On a failed test's card click **Retest**. It only appears on a failure that has not been retested
+   yet.
+2. Pick the **Test requirement form for this retest** if the fabric went to the lab with a new form, or
+   leave **No form (tested in-house)**. Only this style's forms without a fabric result are listed — a
+   second test goes on a second form.
+3. Fill the **Retest reason** and the result as above, then **Save result**. A new test is created,
+   marked **Retest #1**, and the failed one stops counting as an open quality failure.
+
 ## Test statuses
 
-After creation, test results can be recorded. Tests show one of these statuses:
+Tests show one of these statuses:
 - **PENDING** - Awaiting test results from the lab
 - **PASS** - All test parameters within tolerance
 - **FAIL** - One or more test parameters outside tolerance
@@ -111,13 +142,14 @@ Use the search box to find tests by test number or batch. Use the status filter 
 
 - Fabric is the only required field - the test cannot be created without selecting a fabric
 - GSM Tolerance defaults to 5% if not specified
-- Test results are recorded separately after the lab returns results
-- If a test fails, check if a retest is needed before proceeding with the fabric
+- Test results are recorded separately after the lab returns results — use **Record result** on the card
+- A failed fabric test blocks cutting for the style when the buyer has fabric testing set to block
+  production; a passing retest (or an administrator's override through approval) clears it
+- A test can be retested only once; retest the newest test in the chain
 
 ## After saving
 
 - Test record is created with status **PENDING**
 - Test Number is auto-generated (e.g., FPT-2026-001)
-- When lab results arrive, update the test with actual values
-- System compares actual vs expected values and marks PASS/FAIL
-- Failed tests can be flagged for retest
+- When lab results arrive, click **Record result** on its card
+- Failed tests are retested with **Retest**, which creates a new linked test

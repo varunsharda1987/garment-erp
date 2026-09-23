@@ -88,6 +88,7 @@ Traps:
 - The card only exists after the customer is saved. On **Create New Customer** it is not shown at all.
 - A **Blocks Production** / **Blocks Dispatch** tick only counts while that sample's own checkbox is ticked. Un-ticking the sample removes the block too, even if the Blocks box was ticked earlier.
 - If nothing has ever been saved on this card, the system treats **FIT Sample**, **PP Sample** and **Size Set Sample** as required and blocking, even though the card shows every row un-ticked. Save the card once to make the screen the truth.
+- **Shipment Sample** with **Blocks Dispatch** ticked: bulk goods cannot be dispatched (and a run cannot move to Ready to Ship) until the style's Shipment Sample is **Approved** and the latest lab round on the style's samples has **passed** — normally the PP sample's garment test, recorded on the sample's **Lab Tests** tab. Unlike FIT, PP and Size Set, the Shipment Sample never blocks unless it has been saved here with **Blocks Dispatch** ticked.
 - Every save writes all eight rows, so un-ticking a sample really switches it off. Saving with nothing ticked means no samples are required and none are created automatically — the card then shows "No sample types selected. Samples won't be auto-created for this customer."
 - Only Admin, Sales and Merchandiser users can save this card.
 

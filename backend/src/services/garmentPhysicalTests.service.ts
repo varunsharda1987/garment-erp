@@ -254,6 +254,8 @@ class GarmentPhysicalTestsService {
               },
             },
             trf: TRF_SUMMARY,
+            // So the list offers Retest only on a failure that has not been retested yet.
+            _count: { select: { retests: true } },
           },
         }),
         prisma.garment_physical_tests.count({ where }),

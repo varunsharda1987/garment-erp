@@ -366,8 +366,8 @@ class ManufacturingAlertsService {
         type: v.processType,
         itemsOut: v._count.id,
         totalQty: Number(v._sum.quantitySent) || 0,
-        // external_process_send_outs.unit is PCS | MTR — report what the row holds, not a guess.
-        unit: v.unit === 'MTR' ? 'meters' : 'pcs',
+        // external_process_send_outs.unit holds PIECE / METER (older rows PCS / MTR) — read any of them.
+        unit: unitShort(v.unit),
         oldestSendoutDays: oldestDays,
         nextExpectedBack: expectedBack ? toDateInputValue(expectedBack) : null,
         status,

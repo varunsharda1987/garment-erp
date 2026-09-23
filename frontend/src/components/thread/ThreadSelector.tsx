@@ -22,18 +22,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import type { ThreadPly, ThreadMaterial, ThreadPackagingType } from '../../types/thread.types';
+import { THREAD_PACKAGING_LABELS } from '../../types/thread.types';
 import { getAllThreads } from '../../services/thread.service';
 
 // Label constants
 const PLY_LABELS: Record<ThreadPly, string> = { TWO_PLY: '2-Ply', THREE_PLY: '3-Ply' };
 const MATERIAL_LABELS: Record<ThreadMaterial, string> = { POLYESTER: 'Polyester', COTTON: 'Cotton' };
-const PACKAGING_LABELS: Record<ThreadPackagingType, string> = {
-  CONE: 'Cone',
-  TUBE: 'Tube',
-  SPOOL: 'Spool',
-  CONE_5K: 'Cone (5,000 mtr)',
-  CONE_10K: 'Cone (10,000 mtr)',
-};
 
 interface ThreadOption {
   id: string;
@@ -161,7 +155,7 @@ const ThreadSelector: React.FC<ThreadSelectorProps> = ({
           <Badge variant="outline">{PLY_LABELS[selectedThread.ply]}</Badge>
           <Badge variant="outline">{MATERIAL_LABELS[selectedThread.materialComposition]}</Badge>
           <Badge variant="outline">{selectedThread.colorName}</Badge>
-          <Badge variant="outline">{PACKAGING_LABELS[selectedThread.packagingType]}</Badge>
+          <Badge variant="outline">{THREAD_PACKAGING_LABELS[selectedThread.packagingType]}</Badge>
         </div>
       )}
     </div>

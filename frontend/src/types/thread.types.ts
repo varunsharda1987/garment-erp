@@ -2,12 +2,16 @@
  * Thread Module Types - Frontend
  */
 
+import { unitLabel } from '@/lib/units';
+import type { ThreadPackagingType } from './generated/prisma-enums';
+
 export type ThreadPly = 'TWO_PLY' | 'THREE_PLY';
 
 export type ThreadMaterial = 'POLYESTER' | 'COTTON';
 
-// Note: CONE and TUBE are kept for backward compatibility with existing thread management pages
-export type ThreadPackagingType = 'CONE' | 'TUBE' | 'SPOOL' | 'CONE_5K' | 'CONE_10K';
+// How the thread comes: CONE / TUBE / SPOOL (older pages), and cones of a set length. Generated from
+// schema.prisma. A thread PO line's unit is read from it (CONE_5K → CONE) by the unit registry.
+export type { ThreadPackagingType };
 
 export type ThreadQuantityInput = 'UNITS' | 'BOXES';
 
@@ -23,14 +27,15 @@ export const THREAD_MATERIAL_LABELS: Record<ThreadMaterial, string> = {
   COTTON: 'Cotton',
 };
 
-export const THREAD_PACKAGING_LABELS = {
-  // Old values (backward compatibility)
-  CONE: 'Cone',
-  TUBE: 'Tube',
-  // New Thread Material module values
-  SPOOL: 'Spool',
-  CONE_5K: 'Cone (5,000 mtr)',
-  CONE_10K: 'Cone (10,000 mtr)',
+// The ONE packaging label map (ThreadSelector and OrderThreadRequirementForm each had a copy).
+// Cone / Tube / Spool are the units thread is bought in, so their names come from the unit registry.
+// allow-unit-list — packaging types, named through the registry
+export const THREAD_PACKAGING_LABELS: Record<ThreadPackagingType, string> = {
+  CONE: unitLabel('CONE'),
+  TUBE: unitLabel('TUBE'),
+  SPOOL: unitLabel('SPOOL'),
+  CONE_5K: `${unitLabel('CONE')} (5,000 m)`,
+  CONE_10K: `${unitLabel('CONE')} (10,000 m)`,
 };
 
 export interface ThreadQuantityConversion {

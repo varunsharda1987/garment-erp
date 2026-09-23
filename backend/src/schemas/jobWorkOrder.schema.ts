@@ -38,7 +38,8 @@ export const createJobWorkOrderSchema = z
     styleId: z.string().uuid('Invalid style ID').optional().nullable(),
     fabricId: z.string().uuid('Invalid fabric ID').optional().nullable(),
     quantity: z.number().positive('Quantity must be positive'),
-    uom: z.enum(['MTR', 'PCS', 'KG', 'TRIP']).optional(),
+    // job_work_orders.uom's own vocabulary — utils/units.ts jwoUomToUnit reads it back to the Unit enum.
+    uom: z.enum(['MTR', 'PCS', 'KG', 'TRIP']).optional(), // allow-unit-list
     agreedRate: z.number().nonnegative('Rate cannot be negative').optional().default(0),
     isRateTbd: z.boolean().optional().default(false),
     expectedReturnDate: z.coerce.date().optional().nullable(),

@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import type { ActionDefinition, Payload, ActionContext, StepResult } from '../ai-action-types';
 import { internalFetch } from '../ai-action-types';
+import { ThreadPackagingTypeEnum } from '../../../schemas/generated/prisma-enums';
 
 /** Roles that maintain master data. Routes mostly have no gate; the registry is stricter. */
 /** Trim masters share one shape of supplier/buyer/description fields. */
@@ -607,7 +608,7 @@ const createElastic: ActionDefinition = {
 const threadShape = z.object({
   threadName: z.string().min(1).max(200),
   brand: z.string().max(50).optional(),
-  packagingType: z.enum(['CONE', 'TUBE', 'SPOOL', 'CONE_5K', 'CONE_10K']).optional(),
+  packagingType: ThreadPackagingTypeEnum.optional(),
   color: z.string().max(50).optional(),
   ply: z.number().int().positive().optional(),
   metersPerUnit: z.number().positive().optional(),
@@ -634,7 +635,7 @@ const createThread: ActionDefinition = {
         properties: {
           threadName: { type: 'string' },
           brand: { type: 'string' },
-          packagingType: { type: 'string', enum: ['CONE', 'TUBE', 'SPOOL', 'CONE_5K', 'CONE_10K'] },
+          packagingType: { type: 'string', enum: [...ThreadPackagingTypeEnum.options] },
           color: { type: 'string' },
           ply: { type: 'number' },
           metersPerUnit: { type: 'number' },

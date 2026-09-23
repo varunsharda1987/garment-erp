@@ -44,6 +44,7 @@ const SUP_TYP_MAP: Record<string, string> = {
  * in one place instead of in a local alias list that knew KG but not KILOGRAM.
  * A unit with no UQC here (CONE, SPOOL) keeps the historical PCS fallback.
  */
+// allow-unit-list — external IRP codes, keyed by the registry's Unit
 const UQC_BY_UNIT: Partial<Record<Unit, string>> = {
   PIECE: 'PCS',
   METER: 'MTR',

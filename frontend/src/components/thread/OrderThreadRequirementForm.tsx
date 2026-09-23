@@ -24,6 +24,7 @@ import type {
   ThreadPackagingType,
   ThreadQuantityInput as ThreadQuantityInputType,
 } from '../../types/thread.types';
+import { THREAD_PACKAGING_LABELS } from '../../types/thread.types';
 import ThreadQuantityInput from './ThreadQuantityInput';
 import {
   createThreadRequirement,
@@ -43,14 +44,6 @@ const THREAD_PLY_LABELS: Record<ThreadPly, string> = {
 const THREAD_MATERIAL_LABELS: Record<ThreadMaterial, string> = {
   POLYESTER: 'Polyester',
   COTTON: 'Cotton',
-};
-
-const THREAD_PACKAGING_LABELS: Record<ThreadPackagingType, string> = {
-  CONE: 'Cone',
-  TUBE: 'Tube',
-  SPOOL: 'Spool',
-  CONE_5K: 'Cone (5,000 mtr)',
-  CONE_10K: 'Cone (10,000 mtr)',
 };
 
 interface ThreadRequirementRow {

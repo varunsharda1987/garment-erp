@@ -263,6 +263,16 @@ ${c.cyan}Checking date formatting...${c.reset}`);
   );
 }
 
+function checkUnitVocabulary(tsFiles) {
+  console.log(`\n${c.cyan}Checking unit vocabulary...${c.reset}`);
+  return runRatchetedCheck(
+    'hand-written unit list(s)/map(s) bypassing the unit registry',
+    detectors.unitVocabularyDrift(tsFiles),
+    'unit-vocabulary-baseline.json',
+    'Units have ONE registry: backend/src/utils/units.ts and its twin @/lib/units (values generated from enum Unit). Display with unitShort/unitPer/unitLabel/unitHeader, convert with normalizeUnit / jwoUomToUnit, offer UNIT_OPTIONS in dropdowns. A genuine subset (the units a material type is bought in) takes // allow-unit-list.'
+  );
+}
+
 function checkCurrencyFormat(tsFiles) {
   console.log(`\n${c.cyan}Checking en-IN currency formatting...${c.reset}`);
   return runRatchetedCheck(
@@ -1255,6 +1265,7 @@ function runAllModeChecks() {
   if (!checkShrinkageDivide(tsFiles)) ok = false;
   if (!checkCurrencyFormat(tsFiles)) ok = false;
   if (!checkDateFormat(tsFiles)) ok = false;
+  if (!checkUnitVocabulary(tsFiles)) ok = false;
   if (!checkControllerReparse(tsFiles)) ok = false;
   if (!checkGlobalPrismaInTx(tsFiles)) ok = false;
   if (!checkDecimalCompare(tsFiles)) ok = false;
@@ -1374,6 +1385,7 @@ function main() {
     if (!checkShrinkageDivide(categories.typescript)) allPassed = false;
     if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
     if (!checkDateFormat(categories.typescript)) allPassed = false;
+    if (!checkUnitVocabulary(categories.typescript)) allPassed = false;
     // Phase-3 guardrails: dual-schema re-parse, rollback-escaping writes, Decimal string-compare,
     // count-based numbering (BLOCKING new + ratchet)
     if (!checkControllerReparse(categories.typescript)) allPassed = false;

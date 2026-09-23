@@ -477,6 +477,96 @@ function dateFormatDrift(relFiles) {
   return out;
 }
 
+// --- unitVocabularyDrift (2026-09-23) ---------------------------------------------------------
+// Units have ONE registry: backend/src/utils/units.ts and its twin frontend/src/lib/units.ts, with
+// the values generated from `enum Unit`. Before it: three hand-typed frontend `Unit` copies (the one
+// every dropdown used had 13 of 16), a 9-value backend material enum that refused a PACK material,
+// and more than a dozen local maps reading the five stored spellings (METER, MTR, pcs, meters,
+// meter) back — each a different subset. Kilograms printed as metres on the Processor Statement;
+// job-work issue turned KG into PIECE while its return turned KG into METER.
+//
+// Flags a NEW hand-written unit list or map: 3+ distinct unit spellings quoted on one line (an
+// array, z.enum, union or inline map), or 3+ consecutive lines each keyed / cased on a unit.
+// Per-line opt-out: // allow-unit-list — for a genuine SUBSET, e.g. the units a material type is
+// bought in (the labels must still come from the registry).
+const UNIT_TOKENS = new Set([
+  'METER', 'METERS', 'METRE', 'METRES', 'MTR', 'MTRS', 'PIECE', 'PIECES', 'PCS', 'PC', 'NOS',
+  'KILOGRAM', 'KILOGRAMS', 'KG', 'KGS', 'SET', 'SETS', 'YARD', 'YARDS', 'YD', 'YDS', 'DOZEN', 'DOZ',
+  'GROSS', 'TUBE', 'TUBES', 'CONE', 'CONES', 'SPOOL', 'SPOOLS', 'BOX', 'BOXES', 'PAIR', 'PAIRS',
+  'PACK', 'PACKS', 'PACKET', 'GRAM', 'GRAMS', 'GM', 'LITER', 'LITRE', 'LTR', 'ROLL', 'ROLLS',
+]);
+const UNIT_REGISTRY_FILES = [
+  'backend/src/utils/units.ts',
+  'frontend/src/lib/units.ts',
+  'backend/src/schemas/generated/prisma-enums.ts',
+  'frontend/src/types/generated/prisma-enums.ts',
+];
+
+function unitVocabularyDrift(relFiles) {
+  const out = [];
+  const quoted = /['"]([A-Za-z][A-Za-z0-9_]*)['"]/g;
+  // One entry per line: `METER: 'Meter',`  `'METER',`  `case 'MTR':`  — a key/case must be quoted
+  // or upper-case so ordinary `set:` / `box:` properties never count.
+  const keyed = /^\s*(?:case\s+)?(?:['"]([A-Za-z_]+)['"]|([A-Z][A-Z0-9_]*))\s*[:,]/;
+
+  for (const rel of relFiles) {
+    if (!/\.(ts|tsx)$/.test(rel)) continue;
+    const norm = rel.split(String.fromCharCode(92)).join('/');
+    if (UNIT_REGISTRY_FILES.some((f) => norm.endsWith(f))) continue;
+    if (/__tests__|\.test\.tsx?$/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const lines = content.split('\n');
+    const rawLines = (readRel(rel) || '').split('\n');
+    const optedOut = (i) => /allow-unit-list/.test(`${rawLines[i - 1] || ''}\n${rawLines[i] || ''}`);
+    const seen = new Map();
+    const flag = (i, tokens, shape) => {
+      const detail = `hand-written unit ${shape} [${tokens.join(', ')}] — use the unit registry (utils/units.ts, @/lib/units) or the generated Unit enum`;
+      const base = `${norm} :: unit ${shape} [${tokens.join(',')}]`;
+      const n = (seen.get(base) || 0) + 1;
+      seen.set(base, n);
+      out.push({ key: `${base}${n > 1 ? ` #${n}` : ''}`, file: rel, line: i + 1, detail });
+    };
+
+    // Rule 1 — 3+ distinct unit spellings quoted on one line.
+    const lineFlagged = new Set();
+    lines.forEach((line, i) => {
+      const tokens = new Set();
+      let m;
+      quoted.lastIndex = 0;
+      while ((m = quoted.exec(line))) {
+        const t = m[1].toUpperCase();
+        if (UNIT_TOKENS.has(t)) tokens.add(t);
+      }
+      if (tokens.size >= 3 && !optedOut(i)) {
+        lineFlagged.add(i);
+        flag(i, [...tokens].sort(), 'list');
+      }
+    });
+
+    // Rule 2 — 3+ consecutive lines each keyed / cased on a distinct unit (a multi-line map or switch).
+    let run = [];
+    const closeRun = () => {
+      const distinct = [...new Set(run.map((r) => r.token))];
+      // A map's opt-out may sit above its opening `const X = {` line, one further up than its first key.
+      const mapOptedOut = run.length && optedOut(run[0].i - 1);
+      if (distinct.length >= 3 && !mapOptedOut && !run.some((r) => lineFlagged.has(r.i) || optedOut(r.i))) {
+        flag(run[0].i, distinct.sort(), 'map');
+      }
+      run = [];
+    };
+    lines.forEach((line, i) => {
+      if (!line.trim()) return; // blank lines do not break a run
+      const m = keyed.exec(line);
+      const token = m ? (m[1] || m[2]).toUpperCase() : null;
+      if (token && UNIT_TOKENS.has(token)) run.push({ i, token });
+      else closeRun();
+    });
+    closeRun();
+  }
+  return out;
+}
+
 // C1 — controller re-parses req.body/req.query with its own schema after route-level validation.
 // Two independently-maintained schemas for one request ALWAYS drift (Phase-3: the cost-sheet edit
 // endpoint silently discarded every edit because the route schema and controller schema shared zero
@@ -2000,6 +2090,7 @@ module.exports = {
   shrinkageDivide,
   currencyFormat,
   dateFormatDrift,
+  unitVocabularyDrift,
   controllerReparse,
   globalPrismaInTx,
   decimalCompare,

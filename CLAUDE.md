@@ -296,6 +296,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Unguarded CAD delete | A `fabric_width_cad` delete with no `validateCADModification`, or a `style_fabrics`/`style_components` delete with no unlink first (cascade destroys APPROVED CAD planning + costing) | Guard with `validateCADModification(id, 'delete')`, or unlink `fabric_width_cad.updateMany({ styleFabricId: null })` first (see `style.service.ts`) |
 | CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
 | Strict number schema | An optional `z.number()` on a form-fed numeric field (`price…units` names): HTML inputs post strings and `''` when blank, so every save carrying that field 400s (six of seven trim forms could not add a supplier row, 2026-09-10) | Use `formNumber(z.number()…)` from `backend/src/schemas/common.schema.ts` (or mark `// allow-strict-number` for typed-client-only fields) |
+| Unit vocabulary drift | A new hand-written unit list or map: 3+ distinct unit spellings (`METER`, `MTR`, `pcs`, `KG`…) quoted on one line, or 3+ consecutive lines keyed on units. The frontend's live `Unit` copy had 13 of 16 values, a 9-value material enum refused a PACK material, and a dozen local maps disagreed (kilograms printed as metres) | Use the unit registry (see *Units: one registry*): `unitShort`/`unitPer`/`unitLabel`, `normalizeUnit`, `UNIT_OPTIONS`, the generated `Unit`. A genuine subset takes `// allow-unit-list` |
 | Radix singleton split (no baseline) | **(a)** any `@radix-ui/react-*` declared directly in `frontend/package.json` (only `@radix-ui/react-icons` is allowed — it is an icon set, not a primitive); **(b)** two resolved copies of a package holding module-scope state: `react-focus-scope`, `react-dismissable-layer`, `react-focus-guards`, `aria-hidden`, `react-remove-scroll(-bar)`, `react`, `react-dom`. Radix pins its internals to EXACT versions and keeps its focus-trap stack in module scope, so a second copy means a Sheet/Dialog never pauses for a Popover inside it and steals focus back — no combobox inside any dialog could be typed in (Sale Order Primary Style, 2026-09-14; introduced by bumping `react-dialog` alone in `8ca11d39`) | Import the namespace from the meta-package — `import { Dialog as DialogPrimitive } from 'radix-ui'` — and delete the direct entry. To move to a newer generation, bump **`radix-ui`** itself: one version number owns every primitive, so a partial bump is not an operation that exists. Never `resolve.dedupe` or npm `overrides` |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
@@ -355,6 +356,41 @@ reformatting breaks filtering **silently**), document numbers (`atomicCodeGenera
 
 Enforced by the *date format drift* smart-check. Unit tests: `backend/src/__tests__/unit/date.test.ts`
 — the only tests in this repo that assert a formatted date string, so they are the whole safety net.
+
+## Units: one registry
+
+The 16 unit VALUES are `enum Unit` in schema.prisma, generated for both sides
+(`backend/src/schemas/generated/prisma-enums.ts` → `UnitEnum`; `frontend/src/types/generated/prisma-enums.ts`
+→ `Unit`). Never re-type them. Everything else lives in ONE registry, copied to both sides and
+identical except the `Unit` import (a test asserts it):
+
+- **`backend/src/utils/units.ts`**
+- **`frontend/src/lib/units.ts`** — import as `@/lib/units`
+
+```ts
+unitShort(raw)    // "m", "pcs", "kg"  — beside a quantity (screens)
+unitPer(raw)      // "m", "pc", "kg"   — after a rate: "₹4.50 / pc"
+unitLabel(raw)    // "Meter", "Piece"  — full name
+unitHeader(raw)   // "Mtr", "Pcs"      — printed column headings
+unitWord(raw)     // "metre", "piece"  — prose ("per metre")
+isCountUnit(raw)  // pieces, cones, sets… print without decimals
+normalizeUnit(raw)            // any stored spelling → Unit, or null (never guesses)
+jwoUomToUnit / unitToJwoUom   // job_work_orders.uom (MTR / PCS / KG / TRIP) ↔ Unit
+UNIT_OPTIONS                  // dropdown options, all 16
+```
+
+`formatQuantity(value, unit)` (`@/lib/formatters`) already applies `unitShort`. Prints use `fmtQty` +
+`unitHeader`/`unitShort`.
+
+**Stored data is NOT normalised.** Units sit in about 30 text columns in five spellings: `METER`
+(enum columns), `MTR/PCS/KG/TRIP` (job work), `pcs/lot/cone` (style BOM, cost sheet), `meters/pieces`
+(specialised stock tables) and `meter/piece` (material master). The helpers read all of them, so
+**display through the registry, and never compare a unit column to a literal**
+(`uom === 'MTR' ? … : …` made a KG job PIECE on issue and METER on return). `lot` and `TRIP` are real
+vocabulary but not stock units: `normalizeUnit` returns null for them and the caller decides.
+Migrating the text columns to the enum is a separate project (needs a decision on what `lot` means).
+
+Enforced by the *unit vocabulary drift* smart-check. Tests: `backend/src/__tests__/unit/units.test.ts`.
 
 
 ## CRITICAL: Keep the AI Assistant's Guides in Sync (MANDATORY)
@@ -851,7 +887,7 @@ node scripts/skills/generate-types.js --model agencies            # Generate fil
 
 ### `/generate-zod-enums` - Prisma → Zod Enum Generator
 
-Generates `backend/src/schemas/generated/prisma-enums.ts` (one Zod enum per Prisma enum, 111 total) so schema.prisma is the ONLY authored copy of enum values. Kills the enum-drift bug class at the source.
+Generates `backend/src/schemas/generated/prisma-enums.ts` (one Zod enum per Prisma enum, 122 total) **and** `frontend/src/types/generated/prisma-enums.ts` (one `as const` object + type per enum — the frontend shape; `erasableSyntaxOnly` forbids TS `enum`) so schema.prisma is the ONLY authored copy of enum values. Kills the enum-drift bug class at the source.
 
 **Usage:**
 ```bash
@@ -861,7 +897,7 @@ node scripts/skills/generate-zod-enums.js --check   # exit 1 if stale — enforc
                                                     # generated file is staged) and in CI (--all)
 ```
 
-**Rule:** New `*.schema.ts` files import enums from `./generated/prisma-enums` instead of re-typing values. Existing hand-written `z.enum`s stay guarded by the smart-check enum-drift ratchet until migrated.
+**Rule:** New `*.schema.ts` files import enums from `./generated/prisma-enums` instead of re-typing values; frontend types import or re-export from `@/types/generated/prisma-enums` (as `Unit` and `ThreadPackagingType` now do). Existing hand-written `z.enum`s stay guarded by the smart-check enum-drift ratchet until migrated. After changing schema.prisma, stage BOTH regenerated files.
 
 ### `/register-route` - Route + Sidebar Registration
 

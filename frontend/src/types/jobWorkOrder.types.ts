@@ -3,6 +3,8 @@
  * Frontend types for the unified JWO module
  */
 
+import type { JwoUom } from '@/lib/units';
+
 export type JobWorkOrderStatus =
   | 'DRAFT'
   | 'PENDING_APPROVAL'
@@ -219,7 +221,7 @@ export interface CreateJobWorkOrderRequest {
   styleId?: string | null;
   fabricId?: string | null;
   quantity: number;
-  uom?: 'MTR' | 'PCS' | 'KG' | 'TRIP';
+  uom?: JwoUom | 'TRIP';
   agreedRate?: number;
   isRateTbd?: boolean;
   expectedReturnDate?: string | null;

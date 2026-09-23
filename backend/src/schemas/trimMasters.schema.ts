@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { ThreadPlyEnum } from './generated/prisma-enums';
+import { ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
 import { formNumber } from './common.schema';
 
 // ============================================================================
@@ -152,7 +152,7 @@ export const createThreadSchema = z
   .object({
     threadName: z.string().max(200),
     brand: z.string().max(50).optional(),
-    packagingType: z.enum(['CONE', 'TUBE', 'SPOOL', 'CONE_5K', 'CONE_10K']).optional(),
+    packagingType: ThreadPackagingTypeEnum.optional(),
     piecesPerBox: z.number().int().positive().optional().nullable(),
     metersPerUnit: z.number().positive().optional().nullable(),
     color: z.string().max(50).optional(),
@@ -184,7 +184,7 @@ export const updateThreadSchema = z
   .object({
     threadName: z.string().max(200).optional(),
     brand: z.string().max(50).optional().nullable(),
-    packagingType: z.enum(['CONE', 'TUBE', 'SPOOL', 'CONE_5K', 'CONE_10K']).optional().nullable(),
+    packagingType: ThreadPackagingTypeEnum.optional().nullable(),
     piecesPerBox: z.number().int().positive().optional().nullable(),
     metersPerUnit: z.number().positive().optional().nullable(),
     color: z.string().max(50).optional().nullable(),

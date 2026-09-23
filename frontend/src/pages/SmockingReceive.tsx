@@ -3,6 +3,7 @@
  * Form to record receipt of material from smocking vendor
  */
 
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -143,7 +144,7 @@ export default function SmockingReceive() {
               <SelectContent>
                 {(pendingSendOuts?.data || []).map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {s.batchNumber} — {s.supplier?.name} ({s.quantitySent} {s.unit})
+                    {s.batchNumber} — {s.supplier?.name} ({s.quantitySent} {unitShort(s.unit)})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -182,7 +183,7 @@ export default function SmockingReceive() {
               <div>
                 <span className="text-muted-foreground">Qty Sent:</span>{' '}
                 <strong>
-                  {sendOut.quantitySent} {sendOut.unit}
+                  {sendOut.quantitySent} {unitShort(sendOut.unit)}
                 </strong>
               </div>
               <div>
@@ -287,11 +288,11 @@ export default function SmockingReceive() {
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Quantity Received ({sendOut.unit}) *</Label>
+                <Label>Quantity Received ({unitShort(sendOut.unit)}) *</Label>
                 <Input id="qty-received" type="number" step="0.01" defaultValue={sendOut.quantitySent} />
               </div>
               <div>
-                <Label>Quantity Damaged ({sendOut.unit})</Label>
+                <Label>Quantity Damaged ({unitShort(sendOut.unit)})</Label>
                 <Input id="qty-damaged" type="number" step="0.01" defaultValue="0" />
               </div>
             </div>

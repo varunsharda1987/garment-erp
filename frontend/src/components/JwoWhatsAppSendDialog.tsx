@@ -7,6 +7,7 @@
  * the PDF once and fans out to every recipient in one call.
  */
 
+import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -51,10 +52,10 @@ function buildCaption(jwo: JobWorkOrder): string {
   const lines = [
     `Job Work Order ${jwo.jobWorkNumber}`,
     `Process: ${jwo.processType}${jwo.processor?.name ? ` — ${jwo.processor.name}` : ''}`,
-    `${isGreigeJob ? 'Greige' : 'Sent'}: ${jwo.qtySentMeters.toFixed(2)} ${jwo.uom}`,
+    `${isGreigeJob ? 'Greige' : 'Sent'}: ${jwo.qtySentMeters.toFixed(2)} ${unitShort(jwo.uom)}`,
   ];
   if (jwo.qtyBillable != null) {
-    lines.push(`${isGreigeJob ? 'Fabric' : 'Expected back'}: ${jwo.qtyBillable.toFixed(2)} ${jwo.uom}`);
+    lines.push(`${isGreigeJob ? 'Fabric' : 'Expected back'}: ${jwo.qtyBillable.toFixed(2)} ${unitShort(jwo.uom)}`);
   }
   if (jwo.expectedShrinkage != null && jwo.expectedShrinkage > 0) {
     lines.push(`Shrinkage: ${jwo.expectedShrinkage}%`);
@@ -67,7 +68,7 @@ function buildCaption(jwo: JobWorkOrder): string {
     lines.push(`Finished Width: ${Number(jwo.sentWidthInches)}"`);
   }
   if (!jwo.isRateTbd && jwo.agreedRatePerMeter > 0) {
-    lines.push(`Rate: ₹${jwo.agreedRatePerMeter}/${jwo.uom}`);
+    lines.push(`Rate: ₹${jwo.agreedRatePerMeter}/${unitPer(jwo.uom)}`);
   }
   if (jwo.expectedReturnDate) {
     lines.push(`Need by: ${formatDate(new Date(jwo.expectedReturnDate))}`);

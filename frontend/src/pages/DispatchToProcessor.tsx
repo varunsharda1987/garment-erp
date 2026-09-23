@@ -10,6 +10,7 @@
  * Issuing a SINGLE order is unchanged and still lives on the order's own page; this screen is for
  * the case where several go together.
  */
+import { unitShort } from '@/lib/units';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -336,7 +337,7 @@ export default function DispatchToProcessor() {
                           <Badge variant="secondary">Stock — no style</Badge>
                         )}
                         <span className="text-sm text-muted-foreground">
-                          {order.requiredQty.toFixed(2)} {order.uom}
+                          {order.requiredQty.toFixed(2)} {unitShort(order.uom)}
                         </span>
                       </div>
                       {order.expectedGreige && (

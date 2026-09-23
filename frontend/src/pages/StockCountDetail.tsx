@@ -1,4 +1,5 @@
 // Stock Count Detail - Physical inventory count execution workflow
+import { unitShort } from '@/lib/units';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -494,7 +495,7 @@ export default function StockCountDetail() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{item.unit}</TableCell>
+                        <TableCell className="text-muted-foreground">{unitShort(item.unit)}</TableCell>
                         <TableCell>
                           {isEditing ? (
                             <Input

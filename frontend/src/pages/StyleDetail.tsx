@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -568,7 +569,7 @@ export default function StyleDetail() {
                                       <div>
                                         <span className="font-medium text-muted-foreground">Quantity Per Garment:</span>
                                         <span className="ml-1">
-                                          {accessory.quantityPerPiece} {accessory.unit}
+                                          {accessory.quantityPerPiece} {unitShort(accessory.unit)}
                                         </span>
                                       </div>
                                       {accessory.supplierName && (
@@ -649,7 +650,7 @@ export default function StyleDetail() {
                                     <p className="text-base font-semibold">
                                       {isBulkItem
                                         ? `₹ ${trim.quantityPerGarment}`
-                                        : `${trim.quantityPerGarment} ${trim.unit}`}
+                                        : `${trim.quantityPerGarment} ${unitShort(trim.unit)}`}
                                     </p>
                                   </div>
                                   <BomRateEditor
@@ -720,7 +721,7 @@ export default function StyleDetail() {
                                   <div>
                                     <p className="font-medium text-muted-foreground">Quantity Per Garment</p>
                                     <p className="text-base font-semibold">
-                                      {item.quantityPerGarment} {item.unit}
+                                      {item.quantityPerGarment} {unitShort(item.unit)}
                                     </p>
                                   </div>
                                   <BomRateEditor

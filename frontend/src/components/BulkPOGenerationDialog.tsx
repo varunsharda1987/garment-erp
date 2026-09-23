@@ -9,6 +9,7 @@
  *   returns); the greige to physically issue is shown as secondary info per line.
  */
 
+import { unitShort } from '@/lib/units';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
@@ -474,12 +475,12 @@ export default function BulkPOGenerationDialog({
                                   <span className="font-medium">{r.material?.name || 'Unknown'}</span>
                                   <span className="text-right">
                                     <span className="font-bold text-primary">
-                                      {billableOf(r, Number(r.shortfall)).toLocaleString()} {r.unit}
+                                      {billableOf(r, Number(r.shortfall)).toLocaleString()} {unitShort(r.unit)}
                                     </span>
                                     {r.requirementType === 'PROCESSING' &&
                                       billableOf(r, Number(r.shortfall)) !== Number(r.shortfall) && (
                                         <span className="block text-[10px] text-muted-foreground font-normal">
-                                          Issue: {Number(r.shortfall).toLocaleString()} {r.unit} greige (+
+                                          Issue: {Number(r.shortfall).toLocaleString()} {unitShort(r.unit)} greige (+
                                           {Number(r.effectiveShrinkagePercent)}% shrink)
                                         </span>
                                       )}
@@ -735,12 +736,12 @@ export default function BulkPOGenerationDialog({
                                           editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity,
                                           item.shrinkagePercent
                                         ).toLocaleString()}{' '}
-                                        {item.unit} greige
+                                        {unitShort(item.unit)} greige
                                         {item.shrinkagePercent ? ` (+${item.shrinkagePercent}% shrink)` : ''}
                                       </div>
                                     )}
                                   </TableCell>
-                                  <TableCell className="text-xs">{item.unit}</TableCell>
+                                  <TableCell className="text-xs">{unitShort(item.unit)}</TableCell>
                                   <TableCell className="text-xs text-right">
                                     <Input
                                       type="number"

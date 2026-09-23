@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -127,7 +128,7 @@ export default function StockMovementDashboard() {
       header: 'Pending',
       render: (item) => (
         <span className="font-medium">
-          {item.qtyPending.toLocaleString()} {item.unit}
+          {item.qtyPending.toLocaleString()} {unitShort(item.unit)}
         </span>
       ),
     },
@@ -191,7 +192,7 @@ export default function StockMovementDashboard() {
       header: 'Qty',
       render: (item) => (
         <span className="font-medium">
-          {item.quantity.toLocaleString()} {item.unit}
+          {item.quantity.toLocaleString()} {unitShort(item.unit)}
         </span>
       ),
     },

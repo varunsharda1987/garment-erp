@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Package, Plus } from 'lucide-react';
@@ -403,7 +404,7 @@ export default function GreigeDetail() {
                         <td className="px-4 py-3 text-sm text-foreground text-right font-semibold">
                           {stock.totalStock.toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{stock.unit}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{unitShort(stock.unit)}</td>
                       </tr>
                     ))}
                   </tbody>

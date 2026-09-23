@@ -1,4 +1,5 @@
 // Stock Transfer Form - Transfer between warehouses
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X, ArrowLeftRight } from 'lucide-react';
@@ -81,7 +82,7 @@ export default function StockTransferForm() {
     }
 
     if (selectedStock && Number(formData.quantity) > Number(selectedStock.quantity)) {
-      setError(`Insufficient stock. Available: ${selectedStock.quantity} ${selectedStock.unit}`);
+      setError(`Insufficient stock. Available: ${selectedStock.quantity} ${unitShort(selectedStock.unit)}`);
       return;
     }
 
@@ -199,7 +200,7 @@ export default function StockTransferForm() {
                         <SelectItem key={stock.id} value={stock.materialId}>
                           {stock.materials?.code} - {stock.materials?.name}
                           {' (Avail: '}
-                          {Number(stock.quantity).toFixed(2)} {stock.unit})
+                          {Number(stock.quantity).toFixed(2)} {unitShort(stock.unit)})
                         </SelectItem>
                       ))
                     )}
@@ -212,7 +213,8 @@ export default function StockTransferForm() {
                 <div className="md:col-span-12">
                   <Alert className="bg-info-muted text-info border-info/20">
                     <AlertDescription>
-                      Available in Source Warehouse: {Number(selectedStock.quantity).toFixed(2)} {selectedStock.unit}
+                      Available in Source Warehouse: {Number(selectedStock.quantity).toFixed(2)}{' '}
+                      {unitShort(selectedStock.unit)}
                     </AlertDescription>
                   </Alert>
                 </div>

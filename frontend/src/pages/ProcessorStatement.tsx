@@ -31,7 +31,7 @@ function thisMonth(): { from: string; to: string } {
   return { from: iso(first), to: iso(last) };
 }
 
-const qty = (value: number, unit: StatementUom) => formatQuantity(value, unit === 'PCS' ? 'pcs' : 'm', 2);
+const qty = (value: number, unit: StatementUom) => formatQuantity(value, unit, 2);
 
 /** Signed on purpose: "short" is ours to chase, "over" is theirs to be credited. */
 function shortfallText(value: number, unit: StatementUom): string {

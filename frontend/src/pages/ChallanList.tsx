@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -147,7 +148,7 @@ export default function ChallanList() {
       header: 'Qty',
       render: (challan) => (
         <span>
-          {Number(challan.totalQuantity).toLocaleString()} {challan.unit}
+          {Number(challan.totalQuantity).toLocaleString()} {unitShort(challan.unit)}
           {challan.receivedQuantity ? (
             <span className="text-xs text-muted-foreground ml-1">
               ({Number(challan.receivedQuantity).toLocaleString()} rcvd)

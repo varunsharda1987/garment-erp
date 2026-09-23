@@ -14,6 +14,7 @@
  * Used in: Style Form (Trims & Materials tab, Accessories tab)
  */
 
+import { unitPer, unitShort } from '@/lib/units';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, Package, Check, Plus, ShoppingBag, Scissors, Box } from 'lucide-react';
 import type { MaterialType, MaterialUsageCategory, Material } from '../types/style-material-bom.types';
@@ -275,7 +276,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                               <div className="font-semibold text-sm text-info">
                                 {formatPrice(parsePrice(material.pricePerUnit))}
                               </div>
-                              <div className="text-xs text-muted-foreground">per {material.unit}</div>
+                              <div className="text-xs text-muted-foreground">per {unitPer(material.unit)}</div>
                             </div>
                           </div>
                           {selectedMaterial?.materialCode === material.materialCode && (
@@ -305,7 +306,7 @@ export const MaterialBOMPicker: React.FC<MaterialBOMPickerProps> = ({
                     </Badge>
                     <p className="font-medium text-sm">{selectedMaterial.materialName}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {selectedMaterial.unit} · {formatPrice(parsePrice(selectedMaterial.pricePerUnit))}
+                      {unitShort(selectedMaterial.unit)} · {formatPrice(parsePrice(selectedMaterial.pricePerUnit))}
                     </p>
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 // Work Order Detail Page - View production run details
+import { unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { isAxiosError } from 'axios';
@@ -542,7 +543,7 @@ export default function WorkOrderDetail() {
                             </div>
                             <div className="text-right">
                               <div className="text-destructive font-medium">
-                                Short: {material.shortfall.toFixed(2)} {material.unit}
+                                Short: {material.shortfall.toFixed(2)} {unitShort(material.unit)}
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
@@ -1203,7 +1204,7 @@ export default function WorkOrderDetail() {
             ? serverBlockers
             : (materialReadiness?.missingMaterials.map((m) => ({
                 type: 'MATERIAL_SHORTAGE',
-                message: `${m.materialName} (${m.materialCode}): Need ${m.required.toFixed(2)} ${m.unit}, Have ${m.available.toFixed(2)} ${m.unit}, Short ${m.shortfall.toFixed(2)} ${m.unit}`,
+                message: `${m.materialName} (${m.materialCode}): Need ${m.required.toFixed(2)} ${unitShort(m.unit)}, Have ${m.available.toFixed(2)} ${unitShort(m.unit)}, Short ${m.shortfall.toFixed(2)} ${unitShort(m.unit)}`,
                 severity: 'CRITICAL' as const,
               })) ?? [])
         }

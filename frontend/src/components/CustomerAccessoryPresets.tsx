@@ -11,6 +11,7 @@
  * - Add items using MaterialBOMPicker
  */
 
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, Star, StarOff, ChevronDown, ChevronUp, Package, Save } from 'lucide-react';
 import { Button } from './ui/button';
@@ -330,7 +331,7 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Qty: {item.quantity} {item.unit} · {item.usageCategory}
+                      Qty: {item.quantity} {unitShort(item.unit)} · {item.usageCategory}
                     </p>
                   )}
                 </div>

@@ -3,6 +3,7 @@
  * View and manage a single job work order
  */
 
+import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -411,13 +412,16 @@ export default function JobWorkOrderDetail() {
     mutationFn: () => jobWorkOrderService.closeShort(id!, { shortCloseConfirmed: true }),
     onSuccess: (result) => {
       const abnormal = Number(result.lossSplit?.qtyAbnormalLoss ?? 0);
-      toast.success(`${result.data.jobWorkNumber} closed short on ${receivedSoFar.toFixed(2)} ${result.data.uom}`, {
-        description:
-          abnormal > 0
-            ? `${abnormal.toFixed(2)} ${result.data.uom} abnormal loss — a debit note against the processor is needed before the job can be closed.`
-            : undefined,
-        duration: abnormal > 0 ? 8000 : undefined,
-      });
+      toast.success(
+        `${result.data.jobWorkNumber} closed short on ${receivedSoFar.toFixed(2)} ${unitShort(result.data.uom)}`,
+        {
+          description:
+            abnormal > 0
+              ? `${abnormal.toFixed(2)} ${unitShort(result.data.uom)} abnormal loss — a debit note against the processor is needed before the job can be closed.`
+              : undefined,
+          duration: abnormal > 0 ? 8000 : undefined,
+        }
+      );
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
@@ -625,7 +629,8 @@ export default function JobWorkOrderDetail() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Abnormal Loss Detected</AlertTitle>
           <AlertDescription>
-            {jwo.qtyAbnormalLoss?.toFixed(2)} {jwo.uom} loss beyond tolerance. Debit note required for processor.
+            {jwo.qtyAbnormalLoss?.toFixed(2)} {unitShort(jwo.uom)} loss beyond tolerance. Debit note required for
+            processor.
           </AlertDescription>
         </Alert>
       )}
@@ -743,7 +748,7 @@ export default function JobWorkOrderDetail() {
                   </div>
                 )}
                 <div>
-                  <Label className="text-muted-foreground">Rate per {jwo.uom}</Label>
+                  <Label className="text-muted-foreground">Rate per {unitPer(jwo.uom)}</Label>
                   <p className="font-medium">
                     {formatCurrency(jwo.agreedRatePerMeter)}
                     {jwo.isRateTbd && (
@@ -778,7 +783,7 @@ export default function JobWorkOrderDetail() {
                     {issuesLace ? 'Greige Lace Sent' : jwo.fabricType === 'GREIGE' ? 'Greige' : 'Qty Sent'}
                   </Label>
                   <p className="text-xl font-bold">
-                    {jwo.qtySentMeters.toFixed(2)} {jwo.uom}
+                    {jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}
                   </p>
                 </div>
                 <div>
@@ -786,19 +791,19 @@ export default function JobWorkOrderDetail() {
                     {issuesLace ? 'Dyed Lace Expected Back' : jwo.fabricType === 'GREIGE' ? 'Fabric' : 'Expected Back'}
                   </Label>
                   <p className="text-xl font-bold">
-                    {jwo.qtyBillable != null ? `${jwo.qtyBillable.toFixed(2)} ${jwo.uom}` : '-'}
+                    {jwo.qtyBillable != null ? `${jwo.qtyBillable.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Qty Received</Label>
                   <p className="text-xl font-bold">
-                    {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${jwo.uom}` : '-'}
+                    {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Abnormal Loss</Label>
                   <p className={`text-xl font-bold ${hasAbnormalLoss ? 'text-red-500' : ''}`}>
-                    {jwo.qtyAbnormalLoss ? `${jwo.qtyAbnormalLoss.toFixed(2)} ${jwo.uom}` : '-'}
+                    {jwo.qtyAbnormalLoss ? `${jwo.qtyAbnormalLoss.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                   </p>
                 </div>
               </div>
@@ -807,11 +812,12 @@ export default function JobWorkOrderDetail() {
                 <p className="mt-3 text-sm text-muted-foreground">
                   Received so far{' '}
                   <span className="font-medium text-foreground">
-                    {(jwo.qtyReceivedMeters ?? 0).toFixed(2)} {jwo.uom}
+                    {(jwo.qtyReceivedMeters ?? 0).toFixed(2)} {unitShort(jwo.uom)}
                   </span>{' '}
                   of {jwo.qtyBillable.toFixed(2)} expected —{' '}
-                  {Math.max(0, jwo.qtyBillable - (jwo.qtyReceivedMeters ?? 0)).toFixed(2)} {jwo.uom} still to come. Tick
-                  "This is the final delivery" on the last receipt, or use Close short if nothing more is coming.
+                  {Math.max(0, jwo.qtyBillable - (jwo.qtyReceivedMeters ?? 0)).toFixed(2)} {unitShort(jwo.uom)} still to
+                  come. Tick "This is the final delivery" on the last receipt, or use Close short if nothing more is
+                  coming.
                 </p>
               )}
 
@@ -928,7 +934,7 @@ export default function JobWorkOrderDetail() {
                 <div>
                   <Label className="text-muted-foreground">Process Loss (shrinkage + tolerance)</Label>
                   <p className="font-medium text-muted-foreground">
-                    {jwo.qtyNormalLoss ? `${jwo.qtyNormalLoss.toFixed(2)} ${jwo.uom}` : '-'}
+                    {jwo.qtyNormalLoss ? `${jwo.qtyNormalLoss.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                   </p>
                 </div>
               </div>
@@ -961,10 +967,10 @@ export default function JobWorkOrderDetail() {
                           {comp.greige?.greigeCode || comp.fabric?.fabricCode || comp.lace?.laceCode || '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {comp.qtySent.toFixed(2)} {comp.unit}
+                          {comp.qtySent.toFixed(2)} {unitShort(comp.unit)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {comp.qtyReceived ? `${comp.qtyReceived.toFixed(2)} ${comp.unit}` : '-'}
+                          {comp.qtyReceived ? `${comp.qtyReceived.toFixed(2)} ${unitShort(comp.unit)}` : '-'}
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(comp.rate)}</TableCell>
                       </TableRow>
@@ -1001,18 +1007,18 @@ export default function JobWorkOrderDetail() {
                       <TableRow key={c.id || idx}>
                         <TableCell>{c.name}</TableCell>
                         <TableCell className="text-right">
-                          {c.outward.toFixed(2)} {c.unit}
+                          {c.outward.toFixed(2)} {unitShort(c.unit)}
                         </TableCell>
                         <TableCell className="text-right">
-                          {c.inward.toFixed(2)} {c.unit}
+                          {c.inward.toFixed(2)} {unitShort(c.unit)}
                         </TableCell>
                         <TableCell className="text-right font-medium">
-                          {c.balanceWithVendor.toFixed(2)} {c.unit}
+                          {c.balanceWithVendor.toFixed(2)} {unitShort(c.unit)}
                         </TableCell>
                         <TableCell className="text-right">
                           {c.qtyAbnormalLoss != null && c.qtyAbnormalLoss > 0 ? (
                             <span className="text-red-600 font-medium">
-                              {c.qtyAbnormalLoss.toFixed(2)} {c.unit}
+                              {c.qtyAbnormalLoss.toFixed(2)} {unitShort(c.unit)}
                             </span>
                           ) : (
                             '-'
@@ -1172,7 +1178,7 @@ export default function JobWorkOrderDetail() {
                             {r.grnNumber}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {qty != null ? `${Number(qty).toFixed(2)} ${jwo.uom}` : ''}
+                            {qty != null ? `${Number(qty).toFixed(2)} ${unitShort(jwo.uom)}` : ''}
                             {r.receivingDate ? ` · ${formatDate(new Date(r.receivingDate))}` : ''}
                           </span>
                         </Button>
@@ -1281,11 +1287,11 @@ export default function JobWorkOrderDetail() {
             <div>
               <Label>Quantity Sent</Label>
               <p className="text-lg font-medium">
-                {jwo.qtySentMeters.toFixed(2)} {jwo.uom}
+                {jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}
               </p>
             </div>
             <div>
-              <Label htmlFor="qtyReceived">Quantity Received ({jwo.uom})</Label>
+              <Label htmlFor="qtyReceived">Quantity Received ({unitShort(jwo.uom)})</Label>
               <Input
                 id="qtyReceived"
                 type="number"
@@ -1346,8 +1352,8 @@ export default function JobWorkOrderDetail() {
             {issuesFromFabricRoll ? (
               <Alert>
                 <AlertDescription>
-                  This order issues from its selected fabric lot ({jwo.qtySentMeters.toFixed(2)} {jwo.uom} will be
-                  consumed{jwo.processType === 'EMBROIDERY' ? ' for embroidery' : ''}).
+                  This order issues from its selected fabric lot ({jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}{' '}
+                  will be consumed{jwo.processType === 'EMBROIDERY' ? ' for embroidery' : ''}).
                 </AlertDescription>
               </Alert>
             ) : issuePreviewLoading ? (

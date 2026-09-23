@@ -6,6 +6,7 @@
  *   3. Thread Requirements — order_thread_requirements
  */
 
+import { unitShort } from '@/lib/units';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useListQuery, queryKeys } from '@/hooks/useQuery';
@@ -720,7 +721,7 @@ function MaterialRequirementsTab({
     setIsAllocating(true);
     try {
       await allocateStock(allocatingRequirement.id, { quantity: qty });
-      handleApiSuccess(`Allocated ${qty} ${allocatingRequirement.unit} from stock`);
+      handleApiSuccess(`Allocated ${qty} ${unitShort(allocatingRequirement.unit)} from stock`);
       refreshData();
       setAllocateStockDialogOpen(false);
       setAllocatingRequirement(null);
@@ -1597,8 +1598,8 @@ function MaterialRequirementsTab({
           <DialogHeader>
             <DialogTitle>Convert to Greige Processing</DialogTitle>
             <DialogDescription>
-              Convert the shortfall of {convertingRequirement?.shortfall || 0} {convertingRequirement?.unit || 'units'}{' '}
-              to greige procurement + processing workflow.
+              Convert the shortfall of {convertingRequirement?.shortfall || 0}{' '}
+              {unitShort(convertingRequirement?.unit || 'units')} to greige procurement + processing workflow.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1692,7 +1693,7 @@ function MaterialRequirementsTab({
                 </div>
               </div>
               <div>
-                <Label>Quantity to Allocate ({allocatingRequirement.unit})</Label>
+                <Label>Quantity to Allocate ({unitShort(allocatingRequirement.unit)})</Label>
                 <Input
                   type="number"
                   step="0.01"

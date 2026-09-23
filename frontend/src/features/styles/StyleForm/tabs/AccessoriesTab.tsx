@@ -3,6 +3,7 @@
  * Tab 4: Garment & Packaging Accessories
  */
 
+import { unitShort } from '@/lib/units';
 import { useStyleForm } from '../StyleFormContext';
 import { Button } from '../../../../components/ui/button';
 import { Card } from '../../../../components/ui/card';
@@ -78,7 +79,7 @@ export function AccessoriesTab({ onPrevious, onOpenPicker, onSaveAsDraft, onSubm
                     <span className="font-medium text-sm">{accessory.materialName}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Qty: {accessory.quantityPerGarment} {accessory.unit} · Category:{' '}
+                    Qty: {accessory.quantityPerGarment} {unitShort(accessory.unit)} · Category:{' '}
                     {accessory.usageCategory.replace('_', ' ')}
                   </p>
                 </div>

@@ -64,6 +64,7 @@ import {
   getSupplierMaterialLabel,
 } from '../lib/supplier-material-mapping';
 import { Unit } from '../types/inventory.types';
+import { UNIT_OPTIONS, unitShort } from '@/lib/units';
 import type { Material } from '../types/material.types';
 import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
 import type { Lace } from '../types/lace.types';
@@ -117,6 +118,22 @@ const MATERIAL_TYPE_UNITS: Record<MaterialType, string> = {
   LABEL_VARIANT: 'PIECE',
   PACKAGING: 'PIECE',
   MATERIAL: '',
+};
+
+// Units each material type is bought in (values only — labels come from @/lib/units).
+const FABRIC_UNITS: Unit[] = ['METER', 'YARD', 'ROLL']; // allow-unit-list
+const LABEL_UNITS: Unit[] = ['PIECE', 'DOZEN', 'BOX', 'SET']; // allow-unit-list
+const UNITS_BY_MATERIAL_TYPE: Partial<Record<MaterialType, Unit[]>> = {
+  GREIGE: FABRIC_UNITS,
+  FABRIC: FABRIC_UNITS,
+  LACE: FABRIC_UNITS,
+  ELASTIC: FABRIC_UNITS,
+  BUTTON: ['PIECE', 'DOZEN', 'GROSS'], // allow-unit-list
+  THREAD: ['CONE', 'SPOOL', 'BOX'], // allow-unit-list
+  ZIPPER: ['PIECE', 'DOZEN', 'GROSS'], // allow-unit-list
+  LABEL: LABEL_UNITS,
+  LABEL_VARIANT: LABEL_UNITS,
+  PACKAGING: LABEL_UNITS,
 };
 
 // Extended material item with full details
@@ -742,60 +759,12 @@ export default function StockInForm() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Get units available for selected material type
-  const getUnitsForType = (type: MaterialType): { value: string; label: string }[] => {
-    switch (type) {
-      case 'GREIGE':
-      case 'FABRIC':
-      case 'LACE':
-      case 'ELASTIC':
-        return [
-          { value: 'METER', label: 'Meter' },
-          { value: 'YARD', label: 'Yard' },
-          { value: 'ROLL', label: 'Roll' },
-        ];
-      case 'BUTTON':
-        return [
-          { value: 'GROSS', label: 'Gross (144 pcs)' },
-          { value: 'DOZEN', label: 'Dozen' },
-          { value: 'PIECE', label: 'Piece' },
-        ];
-      case 'THREAD':
-        return [
-          { value: 'CONE', label: 'Cone' },
-          { value: 'SPOOL', label: 'Spool' },
-          { value: 'BOX', label: 'Box' },
-        ];
-      case 'ZIPPER':
-        return [
-          { value: 'PIECE', label: 'Piece' },
-          { value: 'DOZEN', label: 'Dozen' },
-          { value: 'GROSS', label: 'Gross' },
-        ];
-      case 'LABEL':
-      case 'LABEL_VARIANT':
-      case 'PACKAGING':
-        return [
-          { value: 'PIECE', label: 'Piece' },
-          { value: 'DOZEN', label: 'Dozen' },
-          { value: 'BOX', label: 'Box' },
-          { value: 'SET', label: 'Set' },
-        ];
-      default:
-        return [
-          { value: 'PIECE', label: 'Piece' },
-          { value: 'METER', label: 'Meter' },
-          { value: 'YARD', label: 'Yard' },
-          { value: 'KILOGRAM', label: 'Kilogram' },
-          { value: 'GRAM', label: 'Gram' },
-          { value: 'CONE', label: 'Cone' },
-          { value: 'ROLL', label: 'Roll' },
-          { value: 'BOX', label: 'Box' },
-          { value: 'SET', label: 'Set' },
-          { value: 'DOZEN', label: 'Dozen' },
-          { value: 'GROSS', label: 'Gross' },
-        ];
-    }
+  // Units offered for a material type — names and abbreviations come from the unit registry, so a
+  // type with no list of its own is offered every unit the database accepts (the old default list
+  // silently left out TUBE, SPOOL, PAIR, PACK and LITER).
+  const getUnitsForType = (type: MaterialType): ReadonlyArray<{ value: Unit; label: string }> => {
+    const subset = UNITS_BY_MATERIAL_TYPE[type];
+    return subset ? UNIT_OPTIONS.filter((opt) => subset.includes(opt.value)) : UNIT_OPTIONS;
   };
 
   return (
@@ -1355,7 +1324,7 @@ export default function StockInForm() {
                                 <div className="col-span-full bg-amber-50 border border-amber-200 rounded-md p-2 text-sm">
                                   <div className="font-medium text-amber-800">Fold Length Adjustment:</div>
                                   <div className="text-amber-700">
-                                    Nominal: {Number(item.quantity).toLocaleString()} {item.unit} × L=
+                                    Nominal: {Number(item.quantity).toLocaleString()} {unitShort(item.unit)} × L=
                                     {item.foldLengthCm}cm ={' '}
                                     <strong>
                                       Actual:{' '}
@@ -1363,7 +1332,7 @@ export default function StockInForm() {
                                         undefined,
                                         { maximumFractionDigits: 2 }
                                       )}{' '}
-                                      {item.unit}
+                                      {unitShort(item.unit)}
                                     </strong>
                                     {item.rate && (
                                       <span className="ml-2">

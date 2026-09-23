@@ -16,7 +16,8 @@ import {
   getChildCategories,
 } from '../services/material.service';
 import { searchHSNSACMasters } from '../services/hsnSacMaster.service';
-import { Unit, UnitLabels } from '../types/material.types';
+import { Unit } from '../types/material.types';
+import { UNIT_OPTIONS } from '@/lib/units';
 import type { CreateMaterialRequest, MaterialCategory, SupplierRelationship } from '../types/material.types';
 import type { HSNSACSearchResult } from '../types/hsnSacMaster.types';
 import { logError } from '../lib/logger';
@@ -365,9 +366,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(UnitLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
+                      {UNIT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -3,6 +3,7 @@
  * Alerts dashboard showing problems that need attention + vendor tracking
  */
 
+import { unitShort } from '@/lib/units';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -479,7 +480,7 @@ export default function ManufacturingControlCenter() {
                         </TableCell>
                         <TableCell className="text-right">{vendor.itemsOut}</TableCell>
                         <TableCell className="text-right">
-                          {vendor.totalQty.toLocaleString('en-IN')} {vendor.unit}
+                          {vendor.totalQty.toLocaleString('en-IN')} {unitShort(vendor.unit)}
                         </TableCell>
                         <TableCell className="text-right">
                           <span

@@ -168,14 +168,4 @@ export const UsageCategoryLabels: Record<MaterialUsageCategory, string> = {
   PACKAGING: 'Packaging',
 };
 
-// Unit options
-export const UnitOptions = [
-  { value: 'pcs', label: 'Pieces' },
-  { value: 'meters', label: 'Meters' },
-  { value: 'grams', label: 'Grams' },
-  { value: 'kg', label: 'Kilograms' },
-  { value: 'cones', label: 'Cones' },
-  { value: 'rolls', label: 'Rolls' },
-  { value: 'yards', label: 'Yards' },
-];
 // Cache bust: 1764071356

@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1015,7 +1016,7 @@ export default function GRNForm() {
                         <div>
                           <div className="font-medium">{item.materialCode}</div>
                           <div className="text-sm text-muted-foreground">{item.materialName}</div>
-                          <div className="text-xs text-muted-foreground">{item.unit}</div>
+                          <div className="text-xs text-muted-foreground">{unitShort(item.unit)}</div>
                         </div>
                         {/* Measurement detail section for FABRIC/GREIGE */}
                         {renderDetailSection(item, index)}

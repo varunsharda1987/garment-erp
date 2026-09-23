@@ -4,8 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllGRNs } from '@/services/grn.service';
-import type { GRN, GRNStatus } from '@/types/grn.types';
+import type { GRN, GRNItem, GRNStatus } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
+import { MaterialTypeLabels, type MaterialType } from '@/types/material.types';
+import { unitPer } from '@/lib/units';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -13,6 +15,8 @@ import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
 import { PackageOpen, Eye } from 'lucide-react';
 import { formatDate } from '@/lib/date';
+import { formatCurrency } from '@/lib/currency';
+import { formatQuantity } from '@/lib/formatters';
 
 type Column<T> = {
   key: string;
@@ -21,6 +25,23 @@ type Column<T> = {
   className?: string;
   headerClassName?: string;
 };
+
+type Unit = GRNItem['unit'];
+
+/** Quantity summed per unit, so a mixed-unit receipt reads "120 m · 50 pcs". */
+function sumByUnit(items: GRNItem[], field: 'receivedQuantity' | 'acceptedQuantity'): string {
+  const totals = new Map<Unit, number>();
+  for (const item of items) totals.set(item.unit, (totals.get(item.unit) ?? 0) + Number(item[field] ?? 0));
+  return [...totals].map(([unit, qty]) => formatQuantity(qty, unit, 3)).join(' · ');
+}
+
+/** "Dyeing charge" — a job-work return is priced at what the processor bills, not the fabric's stock cost. */
+function processChargeLabel(jwo: NonNullable<GRN['jobWorkOrder']>): string {
+  const name =
+    jwo.processTypeMaster?.name ??
+    (jwo.processType ? jwo.processType.charAt(0) + jwo.processType.slice(1).toLowerCase().replace(/_/g, ' ') : 'Job');
+  return `${name} charge`;
+}
 
 export default function GRNList() {
   const navigate = useNavigate();
@@ -112,30 +133,37 @@ export default function GRNList() {
       header: 'PO / JWO',
       render: (grn) =>
         grn.poId ? (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/procurement/purchase-orders/${grn.poId}`);
-            }}
-            className="text-sm text-info hover:underline"
-          >
-            {grn.purchaseOrders?.poNumber || '-'}
-          </button>
-        ) : grn.jobWorkOrder ? (
-          <div className="flex items-center gap-2">
+          <div>
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/job-work-orders/${grn.jobWorkOrder!.id}`);
+                navigate(`/procurement/purchase-orders/${grn.poId}`);
               }}
               className="text-sm text-info hover:underline"
             >
-              {grn.jobWorkOrder.jobWorkNumber}
+              {grn.purchaseOrders?.poNumber || '-'}
             </button>
-            {/* The print already calls these "Job work return" — the list should say the same. */}
-            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              Job work return
-            </span>
+            <div className="text-xs text-muted-foreground">PO date {formatDate(grn.purchaseOrders?.poDate)}</div>
+          </div>
+        ) : grn.jobWorkOrder ? (
+          <div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/job-work-orders/${grn.jobWorkOrder!.id}`);
+                }}
+                className="text-sm text-info hover:underline"
+              >
+                {grn.jobWorkOrder.jobWorkNumber}
+              </button>
+              {/* The print already calls these "Job work return" — the list should say the same. */}
+              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                Job work return
+              </span>
+            </div>
+            {/* A JWO's date is the day it went to the processor — the JWO list's "Sent Date". */}
+            <div className="text-xs text-muted-foreground">Sent {formatDate(grn.jobWorkOrder.sentDate)}</div>
           </div>
         ) : (
           <span className="text-sm text-muted-foreground">-</span>
@@ -152,6 +180,86 @@ export default function GRNList() {
       ),
     },
     {
+      key: 'material',
+      header: 'Material',
+      render: (grn) => {
+        const items = grn.items ?? [];
+        const first = items[0];
+        if (!first) return <span className="text-sm text-muted-foreground">-</span>;
+        const type = first.materials?.materialType as MaterialType | undefined;
+        return (
+          <div className="max-w-[280px] space-y-1">
+            {type && <StatusBadge status={MaterialTypeLabels[type] ?? type} variant="info" />}
+            <div className="text-sm text-foreground line-clamp-2" title={first.materials?.name}>
+              {first.materials?.name || '-'}
+            </div>
+            {items.length > 1 && <div className="text-xs text-muted-foreground">+{items.length - 1} more</div>}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'qty',
+      header: 'Qty',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (grn) => {
+        const items = grn.items ?? [];
+        if (items.length === 0) return <span className="text-sm text-muted-foreground">-</span>;
+        const received = sumByUnit(items, 'receivedQuantity');
+        const accepted = sumByUnit(items, 'acceptedQuantity');
+        return (
+          <div className="whitespace-nowrap">
+            <div className="text-sm text-foreground">{received}</div>
+            {/* Value is on the accepted qty — say so when it differs from what arrived. */}
+            {accepted !== received && <div className="text-xs text-muted-foreground">accepted {accepted}</div>}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'rate',
+      header: 'Rate',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (grn) => {
+        const items = grn.items ?? [];
+        const jwo = !grn.poId ? grn.jobWorkOrder : null;
+        const first = items[0];
+        const varies = new Set(items.map((i) => `${i.rate ?? ''}|${i.unit}`)).size > 1;
+        return (
+          <div className="whitespace-nowrap">
+            {!first || first.rate == null ? (
+              <span className="text-sm text-muted-foreground">—</span>
+            ) : varies ? (
+              <span className="text-sm text-muted-foreground">Varies</span>
+            ) : (
+              <span className="text-sm text-foreground">
+                {formatCurrency(first.rate)} / {unitPer(first.unit)}
+              </span>
+            )}
+            {jwo && (
+              <div className="text-xs text-muted-foreground">
+                {first?.rate == null ? 'kaaj + button' : processChargeLabel(jwo)}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (grn) =>
+        grn.totalValue != null ? (
+          <div className="text-sm font-medium text-foreground whitespace-nowrap">{formatCurrency(grn.totalValue)}</div>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
+    {
       key: 'warehouse',
       header: 'Warehouse',
       render: (grn) => <div className="text-sm text-foreground">{grn.warehouse?.warehouseName || '-'}</div>,
@@ -160,11 +268,6 @@ export default function GRNList() {
       key: 'invoiceNumber',
       header: 'Invoice #',
       render: (grn) => <div className="text-sm text-foreground">{grn.invoiceNumber || '-'}</div>,
-    },
-    {
-      key: 'items',
-      header: 'Items',
-      render: (grn) => <div className="text-sm text-foreground">{grn.itemCount || grn.items?.length || 0} items</div>,
     },
     {
       key: 'status',
@@ -212,7 +315,7 @@ export default function GRNList() {
         <div className="mb-6 space-y-4">
           <div className="flex-1">
             <SearchInput
-              placeholder="Search by GRN, PO or JWO number, supplier or warehouse..."
+              placeholder="Search by GRN, PO or JWO number, material, supplier or warehouse..."
               value={searchQuery}
               onChange={setSearchQuery}
             />

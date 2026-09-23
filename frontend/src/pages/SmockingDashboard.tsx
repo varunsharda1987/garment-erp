@@ -3,6 +3,7 @@
  * WIP dashboard + transaction list for smocking external process
  */
 
+import { unitShort } from '@/lib/units';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -271,10 +272,10 @@ export default function SmockingDashboard() {
                     <TableCell>{s.style?.buyerStyleRef || '—'}</TableCell>
                     <TableCell>{s.supplier?.name || '—'}</TableCell>
                     <TableCell className="text-right">
-                      {s.quantitySent} {s.unit}
+                      {s.quantitySent} {unitShort(s.unit)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {s.quantityReceived != null ? `${s.quantityReceived} ${s.unit}` : '—'}
+                      {s.quantityReceived != null ? `${s.quantityReceived} ${unitShort(s.unit)}` : '—'}
                     </TableCell>
                     <TableCell>{formatDate(new Date(s.sendDate))}</TableCell>
                     <TableCell>

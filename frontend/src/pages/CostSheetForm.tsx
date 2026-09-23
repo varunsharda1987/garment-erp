@@ -1,3 +1,4 @@
+import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -2653,7 +2654,7 @@ const CostSheetForm = () => {
                 {/* BUG-CS7 fix: disable when approved */}
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">
-                    Qty {trim.unit && <span className="text-xs text-muted-foreground">({trim.unit})</span>}
+                    Qty {trim.unit && <span className="text-xs text-muted-foreground">({unitShort(trim.unit)})</span>}
                   </label>
                   <Input
                     type="number"
@@ -2667,7 +2668,8 @@ const CostSheetForm = () => {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">
-                    Rate {trim.unit && <span className="text-xs text-muted-foreground">(per {trim.unit})</span>}
+                    Rate{' '}
+                    {trim.unit && <span className="text-xs text-muted-foreground">(per {unitPer(trim.unit)})</span>}
                   </label>
                   <Input
                     type="number"

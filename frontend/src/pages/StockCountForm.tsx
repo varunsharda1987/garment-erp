@@ -1,4 +1,5 @@
 // Stock Count Form - Create new physical inventory count
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X } from 'lucide-react';
@@ -200,7 +201,7 @@ export default function StockCountForm() {
                               >
                                 {stock.materials?.code} - {stock.materials?.name}{' '}
                                 <span className="text-muted-foreground">
-                                  ({Number(stock.quantity).toFixed(2)} {stock.unit})
+                                  ({Number(stock.quantity).toFixed(2)} {unitShort(stock.unit)})
                                 </span>
                               </Label>
                             </div>

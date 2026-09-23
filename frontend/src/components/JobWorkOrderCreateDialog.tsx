@@ -10,6 +10,7 @@
  * and Style sit ABOVE the branch: previously the Style field lived inside the service-process
  * branch, so on Dyeing it never rendered and the field could not be left blank on purpose.
  */
+import { unitPer, unitShort } from '@/lib/units';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -813,9 +814,9 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                         </p>
                       ) : greige?.averageShrinkagePercent != null && canQuote ? (
                         <p className="text-xs text-amber-600">
-                          No rate card for this processor on this greige at {debouncedQty} {selected?.uom || 'MTR'} —
-                          using {greige.greigeCode}&apos;s average {greige.averageShrinkagePercent}%. Enter the
-                          contracted figure if it differs.
+                          No rate card for this processor on this greige at {debouncedQty}{' '}
+                          {unitShort(selected?.uom || 'MTR')} — using {greige.greigeCode}&apos;s average{' '}
+                          {greige.averageShrinkagePercent}%. Enter the contracted figure if it differs.
                         </p>
                       ) : greige && needsQtyToQuote ? (
                         <p className="text-xs text-muted-foreground">
@@ -881,12 +882,12 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Quantity ({selected?.uom || 'PCS'}) *</Label>
+                  <Label>Quantity ({unitShort(selected?.uom || 'PCS')}) *</Label>
                   <Input type="number" min={0} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
                 </div>
                 {!isKaaj && (
                   <div className="space-y-2">
-                    <Label>Rate (₹/{selected?.uom || 'unit'}) *</Label>
+                    <Label>Rate (₹/{unitPer(selected?.uom || 'unit')}) *</Label>
                     <Input
                       type="number"
                       min={0}
@@ -917,8 +918,8 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                       </p>
                     ) : cardQuote?.status === 'NONE' && canQuote ? (
                       <p className="text-xs text-amber-600">
-                        No rate card for this processor on this greige at {debouncedQty} {selected?.uom || 'MTR'} —
-                        enter the agreed rate.
+                        No rate card for this processor on this greige at {debouncedQty}{' '}
+                        {unitShort(selected?.uom || 'MTR')} — enter the agreed rate.
                       </p>
                     ) : needsQtyToQuote ? (
                       <p className="text-xs text-muted-foreground">

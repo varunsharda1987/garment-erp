@@ -1,6 +1,7 @@
 // Stock Out Form - Issue materials via challan (purpose-first flow)
 // 3 purposes: Purchase Return (to supplier) | Internal Issue (dept to dept) | Send for Processing (redirects to Job Work Order)
 // Processing is handled via Job Work Order for proper job work tracking - this form only handles returns and internal transfers
+import { unitPer, unitShort } from '@/lib/units';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -889,7 +890,7 @@ export default function StockOutForm() {
 
                 const generalMaterialOptions: ComboboxOption[] = filteredLevels.map((stock) => ({
                   value: stock.materialId,
-                  label: `${stock.materials?.code} - ${stock.materials?.name} (${Number(stock.quantity).toFixed(2)} ${stock.unit})`,
+                  label: `${stock.materials?.code} - ${stock.materials?.name} (${Number(stock.quantity).toFixed(2)} ${unitShort(stock.unit)})`,
                   searchText: `${stock.materials?.code || ''} ${stock.materials?.name || ''}`,
                 }));
 
@@ -1031,8 +1032,8 @@ export default function StockOutForm() {
                             <Alert className="bg-muted/50 border-muted py-2">
                               <Info className="h-3 w-3" />
                               <AlertDescription className="text-xs">
-                                Available: {item.availableQty.toFixed(2)} {item.unit}
-                                {item.rate ? ` | Rate: ₹${item.rate.toFixed(2)}/${item.unit}` : ''}
+                                Available: {item.availableQty.toFixed(2)} {unitShort(item.unit)}
+                                {item.rate ? ` | Rate: ₹${item.rate.toFixed(2)}/${unitPer(item.unit)}` : ''}
                               </AlertDescription>
                             </Alert>
                           </div>

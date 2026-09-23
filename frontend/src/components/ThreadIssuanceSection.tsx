@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -177,7 +178,7 @@ export default function ThreadIssuanceSection({ workOrderId }: ThreadIssuanceSec
                           : '-'}
                       </TableCell>
                       <TableCell className="text-right font-mono">
-                        {item.quantityAvailable} {item.unit.toLowerCase()}
+                        {item.quantityAvailable} {unitShort(item.unit)}
                       </TableCell>
                       <TableCell className="text-right font-mono text-sm">
                         {item.metersAvailable ? item.metersAvailable.toLocaleString() : '-'}

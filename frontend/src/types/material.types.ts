@@ -4,6 +4,8 @@
 // MATERIAL TYPE ENUM
 // ============================================
 
+import { Unit } from './generated/prisma-enums';
+
 export const MaterialType = {
   GENERIC: 'GENERIC',
   TRIMS: 'TRIMS',
@@ -80,39 +82,9 @@ export const MaterialTypeLabels: Record<MaterialType, string> = {
 // UNIT ENUM
 // ============================================
 
-export const Unit = {
-  METER: 'METER',
-  PIECE: 'PIECE',
-  KILOGRAM: 'KILOGRAM',
-  SET: 'SET',
-  YARD: 'YARD',
-  DOZEN: 'DOZEN',
-  GROSS: 'GROSS',
-  TUBE: 'TUBE',
-  CONE: 'CONE',
-  SPOOL: 'SPOOL',
-  BOX: 'BOX',
-  PAIR: 'PAIR',
-  PACK: 'PACK',
-} as const;
-
-export type Unit = (typeof Unit)[keyof typeof Unit];
-
-export const UnitLabels: Record<Unit, string> = {
-  METER: 'Meter',
-  PIECE: 'Piece',
-  KILOGRAM: 'Kilogram',
-  SET: 'Set',
-  YARD: 'Yard',
-  DOZEN: 'Dozen',
-  GROSS: 'Gross',
-  TUBE: 'Tube',
-  CONE: 'Cone',
-  SPOOL: 'Spool',
-  BOX: 'Box',
-  PAIR: 'Pair',
-  PACK: 'Pack',
-};
+// Generated from schema.prisma — never re-type the values (the hand-typed copies drifted to 13 of 16).
+// Labels and abbreviations: `@/lib/units`.
+export { Unit };
 
 // ============================================
 // MATERIAL CATEGORY

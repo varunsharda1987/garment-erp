@@ -1,4 +1,5 @@
 // Stock Adjustment Form - Adjust stock with reason
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X } from 'lucide-react';
@@ -79,7 +80,9 @@ export default function StockAdjustmentForm() {
 
     if (formData.adjustmentType === 'decrease') {
       if (selectedStock && Number(formData.quantity) > Number(selectedStock.quantity)) {
-        setError(`Cannot decrease by more than available stock: ${selectedStock.quantity} ${selectedStock.unit}`);
+        setError(
+          `Cannot decrease by more than available stock: ${selectedStock.quantity} ${unitShort(selectedStock.unit)}`
+        );
         return;
       }
     }
@@ -167,7 +170,7 @@ export default function StockAdjustmentForm() {
                         <SelectItem key={stock.id} value={stock.materialId}>
                           {stock.materials?.code} - {stock.materials?.name}
                           {' (Current: '}
-                          {Number(stock.quantity).toFixed(2)} {stock.unit})
+                          {Number(stock.quantity).toFixed(2)} {unitShort(stock.unit)})
                         </SelectItem>
                       ))
                     )}
@@ -180,7 +183,7 @@ export default function StockAdjustmentForm() {
                 <div className="md:col-span-2">
                   <Alert className="bg-info-muted text-info border-info/20">
                     <AlertDescription>
-                      Current Stock: {Number(selectedStock.quantity).toFixed(2)} {selectedStock.unit}
+                      Current Stock: {Number(selectedStock.quantity).toFixed(2)} {unitShort(selectedStock.unit)}
                       {' | '}
                       Rate: ₹{Number(selectedStock.valuationRate).toFixed(2)}
                     </AlertDescription>

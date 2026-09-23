@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllMaterials, deleteMaterial, getAllCategories } from '@/services/material.service';
-import { UnitLabels, MaterialTypeLabels } from '@/types/material.types';
+import { MaterialTypeLabels } from '@/types/material.types';
+import { UNIT_OPTIONS, unitLabel } from '@/lib/units';
 import type { Material, MaterialCategory } from '@/types/material.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
@@ -160,7 +161,7 @@ export default function MaterialList() {
     {
       key: 'unit',
       header: 'Unit',
-      render: (material) => <div className="text-sm text-foreground">{UnitLabels[material.unit]}</div>,
+      render: (material) => <div className="text-sm text-foreground">{unitLabel(material.unit)}</div>,
     },
     {
       key: 'actions',
@@ -235,9 +236,9 @@ export default function MaterialList() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Units</SelectItem>
-                {Object.entries(UnitLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
+                {UNIT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
                   </SelectItem>
                 ))}
               </SelectContent>

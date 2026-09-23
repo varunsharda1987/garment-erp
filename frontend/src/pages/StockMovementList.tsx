@@ -1,4 +1,5 @@
 // Stock Movement List - Unified view of all material movements
+import { unitShort } from '@/lib/units';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Plus, ArrowDown, ArrowUp, ArrowLeftRight, Package, Search, FileText, ExternalLink } from 'lucide-react';
@@ -177,7 +178,7 @@ export default function StockMovementList() {
         return (
           <div className={`font-medium ${isInbound ? 'text-green-600' : 'text-red-600'}`}>
             {isInbound ? '+' : '-'}
-            {mov.quantity.toFixed(2)} {mov.unit}
+            {mov.quantity.toFixed(2)} {unitShort(mov.unit)}
           </div>
         );
       },

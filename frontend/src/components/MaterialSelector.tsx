@@ -1,4 +1,5 @@
 // MaterialSelector Component - Phase 2
+import { unitPer } from '@/lib/units';
 import React, { useState, useEffect } from 'react';
 import { Package, Info } from 'lucide-react';
 import type { MaterialType, Material } from '../types/style-material-bom.types';
@@ -118,7 +119,7 @@ export const MaterialSelector: React.FC<MaterialSelectorProps> = ({
             </div>
             <div className="text-sm text-muted-foreground mt-1">{getSpecificationsSummary(value)}</div>
             <div className="text-sm font-semibold text-info mt-1">
-              {formatPrice(parsePrice(value.pricePerUnit))} per {value.unit}
+              {formatPrice(parsePrice(value.pricePerUnit))} per {unitPer(value.unit)}
             </div>
           </div>
           <Button type="button" variant="ghost" size="sm" onClick={handleClear} disabled={disabled}>

@@ -22,6 +22,7 @@ import { openPDF } from '@/lib/document-utils';
 import { getMaterialLedger, materialLedgerPdfPath } from '@/services/materialLedger.service';
 import type { LedgerRow, MaterialLedger as Ledger } from '@/types/materialLedger.types';
 import { formatDate } from '@/lib/date';
+import { unitShort } from '@/lib/units';
 
 const KIND_LABEL: Record<string, string> = {
   RECEIPT: 'Received',
@@ -49,14 +50,6 @@ const SOURCE_LABEL: Record<string, string> = {
   STOCK_IN: 'Stock In',
   MANUAL: 'Manual',
 };
-
-function unitLabel(unit: string): string {
-  const u = unit.trim().toUpperCase();
-  if (['METER', 'METERS', 'MTR', 'M'].includes(u)) return 'm';
-  if (['PIECE', 'PIECES', 'PCS'].includes(u)) return 'pcs';
-  if (['KG', 'KGS'].includes(u)) return 'kg';
-  return unit.toLowerCase();
-}
 
 const fmtDate = (value: string) => formatDate(new Date(value));
 
@@ -93,13 +86,13 @@ function Row({ row, unit }: { row: LedgerRow; unit: string }) {
       <TableCell className="text-xs text-muted-foreground">{row.warehouse?.name ?? '—'}</TableCell>
       <TableCell className="text-xs">{row.lot?.label ?? (row.lot ? row.lot.id.slice(0, 8) : '—')}</TableCell>
       <TableCell className="text-right text-sm">
-        {row.direction === 'IN' ? formatQuantity(row.qty, unitLabel(row.unit || unit)) : '—'}
+        {row.direction === 'IN' ? formatQuantity(row.qty, row.unit || unit) : '—'}
       </TableCell>
       <TableCell className="text-right text-sm">
-        {row.direction === 'OUT' ? formatQuantity(row.qty, unitLabel(row.unit || unit)) : '—'}
+        {row.direction === 'OUT' ? formatQuantity(row.qty, row.unit || unit) : '—'}
       </TableCell>
       <TableCell className={`text-right text-sm font-medium ${row.balance < -0.005 ? 'text-destructive' : ''}`}>
-        {formatQuantity(row.balance, unitLabel(unit))}
+        {formatQuantity(row.balance, unit)}
       </TableCell>
     </TableRow>
   );
@@ -218,7 +211,7 @@ export default function MaterialLedgerPage() {
                   {ledger.material.code} · {ledger.material.name}
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  {formatMaterialType(ledger.material.materialType)} · measured in {unitLabel(ledger.material.unit)}
+                  {formatMaterialType(ledger.material.materialType)} · measured in {unitShort(ledger.material.unit)}
                   {ledger.filters.warehouseName && <> · {ledger.filters.warehouseName}</>}
                 </div>
               </div>
@@ -226,26 +219,22 @@ export default function MaterialLedgerPage() {
                 <div>
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">Ledger closing</div>
                   <div className="text-xl font-semibold">
-                    {formatQuantity(ledger.onHand.ledgerClosingAllTime, unitLabel(unit))}
+                    {formatQuantity(ledger.onHand.ledgerClosingAllTime, unit)}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">Stock records</div>
                   <div className="text-xl font-semibold">
-                    {ledger.onHand.stockLevels != null
-                      ? formatQuantity(ledger.onHand.stockLevels, unitLabel(unit))
-                      : '—'}
+                    {ledger.onHand.stockLevels != null ? formatQuantity(ledger.onHand.stockLevels, unit) : '—'}
                   </div>
                 </div>
                 {ledger.onHand.lotsAvailable != null && (
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">Lots available</div>
-                    <div className="text-xl font-semibold">
-                      {formatQuantity(ledger.onHand.lotsAvailable, unitLabel(unit))}
-                    </div>
+                    <div className="text-xl font-semibold">{formatQuantity(ledger.onHand.lotsAvailable, unit)}</div>
                     {ledger.onHand.lotsReserved ? (
                       <div className="text-xs text-muted-foreground">
-                        {formatQuantity(ledger.onHand.lotsReserved, unitLabel(unit))} reserved
+                        {formatQuantity(ledger.onHand.lotsReserved, unit)} reserved
                       </div>
                     ) : null}
                   </div>
@@ -300,9 +289,7 @@ export default function MaterialLedgerPage() {
                       <TableCell colSpan={7} className="font-medium">
                         Opening balance
                       </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatQuantity(ledger.opening, unitLabel(unit))}
-                      </TableCell>
+                      <TableCell className="text-right font-medium">{formatQuantity(ledger.opening, unit)}</TableCell>
                     </TableRow>
                   )}
                   {ledger.rows.map((row) => (
@@ -318,11 +305,9 @@ export default function MaterialLedgerPage() {
                   {ledger.rows.length > 0 && (
                     <TableRow className="border-t-2 font-semibold">
                       <TableCell colSpan={5}>Total for the period</TableCell>
-                      <TableCell className="text-right">{formatQuantity(ledger.totals.in, unitLabel(unit))}</TableCell>
-                      <TableCell className="text-right">{formatQuantity(ledger.totals.out, unitLabel(unit))}</TableCell>
-                      <TableCell className="text-right">
-                        {formatQuantity(ledger.totals.closing, unitLabel(unit))}
-                      </TableCell>
+                      <TableCell className="text-right">{formatQuantity(ledger.totals.in, unit)}</TableCell>
+                      <TableCell className="text-right">{formatQuantity(ledger.totals.out, unit)}</TableCell>
+                      <TableCell className="text-right">{formatQuantity(ledger.totals.closing, unit)}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>

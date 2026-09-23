@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Edit, Trash2, Plus, Package, DollarSign, Ruler, Palette } from 'lucide-react';
@@ -580,10 +581,10 @@ export default function FabricDetail() {
                       <tr key={stock.id} className="hover:bg-muted">
                         <td className="px-4 py-3 text-sm text-foreground">{stock.width}"</td>
                         <td className="px-4 py-3 text-sm font-medium text-foreground">
-                          {stock.quantityAvailable.toFixed(2)} {stock.unit}
+                          {stock.quantityAvailable.toFixed(2)} {unitShort(stock.unit)}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground">
-                          {stock.quantityReserved.toFixed(2)} {stock.unit}
+                          {stock.quantityReserved.toFixed(2)} {unitShort(stock.unit)}
                         </td>
                         <td className="px-4 py-3">
                           <StatusBadge

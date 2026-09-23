@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -731,7 +732,7 @@ const OrderBOMDetail = () => {
                           '-'
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-center">{item.unit}</td>
+                      <td className="px-4 py-3 text-sm text-center">{unitShort(item.unit)}</td>
                       <td className="px-4 py-3 text-sm text-right">
                         {formatCurrency(item.unitPrice)}
                         {item.sourcingStrategy === 'GREIGE_PROCESSED' && (

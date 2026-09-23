@@ -7,6 +7,8 @@
 // ENUMS
 // ============================================
 
+import { Unit } from './generated/prisma-enums';
+
 export const PurchaseOrderStatus = {
   DRAFT: 'DRAFT',
   SENT: 'SENT',
@@ -159,26 +161,9 @@ export interface POStats {
   totalValue: number;
 }
 
-export const Unit = {
-  METER: 'METER',
-  PIECE: 'PIECE',
-  KILOGRAM: 'KILOGRAM',
-  SET: 'SET',
-  YARD: 'YARD',
-  DOZEN: 'DOZEN',
-  GROSS: 'GROSS',
-  TUBE: 'TUBE',
-  CONE: 'CONE',
-  SPOOL: 'SPOOL',
-  BOX: 'BOX',
-  PAIR: 'PAIR',
-  PACK: 'PACK',
-  GRAM: 'GRAM',
-  LITER: 'LITER',
-  ROLL: 'ROLL',
-} as const;
-
-export type Unit = (typeof Unit)[keyof typeof Unit];
+// Generated from schema.prisma — never re-type the values (the hand-typed copies drifted to 13 of 16).
+// Labels and abbreviations: `@/lib/units`.
+export { Unit };
 
 // ============================================
 // DELIVERY LOCATION TYPE

@@ -1,3 +1,4 @@
+import { unitPer, unitShort } from '@/lib/units';
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -63,7 +64,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
           Width Comparison for {fabricName}
           {materialRate > 0 && (
             <Badge variant="outline" className="ml-auto">
-              Rate: ₹{materialRate.toFixed(2)}/{comparisons[0].unit}
+              Rate: ₹{materialRate.toFixed(2)}/{unitPer(comparisons[0].unit)}
             </Badge>
           )}
         </CardTitle>
@@ -105,7 +106,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                       )}
                     </td>
                     <td className="text-right p-3">
-                      {comp.consumption.toFixed(3)} {comp.unit}
+                      {comp.consumption.toFixed(3)} {unitShort(comp.unit)}
                     </td>
                     <td className="text-right p-3">{comp.wastage.toFixed(1)}%</td>
                     <td className="text-right p-3">{comp.efficiency > 0 ? `${comp.efficiency.toFixed(1)}%` : '-'}</td>

@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -136,7 +137,7 @@ export default function OtherMaterialList() {
       header: 'Unit',
       render: (material) => (
         <Badge variant="secondary" className="text-xs">
-          {material.unit}
+          {unitShort(material.unit)}
         </Badge>
       ),
     },

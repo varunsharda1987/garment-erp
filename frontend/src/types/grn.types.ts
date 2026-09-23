@@ -61,6 +61,7 @@ export interface POSummary {
   id: string;
   poNumber: string;
   supplierId: string;
+  poDate?: string;
   expectedDeliveryDate: string;
   status: string;
   poCategory?: string;
@@ -125,6 +126,8 @@ export interface GRNItem {
   rejectedQuantity: number;
   unit: Unit;
   remarks: string | null;
+  componentName?: string | null;
+  colorName?: string | null;
   // Measurement fields
   foldLengthCm: number | null;
   receivedWidthInches: number | null;
@@ -139,6 +142,10 @@ export interface GRNItem {
   receivedAsReadyFabric: boolean;
   actualRatePerUnit: number | null;
   updateFutureSourcing: boolean;
+  /** List only — per-unit rate the line is valued at (override › PO price › processor's charge); null = unpriced */
+  rate?: number | null;
+  /** List only — accepted qty × rate */
+  value?: number | null;
   // Relations
   materials?: MaterialSummary;
   purchaseOrderItem?: POItemSummary;
@@ -168,7 +175,14 @@ export interface GRN {
   purchaseOrders?: POSummary;
   /** Set on a GRN raised against a job work order (no purchase order) — processed fabric/lace coming back. */
   jobWorkOrderId?: string | null;
-  jobWorkOrder?: { id: string; jobWorkNumber: string; processType?: string } | null;
+  jobWorkOrder?: {
+    id: string;
+    jobWorkNumber: string;
+    processType?: string;
+    sentDate?: string | null;
+    agreedRatePerMeter?: number;
+    processTypeMaster?: { name: string; code: string } | null;
+  } | null;
   supplier?: SupplierSummary;
   warehouse?: WarehouseSummary;
   items?: GRNItem[];
@@ -177,6 +191,8 @@ export interface GRN {
 
   // Computed
   itemCount?: number;
+  /** List only — what the receipt is worth (Σ line values; a job-work return = the processor's charge). null = a line has no price */
+  totalValue?: number | null;
 }
 
 // ============================================

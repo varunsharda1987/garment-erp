@@ -1,4 +1,5 @@
 // Stock Level List - View all stock levels
+import { unitShort } from '@/lib/units';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, TrendingDown, Package, X } from 'lucide-react';
@@ -147,7 +148,7 @@ export default function StockLevelList() {
         const isLow = status.variant === 'destructive' || status.variant === 'warning';
         return (
           <div className={`font-medium ${isLow ? 'text-destructive' : 'text-foreground'}`}>
-            {Number(stock.quantity).toFixed(2)} {stock.unit}
+            {Number(stock.quantity).toFixed(2)} {unitShort(stock.unit)}
           </div>
         );
       },

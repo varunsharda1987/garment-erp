@@ -12,7 +12,8 @@ import type { CreateChallanInput, CreateChallanItemInput } from '@/types/challan
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
-import { Unit, UnitLabels } from '@/types/material.types';
+import { Unit } from '@/types/material.types';
+import { UNIT_OPTIONS } from '@/lib/units';
 
 export default function ChallanForm() {
   const navigate = useNavigate();
@@ -296,9 +297,9 @@ export default function ChallanForm() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.values(Unit).map((unit) => (
-                        <SelectItem key={unit} value={unit}>
-                          {UnitLabels[unit]}
+                      {UNIT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

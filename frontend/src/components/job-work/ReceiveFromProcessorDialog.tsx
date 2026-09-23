@@ -1,4 +1,5 @@
 // Receive from processor — the one action that records a job-work return and books it into stock.
+import { unitShort } from '@/lib/units';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Loader2, PackageCheck } from 'lucide-react';
@@ -431,7 +432,7 @@ export default function ReceiveFromProcessorDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              <ReceiptDetailRows mode={entryMode} rows={rows} onChange={setRows} unit={uom === 'MTR' ? 'm' : uom} />
+              <ReceiptDetailRows mode={entryMode} rows={rows} onChange={setRows} unit={unitShort(uom)} />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="rfp-fold" className="text-xs">

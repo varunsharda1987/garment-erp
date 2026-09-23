@@ -1,4 +1,5 @@
 // Formatting utility functions
+import { unitShort } from './units';
 
 /**
  * Format a physical quantity for display.
@@ -8,19 +9,23 @@
  * defaults to 3 decimals and no fixed floor) produced a different number format in every column.
  * This trims float noise, keeps thousands separators, and never invents precision.
  *
+ * The unit may be any stored spelling (METER, MTR, meters, pcs…); it prints in the registry's short
+ * form — "1,707.3 m", "50 pcs" — so every screen reads the same (`@/lib/units`).
+ *
  * @param value    quantity to format
- * @param unit     optional unit appended after a space (e.g. "MTR")
+ * @param unit     optional unit appended after a space (e.g. "METER" → "m")
  * @param decimals maximum decimals to show, default 2; trailing zeros are dropped
  */
 export function formatQuantity(value: number | string | null | undefined, unit?: string | null, decimals = 2): string {
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (num === null || num === undefined || Number.isNaN(num)) return unit ? `0 ${unit}` : '0';
+  const suffix = unit ? unitShort(unit) : '';
+  if (num === null || num === undefined || Number.isNaN(num)) return suffix ? `0 ${suffix}` : '0';
 
   const formatted = num.toLocaleString('en-IN', {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
   });
-  return unit ? `${formatted} ${unit}` : formatted;
+  return suffix ? `${formatted} ${suffix}` : formatted;
 }
 
 /**

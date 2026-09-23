@@ -17,6 +17,7 @@ import type {
 } from '@/types/otherMaterial.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
+import { UNIT_OPTIONS, normalizeUnit } from '@/lib/units';
 
 interface OtherMaterialFormProps {
   mode?: 'create' | 'edit';
@@ -29,8 +30,6 @@ interface SupplierInput {
   notes: string;
   pricePerUnit: string;
 }
-
-const UNIT_OPTIONS = ['PIECE', 'METER', 'KG', 'GRAM', 'LITER', 'SET', 'PAIR', 'DOZEN', 'PACKET', 'BOX', 'ROLL', 'YARD'];
 
 export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialFormProps) {
   const { id } = useParams<{ id: string }>();
@@ -61,8 +60,10 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
           setMaterialCode(material.materialCode);
           setValue('materialName', material.materialName);
           setValue('category', material.category || '');
-          setValue('unit', material.unit || 'PIECE');
-          setSelectedUnit(material.unit || 'PIECE');
+          // Rows saved from the old list may hold 'KG' / 'PACKET' — read them as the unit they mean.
+          const unit = normalizeUnit(material.unit) ?? 'PIECE';
+          setValue('unit', unit);
+          setSelectedUnit(unit);
           setValue('specifications', material.specifications || '');
           setValue('pricePerUnit', material.pricePerUnit ?? undefined);
           setValue('description', material.description || '');
@@ -218,9 +219,9 @@ export default function OtherMaterialForm({ mode = 'create' }: OtherMaterialForm
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {UNIT_OPTIONS.map((unit) => (
-                        <SelectItem key={unit} value={unit}>
-                          {unit}
+                      {UNIT_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
                         </SelectItem>
                       ))}
                     </SelectContent>

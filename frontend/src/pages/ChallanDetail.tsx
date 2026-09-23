@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -370,7 +371,7 @@ export default function ChallanDetail() {
                       </TableCell>
                     </>
                   )}
-                  <TableCell>{item.unit}</TableCell>
+                  <TableCell>{unitShort(item.unit)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Material } from '@/types/material.types';
-import { UnitLabels } from '@/types/material.types';
+import { unitLabel, unitShort } from '@/lib/units';
 import { handleApiError } from '@/lib/api-error-handler';
 import { ArrowLeft, Edit, Package, Layers, Building2, FileText, AlertTriangle, Warehouse } from 'lucide-react';
 import { formatDateTime } from '@/lib/date';
@@ -138,7 +138,7 @@ export default function MaterialDetail() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Unit</label>
-                <p className="text-foreground">{UnitLabels[material.unit] || material.unit}</p>
+                <p className="text-foreground">{unitLabel(material.unit)}</p>
               </div>
               {material.reorderLevel && (
                 <div className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export default function MaterialDetail() {
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Reorder Level</label>
                     <p className="text-foreground">
-                      {material.reorderLevel} {UnitLabels[material.unit] || material.unit}
+                      {material.reorderLevel} {unitShort(material.unit)}
                     </p>
                   </div>
                 </div>
@@ -258,7 +258,7 @@ export default function MaterialDetail() {
                           <p className="text-xl font-semibold text-foreground">
                             {stock.quantity.toLocaleString('en-IN')}
                           </p>
-                          <p className="text-sm text-muted-foreground">{UnitLabels[stock.unit] || stock.unit}</p>
+                          <p className="text-sm text-muted-foreground">{unitShort(stock.unit)}</p>
                         </div>
                       </div>
                     </div>

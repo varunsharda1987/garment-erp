@@ -3,6 +3,7 @@
  * Tab 2: Fabrics & Trims (merged)
  */
 
+import { unitLabel, unitShort } from '@/lib/units';
 import { useStyleForm } from '../StyleFormContext';
 import { FABRIC_FINISH_TYPES } from '../types';
 import type { FabricFinishType } from '../types';
@@ -104,8 +105,8 @@ export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTri
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="METER">Meter</SelectItem>
-                        <SelectItem value="YARD">Yard</SelectItem>
+                        <SelectItem value="METER">{unitLabel('METER')}</SelectItem>
+                        <SelectItem value="YARD">{unitLabel('YARD')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -154,7 +155,7 @@ export function FabricsTrimsTab({ onPrevious, onNext, onOpenPicker }: FabricsTri
                     <span className="font-medium text-sm">{material.materialName}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Qty: {material.quantityPerGarment} {material.unit} · Category:{' '}
+                    Qty: {material.quantityPerGarment} {unitShort(material.unit)} · Category:{' '}
                     {material.usageCategory.replace('_', ' ')}
                     {material.componentName && ` · Component: ${material.componentName}`}
                   </p>

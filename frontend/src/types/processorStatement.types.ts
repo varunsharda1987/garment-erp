@@ -1,8 +1,9 @@
 // Processor Statement — mirrors the backend DTO (backend/src/services/processor-statement.service.ts).
 // Quantities arrive as plain numbers; dates as ISO strings through JSON.
+import type { JwoUom } from '@/lib/units';
 
 export type MaterialKind = 'GREIGE' | 'LACE' | 'FABRIC' | 'GARMENT';
-export type StatementUom = 'MTR' | 'PCS' | 'KG';
+export type StatementUom = JwoUom;
 
 export interface StatementMaterial {
   kind: MaterialKind;

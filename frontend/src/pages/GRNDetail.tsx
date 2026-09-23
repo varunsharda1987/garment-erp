@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -504,7 +505,7 @@ export default function GRNDetail() {
                     <TableCell className="text-right text-destructive">
                       {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
                     </TableCell>
-                    <TableCell>{item.unit}</TableCell>
+                    <TableCell>{unitShort(item.unit)}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{item.remarks || '-'}</TableCell>
                   </TableRow>
                 );

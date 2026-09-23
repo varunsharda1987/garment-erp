@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -1458,11 +1459,11 @@ export default function PurchaseOrderForm() {
                                 <div className="flex-1">
                                   <p className="font-medium text-sm">{item.materialName}</p>
                                   <p className="text-xs text-muted-foreground">
-                                    {item.materialCode} | {qtyPerGarment} {item.unit}/garment @{' '}
+                                    {item.materialCode} | {qtyPerGarment} {unitShort(item.unit)}/garment @{' '}
                                     {formatCurrency(parseFloat(item.unitPrice) || 0)}
                                     {calculatedQty && (
                                       <span className="ml-2 text-primary font-medium">
-                                        → {calculatedQty} {item.unit} needed
+                                        → {calculatedQty} {unitShort(item.unit)} needed
                                       </span>
                                     )}
                                   </p>
@@ -1511,10 +1512,10 @@ export default function PurchaseOrderForm() {
                             <div className="flex-1">
                               <p className="font-medium text-sm">{item.materialName}</p>
                               <p className="text-xs text-muted-foreground">
-                                {item.materialCode} | {qtyPerGarment} {item.unit}/garment
+                                {item.materialCode} | {qtyPerGarment} {unitShort(item.unit)}/garment
                                 {calculatedQty && (
                                   <span className="ml-2 text-primary font-medium">
-                                    → {calculatedQty} {item.unit} needed
+                                    → {calculatedQty} {unitShort(item.unit)} needed
                                   </span>
                                 )}
                               </p>
@@ -1894,7 +1895,7 @@ export default function PurchaseOrderForm() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="font-medium">
-                          {item.unit}
+                          {unitShort(item.unit)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -2291,7 +2292,7 @@ export default function PurchaseOrderForm() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">{item.hsnCode || '-'}</TableCell>
                         <TableCell className="text-right">{item.orderedQuantity}</TableCell>
-                        <TableCell>{item.unit}</TableCell>
+                        <TableCell>{unitShort(item.unit)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(parseFloat(item.unitPrice) || 0)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
                         <TableCell className="text-right">{gstRate}%</TableCell>
@@ -2469,7 +2470,7 @@ export default function PurchaseOrderForm() {
                             <TableCell className="font-medium">{material.code}</TableCell>
                             <TableCell>{material.name}</TableCell>
                             <TableCell>{material.materialType}</TableCell>
-                            <TableCell>{material.unit || '-'}</TableCell>
+                            <TableCell>{unitShort(material.unit || '-')}</TableCell>
                             <TableCell>
                               <Button
                                 size="sm"

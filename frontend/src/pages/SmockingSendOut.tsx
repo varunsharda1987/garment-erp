@@ -3,6 +3,7 @@
  * Form to send material out for smocking processing
  */
 
+import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
@@ -445,7 +446,7 @@ export default function SmockingSendOut() {
                   <SelectContent>
                     {fabricStocks.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.fabricCode} — {s.fabricName} (Available: {s.quantityAvailable} {s.unit})
+                        {s.fabricCode} — {s.fabricName} (Available: {s.quantityAvailable} {unitShort(s.unit)})
                       </SelectItem>
                     ))}
                   </SelectContent>

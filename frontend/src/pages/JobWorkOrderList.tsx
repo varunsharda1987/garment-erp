@@ -3,6 +3,7 @@
  * Unified view for all job work orders across process types
  */
 
+import { unitShort } from '@/lib/units';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -319,13 +320,13 @@ export default function JobWorkOrderList() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {jwo.qtySentMeters.toFixed(2)} {jwo.uom}
+                          {jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}
                         </TableCell>
                         <TableCell className="text-right">
                           {/* Billing basis: what the processor returns and bills for */}
                           {jwo.qtyBillable != null ? (
                             <>
-                              {jwo.qtyBillable.toFixed(2)} {jwo.uom}
+                              {jwo.qtyBillable.toFixed(2)} {unitShort(jwo.uom)}
                               {jwo.expectedShrinkage != null && jwo.expectedShrinkage > 0 && (
                                 <div className="text-[10px] text-muted-foreground">
                                   Shrinkage: {jwo.expectedShrinkage}%
@@ -362,7 +363,7 @@ export default function JobWorkOrderList() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${jwo.uom}` : '-'}
+                          {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                         </TableCell>
                         <TableCell>{jwo.sentDate ? formatDate(new Date(jwo.sentDate)) : '-'}</TableCell>
                         <TableCell>

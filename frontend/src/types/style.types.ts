@@ -620,9 +620,6 @@ export const ACCESSORY_TYPES = [
 // Process names
 export const PROCESS_NAMES = ['Printing', 'Dying', 'Embroidery', 'Handwork'];
 
-// Unit options for accessories
-export const UNIT_OPTIONS = ['pcs', 'meters', 'yards', 'dozen', 'grams', 'kg'];
-
 // Style Variant interface
 export interface StyleVariant {
   id: string;

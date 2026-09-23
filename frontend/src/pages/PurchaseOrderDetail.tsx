@@ -1,3 +1,4 @@
+import { unitShort } from '@/lib/units';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -722,7 +723,7 @@ export default function PurchaseOrderDetail() {
                       {Number(item.orderedQuantity).toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right">{Number(item.receivedQuantity).toLocaleString()}</TableCell>
-                    <TableCell>{item.unit}</TableCell>
+                    <TableCell>{unitShort(item.unit)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
                     <TableCell className="text-right">{formatCurrency(Number(item.totalPrice))}</TableCell>
                     <TableCell className="text-right text-xs">
@@ -922,13 +923,13 @@ export default function PurchaseOrderDetail() {
                     <TableRow key={line.id}>
                       <TableCell className="text-sm">{line.label}</TableCell>
                       <TableCell className="text-right text-sm tabular-nums">
-                        {line.ordered.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {line.unit}
+                        {line.ordered.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {unitShort(line.unit)}
                       </TableCell>
                       <TableCell className="text-right text-sm tabular-nums">
-                        {line.received.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {line.unit}
+                        {line.received.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {unitShort(line.unit)}
                       </TableCell>
                       <TableCell className="text-right text-sm font-medium tabular-nums">
-                        {line.balance.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {line.unit}
+                        {line.balance.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {unitShort(line.unit)}
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground">
                         {line.received <= 0

@@ -1,4 +1,5 @@
 // Stock Dashboard - Unified Inventory Overview (All Materials)
+import { unitShort } from '@/lib/units';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Warehouse, Package, TrendingUp, AlertTriangle, BarChart3, Layers, Box, Clock } from 'lucide-react';
@@ -349,7 +350,7 @@ export default function StockDashboard() {
                     <TableCell className="font-medium">{item.materials?.code}</TableCell>
                     <TableCell>{item.materials?.name}</TableCell>
                     <TableCell className="text-right">
-                      {Number(item.quantity).toFixed(2)} {item.unit}
+                      {Number(item.quantity).toFixed(2)} {unitShort(item.unit)}
                     </TableCell>
                     <TableCell>
                       Below reorder level ({item.reorderLevel ? Number(item.reorderLevel).toFixed(2) : 'N/A'})

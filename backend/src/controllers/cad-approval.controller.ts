@@ -6,6 +6,7 @@ import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from
 import { Decimal } from '@prisma/client/runtime/library';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
+import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 
 /**
  * Reserve fabric stock for a PRODUCTION CAD
@@ -113,6 +114,7 @@ export async function approveCADPurpose(req: Request, res: Response) {
           style_components: true,
         },
       },
+      sizeBreakdowns: { select: { quantity: true } },
     },
   });
 
@@ -130,6 +132,30 @@ export async function approveCADPurpose(req: Request, res: Response) {
     throw new BusinessError('CAD record is already approved');
   }
 
+  // An approved Production CAD is what unlocks cutting (2026-09-23), so it must carry an average:
+  // the stored one, or one computable from its layer length and size breakdown (then stored).
+  let productionAverageToStore: number | null = null;
+  if ((cadRecord.purposeEnum ?? cadRecord.purpose) === 'PRODUCTION') {
+    const pieces = cadRecord.piecesPerMarker ?? cadRecord.sizeBreakdowns.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    const average =
+      cadRecord.cadAverage !== null
+        ? Number(cadRecord.cadAverage)
+        : cadRecord.cadMeters
+          ? calculateCadAverage(
+              Number(cadRecord.cadMeters),
+              cadRecord.layerMarginMeters ? Number(cadRecord.layerMarginMeters) : null,
+              pieces
+            )
+          : null;
+    if (!average || average <= 0) {
+      throw new BusinessError(
+        'This Production CAD has no average yet. Enter the Layer Length and the Size Breakdown on the row, ' +
+          'save, then Approve.'
+      );
+    }
+    if (cadRecord.cadAverage === null) productionAverageToStore = average;
+  }
+
   // Update approval status
   const updated = await prisma.fabric_width_cad.update({
     where: { id: rowId },
@@ -138,6 +164,7 @@ export async function approveCADPurpose(req: Request, res: Response) {
       approvedBy: userId,
       approvedAt: new Date(),
       approvalNotes: approvalNotes || null,
+      ...(productionAverageToStore !== null ? { cadAverage: productionAverageToStore } : {}),
     },
     include: {
       approver: {
@@ -387,9 +414,6 @@ export async function copyCADPurpose(req: Request, res: Response) {
   // Fetch source CAD
   const sourceCad = await prisma.fabric_width_cad.findUnique({
     where: { id: sourceCadId },
-    include: {
-      sizeBreakdowns: true,
-    },
   });
 
   if (!sourceCad) {
@@ -419,82 +443,65 @@ export async function copyCADPurpose(req: Request, res: Response) {
     );
   }
 
+  // The price travels only between planning purposes. A PRODUCTION row is costed through
+  // Fabric Costing → Promote; a copied price made it a "costed PRODUCTION CAD" that could never
+  // be edited or deleted (validateCADModification), which stranded ESSKY085LS's rejected copy.
+  const costing =
+    targetPurpose === 'PRODUCTION'
+      ? {}
+      : {
+          greigeCostPerMeter: sourceCad.greigeCostPerMeter,
+          transportCostPerMeter: sourceCad.transportCostPerMeter,
+          shrinkagePercent: sourceCad.shrinkagePercent,
+          shrinkageCostPerMeter: sourceCad.shrinkageCostPerMeter,
+          screenCostPerMeter: sourceCad.screenCostPerMeter,
+          screenType: sourceCad.screenType,
+          totalCostPerMeter: sourceCad.totalCostPerMeter,
+          processorId: sourceCad.processorId,
+          processingPricePerMeter: sourceCad.processingPricePerMeter,
+          numberOfColors: sourceCad.numberOfColors,
+          costInputMode: sourceCad.costInputMode,
+          costingStyleId: sourceCad.costingStyleId,
+          orderQuantityPcs: sourceCad.orderQuantityPcs,
+          processingBatchGroupColorId: sourceCad.processingBatchGroupColorId,
+        };
+
   // Create new CAD with target purpose (Copy as Draft workflow)
-  const newCad = await prisma.fabric_width_cad.create({
-    data: {
-      // Copy all CAD structure fields
-      fabricId: sourceCad.fabricId,
-      styleFabricId: styleFabricId || sourceCad.styleFabricId,
-      cutableWidth: sourceCad.cutableWidth,
-      widthUnit: sourceCad.widthUnit,
-      cadMeters: sourceCad.cadMeters,
-      cadYards: sourceCad.cadYards,
-      cadAverage: sourceCad.cadAverage,
-      cadWastagePercent: sourceCad.cadWastagePercent,
-      markerEfficiency: sourceCad.markerEfficiency,
-      printDirection: sourceCad.printDirection,
-      layerMarginMeters: sourceCad.layerMarginMeters,
-      greigeId: sourceCad.greigeId,
-      componentName: sourceCad.componentName,
-      patternPartId: patternPartId || sourceCad.patternPartId,
-      isEmbroidery: sourceCad.isEmbroidery,
-      piecesPerMarker: sourceCad.piecesPerMarker,
-      markerLengthMeters: sourceCad.markerLengthMeters,
-      markerPlanFile: sourceCad.markerPlanFile,
+  const newCad = await prisma.$transaction(async (tx) => {
+    const created = await tx.fabric_width_cad.create({
+      data: {
+        ...cadMarkerFields(sourceCad),
+        styleFabricId: styleFabricId || sourceCad.styleFabricId,
+        patternPartId: patternPartId || sourceCad.patternPartId,
+        ...costing,
 
-      // Copy all cost fields (Fabric Costing data)
-      greigeCostPerMeter: sourceCad.greigeCostPerMeter,
-      transportCostPerMeter: sourceCad.transportCostPerMeter,
-      shrinkagePercent: sourceCad.shrinkagePercent,
-      shrinkageCostPerMeter: sourceCad.shrinkageCostPerMeter,
-      screenCostPerMeter: sourceCad.screenCostPerMeter,
-      screenType: sourceCad.screenType,
-      totalCostPerMeter: sourceCad.totalCostPerMeter,
-      processorId: sourceCad.processorId,
-      processingPricePerMeter: sourceCad.processingPricePerMeter,
-      numberOfColors: sourceCad.numberOfColors,
-      costInputMode: sourceCad.costInputMode,
-      costingStyleId: sourceCad.costingStyleId,
-      orderQuantityPcs: sourceCad.orderQuantityPcs,
-      processingBatchGroupColorId: sourceCad.processingBatchGroupColorId,
+        // Copy tracking - NEW FIELD
+        copiedFromId: sourceCad.id,
 
-      // Copy tracking - NEW FIELD
-      copiedFromId: sourceCad.id,
+        notes: sourceCad.notes
+          ? `${sourceCad.notes}\n\nCopied from ${sourceCad.purpose} CAD`
+          : `Copied from ${sourceCad.purpose} CAD`,
+        createdById: userId,
 
-      notes: sourceCad.notes
-        ? `${sourceCad.notes}\n\nCopied from ${sourceCad.purpose} CAD`
-        : `Copied from ${sourceCad.purpose} CAD`,
-      createdById: userId,
+        // Set target purpose
+        purpose: targetPurpose,
+        purposeEnum: targetPurpose as any, // Set enum field if exists
 
-      // Set target purpose
-      purpose: targetPurpose,
-      purposeEnum: targetPurpose as any, // Set enum field if exists
+        // Reset approval for new purpose - User must review and approve manually
+        approvalStatus: 'PENDING',
+        approvedBy: null,
+        approvedAt: null,
+        approvalNotes: null,
+        isPreferred: false, // Reset preferred flag
 
-      // Reset approval for new purpose - User must review and approve manually
-      approvalStatus: 'PENDING',
-      approvedBy: null,
-      approvedAt: null,
-      approvalNotes: null,
-      isPreferred: false, // Reset preferred flag
-
-      // For PRODUCTION, track planning width for variance
-      planningCadWidth: targetPurpose === 'PRODUCTION' ? sourceCad.cutableWidth : null,
-    },
-  });
-
-  // Copy size breakdowns
-  if (sourceCad.sizeBreakdowns && sourceCad.sizeBreakdowns.length > 0) {
-    await prisma.cad_size_breakdown.createMany({
-      data: sourceCad.sizeBreakdowns.map((sb) => ({
-        cadId: newCad.id,
-        sizeName: sb.sizeName,
-        sizeId: sb.sizeId,
-        quantity: sb.quantity,
-      })),
+        // For PRODUCTION, track planning width for variance
+        planningCadWidth: targetPurpose === 'PRODUCTION' ? sourceCad.cutableWidth : null,
+      },
     });
-  }
-
-  await recomputeStyleCadStatus(prisma, styleId);
+    await copyCadChildren(tx, sourceCad.id, created.id);
+    await recomputeStyleCadStatus(tx, styleId);
+    return created;
+  });
 
   return res.json({
     success: true,

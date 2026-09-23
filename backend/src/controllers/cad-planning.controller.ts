@@ -1845,6 +1845,7 @@ export async function getCADTableData(req: Request, res: Response) {
         },
         procurement: true,
         patternPart: { select: { name: true, code: true } },
+        grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
       },
       orderBy: { receivedDate: 'asc' },
     }),
@@ -1881,6 +1882,7 @@ export async function getCADTableData(req: Request, res: Response) {
         },
         procurement: true,
         patternPart: { select: { name: true, code: true } },
+        grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
       },
       orderBy: { receivedDate: 'asc' },
     });
@@ -1962,12 +1964,17 @@ export async function getCADTableData(req: Request, res: Response) {
       fabricStockId: true,
       approvalStatus: true,
     },
+    orderBy: { updatedAt: 'desc' },
   });
 
-  // Create map of stockId -> PRODUCTION CAD
+  // Create map of stockId -> PRODUCTION CAD. A lot can carry a rejected row AND its replacement:
+  // report the live one (APPROVED, then PENDING), newest first — never whichever came last.
+  const statusRank = (s: string | null) => (s === 'APPROVED' ? 0 : s === 'REJECTED' ? 2 : 1);
   const productionCadByStock = new Map<string, { id: string; approvalStatus: string | null }>();
   productionCads.forEach((cad) => {
-    if (cad.fabricStockId) {
+    if (!cad.fabricStockId) return;
+    const current = productionCadByStock.get(cad.fabricStockId);
+    if (!current || statusRank(cad.approvalStatus) < statusRank(current.approvalStatus)) {
       productionCadByStock.set(cad.fabricStockId, {
         id: cad.id,
         approvalStatus: cad.approvalStatus,
@@ -1991,9 +1998,12 @@ export async function getCADTableData(req: Request, res: Response) {
       quantityAvailable: Number(stock.quantityAvailable),
       qualityGrade: stock.qualityGrade || 'A',
       stockLotNumber: stock.id.substring(0, 8), // Use first 8 chars of ID as lot identifier
+      // The receipt that booked the lot — what tells two lots of one fabric apart on screen
+      grnNumber: stock.grnItem?.goods_receiving_notes?.grnNumber ?? null,
       styleFabricId: styleFabricMatch?.styleFabricId || null,
       componentId: styleFabricMatch?.componentId || null,
-      hasProductionCad: !!productionCad,
+      // A rejected Production CAD does not cover the lot: Create CAD is offered again
+      hasProductionCad: !!productionCad && productionCad.approvalStatus !== 'REJECTED', // allow-cad-approval
       productionCadId: productionCad?.id || null,
       productionCadStatus: productionCad?.approvalStatus || null,
       patternPartName: (stock as any).patternPart?.name || null,
@@ -2119,6 +2129,11 @@ export async function getCADTableData(req: Request, res: Response) {
     costingApprovalStatus: string | null;
     isLocked: boolean;
     fabricStockId: string | null;
+    // Why and by whom a REJECTED row was rejected — the table showed none of it
+    approvalNotes: string | null;
+    rejectedAt: Date | null;
+    rejectedBy: string | null;
+    rejectedByName: string | null;
   }> = [];
 
   // Iterate through components and fabrics to build rows
@@ -2274,6 +2289,10 @@ export async function getCADTableData(req: Request, res: Response) {
           costingApprovalStatus: cad.costingApprovalStatus || null,
           isLocked: cad.isLocked || false,
           fabricStockId: cad.fabricStockId || null,
+          approvalNotes: cad.approvalNotes ?? null,
+          rejectedAt: cad.rejectedAt ?? null,
+          rejectedBy: cad.rejectedBy ?? null,
+          rejectedByName: null,
         });
       });
     });
@@ -2439,7 +2458,30 @@ export async function getCADTableData(req: Request, res: Response) {
         costingApprovalStatus: cad.costingApprovalStatus || null,
         isLocked: cad.isLocked || false,
         fabricStockId: cad.fabricStockId || null,
+        approvalNotes: cad.approvalNotes ?? null,
+        rejectedAt: cad.rejectedAt ?? null,
+        rejectedBy: cad.rejectedBy ?? null,
+        rejectedByName: null,
       });
+    }
+  }
+
+  // Name who rejected each REJECTED row (one lookup for the whole table)
+  const rejectorIds = [
+    ...new Set(
+      cadRows
+        .filter((r) => r.approvalStatus === 'REJECTED' && r.rejectedBy) // allow-cad-approval
+        .map((r) => r.rejectedBy as string)
+    ),
+  ];
+  if (rejectorIds.length > 0) {
+    const rejectors = await prisma.users.findMany({
+      where: { id: { in: rejectorIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const nameOf = new Map(rejectors.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ')]));
+    for (const r of cadRows) {
+      if (r.rejectedBy) r.rejectedByName = nameOf.get(r.rejectedBy) ?? null;
     }
   }
 
@@ -2685,7 +2727,10 @@ export async function addCADTableRow(req: Request, res: Response) {
   const newCad = (await prisma.fabric_width_cad.create({
     data: {
       styleFabricId: styleFabricId, // Link to style fabric directly
-      costingStyleId: styleId, // ✅ FIX: Set explicitly to avoid NULL in unique constraint
+      // ✅ FIX: Set explicitly to avoid NULL in unique constraint — except PRODUCTION: one row per
+      // stock lot (2026-09-23), so two lots of one width must not share the unique key. The
+      // styleFabricId above is what ties a Production row to the style.
+      costingStyleId: purpose === 'PRODUCTION' ? null : styleId,
       // For PRODUCTION: use fabric from stock; otherwise use style fabric's fabric if set
       fabricId:
         purpose === 'PRODUCTION' && validatedStock ? validatedStock.fabricId : styleFabric.fabricId || undefined,

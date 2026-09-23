@@ -12,6 +12,7 @@ import {
   buildBatchFabricRows,
   dedupeChartEntries,
 } from './cutting.utils';
+import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
@@ -1729,6 +1730,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   // backfill cadAverage if null but computable, sync BOM fabricId
   for (const cad of cadRows) {
     const cadPurpose = cad.purposeEnum || cad.purpose;
+    // A rejected row is repaired into nothing: no slot link, no BOM fabric, no average
+    if (cad.approvalStatus === 'REJECTED') continue; // allow-cad-approval
 
     // Backfill styleFabricId if missing
     if (cadPurpose === 'PRODUCTION' && !cad.styleFabric && cad.fabricId) {
@@ -1761,9 +1764,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       }
     }
 
-    // Sync BOM fabricId
+    // Sync BOM fabricId — only from a Production CAD someone approved
     if (
       cadPurpose === 'PRODUCTION' &&
+      cad.approvalStatus === 'APPROVED' && // allow-cad-approval
       cad.fabricId &&
       (cad as any).styleFabric?.fabricId &&
       cad.fabricId !== (cad as any).styleFabric.fabricId
@@ -1855,7 +1859,12 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     const avg = cad.cadAverage ? Number(cad.cadAverage) : null;
 
     const cadPurpose = cad.purposeEnum || cad.purpose;
-    if (cadPurpose === 'COSTING' || cadPurpose === 'RAW_MATERIAL_CALCULATION' || cadPurpose === 'PRODUCTION') {
+    // A pending or rejected Production CAD still puts its fabric on the chart (entry above) but
+    // never supplies the Production average — cutting needs an approved one (2026-09-23)
+    if (
+      (cadPurpose === 'COSTING' || cadPurpose === 'RAW_MATERIAL_CALCULATION' || cadPurpose === 'PRODUCTION') &&
+      countsForPurposeAverage(cadPurpose, cad.approvalStatus)
+    ) {
       // Rank the candidate rather than letting the last one seen win. Higher is better:
       // a row that HAS an average always beats one that does not (a value-less row may never erase
       // a real one), then an approved row, then the preferred row. Ties fall to the deterministic

@@ -396,7 +396,7 @@ export const cadPlanningService = {
   async createProductionCADFromStock(
     styleId: string,
     data: CreateProductionCADFromStockRequest
-  ): Promise<{ success: boolean; data: CADSpreadsheetRow }> {
+  ): Promise<{ success: boolean; data: CADSpreadsheetRow; warning?: string | null }> {
     const response = await api.post(`/cad-planning/${styleId}/production-from-stock`, data);
     return response.data;
   },

@@ -37,6 +37,7 @@ import {
   Decimal,
 } from '../../utils/currency';
 import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { countsForPurposeAverage } from '../helpers/cad-status.helper';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtPct, fmtQty } from './format';
 
@@ -243,8 +244,18 @@ function cadPurpose(cad: CadRow): string {
   return cad.purposeEnum ?? cad.purpose ?? 'COSTING';
 }
 
-function pickCad(cadRows: CadRow[]): CadRow | null {
-  const usable = cadRows.filter((c) => c.cadAverage != null || c.cadMeters != null || !isZero(c.cutableWidth));
+/**
+ * The marker the printed chart plans to. A rejected row never counts, and a Production row only
+ * once approved (countsForPurposeAverage) — until 2026-09-23 a REJECTED Production CAD beat an
+ * APPROVED raw-material marker here. Without an approved Production CAD the chart falls back to
+ * the planning marker and says so in its basis label.
+ */
+export function pickCad(cadRows: CadRow[]): CadRow | null {
+  const usable = cadRows.filter(
+    (c) =>
+      countsForPurposeAverage(cadPurpose(c), c.approvalStatus) &&
+      (c.cadAverage != null || c.cadMeters != null || !isZero(c.cutableWidth))
+  );
   if (usable.length === 0) return null;
   // Purpose first, then the width the planner marked preferred for this fabric.
   return [...usable].sort(

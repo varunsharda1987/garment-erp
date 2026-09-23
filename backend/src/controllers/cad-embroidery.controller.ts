@@ -5,11 +5,15 @@
  */
 
 import { Request, Response } from 'express';
+import { Prisma, fabric_width_cad } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { ALL_PARTS_CODE, getDefaultLayerMargin } from './cad-planning.utils';
+import { resolveManualJobStyleFabricAnchor } from '../services/helpers/fabric-identity.helper';
+import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
+import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
 // ============================================================================
 // EMBROIDERY CAD API ENDPOINTS
@@ -422,9 +426,18 @@ export async function getTotalFabricCad(req: Request, res: Response) {
 // ============================================================================
 
 /**
- * Create PRODUCTION CAD from stock receipt
- * Allows creating new PRODUCTION CAD rows for new stock lots even after style is approved
- * POST /api/styles/:styleId/cad-planning/production-from-stock
+ * Create a PRODUCTION CAD from a received stock lot — the "Create CAD" button on CAD Planning's
+ * Fabric Stock Available banner. One Production CAD per lot (owner decision 2026-09-23),
+ * pre-filled from the style's approved planning marker so the team checks it and approves it.
+ *
+ * Until 2026-09-23 this made unusable rows whenever the style's fabric slot was not linked to the
+ * received fabric (ESSKY085LS): no slot → a row with no styleFabricId and no costingStyleId,
+ * invisible to the table's approve path and to cutting, which still marked the lot "with CAD". It
+ * also copied the layer length but no sizes, pieces or average, let the planning row's fabric win
+ * over the lot's, and skipped the style CAD-status recompute. Now the slot is resolved or the
+ * request is refused with no row written.
+ *
+ * POST /api/cad-planning/:styleId/production-from-stock
  */
 export async function createProductionCADFromStock(req: Request, res: Response) {
   const { styleId } = req.params;
@@ -435,129 +448,147 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     throw new ValidationError('fabricStockId is required');
   }
 
-  // 1. Fetch fabric stock details
   const fabricStock = await prisma.fabric_stock.findUnique({
     where: { id: fabricStockId },
     include: {
       fabricMaster: {
-        include: {
-          greige: true,
-        },
+        select: { fabricCode: true, greigeId: true, finishType: true, greige: { select: { genericGreigeName: true } } },
       },
-      procurement: true,
+      grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
     },
   });
-
   if (!fabricStock) {
     throw new NotFoundError('Fabric stock', fabricStockId);
   }
+  const style = await prisma.styles.findUnique({ where: { id: styleId }, select: { styleCode: true } });
+  if (!style) {
+    throw new NotFoundError('Style', styleId);
+  }
 
-  // 1b. Auto-resolve styleFabricId if not provided
-  let resolvedStyleFabricId = styleFabricId;
+  const lotLabel = [fabricStock.fabricMaster?.fabricCode, fabricStock.grnItem?.goods_receiving_notes?.grnNumber]
+    .filter(Boolean)
+    .join(', ');
+  const finishType: 'DYED' | 'PRINTED' =
+    (fabricStock.fabricFinishType ?? fabricStock.fabricMaster?.finishType) === 'PRINTED' ? 'PRINTED' : 'DYED';
+  const lotGreigeId = fabricStock.fabricMaster?.greigeId ?? null;
+  const lotGeneric = fabricStock.fabricMaster?.greige?.genericGreigeName?.trim().toLowerCase() ?? null;
+
+  // 1. Which of the style's fabric slots this lot belongs to — resolved, or refused
+  const slotsOfStyle = (where: Prisma.style_fabricsWhereInput) =>
+    prisma.style_fabrics.findMany({
+      where: { AND: [where, { style_components: { styleId } }] },
+      select: { id: true, genericGreigeName: true, fabricFinishType: true },
+    });
+
+  let resolvedStyleFabricId: string | null = null;
+  if (styleFabricId) {
+    const [sf] = await slotsOfStyle({ id: styleFabricId });
+    if (!sf) {
+      throw new BusinessError('That fabric does not belong to this style.');
+    }
+    resolvedStyleFabricId = sf.id;
+  }
   if (!resolvedStyleFabricId) {
-    // Try matching stock's fabricId to style_fabrics.fabricId (works for ready fabric path)
-    const matchByFabricId = await prisma.style_fabrics.findFirst({
-      where: {
-        style_components: { styleId },
-        fabricId: fabricStock.fabricId,
-      },
-      select: { id: true },
-    });
-    if (matchByFabricId) {
-      resolvedStyleFabricId = matchByFabricId.id;
-    }
+    // The slot already linked to this lot's fabric (ready fabric, or a dyed fabric the receipt linked)
+    const claimed = await slotsOfStyle({ fabricId: fabricStock.fabricId });
+    if (claimed.length === 1) resolvedStyleFabricId = claimed[0].id;
   }
-  // Fallback: match by greigeId (greige→processing path creates a different fabric_master,
-  // but both the planning and finished fabrics share the same greigeId)
-  if (!resolvedStyleFabricId && fabricStock.fabricMaster?.greigeId) {
-    const matchByGreige = await prisma.style_fabrics.findFirst({
-      where: {
-        style_components: { styleId },
-        fabric: { greigeId: fabricStock.fabricMaster.greigeId },
-      },
-      select: { id: true },
-    });
-    if (matchByGreige) {
-      resolvedStyleFabricId = matchByGreige.id;
-    }
+  if (!resolvedStyleFabricId && componentId) {
+    const matching = (await slotsOfStyle({ componentId })).filter(
+      (s) =>
+        (!lotGeneric || !s.genericGreigeName || s.genericGreigeName.trim().toLowerCase() === lotGeneric) &&
+        (!s.fabricFinishType || s.fabricFinishType === finishType)
+    );
+    if (matching.length === 1) resolvedStyleFabricId = matching[0].id;
+  }
+  if (!resolvedStyleFabricId && lotGreigeId) {
+    // The greige the lot was dyed from, read off the style's CAD rows (the receipt's own fallback)
+    resolvedStyleFabricId = await resolveManualJobStyleFabricAnchor(styleId, lotGreigeId, finishType);
+  }
+  if (!resolvedStyleFabricId && lotGreigeId) {
+    const byGreige = await slotsOfStyle({ fabric: { greigeId: lotGreigeId } });
+    if (byGreige.length === 1) resolvedStyleFabricId = byGreige[0].id;
+  }
+  if (!resolvedStyleFabricId) {
+    throw new BusinessError(
+      `Cannot tell which fabric of ${style.styleCode} this lot belongs to (${lotLabel || fabricStockId}). ` +
+        `Check the style's fabrics (greige ${fabricStock.fabricMaster?.greige?.genericGreigeName ?? '—'}, ` +
+        `finish ${finishType}) and press Create CAD again.`
+    );
   }
 
-  // 2. Find source CAD to copy from (COSTING or existing PRODUCTION)
-  let sourceCAD: any = null;
+  // 2. One Production CAD per lot — a rejected one may be replaced
+  const existing = await prisma.fabric_width_cad.findFirst({
+    where: {
+      fabricStockId,
+      AND: [
+        { OR: [{ purposeEnum: 'PRODUCTION' }, { purpose: 'PRODUCTION' }] },
+        { OR: [{ approvalStatus: null }, { approvalStatus: { not: 'REJECTED' } }] }, // allow-cad-approval
+      ],
+    },
+    select: { approvalStatus: true },
+  });
+  if (existing) {
+    throw new BusinessError(
+      `This lot (${lotLabel || fabricStockId}) already has a Production CAD (${(existing.approvalStatus ?? 'PENDING').toLowerCase()}). ` +
+        `Open it in the Production section of the table.`
+    );
+  }
 
+  // 3. The marker to start from: the slot's approved planning row, RAW MAT first, same width first
+  const stockWidth = Number(fabricStock.cutableWidth);
+  let source: fabric_width_cad | null = null;
   if (basedOnPlanningCadId) {
-    // Use the specified COSTING CAD as source (basedOnPlanningCadId param name kept for backwards compatibility)
-    sourceCAD = await prisma.fabric_width_cad.findUnique({
-      where: { id: basedOnPlanningCadId },
-    });
-  } else if (resolvedStyleFabricId) {
-    // Find the latest approved COSTING CAD for this style-fabric (renamed from PLANNING)
-    sourceCAD = await prisma.fabric_width_cad.findFirst({
+    source = await prisma.fabric_width_cad.findUnique({ where: { id: basedOnPlanningCadId } });
+  } else {
+    const purposeRank: Record<string, number> = { RAW_MATERIAL_CALCULATION: 0, COSTING: 1, PRODUCTION: 2 };
+    const candidates = await prisma.fabric_width_cad.findMany({
       where: {
         styleFabricId: resolvedStyleFabricId,
-        purpose: 'COSTING', // Renamed from PLANNING
-        approvalStatus: 'APPROVED',
+        approvalStatus: 'APPROVED', // allow-cad-approval — the GEOMETRY must be final to reuse it
+        purpose: { in: ['RAW_MATERIAL_CALCULATION', 'COSTING', 'PRODUCTION'] },
       },
       orderBy: [{ version: 'desc' }, { approvedAt: 'desc' }],
     });
-
-    // If no COSTING CAD, try RAW_MATERIAL_CALCULATION (common source for production)
-    if (!sourceCAD) {
-      sourceCAD = await prisma.fabric_width_cad.findFirst({
-        where: {
-          styleFabricId: resolvedStyleFabricId,
-          purpose: 'RAW_MATERIAL_CALCULATION',
-          approvalStatus: 'APPROVED',
-        },
-        orderBy: [{ version: 'desc' }, { approvedAt: 'desc' }],
-      });
-    }
-
-    // If still no source, try any approved PRODUCTION CAD
-    if (!sourceCAD) {
-      sourceCAD = await prisma.fabric_width_cad.findFirst({
-        where: {
-          styleFabricId: resolvedStyleFabricId,
-          purpose: 'PRODUCTION',
-          approvalStatus: 'APPROVED',
-        },
-        orderBy: { approvedAt: 'desc' },
-      });
-    }
+    const widthRank = (c: fabric_width_cad) => (Number(c.cutableWidth) === stockWidth ? 0 : 1);
+    candidates.sort(
+      (a, b) =>
+        (purposeRank[a.purposeEnum ?? a.purpose ?? ''] ?? 9) - (purposeRank[b.purposeEnum ?? b.purpose ?? ''] ?? 9) ||
+        widthRank(a) - widthRank(b)
+    );
+    source = candidates[0] ?? null;
   }
 
-  // 3. Get stock width
-  const stockWidth = Number(fabricStock.cutableWidth);
-  const planningWidth = sourceCAD ? Number(sourceCAD.cutableWidth) : null;
-
-  // 4. Calculate variance
+  // 4. Width variance. A marker planned at another width does not fit this lot: keep its sizes
+  //    and part, drop its layer length and average so the row cannot be approved on them.
+  const planningWidth = source ? Number(source.cutableWidth) : null;
   let widthVariance: number | null = null;
   let variancePercent: number | null = null;
-
   if (planningWidth && stockWidth) {
     widthVariance = stockWidth - planningWidth;
     variancePercent = (widthVariance / planningWidth) * 100;
   }
+  const widthMatches = widthVariance === null || Math.abs(widthVariance) < 0.01;
+  const warning =
+    source && !widthMatches
+      ? `This lot is ${stockWidth}" wide but the marker was planned at ${planningWidth}". ` +
+        `The sizes were copied; enter the layer length for ${stockWidth}" before approving.`
+      : !source
+        ? 'No approved planning marker was found for this fabric — enter the layer length and sizes before approving.'
+        : null;
 
-  // 5. Determine greige and pattern part
-  const finalGreigeId = greigeId || sourceCAD?.greigeId || fabricStock.fabricMaster?.greigeId;
-  const finalStyleFabricId = resolvedStyleFabricId || sourceCAD?.styleFabricId;
-
-  // Auto-populate pattern part (same logic as addCADTableRow in cad-planning.controller.ts)
-  let finalPatternPartId = patternPartId || sourceCAD?.patternPartId;
-  if (!finalPatternPartId && finalStyleFabricId) {
+  // 5. Pattern part: request → marker → lot → CAD Planning's auto rule
+  let finalPatternPartId: string | null = patternPartId || source?.patternPartId || fabricStock.patternPartId || null;
+  if (!finalPatternPartId) {
     const assignedParts = await prisma.style_pattern_parts.findMany({
-      where: { styleFabricId: finalStyleFabricId },
+      where: { styleFabricId: resolvedStyleFabricId },
       include: { patternPart: true },
     });
-
     if (assignedParts.length === 1) {
       finalPatternPartId = assignedParts[0].patternPartId;
       logInfo(`Auto-populated pattern part ${assignedParts[0].patternPart.name} for stock CAD`);
     } else if (assignedParts.length === 0) {
-      const allParts = await prisma.pattern_part_master.findFirst({
-        where: { code: ALL_PARTS_CODE },
-      });
+      const allParts = await prisma.pattern_part_master.findFirst({ where: { code: ALL_PARTS_CODE } });
       if (allParts) {
         finalPatternPartId = allParts.id;
         logInfo(`Auto-populated "All Parts" for stock CAD (no parts assigned)`);
@@ -565,59 +596,51 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     }
   }
 
-  // 6. Create new PRODUCTION CAD
-  const newCAD = await prisma.fabric_width_cad.create({
-    data: {
-      // Core fields
-      styleFabricId: finalStyleFabricId,
-      fabricId: sourceCAD?.fabricId || fabricStock.fabricId,
-      greigeId: finalGreigeId,
-      patternPartId: finalPatternPartId,
-      componentName: sourceCAD?.componentName,
+  const slot = await prisma.style_fabrics.findUnique({
+    where: { id: resolvedStyleFabricId },
+    select: { style_components: { select: { componentName: true } } },
+  });
+  const defaultWastage = await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
 
-      // Width from stock
-      cutableWidth: stockWidth,
-      widthUnit: 'inches',
+  // 6. Create — no costingStyleId and no costs: a lot's Production CAD is a marker, not a costing
+  const newCAD = await prisma.$transaction(async (tx) => {
+    const created = await tx.fabric_width_cad.create({
+      data: {
+        ...(source ? cadMarkerFields(source) : {}),
+        ...(source && !widthMatches
+          ? { cadMeters: null, cadYards: null, cadAverage: null, markerLengthMeters: null, markerEfficiency: null }
+          : {}),
+        styleFabricId: resolvedStyleFabricId,
+        fabricId: fabricStock.fabricId, // the lot's fabric, never the planning row's
+        greigeId: greigeId || lotGreigeId || source?.greigeId || null,
+        componentName: source?.componentName ?? slot?.style_components?.componentName ?? null,
+        patternPartId: finalPatternPartId,
+        cutableWidth: stockWidth,
+        widthUnit: 'inches',
+        cadWastagePercent: source?.cadWastagePercent ?? defaultWastage,
+        printDirection: source?.printDirection ?? 'TWO_WAY',
 
-      // Copy CAD metrics from source if available
-      cadMeters: sourceCAD?.cadMeters ?? null,
-      cadYards: sourceCAD?.cadYards || null,
-      cadWastagePercent:
-        sourceCAD?.cadWastagePercent ??
-        (await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT')),
-      layerMarginMeters: sourceCAD?.layerMarginMeters ?? null,
-      markerEfficiency: sourceCAD?.markerEfficiency || null,
-      printDirection: sourceCAD?.printDirection || 'TWO_WAY',
+        purpose: 'PRODUCTION',
+        purposeEnum: 'PRODUCTION',
+        approvalStatus: 'PENDING',
 
-      // Purpose and status
-      // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
-      purpose: 'PRODUCTION',
-      purposeEnum: 'PRODUCTION' as any,
-      approvalStatus: 'PENDING',
+        fabricStockId,
+        procurementId: fabricStock.procurementId,
+        copiedFromId: source?.id ?? null,
 
-      // Stock integration
-      fabricStockId,
-      procurementId: fabricStock.procurementId,
+        planningCadWidth: planningWidth,
+        widthVariance,
+        variancePercent,
 
-      // Variance tracking
-      planningCadWidth: planningWidth,
-      widthVariance,
-      variancePercent,
-
-      // Audit
-      createdById: userId,
-      notes: `Created from stock lot. Stock width: ${stockWidth}". ${planningWidth ? `Planning width: ${planningWidth}". Variance: ${widthVariance?.toFixed(2)}"` : ''}`,
-    },
-    include: {
-      styleFabric: {
-        include: {
-          style_components: true,
-        },
+        createdById: userId,
+        notes:
+          `Created from stock lot ${lotLabel || fabricStockId}. Stock width: ${stockWidth}".` +
+          (source ? ` Marker from ${source.purposeEnum ?? source.purpose} at ${planningWidth}".` : ''),
       },
-      greige: true,
-      fabricStock: true,
-      patternPart: true,
-    },
+    });
+    if (source) await copyCadChildren(tx, source.id, created.id);
+    await recomputeStyleCadStatus(tx, styleId);
+    return created;
   });
 
   logInfo(`Created PRODUCTION CAD ${newCAD.id} from stock ${fabricStockId} for style ${styleId}`);
@@ -625,19 +648,19 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
   return res.status(201).json({
     success: true,
     message: 'PRODUCTION CAD created from stock',
+    warning,
     data: {
       id: newCAD.id,
       cutableWidth: newCAD.cutableWidth,
       cadMeters: newCAD.cadMeters,
+      cadAverage: newCAD.cadAverage,
       purpose: newCAD.purpose,
       approvalStatus: newCAD.approvalStatus,
       fabricStockId: newCAD.fabricStockId,
+      styleFabricId: newCAD.styleFabricId,
       planningCadWidth: newCAD.planningCadWidth,
       widthVariance: newCAD.widthVariance,
       variancePercent: newCAD.variancePercent,
-      styleFabric: newCAD.styleFabric,
-      greige: newCAD.greige,
-      patternPart: newCAD.patternPart,
     },
   });
 }

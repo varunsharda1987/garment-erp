@@ -69,3 +69,18 @@ export async function recomputeStyleCadStatus(client: DbClient, styleId: string)
   }
   return derived;
 }
+
+/**
+ * Which CAD rows may supply a fabric's average on the cutting chart.
+ *
+ * A REJECTED row counts for nothing. A PRODUCTION row counts only once APPROVED — the chart's
+ * Production average is what Create Batch cuts to and what the push-to-cutting gate requires, and
+ * until 2026-09-23 a pending or rejected Production CAD supplied it (ESSKY085LS read "ready to cut"
+ * on a row its author had rejected). Planning rows (COSTING / RAW MAT) still count while pending:
+ * they are the store's estimate, never the cut.
+ */
+export function countsForPurposeAverage(purpose: string | null | undefined, approvalStatus: string | null | undefined) {
+  if (approvalStatus === 'REJECTED') return false; // allow-cad-approval
+  if (purpose === 'PRODUCTION') return approvalStatus === 'APPROVED'; // allow-cad-approval
+  return true;
+}

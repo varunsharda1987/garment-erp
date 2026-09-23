@@ -709,50 +709,68 @@ class ProductionBlockingValidationService {
   }
 
   /**
-   * RULE 6: PRODUCTION CAD planning must exist with cadAverage before cutting
-   * Ensures at least one fabric_width_cad row with purposeEnum=PRODUCTION
-   * and non-null cadAverage exists for the style
+   * RULE 6: an APPROVED PRODUCTION CAD with an average must exist before cutting.
+   *
+   * Until 2026-09-23 any PRODUCTION row with a cadAverage counted — pending or REJECTED. ESSKY085LS
+   * read "ready to cut" on a Production CAD its author had rejected 40 s after making it. Owner
+   * decision: cutting needs an approved one (the runbook already told the team to approve it).
+   * The refusal names what is missing, so the team knows the next click.
    */
   async validateProductionCADForStage(styleId: string, targetStage: ProductionStage): Promise<ValidationResult> {
     if (targetStage !== 'IN_CUTTING') {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Check if any PRODUCTION CAD with valid cadAverage exists
     // Same 3-path query as buildCuttingChartData() in cutting.controller.ts
-    const productionCadCount = await prisma.fabric_width_cad.count({
+    const productionCads = await prisma.fabric_width_cad.findMany({
       where: {
         purposeEnum: 'PRODUCTION',
-        cadAverage: { not: null },
         OR: [
           { costingStyleId: styleId },
           { styleFabric: { style_components: { styleId } } },
           { styleCosting: { styleId } },
         ],
       },
+      // allow-cad-approval — cutting consumes the CAD GEOMETRY, whose approval this is
+      select: { approvalStatus: true, cadAverage: true },
     });
 
-    if (productionCadCount === 0) {
-      const style = await prisma.styles.findUnique({
-        where: { id: styleId },
-        select: { styleCode: true, styleName: true },
-      });
-
-      const styleLabel = style ? `${style.styleCode} (${style.styleName})` : styleId;
-
-      return {
-        isBlocked: true,
-        blockers: [
-          {
-            type: 'PRODUCTION_CAD_MISSING',
-            message: `No PRODUCTION CAD planning found for style ${styleLabel}. Complete CAD planning with production averages before cutting.`,
-            severity: 'CRITICAL',
-          },
-        ],
-      };
+    const hasAverage = (c: { cadAverage: unknown }) => c.cadAverage !== null && Number(c.cadAverage) > 0;
+    const approved = productionCads.filter((c) => c.approvalStatus === 'APPROVED'); // allow-cad-approval
+    if (approved.some(hasAverage)) {
+      return { isBlocked: false, blockers: [] };
     }
 
-    return { isBlocked: false, blockers: [] };
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { styleCode: true, styleName: true },
+    });
+    const styleLabel = style ? `${style.styleCode} (${style.styleName})` : styleId;
+    const pending = productionCads.filter((c) => c.approvalStatus !== 'APPROVED' && c.approvalStatus !== 'REJECTED'); // allow-cad-approval
+
+    let message: string;
+    if (approved.length > 0) {
+      message =
+        `The approved Production CAD for style ${styleLabel} has no average. ` +
+        `Reject it, enter the layer length and size breakdown, and approve it again.`;
+    } else if (pending.length > 0) {
+      message =
+        `The Production CAD for style ${styleLabel} is waiting for approval. Open CAD Planning and ` +
+        `approve it (row menu → Approve) — cutting needs an approved Production CAD.`;
+    } else if (productionCads.length > 0) {
+      message =
+        `The Production CAD for style ${styleLabel} was rejected. In CAD Planning, press Create CAD ` +
+        `on the fabric lot to make a new one, then approve it.`;
+    } else {
+      message =
+        `No Production CAD for style ${styleLabel}. In CAD Planning, press Create CAD on the fabric lot, ` +
+        `check the marker, then approve it.`;
+    }
+
+    return {
+      isBlocked: true,
+      blockers: [{ type: 'PRODUCTION_CAD_MISSING', message, severity: 'CRITICAL' }],
+    };
   }
 
   /**

@@ -72,7 +72,8 @@ import {
 
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 import { CADPartMultiSelect } from './CADPartMultiSelect';
-import { formatDate } from '@/lib/date';
+import { formatDate, formatDateTime } from '@/lib/date';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 /**
  * Field styling by type for visual differentiation
@@ -1445,6 +1446,28 @@ export function CADSpreadsheetTable({
                               >
                                 {CAD_PURPOSE_LABELS[row.purpose as CADPurpose] || 'Prod'}
                               </Badge>
+                              {/* A rejected row looked exactly like a pending one. Keyed on the status, not on
+                                  rejectedAt: plan-level Reject stamps rejectedAt on rows it leaves PENDING. */}
+                              {row.approvalStatus === 'REJECTED' && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0 w-fit cursor-help bg-destructive/10 text-destructive border-destructive/25"
+                                      >
+                                        Rejected
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      Rejected
+                                      {row.rejectedByName ? ` by ${row.rejectedByName}` : ''}
+                                      {row.rejectedAt ? ` on ${formatDateTime(row.rejectedAt)}` : ''}
+                                      {row.approvalNotes ? ` — ${row.approvalNotes}` : ''}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                               {/* Show "Copied from" indicator if this row was copied */}
                               {row.copiedFromId && row.copiedFrom && (
                                 <Badge

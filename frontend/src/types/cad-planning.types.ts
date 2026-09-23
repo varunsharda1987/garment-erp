@@ -268,6 +268,10 @@ export interface CADSpreadsheetRow {
   costingApprovalStatus?: string | null;
   isLocked?: boolean;
   fabricStockId?: string | null;
+  // Why and by whom a REJECTED row was rejected
+  approvalNotes?: string | null;
+  rejectedAt?: string | null;
+  rejectedByName?: string | null;
   // Copy lineage tracking
   copiedFromId?: string | null;
   copiedFrom?: {
@@ -369,6 +373,8 @@ export interface FabricStockSummaryItem {
   productionCadId?: string | null;
   productionCadStatus?: string | null; // 'PENDING' | 'APPROVED' | 'REJECTED'
   stockLotNumber?: string | null;
+  /** The receipt that booked the lot — tells two lots of one fabric apart */
+  grnNumber?: string | null;
   patternPartName?: string | null;
   fabricFinishType?: string | null;
 }

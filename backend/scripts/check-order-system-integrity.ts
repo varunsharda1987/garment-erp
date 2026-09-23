@@ -26,6 +26,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { productionBlockingValidationService } from '../src/services/productionBlockingValidation.service';
 
 const prisma = new PrismaClient();
 const JSON_OUT = process.argv.includes('--json');
@@ -285,8 +286,11 @@ async function main() {
     ['     …variants (colour/size)', await prisma.style_variants.count()],
     ['2. fabric_width_cad', await prisma.fabric_width_cad.count()],
     [
-      '     …PRODUCTION with cadAverage (cutting needs this)',
-      await prisma.fabric_width_cad.count({ where: { purposeEnum: 'PRODUCTION', cadAverage: { not: null } } }),
+      '     …PRODUCTION APPROVED with cadAverage (cutting needs this)',
+      await prisma.fabric_width_cad.count({
+        // allow-cad-approval — cutting needs the approved GEOMETRY (2026-09-23)
+        where: { purposeEnum: 'PRODUCTION', approvalStatus: 'APPROVED', cadAverage: { not: null } },
+      }),
     ],
     ['3. style_costing (cost sheets)', await prisma.style_costing.count()],
     [
@@ -368,22 +372,32 @@ async function main() {
     const bom = await prisma.order_bom.count({
       where: { orderItemId: oi.id, status: { in: ['APPROVED', 'LOCKED'] }, isActive: true },
     });
-    // Same 3-path query as validateProductionCADForStage / buildCuttingChartData.
-    const cad = await prisma.fabric_width_cad.count({
+    // Same 3-path query as validateProductionCADForStage / buildCuttingChartData. Only an APPROVED
+    // row with an average counts (2026-09-23 — a rejected one made ESSKY085LS read READY here).
+    const productionCads = await prisma.fabric_width_cad.findMany({
       where: {
         purposeEnum: 'PRODUCTION',
-        cadAverage: { not: null },
         OR: [
           { costingStyleId: oi.styleId },
           { styleFabric: { style_components: { styleId: oi.styleId } } },
           { styleCosting: { styleId: oi.styleId } },
         ],
       },
+      select: { approvalStatus: true, cadAverage: true }, // allow-cad-approval
     });
-    const ready = costSheet > 0 && bom > 0 && cad > 0;
+    const cad = productionCads.filter((c) => c.approvalStatus === 'APPROVED' && c.cadAverage !== null).length; // allow-cad-approval
+    const rejectedCads = productionCads.filter((c) => c.approvalStatus === 'REJECTED').length; // allow-cad-approval
+    const pendingCads = productionCads.length - cad - rejectedCads;
+    // The real gate, not a re-derivation of it: samples, fabric tests, material and CAD in one list
+    const gate = oi.styleId
+      ? await productionBlockingValidationService.validateOrderItemForStage(oi.id, 'IN_CUTTING')
+      : { isBlocked: false, blockers: [] };
+    const ready = costSheet > 0 && bom > 0 && !gate.isBlocked;
     console.log(
       `  ${ready ? 'READY  ' : 'BLOCKED'} ${oi.orders.orderNumber.padEnd(14)} ${(oi.styles.styleCode ?? '-').padEnd(14)} ` +
-        `qty=${String(oi.totalQuantity).padEnd(6)} costSheet=${yn(costSheet > 0)} bom=${yn(bom > 0)} productionCAD=${cad}`
+        `qty=${String(oi.totalQuantity).padEnd(6)} costSheet=${yn(costSheet > 0)} bom=${yn(bom > 0)} ` +
+        `productionCAD=${cad} (pending ${pendingCads}, rejected ${rejectedCads})` +
+        (gate.blockers.length > 0 ? ` blockers=${[...new Set(gate.blockers.map((b) => b.type))].join(',')}` : '')
     );
   }
   if (liveItems.length === 0) console.log('  (no live production orders)');

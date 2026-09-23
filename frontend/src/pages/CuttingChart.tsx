@@ -130,7 +130,8 @@ export default function CuttingChart() {
     setManualCutQty(newManual);
   };
 
-  // Check if all fabrics have PRODUCTION CAD (width + average)
+  // Check if all fabrics have an APPROVED PRODUCTION CAD (width + average) — the chart
+  // only reports a production average from an approved row
   const fabricsMissingCAD = useMemo(() => {
     if (!chartData?.fabrics) return [];
     return chartData.fabrics.filter((f) => !f.productionAverage || !f.productionWidth);
@@ -300,8 +301,9 @@ export default function CuttingChart() {
           )}
           {chartData && !hasProductionCAD && (
             <span className="text-xs text-destructive max-w-[300px] text-right">
-              Production CAD missing for: {fabricsMissingCAD.map((f) => f.part || f.fabricName).join(', ')}. Complete
-              PRODUCTION CAD planning first.
+              No approved Production CAD for: {fabricsMissingCAD.map((f) => f.part || f.fabricName).join(', ')}. In CAD
+              Planning, press Create CAD on the fabric lot and approve it — a pending or rejected Production CAD does
+              not count.
             </span>
           )}
           {chartData && (

@@ -2128,6 +2128,17 @@ export async function pushFromCAD(req: Request, res: Response) {
   const skippedRows: any[] = [];
 
   for (const row of cadRows) {
+    // A Production CAD is the marker for a received lot. Stamping a cost on it here made it a
+    // "costed PRODUCTION CAD" — locked against edit and delete — and gave every lot row the same
+    // costingStyleId, so a second lot at the same width hit the table's unique key.
+    if ((row.purposeEnum ?? row.purpose) === 'PRODUCTION') {
+      skippedRows.push({
+        id: row.id,
+        reason: 'Production rows are costed through Fabric Costing → Promote',
+      });
+      continue;
+    }
+
     // Skip if already has costing
     if (row.costingStyleId && row.totalCostPerMeter !== null) {
       skippedRows.push({

@@ -9,13 +9,16 @@
  *
  * It follows the team's runbook exactly, including the path that needs the most hand-holding — a
  * STOCK job (no style). That fabric is minted unlinked, so the runbook's phase 7 says: allocate the
- * fabric to the style, then raise a Production CAD against the received lot. The chart then finds
- * the lot two ways (the CAD row's own fabricId, and the style's fabric slot), and the run can cut.
+ * fabric to the style, then press Create CAD on the received lot and APPROVE the Production CAD.
+ * The chart then finds the lot two ways (the CAD row's own fabricId, and the style's fabric slot),
+ * and the run can cut. Since 2026-09-23 only an APPROVED Production CAD unlocks cutting — a pending
+ * or rejected one is refused with a message naming the next click (ESSKY085LS read "ready to cut"
+ * on a Production CAD its author had rejected).
  *
  * What is exercised through the real API: job create/issue, GRN create/approve, allocate-to-style,
- * Production CAD row from stock, work order create, push to cutting, fabric-issuance data, issue
- * fabric, cutting chart, batch create. The CAD marker maths is CAD Planning's own concern: the row
- * gets cadMeters/piecesPerMarker as a fixture and the chart's backfill derives the average.
+ * Create CAD on the lot (what the Fabric Stock Available banner posts), reject / approve, work order
+ * create, push to cutting, fabric-issuance data, issue fabric, cutting chart, batch create. The CAD
+ * marker maths is CAD Planning's own concern: the row gets cadMeters/piecesPerMarker as a fixture.
  *
  * Runs against the LIVE database (there is no test DB). Teardown is per-step; see afterAll.
  */
@@ -355,12 +358,13 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(slots[0].fabricId).toBe(finishedFabricId);
   });
 
-  it('phase 7b-c: a Production CAD raised against the received lot carries its fabricId', async () => {
+  it('phase 7b-c: Create CAD on the received lot raises a Production CAD that carries its fabricId', async () => {
+    // Exactly what the Fabric Stock Available banner posts (CADPlanningPage → StockSummaryBanner)
     const res = await request(app)
-      .post(`/api/cad-planning/${styleId}/row`)
+      .post(`/api/cad-planning/${styleId}/production-from-stock`)
       .set(authHeader)
-      .send({ purpose: 'PRODUCTION', styleFabricId, componentId, fabricStockId });
-    expectStatus(res, (s) => s < 300);
+      .send({ fabricStockId, greigeId, styleFabricId, componentId });
+    expectStatus(res, (s) => s === 201);
 
     const rows = await prisma.fabric_width_cad.findMany({ where: { styleFabricId, purposeEnum: 'PRODUCTION' } });
     expect(rows).toHaveLength(1);
@@ -370,6 +374,8 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(rows[0].fabricId).toBe(finishedFabricId);
     expect(rows[0].fabricStockId).toBe(fabricStockId);
     expect(rows[0].greigeId).toBe(greigeId);
+    expect(rows[0].approvalStatus).toBe('PENDING');
+    expect(rows[0].costingStyleId).toBeNull(); // a lot's marker, not a costing
     expect(Number(rows[0].cutableWidth)).toBeGreaterThan(0); // taken from the stock lot
 
     // Marker maths is CAD Planning's own concern; give the row what a marker would have.
@@ -458,7 +464,53 @@ describe('the first cut: from greige to a cutting batch', () => {
     expectStatus(sizeSet, (s) => s === 201);
     await approve(sizeSet.body.data.id);
 
-    const pushed = await request(app).post(`/api/work-orders/${workOrderId}/push-to-cutting`).set(authHeader).send({});
+    const push = () => request(app).post(`/api/work-orders/${workOrderId}/push-to-cutting`).set(authHeader).send({});
+
+    // Samples done — but the Production CAD is still PENDING, and only an approved one cuts.
+    const pending = await push();
+    expect(pending.status).toBe(422);
+    expect(pending.body.message).toMatch(/waiting for approval/);
+
+    // A REJECTED one does not count either (ESSKY085LS, 2026-09-23).
+    const reject = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${cadRowId}/reject`)
+      .set(authHeader)
+      .send({ rejectionNotes: 'layer length re-measured' });
+    expectStatus(reject, (s) => s === 200);
+    const rejected = await push();
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.message).toMatch(/was rejected/);
+
+    // The team presses Create CAD on the lot again — the rejected row no longer covers it.
+    const again = await request(app)
+      .post(`/api/cad-planning/${styleId}/production-from-stock`)
+      .set(authHeader)
+      .send({ fabricStockId, greigeId, styleFabricId, componentId });
+    expectStatus(again, (s) => s === 201);
+    cadRowId = again.body.data.id;
+
+    // This style has no approved planning marker to copy, so the new row has no average yet —
+    // and a Production CAD with no average cannot be approved.
+    const tooSoon = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${cadRowId}/approve`)
+      .set(authHeader)
+      .send({});
+    expect(tooSoon.status).toBe(422);
+    expect(tooSoon.body.message).toMatch(/no average yet/);
+
+    await prisma.fabric_width_cad.update({
+      where: { id: cadRowId },
+      data: { cadMeters: CAD_METERS, piecesPerMarker: PIECES_PER_MARKER },
+    });
+    const approved = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${cadRowId}/approve`)
+      .set(authHeader)
+      .send({});
+    expectStatus(approved, (s) => s === 200);
+    const approvedRow = await prisma.fabric_width_cad.findUnique({ where: { id: cadRowId } });
+    expect(Number(approvedRow!.cadAverage)).toBeCloseTo(CAD_AVERAGE, 4); // stored at approval
+
+    const pushed = await push();
     expectStatus(pushed, (s) => s === 200);
     const wo = await prisma.work_orders.findUnique({ where: { id: workOrderId } });
     expect(wo!.status).toBe('IN_PRODUCTION');

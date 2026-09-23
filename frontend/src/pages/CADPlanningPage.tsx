@@ -455,13 +455,15 @@ export default function CADPlanningPage() {
   ) => {
     if (!id) return;
     try {
-      await cadPlanningService.createProductionCADFromStock(id, {
+      const result = await cadPlanningService.createProductionCADFromStock(id, {
         fabricStockId: stockId,
-        greigeId,
+        // The banner sends '' for a lot with no greige; the API wants a UUID or nothing
+        greigeId: greigeId || undefined,
         styleFabricId: styleFabricId || undefined,
         componentId: componentId || undefined,
       });
-      notify.success('PRODUCTION CAD created from stock');
+      notify.success('Production CAD created — check the marker, then Approve it from the row menu');
+      if (result.warning) notify.warning(result.warning);
       await loadCADTableData();
     } catch (error: unknown) {
       console.error('Failed to create PRODUCTION CAD from stock:', error);

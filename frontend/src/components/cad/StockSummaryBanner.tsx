@@ -24,6 +24,7 @@ interface StockSummaryItem {
   productionCadId?: string | null;
   productionCadStatus?: string | null;
   stockLotNumber?: string | null;
+  grnNumber?: string | null;
   // Descriptive labels (see FabricStockSummaryItem in types/cad-planning.types.ts)
   patternPartName?: string | null;
   fabricFinishType?: string | null;
@@ -113,10 +114,15 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
   const getTooltipText = (item: StockSummaryItem) => {
     const lines = [
       item.fabricName,
+      item.grnNumber ? `Received on ${item.grnNumber}` : '',
       item.stockLotNumber ? `Lot: ${item.stockLotNumber}` : '',
       `Width: ${item.cutableWidth}" (${item.finishedWidth}" finished)`,
       `Available: ${item.quantityAvailable.toLocaleString()} meters`,
-      item.hasProductionCad ? `PRODUCTION CAD: ${item.productionCadStatus || 'Created'}` : 'No PRODUCTION CAD yet',
+      item.hasProductionCad
+        ? `PRODUCTION CAD: ${item.productionCadStatus || 'Created'}`
+        : item.productionCadStatus === 'REJECTED'
+          ? 'PRODUCTION CAD was rejected — create a new one'
+          : 'No PRODUCTION CAD yet',
     ].filter(Boolean);
     return lines.join(' | ');
   };
@@ -170,6 +176,7 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
                           : 'bg-warning/10 text-warning border-warning/20'
                       }`}
                     >
+                      {item.grnNumber && <span className="mr-1 font-medium">{item.grnNumber} &middot;</span>}
                       {item.cutableWidth}" &bull; {item.quantityAvailable.toLocaleString()}m
                       {item.qualityGrade && item.qualityGrade !== 'A' && (
                         <span className="ml-1 text-xs opacity-75">({item.qualityGrade})</span>
@@ -177,6 +184,16 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
                       {getStatusBadge(item)}
                     </Badge>
                     <div className="flex-1" />
+                    {!item.hasProductionCad && item.productionCadStatus === 'REJECTED' && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs bg-destructive/10 text-destructive border-destructive/25"
+                        title="This lot's Production CAD was rejected — create a new one"
+                      >
+                        <AlertTriangle className="h-3 w-3 mr-0.5" />
+                        Rejected
+                      </Badge>
+                    )}
                     {!item.hasProductionCad && onCreateProductionCAD && (
                       <Button
                         size="sm"

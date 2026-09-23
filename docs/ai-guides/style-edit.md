@@ -107,6 +107,7 @@ route: /styles
 - **Draft styles** need to be "Published" before they appear in order dropdowns
 - **Published styles with orders** cannot be archived - check for active dependencies first
 - **CAD approval is separate** - CAD Planning approval (geometry) is different from Fabric Costing approval (price)
+- **Changing a fabric's greige or finish drops its received fabric** - Once dyed or printed fabric has been received, the fabric row is linked to it, and saving the style keeps that link. Changing that row's **Generic Greige Name** or **Fabric Finish Type**, or switching **Ready Fabric** back to **Greige / Process**, removes the link — CAD Planning then cannot match the received lots to the style until it is linked again
 - **Buyer Style Ref for in-house brands** - for Kasya/Nihsamah, the buyer code IS the style code
 
 ## After saving

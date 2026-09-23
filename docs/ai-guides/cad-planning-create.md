@@ -18,6 +18,13 @@ keywords:
   - CAD average
   - marker plan
   - cutting plan
+  - production CAD
+  - create CAD from stock
+  - fabric stock available
+  - received lot
+  - GRN lot
+  - rejected CAD
+  - approve production CAD
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -26,6 +33,10 @@ keywords:
   - cutting plan banana
   - width select karna
   - greige dalna
+  - lot ka CAD banana
+  - production CAD approve karna
+  - CAD reject ho gaya
+  - maal aa gaya CAD
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -36,11 +47,16 @@ keywords:
   - ग्रेज
   - साइज ब्रेकडाउन
   - लेयर लेंथ
+  - प्रोडक्शन कैड
+  - लॉट
+  - कैड रिजेक्ट
+  - कैड अप्रूव
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/pages/CADPlanningList.tsx
   - frontend/src/components/cad/CADSpreadsheetTable.tsx
+  - frontend/src/components/cad/StockSummaryBanner.tsx
 route: /cad-planning
 ---
 
@@ -84,8 +100,10 @@ A style must exist with:
 2. In the dialog:
    - Select **Purpose** *: Costing, Raw Mat (RAW_MATERIAL_CALCULATION), or Production
    - Select **Style Fabric(s)**: Choose which fabric(s) this CAD row covers
-   - For **Production** purpose: You must also select an existing fabric stock lot
+   - For **Production** purpose: You must also pick the received lot in **Select stock...**
 3. Click **Add** to create the row.
+
+> **Received fabric?** For a Production CAD, use **Create CAD** on the lot in the **Fabric Stock Available** box instead (section 10) — it fills the marker in for you.
 
 > **Tip**: To create a combined-cutting row (one marker for several components), tick them all and click **Combine as 1 … Row**. Components can be combined only when they are the SAME fabric: same generic greige, same finish, same colour (or print design) and same embroidery. The box under the list says **Can be combined** or tells you why not.
 
@@ -151,6 +169,8 @@ After approval:
 
 ### 9. Push to Fabric Costing (optional)
 
+Push creates costing records for Costing and Raw Mat rows only — Production rows are skipped.
+
 After approval, to create fabric costing records:
 
 1. Click **Actions** dropdown > **Push to Fabric Costing**.
@@ -160,12 +180,28 @@ After approval, to create fabric costing records:
 3. Click **Create X Records** to proceed.
 4. You are redirected to the Fabric Costing page.
 
+### 10. Make the Production CAD for received fabric
+
+When processed fabric has been received for the style, a green **Fabric Stock Available** box appears above the spreadsheet. It lists every lot with its GRN number, cutable width and metres, e.g. `GRN2609-0080 · 52" • 852.1m`, and a badge such as **2 need CAD**.
+
+1. Click **Create CAD** next to a lot. There is one Production CAD per lot.
+2. A new **Production** row appears, already filled from the approved Raw Mat (or Costing) marker: size breakdown, No. of Pcs, Layer (M) and CAD Average, at the lot's width.
+   - If the lot's width differs from the planned marker, a warning says so. The sizes are copied, but **Layer (M)** and **CAD Average** are left empty — enter the layer length for the new width.
+3. Check the row. Then open the row menu (three dots) > **Approve**.
+4. Repeat for every lot in the box.
+
+**Cutting needs an APPROVED Production CAD with a CAD Average.** A pending or rejected Production CAD does not count, and Push to Cutting / Create Batch will refuse until one is approved.
+
 ## Traps
 
 - **Missing greige selection**: Each row must have a greige selected. Without it, CAD calculations cannot run.
 - **Zero size breakdown**: If no sizes are entered, No. of Pcs = 0 and CAD Average cannot be calculated.
 - **Wrong cutable width**: Using greige width instead of cutable width leads to wrong fabric consumption. Cutable width is typically 1-2 inches less than greige width due to selvedge.
-- **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but Production CAD with actual stock lots is needed for cutting.
+- **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but cutting needs an APPROVED Production CAD made from the received lot.
+- **"Cannot tell which fabric of … this lot belongs to"**: Create CAD could not match the lot to one of the style's fabrics (same greige and finish). Check the style's fabrics, then press **Create CAD** again. Nothing was created.
+- **"This lot already has a Production CAD"**: each lot gets one. Find it in the Production section of the table.
+- **"This Production CAD has no average yet"**: Approve is refused until the row has a Layer (M) and a Size Breakdown. Fill them in, save, then Approve.
+- **A lot shows a red Rejected chip**: its Production CAD was rejected. Press **Create CAD** again to make a new one.
 - **Deleting approved rows**: Approved CAD rows linked to fabric costing or orders cannot be deleted.
 - **Combining different colours**: A White Poplin top and a Burgundy Poplin shirt are two different fabrics, even on the same greige — they cannot share one marker. Click **Add 2 … Rows** to plan them separately.
 
@@ -184,12 +220,12 @@ After approval, to create fabric costing records:
 ## Row actions
 
 Click the row menu (three dots) for:
-- **Approve Row** - Approve this specific CAD entry
-- **Reject Row** - Reject with reason (resets to PENDING)
-- **Copy to Raw Mat** - Copy this row for Raw Material purpose
-- **Copy to Production** - Copy this row for Production purpose
-- **Create New Version** - Create a new version of this CAD entry
-- **Delete** - Remove the row (if not linked to costing/orders)
+- **Approve** - Approve this CAD entry (pending or rejected rows)
+- **Reject** - Enter a **Rejection Reason** and confirm. The row becomes REJECTED and shows a red **Rejected** badge under its purpose; hover it to see who rejected it, when and why
+- **Create Version** - New version of an approved entry
+- **Copy to Raw Mat** (on Costing rows) / **Copy to Production** (on Raw Mat rows) - Copies the marker and size breakdown. The price is not copied to a Production row
+- **Link to Stock** - Attach a received lot to a pending Production row
+- **Edit** / **Delete** - Not available on approved rows
 
 ## Reject CAD plan
 

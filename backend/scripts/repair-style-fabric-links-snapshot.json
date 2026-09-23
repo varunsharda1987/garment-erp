@@ -1,0 +1,21 @@
+{
+  "takenAt": "2026-09-23T15:10:41.034Z",
+  "plan": [
+    {
+      "jobWorkNumber": "DJ-ESSKY085LS-002",
+      "styleCode": "ESSKY085LS",
+      "fabricId": "689c6c13-cc75-4e74-9e94-f36d8696b2ed",
+      "slotId": "a575d65c-a9b2-48d1-ab90-57a8b5634261",
+      "slotFabricBefore": null,
+      "verdict": "STAMP"
+    },
+    {
+      "jobWorkNumber": "DJ-ESSKY086LS-004",
+      "styleCode": "ESSKY086LS",
+      "fabricId": "03eec8bf-8b81-4691-88d7-3d75ccc170c6",
+      "slotId": "b34dd795-73f1-48f1-afd1-b7bcbb351f96",
+      "slotFabricBefore": "03eec8bf-8b81-4691-88d7-3d75ccc170c6",
+      "verdict": "ALREADY"
+    }
+  ]
+}

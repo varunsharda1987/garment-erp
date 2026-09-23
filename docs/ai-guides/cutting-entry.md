@@ -17,6 +17,10 @@ keywords:
   - बैच
   - कपड़ा
   - fabric lot
+  - production CAD
+  - create batch greyed out
+  - CAD approve nahi hua
+  - प्रोडक्शन कैड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -29,6 +33,7 @@ sources:
   - frontend/src/components/FabricIssuanceSection.tsx
   - backend/src/schemas/production.schema.ts
   - backend/src/routes/cutting.routes.ts
+  - backend/src/services/productionBlockingValidation.service.ts
 route: /manufacturing/cutting
 ---
 
@@ -38,7 +43,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 - The style must have an **approved Size Set Sample** (Manufacturing → Sample Tracking). The samples go in order — FIT, then PP, then Size Set — each approved. Without it, **Push to Cutting** and **Create Batch** both refuse with "No Size Set Sample exists for this style". This applies to stock production too.
 - The production run must be **In Production** (use **Push to Cutting** on the run page).
 - Fabric must be issued: on the production run page open **Fabric Issuance**, tick the lots and click **Issue to Cutting**.
-- PRODUCTION CAD (width and average) must be set for every fabric, otherwise **Create Batch** stays greyed out.
+- Every fabric needs an **approved** Production CAD with a width and a CAD Average (Pre-Production → CAD Planning → **Create CAD** on the received lot, then row menu → **Approve**). A pending or rejected Production CAD does not count: **Push to Cutting** refuses and **Create Batch** stays greyed out with "No approved Production CAD for: …".
 
 ## Create the batch
 1. Open **Manufacturing → Cutting** in the sidebar.

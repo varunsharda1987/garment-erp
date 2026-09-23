@@ -8,7 +8,12 @@
  * Lives under backend/scripts (not the repo-root scripts/) because Node resolves
  * @prisma/client from the SCRIPT's directory upward — only backend/ has it installed.
  *
- * Usage:  cd backend && node scripts/ingest-ai-guides.js [--dry-run]
+ * Usage:  cd backend && node scripts/ingest-ai-guides.js [--dry-run] [--only slug1,slug2]
+ *
+ * --only: ingest and re-record ONLY the named guides; every other guide's manifest entry is kept
+ * as it was. Without it the whole manifest is rewritten from disk, which marks every guide
+ * "current" — including guides nobody rewrote after another session changed their screens
+ * (46 were stale on 2026-09-23, most from other work). Use --only when you rewrote a few guides.
  */
 
 const fs = require('fs');
@@ -24,6 +29,17 @@ const MANIFEST_PATH = path.join(GUIDES_DIR, 'manifest.json');
 const prisma = new PrismaClient();
 const dryRun = process.argv.includes('--dry-run');
 const allowDirty = process.argv.includes('--allow-dirty');
+const onlyArg = (() => {
+  const i = process.argv.findIndex((a) => a === '--only' || a.startsWith('--only='));
+  if (i === -1) return null;
+  const raw = process.argv[i].includes('=') ? process.argv[i].split('=')[1] : process.argv[i + 1];
+  const slugs = String(raw || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (slugs.length === 0) throw new Error('--only needs a comma-separated list of guide slugs');
+  return new Set(slugs);
+})();
 
 function sha1(text) {
   return crypto.createHash('sha1').update(text).digest('hex').slice(0, 12);
@@ -171,7 +187,13 @@ async function main() {
     return;
   }
 
-  const files = fs.readdirSync(GUIDES_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+  let files = fs.readdirSync(GUIDES_DIR).filter((f) => f.endsWith('.md') && f !== 'README.md');
+  if (onlyArg) {
+    const known = new Set(files.map((f) => path.basename(f, '.md')));
+    const unknown = [...onlyArg].filter((slug) => !known.has(slug));
+    if (unknown.length) throw new Error(`--only: no guide file for ${unknown.join(', ')}`);
+    files = files.filter((f) => onlyArg.has(path.basename(f, '.md')));
+  }
   if (files.length === 0) {
     console.log('No guide files found.');
     return;
@@ -188,7 +210,8 @@ async function main() {
     );
   }
 
-  const manifest = {};
+  // --only keeps every other guide's recorded state untouched
+  const manifest = onlyArg && fs.existsSync(MANIFEST_PATH) ? JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf8')) : {};
   const seenSlugs = [];
   let created = 0;
   let updated = 0;
@@ -257,7 +280,7 @@ async function main() {
 
   // A guide deleted from disk must stop being retrieved (kept as a row for history)
   let deactivated = 0;
-  if (!dryRun) {
+  if (!dryRun && !onlyArg) {
     const result = await prisma.ai_knowledge_guides.updateMany({
       where: { slug: { notIn: seenSlugs }, isActive: true },
       data: { isActive: false },

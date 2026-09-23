@@ -10,21 +10,26 @@ keywords:
   - lock CAD
   - CAD plan approval
   - approve fabric planning
+  - approve production CAD
+  - production CAD approval
   # Hinglish
   - CAD approve karna
   - marker approve
   - CAD confirm karna
   - CAD lock karna
   - CAD plan approve
+  - production CAD approve karna
   # Devanagari
   - कैड अप्रूव
   - मार्कर अप्रूवल
   - कैड कन्फर्म
   - कैड प्लान अप्रूव करना
   - कैड लॉक करना
+  - प्रोडक्शन कैड अप्रूव
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
+  - frontend/src/components/cad/CADSpreadsheetTable.tsx
 route: /cad-planning
 ---
 
@@ -68,7 +73,6 @@ When you approve a CAD plan:
 
 - **The CAD plan is locked** - You cannot edit fabric widths, greige selections, size breakdowns, or CAD values
 - **Status changes to APPROVED** - The style badge shows a green checkmark with "APPROVED"
-- **Approval date is recorded** - The date appears in the status banner
 - **Cost sheet generation is enabled** - You can now create or generate the style's cost sheet
 - **Fabric costing can begin** - The "Push to Fabric Costing" action becomes available
 
@@ -78,12 +82,14 @@ When you approve a CAD plan:
 - **Reject requires a reason** - To undo an approval, you must provide a rejection reason
 - **Rejection resets all rows** - Rejecting an approved CAD plan resets the status to PENDING and unlocks all rows for editing
 - **Linked fabric costing is not affected** - Rejecting a CAD plan does not delete any fabric costing records that were already created
+- **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
+- **A Production CAD with no average cannot be approved** - Fill in Layer (M) and the Size Breakdown, save, then Approve
 
 ## After approving
 
 Once the CAD plan is approved:
 
-1. The status banner shows **CAD Plan Approved** with the approval date
+1. The status banner shows **CAD Plan Approved**
 2. Click **Actions** to access:
    - **Push to Fabric Costing** - Creates fabric costing records from the CAD data
    - **View Fabric Costing** - Opens the Fabric Costing page filtered to this style
@@ -100,4 +106,4 @@ If you need to make changes to an approved CAD plan:
 3. Select **Reject CAD Plan** (shown in red text)
 4. Enter a reason for rejection in the text area (required)
 5. Click **Reject & Unlock**
-6. The CAD plan status returns to PENDING and all rows are editable again
+6. The CAD plan is no longer approved and all rows are editable again

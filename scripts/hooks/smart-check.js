@@ -1033,11 +1033,14 @@ function checkGeneratedZodEnums() {
   console.log(`\n${c.cyan}Checking generated Zod enums freshness...${c.reset}`);
   try {
     execSync('node scripts/skills/generate-zod-enums.js --check', { encoding: 'utf-8', stdio: 'pipe' });
-    console.log(`${c.green}  ✓ prisma-enums.ts in sync with schema.prisma${c.reset}`);
+    console.log(`${c.green}  ✓ generated prisma-enums.ts (backend + frontend) in sync with schema.prisma${c.reset}`);
     return true;
-  } catch {
-    console.log(`${c.red}  ✗ schemas/generated/prisma-enums.ts is stale vs schema.prisma${c.reset}`);
-    console.log(`${c.dim}    Run: node scripts/skills/generate-zod-enums.js  (then stage the regenerated file)${c.reset}`);
+  } catch (err) {
+    // The generator names each stale file on stderr — surface it rather than guessing which one.
+    const detail = String(err.stderr || '').trim();
+    console.log(`${c.red}  ✗ generated prisma-enums.ts is stale vs schema.prisma${c.reset}`);
+    if (detail) console.log(`${c.red}    ${detail.replace(/\n/g, '\n    ')}${c.reset}`);
+    console.log(`${c.dim}    Run: node scripts/skills/generate-zod-enums.js  (then stage BOTH regenerated files)${c.reset}`);
     return false;
   }
 }
@@ -1444,7 +1447,10 @@ function main() {
 
   // Prisma schema changes → check safety + generated Zod enums freshness
   // (also re-check freshness when the generated file itself is staged — hand edits drift too)
-  if (categories.prisma.length || stagedFiles.some((f) => f.includes('schemas/generated/prisma-enums'))) {
+  if (
+    categories.prisma.length ||
+    stagedFiles.some((f) => f.includes('schemas/generated/prisma-enums') || f.includes('types/generated/prisma-enums'))
+  ) {
     checksRun++;
     if (categories.prisma.length && !checkPrismaSafety()) allPassed = false;
     if (categories.prisma.length && !checkDualHomeColumn()) allPassed = false;

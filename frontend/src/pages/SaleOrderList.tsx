@@ -58,6 +58,21 @@ const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
+// One entry per distinct style on the order, in line order — the Style and Buyer Style columns
+// both render from this list so a multi-style order's two stacks line up row for row.
+function uniqueStyles(so: SaleOrder): Array<{ code: string; ref?: string | null }> {
+  const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
+  for (const item of so.items || []) {
+    const code = item.style?.styleCode;
+    if (code && !uniqueByCode.has(code)) {
+      // The line's captured buyer code first — the style master's copy shows today's value
+      // even on an order placed under an older one.
+      uniqueByCode.set(code, { code, ref: item.buyerStyleRef ?? item.style?.buyerStyleRef });
+    }
+  }
+  return [...uniqueByCode.values()];
+}
+
 const STATUS_OPTIONS: Array<{ value: SaleOrderStatus; label: string }> = [
   { value: 'DRAFT', label: 'Draft' },
   { value: 'CONFIRMED', label: 'Confirmed' },
@@ -201,25 +216,32 @@ export default function SaleOrderList() {
     },
     {
       key: 'styles',
-      header: 'Style(s)',
+      header: 'Style',
       render: (so) => {
-        const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
-        for (const item of so.items || []) {
-          const code = item.style?.styleCode;
-          if (code && !uniqueByCode.has(code)) {
-            // The line's captured buyer code first — the style master's copy shows today's value
-            // even on an order placed under an older one.
-            uniqueByCode.set(code, { code, ref: item.buyerStyleRef ?? item.style?.buyerStyleRef });
-          }
-        }
-        const unique = [...uniqueByCode.values()];
+        const unique = uniqueStyles(so);
         if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
-          <div className="flex flex-wrap gap-1">
-            {unique.map(({ code, ref }) => (
+          <div className="flex flex-col items-start gap-1">
+            {unique.map(({ code }) => (
               <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
                 {code}
-                {ref && ref !== code ? ` (${ref})` : ''}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'buyerStyles',
+      header: 'Buyer Style',
+      render: (so) => {
+        const unique = uniqueStyles(so);
+        if (!unique.some((s) => s.ref)) return <span className="text-xs text-muted-foreground">-</span>;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            {unique.map(({ code, ref }) => (
+              <span key={code} className="text-xs text-foreground px-1.5 py-0.5">
+                {ref || '-'}
               </span>
             ))}
           </div>

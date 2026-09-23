@@ -30,6 +30,19 @@ type Column<T> = {
   headerClassName?: string;
 };
 
+// One entry per distinct style on the order, in line order — the Style and Buyer Style columns
+// both render from this list so a multi-style order's two stacks line up row for row.
+function uniqueStyles(order: Order): Array<{ code: string; ref?: string | null }> {
+  const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
+  for (const item of order.orderItems || []) {
+    const code = item.style?.styleCode;
+    if (code && !uniqueByCode.has(code)) {
+      uniqueByCode.set(code, { code, ref: item.style?.buyerStyleRef });
+    }
+  }
+  return [...uniqueByCode.values()];
+}
+
 export default function OrderList() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
@@ -264,23 +277,32 @@ export default function OrderList() {
     },
     {
       key: 'styles',
-      header: 'Style(s)',
+      header: 'Style',
       render: (order) => {
-        const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
-        for (const item of order.orderItems || []) {
-          const code = item.style?.styleCode;
-          if (code && !uniqueByCode.has(code)) {
-            uniqueByCode.set(code, { code, ref: item.style?.buyerStyleRef });
-          }
-        }
-        const unique = [...uniqueByCode.values()];
+        const unique = uniqueStyles(order);
         if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
-          <div className="flex flex-wrap gap-1">
-            {unique.map(({ code, ref }) => (
+          <div className="flex flex-col items-start gap-1">
+            {unique.map(({ code }) => (
               <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
                 {code}
-                {ref ? ` (${ref})` : ''}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'buyerStyles',
+      header: 'Buyer Style',
+      render: (order) => {
+        const unique = uniqueStyles(order);
+        if (!unique.some((s) => s.ref)) return <span className="text-xs text-muted-foreground">-</span>;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            {unique.map(({ code, ref }) => (
+              <span key={code} className="text-xs text-foreground px-1.5 py-0.5">
+                {ref || '-'}
               </span>
             ))}
           </div>

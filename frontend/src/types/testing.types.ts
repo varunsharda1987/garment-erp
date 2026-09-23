@@ -117,6 +117,81 @@ export interface CreateTestTemplateInput {
 export type UpdateTestTemplateInput = Partial<CreateTestTemplateInput>;
 
 // ============================================================================
+// LAB RESULTS (shared by FPT and GPT) — mirrors the fragments in backend/src/schemas/testing.schemas.ts
+// ============================================================================
+
+/** The lab round (Test Requirement Form) a test belongs to — and through it, the sample. */
+export interface TestTrfSummary {
+  id: string;
+  trfNumber: string;
+  sampleId: string | null;
+  sample?: { id: string; sampleNumber: string } | null;
+}
+
+/** What the lab reported. Blank → omit on create, null to clear on update; never ''. */
+export interface LabReportInput {
+  testReportNumber?: string | null;
+  /** yyyy-MM-dd from a date input. */
+  testResultReceivedDate?: string | null;
+  testReportUrl?: string | null;
+  overallTestResult?: TestResult;
+  failureReason?: string | null;
+  remarks?: string | null;
+}
+
+export interface FabricReadingInput {
+  testedGSM?: number | null;
+  gsmTestResult?: TestResult | null;
+  gsmVariance?: number | null;
+  testedConstruction?: string | null;
+  constructionTestResult?: TestResult | null;
+  testedCount?: string | null;
+  countTestResult?: TestResult | null;
+  tensileStrengthWarp?: number | null;
+  tensileStrengthWeft?: number | null;
+  tearStrengthWarp?: number | null;
+  tearStrengthWeft?: number | null;
+  shrinkageLength?: number | null;
+  shrinkageWidth?: number | null;
+  colorFastness?: string | null;
+  pilling?: string | null;
+  spirality?: number | null;
+}
+
+export interface GarmentReadingInput {
+  prewashLength?: number | null;
+  prewashWidth?: number | null;
+  prewashChest?: number | null;
+  postwashLength?: number | null;
+  postwashWidth?: number | null;
+  postwashChest?: number | null;
+  lengthShrinkage?: number | null;
+  widthShrinkage?: number | null;
+  shrinkageTestResult?: TestResult | null;
+  seamStrength?: number | null;
+  seamTestResult?: TestResult | null;
+  colorFastnessWash?: string | null;
+  colorFastnessRub?: string | null;
+  colorFastnessLight?: string | null;
+  colorTestResult?: TestResult | null;
+  pilling?: string | null;
+  spirality?: number | null;
+  apparenceAfterWash?: string | null;
+}
+
+/** Retest of an earlier test. `trfId` is the NEW lab round the retest's result came back against. */
+interface RetestBaseInput {
+  originalTestId: string;
+  retestReason: string;
+  sentToLabDate?: string;
+  testingLabId?: string;
+  sampleQuantity?: number;
+  trfId?: string;
+}
+export type RetestFabricInput = RetestBaseInput & LabReportInput & FabricReadingInput;
+export type RetestGarmentInput = RetestBaseInput & LabReportInput & GarmentReadingInput;
+
+// ============================================================================
 // FABRIC PHYSICAL TESTS
 // ============================================================================
 
@@ -166,12 +241,18 @@ export interface FabricPhysicalTest {
   approvedDate: string | null;
   adminOverride: boolean;
   overrideReason: string | null;
+  trfId?: string | null;
+  trf?: TestTrfSummary | null;
+  /** List endpoint only. */
+  _count?: { retests: number };
   createdById: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface CreateFabricPhysicalTestInput {
+export interface CreateFabricPhysicalTestInput extends LabReportInput, FabricReadingInput {
+  /** The lab round this result came back against. Create/retest only — never re-pointed. */
+  trfId?: string;
   fabricId?: string;
   fabricProcurementId?: string;
   fabricStockLotId?: string;
@@ -187,39 +268,16 @@ export interface CreateFabricPhysicalTestInput {
   toleranceGSM?: number;
 }
 
-export interface UpdateFabricPhysicalTestInput {
-  sentToLabDate?: string;
-  testingLabId?: string;
-  sampleQuantity?: number;
-  batchNumber?: string;
-  expectedGSM?: number;
-  expectedConstruction?: string;
-  expectedCount?: string;
-  toleranceGSM?: number;
-  testReportNumber?: string;
-  testResultReceivedDate?: string;
-  testedGSM?: number;
-  gsmTestResult?: TestResult;
-  gsmVariance?: number;
-  testedConstruction?: string;
-  constructionTestResult?: TestResult;
-  testedCount?: string;
-  countTestResult?: TestResult;
-  tensileStrengthWarp?: number;
-  tensileStrengthWeft?: number;
-  tearStrengthWarp?: number;
-  tearStrengthWeft?: number;
-  shrinkageLength?: number;
-  shrinkageWidth?: number;
-  colorFastness?: string;
-  pilling?: string;
-  spirality?: number;
-  testReportUrl?: string;
-  overallTestResult?: TestResult;
-  failureReason?: string;
-  remarks?: string;
-  adminOverride?: boolean;
-  overrideReason?: string;
+export interface UpdateFabricPhysicalTestInput extends LabReportInput, FabricReadingInput {
+  sentToLabDate?: string | null;
+  testingLabId?: string | null;
+  sampleQuantity?: number | null;
+  batchNumber?: string | null;
+  expectedGSM?: number | null;
+  expectedConstruction?: string | null;
+  expectedCount?: string | null;
+  toleranceGSM?: number | null;
+  // No adminOverride: an override is made only through POST /:id/approve.
 }
 
 // ============================================================================
@@ -229,7 +287,8 @@ export interface UpdateFabricPhysicalTestInput {
 export interface GarmentPhysicalTest {
   id: string;
   testNumber: string;
-  workOrderId: string;
+  /** Null for a sample's garment test (it hangs off the sample's lab round via trfId). */
+  workOrderId: string | null;
   styleId: string;
   customerId: string | null;
   sizeId: string | null;
@@ -276,10 +335,16 @@ export interface GarmentPhysicalTest {
   updatedAt: string;
   workOrder?: { id: string; workOrderNumber: string } | null;
   style?: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null } | null;
+  trfId?: string | null;
+  trf?: TestTrfSummary | null;
 }
 
-export interface CreateGarmentPhysicalTestInput {
-  workOrderId: string;
+export interface CreateGarmentPhysicalTestInput extends LabReportInput, GarmentReadingInput {
+  /** The lab round this result came back against. Create/retest only — never re-pointed. */
+  trfId?: string;
+  /** The production run. Absent for a sample's garment test (done on the PP sample before it is
+   *  sent) — then trfId, the sample's lab round, is required. */
+  workOrderId?: string;
   styleId: string;
   customerId?: string;
   sizeId?: string;
@@ -290,35 +355,12 @@ export interface CreateGarmentPhysicalTestInput {
   buyerApprovalRequired?: boolean;
 }
 
-export interface UpdateGarmentPhysicalTestInput {
-  sentToLabDate?: string;
-  testingLabId?: string;
-  sampleQuantity?: number;
-  prewashLength?: number;
-  prewashWidth?: number;
-  prewashChest?: number;
-  postwashLength?: number;
-  postwashWidth?: number;
-  postwashChest?: number;
-  lengthShrinkage?: number;
-  widthShrinkage?: number;
-  shrinkageTestResult?: TestResult;
-  seamStrength?: number;
-  seamTestResult?: TestResult;
-  colorFastnessWash?: string;
-  colorFastnessRub?: string;
-  colorFastnessLight?: string;
-  colorTestResult?: TestResult;
-  pilling?: string;
-  spirality?: number;
-  apparenceAfterWash?: string;
-  testReportUrl?: string;
-  overallTestResult?: TestResult;
-  failureReason?: string;
-  remarks?: string;
-  buyerRemarks?: string;
-  adminOverride?: boolean;
-  overrideReason?: string;
+export interface UpdateGarmentPhysicalTestInput extends LabReportInput, GarmentReadingInput {
+  sentToLabDate?: string | null;
+  testingLabId?: string | null;
+  sampleQuantity?: number | null;
+  buyerRemarks?: string | null;
+  // No adminOverride: an override is made only through POST /:id/approve.
 }
 
 // ============================================================================

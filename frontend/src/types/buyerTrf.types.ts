@@ -12,6 +12,27 @@ export type TrfSampleStage = 'PP' | 'SHIPMENT';
 export type TrfFinishType = 'REGULAR_FINISH' | 'PEACH_FINISH' | 'GARMENT_WASH' | 'OTHER_DYE';
 export type TrfServiceLevel = 'REGULAR' | 'EXPRESS' | 'SAME_DAY';
 
+/** A lab round's verdict, computed by the API (backend lab-round.helper.ts) — never re-derived here. */
+export type LabRoundResult = 'NO_RESULT' | 'PASS' | 'FAIL';
+
+/** One lab result on a round — mirrors LAB_ROUND_TEST_SELECT. */
+export interface LabRoundTest {
+  id: string;
+  testNumber: string;
+  testReportNumber: string | null;
+  testResultReceivedDate: string | null;
+  sentToLabDate: string | null;
+  overallTestResult: 'PENDING' | 'PASS' | 'FAIL' | 'RETEST_REQUIRED' | 'CONDITIONAL_PASS';
+  failureReason: string | null;
+  testReportUrl: string | null;
+  remarks: string | null;
+  adminOverride: boolean;
+  approvedById: string | null;
+  isRetest: boolean;
+  originalTestId: string | null;
+  retestCount: number;
+}
+
 export interface BuyerTrf {
   id: string;
   trfNumber: string;
@@ -25,6 +46,10 @@ export interface BuyerTrf {
   styleId: string;
   customerId: string;
   testingLabId: string | null;
+  /** The Sample Tracker sample this lab round is for. Context, not an anchor. */
+  sampleId: string | null;
+  /** The fabric the printed fabric block came from (derived by the prefill). */
+  greigeId: string | null;
 
   sampleDescription: string | null;
   endUse: string | null;
@@ -80,9 +105,31 @@ export interface BuyerTrf {
   testingLab?: { id: string; labName: string; labCode: string } | null;
   workOrder?: { id: string; workOrderNumber: string } | null;
   saleOrder?: { id: string; saleOrderNumber: string; buyerPoNumber: string | null } | null;
+  sample?: { id: string; sampleNumber: string; sampleType: string; status: string } | null;
+  /** The lab's results for this round — at most one of each. */
+  fabricTest?: LabRoundTest | null;
+  garmentTest?: LabRoundTest | null;
+  labResult?: LabRoundResult;
 }
 
-export type CreateBuyerTrfInput = Partial<Omit<BuyerTrf, 'id' | 'trfNumber' | 'createdAt' | 'updatedAt'>> & {
+export type CreateBuyerTrfInput = Partial<
+  Omit<
+    BuyerTrf,
+    | 'id'
+    | 'trfNumber'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'sample'
+    | 'fabricTest'
+    | 'garmentTest'
+    | 'labResult'
+    | 'style'
+    | 'customer'
+    | 'testingLab'
+    | 'workOrder'
+    | 'saleOrder'
+  >
+> & {
   styleId: string;
   buyingDepartment: string;
 };
@@ -96,6 +143,7 @@ export interface BuyerTrfQueryParams {
   status?: TrfStatus;
   styleId?: string;
   customerId?: string;
+  sampleId?: string;
   sampleStage?: TrfSampleStage;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';

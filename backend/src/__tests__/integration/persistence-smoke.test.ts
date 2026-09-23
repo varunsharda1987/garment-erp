@@ -146,9 +146,15 @@ afterAll(async () => {
   await prisma.issue_reports.deleteMany({ where: { title: { startsWith: RUN } } });
   // Same for TRFs (createdById). The TRF block cleans up its own, but a failure mid-block
   // would otherwise leave a row that blocks the user delete and fails the whole file's teardown.
+  // Lab results link to TRFs with RESTRICT (retests to originals too), so they go first.
+  for (const isRetest of [true, false]) {
+    await prisma.fabric_physical_tests.deleteMany({ where: { createdById: only(testUserId), isRetest } });
+    await prisma.garment_physical_tests.deleteMany({ where: { createdById: only(testUserId), isRetest } });
+  }
   await prisma.buyer_test_requirement_forms.deleteMany({
     where: { trfNumber: { startsWith: 'TRF-' }, createdById: only(testUserId) },
   });
+  await prisma.samples.deleteMany({ where: { createdById: only(testUserId) } });
   await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
@@ -611,6 +617,9 @@ describe('company_profile — default entity round-trip', () => {
  *     coerced to false the printed form asserts a "NO" nobody chose.
  *  3. **The anchor XOR**, at all three layers — Zod on create, the service's merged check on
  *     update, and (implicitly) the DB constraint behind them.
+ *  4. **`sampleId` and `greigeId` persist** (2026-09-23). greigeId was missing from the schema and the
+ *     updatable-field list, so it was dropped on every save and wash care was never remembered. The
+ *     full lab-round loop is walked in sample-lab-rounds.test.ts.
  */
 describe('buyer TRF — round-trip, enum arrays, tri-state nulls and the anchor rule', () => {
   const base = '/api/buyer-trfs';
@@ -618,10 +627,15 @@ describe('buyer TRF — round-trip, enum arrays, tri-state nulls and the anchor 
   let styleId: string;
   let saleOrderId: string;
   let trfId: string;
+  let sampleId: string;
+  let otherStyleSampleId: string;
+  let greigeId: string | undefined;
 
   const createBody = () => ({
     styleId,
     saleOrderId,
+    sampleId,
+    ...(greigeId ? { greigeId } : {}),
     buyingDepartment: 'WOMENS_WEAR',
     sampleDescription: 'TUNIC',
     endUse: 'TUNIC(TOP)',
@@ -678,6 +692,35 @@ describe('buyer TRF — round-trip, enum arrays, tri-state nulls and the anchor 
       },
     });
     saleOrderId = so.id;
+
+    // A sample of this style for this buyer, and one of another style (the mismatch case).
+    const otherStyle = await prisma.styles.create({
+      data: {
+        id: randomUUID(),
+        styleCode: `${RUN}-STY2`,
+        styleName: `${RUN} Other`,
+        customerName: `${RUN} TRF Buyer`,
+        gender: 'WOMEN',
+        createdById: testUserId,
+      },
+    });
+    const sampleRow = (forStyle: string, suffix: string) => ({
+      id: randomUUID(),
+      sampleNumber: `${RUN}-${suffix}`,
+      customerId,
+      styleId: forStyle,
+      sampleType: 'PP_SAMPLE' as const,
+      requiredDate: new Date(),
+      createdById: testUserId,
+    });
+    const mine = sampleRow(styleId, 'SMP');
+    const theirs = sampleRow(otherStyle.id, 'SMP2');
+    await prisma.samples.createMany({ data: [mine, theirs] });
+    sampleId = mine.id;
+    otherStyleSampleId = theirs.id;
+
+    // Any real fabric will do: the round-trip only proves the column is written.
+    greigeId = (await prisma.greige_master.findFirst({ select: { id: true } }))?.id;
   });
 
   it('creates with a sale-order anchor and reads every sent field back', async () => {
@@ -740,6 +783,12 @@ describe('buyer TRF — round-trip, enum arrays, tri-state nulls and the anchor 
     await request(app).post(base).set(authHeader).send(body).expect(400);
   });
 
+  it('refuses to link a sample of another style (400, and the link is unchanged)', async () => {
+    await request(app).put(`${base}/${trfId}`).set(authHeader).send({ sampleId: otherStyleSampleId }).expect(400);
+    const fetched = await readBack(base, trfId);
+    expect(fetched.sampleId).toBe(sampleId);
+  });
+
   it('refuses an update that would clear the only anchor', async () => {
     // Decidable only against the stored row, so this pins the service-level merged guard
     // rather than the Zod refine.
@@ -750,8 +799,9 @@ describe('buyer TRF — round-trip, enum arrays, tri-state nulls and the anchor 
   });
 
   afterAll(async () => {
-    // FK order: TRFs reference the style, the sale order, the customer and the test user.
+    // FK order: TRFs reference the sample, the style, the sale order, the customer and the test user.
     await prisma.buyer_test_requirement_forms.deleteMany({ where: { customerId } });
+    await prisma.samples.deleteMany({ where: { sampleNumber: { startsWith: RUN } } });
     await prisma.sale_orders.deleteMany({ where: { saleOrderNumber: { startsWith: RUN } } });
     await prisma.styles.deleteMany({ where: { styleCode: { startsWith: RUN } } });
     await prisma.customers.deleteMany({ where: { id: only(customerId) } });

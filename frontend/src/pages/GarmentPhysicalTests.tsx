@@ -209,6 +209,21 @@ export default function GarmentPhysicalTests() {
                         Admin Override
                       </Badge>
                     )}
+                    {test.trf && (
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer text-xs"
+                        title="Open the sample's Lab Tests tab"
+                        onClick={() =>
+                          test.trf?.sample
+                            ? navigate(`/samples/${test.trf.sample.id}?tab=lab`)
+                            : navigate(`/test-requirement-forms/${test.trf!.id}`)
+                        }
+                      >
+                        {test.trf.trfNumber}
+                        {test.trf.sample ? ` · Sample ${test.trf.sample.sampleNumber}` : ''}
+                      </Badge>
+                    )}
                     {test.buyerApprovalRequired && !test.buyerApprovedDate && (
                       <Badge className="bg-info-muted text-info border-info/30">
                         <Clock className="h-3 w-3 mr-1" />
@@ -228,7 +243,8 @@ export default function GarmentPhysicalTests() {
                     <div>
                       <span className="text-muted-foreground">Work Order:</span>
                       <p className="font-medium text-foreground">
-                        {test.workOrder?.workOrderNumber || test.workOrderId}
+                        {/* A sample's garment test (done on the PP sample before it is sent) has no work order. */}
+                        {test.workOrder?.workOrderNumber ?? (test.workOrderId || 'None — sample test')}
                       </p>
                     </div>
                     <div>

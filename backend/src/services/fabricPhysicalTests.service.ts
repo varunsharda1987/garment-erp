@@ -8,9 +8,16 @@ import {
   ApproveFabricTestInput,
   FabricPhysicalTestQueryOptions,
 } from '../types/testing.types';
-import { AppError, NotFoundError, ValidationError, InternalError } from '../errors';
+import { AppError, NotFoundError, ValidationError, InternalError, ConflictError } from '../errors';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { applySearch } from '../utils/search-filter';
+import { FABRIC_RESULT_KEYS } from '../schemas/testing.schemas';
+import { conflictIfDuplicateRound, pickResultFields, resolveTrfForTest } from './helpers/lab-round.helper';
+
+/** The lab round a test belongs to, and through it the sample (tests never carry a sampleId). */
+const TRF_SUMMARY = {
+  select: { id: true, trfNumber: true, sampleId: true, sample: { select: { id: true, sampleNumber: true } } },
+} as const;
 
 class FabricPhysicalTestsService {
   /**
@@ -26,6 +33,9 @@ class FabricPhysicalTestsService {
    */
   async createTest(data: CreateFabricPhysicalTestInput, userId: string): Promise<any> {
     try {
+      // A result recorded against a lab round (TRF) takes its style, buyer and lab from that round.
+      const trf = data.trfId ? await resolveTrfForTest(data.trfId, 'fabric', data.styleId) : null;
+
       // Generate test number
       const testNumber = await this.generateTestNumber();
 
@@ -36,16 +46,18 @@ class FabricPhysicalTestsService {
           fabricId: data.fabricId,
           fabricProcurementId: data.fabricProcurementId,
           fabricStockLotId: data.fabricStockLotId,
-          styleId: data.styleId,
-          customerId: data.customerId,
+          styleId: data.styleId ?? trf?.styleId,
+          customerId: data.customerId ?? trf?.customerId,
           sentToLabDate: data.sentToLabDate,
-          testingLabId: data.testingLabId,
+          testingLabId: data.testingLabId ?? trf?.testingLabId ?? undefined,
           sampleQuantity: data.sampleQuantity,
           batchNumber: data.batchNumber,
           expectedGSM: data.expectedGSM,
           expectedConstruction: data.expectedConstruction,
           expectedCount: data.expectedCount,
           toleranceGSM: data.toleranceGSM,
+          trfId: trf?.id,
+          ...pickResultFields(data, FABRIC_RESULT_KEYS),
           createdById: userId,
         },
         include: {
@@ -74,12 +86,14 @@ class FabricPhysicalTestsService {
               name: true,
             },
           },
+          trf: TRF_SUMMARY,
         },
       });
 
       return test;
     } catch (error) {
       if (error instanceof AppError) throw error;
+      conflictIfDuplicateRound(error, 'fabric');
       logger.error('Fabric Physical Tests Service Error Details:', error);
       throw new InternalError('Failed to create fabric physical test');
     }
@@ -199,6 +213,9 @@ class FabricPhysicalTestsService {
                 name: true,
               },
             },
+            trf: TRF_SUMMARY,
+            // So the list offers Retest only on a failure that has not been retested yet.
+            _count: { select: { retests: true } },
           },
         }),
         prisma.fabric_physical_tests.count({ where }),
@@ -266,6 +283,7 @@ class FabricPhysicalTestsService {
           retests: {
             orderBy: { createdAt: 'desc' },
           },
+          trf: TRF_SUMMARY,
         },
       });
 
@@ -357,11 +375,22 @@ class FabricPhysicalTestsService {
     try {
       const originalTest = await prisma.fabric_physical_tests.findUnique({
         where: { id: data.originalTestId },
+        include: { _count: { select: { retests: true } } },
       });
 
       if (!originalTest) {
         throw new NotFoundError('Original test not found');
       }
+      if (!originalTest.isActive) {
+        throw new ValidationError(`${originalTest.testNumber} has been deactivated and cannot be retested`);
+      }
+      // One retest per test keeps the chain a line, not a tree: a double-click used to make two.
+      if (originalTest._count.retests > 0) {
+        throw new ConflictError(
+          `${originalTest.testNumber} has already been retested — record the new result on that retest`
+        );
+      }
+      const trf = data.trfId ? await resolveTrfForTest(data.trfId, 'fabric', originalTest.styleId) : null;
 
       // Generate new test number
       const testNumber = await this.generateTestNumber();
@@ -386,6 +415,8 @@ class FabricPhysicalTestsService {
           originalTestId: data.originalTestId,
           retestReason: data.retestReason,
           retestCount: originalTest.retestCount + 1,
+          trfId: trf?.id,
+          ...pickResultFields(data, FABRIC_RESULT_KEYS),
           createdById: userId,
         },
         include: {
@@ -412,6 +443,7 @@ class FabricPhysicalTestsService {
       return retest;
     } catch (error) {
       if (error instanceof AppError) throw error;
+      conflictIfDuplicateRound(error, 'fabric');
       throw new InternalError('Failed to create retest');
     }
   }

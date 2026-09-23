@@ -2,6 +2,7 @@ import { Prisma, ProductionStage, SampleType, SampleStatus, TestResult } from '@
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
+import { latestSampleRoundForStyle } from './helpers/lab-round.helper';
 
 // Shortfall tolerance: ignore shortfalls below 0.5% of required quantity
 // (handles BOM wastage rounding — e.g. need 1670.29m, have 1670.00m → 0.017% short → pass)
@@ -60,6 +61,7 @@ type SampleReq = { sampleType: string; isRequired: boolean; blocksProduction: bo
 type CustomerGates = {
   fitBlocks: boolean;
   sizeSetBlocks: boolean;
+  shipmentSampleBlocks: boolean;
   fptBlocksProduction: boolean;
   gptBlocksShipment: boolean;
 };
@@ -86,9 +88,15 @@ function resolveCustomerGates(
   const sampleRequirements: SampleReq[] = customer?.customer_sample_requirements || [];
   const blocks = (req: SampleReq | undefined) => (req ? req.isRequired && req.blocksProduction : true);
 
+  // The Shipment Sample gate is OPT-IN: only an explicit row blocks. It is a newer gate (2026-09-23)
+  // than FIT / Size Set, and "no row blocks" here would stop every dispatch of every customer who
+  // never configured sample requirements — House of Kasya, the live B2B buyer, has none.
+  const shipmentReq = sampleRequirements.find((r) => r.sampleType === 'SHIPMENT_SAMPLE');
+
   return {
     fitBlocks: blocks(sampleRequirements.find((r) => r.sampleType === 'FIT_SAMPLE')),
     sizeSetBlocks: blocks(sampleRequirements.find((r) => r.sampleType === 'SIZE_SET_SAMPLE')),
+    shipmentSampleBlocks: shipmentReq ? shipmentReq.isRequired && shipmentReq.blocksProduction : false,
     fptBlocksProduction: customer?.fptBlocksProduction ?? false,
     // Default to true for safety
     gptBlocksShipment: customer?.gptBlocksShipment ?? true,
@@ -160,6 +168,7 @@ interface OverrideLogData {
  * 2. Size Set Sample → Blocks Cutting & Beyond
  * 3. FPT (Fabric Physical Test) → Blocks Cutting & Beyond
  * 4. GPT (Garment Physical Test) → Blocks Cutting & Beyond
+ * 4b. Shipment Sample (approved + latest lab round passed) → Blocks Ready-to-ship, Shipped, Dispatch (opt-in)
  * 5. Sequential Sample Dependencies (PP requires FIT, SIZE_SET requires PP)
  */
 class ProductionBlockingValidationService {
@@ -431,6 +440,125 @@ class ProductionBlockingValidationService {
   }
 
   /**
+   * RULE 4b: Shipment Sample — bulk goods ship on the Shipment Sample (owner, 2026-09-23).
+   *
+   * Blocks READY_TO_SHIP / SHIPPED — and dispatch, via validateShipmentSampleForDispatch — unless the
+   * style's latest Shipment Sample for this buyer is APPROVED (or approved with comments) AND the latest
+   * lab round on any of the style's samples for this buyer PASSED (lab-round.helper.ts is the one
+   * definition of "passed"). Any sample, not the Shipment Sample's own: the garment is lab-tested on the
+   * PP sample before it is sent (owner, 2026-09-23), so requiring a round on the Shipment Sample itself
+   * would block dispatch forever. Both conditions, because approving a sample only WARNS about a failed
+   * round; it does not refuse.
+   *
+   * Opt-in per customer (see resolveCustomerGates): only an explicit SHIPMENT_SAMPLE requirement that is
+   * required AND blocking turns this on.
+   */
+  async validateShipmentSampleForStage(
+    styleId: string,
+    targetStage: ProductionStage,
+    customerShipmentBlocks: boolean,
+    customerId?: string | null
+  ): Promise<ValidationResult> {
+    if (!customerShipmentBlocks) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    const blockedStages: ProductionStage[] = ['READY_TO_SHIP', 'SHIPPED'];
+    if (!blockedStages.includes(targetStage)) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    const shipmentSample = await prisma.samples.findFirst({
+      where: {
+        styleId,
+        sampleType: 'SHIPMENT_SAMPLE',
+        isActive: true,
+        ...(customerId ? { customerId } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, sampleNumber: true, status: true, styles: { select: { styleCode: true } } },
+    });
+    const styleLabel = shipmentSample?.styles?.styleCode ?? 'this style';
+
+    if (!shipmentSample) {
+      return {
+        isBlocked: true,
+        blockers: [
+          {
+            type: 'SHIPMENT_SAMPLE_NOT_APPROVED',
+            message: `No Shipment Sample exists for this style. An approved Shipment Sample with a passed lab test is required before ${targetStage}.`,
+            severity: 'CRITICAL',
+          },
+        ],
+      };
+    }
+
+    const blockers: BlockerInfo[] = [];
+    const approvedStatuses: SampleStatus[] = ['APPROVED', 'APPROVED_WITH_COMMENTS'];
+    if (!approvedStatuses.includes(shipmentSample.status)) {
+      blockers.push({
+        type: 'SHIPMENT_SAMPLE_NOT_APPROVED',
+        message: `Shipment Sample ${shipmentSample.sampleNumber} (${styleLabel}) must be approved before ${targetStage}. Current status: ${shipmentSample.status}`,
+        severity: 'CRITICAL',
+      });
+    }
+
+    const round = await latestSampleRoundForStyle(styleId, customerId);
+    if (!round) {
+      blockers.push({
+        type: 'SAMPLE_LAB_NOT_PASSED',
+        message: `No sample of ${styleLabel} has been sent for lab testing. A passed garment test (lab round) is required before ${targetStage}.`,
+        severity: 'CRITICAL',
+      });
+    } else if (round.result !== 'PASS') {
+      blockers.push({
+        type: 'SAMPLE_LAB_NOT_PASSED',
+        message:
+          round.result === 'FAIL'
+            ? `The latest lab round for ${styleLabel}, ${round.trfNumber} on sample ${round.sampleNumber}, failed${round.reportNumber ? ` (report ${round.reportNumber})` : ''}. A passing retest round is required before ${targetStage}.`
+            : `The latest lab round for ${styleLabel}, ${round.trfNumber} on sample ${round.sampleNumber}, has no result recorded yet. A passed lab round is required before ${targetStage}.`,
+        severity: 'CRITICAL',
+      });
+    }
+
+    return { isBlocked: blockers.length > 0, blockers };
+  }
+
+  /**
+   * The Shipment Sample rule for a dispatch, per style — so dispatch.controller.ts asks this service
+   * instead of re-deriving the rule. The customer comes from whichever order the delivery note hangs
+   * off (production `orders` OR `sale_orders`); a null customer means no gate can apply.
+   */
+  async validateShipmentSampleForDispatch(
+    styleIds: string[],
+    customerId: string | null | undefined
+  ): Promise<ValidationResult> {
+    if (!customerId || styleIds.length === 0) {
+      return { isBlocked: false, blockers: [] };
+    }
+    const customer = await prisma.customers.findUnique({
+      where: { id: customerId },
+      select: {
+        fptBlocksProduction: true,
+        gptBlocksShipment: true,
+        customer_sample_requirements: {
+          select: { sampleType: true, isRequired: true, blocksProduction: true },
+        },
+      },
+    });
+    const { shipmentSampleBlocks } = resolveCustomerGates(customer);
+    if (!shipmentSampleBlocks) {
+      return { isBlocked: false, blockers: [] };
+    }
+
+    const results = await Promise.all(
+      [...new Set(styleIds)].map((styleId) => this.validateShipmentSampleForStage(styleId, 'SHIPPED', true, customerId))
+    );
+    const blockers = results.flatMap((r) => r.blockers);
+    return { isBlocked: blockers.length > 0, blockers };
+  }
+
+  /**
    * RULE 5: Critical materials (fabrics) must be in stock before cutting
    * Checks if all fabrics required for the style are available in sufficient quantity
    */
@@ -652,6 +780,7 @@ class ProductionBlockingValidationService {
           select: {
             orders: {
               select: {
+                customerId: true,
                 customers: {
                   select: {
                     fptBlocksProduction: true,
@@ -673,19 +802,21 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    const { fitBlocks, sizeSetBlocks, fptBlocksProduction, gptBlocksShipment } = resolveCustomerGates(
-      workOrder.order_items?.orders?.customers
-    );
+    const { fitBlocks, sizeSetBlocks, shipmentSampleBlocks, fptBlocksProduction, gptBlocksShipment } =
+      resolveCustomerGates(workOrder.order_items?.orders?.customers);
+    const customerId = workOrder.order_items?.orders?.customerId ?? null;
 
     // Run all validations in parallel
-    const [fitResult, sizeSetResult, fptResult, gptResult, materialResult, cadResult] = await Promise.all([
-      this.validateFitSampleForStage(workOrder.styleId, targetStage, fitBlocks),
-      this.validateSizeSetSampleForStage(workOrder.styleId, targetStage, sizeSetBlocks),
-      this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
-      this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
-      this.validateMaterialAvailabilityForStage(workOrderId, targetStage),
-      this.validateProductionCADForStage(workOrder.styleId, targetStage),
-    ]);
+    const [fitResult, sizeSetResult, fptResult, gptResult, shipmentResult, materialResult, cadResult] =
+      await Promise.all([
+        this.validateFitSampleForStage(workOrder.styleId, targetStage, fitBlocks),
+        this.validateSizeSetSampleForStage(workOrder.styleId, targetStage, sizeSetBlocks),
+        this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
+        this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
+        this.validateShipmentSampleForStage(workOrder.styleId, targetStage, shipmentSampleBlocks, customerId),
+        this.validateMaterialAvailabilityForStage(workOrderId, targetStage),
+        this.validateProductionCADForStage(workOrder.styleId, targetStage),
+      ]);
 
     // Aggregate all blockers
     const allBlockers: BlockerInfo[] = [
@@ -693,6 +824,7 @@ class ProductionBlockingValidationService {
       ...sizeSetResult.blockers,
       ...fptResult.blockers,
       ...gptResult.blockers,
+      ...shipmentResult.blockers,
       ...materialResult.blockers,
       ...cadResult.blockers,
     ];
@@ -729,6 +861,7 @@ class ProductionBlockingValidationService {
         orderId: true,
         orders: {
           select: {
+            customerId: true,
             customers: {
               select: {
                 fptBlocksProduction: true,
@@ -748,13 +881,21 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [], gptEvaluated: false };
     }
 
-    const { fitBlocks, sizeSetBlocks, fptBlocksProduction } = resolveCustomerGates(orderItem.orders?.customers);
+    const { fitBlocks, sizeSetBlocks, shipmentSampleBlocks, fptBlocksProduction } = resolveCustomerGates(
+      orderItem.orders?.customers
+    );
     const run: RunIdentity = { styleId: orderItem.styleId, orderId: orderItem.orderId };
 
-    const [fitResult, sizeSetResult, fptResult, materialResult, cadResult] = await Promise.all([
+    const [fitResult, sizeSetResult, fptResult, shipmentResult, materialResult, cadResult] = await Promise.all([
       this.validateFitSampleForStage(orderItem.styleId, targetStage, fitBlocks),
       this.validateSizeSetSampleForStage(orderItem.styleId, targetStage, sizeSetBlocks),
       this.validateFPTForStage(orderItem.styleId, targetStage, fptBlocksProduction),
+      this.validateShipmentSampleForStage(
+        orderItem.styleId,
+        targetStage,
+        shipmentSampleBlocks,
+        orderItem.orders?.customerId ?? null
+      ),
       this.validateMaterialAvailabilityForRun(run, targetStage),
       this.validateProductionCADForStage(orderItem.styleId, targetStage),
     ]);
@@ -763,6 +904,7 @@ class ProductionBlockingValidationService {
       ...fitResult.blockers,
       ...sizeSetResult.blockers,
       ...fptResult.blockers,
+      ...shipmentResult.blockers,
       ...materialResult.blockers,
       ...cadResult.blockers,
     ];

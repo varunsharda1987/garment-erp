@@ -198,11 +198,32 @@ Production CAD average. When asked *"what does X need before it can happen"*, re
 stage's page or controller. Cutting's prerequisites were listed from the cutting page on 2026-09-15;
 the first end-to-end walk was refused for a missing approved Size Set Sample.
 
+**Shipment Sample gate (2026-09-23):** READY_TO_SHIP / SHIPPED and delivery-note dispatch need the
+style's latest Shipment Sample APPROVED **and** the latest lab round on ANY of the style's samples for
+that buyer PASSED (`latestSampleRoundForStyle` — in practice the PP sample's garment test; a Shipment
+Sample's own round counts only if it is ever sent to the lab). It is **opt-in** — only an
+explicit `SHIPMENT_SAMPLE` requirement row (required + blocks) turns it on, unlike FIT / Size Set where
+*no row* blocks (House of Kasya has no rows; the FIT-style default would stop all its dispatches).
+Dispatch calls `validateShipmentSampleForDispatch` with the delivery note's own `customerId`.
+
+**Lab rounds:** one TRF (`buyer_test_requirement_forms`) per round; `samples` 1 ──< TRF (`sampleId`,
+context — NOT an anchor, `buyer_trf_anchor_xor` is unchanged); TRF 1 ── 0..1 FPT and 0..1 GPT
+(`trfId @unique` on both), so a second test needs a second TRF. **Tests reach a sample only through
+their TRF — never add a `sampleId` to FPT/GPT.** "Did the round pass" has one definition,
+`roundResult()` in `helpers/lab-round.helper.ts`, read by the sample page, the approve warning and the
+Shipment Sample gate. **The owner's process decides where each test lives:** the GARMENT test (GPT) is
+done on the PP sample before it is sent — no work order yet — so a GPT needs `workOrderId` OR `trfId`
+(DB CHECK `gpt_anchor_work_order_or_trf`, do not drop it) and is recorded on the sample's Lab Tests
+tab; the FABRIC test (FPT) is done on the fabric lot after inward and is recorded on the Fabric Physical
+Tests page. Walk it: `sample-lab-rounds.test.ts`.
+
 **Walk it, don't reason about it.** `backend/src/__tests__/integration/cutting-first-run.test.ts`
 drives the whole loop (greige → job → receive from processor (one action) → allocate-to-style → Production
 CAD from the lot → work order → samples → push to cutting → issue → chart → batch) through the real endpoints on tagged
 fixtures and tears everything down. Run it after touching any of those modules; every refusal it
-prints is a finding. **Post what the PAGE posts:** the first walk sent lays as 50 × 2 by hand and
+prints is a finding. **Run tests through npm** — `cd backend && npm test -- src/__tests__/integration/cutting-first-run.test.ts`
+— never bare `npx jest`: the scripts pass Node `--experimental-vm-modules`, without which every test that
+loads the app dies on the ESM-only puppeteer-core ("Must use import to load ES Module"; see `jest.config.js`). **Post what the PAGE posts:** the first walk sent lays as 50 × 2 by hand and
 missed that the Cutting Chart page's zeros had been refused by the schema since April 2026 (T4-B).
 A route with two callers has two payloads — probe each one against the compiled schema with `node -e`. Known gap it exposed: `adminOverride` on push-to-cutting is honoured with no
 server-side role check (plan `now-find-the-bugs-enumerated-floyd.md`, T4-A).

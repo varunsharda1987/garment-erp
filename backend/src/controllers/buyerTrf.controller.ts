@@ -41,8 +41,13 @@ export class BuyerTrfController {
    * came from.
    */
   async prefill(req: Request, res: Response) {
-    const { styleId, workOrderId, saleOrderId } = validatedQuery<BuyerTrfPrefillQueryInput>(req);
-    const result = await buyerTrfService.buildPrefill(styleId, { workOrderId, saleOrderId });
+    const { styleId, workOrderId, saleOrderId, sampleId, retestOfTrfId } =
+      validatedQuery<BuyerTrfPrefillQueryInput>(req);
+    const result = await buyerTrfService.buildPrefill(
+      styleId,
+      { workOrderId, saleOrderId },
+      { sampleId, retestOfTrfId }
+    );
     res.json({ success: true, data: result });
   }
 
@@ -63,7 +68,8 @@ export class BuyerTrfController {
   }
 
   async update(req: Request, res: Response) {
-    const trf = await buyerTrfService.update(req.params.id, req.body as UpdateBuyerTrfInput);
+    const userId = (req as Request & { user?: { id: string } }).user?.id;
+    const trf = await buyerTrfService.update(req.params.id, req.body as UpdateBuyerTrfInput, userId);
     res.json({ success: true, data: trf });
   }
 

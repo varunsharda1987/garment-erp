@@ -1733,19 +1733,19 @@ model quotations {
 }
 
 model samples {
-  id                       String                       @id
+  id                       String                         @id
   sampleNumber             String
   customerId               String
   styleId                  String?
   sampleType               SampleType
-  requestDate              DateTime                     @default(now())
+  requestDate              DateTime                       @default(now())
   requiredDate             DateTime
   completionDate           DateTime?
-  status                   SampleStatus                 @default(REQUESTED)
+  status                   SampleStatus                   @default(REQUESTED)
   customerFeedback         String?
   remarks                  String?
   createdById              String
-  createdAt                DateTime                     @default(now())
+  createdAt                DateTime                       @default(now())
   courierMode              String?
   feedbackDate             DateTime?
   linkedDispatchId         String?
@@ -1754,21 +1754,23 @@ model samples {
   productionLot            String?
   purpose                  String?
   receivedDate             DateTime?
-  revisionRequired         Boolean                      @default(false)
+  revisionRequired         Boolean                        @default(false)
   sentDate                 DateTime?
   sentTo                   String?
   trackingNumber           String?
   buyerNotifiedAt          DateTime?
   buyerNotifiedTo          String?
-  version                  Int                          @default(1)
-  isActive                 Boolean                      @default(true)
+  version                  Int                            @default(1)
+  isActive                 Boolean                        @default(true)
   colorways                sample_colorways[]
   measurements             sample_measurements[]
   sizeSets                 sample_size_sets[]
-  users                    users                        @relation(fields: [createdById], references: [id])
-  customers                customers                    @relation(fields: [customerId], references: [id])
-  styles                   styles?                      @relation(fields: [styleId], references: [id])
+  users                    users                          @relation(fields: [createdById], references: [id])
+  customers                customers                      @relation(fields: [customerId], references: [id])
+  styles                   styles?                        @relation(fields: [styleId], references: [id])
   stageTransitionOverrides stage_transition_overrides[]
+  /// Lab rounds: one TRF per submission to the lab (original, then each retest).
+  labRounds                buyer_test_requirement_forms[]
 
   @@index([customerId])
   @@index([sampleNumber])
@@ -7507,7 +7509,7 @@ model test_templates {
 
 /// Fabric Physical Tests - FPT records
 model fabric_physical_tests {
-  id                     String                  @id @default(uuid())
+  id                     String                        @id @default(uuid())
   testNumber             String
   fabricId               String?
   fabricProcurementId    String?
@@ -7516,56 +7518,61 @@ model fabric_physical_tests {
   customerId             String?
   sentToLabDate          DateTime?
   testingLabId           String?
-  sampleQuantity         Decimal?                @db.Decimal(10, 2)
+  sampleQuantity         Decimal?                      @db.Decimal(10, 2)
   batchNumber            String?
   expectedGSM            Int?
   expectedConstruction   String?
   expectedCount          String?
-  toleranceGSM           Decimal?                @db.Decimal(5, 2)
+  toleranceGSM           Decimal?                      @db.Decimal(5, 2)
   testReportNumber       String?
   testResultReceivedDate DateTime?
   testedGSM              Int?
-  gsmTestResult          TestResult?             @default(PENDING)
-  gsmVariance            Decimal?                @db.Decimal(5, 2)
+  gsmTestResult          TestResult?                   @default(PENDING)
+  gsmVariance            Decimal?                      @db.Decimal(5, 2)
   testedConstruction     String?
-  constructionTestResult TestResult?             @default(PENDING)
+  constructionTestResult TestResult?                   @default(PENDING)
   testedCount            String?
-  countTestResult        TestResult?             @default(PENDING)
-  tensileStrengthWarp    Decimal?                @db.Decimal(10, 2)
-  tensileStrengthWeft    Decimal?                @db.Decimal(10, 2)
-  tearStrengthWarp       Decimal?                @db.Decimal(10, 2)
-  tearStrengthWeft       Decimal?                @db.Decimal(10, 2)
-  shrinkageLength        Decimal?                @db.Decimal(5, 2)
-  shrinkageWidth         Decimal?                @db.Decimal(5, 2)
+  countTestResult        TestResult?                   @default(PENDING)
+  tensileStrengthWarp    Decimal?                      @db.Decimal(10, 2)
+  tensileStrengthWeft    Decimal?                      @db.Decimal(10, 2)
+  tearStrengthWarp       Decimal?                      @db.Decimal(10, 2)
+  tearStrengthWeft       Decimal?                      @db.Decimal(10, 2)
+  shrinkageLength        Decimal?                      @db.Decimal(5, 2)
+  shrinkageWidth         Decimal?                      @db.Decimal(5, 2)
   colorFastness          String?
   pilling                String?
-  spirality              Decimal?                @db.Decimal(5, 2)
+  spirality              Decimal?                      @db.Decimal(5, 2)
   testReportUrl          String?
-  overallTestResult      TestResult              @default(PENDING)
+  overallTestResult      TestResult                    @default(PENDING)
   failureReason          String?
   remarks                String?
-  isRetest               Boolean                 @default(false)
+  isRetest               Boolean                       @default(false)
   originalTestId         String?
   retestReason           String?
-  retestCount            Int                     @default(0)
+  retestCount            Int                           @default(0)
   approvedById           String?
   approvedDate           DateTime?
-  adminOverride          Boolean                 @default(false)
+  adminOverride          Boolean                       @default(false)
   overrideReason         String?
   createdById            String
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  isActive               Boolean                 @default(true)
-  approvedBy             users?                  @relation("FPTApprover", fields: [approvedById], references: [id])
-  createdBy              users                   @relation("FPTCreator", fields: [createdById], references: [id])
-  customer               customers?              @relation(fields: [customerId], references: [id])
-  fabric                 fabric_master?          @relation(fields: [fabricId], references: [id])
-  procurement            fabric_procurement?     @relation(fields: [fabricProcurementId], references: [id])
-  stockLot               fabric_stock?           @relation(fields: [fabricStockLotId], references: [id])
-  originalTest           fabric_physical_tests?  @relation("FPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  retests                fabric_physical_tests[] @relation("FPTRetests")
-  style                  styles?                 @relation(fields: [styleId], references: [id])
-  testingLab             testing_labs?           @relation(fields: [testingLabId], references: [id])
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+  isActive               Boolean                       @default(true)
+  /// The lab round (TRF) this result came back against. One FPT per TRF (@unique), so a second fabric
+  /// test forces a second TRF. A test reaches its sample ONLY through this TRF — do not add a sampleId
+  /// here (one concept, one home). Set at create/retest, never re-pointed.
+  trfId                  String?                       @unique
+  trf                    buyer_test_requirement_forms? @relation("TRFFabricTest", fields: [trfId], references: [id], onDelete: Restrict)
+  approvedBy             users?                        @relation("FPTApprover", fields: [approvedById], references: [id])
+  createdBy              users                         @relation("FPTCreator", fields: [createdById], references: [id])
+  customer               customers?                    @relation(fields: [customerId], references: [id])
+  fabric                 fabric_master?                @relation(fields: [fabricId], references: [id])
+  procurement            fabric_procurement?           @relation(fields: [fabricProcurementId], references: [id])
+  stockLot               fabric_stock?                 @relation(fields: [fabricStockLotId], references: [id])
+  originalTest           fabric_physical_tests?        @relation("FPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  retests                fabric_physical_tests[]       @relation("FPTRetests")
+  style                  styles?                       @relation(fields: [styleId], references: [id])
+  testingLab             testing_labs?                 @relation(fields: [testingLabId], references: [id])
 
   @@index([testNumber])
   @@index([fabricId])
@@ -7581,9 +7588,12 @@ model fabric_physical_tests {
 
 /// Garment Physical Tests - GPT records
 model garment_physical_tests {
-  id                     String                   @id @default(uuid())
+  id                     String                        @id @default(uuid())
   testNumber             String
-  workOrderId            String
+  /// The production run, when the garments came off one. NULL for a sample's garment test: GPT is done
+  /// on the PP sample BEFORE it is sent, when no work order exists yet (owner, 2026-09-23). DB CHECK
+  /// gpt_anchor_work_order_or_trf: a test needs a work order OR a lab round (trfId), never neither.
+  workOrderId            String?
   styleId                String
   customerId             String?
   sizeId                 String?
@@ -7593,54 +7603,61 @@ model garment_physical_tests {
   sampleQuantity         Int?
   testReportNumber       String?
   testResultReceivedDate DateTime?
-  prewashLength          Decimal?                 @db.Decimal(10, 2)
-  prewashWidth           Decimal?                 @db.Decimal(10, 2)
-  prewashChest           Decimal?                 @db.Decimal(10, 2)
-  postwashLength         Decimal?                 @db.Decimal(10, 2)
-  postwashWidth          Decimal?                 @db.Decimal(10, 2)
-  postwashChest          Decimal?                 @db.Decimal(10, 2)
-  lengthShrinkage        Decimal?                 @db.Decimal(5, 2)
-  widthShrinkage         Decimal?                 @db.Decimal(5, 2)
-  shrinkageTestResult    TestResult?              @default(PENDING)
-  seamStrength           Decimal?                 @db.Decimal(10, 2)
-  seamTestResult         TestResult?              @default(PENDING)
+  prewashLength          Decimal?                      @db.Decimal(10, 2)
+  prewashWidth           Decimal?                      @db.Decimal(10, 2)
+  prewashChest           Decimal?                      @db.Decimal(10, 2)
+  postwashLength         Decimal?                      @db.Decimal(10, 2)
+  postwashWidth          Decimal?                      @db.Decimal(10, 2)
+  postwashChest          Decimal?                      @db.Decimal(10, 2)
+  lengthShrinkage        Decimal?                      @db.Decimal(5, 2)
+  widthShrinkage         Decimal?                      @db.Decimal(5, 2)
+  shrinkageTestResult    TestResult?                   @default(PENDING)
+  seamStrength           Decimal?                      @db.Decimal(10, 2)
+  seamTestResult         TestResult?                   @default(PENDING)
   colorFastnessWash      String?
   colorFastnessRub       String?
   colorFastnessLight     String?
-  colorTestResult        TestResult?              @default(PENDING)
+  colorTestResult        TestResult?                   @default(PENDING)
   pilling                String?
-  spirality              Decimal?                 @db.Decimal(5, 2)
+  spirality              Decimal?                      @db.Decimal(5, 2)
   apparenceAfterWash     String?
   testReportUrl          String?
-  overallTestResult      TestResult               @default(PENDING)
+  overallTestResult      TestResult                    @default(PENDING)
   failureReason          String?
   remarks                String?
-  isRetest               Boolean                  @default(false)
+  isRetest               Boolean                       @default(false)
   originalTestId         String?
   retestReason           String?
-  retestCount            Int                      @default(0)
+  retestCount            Int                           @default(0)
   approvedById           String?
   approvedDate           DateTime?
-  adminOverride          Boolean                  @default(false)
+  adminOverride          Boolean                       @default(false)
   overrideReason         String?
-  buyerApprovalRequired  Boolean                  @default(false)
+  buyerApprovalRequired  Boolean                       @default(false)
   buyerApprovedDate      DateTime?
   buyerApprovedBy        String?
   buyerRemarks           String?
   createdById            String
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
-  isActive               Boolean                  @default(true)
-  approvedBy             users?                   @relation("GPTApprover", fields: [approvedById], references: [id])
-  color                  color_options?           @relation(fields: [colorId], references: [id])
-  createdBy              users                    @relation("GPTCreator", fields: [createdById], references: [id])
-  customer               customers?               @relation(fields: [customerId], references: [id])
-  originalTest           garment_physical_tests?  @relation("GPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  retests                garment_physical_tests[] @relation("GPTRetests")
-  size                   size_options?            @relation(fields: [sizeId], references: [id])
-  style                  styles                   @relation(fields: [styleId], references: [id])
-  testingLab             testing_labs?            @relation(fields: [testingLabId], references: [id])
-  workOrder              work_orders              @relation(fields: [workOrderId], references: [id])
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+  isActive               Boolean                       @default(true)
+  /// The lab round (TRF) this result came back against. One GPT per TRF (@unique), so a second garment
+  /// test forces a second TRF. A test reaches its sample ONLY through this TRF — do not add a sampleId
+  /// here. A sample's garment test has a trfId and no workOrderId (see workOrderId).
+  trfId                  String?                       @unique
+  trf                    buyer_test_requirement_forms? @relation("TRFGarmentTest", fields: [trfId], references: [id], onDelete: Restrict)
+  approvedBy             users?                        @relation("GPTApprover", fields: [approvedById], references: [id])
+  color                  color_options?                @relation(fields: [colorId], references: [id])
+  createdBy              users                         @relation("GPTCreator", fields: [createdById], references: [id])
+  customer               customers?                    @relation(fields: [customerId], references: [id])
+  originalTest           garment_physical_tests?       @relation("GPTRetests", fields: [originalTestId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  retests                garment_physical_tests[]      @relation("GPTRetests")
+  size                   size_options?                 @relation(fields: [sizeId], references: [id])
+  style                  styles                        @relation(fields: [styleId], references: [id])
+  testingLab             testing_labs?                 @relation(fields: [testingLabId], references: [id])
+  // Explicit Restrict keeps the FK as it was: an optional relation otherwise defaults to SetNull,
+  // which would null workOrderId on a work-order delete and trip the anchor CHECK instead of refusing.
+  workOrder              work_orders?                  @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
 
   @@index([testNumber])
   @@index([workOrderId])
@@ -10947,6 +10964,11 @@ model buyer_test_requirement_forms {
   /// "Order Number" (sale_orders.buyerPoNumber). Mutually exclusive with workOrderId.
   saleOrderId String?
 
+  /// The sample this lab round was submitted for. Context, NOT an anchor: buyer_trf_anchor_xor still
+  /// requires exactly one of workOrderId / saleOrderId (the sheet prints the order's PO number, which a
+  /// sample does not have). Many TRFs per sample = the original round and each retest round.
+  sampleId String?
+
   styleId      String
   /// The greige the printed fabric block came from. Stored so a code typed on the form can be
   /// remembered against (customer, fabric) without re-deriving the CAD chain at save time, and
@@ -11026,8 +11048,14 @@ model buyer_test_requirement_forms {
   saleOrder  sale_orders?   @relation(fields: [saleOrderId], references: [id])
   testingLab testing_labs?  @relation(fields: [testingLabId], references: [id])
   createdBy  users          @relation("TRFCreator", fields: [createdById], references: [id])
+  sample     samples?       @relation(fields: [sampleId], references: [id], onDelete: SetNull)
+
+  /// The lab results for this round — at most one of each (trfId is @unique on both test tables).
+  fabricTest  fabric_physical_tests?  @relation("TRFFabricTest")
+  garmentTest garment_physical_tests? @relation("TRFGarmentTest")
 
   @@index([styleId])
+  @@index([sampleId])
   @@index([customerId])
   @@index([workOrderId])
   @@index([saleOrderId])

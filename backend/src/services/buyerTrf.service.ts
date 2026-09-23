@@ -23,6 +23,7 @@ import {
 import { EASYBUY_TRF_DEFAULTS, TRF_BO_NUMBER_NOT_REQUIRED } from '../constants/buyer-trf.constants';
 import { washCareService } from './washCare.service';
 import { companyProfileService } from './company-profile.service';
+import { LAB_ROUND_TEST_SELECT, latestRoundForSample, roundResult } from './helpers/lab-round.helper';
 
 /** Fields the list screen searches. Registered in listSearchCoverage.test.ts. */
 const TRF_SEARCH_FIELDS = [
@@ -43,7 +44,45 @@ const LIST_INCLUDE = {
   testingLab: { select: { id: true, labName: true, labCode: true } },
   workOrder: { select: { id: true, workOrderNumber: true } },
   saleOrder: { select: { id: true, saleOrderNumber: true, buyerPoNumber: true } },
+  sample: { select: { id: true, sampleNumber: true, sampleType: true, status: true } },
+  // The lab round's results. Tests reach their sample only through this TRF (trfId is unique).
+  fabricTest: { select: LAB_ROUND_TEST_SELECT },
+  garmentTest: { select: LAB_ROUND_TEST_SELECT },
 } satisfies Prisma.buyer_test_requirement_formsInclude;
+
+/** Sample type -> the buyer sheet's two-value sample stage. Other types are left for the merchant. */
+const SAMPLE_STAGE_BY_TYPE: Partial<Record<string, 'PP' | 'SHIPMENT'>> = {
+  PP_SAMPLE: 'PP',
+  SHIPMENT_SAMPLE: 'SHIPMENT',
+};
+
+/**
+ * Printed labels pushed straight onto `missing` (not via note()), mapped to their field - so a retest
+ * round that carries a value over from the previous sheet can drop the stale "missing" warning.
+ */
+const MISSING_LABEL_FIELD: Record<string, string> = {
+  'End Use': 'endUse',
+  'Season (buyer code)': 'season',
+  'Wash Care Code': 'washCareCode',
+  Buyer: 'customerId',
+};
+
+/** Never carried from one lab round to the next: the new round has its own date, status and anchor. */
+const NOT_CARRIED_TO_RETEST = new Set([
+  'status',
+  'trfDate',
+  'workOrderId',
+  'saleOrderId',
+  'packageType',
+  'previousReportNo',
+]);
+
+/** Attach the round's verdict so no client re-derives it. */
+function withLabResult<T extends Parameters<typeof roundResult>[0]>(
+  trf: T
+): T & { labResult: ReturnType<typeof roundResult> } {
+  return { ...trf, labResult: roundResult(trf) };
+}
 
 export interface TrfPrefillResult {
   values: Record<string, unknown>;
@@ -67,13 +106,16 @@ class BuyerTrfService {
    */
   async buildPrefill(
     styleId: string,
-    anchor: { workOrderId?: string; saleOrderId?: string }
+    anchor: { workOrderId?: string; saleOrderId?: string },
+    round: { sampleId?: string; retestOfTrfId?: string } = {}
   ): Promise<TrfPrefillResult> {
     const values: Record<string, unknown> = {};
     const sources: Record<string, string> = {};
     const missing: string[] = [];
+    const labelField: Record<string, string> = { ...MISSING_LABEL_FIELD };
 
     const note = (field: string, value: unknown, source: string, label: string) => {
+      labelField[label] = field;
       if (value === null || value === undefined || value === '') {
         missing.push(label);
         return;
@@ -256,7 +298,44 @@ class BuyerTrfService {
       missing.push('Wash Care Code');
     }
 
-    return { values, missingFields: [...new Set(missing)], sources };
+    /* -- The sample this round is for -- */
+    if (round.sampleId) {
+      const sample = await this.assertSampleFits(round.sampleId, styleId, values.customerId as string | undefined);
+      values.sampleId = sample.id;
+      sources.sampleId = `sample ${sample.sampleNumber}`;
+      const stage = SAMPLE_STAGE_BY_TYPE[sample.sampleType];
+      if (stage) {
+        values.sampleStage = stage;
+        sources.sampleStage = `sample ${sample.sampleNumber} (${sample.sampleType})`;
+      }
+    }
+
+    /* -- A retest round: the previous sheet, carried over --
+       The previous TRF already holds what the merchant corrected by hand ("100% RAYON", the buyer's
+       season code, the ticked tests). Re-deriving would silently revert those, so its printed values
+       win over the fresh derivation; only the round's own facts (date, status, anchor) are new. */
+    if (round.retestOfTrfId) {
+      const previous = await this.retestSource(round.retestOfTrfId, styleId);
+      for (const [field, value] of Object.entries(this.pickWritableFields(previous.row))) {
+        if (NOT_CARRIED_TO_RETEST.has(field) || value === null) continue;
+        values[field] = value;
+        sources[field] = `previous round ${previous.row.trfNumber}`;
+      }
+      values.packageType = 'RETEST';
+      sources.packageType = `retest of ${previous.row.trfNumber}`;
+      if (previous.reportNumber) {
+        values.previousReportNo = previous.reportNumber;
+        sources.previousReportNo = `lab report on ${previous.row.trfNumber}`;
+      } else {
+        missing.push('Previous report no.');
+      }
+    }
+
+    const stillMissing = [...new Set(missing)].filter((label) => {
+      const field = labelField[label];
+      return !field || values[field] === undefined || values[field] === null || values[field] === '';
+    });
+    return { values, missingFields: stillMissing, sources };
   }
 
   /**
@@ -361,13 +440,79 @@ class BuyerTrfService {
     return { ...EASYBUY_TRF_DEFAULTS };
   }
 
+  /* ─────────────────────────────── Lab rounds ─────────────────────────────── */
+
+  /**
+   * A TRF may only name a sample of the same style and the same buyer - otherwise the sample page
+   * would show another garment's lab result as its own. `customerId` is checked only when known.
+   */
+  private async assertSampleFits(sampleId: string, styleId: string, customerId: string | null | undefined) {
+    const sample = await prisma.samples.findUnique({
+      where: { id: sampleId },
+      select: {
+        id: true,
+        sampleNumber: true,
+        sampleType: true,
+        styleId: true,
+        customerId: true,
+        styles: { select: { styleCode: true } },
+      },
+    });
+    if (!sample) throw new ValidationError('That sample no longer exists');
+
+    if (sample.styleId !== styleId) {
+      const style = await prisma.styles.findUnique({ where: { id: styleId }, select: { styleCode: true } });
+      throw new ValidationError(
+        `Sample ${sample.sampleNumber} is for style ${sample.styles?.styleCode ?? '(none)'}, not ${style?.styleCode ?? 'the style on this form'}`
+      );
+    }
+    if (customerId && sample.customerId !== customerId) {
+      throw new ValidationError(`Sample ${sample.sampleNumber} belongs to a different buyer than this form`);
+    }
+    return sample;
+  }
+
+  /**
+   * The round a retest follows. It must be this style's, it must have FAILED (a retest after a pass,
+   * or before the result is in, is a mistake), and for a sample it must be the sample's latest round -
+   * retesting an older round would fork the chain.
+   */
+  private async retestSource(trfId: string, styleId: string) {
+    const row = await prisma.buyer_test_requirement_forms.findUnique({
+      where: { id: trfId },
+      include: { fabricTest: { select: LAB_ROUND_TEST_SELECT }, garmentTest: { select: LAB_ROUND_TEST_SELECT } },
+    });
+    if (!row || !row.isActive) throw new NotFoundError('Test requirement form to retest not found');
+    if (row.styleId !== styleId) throw new ValidationError(`${row.trfNumber} is for a different style`);
+
+    const result = roundResult(row);
+    if (result !== 'FAIL') {
+      throw new ValidationError(
+        result === 'PASS'
+          ? `${row.trfNumber} passed - a retest round follows a failed round`
+          : `Record the lab result on ${row.trfNumber} before starting a retest round`
+      );
+    }
+    if (row.sampleId) {
+      const latest = await latestRoundForSample(row.sampleId);
+      if (latest && latest.trfId !== row.id) {
+        throw new ValidationError(`${latest.trfNumber} is this sample's latest round - start the retest from it`);
+      }
+    }
+    return {
+      row: row as unknown as Record<string, unknown> & { trfNumber: string },
+      reportNumber: row.fabricTest?.testReportNumber ?? row.garmentTest?.testReportNumber ?? null,
+    };
+  }
+
   /* ───────────────────────────────── CRUD ───────────────────────────────── */
 
   async create(data: CreateBuyerTrfInput, userId: string) {
-    const prefill = await this.buildPrefill(data.styleId, {
-      workOrderId: data.workOrderId ?? undefined,
-      saleOrderId: data.saleOrderId ?? undefined,
-    });
+    const prefill = await this.buildPrefill(
+      data.styleId,
+      { workOrderId: data.workOrderId ?? undefined, saleOrderId: data.saleOrderId ?? undefined },
+      { sampleId: data.sampleId ?? undefined }
+    );
 
     // The client's values win; the prefill only fills what was left undefined. Anything the
     // merchant edited on screen therefore survives, including a fibre content changed from
@@ -381,6 +526,8 @@ class BuyerTrfService {
     if (!customerId) {
       throw new ValidationError('Could not work out which buyer this style belongs to — pick the customer on the form');
     }
+    // Before the number is consumed, so a refused save does not burn a TRF number.
+    if (merged.sampleId) await this.assertSampleFits(merged.sampleId as string, data.styleId, customerId);
 
     const trfNumber = await generateAtomicMasterCode('TRF', 4);
 
@@ -404,7 +551,7 @@ class BuyerTrfService {
       userId
     );
 
-    return created;
+    return withLabResult(created);
   }
 
   async getAll(params: BuyerTrfQueryInput) {
@@ -417,6 +564,7 @@ class BuyerTrfService {
       ...(params.styleId ? { styleId: params.styleId } : {}),
       ...(params.customerId ? { customerId: params.customerId } : {}),
       ...(params.testingLabId ? { testingLabId: params.testingLabId } : {}),
+      ...(params.sampleId ? { sampleId: params.sampleId } : {}),
       ...(params.sampleStage ? { sampleStage: params.sampleStage } : {}),
     };
     applySearch(where, params.search, TRF_SEARCH_FIELDS);
@@ -432,7 +580,10 @@ class BuyerTrfService {
       prisma.buyer_test_requirement_forms.count({ where }),
     ]);
 
-    return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return {
+      data: data.map(withLabResult),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getById(id: string) {
@@ -441,13 +592,13 @@ class BuyerTrfService {
       include: LIST_INCLUDE,
     });
     if (!trf) throw new NotFoundError('Test requirement form not found');
-    return trf;
+    return withLabResult(trf);
   }
 
-  async update(id: string, data: UpdateBuyerTrfInput) {
+  async update(id: string, data: UpdateBuyerTrfInput, userId?: string) {
     const existing = await prisma.buyer_test_requirement_forms.findUnique({
       where: { id },
-      select: { id: true, workOrderId: true, saleOrderId: true },
+      select: { id: true, workOrderId: true, saleOrderId: true, styleId: true, customerId: true, sampleId: true },
     });
     if (!existing) throw new NotFoundError('Test requirement form not found');
 
@@ -464,17 +615,50 @@ class BuyerTrfService {
       );
     }
 
-    return prisma.buyer_test_requirement_forms.update({
+    // The sample check on the MERGED row, for the same reason as the anchor check above.
+    const sampleId = data.sampleId !== undefined ? data.sampleId : existing.sampleId;
+    const customerId = data.customerId ?? existing.customerId;
+    if (sampleId && (data.sampleId !== undefined || data.customerId !== undefined)) {
+      await this.assertSampleFits(sampleId, existing.styleId, customerId);
+    }
+
+    const updated = await prisma.buyer_test_requirement_forms.update({
       where: { id },
       data: this.pickWritableFields(data) as Prisma.buyer_test_requirement_formsUpdateInput,
       include: LIST_INCLUDE,
     });
+
+    // The form promises "remembered against this buyer and fabric when you save" - on an edit too,
+    // not only on create. Best-effort, same as create.
+    if (userId) {
+      void washCareService.rememberFromTrf(
+        { customerId: updated.customerId, greigeId: updated.greigeId, washCareCode: updated.washCareCode },
+        userId
+      );
+    }
+    return withLabResult(updated);
   }
 
   /** Soft delete — a TRF is a record of what was sent to a lab, so it is never hard-deleted. */
   async delete(id: string) {
-    const existing = await prisma.buyer_test_requirement_forms.findUnique({ where: { id } });
+    const existing = await prisma.buyer_test_requirement_forms.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        trfNumber: true,
+        fabricTest: { select: { testNumber: true } },
+        garmentTest: { select: { testNumber: true } },
+      },
+    });
     if (!existing) throw new NotFoundError('Test requirement form not found');
+    // A round with a lab result is evidence. Hiding it would also make the round BEFORE it the
+    // sample's "latest", which can flip the Shipment Sample dispatch gate to an older pass.
+    const linked = [existing.fabricTest?.testNumber, existing.garmentTest?.testNumber].filter(Boolean);
+    if (linked.length > 0) {
+      throw new ValidationError(
+        `${existing.trfNumber} has a recorded lab result (${linked.join(', ')}) and cannot be removed`
+      );
+    }
     return prisma.buyer_test_requirement_forms.update({ where: { id }, data: { isActive: false } });
   }
 

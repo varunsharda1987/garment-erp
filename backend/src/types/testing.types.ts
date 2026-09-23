@@ -217,7 +217,62 @@ export interface FabricPhysicalTest {
   updatedAt: Date;
 }
 
-export interface CreateFabricPhysicalTestInput {
+/** What the lab reported — common to FPT and GPT. Mirrors labReportFields in testing.schemas.ts. */
+export interface LabReportFields {
+  testReportNumber?: string | null;
+  testResultReceivedDate?: Date | null;
+  testReportUrl?: string | null;
+  overallTestResult?: TestResult;
+  failureReason?: string | null;
+  remarks?: string | null;
+}
+
+/** Mirrors fabricReadingFields in testing.schemas.ts. */
+export interface FabricReadingFields {
+  testedGSM?: number | null;
+  gsmTestResult?: TestResult | null;
+  gsmVariance?: number | null;
+  testedConstruction?: string | null;
+  constructionTestResult?: TestResult | null;
+  testedCount?: string | null;
+  countTestResult?: TestResult | null;
+  tensileStrengthWarp?: number | null;
+  tensileStrengthWeft?: number | null;
+  tearStrengthWarp?: number | null;
+  tearStrengthWeft?: number | null;
+  shrinkageLength?: number | null;
+  shrinkageWidth?: number | null;
+  colorFastness?: string | null;
+  pilling?: string | null;
+  spirality?: number | null;
+}
+
+/** Mirrors garmentReadingFields in testing.schemas.ts. */
+export interface GarmentReadingFields {
+  prewashLength?: number | null;
+  prewashWidth?: number | null;
+  prewashChest?: number | null;
+  postwashLength?: number | null;
+  postwashWidth?: number | null;
+  postwashChest?: number | null;
+  lengthShrinkage?: number | null;
+  widthShrinkage?: number | null;
+  shrinkageTestResult?: TestResult | null;
+  seamStrength?: number | null;
+  seamTestResult?: TestResult | null;
+  colorFastnessWash?: string | null;
+  colorFastnessRub?: string | null;
+  colorFastnessLight?: string | null;
+  colorTestResult?: TestResult | null;
+  pilling?: string | null;
+  spirality?: number | null;
+  apparenceAfterWash?: string | null;
+}
+
+export interface CreateFabricPhysicalTestInput extends LabReportFields, FabricReadingFields {
+  /** The lab round this result came back against (create/retest only). */
+  trfId?: string;
+
   // Fabric Linkage (at least one required)
   fabricId?: string;
   fabricProcurementId?: string;
@@ -238,58 +293,29 @@ export interface CreateFabricPhysicalTestInput {
   toleranceGSM?: number;
 }
 
-export interface UpdateFabricPhysicalTestInput {
+export interface UpdateFabricPhysicalTestInput extends LabReportFields, FabricReadingFields {
   // Test Sending
-  sentToLabDate?: Date;
-  testingLabId?: string;
-  sampleQuantity?: number;
-  batchNumber?: string;
+  sentToLabDate?: Date | null;
+  testingLabId?: string | null;
+  sampleQuantity?: number | null;
+  batchNumber?: string | null;
 
   // Expected Parameters
-  expectedGSM?: number;
-  expectedConstruction?: string;
-  expectedCount?: string;
-  toleranceGSM?: number;
-
-  // Test Results - Core
-  testReportNumber?: string;
-  testResultReceivedDate?: Date;
-  testedGSM?: number;
-  gsmTestResult?: TestResult;
-  gsmVariance?: number;
-  testedConstruction?: string;
-  constructionTestResult?: TestResult;
-  testedCount?: string;
-  countTestResult?: TestResult;
-
-  // Additional Tests
-  tensileStrengthWarp?: number;
-  tensileStrengthWeft?: number;
-  tearStrengthWarp?: number;
-  tearStrengthWeft?: number;
-  shrinkageLength?: number;
-  shrinkageWidth?: number;
-  colorFastness?: string;
-  pilling?: string;
-  spirality?: number;
-  testReportUrl?: string;
-
-  // Overall Status
-  overallTestResult?: TestResult;
-  failureReason?: string;
-  remarks?: string;
-
-  // Approval
-  adminOverride?: boolean;
-  overrideReason?: string;
+  expectedGSM?: number | null;
+  expectedConstruction?: string | null;
+  expectedCount?: string | null;
+  toleranceGSM?: number | null;
+  // No adminOverride here: overrides go through ApproveFabricTestInput only.
 }
 
-export interface RetestFabricInput {
+export interface RetestFabricInput extends LabReportFields, FabricReadingFields {
   originalTestId: string;
   retestReason: string;
   sentToLabDate?: Date;
   testingLabId?: string;
   sampleQuantity?: number;
+  /** The NEW lab round (TRF) this retest's result came back against. */
+  trfId?: string;
 }
 
 export interface ApproveFabricTestInput {
@@ -305,8 +331,8 @@ export interface GarmentPhysicalTest {
   id: string;
   testNumber: string;
 
-  // Garment Linkage
-  workOrderId: string;
+  // Garment Linkage — workOrderId is null for a sample's garment test (see trfId)
+  workOrderId: string | null;
   styleId: string;
   customerId: string | null;
   sizeId: string | null;
@@ -373,8 +399,11 @@ export interface GarmentPhysicalTest {
   updatedAt: Date;
 }
 
-export interface CreateGarmentPhysicalTestInput {
-  workOrderId: string;
+export interface CreateGarmentPhysicalTestInput extends LabReportFields, GarmentReadingFields {
+  /** The lab round this result came back against (create/retest only). */
+  trfId?: string;
+  /** Absent for a sample's garment test; then trfId is required (schema refine + DB CHECK). */
+  workOrderId?: string;
   styleId: string;
   customerId?: string;
   sizeId?: string;
@@ -390,59 +419,26 @@ export interface CreateGarmentPhysicalTestInput {
   buyerApprovalRequired?: boolean;
 }
 
-export interface UpdateGarmentPhysicalTestInput {
+export interface UpdateGarmentPhysicalTestInput extends LabReportFields, GarmentReadingFields {
   // Test Sending
-  sentToLabDate?: Date;
-  testingLabId?: string;
-  sampleQuantity?: number;
-  batchNumber?: string;
-
-  // Dimensional Stability
-  prewashLength?: number;
-  prewashWidth?: number;
-  prewashChest?: number;
-  postwashLength?: number;
-  postwashWidth?: number;
-  postwashChest?: number;
-  lengthShrinkage?: number;
-  widthShrinkage?: number;
-  shrinkageTestResult?: TestResult;
-
-  // Seam Strength
-  seamStrength?: number;
-  seamTestResult?: TestResult;
-
-  // Color Fastness
-  colorFastnessWash?: string;
-  colorFastnessRub?: string;
-  colorFastnessLight?: string;
-  colorTestResult?: TestResult;
-
-  // Additional Tests
-  pilling?: string;
-  spirality?: number;
-  apparenceAfterWash?: string;
-  testReportUrl?: string;
-
-  // Overall Status
-  overallTestResult?: TestResult;
-  failureReason?: string;
-  remarks?: string;
+  sentToLabDate?: Date | null;
+  testingLabId?: string | null;
+  sampleQuantity?: number | null;
+  batchNumber?: string | null;
 
   // Buyer Approval
-  buyerRemarks?: string;
-
-  // Admin Approval
-  adminOverride?: boolean;
-  overrideReason?: string;
+  buyerRemarks?: string | null;
+  // No adminOverride here: overrides go through ApproveGarmentTestInput only.
 }
 
-export interface RetestGarmentInput {
+export interface RetestGarmentInput extends LabReportFields, GarmentReadingFields {
   originalTestId: string;
   retestReason: string;
   sentToLabDate?: Date;
   testingLabId?: string;
   sampleQuantity?: number;
+  /** The NEW lab round (TRF) this retest's result came back against. */
+  trfId?: string;
 }
 
 export interface ApproveGarmentTestInput {

@@ -9,9 +9,16 @@ import {
   BuyerApproveGarmentTestInput,
   GarmentPhysicalTestQueryOptions,
 } from '../types/testing.types';
-import { AppError, NotFoundError, ValidationError, InternalError } from '../errors';
+import { AppError, NotFoundError, ValidationError, InternalError, ConflictError } from '../errors';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { applySearch } from '../utils/search-filter';
+import { GARMENT_RESULT_KEYS } from '../schemas/testing.schemas';
+import { conflictIfDuplicateRound, pickResultFields, resolveTrfForTest } from './helpers/lab-round.helper';
+
+/** The lab round a test belongs to, and through it the sample (tests never carry a sampleId). */
+const TRF_SUMMARY = {
+  select: { id: true, trfNumber: true, sampleId: true, sample: { select: { id: true, sampleNumber: true } } },
+} as const;
 
 class GarmentPhysicalTestsService {
   /**
@@ -29,40 +36,49 @@ class GarmentPhysicalTestsService {
    */
   async createTest(data: CreateGarmentPhysicalTestInput, userId: string): Promise<any> {
     try {
-      // Get work order details
-      const workOrder = await prisma.work_orders.findUnique({
-        where: { id: data.workOrderId },
-        include: {
-          styles: {
-            select: {
-              styleCode: true,
-              customerName: true,
-            },
-          },
-        },
-      });
-
-      if (!workOrder) {
+      // A production run's garments carry a work order; a sample's garment test (done on the PP
+      // sample before it is sent) has none and hangs off the sample's lab round (trfId) instead.
+      const workOrder = data.workOrderId
+        ? await prisma.work_orders.findUnique({
+            where: { id: data.workOrderId },
+            select: { id: true, workOrderNumber: true, styleId: true },
+          })
+        : null;
+      if (data.workOrderId && !workOrder) {
         throw new NotFoundError('Work order not found');
       }
 
+      // A result recorded against a lab round (TRF): the round, the test and any work order must all
+      // be the same style.
+      const trf = data.trfId ? await resolveTrfForTest(data.trfId, 'garment', data.styleId) : null;
+      if (trf && workOrder && workOrder.styleId !== trf.styleId) {
+        throw new ValidationError(
+          `Work order ${workOrder.workOrderNumber} is for a different style than ${trf.trfNumber}`
+        );
+      }
+      if (!workOrder && !trf) {
+        throw new ValidationError('A garment test needs a work order or a test requirement form (lab round)');
+      }
+
       // Generate test number
-      const testNumber = await this.generateTestNumber(workOrder.workOrderNumber);
+      const testNumber = await this.generateTestNumber(workOrder?.workOrderNumber);
 
       // Create test
       const test = await prisma.garment_physical_tests.create({
         data: {
           testNumber,
-          workOrderId: data.workOrderId,
+          workOrderId: workOrder?.id ?? null,
           styleId: data.styleId,
-          customerId: data.customerId,
+          customerId: data.customerId ?? trf?.customerId,
           sizeId: data.sizeId,
           colorId: data.colorId,
           sentToLabDate: data.sentToLabDate,
-          testingLabId: data.testingLabId,
+          testingLabId: data.testingLabId ?? trf?.testingLabId ?? undefined,
           sampleQuantity: data.sampleQuantity,
 
           buyerApprovalRequired: data.buyerApprovalRequired || false,
+          trfId: trf?.id,
+          ...pickResultFields(data, GARMENT_RESULT_KEYS),
           createdById: userId,
         },
         include: {
@@ -88,12 +104,14 @@ class GarmentPhysicalTestsService {
               workOrderNumber: true,
             },
           },
+          trf: TRF_SUMMARY,
         },
       });
 
       return test;
     } catch (error) {
       if (error instanceof AppError) throw error;
+      conflictIfDuplicateRound(error, 'garment');
       throw new InternalError('Failed to create garment physical test');
     }
   }
@@ -235,6 +253,7 @@ class GarmentPhysicalTestsService {
                 name: true,
               },
             },
+            trf: TRF_SUMMARY,
           },
         }),
         prisma.garment_physical_tests.count({ where }),
@@ -312,6 +331,7 @@ class GarmentPhysicalTestsService {
           retests: {
             orderBy: { createdAt: 'desc' },
           },
+          trf: TRF_SUMMARY,
         },
       });
 
@@ -409,12 +429,23 @@ class GarmentPhysicalTestsService {
           workOrder: {
             select: { workOrderNumber: true },
           },
+          _count: { select: { retests: true } },
         },
       });
 
       if (!originalTest) {
         throw new NotFoundError('Original test not found');
       }
+      if (!originalTest.isActive) {
+        throw new ValidationError(`${originalTest.testNumber} has been deactivated and cannot be retested`);
+      }
+      // One retest per test keeps the chain a line, not a tree: a double-click used to make two.
+      if (originalTest._count.retests > 0) {
+        throw new ConflictError(
+          `${originalTest.testNumber} has already been retested — record the new result on that retest`
+        );
+      }
+      const trf = data.trfId ? await resolveTrfForTest(data.trfId, 'garment', originalTest.styleId) : null;
 
       // Generate new test number
       const testNumber = await this.generateTestNumber(originalTest.workOrder?.workOrderNumber);
@@ -436,6 +467,8 @@ class GarmentPhysicalTestsService {
           originalTestId: data.originalTestId,
           retestReason: data.retestReason,
           retestCount: originalTest.retestCount + 1,
+          trfId: trf?.id,
+          ...pickResultFields(data, GARMENT_RESULT_KEYS),
           createdById: userId,
         },
         include: {
@@ -461,6 +494,7 @@ class GarmentPhysicalTestsService {
       return retest;
     } catch (error) {
       if (error instanceof AppError) throw error;
+      conflictIfDuplicateRound(error, 'garment');
       throw new InternalError('Failed to create retest');
     }
   }

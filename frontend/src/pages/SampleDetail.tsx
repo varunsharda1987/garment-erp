@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import type { Sample, SampleType } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors, isVersionedSampleType } from '@/types/sample.types';
 import { SampleVersionBadge } from '@/components/SampleVersionBadge';
 import { SampleActionMenu } from '@/components/samples/SampleActionMenu';
+import { SampleTestingPanel } from '@/components/samples/SampleTestingPanel';
 
 interface RelatedSample {
   id: string;
@@ -32,6 +33,7 @@ import {
   Ruler,
   Palette,
   Grid3X3,
+  FlaskConical,
   Truck,
   User,
   Calendar,
@@ -53,6 +55,9 @@ import {
 export default function SampleDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // ?tab=lab — where the test requirement form sends you back to after saving.
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'lab' ? 'lab' : 'measurements';
 
   const [sample, setSample] = useState<Sample | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -284,7 +289,7 @@ export default function SampleDetail() {
           </Card>
 
           {/* Tabs for different content */}
-          <Tabs defaultValue="measurements">
+          <Tabs defaultValue={initialTab}>
             <TabsList>
               <TabsTrigger value="measurements" className="flex items-center gap-2">
                 <Ruler className="h-4 w-4" />
@@ -302,7 +307,15 @@ export default function SampleDetail() {
                   Size Set
                 </TabsTrigger>
               )}
+              <TabsTrigger value="lab" className="flex items-center gap-2">
+                <FlaskConical className="h-4 w-4" />
+                Lab Tests
+              </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="lab">
+              <SampleTestingPanel sample={sample} onChanged={fetchSample} />
+            </TabsContent>
 
             <TabsContent value="measurements">
               <Card>

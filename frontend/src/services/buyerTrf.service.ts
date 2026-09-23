@@ -44,11 +44,15 @@ export const buyerTrfService = {
   /**
    * What a TRF for this style would be pre-filled with, without creating one.
    * Exactly one of workOrderId / saleOrderId must be given.
+   * `sampleId` ticks the sample stage from the sample's type; `retestOfTrfId` starts the next lab
+   * round from the previous sheet (switched to RETEST, previous report number filled).
    */
   getPrefill: async (params: {
     styleId: string;
     workOrderId?: string;
     saleOrderId?: string;
+    sampleId?: string;
+    retestOfTrfId?: string;
   }): Promise<{ data: BuyerTrfPrefill }> => {
     const { data } = await api.get('/buyer-trfs/prefill', { params });
     return data;

@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError, UnauthorizedError, BusinessError } from
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
 import { recomputeSaleOrderStatus } from '../services/helpers/sale-order-status.helper';
+import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { applySearch } from '../utils/search-filter';
 
 // ============================================
@@ -871,6 +872,20 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
     }
   }
 
+  // Shipment Sample gate (owner, 2026-09-23): bulk ships on an APPROVED Shipment Sample whose latest
+  // lab round PASSED. The rule lives in productionBlockingValidation.service.ts. The customer is the
+  // note's own (required) customerId — NOT `orders.customers` as the GPT check above reads, which is
+  // null for every sale-order delivery note, so that check never fires for them (left as-is).
+  if (deliveryNote) {
+    const shipment = await productionBlockingValidationService.validateShipmentSampleForDispatch(
+      deliveryNote.delivery_note_items.map((i) => i.styleId),
+      deliveryNote.customerId
+    );
+    if (shipment.isBlocked) {
+      throw new ValidationError(shipment.blockers.map((b) => b.message).join(' '));
+    }
+  }
+
   // Status flip + transport dispatch date + carton dispatch in ONE transaction (bug-hunt dispatch-11);
   // the guarded updateMany also closes the race where two concurrent dispatch calls both passed the
   // pre-check above.
@@ -1616,6 +1631,13 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
   // Don't block — warn in response (FG deduction is atomic-reversible via delete)
   // The dispatchDeliveryNote action will hard-block if GPT still hasn't passed
 
+  // Same shape for the Shipment Sample gate: warn here, hard-block at dispatchDeliveryNote.
+  const shipmentSampleCheck = await productionBlockingValidationService.validateShipmentSampleForDispatch(
+    saleOrder.items.map((i) => i.styleId),
+    saleOrder.customerId
+  );
+  const shipmentSampleWarnings = shipmentSampleCheck.blockers.map((b) => b.message);
+
   // Build a map of sale order items for validation
   const soItemMap = new Map(saleOrder.items.map((i) => [i.id, i]));
 
@@ -1831,11 +1853,15 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
   if (gptWarnings.length > 0) {
     warnings.push(`GPT not yet passed for ${gptWarnings.join(', ')} — dispatch will be blocked until GPT approval`);
   }
+  if (shipmentSampleWarnings.length > 0) {
+    warnings.push(`${shipmentSampleWarnings.join(' ')} Dispatch will be blocked until then`);
+  }
 
   res.status(201).json({
     data: transformDeliveryNote(fullNote),
     fgShortfalls: fgShortfalls.length > 0 ? fgShortfalls : undefined,
     gptWarnings: gptWarnings.length > 0 ? gptWarnings : undefined,
+    shipmentSampleWarnings: shipmentSampleWarnings.length > 0 ? shipmentSampleWarnings : undefined,
     message:
       warnings.length > 0
         ? `Delivery note created — WARNING: ${warnings.join('; ')}`

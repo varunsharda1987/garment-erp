@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TestTemplateType, TestResult } from '@prisma/client';
+import { formNumber } from './common.schema';
 
 // Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
 const isValidIdFormat = (val: string) =>
@@ -97,6 +98,92 @@ export const testTemplateQuerySchema = z.object({
 });
 
 // ============================================================================
+// LAB RESULT FIELDS (shared by FPT and GPT create / retest / update)
+// ============================================================================
+//
+// This file is named *.schemas.ts, so the smart-check's strict-number and schema/service parity
+// detectors (which scan *.schema.ts) do NOT cover it. The result fields below are therefore made
+// blank-safe here, by hand: an HTML input posts '' for a cleared box, and a strict z.number() or
+// z.string().url() answers that with a 400 the merchant only sees as "Invalid request data".
+
+/** Trimmed free text; a cleared input is "no value", not an empty string. */
+const blankText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => (v === '' ? null : v))
+    .nullable()
+    .optional();
+
+/** A date input's value, with '' meaning "not set" rather than an Invalid Date. */
+const blankDate = z.preprocess((v) => (v === '' ? null : v), z.coerce.date().nullable().optional());
+
+/** The lab's PDF / portal link. '' is "none", anything else must be a real URL. */
+const reportUrl = z.preprocess((v) => (v === '' ? null : v), z.string().url().nullable().optional());
+
+const testResult = z.nativeEnum(TestResult);
+
+/** What the lab reported, common to both kinds of test. */
+const labReportFields = {
+  testReportNumber: blankText(100),
+  testResultReceivedDate: blankDate,
+  testReportUrl: reportUrl,
+  overallTestResult: testResult.optional(),
+  failureReason: blankText(500),
+  remarks: blankText(1000),
+};
+
+/** The fabric readings a lab report carries. */
+const fabricReadingFields = {
+  testedGSM: formNumber(z.number().int().positive()),
+  gsmTestResult: testResult.optional().nullable(),
+  gsmVariance: formNumber(),
+  testedConstruction: blankText(100),
+  constructionTestResult: testResult.optional().nullable(),
+  testedCount: blankText(50),
+  countTestResult: testResult.optional().nullable(),
+  tensileStrengthWarp: formNumber(z.number().positive()),
+  tensileStrengthWeft: formNumber(z.number().positive()),
+  tearStrengthWarp: formNumber(z.number().positive()),
+  tearStrengthWeft: formNumber(z.number().positive()),
+  shrinkageLength: formNumber(),
+  shrinkageWidth: formNumber(),
+  colorFastness: blankText(100),
+  pilling: blankText(50),
+  spirality: formNumber(),
+};
+
+/** The garment readings a lab report carries. */
+const garmentReadingFields = {
+  prewashLength: formNumber(z.number().positive()),
+  prewashWidth: formNumber(z.number().positive()),
+  prewashChest: formNumber(z.number().positive()),
+  postwashLength: formNumber(z.number().positive()),
+  postwashWidth: formNumber(z.number().positive()),
+  postwashChest: formNumber(z.number().positive()),
+  lengthShrinkage: formNumber(),
+  widthShrinkage: formNumber(),
+  shrinkageTestResult: testResult.optional().nullable(),
+  seamStrength: formNumber(z.number().positive()),
+  seamTestResult: testResult.optional().nullable(),
+  colorFastnessWash: blankText(50),
+  colorFastnessRub: blankText(50),
+  colorFastnessLight: blankText(50),
+  colorTestResult: testResult.optional().nullable(),
+  pilling: blankText(50),
+  spirality: formNumber(),
+  apparenceAfterWash: blankText(200),
+};
+
+/**
+ * The lab round (Test Requirement Form) a result came back against. Accepted on create and retest
+ * only — never on update, so a recorded result is never re-pointed at another round. One test of
+ * each kind per TRF (unique in the DB); the service answers a duplicate with a 409.
+ */
+const trfLink = { trfId: z.string().uuid().optional() };
+
+// ============================================================================
 // FABRIC PHYSICAL TESTS SCHEMAS
 // ============================================================================
 
@@ -120,9 +207,14 @@ export const createFabricPhysicalTestSchema = z
     expectedConstruction: z.string().max(100).optional(),
     expectedCount: z.string().max(50).optional(),
     toleranceGSM: z.number().optional(),
+
+    // Recording a lab round's result is one POST, one row — no create-then-update window.
+    ...trfLink,
+    ...labReportFields,
+    ...fabricReadingFields,
   })
-  .refine((data) => data.fabricId || data.fabricProcurementId || data.fabricStockLotId || data.styleId, {
-    message: 'At least one linkage (fabricId, fabricProcurementId, fabricStockLotId, or styleId) is required',
+  .refine((data) => data.fabricId || data.fabricProcurementId || data.fabricStockLotId || data.styleId || data.trfId, {
+    message: 'At least one linkage (fabricId, fabricProcurementId, fabricStockLotId, styleId, or trfId) is required',
   });
 
 export const updateFabricPhysicalTestSchema = z.object({
@@ -138,37 +230,11 @@ export const updateFabricPhysicalTestSchema = z.object({
   expectedCount: z.string().max(50).optional().nullable(),
   toleranceGSM: z.number().optional().nullable(),
 
-  // Test Results - Core
-  testReportNumber: z.string().max(100).optional().nullable(),
-  testResultReceivedDate: z.coerce.date().optional().nullable(),
-  testedGSM: z.number().int().positive().optional().nullable(),
-  gsmTestResult: z.nativeEnum(TestResult).optional().nullable(),
-  gsmVariance: z.number().optional().nullable(),
-  testedConstruction: z.string().max(100).optional().nullable(),
-  constructionTestResult: z.nativeEnum(TestResult).optional().nullable(),
-  testedCount: z.string().max(50).optional().nullable(),
-  countTestResult: z.nativeEnum(TestResult).optional().nullable(),
-
-  // Additional Tests
-  tensileStrengthWarp: z.number().positive().optional().nullable(),
-  tensileStrengthWeft: z.number().positive().optional().nullable(),
-  tearStrengthWarp: z.number().positive().optional().nullable(),
-  tearStrengthWeft: z.number().positive().optional().nullable(),
-  shrinkageLength: z.number().optional().nullable(),
-  shrinkageWidth: z.number().optional().nullable(),
-  colorFastness: z.string().max(100).optional().nullable(),
-  pilling: z.string().max(50).optional().nullable(),
-  spirality: z.number().optional().nullable(),
-  testReportUrl: z.string().url().optional().nullable(),
-
-  // Overall Status
-  overallTestResult: z.nativeEnum(TestResult).optional(),
-  failureReason: z.string().max(500).optional().nullable(),
-  remarks: z.string().max(1000).optional().nullable(),
-
-  // Approval
-  adminOverride: z.boolean().optional(),
-  overrideReason: z.string().max(500).optional().nullable(),
+  // Test results. adminOverride / overrideReason are deliberately NOT here: an override is made
+  // only through POST /:id/approve, which also records who approved it. Until 2026-09-23 a PUT
+  // could set adminOverride with no approver — and an overridden test is skipped by the cutting gate.
+  ...labReportFields,
+  ...fabricReadingFields,
 });
 
 export const retestFabricSchema = z.object({
@@ -177,6 +243,9 @@ export const retestFabricSchema = z.object({
   sentToLabDate: z.coerce.date().optional(),
   testingLabId: z.string().uuid().optional(),
   sampleQuantity: z.number().positive().optional(),
+  ...trfLink,
+  ...labReportFields,
+  ...fabricReadingFields,
 });
 
 export const approveFabricTestSchema = z
@@ -215,21 +284,35 @@ export const fabricPhysicalTestQuerySchema = z.object({
 // GARMENT PHYSICAL TESTS SCHEMAS
 // ============================================================================
 
-export const createGarmentPhysicalTestSchema = z.object({
-  workOrderId: z.string().uuid(),
-  styleId: z.string().uuid(),
-  customerId: z.string().uuid().optional(),
-  sizeId: z.string().uuid().optional(),
-  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
+export const createGarmentPhysicalTestSchema = z
+  .object({
+    /** The production run — absent for a sample's garment test (done on the PP sample before it is
+     *  sent, when no work order exists yet). Then `trfId` (the sample's lab round) is required. */
+    workOrderId: z.string().uuid().optional(),
+    styleId: z.string().uuid(),
+    customerId: z.string().uuid().optional(),
+    sizeId: z.string().uuid().optional(),
+    colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
 
-  // Test Sending
-  sentToLabDate: z.coerce.date().optional(),
-  testingLabId: z.string().uuid().optional(),
-  sampleQuantity: z.number().positive().optional(),
+    // Test Sending
+    sentToLabDate: z.coerce.date().optional(),
+    testingLabId: z.string().uuid().optional(),
+    sampleQuantity: z.number().positive().optional(),
 
-  // Buyer approval config
-  buyerApprovalRequired: z.boolean().optional().default(false),
-});
+    // Buyer approval config
+    buyerApprovalRequired: z.boolean().optional().default(false),
+
+    // Recording a lab round's result is one POST, one row.
+    ...trfLink,
+    ...labReportFields,
+    ...garmentReadingFields,
+  })
+  // Mirrors the DB CHECK gpt_anchor_work_order_or_trf, so the API answers a readable 400 rather
+  // than a 23514 surfacing as a 500.
+  .refine((data) => data.workOrderId || data.trfId, {
+    message: 'A garment test needs a work order or a test requirement form (lab round)',
+    path: ['workOrderId'],
+  });
 
 export const updateGarmentPhysicalTestSchema = z.object({
   // Test Sending
@@ -237,44 +320,14 @@ export const updateGarmentPhysicalTestSchema = z.object({
   testingLabId: z.string().uuid().optional().nullable(),
   sampleQuantity: z.number().positive().optional().nullable(),
 
-  // Dimensional Stability
-  prewashLength: z.number().positive().optional().nullable(),
-  prewashWidth: z.number().positive().optional().nullable(),
-  prewashChest: z.number().positive().optional().nullable(),
-  postwashLength: z.number().positive().optional().nullable(),
-  postwashWidth: z.number().positive().optional().nullable(),
-  postwashChest: z.number().positive().optional().nullable(),
-  lengthShrinkage: z.number().optional().nullable(),
-  widthShrinkage: z.number().optional().nullable(),
-  shrinkageTestResult: z.nativeEnum(TestResult).optional().nullable(),
-
-  // Seam Strength
-  seamStrength: z.number().positive().optional().nullable(),
-  seamTestResult: z.nativeEnum(TestResult).optional().nullable(),
-
-  // Color Fastness
-  colorFastnessWash: z.string().max(50).optional().nullable(),
-  colorFastnessRub: z.string().max(50).optional().nullable(),
-  colorFastnessLight: z.string().max(50).optional().nullable(),
-  colorTestResult: z.nativeEnum(TestResult).optional().nullable(),
-
-  // Additional Tests
-  pilling: z.string().max(50).optional().nullable(),
-  spirality: z.number().optional().nullable(),
-  apparenceAfterWash: z.string().max(200).optional().nullable(),
-  testReportUrl: z.string().url().optional().nullable(),
-
-  // Overall Status
-  overallTestResult: z.nativeEnum(TestResult).optional(),
-  failureReason: z.string().max(500).optional().nullable(),
-  remarks: z.string().max(1000).optional().nullable(),
+  // Test results — including testReportNumber / testResultReceivedDate, which this schema lacked
+  // until 2026-09-23, so a GPT's lab report number was stripped and could never be stored.
+  // adminOverride / overrideReason are NOT here: overrides go through POST /:id/approve only.
+  ...labReportFields,
+  ...garmentReadingFields,
 
   // Buyer Approval
   buyerRemarks: z.string().max(1000).optional().nullable(),
-
-  // Admin Approval
-  adminOverride: z.boolean().optional(),
-  overrideReason: z.string().max(500).optional().nullable(),
 });
 
 export const retestGarmentSchema = z.object({
@@ -283,6 +336,9 @@ export const retestGarmentSchema = z.object({
   sentToLabDate: z.coerce.date().optional(),
   testingLabId: z.string().uuid().optional(),
   sampleQuantity: z.number().positive().optional(),
+  ...trfLink,
+  ...labReportFields,
+  ...garmentReadingFields,
 });
 
 export const approveGarmentTestSchema = z
@@ -326,3 +382,11 @@ export const garmentPhysicalTestQuerySchema = z.object({
     .transform((val) => (val ? val === 'true' : undefined)),
 });
 // Schema validation fix
+
+/**
+ * The result columns a create / retest may write, taken from the schema fragments above so the
+ * services cannot drift from what the API accepts (the schema/service parity check does not scan
+ * this *.schemas.ts file — this list is that check, by construction).
+ */
+export const FABRIC_RESULT_KEYS = [...Object.keys(labReportFields), ...Object.keys(fabricReadingFields)] as const;
+export const GARMENT_RESULT_KEYS = [...Object.keys(labReportFields), ...Object.keys(garmentReadingFields)] as const;

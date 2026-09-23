@@ -8,12 +8,16 @@
  * order you will read it on paper. Every label and the print order of the tick groups come
  * from GET /buyer-trfs/form-options — the backend catalogue is the only copy of the buyer's
  * wording, so nothing here is re-typed.
+ *
+ * Opened from a sample's Lab Tests tab it carries `?sampleId=` (a new lab round for that sample) or
+ * `?sampleId=&retestOf=<trfId>` (the next round after a failed one — the server's prefill carries the
+ * previous sheet over and switches it to RETEST), plus `?returnTo=` so Save goes back to the sample.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, FileText, Loader2, Printer, Save, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Printer, Save, AlertTriangle, TestTube } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,15 +25,19 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { StyleCombobox } from '@/components/StyleCombobox';
 import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
 import { buyerTrfService } from '@/services/buyerTrf.service';
 import { getAllSaleOrders } from '@/services/saleOrder.service';
+import { sampleService } from '@/services/sample.service';
 import { openPDF } from '@/lib/document-utils';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import type { BuyerTrf, CreateBuyerTrfInput, TrfOption } from '@/types/buyerTrf.types';
 import type { SaleOrder } from '@/types/saleOrder.types';
+import { SampleTypeLabels } from '@/types/sample.types';
 
 type Draft = Partial<BuyerTrf> & { styleId?: string; buyingDepartment?: string };
 
@@ -39,6 +47,14 @@ type Draft = Partial<BuyerTrf> & { styleId?: string; buyingDepartment?: string }
  * "Could not load — open to retry" with no other clue.
  */
 const SALE_ORDER_PAGE = 100;
+
+/** "None" in the Sample select — Radix Select cannot hold an empty-string value. */
+const NO_SAMPLE = '__none__';
+
+/** Only an in-app sample page may be a return target — never an arbitrary URL from the query string. */
+function safeReturnTo(value: string | null): string | null {
+  return value && value.startsWith('/samples/') ? value : null;
+}
 
 /** One row of the identity block: label on the left, free text on the right. */
 function Field({
@@ -122,6 +138,11 @@ export default function BuyerTrfForm() {
   const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
+  const [searchParams] = useSearchParams();
+  // Only a NEW form takes its sample / retest source from the URL; an existing form has its own.
+  const sampleIdParam = isEdit ? null : searchParams.get('sampleId');
+  const retestOfParam = isEdit ? null : searchParams.get('retestOf');
+  const returnTo = safeReturnTo(searchParams.get('returnTo'));
 
   const [draft, setDraft] = useState<Draft>({});
   const [anchorKind, setAnchorKind] = useState<'saleOrder' | 'workOrder'>('saleOrder');
@@ -152,14 +173,66 @@ export default function BuyerTrfForm() {
     }
   }, [existing]);
 
+  /* ── Opened for a sample (new round) or as a retest (next round) ── */
+  const { data: sourceSample } = useQuery({
+    queryKey: ['sample', sampleIdParam],
+    queryFn: () => sampleService.getSampleById(sampleIdParam!),
+    enabled: Boolean(sampleIdParam),
+  });
+  const { data: previousRound } = useQuery({
+    queryKey: ['buyer-trf', retestOfParam],
+    queryFn: () => buyerTrfService.getById(retestOfParam!),
+    enabled: Boolean(retestOfParam),
+  });
+
+  // Seed the draft once the sample / previous round arrives. Adjusting state while rendering,
+  // guarded so it runs once per source (React's pattern for this, rather than an effect).
+  const seedSource = isEdit ? null : (previousRound?.data ?? (sourceSample?.styleId ? sourceSample : null));
+  const [seededFrom, setSeededFrom] = useState<object | null>(null);
+  if (seedSource && seededFrom !== seedSource) {
+    setSeededFrom(seedSource);
+    const prev = previousRound?.data;
+    if (prev) {
+      // The next round goes to the same style and order as the one it retests.
+      setAnchorKind(prev.workOrderId ? 'workOrder' : 'saleOrder');
+      setDraft((d) => ({
+        ...d,
+        styleId: prev.styleId,
+        saleOrderId: prev.saleOrderId,
+        workOrderId: prev.workOrderId,
+        sampleId: prev.sampleId ?? sampleIdParam,
+      }));
+    } else if (sourceSample?.styleId) {
+      const styleId = sourceSample.styleId;
+      setDraft((d) => ({ ...d, styleId, sampleId: sourceSample.id }));
+    }
+  }
+
+  /** Style and buyer are fixed when the form is for a sample: the sample decides both. */
+  const styleLocked = isEdit || Boolean(sampleIdParam || retestOfParam);
+  const orderCustomerId = sourceSample?.customerId ?? previousRound?.data.customerId;
+
   /* ── Sale order picker ──
      Uses the LIST endpoint, not /sale-orders/search: both match on the buyer's PO number, but
      only the list returns buyerPoNumber in the payload — and the PO is what the merchant has
      in front of them, so it has to be visible in the option, not just matchable. */
-  const fetchSaleOrders = useCallback(async (search: string): Promise<PickerPage<SaleOrder>> => {
-    const page = await getAllSaleOrders({ search: search || undefined, limit: SALE_ORDER_PAGE });
-    return { items: page.data ?? [], total: page.pagination?.total };
-  }, []);
+  const lockedStyleId = styleLocked && !isEdit ? draft.styleId : undefined;
+  const fetchSaleOrders = useCallback(
+    async (search: string): Promise<PickerPage<SaleOrder>> => {
+      const page = await getAllSaleOrders({
+        search: search || undefined,
+        limit: SALE_ORDER_PAGE,
+        customerId: orderCustomerId,
+      });
+      const items = page.data ?? [];
+      // For a sample, only the buyer's orders that carry this style. Filtered here rather than via a
+      // new query param: the sale-order list is part of the B2B app's contract.
+      if (!lockedStyleId) return { items, total: page.pagination?.total };
+      const forStyle = items.filter((so) => so.items?.some((i) => i.style?.id === lockedStyleId));
+      return { items: forStyle, total: forStyle.length };
+    },
+    [orderCustomerId, lockedStyleId]
+  );
 
   const saleOrderPicker = usePickerOptions<SaleOrder>({
     fetch: fetchSaleOrders,
@@ -173,37 +246,85 @@ export default function BuyerTrfForm() {
     narrowHint: 'type a sale order or buyer PO number',
   });
 
+  // A sample's style usually sits on exactly one of the buyer's orders: pick it for them.
+  // Adjusting state while rendering; the guard makes it a one-shot.
+  if (
+    lockedStyleId &&
+    !draft.saleOrderId &&
+    !draft.workOrderId &&
+    saleOrderPicker.initialLoaded &&
+    saleOrderPicker.items.length === 1
+  ) {
+    setAnchorKind('saleOrder');
+    setDraft((d) => ({ ...d, saleOrderId: saleOrderPicker.items[0].id }));
+  }
+
+  /* ── The sample this round is for (optional; the style's samples for this buyer) ── */
+  const { data: styleSamples = [] } = useQuery({
+    queryKey: ['samples', { styleId: draft.styleId }],
+    queryFn: () => sampleService.getSamplesByStyle(draft.styleId!),
+    enabled: Boolean(draft.styleId),
+  });
+  const sampleChoices = styleSamples.filter((s) => !draft.customerId || s.customerId === draft.customerId);
+  const linkedSample =
+    styleSamples.find((s) => s.id === draft.sampleId) ??
+    (sourceSample?.id === draft.sampleId ? sourceSample : undefined);
+
   /**
    * Pull the prefill whenever the style and its anchor are both known.
    *
    * Only fills fields the user has not already typed into — the same rule the server applies
    * on create, so an edited fibre content is never quietly put back to what we hold.
    */
-  const runPrefill = useCallback(async (styleId: string, anchor: { saleOrderId?: string; workOrderId?: string }) => {
-    try {
-      const { data } = await buyerTrfService.getPrefill({ styleId, ...anchor });
-      setMissingFields(data.missingFields ?? []);
-      setDraft((d) => {
-        const next = { ...d };
-        for (const [key, value] of Object.entries(data.values)) {
-          const current = next[key as keyof Draft];
-          if (current === undefined || current === null || current === '') {
-            (next as Record<string, unknown>)[key] = value;
+  const runPrefill = useCallback(
+    async (
+      styleId: string,
+      anchor: { saleOrderId?: string; workOrderId?: string },
+      round: { sampleId?: string; retestOfTrfId?: string }
+    ) => {
+      try {
+        const { data } = await buyerTrfService.getPrefill({ styleId, ...anchor, ...round });
+        setMissingFields(data.missingFields ?? []);
+        setDraft((d) => {
+          const next = { ...d };
+          for (const [key, value] of Object.entries(data.values)) {
+            const current = next[key as keyof Draft];
+            if (current === undefined || current === null || current === '') {
+              (next as Record<string, unknown>)[key] = value;
+            }
           }
-        }
-        return next;
-      });
-    } catch (error) {
-      handleApiError(error, 'Could not pre-fill from the style');
-    }
-  }, []);
+          return next;
+        });
+      } catch (error) {
+        handleApiError(error, 'Could not pre-fill from the style');
+      }
+    },
+    []
+  );
 
+  const prefillSampleId = sampleIdParam ?? undefined;
+  const prefillRetestOf = retestOfParam ?? undefined;
   useEffect(() => {
     if (isEdit || !draft.styleId) return;
+    // A retest round waits for the previous sheet; its anchor comes from there.
+    if (prefillRetestOf && !previousRound) return;
+    const round = { sampleId: prefillSampleId, retestOfTrfId: prefillRetestOf };
     if (anchorKind === 'saleOrder' && draft.saleOrderId) {
-      void runPrefill(draft.styleId, { saleOrderId: draft.saleOrderId });
+      void runPrefill(draft.styleId, { saleOrderId: draft.saleOrderId }, round);
+    } else if (anchorKind === 'workOrder' && draft.workOrderId) {
+      void runPrefill(draft.styleId, { workOrderId: draft.workOrderId }, round);
     }
-  }, [isEdit, draft.styleId, draft.saleOrderId, anchorKind, runPrefill]);
+  }, [
+    isEdit,
+    draft.styleId,
+    draft.saleOrderId,
+    draft.workOrderId,
+    anchorKind,
+    runPrefill,
+    prefillSampleId,
+    prefillRetestOf,
+    previousRound,
+  ]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -217,7 +338,8 @@ export default function BuyerTrfForm() {
     onSuccess: (res) => {
       handleApiSuccess(isEdit ? 'Form saved' : `Form ${res.data.trfNumber} created`);
       void queryClient.invalidateQueries({ queryKey: ['buyer-trfs'] });
-      navigate(`/test-requirement-forms/${res.data.id}`);
+      void queryClient.invalidateQueries({ queryKey: ['buyer-trf', res.data.id] });
+      navigate(returnTo ?? `/test-requirement-forms/${res.data.id}`);
     },
     onError: (error) => handleApiError(error, 'Could not save the form'),
   });
@@ -258,14 +380,30 @@ export default function BuyerTrfForm() {
     <div className="space-y-4 p-6 pb-24">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={() => navigate('/test-requirement-forms')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="-ml-2 mb-1"
+            onClick={() => navigate(returnTo ?? '/test-requirement-forms')}
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            All forms
+            {returnTo ? 'Back to sample' : 'All forms'}
           </Button>
           <h1 className="flex items-center gap-2 text-2xl font-semibold">
             <FileText className="h-6 w-6" />
             {isEdit ? `Test Requirement Form ${draft.trfNumber ?? ''}` : 'New Test Requirement Form'}
           </h1>
+          {(linkedSample || retestOfParam) && (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {linkedSample && (
+                <Badge variant="secondary" className="gap-1">
+                  <TestTube className="h-3 w-3" />
+                  For sample {linkedSample.sampleNumber}
+                </Badge>
+              )}
+              {previousRound?.data && <Badge variant="outline">Retest of {previousRound.data.trfNumber}</Badge>}
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           {isEdit && (
@@ -300,7 +438,7 @@ export default function BuyerTrfForm() {
               value={draft.styleId ?? ''}
               onChange={(styleId) => set('styleId', styleId)}
               status={null}
-              disabled={isEdit}
+              disabled={styleLocked}
             />
           </div>
           <div className="space-y-1">
@@ -335,6 +473,29 @@ export default function BuyerTrfForm() {
             />
             <p className="text-xs text-muted-foreground">
               The buyer&rsquo;s PO number on this order becomes the form&rsquo;s Order Number.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">Sample</Label>
+            <Select
+              value={draft.sampleId ?? NO_SAMPLE}
+              onValueChange={(v) => set('sampleId', v === NO_SAMPLE ? null : v)}
+              disabled={!draft.styleId || Boolean(sampleIdParam) || Boolean(retestOfParam)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Not linked to a sample" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_SAMPLE}>Not linked to a sample</SelectItem>
+                {sampleChoices.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.sampleNumber} — {SampleTypeLabels[s.sampleType]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              The sample this lab round is for. Its Lab Tests tab then shows this form and the lab&rsquo;s result.
             </p>
           </div>
         </CardContent>

@@ -13,6 +13,8 @@ import type {
   GarmentPhysicalTest,
   CreateGarmentPhysicalTestInput,
   UpdateGarmentPhysicalTestInput,
+  RetestFabricInput,
+  RetestGarmentInput,
   PaginatedResponse,
   ApiResponse,
 } from '@/types/testing.types';
@@ -113,13 +115,7 @@ export const fabricPhysicalTestsService = {
     return data;
   },
 
-  createRetest: async (input: {
-    originalTestId: string;
-    retestReason: string;
-    sentToLabDate?: string;
-    testingLabId?: string;
-    sampleQuantity?: number;
-  }): Promise<ApiResponse<FabricPhysicalTest>> => {
+  createRetest: async (input: RetestFabricInput): Promise<ApiResponse<FabricPhysicalTest>> => {
     const { data } = await api.post('/fabric-physical-tests/retest', input);
     return data;
   },
@@ -164,13 +160,7 @@ export const garmentPhysicalTestsService = {
     return data;
   },
 
-  createRetest: async (input: {
-    originalTestId: string;
-    retestReason: string;
-    sentToLabDate?: string;
-    testingLabId?: string;
-    sampleQuantity?: number;
-  }): Promise<ApiResponse<GarmentPhysicalTest>> => {
+  createRetest: async (input: RetestGarmentInput): Promise<ApiResponse<GarmentPhysicalTest>> => {
     const { data } = await api.post('/garment-physical-tests/retest', input);
     return data;
   },

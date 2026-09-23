@@ -89,6 +89,20 @@ const tickFields = {
 };
 
 /**
+ * Links that are context, not anchors.
+ *
+ * `sampleId` — the Sample Tracker sample this lab round was submitted for (one TRF per round; the
+ * service checks the sample belongs to the same style and buyer). `greigeId` — the fabric the printed
+ * fabric block came from; buildPrefill() derives it and it is what lets a wash-care code typed on the
+ * form be remembered against (buyer, fabric). It was missing from this schema until 2026-09-23, so it
+ * was silently dropped on every save and that remembering never happened.
+ */
+const linkFields = {
+  sampleId: z.string().uuid().nullable().optional(),
+  greigeId: z.string().uuid().nullable().optional(),
+};
+
+/**
  * Exactly one anchor: the work order the sample came out of, OR the buyer order it is for.
  *
  * Mirrored by the DB constraint buyer_trf_anchor_xor. This refine exists so the API answers a
@@ -125,6 +139,7 @@ export const createBuyerTrfSchema = z
      *  lab will reject. The frontend pre-selects Easybuy's WOMENS_WEAR. */
     buyingDepartment: TrfBuyingDepartmentEnum,
 
+    ...linkFields,
     ...identityFields,
     ...tickFields,
   })
@@ -149,6 +164,7 @@ export const updateBuyerTrfSchema = z
     status: TrfStatusEnum.optional(),
     buyingDepartment: TrfBuyingDepartmentEnum.optional(),
 
+    ...linkFields,
     ...identityFields,
     ...tickFields,
   })
@@ -168,6 +184,8 @@ export const buyerTrfQuerySchema = z.object({
   styleId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
   testingLabId: z.string().uuid().optional(),
+  /** The lab rounds of one Sample Tracker sample. */
+  sampleId: z.string().uuid().optional(),
   sampleStage: TrfSampleStageEnum.optional(),
   isActive: z
     .enum(['true', 'false'])
@@ -177,12 +195,20 @@ export const buyerTrfQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
-/** Query for GET /buyer-trfs/prefill — the same anchor rule as create. */
+/**
+ * Query for GET /buyer-trfs/prefill — the same anchor rule as create.
+ *
+ * `sampleId` pre-ticks the sample stage from the sample's type. `retestOfTrfId` starts the next lab
+ * round: the previous TRF's printed values are carried over (hand edits included) and the sheet is
+ * switched to RETEST with the previous round's report number.
+ */
 export const buyerTrfPrefillQuerySchema = z
   .object({
     styleId: z.string().uuid('Select a style'),
     workOrderId: z.string().uuid().optional(),
     saleOrderId: z.string().uuid().optional(),
+    sampleId: z.string().uuid().optional(),
+    retestOfTrfId: z.string().uuid().optional(),
   })
   .superRefine(refineAnchor);
 
@@ -207,6 +233,7 @@ export const BUYER_TRF_UPDATABLE_FIELDS = [
   'trfDate',
   'status',
   'buyingDepartment',
+  ...Object.keys(linkFields),
   ...Object.keys(identityFields),
   ...Object.keys(tickFields),
 ] as const;

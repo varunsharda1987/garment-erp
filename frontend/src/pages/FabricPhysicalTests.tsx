@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, FileText, CheckCircle, XCircle, Clock, AlertCircle, RotateCcw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,15 @@ import { fabricPhysicalTestsService } from '@/services/testing.service';
 import type { FabricPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatDate } from '@/lib/date';
+import { usePermissions } from '@/hooks/usePermissions';
+import { LabResultDialog } from '@/components/samples/LabResultDialog';
+
+/**
+ * Fabric tests are done on the fabric lot after it is inwarded (owner, 2026-09-23), so their results
+ * are recorded here — not on a sample. A failed test is retested as a new test, optionally on a new
+ * test requirement form (one fabric result per form).
+ */
+type ResultDialogState = { mode: 'result' | 'retest'; test: FabricPhysicalTest };
 
 export default function FabricPhysicalTests() {
   const navigate = useNavigate();
@@ -20,6 +29,9 @@ export default function FabricPhysicalTests() {
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>(searchParams.get('status') || 'all');
+  const [resultDialog, setResultDialog] = useState<ResultDialogState | null>(null);
+  const { can } = usePermissions();
+  const canWrite = can('testing');
 
   useEffect(() => {
     fetchTests();
@@ -154,6 +166,21 @@ export default function FabricPhysicalTests() {
                     {test.adminOverride && (
                       <Badge className="bg-accent/10 text-accent border-accent/25 text-xs">Admin Override</Badge>
                     )}
+                    {test.trf && (
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer text-xs"
+                        title="Open the sample's Lab Tests tab"
+                        onClick={() =>
+                          test.trf?.sample
+                            ? navigate(`/samples/${test.trf.sample.id}?tab=lab`)
+                            : navigate(`/test-requirement-forms/${test.trf!.id}`)
+                        }
+                      >
+                        {test.trf.trfNumber}
+                        {test.trf.sample ? ` · Sample ${test.trf.sample.sampleNumber}` : ''}
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -219,10 +246,37 @@ export default function FabricPhysicalTests() {
                     </div>
                   )}
                 </div>
+                {canWrite && (
+                  <div className="ml-4 flex shrink-0 flex-col gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setResultDialog({ mode: 'result', test })}>
+                      {test.overallTestResult === 'PENDING' ? 'Record result' : 'Edit result'}
+                    </Button>
+                    {['FAIL', 'RETEST_REQUIRED'].includes(test.overallTestResult) &&
+                      !test.adminOverride &&
+                      !test._count?.retests && (
+                        <Button size="sm" variant="outline" onClick={() => setResultDialog({ mode: 'retest', test })}>
+                          <RotateCcw className="mr-1 h-4 w-4" />
+                          Retest
+                        </Button>
+                      )}
+                  </div>
+                )}
               </div>
             </Card>
           ))}
         </div>
+      )}
+
+      {resultDialog && (
+        <LabResultDialog
+          open={!!resultDialog}
+          onOpenChange={(open) => !open && setResultDialog(null)}
+          kind="fabric"
+          existingTestId={resultDialog.mode === 'result' ? resultDialog.test.id : null}
+          previousTest={resultDialog.mode === 'retest' ? resultDialog.test : null}
+          styleId={resultDialog.test.styleId}
+          onSaved={() => void fetchTests()}
+        />
       )}
 
       {/* Pagination */}

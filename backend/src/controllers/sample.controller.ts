@@ -809,6 +809,15 @@ export const deleteSample = async (req: Request, res: Response) => {
     );
   }
 
+  // A sample that has been to the lab carries evidence: its lab rounds (TRFs) and their results.
+  // The FK would null the link on delete; refuse instead while any round is still active.
+  const labRounds = await prisma.buyer_test_requirement_forms.count({ where: { sampleId: id, isActive: true } });
+  if (labRounds > 0) {
+    throw new ValidationError(
+      `Cannot delete sample ${existing.sampleNumber}: it has ${labRounds} lab round${labRounds === 1 ? '' : 's'} (test requirement forms). Remove those first.`
+    );
+  }
+
   // Delete sample (cascade will delete measurements, colorways, size sets)
   await prisma.samples.delete({
     where: { id },

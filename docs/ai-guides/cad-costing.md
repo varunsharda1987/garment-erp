@@ -56,6 +56,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
   - frontend/src/pages/CADPlanningPage.tsx
+  - frontend/src/pages/StyleFabricCostingOptionsPage.tsx
   - frontend/src/pages/ProcessorRateCardPage.tsx
 route: /fabric-costing
 ---
@@ -72,6 +73,7 @@ route: /fabric-costing
 1. Open the style in **Pre-Production > CAD Planning**
 2. Click **Actions** dropdown (top right)
 3. Select **View Fabric Costing** or **Push to Fabric Costing**
+   - **Push to Fabric Costing** creates costing records for Costing and Raw Mat rows only. Production CAD rows (one per received lot) are skipped — a Production costing is made with **Promote to Production** on **Pre-Production > Costing Options**.
 
 **Option 2: Direct navigation**
 1. Go to **Pre-Production > Fabric Costing**

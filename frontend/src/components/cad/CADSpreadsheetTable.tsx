@@ -428,7 +428,8 @@ export function CADSpreadsheetTable({
   }, [rows]);
 
   // Check if selected fabrics can be combined into a single CAD row
-  // Rules: Same genericGreigeName, same fabricFinishType, same embroidery status
+  // Rules (mirrors addCombinedCADRow on the server): same genericGreigeName, same fabricFinishType,
+  // same colour / print design, same embroidery status and design
   const canCombineSelected = useMemo(() => {
     if (selectedStyleFabrics.length < 2) return { canCombine: false, reason: '' };
 
@@ -436,6 +437,8 @@ export function CADSpreadsheetTable({
     if (selectedFabrics.length < 2) return { canCombine: false, reason: '' };
 
     const first = selectedFabrics[0];
+    const lookOf = (sf: (typeof selectedFabrics)[number]) => sf.printDesign || sf.colorName || null;
+    const firstLook = lookOf(first);
 
     for (const sf of selectedFabrics) {
       if (sf.genericGreigeName !== first.genericGreigeName) {
@@ -450,6 +453,13 @@ export function CADSpreadsheetTable({
           reason: `Different finish types: "${first.fabricFinishType}" vs "${sf.fabricFinishType}"`,
         };
       }
+      const sfLook = lookOf(sf);
+      if ((sfLook || '').trim().toLowerCase() !== (firstLook || '').trim().toLowerCase()) {
+        return {
+          canCombine: false,
+          reason: `Different colours: "${firstLook || 'none'}" vs "${sfLook || 'none'}" — add them as separate rows`,
+        };
+      }
       // Check embroidery status matches
       const firstHasEmb = !!first.hasEmbroidery;
       const sfHasEmb = !!sf.hasEmbroidery;
@@ -459,11 +469,17 @@ export function CADSpreadsheetTable({
           reason: 'Cannot combine plain and embroidered fabrics',
         };
       }
+      if (firstHasEmb && sf.embroideryCode !== first.embroideryCode) {
+        return {
+          canCombine: false,
+          reason: `Different embroidery designs: "${first.embroideryCode || 'none'}" vs "${sf.embroideryCode || 'none'}"`,
+        };
+      }
     }
 
     return {
       canCombine: true,
-      reason: `Same fabric: ${first.genericGreigeName} ${first.fabricFinishType}`,
+      reason: `Same fabric: ${first.genericGreigeName} ${first.fabricFinishType}${firstLook ? ` ${firstLook}` : ''}`,
     };
   }, [selectedStyleFabrics, styleFabrics]);
 

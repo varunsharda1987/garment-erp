@@ -2825,6 +2825,7 @@ export async function addCADTableRow(req: Request, res: Response) {
  * Validation rules for combining:
  * - All fabrics must have same genericGreigeName
  * - All fabrics must have same fabricFinishType
+ * - All fabrics must have same colour (DYED/SOLID) or print design (PRINTED/YARN_DYED)
  * - All fabrics must have same embroidery status (all plain OR all same embroideryId)
  */
 export async function addCombinedCADRow(req: Request, res: Response) {
@@ -2905,8 +2906,10 @@ export async function addCombinedCADRow(req: Request, res: Response) {
           fabricCode: true,
           fabricName: true,
           greigeId: true,
+          printDesign: true,
         },
       },
+      colorMaster: { select: { colorName: true } },
     },
   });
 
@@ -2914,6 +2917,13 @@ export async function addCombinedCADRow(req: Request, res: Response) {
   if (styleFabrics.length !== styleFabricIds.length) {
     throw new NotFoundError('Style fabrics', 'one or more not found');
   }
+
+  // The colour (DYED/SOLID) or print design (PRINTED/YARN_DYED) of the fabric — same fallback
+  // chain as the CAD table's fabric grouping key, so what shows as two groups can't be combined.
+  const fabricLook = (sf: (typeof styleFabrics)[number]) =>
+    sf.printDesign || sf.fabric?.printDesign || sf.colorMaster?.colorName || sf.fabricColor || null;
+  const sameLook = (a: string | null, b: string | null) =>
+    (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
 
   // Extract component names for display
   const componentNames = styleFabrics.map((sf) => sf.style_components?.componentName).filter(Boolean);
@@ -2924,6 +2934,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
   const fabricFinishType = firstFabric.fabricFinishType;
   const hasEmbroidery = firstFabric.hasEmbroidery;
   const embroideryId = firstFabric.embroideryId;
+  const look = fabricLook(firstFabric);
 
   for (const sf of styleFabrics) {
     if (sf.genericGreigeName !== genericGreigeName) {
@@ -2934,6 +2945,11 @@ export async function addCombinedCADRow(req: Request, res: Response) {
     if (sf.fabricFinishType !== fabricFinishType) {
       throw new BusinessError(
         `Cannot combine fabrics with different finish types: "${fabricFinishType}" vs "${sf.fabricFinishType}"`
+      );
+    }
+    if (!sameLook(fabricLook(sf), look)) {
+      throw new BusinessError(
+        `Cannot combine fabrics of different colours/designs: "${look || 'none'}" vs "${fabricLook(sf) || 'none'}"`
       );
     }
     if (sf.hasEmbroidery !== hasEmbroidery) {

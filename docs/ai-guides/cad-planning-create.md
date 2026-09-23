@@ -87,7 +87,7 @@ A style must exist with:
    - For **Production** purpose: You must also select an existing fabric stock lot
 3. Click **Add** to create the row.
 
-> **Tip**: To create a combined-cutting row (one marker for multiple fabrics), select multiple style fabrics.
+> **Tip**: To create a combined-cutting row (one marker for several components), tick them all and click **Combine as 1 … Row**. Components can be combined only when they are the SAME fabric: same generic greige, same finish, same colour (or print design) and same embroidery. The box under the list says **Can be combined** or tells you why not.
 
 ### 5. Fill in CAD row data
 
@@ -167,6 +167,7 @@ After approval, to create fabric costing records:
 - **Wrong cutable width**: Using greige width instead of cutable width leads to wrong fabric consumption. Cutable width is typically 1-2 inches less than greige width due to selvedge.
 - **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but Production CAD with actual stock lots is needed for cutting.
 - **Deleting approved rows**: Approved CAD rows linked to fabric costing or orders cannot be deleted.
+- **Combining different colours**: A White Poplin top and a Burgundy Poplin shirt are two different fabrics, even on the same greige — they cannot share one marker. Click **Add 2 … Rows** to plan them separately.
 
 ## After saving
 

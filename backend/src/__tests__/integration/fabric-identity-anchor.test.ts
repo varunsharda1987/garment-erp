@@ -15,7 +15,12 @@
 import { randomUUID } from 'crypto';
 import { prisma, createTestUser } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
-import { resolveManualJobStyleFabricAnchor } from '../../services/helpers/fabric-identity.helper';
+import {
+  getOrCreateFinishedFabricV2,
+  resolveFinishedFabricIdentity,
+  resolveManualJobStyleFabricAnchor,
+  stampStyleFabricLink,
+} from '../../services/helpers/fabric-identity.helper';
 
 const RUN = `FIA${Date.now().toString(36).toUpperCase()}`;
 
@@ -95,9 +100,18 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const sfIds = [sfCad, sfLegacy, sfTwin1, sfTwin2].map((id) => only(id));
+  const masterWhere = { styleReference: `${RUN}-STY` };
   const steps: Array<[string, () => Promise<unknown>]> = [
     ['fabric_width_cad', () => prisma.fabric_width_cad.deleteMany({ where: { styleFabricId: { in: sfIds } } })],
     ['style_fabrics', () => prisma.style_fabrics.deleteMany({ where: { id: { in: sfIds } } })],
+    [
+      'materials',
+      async () => {
+        const masters = await prisma.fabric_master.findMany({ where: masterWhere, select: { id: true } });
+        await prisma.materials.deleteMany({ where: { id: { in: masters.map((m) => only(m.id)) } } });
+      },
+    ],
+    ['fabric_master', () => prisma.fabric_master.deleteMany({ where: masterWhere })],
     ['style_components', () => prisma.style_components.deleteMany({ where: { id: only(componentId) } })],
     ['styles', () => prisma.styles.deleteMany({ where: { id: only(styleId) } })],
     ['greige_master', () => prisma.greige_master.deleteMany({ where: { greigeCode: { startsWith: `${RUN}-` } } })],
@@ -134,5 +148,89 @@ describe('manual-job style fabric anchor', () => {
 
   it('stays ambiguous when two slots share the greige', async () => {
     expect(await resolveManualJobStyleFabricAnchor(styleId, greigeC, 'DYED')).toBeNull();
+  });
+});
+
+/**
+ * The same anchor as a FALLBACK inside resolveFinishedFabricIdentity — for the MRP mint and the
+ * job-work receipt, whose BOM line may carry no CAD (ESSKY085LS, 2026-09-23: selectedCadId NULL,
+ * so the style's slot was never linked to the dyed fabric and CAD Planning's Create CAD had
+ * nothing to hang the received lot on).
+ */
+describe('greige-lineage fallback in resolveFinishedFabricIdentity', () => {
+  const requirementOn = (greigeId: string, colorName: string) => ({
+    colorName,
+    orderBomItem: { greigeId, colorName, fabricId: null, selectedCad: null },
+    order_items: { styleId, styles: { id: styleId, styleCode: `${RUN}-STY`, buyerStyleRef: null } },
+  });
+
+  it('finds the style slot by greige when the BOM line has no CAD', async () => {
+    const identity = await resolveFinishedFabricIdentity({
+      requirement: requirementOn(greigeA, 'Black'),
+      finishType: 'DYED',
+    });
+    expect(identity?.styleFabricId).toBe(sfCad);
+  });
+
+  it('leaves the slot unresolved when two slots share the greige', async () => {
+    const identity = await resolveFinishedFabricIdentity({
+      requirement: requirementOn(greigeC, 'Black'),
+      finishType: 'DYED',
+    });
+    expect(identity).not.toBeNull();
+    expect(identity!.styleFabricId).toBeNull();
+  });
+
+  it('refuses a slot that already claims a master of another colour', async () => {
+    const black = await prisma.fabric_master.create({
+      data: {
+        fabricCode: `${RUN}-BLK`,
+        fabricName: `${RUN} Black`,
+        greigeId: greigeA,
+        colorName: 'Black',
+        finishType: 'DYED',
+        styleReference: `${RUN}-STY`,
+        createdById: userId,
+      },
+    });
+    await prisma.style_fabrics.update({ where: { id: sfCad }, data: { fabricId: black.id } });
+    try {
+      const navy = await resolveFinishedFabricIdentity({
+        requirement: requirementOn(greigeA, 'Navy'),
+        finishType: 'DYED',
+      });
+      expect(navy?.styleFabricId).toBeNull();
+      const again = await resolveFinishedFabricIdentity({
+        requirement: requirementOn(greigeA, 'black'),
+        finishType: 'DYED',
+      });
+      expect(again?.styleFabricId).toBe(sfCad);
+    } finally {
+      await prisma.style_fabrics.update({ where: { id: sfCad }, data: { fabricId: null } });
+      await prisma.fabric_master.delete({ where: { id: black.id } });
+    }
+  });
+
+  it('a mint links the slot, and a receipt against an existing master links it too', async () => {
+    const identity = await resolveFinishedFabricIdentity({
+      requirement: requirementOn(greigeA, 'Olive'),
+      finishType: 'DYED',
+    });
+    expect(identity?.styleFabricId).toBe(sfCad);
+
+    const minted = await getOrCreateFinishedFabricV2(identity!, userId, 'AUTO_FROM_MRP_JWO');
+    expect(minted.isNew).toBe(true);
+    expect((await prisma.style_fabrics.findUnique({ where: { id: sfCad } }))?.fabricId).toBe(minted.fabricId);
+
+    // Receipt against a master minted before the link existed: grn.service stamps identity.styleFabricId
+    await prisma.style_fabrics.update({ where: { id: sfCad }, data: { fabricId: null } });
+    const atReceipt = await resolveFinishedFabricIdentity({
+      requirement: requirementOn(greigeA, 'Olive'),
+      finishType: 'DYED',
+    });
+    await stampStyleFabricLink(atReceipt?.styleFabricId, minted.fabricId);
+    expect((await prisma.style_fabrics.findUnique({ where: { id: sfCad } }))?.fabricId).toBe(minted.fabricId);
+
+    await prisma.style_fabrics.update({ where: { id: sfCad }, data: { fabricId: null } });
   });
 });

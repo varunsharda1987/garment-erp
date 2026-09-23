@@ -254,6 +254,43 @@ export async function resolveManualJobStyleFabricAnchor(
   return rows.length === 1 ? rows[0].id : null;
 }
 
+const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Colour guard for the greige-lineage anchor. A component keeps ONE slot per greige, so a
+ * Black and a Navy run of the same style resolve to the same slot — and once the slot claims
+ * the Black master, getOrCreateFinishedFabricV2's anchor step would hand that master to the
+ * Navy run. Adopt the slot only when (a) its own colour, if set, matches the job's, and (b) the
+ * master it already claims, if any, is the same colour (DYED) / design (PRINTED).
+ */
+async function lineageAnchorAgrees(
+  styleFabricId: string,
+  finishType: 'DYED' | 'PRINTED',
+  colorName: string | null,
+  printDesign: string | null,
+  tx?: Tx
+): Promise<boolean> {
+  const sf = await db(tx).style_fabrics.findUnique({
+    where: { id: styleFabricId },
+    select: {
+      colorMaster: { select: { colorName: true } },
+      fabric: { select: { colorName: true, printDesign: true } },
+    },
+  });
+  if (!sf) return false;
+
+  const slotColour = trimOrNull(sf.colorMaster?.colorName);
+  if (slotColour && colorName && !sameText(slotColour, colorName)) return false;
+
+  if (sf.fabric) {
+    const claimed = finishType === 'PRINTED' ? trimOrNull(sf.fabric.printDesign) : trimOrNull(sf.fabric.colorName);
+    const incoming = finishType === 'PRINTED' ? printDesign : colorName;
+    if (claimed === null && incoming === null) return true;
+    return claimed !== null && incoming !== null && sameText(claimed, incoming);
+  }
+  return true;
+}
+
 /**
  * Resolve the full identity for a finished fabric from whatever chain the caller has
  * (requirement and/or JWO). Returns null when no greige lineage is resolvable — callers
@@ -301,6 +338,27 @@ export async function resolveFinishedFabricIdentity(
     styleFabricId = claimed?.id ?? null;
   }
 
+  const colorName = resolveIdentityColourName({ requirement: req, orderBomItem: obi, jwo, finishType });
+
+  // Greige-lineage fallback — the anchor the manual dyeing/printing paths already use. A BOM
+  // line need not carry a CAD: ESSKY085LS's had none (2026-09-23), so neither the MRP mint nor
+  // the receipt ever linked the style's slot, and CAD Planning's Create CAD then had no slot to
+  // hang the received lot on. Adopted only when the slot's colour agrees with this job's.
+  if (!styleFabricId && style.id) {
+    const anchor = await resolveManualJobStyleFabricAnchor(style.id, greigeId, finishType, tx);
+    const printHint = finishType === 'PRINTED' ? trimOrNull(jwo?.labDip?.designArtwork) : null;
+    if (anchor && (await lineageAnchorAgrees(anchor, finishType, colorName, printHint, tx))) {
+      styleFabricId = anchor;
+    } else if (anchor) {
+      logWarn('Greige-lineage style_fabrics anchor skipped — its colour disagrees with the job', {
+        styleFabricId: anchor,
+        styleId: style.id,
+        colorName,
+        printDesign: printHint,
+      });
+    }
+  }
+
   let part = resolvePartFromCadShape(cad);
 
   let sf: {
@@ -328,7 +386,6 @@ export async function resolveFinishedFabricIdentity(
   }
   if (!part && sf) part = await partFromStylePatternParts(sf.stylePatternParts, tx);
 
-  const colorName = resolveIdentityColourName({ requirement: req, orderBomItem: obi, jwo, finishType });
   const printDesign =
     finishType === 'PRINTED' ? (trimOrNull(sf?.printDesign) ?? trimOrNull(jwo?.labDip?.designArtwork)) : null;
 

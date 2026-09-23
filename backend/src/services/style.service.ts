@@ -1276,6 +1276,29 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         f.colorMasterId || '',
       ].join('|');
 
+    // The same slot WITHOUT its fabricId — to carry the received-fabric link across a save whose
+    // payload omits it. A greige slot's fabricId is stamped by the job-work receipt, not typed on
+    // the style form, so a payload null means "not sent", never "unlink" (ESSKY085LS, 2026-09-23).
+    // Colour and finish stay in the key: a slot whose colour changed must not keep the old fabric.
+    const looseLinkKey = (f: {
+      componentName?: string | null;
+      genericGreigeName?: string | null;
+      fabricFinishType?: string | null;
+      printDesign?: string | null;
+      colorMasterId?: string | null;
+      hasEmbroidery?: boolean | null;
+      embroideryId?: string | null;
+    }) =>
+      [
+        (f.componentName || '').toLowerCase(),
+        (f.genericGreigeName || '').toLowerCase(),
+        f.fabricFinishType || '',
+        f.fabricFinishType === 'PRINTED' ? f.printDesign || '' : '',
+        f.colorMasterId || '',
+        f.hasEmbroidery ? 'EMB' : '',
+        f.embroideryId || '',
+      ].join('|');
+
     // Use transaction to handle all updates atomically
     return this.prisma.$transaction(async (tx) => {
       // Pre-edit snapshot of CAD links + fabric identities, captured BEFORE the unlink
@@ -1309,10 +1332,20 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             fabricFinishType: true,
             printDesign: true,
             colorMasterId: true,
+            hasEmbroidery: true,
+            embroideryId: true,
             style_components: { select: { componentName: true } },
           },
         });
         const existingFabricIds = existingFabrics.map((f) => f.id);
+        // Received-fabric links to carry over (see looseLinkKey). style_fabrics is unique on
+        // (componentId, genericGreigeName, hasEmbroidery, embroideryId), so at most one per key.
+        const carriedLinks = new Map<string, string>();
+        for (const f of existingFabrics) {
+          if (f.fabricId) {
+            carriedLinks.set(looseLinkKey({ ...f, componentName: f.style_components?.componentName }), f.fabricId);
+          }
+        }
         for (const f of existingFabrics) {
           preEditFabricIdentity.set(
             f.id,
@@ -1417,10 +1450,25 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               for (const fab of uniqueFabrics) {
                 const newFabricId = randomUUID();
                 if (!firstFabricIdForComponent) firstFabricIdForComponent = newFabricId;
+                // A greige slot the payload sent without its received-fabric link keeps it
+                let carriedFabricId: string | null = null;
+                if (!fab.fabricId && fab.genericGreigeName) {
+                  const key = looseLinkKey({
+                    componentName: comp.componentName,
+                    genericGreigeName: fab.genericGreigeName,
+                    fabricFinishType: fab.fabricFinishType,
+                    printDesign: fab.printDesign,
+                    colorMasterId: fab.colorMasterId,
+                    hasEmbroidery: fab.hasEmbroidery,
+                    embroideryId: fab.embroideryId,
+                  });
+                  carriedFabricId = carriedLinks.get(key) ?? null;
+                  carriedLinks.delete(key);
+                }
                 await tx.style_fabrics.create({
                   data: {
                     id: newFabricId,
-                    fabricId: fab.fabricId || null,
+                    fabricId: fab.fabricId || carriedFabricId,
                     fabricName: fab.fabricName || fab.greigeName || '',
                     fabricType: fab.fabricType || 'GENERIC',
                     genericGreigeName: fab.genericGreigeName || null,

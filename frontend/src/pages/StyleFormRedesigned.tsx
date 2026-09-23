@@ -1786,7 +1786,20 @@ export default function StyleFormRedesigned() {
   const handleUpdateFabric = (id: string, field: keyof FabricEntry, value: FabricEntry[keyof FabricEntry]) => {
     fabricsModifiedRef.current = true; // Track modification for validation
     // Use functional update to avoid stale closure when multiple calls happen in same event
-    setFabrics((prevFabrics) => prevFabrics.map((f) => (f.id === id ? { ...f, [field]: value } : f)));
+    setFabrics((prevFabrics) =>
+      prevFabrics.map((f) => {
+        if (f.id !== id) return f;
+        const next = { ...f, [field]: value };
+        // A greige slot carries the dyed fabric its job-work receipt linked — valid only for the
+        // greige and finish it was dyed from. Drop the link when either changes, and when a ready
+        // fabric is switched back to greige sourcing.
+        const relinks =
+          (field === 'sourcingMode' && value === 'GREIGE' && f.sourcingMode === 'READY_FABRIC') ||
+          (field === 'genericGreigeName' && value !== f.genericGreigeName) ||
+          (field === 'fabricFinishType' && value !== f.fabricFinishType && (f.sourcingMode || 'GREIGE') === 'GREIGE');
+        return relinks ? { ...next, fabricId: null, fabricCode: null, fabricName: null } : next;
+      })
+    );
   };
 
   const handleEmbroiderySelect = (fabricId: string, embroidery: EmbroiderySearchResult) => {
@@ -2079,7 +2092,9 @@ export default function StyleFormRedesigned() {
 
           const componentFabrics = componentFabricsForIndex.map((f) => ({
             fabricName: f.sourcingMode === 'READY_FABRIC' ? f.fabricName || '' : f.genericGreigeName,
-            fabricId: f.sourcingMode === 'READY_FABRIC' && isValidUUID(f.fabricId) ? f.fabricId : null,
+            // Greige slots too: the job-work receipt links the dyed fabric to the slot, and a
+            // null here used to wipe that link on every save (ESSKY085LS, 2026-09-23)
+            fabricId: isValidUUID(f.fabricId) ? f.fabricId : null,
             // Preserve genericGreigeName - it's the category identity for greige workflows
             // Don't clear based on sourcingMode (fabricId can exist in greige mode after processing)
             genericGreigeName: f.genericGreigeName || null,

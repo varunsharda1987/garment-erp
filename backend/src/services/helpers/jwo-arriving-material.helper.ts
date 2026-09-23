@@ -30,6 +30,7 @@ import {
   FabricCreationSource,
   FinishedFabricIdentity,
   getOrCreateFinishedFabricV2,
+  ResolveIdentityParams,
   resolveFinishedFabricIdentity,
 } from './fabric-identity.helper';
 
@@ -150,6 +151,31 @@ export type ResolvedArrivingMaterial = JwoArrivingMaterial & {
 };
 
 /**
+ * The identity inputs a greige job's receipt resolves — shared with
+ * scripts/repair-style-fabric-links.ts so the backfill runs exactly what a receipt runs.
+ */
+export function jwoIdentityParams(
+  jwo: JwoGrnRow,
+  opts: { receivedWidthInches?: number | null; tx?: Tx }
+): ResolveIdentityParams {
+  return {
+    requirement: jwo.requirementLinks?.[0]?.material_requirements ?? null,
+    jwo: {
+      greigeStockLot: jwo.greigeStockLot,
+      fabric: jwo.fabric,
+      style: jwo.style,
+      labDip: jwo.labDip,
+      colorMaster: jwo.colorMaster,
+      colorName: jwo.colorName,
+      receivedWidthInches: opts.receivedWidthInches,
+      sentWidthInches: jwo.sentWidthInches,
+    },
+    finishType: determineFinishType(null, jwo.processType === 'PRINTING' ? 'PIGMENT' : null),
+    tx: opts.tx,
+  };
+}
+
+/**
  * The one sequence both GRN sites run. Precedence for a greige job, in order:
  *   1. finishedFabricId already on the row
  *   2. mint from greige lineage (idempotent get-or-create, so re-running is safe)
@@ -180,21 +206,7 @@ export async function resolveOrMintJwoArrivingMaterial(
 
   // Greige → fabric. Identity is resolved even when the master already exists: approval uses it
   // to follow the measured width and to stamp the style link.
-  const identity = await resolveFinishedFabricIdentity({
-    requirement: jwo.requirementLinks?.[0]?.material_requirements ?? null,
-    jwo: {
-      greigeStockLot: jwo.greigeStockLot,
-      fabric: jwo.fabric,
-      style: jwo.style,
-      labDip: jwo.labDip,
-      colorMaster: jwo.colorMaster,
-      colorName: jwo.colorName,
-      receivedWidthInches: opts.receivedWidthInches,
-      sentWidthInches: jwo.sentWidthInches,
-    },
-    finishType: determineFinishType(null, jwo.processType === 'PRINTING' ? 'PIGMENT' : null),
-    tx: opts.tx,
-  });
+  const identity = await resolveFinishedFabricIdentity(jwoIdentityParams(jwo, opts));
 
   if (known) return { ...known, identity, minted: false };
 

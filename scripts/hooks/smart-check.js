@@ -572,7 +572,11 @@ function checkAiGuides() {
 function checkB2bContract() {
   console.log(`\n${c.cyan}Running the B2B contract test (staged files touch the House of Kasya surface)...${c.reset}`);
   try {
-    execSync('node node_modules/jest/bin/jest.js --testPathPatterns=b2b-contract --runInBand --silent', {
+    // --experimental-vm-modules: the same flag `npm test` passes. Without it every suite that loads
+    // the app dies on the ESM-only puppeteer-core ("Must use import to load ES Module") before a
+    // single promise runs — so this check reported "CONTRACT BROKEN" for any commit that touched
+    // the surface, with 0 tests executed (found 2026-09-23; see backend/jest.config.js).
+    execSync('node --experimental-vm-modules node_modules/jest/bin/jest.js --testPathPatterns=b2b-contract --runInBand --silent', {
       encoding: 'utf-8',
       stdio: 'pipe',
       cwd: path.join(process.cwd(), 'backend'),
@@ -587,7 +591,7 @@ function checkB2bContract() {
       return true;
     }
     console.log(`${c.red}  ✗ B2B CONTRACT BROKEN — a promise the House of Kasya app depends on failed${c.reset}`);
-    console.log(`${c.dim}    Run: cd backend && node node_modules/jest/bin/jest.js --testPathPatterns=b2b-contract --runInBand${c.reset}`);
+    console.log(`${c.dim}    Run: cd backend && npm test -- --testPathPatterns=b2b-contract --runInBand${c.reset}`);
     console.log(`${c.dim}    Fix the breaking change (or coordinate with the B2B app and update guide + test together).${c.reset}`);
     return false;
   }

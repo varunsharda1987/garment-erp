@@ -10,6 +10,7 @@ import { addCurrency, roundToCent, multiplyCurrency, toCurrency } from '../../ut
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
 import { unitHeader } from '../../utils/units';
+import { foldCounted, hasFold } from '../../utils/fold-length';
 
 const challanDocInclude = {
   items: {
@@ -118,8 +119,17 @@ function itemHsn(item: ChallanWithDetails['items'][number]): string {
   return item.jobWorkOrderComponent?.hsnCode ?? EM_DASH;
 }
 
-function itemSubline(item: ChallanWithDetails['items'][number]): string | null {
+/**
+ * A line's quantity is ACTUAL metres; a line moved at fold L also prints the counted figure. When the
+ * challan carries than tags (one folded line), their sum IS the counted figure — deriving it back from
+ * the rounded actual could print a figure 0.01 off the tags printed below it.
+ */
+function itemSubline(item: ChallanWithDetails['items'][number], countedTagSum: number | null): string | null {
   const bits: string[] = [];
+  if (hasFold(item.foldLengthCm)) {
+    const counted = countedTagSum ?? foldCounted(item.quantity, item.foldLengthCm).toNumber();
+    bits.push(`counted ${fmtQty(counted, item.unit)} @ L=${Number(item.foldLengthCm)}`);
+  }
   if (item.componentName) bits.push(item.componentName);
   if (item.colorName) bits.push(item.colorName);
   if (item.greigeStock?.greige)
@@ -180,6 +190,11 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
 
   // Items — value = declaredValue ?? qty × rate; free issue renders an em-dash.
   let runningTotal = toCurrency(0);
+  const foldedLines = challan.items.filter((i) => hasFold(i.foldLengthCm)).length;
+  const countedTagSum =
+    foldedLines === 1 && challan.greigeIssueDetails && challan.greigeIssueDetails.length > 0
+      ? addCurrency(...challan.greigeIssueDetails.map((d) => Number(d.metersIssued))).toNumber()
+      : null;
   const items: ChallanDocItem[] = challan.items.map((item, idx) => {
     let valueStr = EM_DASH;
     if (item.declaredValue != null) {
@@ -194,7 +209,7 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
     return {
       sn: idx + 1,
       description: item.description,
-      subline: itemSubline(item),
+      subline: itemSubline(item, hasFold(item.foldLengthCm) ? countedTagSum : null),
       hsn: itemHsn(item),
       uom: unitHeader(item.unit),
       qty: fmtQty(Number(item.quantity), item.unit),

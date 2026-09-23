@@ -105,7 +105,7 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 ### Fill it in
 1. Read **Expected back** (or **Expected dyed lace**) — the quantity due back: the greige sent minus the expected shrinkage. **Maximum you can receive** appears once you start typing a quantity.
 2. Choose the **Entry mode**: **Total metres**, **Than-wise** or **Bale-wise**.
-3. **Total metres** — type **How much came back (MTR) \***. **Than count** and **Fold length (cm, under 1000)** can be recorded alongside it and are stored with the receipt. Leave the metres blank and the quantity is worked out from than count × fold length instead.
+3. **Total metres** — type **How much came back (MTR) \*** exactly as the processor counted it. **Than count** and **Fold length (cm, under 1000)** can be recorded alongside it and are stored with the receipt. With a fold length under 100 cm a blue line shows the actual metres (counted × L/100) — stock, shrinkage, the loss split and the "final delivery" check all use the actual metres.
 4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. In both, the than count is the number of rows.
 5. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
 6. **Their challan no.** — the processor's challan number.

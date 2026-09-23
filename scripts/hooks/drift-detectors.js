@@ -355,6 +355,39 @@ function shrinkageDivide(relFiles) {
   return out;
 }
 
+// B3 — inline fold-length ("L") arithmetic. The counted → actual rule (counted × L/100 when 0 < L < 100)
+// lives in ONE helper per side: backend/src/utils/fold-length.ts and frontend/src/lib/fold-length.ts.
+// Hand copies drifted: the GRN valued the counted figure while the lot booked actual, Stock-In applied L
+// twice, and job-work returns multiplied a count of thans by L (GRN2609-0250, 2026-09-23).
+const FOLD_HELPER_FILES = new Set(['backend/src/utils/fold-length.ts', 'frontend/src/lib/fold-length.ts']);
+function foldLengthInline(relFiles) {
+  const out = [];
+  const foldIdent = /\bfold(?:L|Length\w*)\b/;
+  const byHundred = /\/\s*100\b|\.div\(\s*100\s*\)|\*\s*0\.\d+/;
+  for (const rel of relFiles) {
+    if (!/\.(ts|tsx)$/.test(rel)) continue;
+    if (FOLD_HELPER_FILES.has(rel) || /__tests__|\.test\.tsx?$/.test(rel)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const lines = content.split('\n');
+    lines.forEach((raw, i) => {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return;
+      const code = raw.replace(/\/\/.*$/, '');
+      if (!foldIdent.test(code) || !byHundred.test(code)) return;
+      if (/allow-fold-math/.test(raw)) return; // opt-out
+      const norm = code.trim().replace(/\s+/g, ' ');
+      out.push({
+        key: `${rel} :: ${norm}`,
+        file: rel,
+        line: i + 1,
+        detail: `inline fold-length arithmetic "${norm}" — use foldActual()/foldCounted() from the fold-length helper`,
+      });
+    });
+  }
+  return out;
+}
+
 // B2 — en-IN currency toLocaleString with minimumFractionDigits but no maximumFractionDigits.
 function currencyFormat(relFiles) {
   const out = [];
@@ -2088,6 +2121,7 @@ module.exports = {
   datetimeSchema,
   strictNumberSchema,
   shrinkageDivide,
+  foldLengthInline,
   currencyFormat,
   dateFormatDrift,
   unitVocabularyDrift,

@@ -29,6 +29,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
+import { hasFold } from '../utils/fold-length';
 import { formatDate } from '../utils/date';
 
 type Tx = Prisma.TransactionClient;
@@ -471,7 +472,9 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
     return lots.map(({ row, qty }) => ({
       itemType: 'GREIGE',
       greigeStockId: row.id,
+      // ACTUAL metres; the lot's fold length rides along so the challan can print the counted figure.
       quantity: qty,
+      ...(hasFold(row.foldLengthCm) ? { foldLengthCm: Number(row.foldLengthCm) } : {}),
       unit,
       // MATERIAL value (movement declaration), never the job-work rate
       rate: row.purchaseCost != null ? Number(row.purchaseCost) : undefined,
@@ -1308,11 +1311,17 @@ export async function issueJobWorkOrderWithDetails(
   jwoId: string,
   opts: IssueJwoWithDetailsOptions
 ): Promise<IssueJwoResult> {
-  // Convert lotsWithDetails to standard lots format for validation
-  const standardLots: IssueLotInput[] = opts.lotsWithDetails.map((l) => ({
-    greigeStockLotId: l.greigeStockLotId,
-    qty: l.details ? l.details.reduce((sum, d) => sum + d.metersToIssue, 0) : (l.qty ?? 0),
-  }));
+  // Convert lotsWithDetails to standard lots format for validation. Than rows carry the COUNTED tag
+  // figure; the lot and the job are ACTUAL metres, so a pick is converted at the lot's fold length.
+  const standardLots: IssueLotInput[] = await Promise.all(
+    opts.lotsWithDetails.map(async (l) => ({
+      greigeStockLotId: l.greigeStockLotId,
+      qty:
+        l.details && l.details.length > 0
+          ? (await greigeStockService.thanPickActualQty(l.greigeStockLotId, l.details)).actual
+          : (l.qty ?? 0),
+    }))
+  );
 
   // Use existing validation
   const v = await validateIssue(jwoId, { ...opts, lots: standardLots });
@@ -1383,10 +1392,7 @@ export async function issueJobWorkOrderWithDetails(
     { timeout: 15000, maxWait: 5000 }
   );
 
-  const totalMeters = opts.lotsWithDetails.reduce((sum, l) => {
-    if (l.details) return sum + l.details.reduce((s, d) => s + d.metersToIssue, 0);
-    return sum + (l.qty ?? 0);
-  }, 0);
+  const totalMeters = standardLots.reduce((sum, l) => sum + l.qty, 0);
   logInfo(
     `[Issuance] Issued ${jwo.jobWorkNumber} with detail tracking — challan ${result.challanNumber}, ` +
       `${totalMeters}m from ${opts.lotsWithDetails.length} lot(s)`

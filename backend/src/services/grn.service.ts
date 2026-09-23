@@ -49,7 +49,8 @@ import {
   resolveOrMintJwoArrivingMaterial,
   stampJwoFinishedFabric,
 } from './helpers/jwo-arriving-material.helper';
-import { grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
+import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
+import { foldActual, hasFold } from '../utils/fold-length';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError } from '../errors';
 import {
@@ -120,14 +121,19 @@ class GRNService {
         throw new Error(`PO item ${item.poItemId} not found`);
       }
 
-      // Check if receiving more than allowed (ordered + tolerance)
+      // Check if receiving more than allowed (ordered + tolerance). PO quantities are ACTUAL metres, so a
+      // receipt counted at fold L is compared after conversion.
       const orderedQty = Number(poItem.orderedQuantity);
       const alreadyReceived = Number(poItem.receivedQuantity);
       const maxAllowed = orderedQty * (1 + tolerancePercent / 100) - alreadyReceived;
-      if (item.receivedQuantity > maxAllowed) {
+      const actualReceived = foldActual(item.receivedQuantity, item.foldLengthCm).toNumber();
+      if (actualReceived > maxAllowed) {
         const materialCode = poItem.materials?.code || item.materialId;
+        const counted = hasFold(item.foldLengthCm)
+          ? `${item.receivedQuantity} counted @ L=${item.foldLengthCm} (= ${actualReceived})`
+          : `${item.receivedQuantity}`;
         throw new Error(
-          `Cannot receive ${item.receivedQuantity} units of ${materialCode}. ` +
+          `Cannot receive ${counted} units of ${materialCode}. ` +
             `Maximum allowed (with ${tolerancePercent}% tolerance) is ${maxAllowed.toFixed(3)}. ` +
             `Ordered: ${orderedQty}, Already received: ${alreadyReceived}.`
         );
@@ -211,8 +217,9 @@ class GRNService {
                 const orderedQty = Number(poItem?.orderedQuantity || 0);
                 const alreadyReceived = Number(poItem?.receivedQuantity || 0);
                 const pendingQty = orderedQty - alreadyReceived;
-                const isOverReceipt = item.receivedQuantity > pendingQty;
-                const overReceiptQty = isOverReceipt ? item.receivedQuantity - pendingQty : null;
+                const actualReceived = foldActual(item.receivedQuantity, item.foldLengthCm).toNumber();
+                const isOverReceipt = actualReceived > pendingQty;
+                const overReceiptQty = isOverReceipt ? toNumber(subtractCurrency(actualReceived, pendingQty)) : null;
 
                 // Compute counts from details if provided
                 let baleCount: number | null = null;
@@ -239,6 +246,10 @@ class GRNService {
                   receivedQuantity: item.receivedQuantity,
                   acceptedQuantity: item.acceptedQuantity,
                   rejectedQuantity: item.rejectedQuantity,
+                  // Counted figures stay as the supplier's paper has them; this is what enters stock.
+                  actualQuantity: hasFold(item.foldLengthCm)
+                    ? foldActual(item.acceptedQuantity, item.foldLengthCm).toNumber()
+                    : null,
                   unit: item.unit,
                   remarks: item.remarks || null,
                   componentName: (poItem as any)?.componentName || null,
@@ -285,7 +296,7 @@ class GRNService {
           }
         }
 
-        // Update PO item received quantities
+        // Update PO item received quantities (ACTUAL — the PO is in actual metres)
         for (const item of data.items) {
           const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
           if (poItem) {
@@ -293,7 +304,7 @@ class GRNService {
               where: { id: item.poItemId },
               data: {
                 receivedQuantity: {
-                  increment: item.receivedQuantity,
+                  increment: foldActual(item.receivedQuantity, item.foldLengthCm).toNumber(),
                 },
               },
             });
@@ -308,15 +319,9 @@ class GRNService {
           const { qtyReceivedMeters, receivedWidthInches, thanCount, foldLengthCm, receivedChallan } =
             data.processingData;
 
-          // Calculate actual meters from than measurement
-          let calculatedActualMeters: number | null = null;
-          let actualMeters = qtyReceivedMeters || 0;
-          if (thanCount && foldLengthCm) {
-            calculatedActualMeters = (thanCount * foldLengthCm) / 100;
-            if (!qtyReceivedMeters) {
-              actualMeters = calculatedActualMeters;
-            }
-          }
+          // qtyReceivedMeters is the processor's COUNTED figure; at fold L the actual is counted × L/100.
+          const actualMeters = foldActual(qtyReceivedMeters || 0, foldLengthCm).toNumber();
+          const calculatedActualMeters: number | null = foldLengthCm ? actualMeters : null;
 
           // Calculate shrinkage and width variance
           const sentMeters = Number(processingJob.qtySentMeters);
@@ -577,8 +582,9 @@ class GRNService {
         // purchaseOrderItems → `items` and nest an `items` key inside every item.
         const items = grn.grn_items.map(({ purchase_order_items, ...item }) => {
           const rate = grnLineRate({ ...item, purchase_order_items }, jwo);
-          const value = rate != null ? roundToCent(multiplyCurrency(item.acceptedQuantity, rate)) : null;
-          return { ...item, rate, value };
+          const actualQty = grnLineActualQty(item);
+          const value = rate != null ? roundToCent(multiplyCurrency(actualQty, rate)) : null;
+          return { ...item, rate, value, actualQuantity: actualQty };
         });
 
         // null = unpriced: a line with no rate leaves the total unknown rather than silently short.
@@ -593,7 +599,12 @@ class GRNService {
 
         return {
           ...grn,
-          grn_items: items.map((i) => ({ ...i, rate: i.rate?.toNumber() ?? null, value: i.value?.toNumber() ?? null })),
+          grn_items: items.map((i) => ({
+            ...i,
+            actualQuantity: i.actualQuantity.toNumber(),
+            rate: i.rate?.toNumber() ?? null,
+            value: i.value?.toNumber() ?? null,
+          })),
           itemCount: items.length,
           totalValue: totalValue?.toNumber() ?? null,
         };
@@ -620,7 +631,31 @@ class GRNService {
       throw new Error('GRN not found');
     }
 
-    return grn;
+    // Same rate/value rule as the list (grn-line-value.helper): ACTUAL accepted metres × rate.
+    const jwo =
+      !grn.poId && grn.jobWorkOrderId
+        ? await prisma.job_work_orders.findUnique({
+            where: { id: grn.jobWorkOrderId },
+            select: {
+              processType: true,
+              agreedRatePerMeter: true,
+              processTypeMaster: { select: { code: true } },
+            },
+          })
+        : null;
+    return {
+      ...grn,
+      grn_items: grn.grn_items.map((item) => {
+        const actual = grnLineActualQty(item);
+        const rate = grnLineRate(item, jwo);
+        return {
+          ...item,
+          actualQuantity: actual.toNumber(),
+          rate: rate?.toNumber() ?? null,
+          value: rate != null ? roundToCent(multiplyCurrency(actual, rate)).toNumber() : null,
+        };
+      }),
+    };
   }
 
   /**
@@ -693,6 +728,7 @@ class GRNService {
         totalReceivedQuantity: Number(item.receivedQuantity),
         pendingQuantity: Number(item.orderedQuantity) - Number(item.receivedQuantity),
         unitPrice: Number(item.unitPrice),
+        foldLengthCm: item.foldLengthCm != null ? Number(item.foldLengthCm) : null,
       }));
   }
 
@@ -1187,7 +1223,7 @@ class GRNService {
           // requirement to PO_SENT). acceptedQuantity only: createGRN enforces
           // accepted+rejected=received and reversal decrements acceptedQuantity — symmetric.
           for (const item of grn.grn_items || []) {
-            const acceptedQty = Number(item.acceptedQuantity);
+            const acceptedQty = grnLineActualQty(item).toNumber();
             if (acceptedQty > 0 && item.poItemId) {
               await mrpService.updateReceivedQuantity(item.poItemId, acceptedQty, tx);
             }
@@ -1217,7 +1253,9 @@ class GRNService {
 
         // Create stock movements and update stock levels for accepted items
         for (const item of grn.grn_items) {
-          const acceptedQty = Number(item.acceptedQuantity);
+          // ACTUAL metres (counted × L/100 when the line has a fold length) — what enters stock.
+          const acceptedQty = grnLineActualQty(item).toNumber();
+          const folded = hasFold(item.foldLengthCm);
           if (acceptedQty > 0) {
             // Get unit price from PO item for stock valuation
             const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
@@ -1239,7 +1277,10 @@ class GRNService {
                 referenceNumber: grn.grnNumber,
                 rate: unitPrice,
                 value: totalValue,
-                remarks: `Stock received from GRN ${grn.grnNumber}`,
+                foldLengthCm: folded ? item.foldLengthCm : null,
+                remarks: folded
+                  ? `Stock received from GRN ${grn.grnNumber} — counted ${Number(item.acceptedQuantity)} @ L=${Number(item.foldLengthCm)}`
+                  : `Stock received from GRN ${grn.grnNumber}`,
                 performedById: userId,
                 movementDate: new Date(),
               },
@@ -1291,7 +1332,11 @@ class GRNService {
           // without this decrement, QC-rejected quantity stayed counted as "received" forever, the PO
           // closed as RECEIVED, and the rejected goods were never re-procured. This also makes the PO
           // counter agree with the MRP link, which was already updated with ACCEPTED qty only).
-          const rejectedQty = Number(item.rejectedQuantity || 0);
+          // Actual rejected = actual received − actual accepted, so the PO counter nets to exactly the
+          // actual accepted quantity (createGRN incremented it by the actual received).
+          const rejectedQty = folded
+            ? toNumber(subtractCurrency(foldActual(item.receivedQuantity, item.foldLengthCm), acceptedQty))
+            : Number(item.rejectedQuantity || 0);
           if (rejectedQty > 0) {
             if (item.poItemId) {
               await tx.purchase_order_items.update({
@@ -1479,7 +1524,7 @@ class GRNService {
 
           // Create fabric_stock for override items
           for (const item of overrideItems) {
-            const acceptedQty = Number(item.acceptedQuantity);
+            const acceptedQty = grnLineActualQty(item).toNumber();
             if (acceptedQty <= 0) continue;
 
             // Get material to find greigeId, then find linked fabric
@@ -1622,7 +1667,7 @@ class GRNService {
           const createdGreige = await greigeStockService.createGreigeStock(
             {
               greigeId: greige.id,
-              quantity: acceptedQty, // This is nominal quantity from supplier
+              quantity: acceptedQty, // COUNTED — createGreigeStock converts it once at foldLengthCm
               width: greigeWidth,
               purchaseCost: unitPrice,
               supplierId: grn.supplierId,
@@ -1705,7 +1750,7 @@ class GRNService {
     // ===== FABRIC =====
     if (po.poCategory === 'FABRIC') {
       for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
+        const acceptedQty = grnLineActualQty(item).toNumber();
         if (acceptedQty <= 0) continue;
 
         const material = await tx.materials.findUnique({
@@ -2316,14 +2361,15 @@ class GRNService {
         include: this.getFullInclude(),
       });
 
-      // Revert PO item received quantities (Phase 4b: PO-less GRN items have no poItemId)
+      // Revert PO item received quantities (Phase 4b: PO-less GRN items have no poItemId). Same ACTUAL
+      // figure createGRN added.
       for (const item of grnItems) {
         if (!item.poItemId) continue;
         await tx.purchase_order_items.update({
           where: { id: item.poItemId },
           data: {
             receivedQuantity: {
-              decrement: item.receivedQuantity,
+              decrement: foldActual(item.receivedQuantity, item.foldLengthCm).toNumber(),
             },
           },
         });
@@ -2359,7 +2405,7 @@ class GRNService {
     let totalReceived = 0;
     for (const grn of grns) {
       for (const item of grn.grn_items) {
-        totalReceived += Number(item.acceptedQuantity);
+        totalReceived += grnLineActualQty(item).toNumber();
       }
     }
 
@@ -2598,7 +2644,7 @@ class GRNService {
 
         // 2. Process each GRN item for reversal
         for (const item of grn.grn_items) {
-          const acceptedQty = Number(item.acceptedQuantity);
+          const acceptedQty = grnLineActualQty(item).toNumber();
 
           // 2a. Revert PO item received quantities
           if (item.poItemId && acceptedQty > 0) {
@@ -2650,7 +2696,7 @@ class GRNService {
           if (!grn.poId && grn.jobWorkOrderId) {
             const totalAccepted = (grn.grn_items || []).reduce(
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (sum: number, i: any) => sum + Number(i.acceptedQuantity || 0),
+              (sum: number, i: any) => sum + grnLineActualQty(i).toNumber(),
               0
             );
             if (totalAccepted > 0) {
@@ -2785,7 +2831,8 @@ class GRNService {
       }
     }
 
-    // Quantity: from details array, or direct meters, or than-count × fold-length
+    // Quantity: the processor's COUNTED figure — from the than/bale rows, or typed. At fold L the
+    // ACTUAL metres (what enters stock and every counter below) are counted × L/100.
     const entryMode = data.entryMode ?? 'TOTAL_METERS';
     const hasDetails = data.details && data.details.length > 0;
     let qtyReceived = data.qtyReceivedMeters || 0;
@@ -2795,12 +2842,15 @@ class GRNService {
       // Sum meters from detail rows
       qtyReceived = data.details!.reduce((sum, d) => sum + (d.meters || 0), 0);
       thanCount = data.details!.length;
-    } else if (!qtyReceived && data.thanCount && data.foldLengthCm) {
-      qtyReceived = (data.thanCount * data.foldLengthCm) / 100;
     }
     if (qtyReceived <= 0) {
       throw new BusinessError('Received quantity must be greater than 0');
     }
+    const folded = hasFold(data.foldLengthCm);
+    const actualReceived = foldActual(qtyReceived, data.foldLengthCm).toNumber();
+    const receivedText = folded
+      ? `${qtyReceived} MTR counted @ L=${data.foldLengthCm} (= ${actualReceived.toFixed(2)} MTR)`
+      : `${qtyReceived} MTR`;
 
     // Expected FABRIC due back (billable = sent × (1 − shrinkage)) — the GRN's
     // "ordered" basis. The greige sent is NOT the expectation: measuring receipts
@@ -2816,11 +2866,11 @@ class GRNService {
     const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
     const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
     const receivedSoFar = Number(jwo.qtyReceivedMeters ?? 0);
-    if (receivedSoFar + qtyReceived > maxReceivable) {
+    if (receivedSoFar + actualReceived > maxReceivable) {
       throw new BusinessError(
         (receivedSoFar > 0
-          ? `Received ${qtyReceived} MTR on top of the ${receivedSoFar.toFixed(2)} MTR already received `
-          : `Received ${qtyReceived} MTR `) +
+          ? `Received ${receivedText} on top of the ${receivedSoFar.toFixed(2)} MTR already received `
+          : `Received ${receivedText} `) +
           `exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
           `plus ${overReceiptTolerance}% over-receipt tolerance (max ${maxReceivable.toFixed(2)} MTR)`
       );
@@ -2833,7 +2883,7 @@ class GRNService {
     // tolerance precedence (job → process type → 0) as the preview and applyLossSplit — nothing is
     // re-derived here. Sits before the mint below so a refusal writes nothing.
     if ((data.isFinal ?? true) && !data.shortCloseConfirmed) {
-      const cumulative = toNumber(roundToCent(addCurrency(receivedSoFar, qtyReceived)));
+      const cumulative = toNumber(roundToCent(addCurrency(receivedSoFar, actualReceived)));
       let split: ReturnType<typeof jobWorkOrderService.calculateLossSplit>;
       try {
         split = jobWorkOrderService.calculateLossSplit({
@@ -2864,7 +2914,7 @@ class GRNService {
             `If nothing more is expected, confirm the short close.`,
           {
             reason: 'SHORT_CLOSE_UNCONFIRMED',
-            qtyThisReceipt: qtyReceived,
+            qtyThisReceipt: actualReceived,
             cumulative,
             expected,
             shortfall,
@@ -2922,9 +2972,11 @@ class GRNService {
               materialId,
               // Expected fabric due back (billable basis), not the greige sent
               orderedQuantity: expectedFabricMeters,
+              // Counted figures as the processor's paper has them; actualQuantity is what enters stock.
               receivedQuantity: qtyReceived,
               acceptedQuantity: qtyReceived,
               rejectedQuantity: 0,
+              actualQuantity: folded ? actualReceived : null,
               unit: Unit.METER,
               receivedWidthInches: data.receivedWidthInches ?? null,
               thanCount,
@@ -2959,6 +3011,7 @@ class GRNService {
       jobWorkOrderId: jwo.id,
       jobWorkNumber: jwo.jobWorkNumber,
       qtyReceived,
+      actualReceived,
     });
     return grn;
   }
@@ -3056,7 +3109,13 @@ class GRNService {
     }
 
     const grnItem = grn.grn_items?.[0];
-    const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
+    // ACTUAL metres (the counted figure converted at the line's fold length) — what enters stock.
+    const qtyReceived = grnItem
+      ? grnLineActualQty({
+          acceptedQuantity: grnItem.acceptedQuantity || grnItem.receivedQuantity || 0,
+          foldLengthCm: grnItem.foldLengthCm,
+        }).toNumber()
+      : 0;
     // Measured finished width from the GRN item. Stock falls back measured → asked →
     // greige band; only the measured value is stamped onto the JWO / baked into the name.
     const receivedWidthProvided = grnItem?.receivedWidthInches != null ? Number(grnItem.receivedWidthInches) : null;
@@ -3207,7 +3266,9 @@ class GRNService {
         : jobWorkOrder.foldLengthCm != null
           ? Number(jobWorkOrder.foldLengthCm)
           : null;
-    const calculatedActualMeters = thanCount && foldLengthCm ? (thanCount * foldLengthCm) / 100 : null;
+    // qtyReceived is already actual (converted at the part's own L), so the running total is too.
+    // Recorded whenever a fold length is (L=100 included); null when none was given.
+    const calculatedActualMeters = foldLengthCm ? cumulativeReceived : null;
     const inwardChallan = await createChallan(
       {
         challanType: 'INWARD',
@@ -3235,6 +3296,7 @@ class GRNService {
             description: `Processed fabric received via GRN ${grn.grnNumber} - ${formatStyleCodeWithRef(jobWorkOrder.style?.styleCode || '', jobWorkOrder.style?.buyerStyleRef)}`,
             quantity: qtyReceived,
             unit: Unit.METER,
+            ...(hasFold(grnItem?.foldLengthCm) ? { foldLengthCm: Number(grnItem.foldLengthCm) } : {}),
           },
         ],
       },
@@ -3522,7 +3584,7 @@ class GRNService {
     if (!poCategory || nonSpecializedCategories.includes(poCategory)) {
       // Reverse stock_levels for non-specialized categories
       for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
+        const acceptedQty = grnLineActualQty(item).toNumber();
         if (acceptedQty > 0) {
           await syncStockLevelQuantity(item.materialId, -acceptedQty, warehouseId, undefined, tx);
         }
@@ -3530,9 +3592,9 @@ class GRNService {
       return;
     }
 
-    // Handle specialized categories
+    // Handle specialized categories (ACTUAL metres — what approval booked)
     for (const item of grn.grn_items) {
-      const acceptedQty = Number(item.acceptedQuantity);
+      const acceptedQty = grnLineActualQty(item).toNumber();
       if (acceptedQty <= 0) continue;
 
       const material = item.materials;
@@ -4001,7 +4063,7 @@ class GRNService {
     // job's receipt, so a job received in parts never takes back a sibling part's lot.
     const receiptItemIds: string[] = (grn.grn_items ?? []).map((i: { id: string }) => i.id);
     const receiptQty: number = (grn.grn_items ?? []).reduce(
-      (s: number, i: { acceptedQuantity: unknown }) => s + Number(i.acceptedQuantity || 0),
+      (s: number, i: { acceptedQuantity: number; foldLengthCm?: number | null }) => s + grnLineActualQty(i).toNumber(),
       0
     );
     const partQty = receiptQty > 0 ? receiptQty : receivedMeters;
@@ -4139,7 +4201,7 @@ class GRNService {
     const remaining = grn.jobWorkOrderId
       ? await tx.goods_receiving_notes.findMany({
           where: { jobWorkOrderId: jobWorkOrder.id, status: 'ACCEPTED', id: { not: grn.id } },
-          select: { id: true, grn_items: { select: { acceptedQuantity: true, thanCount: true } } },
+          select: { id: true, grn_items: { select: { acceptedQuantity: true, thanCount: true, foldLengthCm: true } } },
           orderBy: { receivingDate: 'asc' },
         })
       : [];
@@ -4169,15 +4231,12 @@ class GRNService {
         remarks,
       });
     } else {
-      const total = remaining.reduce(
-        (s, r) => s + r.grn_items.reduce((t, i) => t + Number(i.acceptedQuantity || 0), 0),
-        0
-      );
+      const total = toNumber(addCurrency(...remaining.flatMap((r) => r.grn_items.map((i) => grnLineActualQty(i)))));
+      const anyFolded = remaining.some((r) => r.grn_items.some((i) => Number(i.foldLengthCm ?? 0) > 0));
       const thanCounts = remaining
         .flatMap((r) => r.grn_items.map((i) => i.thanCount))
         .filter((n): n is number => n != null);
       const thanCount = thanCounts.length ? thanCounts.reduce((a, b) => a + b, 0) : null;
-      const foldLengthCm = jobWorkOrder.foldLengthCm != null ? Number(jobWorkOrder.foldLengthCm) : null;
       const sentMeters = Number(jobWorkOrder.qtySentMeters ?? 0);
       const stillFinal = !!jobWorkOrder.receivedDate && jobWorkOrder.grnId !== grn.id;
       const latest = remaining[remaining.length - 1];
@@ -4193,7 +4252,7 @@ class GRNService {
         {
           qtyReceivedMeters: total,
           thanCount,
-          calculatedActualMeters: thanCount && foldLengthCm ? (thanCount * foldLengthCm) / 100 : null,
+          calculatedActualMeters: anyFolded ? total : null,
           remarks,
           ...(stillFinal
             ? { actualShrinkage: sentMeters > 0 ? ((sentMeters - total) / sentMeters) * 100 : 0 }

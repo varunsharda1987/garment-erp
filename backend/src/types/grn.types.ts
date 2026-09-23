@@ -304,6 +304,8 @@ export interface PendingPOItem {
   totalReceivedQuantity: number;
   pendingQuantity: number;
   unitPrice: number;
+  /** The PO line's fold length — pre-fills the GRN line's L. PO quantities are actual metres. */
+  foldLengthCm?: number | null;
   receivedByWarehouse?: WarehouseReceiptSummary[];
 }
 

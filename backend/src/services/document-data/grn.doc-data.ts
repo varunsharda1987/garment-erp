@@ -21,7 +21,8 @@ import {
   subtractCurrency,
   toCurrency,
 } from '../../utils/currency';
-import { isKaajButtonJob, jobWorkCharges } from '../helpers/grn-line-value.helper';
+import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from '../helpers/grn-line-value.helper';
+import { foldActual, hasFold } from '../../utils/fold-length';
 import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
@@ -61,6 +62,7 @@ const grnDocInclude = {
     include: {
       materials: { select: { name: true, code: true } },
       grn_item_details: { select: { detailType: true, baleNumber: true, sequenceNo: true, meters: true } },
+      purchase_order_items: { select: { unitPrice: true } },
     },
   },
   users_goods_receiving_notes_receivedByIdTousers: { select: { firstName: true, lastName: true } },
@@ -78,6 +80,12 @@ export interface GrnDocLine {
   received: string;
   accepted: string;
   rejected: string;
+  /** "counted @ L=98" when the line was counted at a fold length, else null */
+  foldNote: string | null;
+  /** Actual accepted metres (counted × L/100) — what went to stock */
+  actual: string;
+  rate: string;
+  value: string;
   /** Bale/than details when entry mode is BALE_WISE or THAN_WISE */
   details: Array<{ baleNumber: number | null; sequenceNo: number; meters: string }> | null;
   entryMode: string | null;
@@ -140,6 +148,12 @@ export interface GrnDocData {
   lines: GrnDocLine[];
   totalAccepted: string;
   totalRejected: string;
+  /** Any line counted at a fold length → print the Actual column */
+  hasFold: boolean;
+  totalActual: string;
+  /** PO receipt with every line priced → print Rate and Value (value on ACTUAL metres) */
+  showValue: boolean;
+  totalValue: string;
   valuation: GrnValuationBlock | null;
 }
 
@@ -188,21 +202,30 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
     ? `${grn.invoiceNumber}${grn.invoiceDate ? ` · ${fmtDate(grn.invoiceDate)}` : ''}`
     : EM_DASH;
 
-  // Item-level totals (shared by both shapes)
+  // Item-level totals (shared by both shapes). The *Sum figures are ACTUAL metres (the counted figure
+  // converted at the line's fold length) — what stock, the job and the value run on. The counted
+  // accepted/rejected totals are kept for the PO table's own columns.
   let acceptedSum = toCurrency(0);
   let rejectedSum = toCurrency(0);
   let receivedSum = toCurrency(0);
+  let acceptedCounted = toCurrency(0);
+  let rejectedCounted = toCurrency(0);
   for (const item of grn.grn_items) {
-    acceptedSum = addCurrency(acceptedSum, item.acceptedQuantity.toString());
-    rejectedSum = addCurrency(rejectedSum, item.rejectedQuantity.toString());
-    receivedSum = addCurrency(receivedSum, item.receivedQuantity.toString());
+    acceptedSum = addCurrency(acceptedSum, grnLineActualQty(item));
+    rejectedSum = addCurrency(rejectedSum, foldActual(item.rejectedQuantity, item.foldLengthCm));
+    receivedSum = addCurrency(receivedSum, foldActual(item.receivedQuantity, item.foldLengthCm));
+    acceptedCounted = addCurrency(acceptedCounted, item.acceptedQuantity.toString());
+    rejectedCounted = addCurrency(rejectedCounted, item.rejectedQuantity.toString());
   }
+  const anyFold = grn.grn_items.some((item) => hasFold(item.foldLengthCm));
 
   const firstUnit = grn.grn_items[0]?.unit ?? null;
   const uom = jwo?.uom ?? firstUnit ?? 'PCS';
   const forms = uomForms(uom);
 
   // ---- Plain material GRN lines (rendered only in the non-job-work shape) ----
+  let valueSum = toCurrency(0);
+  let everyLinePriced = grn.grn_items.length > 0;
   const lines: GrnDocLine[] = grn.grn_items.map((item, idx) => {
     const bits: string[] = [];
     if (item.materials.code) bits.push(item.materials.code);
@@ -220,6 +243,12 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
           }))
         : null;
 
+    const actualQty = grnLineActualQty(item);
+    const rate = grnLineRate(item, null);
+    const value = rate != null ? roundToCent(multiplyCurrency(actualQty, rate)) : null;
+    if (value != null) valueSum = addCurrency(valueSum, value);
+    else everyLinePriced = false;
+
     return {
       sn: idx + 1,
       material: item.materials.name,
@@ -229,6 +258,10 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
       received: fmtQty(item.receivedQuantity.toString(), item.unit),
       accepted: fmtQty(item.acceptedQuantity.toString(), item.unit),
       rejected: fmtQty(item.rejectedQuantity.toString(), item.unit),
+      foldNote: hasFold(item.foldLengthCm) ? `counted @ L=${Number(item.foldLengthCm)}` : null,
+      actual: fmtQty(actualQty.toNumber(), item.unit),
+      rate: rate != null ? fmtMoney(rate.toNumber()) : EM_DASH,
+      value: value != null ? fmtMoney(value.toNumber()) : EM_DASH,
       details,
       entryMode: item.entryMode,
     };
@@ -370,8 +403,12 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
     tolerancePct: tolerancePctStr,
     recon,
     lines,
-    totalAccepted: fmtQty(acceptedSum.toNumber(), firstUnit),
-    totalRejected: fmtQty(rejectedSum.toNumber(), firstUnit),
+    totalAccepted: fmtQty(acceptedCounted.toNumber(), firstUnit),
+    totalRejected: fmtQty(rejectedCounted.toNumber(), firstUnit),
+    hasFold: anyFold,
+    totalActual: fmtQty(acceptedSum.toNumber(), firstUnit),
+    showValue: !isJobWork && everyLinePriced,
+    totalValue: fmtMoney(roundToCent(valueSum).toNumber()),
     valuation,
   };
 }

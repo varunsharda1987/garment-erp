@@ -15,6 +15,7 @@ import type { AdjustmentReason } from '../schemas/stockMovement.schema';
 import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber } from '../utils/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { toDateInputValue } from '../utils/date';
+import { foldActual, hasFold } from '../utils/fold-length';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -223,12 +224,10 @@ class StockMovementService {
    */
   async createStockIn(data: CreateStockMovementDTO, outerTx?: Prisma.TransactionClient) {
     const run = async (tx: Prisma.TransactionClient) => {
-      // Calculate actual quantity from fold length
-      // If foldLengthCm is provided and < 100, actual = nominal × (L/100)
+      // `quantity` is the COUNTED figure when a fold length is given; stock takes the ACTUAL metres.
       const nominalQty = data.quantity;
-      const foldL = data.foldLengthCm ? Number(data.foldLengthCm) : null;
-      const actualQty =
-        foldL && foldL > 0 && foldL < 100 ? new Decimal(nominalQty.toString()).mul(foldL).div(100) : nominalQty;
+      const folded = hasFold(data.foldLengthCm);
+      const actualQty = new Decimal(foldActual(nominalQty, data.foldLengthCm).toString());
 
       // Create stock movement record with ACTUAL quantity
       const movement = await tx.stock_movements.create({
@@ -244,7 +243,7 @@ class StockMovementService {
           referenceType: data.referenceType,
           referenceId: data.referenceId,
           referenceNumber: data.referenceNumber,
-          remarks: foldL && foldL < 100 ? `Nominal: ${nominalQty} | ${data.remarks || ''}` : data.remarks,
+          remarks: folded ? `Nominal: ${nominalQty} | ${data.remarks || ''}` : data.remarks,
           performedById: data.performedById,
           foldLengthCm: data.foldLengthCm,
           thanCount: data.thanCount,
@@ -291,10 +290,12 @@ class StockMovementService {
       await this.increaseStockInTx(tx, data.materialId, data.warehouseId, actualQty, data.unit, data.rate);
 
       // Route to specialized stock table based on material type
+      // COUNTED + L: the router converts once (it used to receive the actual figure AND the L, and the
+      // greige lot applied L a second time).
       await routeToSpecializedStock(
         {
           materialId: data.materialId,
-          quantity: Number(actualQty),
+          quantity: Number(nominalQty),
           rate: data.rate ? Number(data.rate) : undefined,
           warehouseId: data.warehouseId,
           foldLengthCm: data.foldLengthCm ? Number(data.foldLengthCm) : undefined,
@@ -325,11 +326,10 @@ class StockMovementService {
       const movements = [];
 
       for (const item of data.items) {
-        // Calculate actual quantity from fold length
+        // `quantity` is the COUNTED figure when a fold length is given; stock takes the ACTUAL metres.
         const nominalQty = item.quantity;
-        const foldL = item.foldLengthCm ? Number(item.foldLengthCm) : null;
-        const actualQty =
-          foldL && foldL > 0 && foldL < 100 ? new Decimal(nominalQty.toString()).mul(foldL).div(100) : nominalQty;
+        const folded = hasFold(item.foldLengthCm);
+        const actualQty = new Decimal(foldActual(nominalQty, item.foldLengthCm).toString());
 
         // Create stock movement record with ACTUAL quantity
         const movement = await tx.stock_movements.create({
@@ -345,10 +345,9 @@ class StockMovementService {
             referenceType: data.referenceType || 'BULK_STOCK_IN',
             referenceId: batchId,
             referenceNumber: data.referenceNumber,
-            remarks:
-              foldL && foldL < 100
-                ? `Nominal: ${nominalQty} | ${item.remarks || data.remarks || ''}`
-                : item.remarks || data.remarks,
+            remarks: folded
+              ? `Nominal: ${nominalQty} | ${item.remarks || data.remarks || ''}`
+              : item.remarks || data.remarks,
             performedById: data.performedById,
             foldLengthCm: item.foldLengthCm,
             thanCount: item.thanCount,
@@ -398,7 +397,7 @@ class StockMovementService {
         await routeToSpecializedStock(
           {
             materialId: item.materialId,
-            quantity: Number(actualQty),
+            quantity: Number(nominalQty), // COUNTED + L — the router converts once
             rate: item.rate ? Number(item.rate) : undefined,
             warehouseId: data.warehouseId,
             foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
@@ -1275,12 +1274,14 @@ class StockMovementService {
           }
         }
 
-        // BUG-STK8 fix: Use decimal.js for precision-safe calculations
+        // BUG-STK8 fix: Use decimal.js for precision-safe calculations. ACTUAL metres: a receipt counted
+        // at fold L is received as counted × L/100.
+        const actualReceived = foldActual(item.receivedQuantity, item.foldLengthCm);
         const grnItemRate = item.purchase_order_items?.unitPrice
           ? toNumber(toCurrency(item.purchase_order_items.unitPrice))
           : null;
         const grnItemTotalValue = item.purchase_order_items?.unitPrice
-          ? toNumber(multiplyCurrency(item.purchase_order_items.unitPrice, item.receivedQuantity))
+          ? toNumber(multiplyCurrency(item.purchase_order_items.unitPrice, actualReceived))
           : null;
 
         results.push({
@@ -1291,7 +1292,7 @@ class StockMovementService {
           supplierCode: grn.suppliers?.code || null,
           materialName: item.materials?.name || 'Material',
           materialCode: item.materials?.code || '-',
-          quantity: toNumber(toCurrency(item.receivedQuantity)),
+          quantity: toNumber(actualReceived),
           unit: item.unit || 'PCS',
           invoiceNumber: grn.invoiceNumber,
           rate: grnItemRate,

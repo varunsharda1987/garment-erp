@@ -49,13 +49,13 @@
     {{else}}
     <table>
       <thead>
-        <tr><th style="width:30px">#</th><th>Material</th><th style="width:48px">UOM</th><th class="num" style="width:72px">Ordered</th><th class="num" style="width:72px">Received</th><th class="num" style="width:72px">Accepted</th><th class="num" style="width:72px">Rejected</th></tr>
+        <tr><th style="width:30px">#</th><th>Material</th><th style="width:48px">UOM</th><th class="num" style="width:66px">Ordered</th><th class="num" style="width:66px">Received</th><th class="num" style="width:66px">Accepted</th><th class="num" style="width:62px">Rejected</th>{{#if hasFold}}<th class="num" style="width:72px">Actual</th>{{/if}}{{#if showValue}}<th class="num" style="width:54px">Rate</th><th class="num" style="width:84px">Value (&#8377;)</th>{{/if}}</tr>
       </thead>
       <tbody>
         {{#each lines}}
-        <tr><td class="num">{{this.sn}}</td><td>{{this.material}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.uom}}</td><td class="num">{{this.ordered}}</td><td class="num">{{this.received}}</td><td class="num">{{this.accepted}}</td><td class="num">{{this.rejected}}</td></tr>
+        <tr><td class="num">{{this.sn}}</td><td>{{this.material}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.uom}}</td><td class="num">{{this.ordered}}</td><td class="num">{{this.received}}{{#if this.foldNote}}<br><span class="muted">{{this.foldNote}}</span>{{/if}}</td><td class="num">{{this.accepted}}</td><td class="num">{{this.rejected}}</td>{{#if @root.hasFold}}<td class="num">{{this.actual}}</td>{{/if}}{{#if @root.showValue}}<td class="num">{{this.rate}}</td><td class="num">{{this.value}}</td>{{/if}}</tr>
         {{/each}}
-        <tr class="tot"><td colspan="5">Total accepted to stock</td><td class="num">{{totalAccepted}}</td><td class="num">{{totalRejected}}</td></tr>
+        <tr class="tot"><td colspan="5">Total accepted{{#if hasFold}} (stock takes the Actual column){{else}} to stock{{/if}}</td><td class="num">{{totalAccepted}}</td><td class="num">{{totalRejected}}</td>{{#if hasFold}}<td class="num">{{totalActual}}</td>{{/if}}{{#if showValue}}<td></td><td class="num">{{totalValue}}</td>{{/if}}</tr>
       </tbody>
     </table>
     {{/if}}

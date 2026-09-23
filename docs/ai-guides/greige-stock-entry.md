@@ -39,7 +39,7 @@ route: /greige-stock-entry
 4. In **Step 2: Warehouse & Reference**, pick the **Warehouse**. Fill **Challan/DC Number** or **Supplier Invoice**, set **Received Date** if backdating (leave blank for today), and **Invoice Date** from the supplier bill.
 5. In **Step 3: Add Items**, pick **Greige Fabric** as the Material Type if the type tiles are shown. A greige-only supplier selects it automatically.
 6. Search and pick the greige, then enter **Quantity** and **Unit** (usually Meter).
-7. Optional per item: **Rate (₹)**, **Lot/Batch Number**, **Than Count**, **Fold Length (cm)** and **Roll Numbers** (comma-separated).
+7. Optional per item: **Rate (₹)**, **Lot/Batch Number**, **Than Count**, **Fold Length (cm)** and **Roll Numbers** (comma-separated). With a fold length under 100 cm, type the counted quantity — the lot is booked at the actual metres shown in the **Fold Length Adjustment** box.
 8. Click **Create Stock IN**.
 
 See **Receive Greige Without a Purchase Order** for the full guide.

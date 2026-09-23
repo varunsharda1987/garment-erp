@@ -41,6 +41,7 @@ import type { CreateChallanInput, ChallanType } from '../types/challan.types';
 import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 import { toDateInputValue } from '@/lib/date';
+import { foldActual, foldLabel } from '@/lib/fold-length';
 import {
   getAllowedMaterialTypes,
   MATERIAL_SUPPLIER_CATEGORIES,
@@ -489,7 +490,8 @@ export default function StockOutForm() {
     if (item.stockType === 'FABRIC' && !item.fabricStockId) return false;
     if (item.stockType === 'GREIGE' && !item.greigeStockId) return false;
 
-    if (item.availableQty !== null && Number(item.quantity) > item.availableQty) return false;
+    // A quantity typed with a fold length is the counted figure; stock gives up the actual metres.
+    if (item.availableQty !== null && foldActual(item.quantity, item.foldLengthCm) > item.availableQty) return false;
 
     return true;
   };
@@ -503,7 +505,7 @@ export default function StockOutForm() {
 
   // Get count of valid items for display
   const validItemCount = lineItems.filter(isLineItemValid).length;
-  const totalQuantity = lineItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+  const totalQuantity = lineItems.reduce((sum, item) => sum + foldActual(item.quantity, item.foldLengthCm), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -519,8 +521,9 @@ export default function StockOutForm() {
 
     // Build challan items from all line items
     const challanItems = lineItems.map((item) => {
-      const qty = Number(item.quantity);
       const itemFoldLengthCm = item.foldLengthCm ? Number(item.foldLengthCm) : undefined;
+      // Challan quantities are ACTUAL metres (what leaves stock); the L rides along for the print.
+      const qty = foldActual(item.quantity, itemFoldLengthCm);
       const itemThanCount = item.thanCount ? parseInt(item.thanCount) : undefined;
 
       if (item.stockType === 'GREIGE') {
@@ -1062,6 +1065,11 @@ export default function StockOutForm() {
                                 step="0.01"
                                 min="0"
                               />
+                              {foldLabel(item.quantity, item.foldLengthCm, 'METER') && Number(item.quantity) > 0 && (
+                                <p className="text-xs text-info">
+                                  {foldLabel(item.quantity, item.foldLengthCm, 'METER')}
+                                </p>
+                              )}
                             </div>
                           </>
                         )}

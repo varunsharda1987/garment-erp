@@ -214,7 +214,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .send({
         jobWorkOrderId: jwoId,
         qtyReceivedMeters: RECEIVE_QTY,
-        // 900 folds of 100 cm — the job should carry these, as it does on the Dyeing page.
+        // 900 thans at L=100 (no fold loss) — the job should carry these, as it does on the Dyeing page.
         // (foldLengthCm is Decimal(5,2) on every table: max 999.99 cm.)
         thanCount: 900,
         foldLengthCm: 100,

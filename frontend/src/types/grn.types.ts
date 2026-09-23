@@ -142,9 +142,11 @@ export interface GRNItem {
   receivedAsReadyFabric: boolean;
   actualRatePerUnit: number | null;
   updateFutureSourcing: boolean;
-  /** List only — per-unit rate the line is valued at (override › PO price › processor's charge); null = unpriced */
+  /** ACTUAL accepted metres — the counted figure × L/100 when foldLengthCm is set (what went to stock) */
+  actualQuantity?: number | null;
+  /** List and detail — per-unit rate the line is valued at (override › PO price › processor's charge); null = unpriced */
   rate?: number | null;
-  /** List only — accepted qty × rate */
+  /** List and detail — ACTUAL accepted qty × rate */
   value?: number | null;
   // Relations
   materials?: MaterialSummary;
@@ -303,6 +305,8 @@ export interface PendingPOItem {
   totalReceivedQuantity: number;
   pendingQuantity: number;
   unitPrice: number;
+  /** The PO line's fold length — pre-fills the GRN line's L. PO quantities are actual metres. */
+  foldLengthCm?: number | null;
 }
 
 export interface PendingItemsResponse {

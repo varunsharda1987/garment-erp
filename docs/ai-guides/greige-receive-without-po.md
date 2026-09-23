@@ -89,7 +89,7 @@ Use this for opening stock, physical count adjustments, or backdated entries whe
 6. Set **Received Date** if backdating (leave blank for today) and **Invoice Date** from the supplier bill.
 7. In **Step 3: Add Items**, pick **Greige Fabric** as the Material Type if the type tiles are shown. A greige-only supplier selects it automatically.
 8. Search and pick the greige, then enter **Quantity** and **Unit** (usually Meter).
-9. Optional per item: **Rate (₹)**, **Lot/Batch Number**, **Than Count**, **Fold Length (cm)** and **Roll Numbers** (comma-separated). A fold length below 100 cm shows the adjusted actual meters.
+9. Optional per item: **Rate (₹)**, **Lot/Batch Number**, **Than Count**, **Fold Length (cm)** and **Roll Numbers** (comma-separated). A fold length below 100 cm shows the adjusted actual meters, and that is the quantity booked into stock.
 10. Use **Add Another Greige Fabric** to receive more items in the same entry.
 11. Add **Remarks** explaining why there is no PO.
 12. Click **Create Stock IN**.

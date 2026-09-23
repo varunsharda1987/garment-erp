@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { grnLineActualQty } from './helpers/grn-line-value.helper';
 
 /**
  * The ONE where-clause for statutory-reportable invoices, shared by GSTR-1 and GSTR-3B so the two
@@ -295,7 +296,11 @@ class GSTReportService {
       select: {
         poId: true,
         grn_items: {
-          select: { acceptedQuantity: true, purchase_order_items: { select: { unitPrice: true } } },
+          select: {
+            acceptedQuantity: true,
+            foldLengthCm: true,
+            purchase_order_items: { select: { unitPrice: true } },
+          },
         },
         purchase_orders: {
           select: { subtotal: true, totalCgst: true, totalSgst: true, totalIgst: true },
@@ -329,7 +334,7 @@ class GSTReportService {
         const jwoSubtotal = Number(jwo.subtotal || 0);
         if (jwoSubtotal <= 0) continue;
         const receivedValue = grn.grn_items.reduce(
-          (s, it) => s + Number(it.acceptedQuantity || 0) * Number(jwo.agreedRatePerMeter || 0),
+          (s, it) => s + grnLineActualQty(it).toNumber() * Number(jwo.agreedRatePerMeter || 0),
           0
         );
         const fraction = Math.min(1, receivedValue / jwoSubtotal);
@@ -343,7 +348,8 @@ class GSTReportService {
       const poSubtotal = Number(po?.subtotal || 0);
       if (!po || poSubtotal <= 0) continue;
       const receivedValue = grn.grn_items.reduce(
-        (s, it) => s + Number(it.acceptedQuantity || 0) * Number(it.purchase_order_items?.unitPrice || 0),
+        // ACTUAL metres — a line counted at fold L is billed on counted × L/100
+        (s, it) => s + grnLineActualQty(it).toNumber() * Number(it.purchase_order_items?.unitPrice || 0),
         0
       );
       const fraction = Math.min(1, receivedValue / poSubtotal);

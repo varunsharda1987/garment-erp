@@ -44,12 +44,13 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 6. Fill **Invoice Number** and **Invoice Date** if the supplier sent an invoice. Both are optional.
 7. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
 8. If something is damaged, enter **Rejected** and a reason. Accepted plus Rejected must equal Received.
-9. For Fabric and Greige POs, set **Entry Mode** — Total Meters, Than-wise, Bale-wise or Roll-wise. Than/Bale/Roll modes let you click **Add Than**, **Add Bale** or **Add Roll** and enter meters per piece; the total is summed into This Receipt automatically. Also fill **L / Fold (cm)** and **Width (inches)**.
+9. For Fabric and Greige POs, set **Entry Mode** — Total Meters, Than-wise, Bale-wise or Roll-wise. Than/Bale/Roll modes let you click **Add Than**, **Add Bale** or **Add Roll** and enter meters per piece; the total is summed into This Receipt automatically. Also fill **L / Fold (cm)** (it comes pre-filled from the PO line — change it if the mill delivered at a different L) and **Width (inches)**. Type the quantity exactly as the mill counted it (the figure on their bill and than tags). When **L / Fold (cm)** is under 100, a blue line under the quantity shows the conversion, e.g. "10,011 m counted @ L=98 → 9,810.78 m". The actual metres are what go to stock, what the PO counts as received, and what the value is worked out on.
 10. On a Greige PO only, if the supplier actually sent finished fabric, switch on **Received as Ready Fabric (not greige)** and choose **One-time exception** or **Permanent change**. This cancels the linked Processing PO.
 11. Add anything else in **Notes**, then click **Save GRN**.
 
 ## Validation traps
 - PO, Warehouse and Receiving Date are required, and at least one item must have a received quantity.
+- The PO quantity is in actual metres, so over-receipt is checked on the actual metres, not the counted figure — a delivery counted at L=98 that matches the PO after conversion is not an over-receipt.
 - Over-receipt is allowed only up to the tolerance shown on the **Items to Receive** card. Beyond that the save is blocked with the maximum allowed quantity in the message.
 - Accepted + Rejected must equal Received on every line, or the save fails.
 - Lines that are already fully received do not appear — only pending quantity is shown.

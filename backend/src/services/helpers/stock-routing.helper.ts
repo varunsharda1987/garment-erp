@@ -27,9 +27,11 @@ import { syncStockLevelQuantity } from './material-sync.helper';
 import { systemSettingsService } from '../system-settings.service';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
 import { getQualityGradeOrDefault } from '../../constants/stock.constants';
+import { foldActual } from '../../utils/fold-length';
 
 export interface StockInRoutingData {
   materialId: string;
+  /** The COUNTED figure when foldLengthCm is given (converted here, once); otherwise actual. */
   quantity: number;
   rate?: number;
   warehouseId?: string;
@@ -67,6 +69,8 @@ export async function routeToSpecializedStock(
   data: StockInRoutingData,
   tx?: any
 ): Promise<{ routed: boolean; stockType?: string; stockId?: string }> {
+  // Actual metres at the fold length (identity when there is none). The greige lot converts itself.
+  const actualQty = foldActual(data.quantity, data.foldLengthCm).toNumber();
   const client = tx || prisma;
 
   // BUG-GR8 fix: Use configurable cutable width deduction from system settings
@@ -104,7 +108,7 @@ export async function routeToSpecializedStock(
       const stock = await greigeStockService.createGreigeStock(
         {
           greigeId: material.greigeId,
-          quantity: data.quantity,
+          quantity: data.quantity, // counted — createGreigeStock converts at foldLengthCm
           width: Number(material.greige_master?.greigeWidth) || 44,
           purchaseCost: data.rate,
           warehouseId: data.warehouseId,
@@ -135,7 +139,7 @@ export async function routeToSpecializedStock(
           fabricId: material.fabricId,
           finishedWidth: new Prisma.Decimal(width),
           cutableWidth: new Prisma.Decimal(width - cutableWidthDeduction), // BUG-GR8 fix: configurable deduction
-          quantityAvailable: new Prisma.Decimal(data.quantity),
+          quantityAvailable: new Prisma.Decimal(actualQty),
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
           unit: 'meters',
@@ -150,7 +154,7 @@ export async function routeToSpecializedStock(
         },
       });
 
-      logInfo(`[StockRouting] Routed to fabric_stock: ${stock.id}, qty: ${data.quantity}`);
+      logInfo(`[StockRouting] Routed to fabric_stock: ${stock.id}, qty: ${actualQty}`);
       return { routed: true, stockType: 'FABRIC', stockId: stock.id };
     }
 
@@ -158,7 +162,7 @@ export async function routeToSpecializedStock(
       const cost = data.rate ?? 0;
       const stock = await createLaceStock({
         laceId: material.laceId,
-        quantityAvailable: data.quantity,
+        quantityAvailable: actualQty,
         purchaseCost: cost,
         weightedAvgCost: cost,
         warehouseId: data.warehouseId,
@@ -169,7 +173,7 @@ export async function routeToSpecializedStock(
         skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
         tx: client, // Pass transaction context so records are part of parent transaction
       });
-      logInfo(`[StockRouting] Routed to lace_stock: ${stock.id}, qty: ${data.quantity}`);
+      logInfo(`[StockRouting] Routed to lace_stock: ${stock.id}, qty: ${actualQty}`);
       return { routed: true, stockType: 'LACE', stockId: stock.id };
     }
 
@@ -177,7 +181,7 @@ export async function routeToSpecializedStock(
       const stock = await threadStockService.createThreadStock(
         {
           threadId: material.threadId,
-          quantity: data.quantity,
+          quantity: actualQty,
           purchaseCost: data.rate,
           warehouseId: data.warehouseId,
           sourceType: 'MANUAL',
@@ -188,7 +192,7 @@ export async function routeToSpecializedStock(
         },
         data.performedById
       );
-      logInfo(`[StockRouting] Routed to thread_stock: ${stock.id}, qty: ${data.quantity}`);
+      logInfo(`[StockRouting] Routed to thread_stock: ${stock.id}, qty: ${actualQty}`);
       return { routed: true, stockType: 'THREAD', stockId: stock.id };
     }
 
@@ -210,7 +214,7 @@ export async function routeToSpecializedStock(
           {
             trimType,
             masterId: masterId as string,
-            quantity: data.quantity,
+            quantity: actualQty,
             purchaseCost: data.rate,
             warehouseId: data.warehouseId,
             sourceType: 'MANUAL',
@@ -222,7 +226,7 @@ export async function routeToSpecializedStock(
           },
           data.performedById
         );
-        logInfo(`[StockRouting] Routed to ${trimType.toLowerCase()}_stock: ${stock.id}, qty: ${data.quantity}`);
+        logInfo(`[StockRouting] Routed to ${trimType.toLowerCase()}_stock: ${stock.id}, qty: ${actualQty}`);
         return { routed: true, stockType: trimType, stockId: stock.id };
       }
     }

@@ -12,7 +12,12 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity, getDefaultWarehouseId } from './helpers/material-sync.helper';
 import { systemSettingsService } from './system-settings.service';
 // BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
-import { toCurrency, toNumber, roundToCent } from '../utils/currency';
+import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currency';
+import { foldActual } from '../utils/fold-length';
+
+// Than tags are 3 dp and counted; a lot is 2 dp and actual. A pick that empties every than may differ
+// from what the lot holds by the half-cents each earlier issue rounded away.
+const THAN_ROUNDING_SLACK_M = 0.1;
 
 // Type for Prisma transaction client (used when operations need to be atomic with caller's transaction)
 type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -132,13 +137,9 @@ class GreigeStockService {
         procurementSupplierId = fallback.id;
       }
 
-      // Calculate actual quantity from fold length
-      // Nominal = what supplier measured, Actual = nominalQty × (foldLengthCm / 100)
+      // `quantity` is the COUNTED figure (supplier's measure at fold L); the lot holds ACTUAL metres.
       const nominalQty = data.quantity;
-      const actualQty =
-        data.foldLengthCm && data.foldLengthCm > 0 && data.foldLengthCm < 100
-          ? nominalQty * (data.foldLengthCm / 100)
-          : nominalQty; // If no fold length or L=100, actual = nominal
+      const actualQty = foldActual(nominalQty, data.foldLengthCm).toNumber();
 
       // BUG-GR8 fix: Cutable width deduction is configurable via system settings
       // Default: 2 (i.e., cutableWidth = greigeWidth - 2)
@@ -534,12 +535,15 @@ class GreigeStockService {
       // back atomically with the caller (e.g. challan issuance); otherwise use the global client.
       const client = tx || prisma;
 
-      // Guarded atomic consume — the check IS the write (same pattern as reserveGreigeStock)
+      // Guarded atomic consume — the check IS the write (same pattern as reserveGreigeStock). The
+      // quantity goes in as a decimal string: a JS float is compared at its exact binary value, so
+      // emptying a 9,810.78 lot asked for 9,810.7800000000006… and was refused.
+      const qty = new Prisma.Decimal(String(quantity));
       const consumeResult = await client.greige_stock.updateMany({
-        where: { id: stockId, quantityAvailable: { gte: quantity } },
+        where: { id: stockId, quantityAvailable: { gte: qty } },
         data: {
-          quantityAvailable: { decrement: quantity },
-          quantityConsumed: { increment: quantity },
+          quantityAvailable: { decrement: qty },
+          quantityConsumed: { increment: qty },
           lastConsumedDate: new Date(),
         },
       });
@@ -706,6 +710,45 @@ class GreigeStockService {
   }
 
   /**
+   * Actual metres a than pick takes out of its lot. Than rows carry the COUNTED figure written on the
+   * than; the lot holds ACTUAL metres, so the pick converts once at the lot's fold length. A pick that
+   * empties every remaining than empties the lot, so rounding never strands a sliver or refuses the
+   * last than.
+   */
+  async thanPickActualQty(
+    stockId: string,
+    details: Array<{ greigeStockDetailId: string; metersToIssue: number }>,
+    tx?: TransactionClient
+  ): Promise<{ counted: number; actual: number }> {
+    const client = tx || prisma;
+    const lot = await client.greige_stock.findUnique({
+      where: { id: stockId },
+      select: {
+        foldLengthCm: true,
+        quantityAvailable: true,
+        stockDetails: { where: { metersRemaining: { gt: 0 } }, select: { id: true, metersRemaining: true } },
+      },
+    });
+    if (!lot) throw new Error(`Greige stock with ID ${stockId} not found`);
+
+    const counted = addCurrency(...details.map((d) => d.metersToIssue));
+    let actual = foldActual(counted, lot.foldLengthCm).toNumber();
+
+    const picked = new Map(details.map((d) => [d.greigeStockDetailId, d.metersToIssue]));
+    const emptiesEveryThan =
+      lot.stockDetails.length > 0 &&
+      lot.stockDetails.every((t) => {
+        const qty = picked.get(t.id);
+        return qty != null && qty >= Number(t.metersRemaining) - 0.0005;
+      });
+    const available = Number(lot.quantityAvailable);
+    if (emptiesEveryThan && Math.abs(available - actual) <= THAN_ROUNDING_SLACK_M) {
+      actual = available;
+    }
+    return { counted: counted.toNumber(), actual };
+  }
+
+  /**
    * Consume greige stock with explicit bale/than detail selection.
    * Used when user selects specific thans to issue to a processor.
    *
@@ -727,11 +770,16 @@ class GreigeStockService {
       jobWorkOrderId?: string;
       challanId?: string;
     }
-  ): Promise<{ stockId: string; totalConsumed: number; issueDetails: string[] }> {
+  ): Promise<{ stockId: string; totalConsumed: number; countedConsumed: number; issueDetails: string[] }> {
     const client = tx || prisma;
 
     try {
-      let totalConsumed = 0;
+      // Before the than rows change: the exhaust rule reads what is still on them.
+      const { counted: countedConsumed, actual: totalConsumed } = await this.thanPickActualQty(
+        stockId,
+        details,
+        client
+      );
       const issueDetailIds: string[] = [];
 
       // Validate all details belong to this stock and have sufficient meters
@@ -777,11 +825,9 @@ class GreigeStockService {
           },
         });
         issueDetailIds.push(issueDetail.id);
-
-        totalConsumed += metersToIssue;
       }
 
-      // Now consume from the lot-level stock using the existing method
+      // Now consume the ACTUAL metres from the lot-level stock using the existing method
       // This handles the stock-level sync, transaction, and exhaustion status
       await this.consumeGreigeStock(stockId, totalConsumed, userId, client, {
         referenceType: options?.referenceType ?? 'CHALLAN',
@@ -789,11 +835,14 @@ class GreigeStockService {
         notes: options?.notes ?? 'Consumed via detail selection',
       });
 
-      logInfo(`Consumed ${totalConsumed}m from stock ${stockId} via ${details.length} detail selections`);
+      logInfo(
+        `Consumed ${totalConsumed}m (counted ${countedConsumed}m) from stock ${stockId} via ${details.length} detail selections`
+      );
 
       return {
         stockId,
         totalConsumed,
+        countedConsumed,
         issueDetails: issueDetailIds,
       };
     } catch (error: unknown) {
@@ -868,6 +917,8 @@ class GreigeStockService {
     baleCount: number | null;
     thanCount: number | null;
     totalAvailable: number;
+    /** The lot's fold length — than meters are COUNTED at it, totalAvailable is ACTUAL */
+    foldLengthCm: number | null;
     details: Array<{
       id: string;
       baleNumber: number | null;
@@ -885,6 +936,7 @@ class GreigeStockService {
           baleCount: true,
           thanCount: true,
           quantityAvailable: true,
+          foldLengthCm: true,
           stockDetails: {
             where: {
               status: { in: ['AVAILABLE', 'PARTIAL'] },
@@ -904,6 +956,7 @@ class GreigeStockService {
         baleCount: stock.baleCount,
         thanCount: stock.thanCount,
         totalAvailable: Number(stock.quantityAvailable),
+        foldLengthCm: stock.foldLengthCm != null ? Number(stock.foldLengthCm) : null,
         details: stock.stockDetails.map((d) => ({
           id: d.id,
           baleNumber: d.baleNumber,

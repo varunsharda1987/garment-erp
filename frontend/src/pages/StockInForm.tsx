@@ -64,7 +64,7 @@ import {
   getSupplierMaterialLabel,
 } from '../lib/supplier-material-mapping';
 import { Unit } from '../types/inventory.types';
-import { UNIT_OPTIONS, unitShort } from '@/lib/units';
+import { UNIT_OPTIONS } from '@/lib/units';
 import type { Material } from '../types/material.types';
 import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
 import type { Lace } from '../types/lace.types';
@@ -75,6 +75,8 @@ import type { Elastic } from '../types/elastic.types';
 import type { Label as LabelType } from '../types/label.types';
 import type { Packaging } from '../types/packaging.types';
 import { logError } from '../lib/logger';
+import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
+import { formatCurrency } from '@/lib/currency';
 
 // Material type for unified dropdown
 type MaterialType =
@@ -1317,36 +1319,21 @@ export default function StockInForm() {
                               />
                             </div>
                             {/* Show calculated actual when fold length is entered */}
-                            {item.foldLengthCm &&
-                              Number(item.foldLengthCm) > 0 &&
-                              Number(item.foldLengthCm) < 100 &&
-                              item.quantity && (
-                                <div className="col-span-full bg-amber-50 border border-amber-200 rounded-md p-2 text-sm">
-                                  <div className="font-medium text-amber-800">Fold Length Adjustment:</div>
-                                  <div className="text-amber-700">
-                                    Nominal: {Number(item.quantity).toLocaleString()} {unitShort(item.unit)} × L=
-                                    {item.foldLengthCm}cm ={' '}
-                                    <strong>
-                                      Actual:{' '}
-                                      {((Number(item.quantity) * Number(item.foldLengthCm)) / 100).toLocaleString(
-                                        undefined,
-                                        { maximumFractionDigits: 2 }
-                                      )}{' '}
-                                      {unitShort(item.unit)}
-                                    </strong>
-                                    {item.rate && (
-                                      <span className="ml-2">
-                                        (Value: ₹
-                                        {(
-                                          ((Number(item.quantity) * Number(item.foldLengthCm)) / 100) *
-                                          Number(item.rate)
-                                        ).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                        )
-                                      </span>
-                                    )}
-                                  </div>
+                            {hasFold(item.foldLengthCm) && Number(item.quantity) > 0 && (
+                              <div className="col-span-full bg-amber-50 border border-amber-200 rounded-md p-2 text-sm">
+                                <div className="font-medium text-amber-800">Fold Length Adjustment:</div>
+                                <div className="text-amber-700">
+                                  {foldLabel(item.quantity, item.foldLengthCm, item.unit)}
+                                  {item.rate && (
+                                    <span className="ml-2">
+                                      (Value:{' '}
+                                      {formatCurrency(foldActual(item.quantity, item.foldLengthCm) * Number(item.rate))}
+                                      )
+                                    </span>
+                                  )}
                                 </div>
-                              )}
+                              </div>
+                            )}
                           </>
                         )}
 

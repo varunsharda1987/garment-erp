@@ -63,6 +63,8 @@ import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Warehouse } from '@/types/inventory.types';
+import { formatQuantity } from '@/lib/formatters';
+import { foldCounted, hasFold } from '@/lib/fold-length';
 
 /**
  * Which GST heads apply: IGST for an out-of-state supplier, CGST+SGST for one in our own state.
@@ -1892,6 +1894,16 @@ export default function PurchaseOrderForm() {
                           onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
                           className="w-full"
                         />
+                        {/* PO quantities are ACTUAL metres; the GRN converts what the mill counts at L. */}
+                        {(poCategory === 'GREIGE' || poCategory === 'FABRIC') &&
+                          hasFold(item.foldLengthCm) &&
+                          Number(item.orderedQuantity) > 0 && (
+                            <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+                              actual · ={' '}
+                              {formatQuantity(foldCounted(item.orderedQuantity, item.foldLengthCm), item.unit)} counted
+                              @ L={Number(item.foldLengthCm)}
+                            </div>
+                          )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="font-medium">

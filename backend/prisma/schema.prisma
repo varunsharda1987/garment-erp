@@ -7105,7 +7105,7 @@ model job_work_orders {
   finishedFabricId       String? // FK to auto-created finished fabric_master
   thanCount              Int? // Number of thans (folded bundles) received
   foldLengthCm           Decimal?  @db.Decimal(5, 2) // "L" - actual fold length in cm
-  calculatedActualMeters Decimal?  @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
+  calculatedActualMeters Decimal?  @db.Decimal(10, 2) // ACTUAL metres received = counted × foldLengthCm / 100 (utils/fold-length); null when no L recorded
   outwardChallanId       String? // FK to new challans table (outbound)
   inwardChallanId        String? // FK to new challans table (inbound)
   purchaseOrderId        String?   @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)

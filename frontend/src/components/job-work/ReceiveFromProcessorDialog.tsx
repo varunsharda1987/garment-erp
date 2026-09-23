@@ -30,6 +30,7 @@ import { warehouseService } from '@/services/warehouse.service';
 import type { WarehouseType } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { toDateInputValue } from '@/lib/date';
+import { foldActual, foldLabel } from '@/lib/fold-length';
 
 interface ReceiveFromProcessorDialogProps {
   open: boolean;
@@ -140,19 +141,14 @@ export default function ReceiveFromProcessorDialog({
   }, [open, warehouseId, stores]);
 
   // The quantity the receipt will book.
-  //   Total metres: what was typed; or than count × fold length when metres are blank.
-  //   Than-/bale-wise: the sum of the rows (the server derives the than count from them).
+  //   Counted: the metres typed, or the sum of the than/bale rows (the server derives the than count
+  //   from them) — the processor's own count.
+  //   Actual: counted × L/100 when a fold length under 100 cm is given — what goes to stock, and what
+  //   the split, the cap and the "final" tick below all run on.
   const rowsValid = rows.length > 0 && rows.every((r) => r.meters > 0);
-  const effectiveQty =
-    entryMode === 'TOTAL_METERS'
-      ? qtyMeters > 0
-        ? qtyMeters
-        : thanCount > 0 && foldLengthCm > 0
-          ? (thanCount * foldLengthCm) / 100
-          : 0
-      : rowsValid
-        ? sumDetailRows(rows)
-        : 0;
+  const countedQty = entryMode === 'TOTAL_METERS' ? qtyMeters : rowsValid ? sumDetailRows(rows) : 0;
+  const effectiveQty = foldActual(countedQty, foldLengthCm);
+  const foldNote = countedQty > 0 ? foldLabel(countedQty, foldLengthCm, jwo?.uom ?? 'MTR') : null;
 
   // Parts: what earlier deliveries already booked. The split, the cap and the "final" tick all work
   // on the CUMULATIVE figure — a short first delivery is not a loss until the last one is in.
@@ -188,8 +184,7 @@ export default function ReceiveFromProcessorDialog({
         ...(entryMode === 'TOTAL_METERS'
           ? {
               qtyReceivedMeters: qtyMeters > 0 ? qtyMeters : undefined,
-              // A count typed beside a total is stored as given (the server only derives the
-              // quantity from than × fold when the metres are blank).
+              // The than count is a count of pieces, recorded as given.
               thanCount: thanCount > 0 ? thanCount : undefined,
             }
           : {
@@ -397,8 +392,8 @@ export default function ReceiveFromProcessorDialog({
                 placeholder={expected != null ? `e.g. ${fmt(expected)}` : undefined}
               />
               <p className="text-xs text-muted-foreground">
-                Than count and fold length are recorded with the receipt. Leave the metres blank to work them out from
-                than count × fold length.
+                Enter the metres the processor counted. With a fold length under 100 cm, stock takes the actual metres
+                (counted × L/100).
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -429,6 +424,7 @@ export default function ReceiveFromProcessorDialog({
                   />
                 </div>
               </div>
+              {foldNote && <p className="text-xs text-info">{foldNote}</p>}
             </div>
           ) : (
             <div className="space-y-2">
@@ -449,6 +445,7 @@ export default function ReceiveFromProcessorDialog({
                   />
                 </div>
               </div>
+              {foldNote && <p className="text-xs text-info">{foldNote}</p>}
             </div>
           )}
 

@@ -1,0 +1,4 @@
+[
+  "backend/src/controllers/dyeing.controller.ts :: calculatedActualMeters = (thanCount * foldLengthCm) / 100;",
+  "backend/src/controllers/printing.controller.ts :: calculatedActualMeters = (thanCount * foldLengthCm) / 100;"
+]

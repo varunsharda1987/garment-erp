@@ -251,6 +251,17 @@ function checkShrinkageDivide(tsFiles) {
   );
 }
 
+/** Check (B3): inline fold-length ("L") arithmetic outside the helper — BLOCKING new + ratchet. */
+function checkFoldLengthInline(tsFiles) {
+  console.log(`\n${c.cyan}Checking fold-length (L) conversions go through the helper...${c.reset}`);
+  return runRatchetedCheck(
+    'inline fold-length arithmetic bypassing the fold-length helper',
+    detectors.foldLengthInline(tsFiles),
+    'fold-length-inline-baseline.json',
+    'Counted → actual metres has ONE rule: foldActual()/foldCounted() from backend/src/utils/fold-length.ts or @/lib/fold-length (actual = counted × L/100 when 0 < L < 100). Stock, PO counters, value and MRP run on actual. Mark a genuine exception // allow-fold-math, or add the key to scripts/hooks/fold-length-inline-baseline.json.'
+  );
+}
+
 /** Check (B2): en-IN currency toLocaleString must set maximumFractionDigits — BLOCKING new + ratchet. */
 function checkDateFormat(tsFiles) {
   console.log(`
@@ -1263,6 +1274,7 @@ function runAllModeChecks() {
   if (!checkDatetimeSchema(schemaFiles)) ok = false;
   if (!checkStrictNumberSchema(schemaFiles)) ok = false;
   if (!checkShrinkageDivide(tsFiles)) ok = false;
+  if (!checkFoldLengthInline(tsFiles)) ok = false;
   if (!checkCurrencyFormat(tsFiles)) ok = false;
   if (!checkDateFormat(tsFiles)) ok = false;
   if (!checkUnitVocabulary(tsFiles)) ok = false;
@@ -1383,6 +1395,7 @@ function main() {
   if (categories.typescript.length) {
     checksRun++;
     if (!checkShrinkageDivide(categories.typescript)) allPassed = false;
+    if (!checkFoldLengthInline(categories.typescript)) allPassed = false;
     if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
     if (!checkDateFormat(categories.typescript)) allPassed = false;
     if (!checkUnitVocabulary(categories.typescript)) allPassed = false;

@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
 
 // ============================================
 // Types
@@ -162,7 +163,8 @@ export default function GRNForm() {
           rejectionReason: '',
           remarks: '',
           entryMode: 'TOTAL_METERS' as GRNEntryMode,
-          foldLengthCm: '',
+          // The PO line's L — the mill usually delivers at it; the receiver can change it.
+          foldLengthCm: item.foldLengthCm != null ? String(item.foldLengthCm) : '',
           receivedWidthInches: '',
           details: [],
           // Source mismatch override fields (default: no override)
@@ -327,12 +329,14 @@ export default function GRNForm() {
     for (const item of items) {
       const received = parseFloat(item.receivedQuantity) || 0;
       if (received > 0) {
-        // Tolerance-based check: allow over-receipt up to tolerance %
+        // Tolerance-based check: allow over-receipt up to tolerance %. The PO is in actual metres, so a
+        // quantity counted at fold L is compared after conversion.
         const maxAllowed = item.orderedQuantity * (1 + tolerancePercent / 100) - item.alreadyReceived;
-        if (received > maxAllowed) {
+        const actualReceived = foldActual(received, item.foldLengthCm);
+        if (actualReceived > maxAllowed) {
           handleApiError(
             new Error(
-              `Cannot receive ${received} of ${item.materialCode}. Max allowed (with ${tolerancePercent}% tolerance): ${maxAllowed.toFixed(3)}.`
+              `Cannot receive ${foldLabel(received, item.foldLengthCm, item.unit) ?? received} of ${item.materialCode}. Max allowed (with ${tolerancePercent}% tolerance): ${maxAllowed.toFixed(3)}.`
             ),
             'Validation Error'
           );
@@ -467,7 +471,7 @@ export default function GRNForm() {
   // ============================================
 
   const renderOverReceiptWarning = (item: GRNItemForm) => {
-    const received = parseFloat(item.receivedQuantity) || 0;
+    const received = foldActual(item.receivedQuantity, item.foldLengthCm);
     if (received <= item.pendingQuantity || received === 0) return null;
     const excess = received - item.pendingQuantity;
     const pct = item.orderedQuantity > 0 ? ((excess / item.orderedQuantity) * 100).toFixed(1) : '0';
@@ -477,6 +481,17 @@ export default function GRNForm() {
         <span className="text-xs text-warning font-medium">
           Over-receipt: +{excess.toFixed(3)} ({pct}%)
         </span>
+      </div>
+    );
+  };
+
+  // Counted at fold L → the actual metres stock, over-receipt and value will use.
+  const renderFoldActual = (item: GRNItemForm) => {
+    const received = parseFloat(item.receivedQuantity) || 0;
+    if (!hasFold(item.foldLengthCm) || received <= 0) return null;
+    return (
+      <div className="mt-1 rounded-md border border-info/30 bg-info-muted px-2 py-1 text-xs text-info">
+        {foldLabel(received, item.foldLengthCm, item.unit)}
       </div>
     );
   };
@@ -1008,7 +1023,7 @@ export default function GRNForm() {
               </TableHeader>
               <TableBody>
                 {items.map((item, index) => {
-                  const received = parseFloat(item.receivedQuantity) || 0;
+                  const received = foldActual(item.receivedQuantity, item.foldLengthCm);
                   const isOver = received > item.pendingQuantity && received > 0;
                   return (
                     <TableRow key={item.poItemId} className="align-top">
@@ -1036,6 +1051,7 @@ export default function GRNForm() {
                           className={`w-full ${isOver ? 'border-warning/50 bg-warning-muted' : ''}`}
                           placeholder="0"
                         />
+                        {renderFoldActual(item)}
                         {renderOverReceiptWarning(item)}
                       </TableCell>
                       <TableCell>

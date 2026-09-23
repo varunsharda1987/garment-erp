@@ -45,6 +45,7 @@ import {
   toCurrency,
   toNumber,
 } from '../utils/currency';
+import { foldActual } from '../utils/fold-length';
 import { resolveJwoGreige } from './helpers/jwo-greige.helper';
 import { unitToJwoUom, type JwoUom } from '../utils/units';
 
@@ -866,7 +867,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
         select: {
           grnNumber: true,
           receivingDate: true,
-          grn_items: { select: { receivedQuantity: true } },
+          grn_items: { select: { receivedQuantity: true, foldLengthCm: true } },
         },
         // Both parts of a same-day return share a receivingDate, so the number breaks the tie —
         // otherwise the two deliveries print in whatever order the rows came back.
@@ -1034,7 +1035,11 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       receipts: job.receivingGRNs.map((grn) => ({
         grnNumber: grn.grnNumber,
         date: grn.receivingDate,
-        qty: grn.grn_items.reduce((sum, item) => toNumber(addCurrency(sum, item.receivedQuantity)), 0),
+        // ACTUAL metres — the processor's counted figure converted at the receipt's fold length.
+        qty: grn.grn_items.reduce(
+          (sum, item) => toNumber(addCurrency(sum, foldActual(item.receivedQuantity, item.foldLengthCm))),
+          0
+        ),
       })),
       hasSendOuts: job.externalProcessSendOuts.length > 0,
     };

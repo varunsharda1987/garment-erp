@@ -49,6 +49,7 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 - The PO receiving status is recomputed — it becomes Partially Received or Received.
 - Rejected quantity is taken back off the PO's received counter so the shortfall can be re-ordered, and is logged as an adjustment-out movement.
 - Receiving greige can automatically ready the linked processing work.
+- A line received at a fold length shows both figures on the GRN page: **Received** is the counted figure with "counted @ L=98" under it, and **Accepted** shows "→ 9,810.78 actual" under it. Approving books the actual metres into stock; the **Rate** and **Value** columns and the printed GRN (its **Actual** column) use the actual metres too.
 - For a **Job work return** there is nothing to do here: the finished fabric lot (or dyed lace lot), the inward challan, the job's shrinkage, than, fold, width and quality, the loss split and the **Stock Updated** status were all written when it was received on the job. Click the job work order in the **PO / JWO** column to see them.
 - If fabric was waiting for a production run, a banner appears with **Go to Cutting Chart** or **View Cutting**.
 

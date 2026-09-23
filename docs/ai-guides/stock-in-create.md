@@ -85,7 +85,7 @@ Choose one of two modes:
    - **Lot/Batch Number** - Supplier's lot reference
    - For fabric/greige only:
      - **Than Count** - Number of thans
-     - **Fold Length (cm)** - Actual fold length (shows calculated actual meters)
+     - **Fold Length (cm)** - The fold the quantity was counted at. Type the counted quantity; under 100 cm the **Fold Length Adjustment** box shows the actual metres that go to stock
    - For greige only:
      - **Roll Numbers** - Comma-separated roll identifiers (e.g., R001, R002, R003)
 
@@ -140,7 +140,7 @@ Use this when receiving greige fabric back from a processor (dyeing/printing mil
 ## Traps
 
 - **Supplier category mismatch** - If the wrong supplier is selected, the material type you need may not appear. Check the supplier's registered categories.
-- **Fold length adjustment** - When fold length < 100 cm, actual meters = nominal qty x fold length / 100. The system shows this calculation but be aware the actual received quantity differs from challan quantity.
+- **Fold length adjustment** - When fold length < 100 cm, actual meters = counted qty x fold length / 100. Stock is booked once, at the actual metres, and the counted quantity is kept on the lot for reference.
 - **Multi-item receipt** - All items in one receipt share the same supplier, warehouse, and reference numbers. For different suppliers, create separate Stock IN entries.
 - **Processor return partial** - You can receive partial quantities from a processor; the balance remains at the processor for future receipt.
 

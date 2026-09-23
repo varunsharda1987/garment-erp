@@ -39,7 +39,7 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 6. Optionally set **Delivery Location (Optional)** — the warehouse the goods should reach.
 7. Set **Expected Delivery Date *** (required).
 8. In the **Order Items** card, use **Quick Add Material** to search and add a material, or click **Browse All Materials**. For a Greige PO with no style linked, use **Add Greige Fabric**.
-9. For each row fill **Quantity**, **Unit Price** and, for Greige/Fabric, **Fold L (cm)** if known. **GST %** defaults on each row; **Amount**, **Tax** and **Total** calculate automatically. Use the bin icon to remove a row.
+9. For each row fill **Quantity**, **Unit Price** and, for Greige/Fabric, **Fold L (cm)** if known. The quantity is in actual metres; with a Fold L under 100 the row shows the same quantity as the mill will count it, e.g. "actual · = 10,011 m counted @ L=98". **GST %** defaults on each row; **Amount**, **Tax** and **Total** calculate automatically. Use the bin icon to remove a row.
 10. Add anything else in **Notes**.
 11. Click **Preview** to check the document, then **Save as Draft**, or **Save & Send** to save and send it to the supplier in one go.
 

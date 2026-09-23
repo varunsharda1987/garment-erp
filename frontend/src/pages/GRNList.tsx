@@ -17,6 +17,7 @@ import { PackageOpen, Eye } from 'lucide-react';
 import { formatDate } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
+import { foldActual, hasFold } from '@/lib/fold-length';
 
 type Column<T> = {
   key: string;
@@ -28,10 +29,20 @@ type Column<T> = {
 
 type Unit = GRNItem['unit'];
 
-/** Quantity summed per unit, so a mixed-unit receipt reads "120 m · 50 pcs". */
-function sumByUnit(items: GRNItem[], field: 'receivedQuantity' | 'acceptedQuantity'): string {
+/**
+ * Quantity summed per unit, so a mixed-unit receipt reads "120 m · 50 pcs". ACTUAL metres by default —
+ * a line counted at fold L is converted — or the counted figures as the supplier's paper has them.
+ */
+function sumByUnit(
+  items: GRNItem[],
+  field: 'receivedQuantity' | 'acceptedQuantity',
+  basis: 'actual' | 'counted' = 'actual'
+): string {
   const totals = new Map<Unit, number>();
-  for (const item of items) totals.set(item.unit, (totals.get(item.unit) ?? 0) + Number(item[field] ?? 0));
+  for (const item of items) {
+    const qty = basis === 'actual' ? foldActual(item[field], item.foldLengthCm) : Number(item[field] ?? 0);
+    totals.set(item.unit, (totals.get(item.unit) ?? 0) + qty);
+  }
   return [...totals].map(([unit, qty]) => formatQuantity(qty, unit, 3)).join(' · ');
 }
 
@@ -208,9 +219,16 @@ export default function GRNList() {
         if (items.length === 0) return <span className="text-sm text-muted-foreground">-</span>;
         const received = sumByUnit(items, 'receivedQuantity');
         const accepted = sumByUnit(items, 'acceptedQuantity');
+        const folds = [...new Set(items.filter((i) => hasFold(i.foldLengthCm)).map((i) => Number(i.foldLengthCm)))];
         return (
           <div className="whitespace-nowrap">
             <div className="text-sm text-foreground">{received}</div>
+            {/* Actual metres above; the supplier's counted figure beside the L it was counted at. */}
+            {folds.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                counted {sumByUnit(items, 'receivedQuantity', 'counted')} @ L={folds.join('/')}
+              </div>
+            )}
             {/* Value is on the accepted qty — say so when it differs from what arrived. */}
             {accepted !== received && <div className="text-xs text-muted-foreground">accepted {accepted}</div>}
           </div>

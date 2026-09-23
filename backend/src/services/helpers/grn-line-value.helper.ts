@@ -8,12 +8,15 @@
  * A PO-less job-work return is valued at the PROCESSOR'S CHARGE only (owner, 2026-09-23): the
  * fabric's landed stock cost (greige + processing) lives on the stock lot, not here.
  *
- * Value is always on the ACCEPTED quantity — what enters stock and is payable. It is filled in
- * when the GRN is created, so a receipt still in PENDING_QC values correctly too.
+ * Value is always on the ACTUAL accepted quantity — what enters stock and is payable. A line counted
+ * at fold L (grn_items.foldLengthCm) carries the supplier's counted figure in acceptedQuantity; the
+ * actual metres are that × L/100 (utils/fold-length). Computed from the stored counted figure, so a
+ * receipt still in PENDING_QC values correctly too.
  */
 import Decimal from 'decimal.js';
 import { Prisma } from '@prisma/client';
 import { addCurrency, multiplyCurrency, toCurrency } from '../../utils/currency';
+import { foldActual } from '../../utils/fold-length';
 
 type DecimalLike = Prisma.Decimal | Decimal | number | string;
 
@@ -30,6 +33,16 @@ export interface JobWorkChargesInput {
   buttonCount?: number | null;
   buttonholeRatePerUnit?: DecimalLike | null;
   buttonRatePerUnit?: DecimalLike | null;
+}
+
+export interface GrnLineQtyInput {
+  acceptedQuantity: DecimalLike;
+  foldLengthCm?: DecimalLike | null;
+}
+
+/** Actual accepted quantity of a GRN line — the counted figure converted at its fold length. */
+export function grnLineActualQty(item: GrnLineQtyInput): Decimal {
+  return foldActual(item.acceptedQuantity, item.foldLengthCm ?? null);
 }
 
 /** Kaaj-button prices two per-unit operations, so it has no single rate per unit received. */

@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import type { PendingCuttingInfo } from '@/services/grn.service';
 import { formatDate } from '@/lib/date';
+import { foldActual, hasFold } from '@/lib/fold-length';
+import { formatCurrency } from '@/lib/currency';
 
 export default function GRNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -179,6 +181,7 @@ export default function GRNDetail() {
   }
 
   const canApprove = grn.status === 'PENDING_QC';
+  const anyFold = grn.items?.some((item) => hasFold(item.foldLengthCm)) ?? false;
   const isProcessingGRN = isProcessingReceipt(grn);
 
   return (
@@ -263,25 +266,31 @@ export default function GRNDetail() {
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Received</div>
+            <div className="text-sm text-muted-foreground">Total Received{anyFold ? ' (actual)' : ''}</div>
             <div className="text-2xl font-bold">
-              {grn.items?.reduce((sum, item) => sum + Number(item.receivedQuantity), 0).toLocaleString()}
+              {grn.items
+                ?.reduce((sum, item) => sum + foldActual(item.receivedQuantity, item.foldLengthCm), 0)
+                .toLocaleString()}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Accepted</div>
+            <div className="text-sm text-muted-foreground">Total Accepted{anyFold ? ' (actual)' : ''}</div>
             <div className="text-2xl font-bold text-success">
-              {grn.items?.reduce((sum, item) => sum + Number(item.acceptedQuantity), 0).toLocaleString()}
+              {grn.items
+                ?.reduce((sum, item) => sum + foldActual(item.acceptedQuantity, item.foldLengthCm), 0)
+                .toLocaleString()}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Rejected</div>
+            <div className="text-sm text-muted-foreground">Total Rejected{anyFold ? ' (actual)' : ''}</div>
             <div className="text-2xl font-bold text-destructive">
-              {grn.items?.reduce((sum, item) => sum + Number(item.rejectedQuantity), 0).toLocaleString()}
+              {grn.items
+                ?.reduce((sum, item) => sum + foldActual(item.rejectedQuantity, item.foldLengthCm), 0)
+                .toLocaleString()}
             </div>
           </CardContent>
         </Card>
@@ -397,12 +406,15 @@ export default function GRNDetail() {
                 <TableHead className="text-right">Accepted</TableHead>
                 <TableHead className="text-right">Rejected</TableHead>
                 <TableHead>Unit</TableHead>
+                <TableHead className="text-right">Rate</TableHead>
+                <TableHead className="text-right">Value</TableHead>
                 <TableHead>Remarks</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {grn.items?.map((item) => {
                 const hasDetails = item.grnItemDetails && item.grnItemDetails.length > 0;
+                const folded = hasFold(item.foldLengthCm);
                 const hasMeasurement = item.entryMode || item.foldLengthCm || item.receivedWidthInches;
 
                 // Group details by bale for display
@@ -498,14 +510,28 @@ export default function GRNDetail() {
                     <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.receivedQuantity).toLocaleString()}
+                      {folded && (
+                        <div className="text-xs font-normal text-muted-foreground">
+                          counted @ L={Number(item.foldLengthCm)}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right text-success font-medium">
                       {Number(item.acceptedQuantity).toLocaleString()}
+                      {folded && (
+                        <div className="text-xs font-normal text-info">
+                          → {foldActual(item.acceptedQuantity, item.foldLengthCm).toLocaleString()} actual
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right text-destructive">
                       {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
                     </TableCell>
                     <TableCell>{unitShort(item.unit)}</TableCell>
+                    <TableCell className="text-right">{item.rate != null ? formatCurrency(item.rate) : '-'}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {item.value != null ? formatCurrency(item.value) : '-'}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{item.remarks || '-'}</TableCell>
                   </TableRow>
                 );

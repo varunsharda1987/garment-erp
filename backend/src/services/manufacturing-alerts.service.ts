@@ -6,6 +6,7 @@ import { systemSettingsService } from './system-settings.service';
 import { UNRESOLVED_TEST_FAILURE } from './helpers/test-failure.helper';
 import { toDateInputValue } from '../utils/date';
 import { unitShort } from '../utils/units';
+import { foldActual } from '../utils/fold-length';
 
 /**
  * A job that can no longer bring material back. Deliberately "definitively done" rather than the
@@ -564,6 +565,7 @@ class ManufacturingAlertsService {
           select: {
             acceptedQuantity: true,
             receivedQuantity: true,
+            foldLengthCm: true,
             purchase_order_items: { select: { orderedQuantity: true } },
           },
         },
@@ -575,7 +577,8 @@ class ManufacturingAlertsService {
     for (const grn of recentGRNs) {
       for (const item of grn.grn_items ?? []) {
         const ordered = Number(item.purchase_order_items?.orderedQuantity) || 0;
-        const received = Number(item.acceptedQuantity || item.receivedQuantity) || 0;
+        // ACTUAL metres — the PO is in actual metres; a receipt counted at fold L is compared after conversion.
+        const received = foldActual(item.acceptedQuantity || item.receivedQuantity || 0, item.foldLengthCm).toNumber();
 
         if (ordered > 0) {
           const variancePercent = ((received - ordered) / ordered) * 100;

@@ -1069,7 +1069,7 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/SaleOrderList.tsx": "205685af425a",
-      "frontend/src/pages/SaleOrderDetail.tsx": "7b2159a48a62",
+      "frontend/src/pages/SaleOrderDetail.tsx": "37bc77fc873b",
       "frontend/src/components/sale-order/SaleOrderForm.tsx": "f0bbc984a840",
       "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "c8d17775d429",
       "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "ec044d9df4c3",
@@ -1078,8 +1078,8 @@
       "backend/src/schemas/saleOrder.schema.ts": "d3e41c129196",
       "backend/src/routes/saleOrder.routes.ts": "3e4372adda3f"
     },
-    "contentHash": "80f30bb8da9d",
-    "generatedAt": "2026-09-24T11:54:21.109Z"
+    "contentHash": "62e23f826dce",
+    "generatedAt": "2026-09-24T12:07:29.445Z"
   },
   "sample-approve": {
     "sources": {

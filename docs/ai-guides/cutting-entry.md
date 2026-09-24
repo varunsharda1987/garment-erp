@@ -56,7 +56,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 8. Click **Create Batch**. The batch page opens, with a reminder that fabric is **not** issued automatically — issue it from **Procurement → Challans** (or **Fabric Issuance** on the production run) if you have not already.
 
 ## Record the lays
-9. Click **Start Cutting** on the batch page.
+9. The batch page shows, per size, the **Order** quantity, the **Extra** added by the Extra % you set on the chart, and **Planned** (order + extra) — what is to be cut. Click **Start Cutting** on the batch page.
 10. In the **Add New Lay** card, fill **Lay Date**, **Number of Layers (plies)** and **Layer Length (meters)**. With more than one fabric you instead fill **Per-Fabric Layer Lengths** — every fabric needs a length.
 11. In the size table, tick each size and enter **Pcs/Layer**. **Total Cut** is calculated for you.
 12. Add **Remarks (optional)** and click **Save Lay**. Repeat for each new lay.

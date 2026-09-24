@@ -42,6 +42,8 @@ export interface GreigeStockDetail {
   /** Than tag number, when it was entered at receipt */
   thanNo: string | null;
   remarks: string | null;
+  /** The bale has already been opened (some thans left or one was cut) — best fit finishes these first */
+  baleOpen?: boolean;
 }
 
 /** GET /api/greige/stock/:stockId/available-details — the lot's thans still in the godown. */

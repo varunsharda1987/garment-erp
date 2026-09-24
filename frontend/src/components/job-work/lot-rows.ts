@@ -118,7 +118,11 @@ export function evaluateLotRows({
     chosenLotIds,
     totalQty,
     qtyDelta,
-    totalMatches: !qtyExceeds(totalQty, requiredQty) && !qtyExceeds(requiredQty, totalQty),
+    // Named whole thans may land within ±1% of the order (the server allows the same); a typed
+    // quantity must match it.
+    totalMatches: rows.some(rowHasPicks)
+      ? Math.abs(qtyDelta) <= (requiredQty * THAN_PICK_TOLERANCE_PCT) / 100 + QTY_EPSILON
+      : !qtyExceeds(totalQty, requiredQty) && !qtyExceeds(requiredQty, totalQty),
     hasDuplicateLot: new Set(chosenLotIds).size !== chosenLotIds.length,
     hasMixedGreige: chosenGreigeIds.size > 1,
     rowsComplete: rows.length > 0 && rows.every((row) => row.lotId && qtyExceeds(parseFloat(row.qty) || 0, 0)),
@@ -326,4 +330,158 @@ export function autoPickThans(lotThans: GreigeLotThans, targetActual: number): S
     }
   }
   return picks;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Best fit (whole thans) — owner rules, 2026-09-24
+// ---------------------------------------------------------------------------------------------
+
+/** Named whole thans may land within this share of the job's metres, either way. Mirrors the server. */
+export const THAN_PICK_TOLERANCE_PCT = 1;
+
+export interface BestFitResult {
+  picks: SelectedDetail[];
+  /** ACTUAL metres the picked thans come to */
+  actual: number;
+  /** Bales used whole, bales broken (some thans left behind), and how many were already open */
+  balesWhole: number;
+  balesBroken: number;
+  openBalesFinished: number;
+}
+
+interface FitBale {
+  key: string;
+  open: boolean;
+  thans: GreigeStockDetail[];
+  /** decimetres, for the search */
+  units: number[];
+  wholeUnits: number;
+}
+
+/**
+ * "Best fit (whole thans)": the set of WHOLE thans — none cut — whose tag metres land within ±1% of
+ * the job, chosen in the owner's order of preference:
+ *   1. Whole bales only (an already-opened bale counts whole for the thans it has left).
+ *   2. Only if no whole-bale set fits: break one bale (an opened one first), then two — never more.
+ *   3. Among fits: finish opened bales, touch the fewest bales, land closest to the job.
+ * Returns null when no whole-than set fits — the caller falls back to "Pick thans for me" (which
+ * cuts the last than). The search runs in decimetres (0.1 m); the answer is re-checked in exact
+ * metres before it is returned.
+ */
+export function bestFitThans(lotThans: GreigeLotThans, targetActual: number): BestFitResult | null {
+  if (!(targetActual > 0)) return null;
+  const fold = lotThans.foldLengthCm;
+  const targetCounted = foldCounted(targetActual, fold);
+  const lowActual = (targetActual * (100 - THAN_PICK_TOLERANCE_PCT)) / 100;
+  const highActual = (targetActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100;
+  const hi = Math.ceil(((targetCounted * (100 + THAN_PICK_TOLERANCE_PCT)) / 100) * 10) + 1;
+  const lo = Math.floor(((targetCounted * (100 - THAN_PICK_TOLERANCE_PCT)) / 100) * 10) - 1;
+
+  // Bales: a than outside any bale is a bale of one
+  const bales: FitBale[] = [];
+  for (const group of groupDetailsByBale(lotThans.details)) {
+    const live = group.thans.filter((t) => !isQtyZero(t.metersRemaining));
+    const split = group.baleNumber == null ? live.map((t) => [t]) : [live];
+    for (const thans of split) {
+      if (thans.length === 0) continue;
+      const units = thans.map((t) => Math.round(Number(t.metersRemaining) * 10));
+      bales.push({
+        key: `${group.baleNumber ?? 'loose'}:${thans[0].id}`,
+        open: thans.some((t) => t.baleOpen || t.status === 'PARTIAL'),
+        thans,
+        units,
+        wholeUnits: units.reduce((a, b) => a + b, 0),
+      });
+    }
+  }
+  // Opened bales first, then bale order — the search's first-reach favours early items
+  bales.sort((a, b) => Number(b.open) - Number(a.open));
+
+  type Item = { bale: number; than: number | null; w: number };
+  const solve = (broken: Set<number>): BestFitResult | null => {
+    const items: Item[] = [];
+    bales.forEach((b, i) => {
+      if (broken.has(i)) b.units.forEach((w, t) => items.push({ bale: i, than: t, w }));
+      else items.push({ bale: i, than: null, w: b.wholeUnits });
+    });
+    const reach = new Uint8Array(hi + 1);
+    const from = new Int32Array(hi + 1).fill(-1);
+    reach[0] = 1;
+    items.forEach((it, idx) => {
+      for (let s = hi; s >= it.w; s--) {
+        if (!reach[s] && reach[s - it.w]) {
+          reach[s] = 1;
+          from[s] = idx;
+        }
+      }
+    });
+    let best: { score: number[]; result: BestFitResult } | null = null;
+    for (let s = Math.max(lo, 1); s <= hi; s++) {
+      if (!reach[s]) continue;
+      const used: Item[] = [];
+      for (let r = s; r > 0; r -= items[from[r]].w) used.push(items[from[r]]);
+      const picked = used.flatMap((it) => (it.than == null ? bales[it.bale].thans : [bales[it.bale].thans[it.than]]));
+      const counted = picked.reduce((sum, t) => sum + Number(t.metersRemaining), 0);
+      const actual = foldActual(counted, fold);
+      if (actual < lowActual - QTY_EPSILON || actual > highActual + QTY_EPSILON) continue;
+      const touched = new Set(used.map((it) => it.bale));
+      const brokenUsed = [...touched].filter(
+        (b) => used.filter((it) => it.bale === b && it.than != null).length < bales[b].thans.length && broken.has(b)
+      );
+      const openFinished = [...touched].filter((b) => bales[b].open && !brokenUsed.includes(b)).length;
+      const score = [-openFinished, touched.size, Math.abs(actual - targetActual)];
+      if (!best || lexLess(score, best.score)) {
+        best = {
+          score,
+          result: {
+            picks: picked.map((t) => ({ detailId: t.id, metersToIssue: prefillQty(t.metersRemaining) })),
+            actual,
+            balesWhole: touched.size - brokenUsed.length,
+            balesBroken: brokenUsed.length,
+            openBalesFinished: openFinished,
+          },
+        };
+      }
+    }
+    return best?.result ?? null;
+  };
+
+  // 1. whole bales only; 2. one broken bale; 3. two — opened bales tried first (they sort first)
+  const whole = solve(new Set());
+  if (whole) return whole;
+  let bestBroken: { score: number[]; result: BestFitResult } | null = null;
+  for (let k = 1; k <= 2 && !bestBroken; k++) {
+    for (const combo of combinations(bales.length, k)) {
+      const r = solve(new Set(combo));
+      if (!r) continue;
+      const score = [
+        r.balesBroken,
+        -r.openBalesFinished,
+        r.balesWhole + r.balesBroken,
+        Math.abs(r.actual - targetActual),
+      ];
+      if (!bestBroken || lexLess(score, bestBroken.score)) bestBroken = { score, result: r };
+    }
+  }
+  return bestBroken?.result ?? null;
+}
+
+function lexLess(a: number[], b: number[]): boolean {
+  for (let i = 0; i < a.length; i++) {
+    if (Math.abs(a[i] - b[i]) > 1e-9) return a[i] < b[i];
+  }
+  return false;
+}
+
+function combinations(n: number, k: number): number[][] {
+  const out: number[][] = [];
+  const pick = (start: number, acc: number[]) => {
+    if (acc.length === k) {
+      out.push([...acc]);
+      return;
+    }
+    for (let i = start; i < n; i++) pick(i + 1, [...acc, i]);
+  };
+  pick(0, []);
+  return out;
 }

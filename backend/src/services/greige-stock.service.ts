@@ -979,6 +979,8 @@ class GreigeStockService {
       baleNo: string | null;
       thanNo: string | null;
       remarks: string | null;
+      /** The than's bale has already been opened — some of its thans left, or one was cut */
+      baleOpen: boolean;
     }>;
   }> {
     try {
@@ -1004,6 +1006,14 @@ class GreigeStockService {
         throw new Error(`Greige stock with ID ${stockId} not found`);
       }
 
+      // A bale is OPEN once any of its thans has left or been cut — the picker finishes those first
+      const touched = await prisma.greige_stock_details.findMany({
+        where: { greigeStockId: stockId, NOT: { status: 'AVAILABLE' } },
+        select: { baleNumber: true },
+        distinct: ['baleNumber'],
+      });
+      const openBales = new Set(touched.map((t) => t.baleNumber));
+
       return {
         stockId: stock.id,
         baleCount: stock.baleCount,
@@ -1020,6 +1030,7 @@ class GreigeStockService {
           baleNo: d.baleNo,
           thanNo: d.thanNo,
           remarks: d.remarks,
+          baleOpen: d.baleNumber != null && openBales.has(d.baleNumber),
         })),
       };
     } catch (error: unknown) {

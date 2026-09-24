@@ -61,6 +61,7 @@ import {
   round2,
   rowHasPicks,
   thanPickErrors,
+  THAN_PICK_TOLERANCE_PCT,
   totalDetailMeters,
   type IssueLotRow,
   type SelectedDetail,
@@ -423,7 +424,8 @@ export default function JobWorkOrderDetail() {
   const recordAfterActual = recordLot
     ? foldActual(recordLot.recordedCounted + totalDetailMeters(recordPicks), recordLot.foldLengthCm)
     : 0;
-  const recordOverTaken = !!recordLot && qtyExceeds(recordAfterActual, recordLot.takenActual);
+  const recordOverTaken =
+    !!recordLot && qtyExceeds(recordAfterActual, (recordLot.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100);
   const recordPickErrors = thanPickErrors(recordPicks, recordLotThans);
 
   const openRecordThans = () => {

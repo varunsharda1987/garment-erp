@@ -31,7 +31,7 @@ import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { formatDate } from '../utils/date';
-import { qtyExceeds, snapToLimit } from '../utils/quantity';
+import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
 
 type Tx = Prisma.TransactionClient;
 
@@ -138,6 +138,13 @@ const JWO_ISSUE_INCLUDE = {
 } satisfies Prisma.job_work_ordersInclude;
 
 type JwoForIssue = Prisma.job_work_ordersGetPayload<{ include: typeof JWO_ISSUE_INCLUDE }>;
+
+/**
+ * Named whole thans rarely add up to the job's exact metres. When an issue names its thans, the
+ * lots may total within this share of the planned quantity either way (owner, 2026-09-24: ±1%); the
+ * job keeps its planned quantity, while the lot, the components and the challan carry what left.
+ */
+export const THAN_PICK_TOLERANCE_PCT = 1;
 
 export interface IssueBlocker {
   code: string;
@@ -310,6 +317,7 @@ export async function validateIssue(
   }
 
   const lots: ValidateIssueResult['lots'] = [];
+  const namesThans = Object.values(opts.thanPicks ?? {}).some((picks) => picks.length > 0);
   if (greigeLotInputs.length > 0) {
     // Quantities must add up to what the order says leaves the building
     const sum = greigeLotInputs.reduce((acc, l) => addCurrency(acc, l.qty), toCurrency(0));
@@ -318,10 +326,15 @@ export async function validateIssue(
         code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
         message: 'Every lot quantity must be greater than 0.',
       });
-    } else if (toNumber(sum.minus(toCurrency(jwo.qtySentMeters)).abs()) > 0.01) {
+    } else if (
+      toNumber(sum.minus(toCurrency(jwo.qtySentMeters)).abs()) >
+      (namesThans ? (Number(jwo.qtySentMeters) * THAN_PICK_TOLERANCE_PCT) / 100 : 0.01)
+    ) {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
-        message: `Lot quantities total ${toNumber(sum)} but the order issues ${Number(jwo.qtySentMeters)} ${jwo.uom}.`,
+        message: namesThans
+          ? `The picked thans come to ${toNumber(sum)} ${jwo.uom}, more than ${THAN_PICK_TOLERANCE_PCT}% away from the order's ${Number(jwo.qtySentMeters)} ${jwo.uom}.`
+          : `Lot quantities total ${toNumber(sum)} but the order issues ${Number(jwo.qtySentMeters)} ${jwo.uom}.`,
       });
     }
 
@@ -705,8 +718,11 @@ async function issueOneWithinTx(
     }
   }
 
-  // 4. MULTI-LOT — components carry the per-lot trail (reconciliation + PDF prefer them)
-  if (lots.length > 1) {
+  // 4. MULTI-LOT — components carry the per-lot trail (reconciliation + PDF prefer them). Also when a
+  // single lot gave other than the planned metres (named thans within the ±1% tolerance): the cancel
+  // path restores from components, and without one it would credit back the PLANNED quantity.
+  const takenTotal = lots.reduce((sum, l) => sum + l.qty, 0);
+  if (lots.length > 1 || (lots.length === 1 && !isQtyZero(takenTotal - Number(jwo.qtySentMeters)))) {
     for (let i = 0; i < lots.length; i++) {
       const { row, qty } = lots[i];
       const cost =
@@ -1025,6 +1041,7 @@ export async function validateDispatch(rawInput: DispatchInput): Promise<Validat
   for (const order of input.orders) {
     const v = await validateIssue(order.jwoId, {
       lots: order.lots,
+      thanPicks: thanPicksOf(order),
       greigeStockLotId: order.greigeStockLotId,
       fabricStockLotId: order.fabricStockLotId,
       acknowledgeWidthMismatch: input.acknowledgeWidthMismatch,
@@ -1549,7 +1566,7 @@ export async function recordThansForJob(
         }
         const pickedCounted = lot.details.reduce((sum, d) => sum + d.metersToIssue, 0);
         const afterActual = foldActual(s.recordedCounted + pickedCounted, s.foldLengthCm).toNumber();
-        if (qtyExceeds(afterActual, s.takenActual)) {
+        if (qtyExceeds(afterActual, (s.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100)) {
           throw new JobWorkOrderError(
             'THAN_RECORD_INVALID',
             `These thans come to ${afterActual} m actual with what is already recorded, but ` +

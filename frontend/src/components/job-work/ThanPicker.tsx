@@ -7,7 +7,8 @@
  *
  * Used by the issue lot rows (Issue dialog, Dispatch to Processor) and by "Record thans sent".
  */
-import { Wand2 } from 'lucide-react';
+import { useState } from 'react';
+import { Boxes, Wand2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,6 +19,8 @@ import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero, prefillQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 import {
   autoPickThans,
+  bestFitThans,
+  THAN_PICK_TOLERANCE_PCT,
   baleCountOf,
   groupDetailsByBale,
   hasDetailOverSelection,
@@ -51,6 +54,7 @@ export function ThanPicker({
   disabled = false,
   snapToLot = true,
 }: ThanPickerProps) {
+  const [fitNote, setFitNote] = useState<string | null>(null);
   const groups = groupDetailsByBale(lotThans.details);
   const selectedById = new Map(selected.map((d) => [d.detailId, d]));
   const overSelections = hasDetailOverSelection(selected, lotThans.details);
@@ -93,7 +97,34 @@ export function ThanPicker({
           <Wand2 className="mr-1 h-3.5 w-3.5" />
           Pick thans for me
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const fit = bestFitThans(lotThans, targetActual);
+            if (!fit) {
+              setFitNote(
+                `No set of whole thans lands within ${THAN_PICK_TOLERANCE_PCT}% of the job — use Pick thans for me (it cuts the last than).`
+              );
+              return;
+            }
+            onChange(fit.picks);
+            const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+            const parts = [plural(fit.balesWhole, 'whole bale')];
+            if (fit.balesBroken > 0) parts.push(plural(fit.balesBroken, 'bale') + ' broken');
+            if (fit.openBalesFinished > 0) parts.push(plural(fit.openBalesFinished, 'opened bale') + ' finished');
+            setFitNote(
+              `${parts.join(', ')} — ${formatQuantity(fit.actual, uom)} actual (within ${THAN_PICK_TOLERANCE_PCT}%), no than cut.`
+            );
+          }}
+          disabled={disabled || isQtyZero(targetActual)}
+        >
+          <Boxes className="mr-1 h-3.5 w-3.5" />
+          Best fit (whole thans)
+        </Button>
       </div>
+      {fitNote && <p className="text-xs text-muted-foreground">{fitNote}</p>}
 
       <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
         {groups.map((group) => (

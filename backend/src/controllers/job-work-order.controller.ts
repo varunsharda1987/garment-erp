@@ -18,6 +18,8 @@ import { systemSettingsService } from '../services/system-settings.service';
 import {
   issueJobWorkOrder,
   issueJobWorkOrderWithDetails,
+  getThanRecordStatus,
+  recordThansForJob,
   validateIssue,
   unissueForCancel,
   dispatchJobWorkOrders,
@@ -2052,6 +2054,50 @@ class JobWorkOrderController {
   }
 
   /**
+   * GET /api/job-work-orders/:id/than-record
+   * The greige lots this job took and how much of each is already named by than — drives the
+   * job page's "Record thans sent" action.
+   */
+  async thanRecordStatus(req: Request, res: Response) {
+    try {
+      const data = await getThanRecordStatus(req.params.id);
+      res.json({ success: true, data });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError && error.code === 'NOT_FOUND') {
+        return res.status(404).json({ success: false, message: error.message });
+      }
+      logger.error('Error reading than record status:', error);
+      res.status(500).json({ success: false, message: 'Failed to read which thans are recorded' });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/:id/record-thans
+   * Name the thans that left on a job issued by quantity. Marks them issued; lot stock is not moved.
+   */
+  async recordThans(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+      const data = await recordThansForJob(req.params.id, req.body.lots, userId);
+      res.json({ success: true, data, message: `Thans recorded on ${data.jobWorkNumber}` });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError) {
+        return res
+          .status(error.code === 'NOT_FOUND' ? 404 : 422)
+          .json({ success: false, code: error.code, message: error.message });
+      }
+      logger.error('Error recording thans:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to record thans',
+      });
+    }
+  }
+
+  /**
    * POST /api/job-work-orders/:id/issue-with-details
    * Issue a JWO with explicit bale/than detail selection.
    * User selects which specific thans to send to the processor.
@@ -2059,7 +2105,16 @@ class JobWorkOrderController {
   async issueWithDetails(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { lotsWithDetails, sentDate, challanNumber, vehicleNumber, acknowledgeWidthMismatch } = req.body;
+      // The schema names the lots `lots` (the screen sends that); this read `lotsWithDetails`, which
+      // validateBody strips — so every call was refused until 2026-09-24.
+      const {
+        lots: lotsWithDetails,
+        sentDate,
+        challanNumber,
+        vehicleNumber,
+        acknowledgeWidthMismatch,
+        finishedFabricId,
+      } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: 'User not authenticated' });
@@ -2068,7 +2123,7 @@ class JobWorkOrderController {
       if (!lotsWithDetails || !Array.isArray(lotsWithDetails) || lotsWithDetails.length === 0) {
         return res.status(400).json({
           success: false,
-          message: 'lotsWithDetails is required and must be a non-empty array',
+          message: 'lots is required and must be a non-empty array',
         });
       }
 
@@ -2079,6 +2134,7 @@ class JobWorkOrderController {
         challanNumber,
         vehicleNumber,
         acknowledgeWidthMismatch,
+        finishedFabricId,
       });
 
       const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });

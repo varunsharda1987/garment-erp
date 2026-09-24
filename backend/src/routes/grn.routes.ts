@@ -16,6 +16,7 @@ import {
   approveGRN,
   rejectGRN,
   reverseGRN, // BUG-GRN6 fix
+  updateDetailLabels,
 } from '../controllers/grn.controller';
 import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -27,6 +28,8 @@ import {
   rejectGRNSchema,
   reverseGRNSchema,
   grnQuerySchema,
+  updateDetailLabelsSchema,
+  grnItemIdParamSchema,
 } from '../schemas/grn.schema';
 import { idParamSchema, poIdParamSchema } from '../schemas/common.schema';
 
@@ -145,6 +148,18 @@ router.patch(
   validateParams(idParamSchema),
   validateBody(reverseGRNSchema),
   asyncHandler(reverseGRN)
+);
+
+/**
+ * @route   PATCH /api/grn/items/:itemId/detail-labels
+ * @desc    Save the printed bale number / than tag on a received line (labels only)
+ * @access  Private (grn write permission)
+ */
+router.patch(
+  '/items/:itemId/detail-labels',
+  validateParams(grnItemIdParamSchema),
+  validateBody(updateDetailLabelsSchema),
+  asyncHandler(updateDetailLabels)
 );
 
 export default router;

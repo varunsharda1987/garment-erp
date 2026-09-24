@@ -23,6 +23,8 @@ export interface GRNItemDetailDTO {
   sequenceNo: number;
   meters: number;
   remarks?: string | null;
+  baleNo?: string | null; // the supplier's bale number, as printed (display only)
+  thanNo?: string | null; // the than's tag number, as printed (display only)
 }
 
 /**

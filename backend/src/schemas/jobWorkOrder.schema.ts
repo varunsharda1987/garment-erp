@@ -228,6 +228,21 @@ export const issueJwoSchema = z.object({
  * Per-order lots follow the same rule as a single issue: omit `lots` to consume the order's
  * stamped lot verbatim, or supply the split when the quantity spans several lots.
  */
+/** A dispatch lot row: as an issue lot, optionally naming the thans that leave (COUNTED metres). */
+const dispatchLotItemSchema = z
+  .object({
+    greigeStockLotId: z.string().optional(),
+    laceStockLotId: z.string().optional(),
+    qty: z.number().positive(),
+    details: z
+      .array(z.object({ greigeStockDetailId: z.string().uuid(), metersToIssue: z.number().positive() }))
+      .optional(),
+  })
+  .refine((l) => !!l.greigeStockLotId !== !!l.laceStockLotId, {
+    message: 'Each lot row needs exactly one of greigeStockLotId or laceStockLotId',
+  })
+  .refine((l) => !l.details?.length || !!l.greigeStockLotId, { message: 'Only greige lots carry thans' });
+
 export const dispatchJwoSchema = z.object({
   processorId: z.string().uuid('Invalid processor ID'),
   sentDate: z.coerce.date().optional(),
@@ -238,7 +253,7 @@ export const dispatchJwoSchema = z.object({
     .array(
       z.object({
         jwoId: z.string().min(1),
-        lots: z.array(issueLotItemSchema).optional(),
+        lots: z.array(dispatchLotItemSchema).optional(),
         greigeStockLotId: z.string().optional().nullable(),
         fabricStockLotId: z.string().optional().nullable(),
       })
@@ -278,25 +293,48 @@ export type IssueJwoInput = z.infer<typeof issueJwoSchema>;
  * Instead of just a lot ID and quantity, the operator selects specific thans/bales
  * and optionally specifies partial meters for splitting a than.
  */
+/** One picked than: which than, and how many COUNTED metres of it (partial thans allowed). */
+const thanPickSchema = z.object({
+  greigeStockDetailId: z.string().uuid(),
+  metersToIssue: z.number().positive('metersToIssue must be positive'),
+});
+
 export const issueWithDetailsSchema = z.object({
   sentDate: z.coerce.date().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),
   challanNumber: z.string().max(100).trim().optional(),
+  acknowledgeWidthMismatch: z.boolean().optional(),
+  finishedFabricId: z.string().optional().nullable(),
+  // Than selection is optional per lot (owner, 2026-09-24): a lot either names its thans or
+  // gives a plain quantity (ACTUAL metres), so one issue can mix both.
+  lots: z
+    .array(
+      z
+        .object({
+          greigeStockLotId: z.string().min(1),
+          details: z.array(thanPickSchema).optional(),
+          qty: z.number().positive().optional(), // allow-strict-number — typed screen payload (ACTUAL metres), never a raw form field
+        })
+        .refine((l) => (l.details?.length ?? 0) > 0 || l.qty != null, {
+          message: 'Each lot needs picked thans or a quantity',
+        })
+    )
+    .min(1, 'At least one lot is required'),
+});
+
+/**
+ * POST /api/job-work-orders/:id/record-thans — name the thans that went out on a job that was
+ * issued by quantity only. Marks those thans issued; never moves lot stock again.
+ */
+export const recordThansSchema = z.object({
   lots: z
     .array(
       z.object({
         greigeStockLotId: z.string().min(1),
-        details: z
-          .array(
-            z.object({
-              greigeStockDetailId: z.string().uuid(),
-              metersToIssue: z.number().positive('metersToIssue must be positive'),
-            })
-          )
-          .min(1, 'At least one than/bale detail required per lot'),
+        details: z.array(thanPickSchema).min(1, 'Pick at least one than'),
       })
     )
-    .min(1, 'At least one lot with detail selections required'),
+    .min(1, 'At least one lot is required'),
 });
 
 export type IssueWithDetailsInput = z.infer<typeof issueWithDetailsSchema>;

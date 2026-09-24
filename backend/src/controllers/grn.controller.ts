@@ -503,3 +503,18 @@ export const reverseGRN = async (req: Request, res: Response) => {
     message: 'GRN reversed successfully. All stock movements and entries have been reversed.',
   });
 };
+
+/**
+ * @route PATCH /api/grn/items/:itemId/detail-labels
+ * @desc Label a received line's bales and thans with the numbers printed on them (labels only)
+ * @access Private (grn write permission)
+ */
+export const updateDetailLabels = async (req: Request, res: Response) => {
+  const { itemId } = req.params;
+  const details = await grnService.updateDetailLabels(itemId, req.body.details);
+  res.json({
+    success: true,
+    data: details,
+    message: 'Bale and than numbers saved',
+  });
+};

@@ -20,6 +20,7 @@ import {
   returnUnprocessedSchema,
   issueJwoSchema,
   issueWithDetailsSchema,
+  recordThansSchema,
   receiveJwoSchema,
   cancelJwoSchema,
   dispatchJwoSchema,
@@ -83,6 +84,13 @@ router.get(
   jobWorkOrderController.receivePreview.bind(jobWorkOrderController)
 );
 router.post('/:id/issue', validateBody(issueJwoSchema), jobWorkOrderController.issue.bind(jobWorkOrderController));
+// Which thans an issued job has named, and naming them afterwards (issue by quantity left them blank)
+router.get('/:id/than-record', jobWorkOrderController.thanRecordStatus.bind(jobWorkOrderController));
+router.post(
+  '/:id/record-thans',
+  validateBody(recordThansSchema),
+  jobWorkOrderController.recordThans.bind(jobWorkOrderController)
+);
 // Issue with bale/than detail selection (for processor dispatch)
 router.post(
   '/:id/issue-with-details',

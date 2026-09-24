@@ -29,7 +29,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
-import { hasFold } from '../utils/fold-length';
+import { foldActual, hasFold } from '../utils/fold-length';
 import { formatDate } from '../utils/date';
 import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
@@ -76,6 +76,12 @@ export interface IssueJwoOptions {
   /** Pre-minted by the dyeing/printing callers (fabric-identity helper). */
   finishedFabricId?: string | null;
   acknowledgeWidthMismatch?: boolean;
+  /**
+   * Named thans per greige lot id (COUNTED metres). A lot listed here is consumed than by than —
+   * each than marked issued against this job and challan — instead of by plain quantity. Its
+   * quantity in `lots` must be the picks' ACTUAL metres (thanPickActualQty).
+   */
+  thanPicks?: Record<string, IssueDetailInput[]>;
 }
 
 export interface IssueJwoResult {
@@ -540,6 +546,8 @@ interface IssueOneOptions {
   finishedFabricId?: string | null;
   /** Skip greige stock consumption (used when consumption was done with detail tracking) */
   skipGreigeConsumption?: boolean;
+  /** Named thans per greige lot id — see IssueJwoOptions.thanPicks */
+  thanPicks?: Record<string, IssueDetailInput[]>;
 }
 
 /** The challan shape both callers hand down — whatever createChallan returned. */
@@ -602,11 +610,24 @@ async function issueOneWithinTx(
         // This shouldn't happen — main warehouse lots should always have a challan
         throw new JobWorkOrderError('INTERNAL', 'Challan required for main warehouse lot consumption');
       }
-      await greigeStockService.consumeGreigeStock(row.id, qty, opts.userId, tx, {
-        referenceType: 'CHALLAN',
-        referenceId: challan.id,
-        notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
-      });
+      const notes = `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`;
+      const picks = opts.thanPicks?.[row.id];
+      if (picks && picks.length > 0) {
+        // Named thans: each than is marked issued to this job and challan, then the lot moves
+        await greigeStockService.consumeWithDetails(row.id, picks, opts.userId, tx, {
+          referenceType: 'CHALLAN',
+          referenceId: challan.id,
+          notes,
+          jobWorkOrderId: jwo.id,
+          challanId: challan.id,
+        });
+      } else {
+        await greigeStockService.consumeGreigeStock(row.id, qty, opts.userId, tx, {
+          referenceType: 'CHALLAN',
+          referenceId: challan.id,
+          notes,
+        });
+      }
     }
   }
   if (lots.length === 0 && fabricLotRow) {
@@ -915,7 +936,8 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
 /** One order's place on a consolidated dispatch: which order, and which lots go on the truck. */
 export interface DispatchOrderInput {
   jwoId: string;
-  lots?: IssueLotInput[];
+  /** A greige lot may name the thans that leave (COUNTED metres); its qty is then derived from them. */
+  lots?: Array<IssueLotInput & { details?: IssueDetailInput[] }>;
   greigeStockLotId?: string | null;
   fabricStockLotId?: string | null;
 }
@@ -952,7 +974,39 @@ export interface ValidateDispatchResult {
  * READ-ONLY validation of a consolidated dispatch — every order's own blockers plus the ones
  * that only exist because the orders travel together.
  */
-export async function validateDispatch(input: DispatchInput): Promise<ValidateDispatchResult> {
+/**
+ * A dispatch lot that names thans takes its quantity from them (ACTUAL = picks at the lot's fold
+ * length), so the order total is checked against what really leaves. Idempotent.
+ */
+async function withThanQuantities(input: DispatchInput): Promise<DispatchInput> {
+  const orders = await Promise.all(
+    input.orders.map(async (order) => ({
+      ...order,
+      lots: order.lots
+        ? await Promise.all(
+            order.lots.map(async (l) =>
+              l.greigeStockLotId && l.details && l.details.length > 0
+                ? { ...l, qty: (await greigeStockService.thanPickActualQty(l.greigeStockLotId, l.details)).actual }
+                : l
+            )
+          )
+        : order.lots,
+    }))
+  );
+  return { ...input, orders };
+}
+
+/** The named thans an order carries, per greige lot id. */
+function thanPicksOf(order: DispatchOrderInput): Record<string, IssueDetailInput[]> {
+  const picks: Record<string, IssueDetailInput[]> = {};
+  for (const l of order.lots ?? []) {
+    if (l.greigeStockLotId && l.details && l.details.length > 0) picks[l.greigeStockLotId] = l.details;
+  }
+  return picks;
+}
+
+export async function validateDispatch(rawInput: DispatchInput): Promise<ValidateDispatchResult> {
+  const input = await withThanQuantities(rawInput);
   const dispatchBlockers: IssueBlocker[] = [];
   const orderBlockers: DispatchOrderBlockers[] = [];
 
@@ -1000,7 +1054,17 @@ export async function validateDispatch(input: DispatchInput): Promise<ValidateDi
   for (const v of validations) {
     for (const { row } of v.lots) {
       const firstOwner = seenLots.get(row.id);
-      if (firstOwner && firstOwner.jwoId !== v.jwo.id) {
+      // Two orders may share a lot when each names its own thans and none is on both — the thans
+      // say exactly which cloth goes to which job. Without thans a shared lot stays refused.
+      const ownerOrder = firstOwner && input.orders.find((o) => o.jwoId === firstOwner.jwoId);
+      const thisOrder = input.orders.find((o) => o.jwoId === v.jwo.id);
+      const ownerPicks = ownerOrder ? thanPicksOf(ownerOrder)[row.id] : undefined;
+      const thisPicks = thisOrder ? thanPicksOf(thisOrder)[row.id] : undefined;
+      const disjointThans =
+        !!ownerPicks?.length &&
+        !!thisPicks?.length &&
+        !thisPicks.some((p) => ownerPicks.some((q) => q.greigeStockDetailId === p.greigeStockDetailId));
+      if (firstOwner && firstOwner.jwoId !== v.jwo.id && !disjointThans) {
         dispatchBlockers.push({
           code: ISSUE_ERROR_CODES.LOT_REUSED_ACROSS_ORDERS,
           message:
@@ -1044,7 +1108,8 @@ export interface DispatchResult {
  *
  * All-or-nothing: one transaction, so a truck's paperwork can never be half-written.
  */
-export async function dispatchJobWorkOrders(input: DispatchInput): Promise<DispatchResult> {
+export async function dispatchJobWorkOrders(rawInput: DispatchInput): Promise<DispatchResult> {
+  const input = await withThanQuantities(rawInput);
   const v = await validateDispatch(input);
   if (v.dispatchBlockers.length > 0) {
     throw new JobWorkOrderError(v.dispatchBlockers[0].code, v.dispatchBlockers[0].message);
@@ -1101,7 +1166,12 @@ export async function dispatchJobWorkOrders(input: DispatchInput): Promise<Dispa
           tx,
           one,
           challan,
-          { userId: input.userId, challanNumber: input.challanNumber, vehicleNumber: input.vehicleNumber },
+          {
+            userId: input.userId,
+            challanNumber: input.challanNumber,
+            vehicleNumber: input.vehicleNumber,
+            thanPicks: thanPicksOf(input.orders.find((o) => o.jwoId === one.jwo.id) ?? { jwoId: one.jwo.id }),
+          },
           issueDate
         );
         warnings.push(...w);
@@ -1184,6 +1254,10 @@ export async function unissueForCancel(
       : jwo.greigeStockLotId
         ? [{ id: jwo.greigeStockLotId, qty: totalQty }]
         : [];
+
+  // Named thans go back to the godown list too — before 2026-09-24 a cancelled job left its thans
+  // marked issued while the lot quantity came back, so the than list and the lot disagreed.
+  await greigeStockService.restoreThansForJob(jwo.id, tx);
 
   for (const lot of greigeLots) {
     const restored = await tx.greige_stock.updateMany({
@@ -1322,91 +1396,178 @@ export async function issueJobWorkOrderWithDetails(
   jwoId: string,
   opts: IssueJwoWithDetailsOptions
 ): Promise<IssueJwoResult> {
-  // Convert lotsWithDetails to standard lots format for validation. Than rows carry the COUNTED tag
-  // figure; the lot and the job are ACTUAL metres, so a pick is converted at the lot's fold length.
-  const standardLots: IssueLotInput[] = await Promise.all(
-    opts.lotsWithDetails.map(async (l) => ({
-      greigeStockLotId: l.greigeStockLotId,
-      qty:
-        l.details && l.details.length > 0
-          ? (await greigeStockService.thanPickActualQty(l.greigeStockLotId, l.details)).actual
-          : (l.qty ?? 0),
-    }))
+  // Than rows carry the COUNTED tag figure; the lot and the job are ACTUAL metres, so each pick is
+  // converted once at the lot's fold length (thanPickActualQty). Than selection is optional per lot
+  // (owner, 2026-09-24): a lot without picks goes by its plain quantity.
+  //
+  // This used to re-implement the issue (its own mutex, challan and consume), so it never learned
+  // what issueJobWorkOrder knows — a lot already at the processor is a virtual issue, no challan.
+  // It now hands the named thans to the one issue path.
+  const thanPicks: Record<string, IssueDetailInput[]> = {};
+  const lots: IssueLotInput[] = await Promise.all(
+    opts.lotsWithDetails.map(async (l) => {
+      if (l.details && l.details.length > 0) {
+        thanPicks[l.greigeStockLotId] = l.details;
+        const { actual } = await greigeStockService.thanPickActualQty(l.greigeStockLotId, l.details);
+        return { greigeStockLotId: l.greigeStockLotId, qty: actual };
+      }
+      return { greigeStockLotId: l.greigeStockLotId, qty: l.qty ?? 0 };
+    })
   );
 
-  // Use existing validation
-  const v = await validateIssue(jwoId, { ...opts, lots: standardLots });
-  if (v.blockers.length > 0) {
-    throw new JobWorkOrderError(v.blockers[0].code, v.blockers[0].message);
+  const result = await issueJobWorkOrder(jwoId, {
+    userId: opts.userId,
+    sentDate: opts.sentDate,
+    lots,
+    challanNumber: opts.challanNumber,
+    vehicleNumber: opts.vehicleNumber,
+    finishedFabricId: opts.finishedFabricId,
+    acknowledgeWidthMismatch: opts.acknowledgeWidthMismatch,
+    thanPicks,
+  });
+  logInfo(
+    `[Issuance] ${Object.keys(thanPicks).length} lot(s) issued than by than (` +
+      `${Object.values(thanPicks).reduce((n, d) => n + d.length, 0)} thans) — challan ${result.challanNumber}`
+  );
+  return result;
+}
+
+// ============================================================================
+// Record thans on a job that was issued by quantity (2026-09-24)
+// ============================================================================
+// Than selection is optional (owner decision), so a job can leave by plain quantity: the lot's
+// metres move but its thans all still read AVAILABLE. These let the operator name, afterwards, which
+// thans went — marking them issued to the job and its challan without moving lot stock again.
+
+/** Statuses in which a job has already taken its cloth out of the lot. */
+const ISSUED_JOB_STATUSES = [
+  'ISSUED',
+  'IN_TRANSIT',
+  'AT_PROCESSOR',
+  'PARTIALLY_RECEIVED',
+  'RECEIVED',
+  'QUALITY_CHECKED',
+  'STOCK_UPDATED',
+  'CLOSED',
+] as const;
+
+export interface ThanRecordLotStatus {
+  greigeStockLotId: string;
+  greigeCode: string | null;
+  foldLengthCm: number | null;
+  /** ACTUAL metres the job took from this lot */
+  takenActual: number;
+  /** Thans already named against this job, COUNTED and converted to ACTUAL */
+  recordedCounted: number;
+  recordedActual: number;
+  /** Does the lot carry than rows at all (a lot received without a breakdown has none) */
+  lotHasThans: boolean;
+}
+
+/** The greige lots a job took, and how much of each is already named by than. */
+export async function getThanRecordStatus(
+  jwoId: string,
+  client: Tx | typeof prisma = prisma
+): Promise<{ jobWorkNumber: string; jwoStatus: string; lots: ThanRecordLotStatus[] }> {
+  const jwo = await client.job_work_orders.findUnique({
+    where: { id: jwoId },
+    select: { id: true, jobWorkNumber: true, jwoStatus: true, qtySentMeters: true, greigeStockLotId: true },
+  });
+  if (!jwo) throw new JobWorkOrderError('NOT_FOUND', `Job work order ${jwoId} not found`);
+
+  // What the job took: same source as the cancel path — per-lot components, else the header lot
+  const components = await client.job_work_order_components.findMany({
+    where: { jobWorkOrderId: jwo.id, materialType: 'GREIGE', greigeStockId: { not: null } },
+    select: { greigeStockId: true, qtySent: true },
+  });
+  const taken =
+    components.length > 0
+      ? components.map((c) => ({ id: c.greigeStockId as string, qty: Number(c.qtySent) }))
+      : jwo.greigeStockLotId
+        ? [{ id: jwo.greigeStockLotId, qty: Number(jwo.qtySentMeters) }]
+        : [];
+
+  const lots: ThanRecordLotStatus[] = [];
+  for (const t of taken) {
+    const lot = await client.greige_stock.findUnique({
+      where: { id: t.id },
+      select: {
+        foldLengthCm: true,
+        greige: { select: { greigeCode: true } },
+        _count: { select: { stockDetails: true } },
+      },
+    });
+    const recorded = await client.greige_issue_details.aggregate({
+      where: { jobWorkOrderId: jwo.id, greigeStockDetail: { greigeStockId: t.id } },
+      _sum: { metersIssued: true },
+    });
+    const recordedCounted = Number(recorded._sum.metersIssued ?? 0);
+    lots.push({
+      greigeStockLotId: t.id,
+      greigeCode: lot?.greige?.greigeCode ?? null,
+      foldLengthCm: lot?.foldLengthCm != null ? Number(lot.foldLengthCm) : null,
+      takenActual: t.qty,
+      recordedCounted,
+      recordedActual: foldActual(recordedCounted, lot?.foldLengthCm ?? null).toNumber(),
+      lotHasThans: (lot?._count.stockDetails ?? 0) > 0,
+    });
   }
-  const { jwo } = v;
-  const issueDate = opts.sentDate ?? new Date();
+  return { jobWorkNumber: jwo.jobWorkNumber, jwoStatus: jwo.jwoStatus, lots };
+}
 
-  const result = await prisma.$transaction(
+/**
+ * Name the thans that left on an already-issued job. Each than is marked issued (remaining metres
+ * down, status, a greige_issue_details row naming the job and its outward challan); the lot's
+ * quantity is NOT touched — it moved when the job was issued.
+ */
+export async function recordThansForJob(
+  jwoId: string,
+  lots: Array<{ greigeStockLotId: string; details: IssueDetailInput[] }>,
+  userId: string
+): Promise<{ jobWorkNumber: string; lots: ThanRecordLotStatus[] }> {
+  return prisma.$transaction(
     async (tx) => {
-      // 1. MUTEX — claim the order before anything is created or consumed
-      await acquireIssueMutex(tx, jwo, issueDate);
+      const status = await getThanRecordStatus(jwoId, tx);
+      if (!(ISSUED_JOB_STATUSES as readonly string[]).includes(status.jwoStatus)) {
+        throw new JobWorkOrderError(
+          'JOB_NOT_ISSUED',
+          `${status.jobWorkNumber} has not been issued yet — pick the thans on the Issue dialog instead.`
+        );
+      }
+      const jwo = await tx.job_work_orders.findUnique({
+        where: { id: jwoId },
+        select: { outwardChallanId: true },
+      });
 
-      // 2. CHALLAN — Rule 55 movement document
-      const challan = await createChallan(
-        {
-          challanType: 'OUTWARD',
-          challanDate: issueDate,
-          fromType: 'WAREHOUSE',
-          fromName: 'Main Warehouse',
-          toType: 'VENDOR',
-          toId: jwo.processorId,
-          toName: jwo.processor?.name || 'Processor',
-          purchaseOrderId: jwo.purchaseOrderId || undefined,
-          jobWorkOrderId: jwo.id,
-          vehicleNumber: opts.vehicleNumber || undefined,
-          issuedById: opts.userId,
-          unit: jwoStockUnit(jwo.uom),
-          remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
-          // See the with-details path: a NULL expectedDate is invisible to the overdue alert.
-          expectedDate: jwo.expectedReturnDate ?? undefined,
-          items: buildOutwardChallanItems(v),
-        },
-        tx
-      );
-
-      // 3. CONSUME — with detail tracking
-      for (const lotInput of opts.lotsWithDetails) {
-        if (lotInput.details && lotInput.details.length > 0) {
-          // Detail-level consumption (bale/than tracking)
-          await greigeStockService.consumeWithDetails(lotInput.greigeStockLotId, lotInput.details, opts.userId, tx, {
-            referenceType: 'CHALLAN',
-            referenceId: challan.id,
-            notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
-            jobWorkOrderId: jwo.id,
-            challanId: challan.id,
-          });
-        } else if (lotInput.qty && lotInput.qty > 0) {
-          // Fallback: lot-level consumption (no detail tracking)
-          await greigeStockService.consumeGreigeStock(lotInput.greigeStockLotId, lotInput.qty, opts.userId, tx, {
-            referenceType: 'CHALLAN',
-            referenceId: challan.id,
-            notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
-          });
+      for (const lot of lots) {
+        const s = status.lots.find((l) => l.greigeStockLotId === lot.greigeStockLotId);
+        if (!s) {
+          throw new JobWorkOrderError(
+            'THAN_RECORD_INVALID',
+            `${status.jobWorkNumber} did not take cloth from that lot — only its own lots can be recorded.`
+          );
         }
+        const pickedCounted = lot.details.reduce((sum, d) => sum + d.metersToIssue, 0);
+        const afterActual = foldActual(s.recordedCounted + pickedCounted, s.foldLengthCm).toNumber();
+        if (qtyExceeds(afterActual, s.takenActual)) {
+          throw new JobWorkOrderError(
+            'THAN_RECORD_INVALID',
+            `These thans come to ${afterActual} m actual with what is already recorded, but ` +
+              `${status.jobWorkNumber} took only ${s.takenActual} m from ${s.greigeCode ?? 'this lot'}.`
+          );
+        }
+        await greigeStockService.markThansIssued(lot.greigeStockLotId, lot.details, userId, tx, {
+          jobWorkOrderId: jwoId,
+          challanId: jwo?.outwardChallanId ?? undefined,
+        });
       }
 
-      // 4-9: Same as issueOneWithinTx — components, reservations, status, etc.
-      // Use the existing helper for the remaining steps (skip greige consumption since we did it above)
-      const warnings = await issueOneWithinTx(tx, v, challan, { ...opts, skipGreigeConsumption: true }, issueDate);
-
-      // Challan → ISSUED
-      await tx.challans.update({ where: { id: challan.id }, data: { status: 'ISSUED', issuedDate: issueDate } });
-
-      return { jwoId, challanId: challan.id, challanNumber: challan.challanNumber, warnings };
+      const after = await getThanRecordStatus(jwoId, tx);
+      logInfo(
+        `[Issuance] Recorded ${lots.reduce((n, l) => n + l.details.length, 0)} than(s) on ${after.jobWorkNumber}`
+      );
+      return { jobWorkNumber: after.jobWorkNumber, lots: after.lots };
     },
     { timeout: 15000, maxWait: 5000 }
   );
-
-  const totalMeters = standardLots.reduce((sum, l) => sum + l.qty, 0);
-  logInfo(
-    `[Issuance] Issued ${jwo.jobWorkNumber} with detail tracking — challan ${result.challanNumber}, ` +
-      `${totalMeters}m from ${opts.lotsWithDetails.length} lot(s)`
-  );
-  return result;
 }

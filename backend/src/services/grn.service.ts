@@ -53,7 +53,7 @@ import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from '
 import { foldActual, hasFold } from '../utils/fold-length';
 import { qtyExceeds } from '../utils/quantity';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { BusinessError } from '../errors';
+import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
   addCurrency,
   applyShrinkageLoss,
@@ -293,6 +293,8 @@ class GRNService {
                   sequenceNo: detail.sequenceNo,
                   meters: detail.meters,
                   remarks: detail.remarks || null,
+                  baleNo: detail.baleNo || null,
+                  thanNo: detail.thanNo || null,
                 })),
               });
             }
@@ -624,6 +626,50 @@ class GRNService {
   /**
    * Get a single GRN by ID with all relations
    */
+  /**
+   * Label a received line's bales and thans with the numbers printed on them — the supplier's
+   * bale number and each than's tag. Until 2026-09-24 GRN could only number bales 1, 2, 3 and
+   * thans by position, so what the godown holds could not be matched to what the system lists.
+   * Labels only: quantities, grouping (baleNumber) and order (sequenceNo) never change. The
+   * greige lot's than rows (same GRN line → lot, same bale + position) are relabelled too.
+   */
+  async updateDetailLabels(
+    grnItemId: string,
+    details: Array<{ id: string; baleNo?: string | null; thanNo?: string | null }>
+  ) {
+    const rows = await prisma.grn_item_details.findMany({ where: { grnItemId } });
+    if (rows.length === 0) throw new NotFoundError('GRN line with than/bale details', grnItemId);
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const unknown = details.filter((d) => !byId.has(d.id));
+    if (unknown.length > 0) {
+      throw new ValidationError(`${unknown.length} detail row(s) do not belong to this GRN line`);
+    }
+    const lots = await prisma.greige_stock.findMany({ where: { grnItemId }, select: { id: true } });
+    const clean = (v: string | null | undefined) => (v == null ? undefined : v.trim() || null);
+
+    await prisma.$transaction(async (tx) => {
+      for (const d of details) {
+        const row = byId.get(d.id)!;
+        const data = { baleNo: clean(d.baleNo), thanNo: clean(d.thanNo) };
+        await tx.grn_item_details.update({ where: { id: d.id }, data });
+        if (lots.length > 0) {
+          await tx.greige_stock_details.updateMany({
+            where: {
+              greigeStockId: { in: lots.map((l) => l.id) },
+              baleNumber: row.baleNumber,
+              sequenceNo: row.sequenceNo,
+            },
+            data,
+          });
+        }
+      }
+    });
+    return prisma.grn_item_details.findMany({
+      where: { grnItemId },
+      orderBy: [{ baleNumber: 'asc' }, { sequenceNo: 'asc' }],
+    });
+  }
+
   async getGRNById(id: string) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
@@ -1738,6 +1784,8 @@ class GRNService {
                 metersRemaining: detail.meters, // Initially full
                 status: 'AVAILABLE',
                 remarks: detail.remarks,
+                baleNo: detail.baleNo ?? null,
+                thanNo: detail.thanNo ?? null,
               })),
             });
 

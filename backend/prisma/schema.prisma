@@ -1003,6 +1003,10 @@ model grn_item_details {
   sequenceNo Int // Order within bale or overall
   meters     Decimal @db.Decimal(10, 3) // Length of this than/roll in meters
   remarks    String?
+  /// The supplier's own bale number as printed on the bale (e.g. "417"). Display only — grouping is baleNumber.
+  baleNo     String? @db.VarChar(30)
+  /// The tag number on this than/roll as printed. Display only — order is sequenceNo.
+  thanNo     String? @db.VarChar(30)
 
   grn_items grn_items @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
 
@@ -4632,6 +4636,10 @@ model greige_stock_details {
   metersRemaining Decimal @db.Decimal(10, 3) // Remaining after partial consumption
   status          String  @default("AVAILABLE") @db.VarChar(20) // AVAILABLE | PARTIAL | CONSUMED
   remarks         String? @db.Text
+  /// The supplier's own bale number as printed on the bale (e.g. "417"). Display only — grouping is baleNumber.
+  baleNo          String? @db.VarChar(30)
+  /// The tag number on this than as printed. Display only — order is sequenceNo.
+  thanNo          String? @db.VarChar(30)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

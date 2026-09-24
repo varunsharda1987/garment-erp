@@ -20,6 +20,9 @@ const grnItemDetailSchema = z.object({
   sequenceNo: z.number().int().nonnegative(),
   meters: z.number().positive('Meters must be positive'),
   remarks: z.string().max(500).trim().optional().nullable(),
+  // The supplier's bale number and the than's tag, as printed (display only)
+  baleNo: z.string().max(30).trim().optional().nullable(),
+  thanNo: z.string().max(30).trim().optional().nullable(),
 });
 
 /**
@@ -212,3 +215,23 @@ export type ApproveGRNInput = z.infer<typeof approveGRNSchema>;
 export type RejectGRNInput = z.infer<typeof rejectGRNSchema>;
 export type ReverseGRNInput = z.infer<typeof reverseGRNSchema>; // BUG-GRN6 fix
 export type GRNQueryInput = z.infer<typeof grnQuerySchema>;
+
+/**
+ * Label a received line's bales and thans with their printed numbers
+ * PATCH /api/grn/items/:itemId/detail-labels — labels only, never quantities
+ */
+export const updateDetailLabelsSchema = z.object({
+  details: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        baleNo: z.string().max(30).trim().optional().nullable(),
+        thanNo: z.string().max(30).trim().optional().nullable(),
+      })
+    )
+    .min(1, 'At least one than/bale row is required'),
+});
+
+export const grnItemIdParamSchema = z.object({
+  itemId: z.string().min(1, 'GRN line ID is required'),
+});

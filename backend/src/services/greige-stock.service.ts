@@ -14,7 +14,7 @@ import { systemSettingsService } from './system-settings.service';
 // BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
 import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currency';
 import { foldActual } from '../utils/fold-length';
-import { isQtyZero, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
+import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 
 // Than tags are 3 dp and counted; a lot is 2 dp and actual. A pick that empties every than may differ
 // from what the lot holds by the half-cents each earlier issue rounded away.
@@ -781,56 +781,7 @@ class GreigeStockService {
         details,
         client
       );
-      const issueDetailIds: string[] = [];
-
-      // Validate all details belong to this stock and have sufficient meters
-      for (const { greigeStockDetailId, metersToIssue } of details) {
-        const detail = await client.greige_stock_details.findUnique({
-          where: { id: greigeStockDetailId },
-        });
-
-        if (!detail) {
-          throw new Error(`Greige stock detail ${greigeStockDetailId} not found`);
-        }
-        if (detail.greigeStockId !== stockId) {
-          throw new Error(`Detail ${greigeStockDetailId} does not belong to stock ${stockId}`);
-        }
-        if (qtyExceeds(metersToIssue, detail.metersRemaining)) {
-          throw new Error(
-            `Detail ${greigeStockDetailId} has only ${detail.metersRemaining}m remaining, ` +
-              `but ${metersToIssue}m requested`
-          );
-        }
-
-        // Update the detail's remaining meters. Quantity rule (utils/quantity): issuing a than
-        // within dust of what is left consumes it — 0 remaining, CONSUMED, not 0.002 PARTIAL.
-        const newRemaining = qtyRemaining(detail.metersRemaining, metersToIssue);
-        const newStatus = isQtyZero(newRemaining)
-          ? 'CONSUMED'
-          : newRemaining < Number(detail.meters)
-            ? 'PARTIAL'
-            : 'AVAILABLE';
-
-        await client.greige_stock_details.update({
-          where: { id: greigeStockDetailId },
-          data: {
-            metersRemaining: new Prisma.Decimal(newRemaining),
-            status: newStatus,
-          },
-        });
-
-        // Create issue detail record for audit
-        const issueDetail = await client.greige_issue_details.create({
-          data: {
-            greigeStockDetailId,
-            jobWorkOrderId: options?.jobWorkOrderId || null,
-            challanId: options?.challanId || null,
-            metersIssued: new Prisma.Decimal(metersToIssue),
-            issuedById: userId,
-          },
-        });
-        issueDetailIds.push(issueDetail.id);
-      }
+      const issueDetailIds = await this.markThansIssued(stockId, details, userId, client, options);
 
       // Now consume the ACTUAL metres from the lot-level stock using the existing method
       // This handles the stock-level sync, transaction, and exhaustion status
@@ -856,6 +807,99 @@ class GreigeStockService {
         `Failed to consume greige stock with details: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * Mark picked thans as issued: lower each than's remaining (COUNTED) metres, set its status, and
+   * write a greige_issue_details row naming the job and challan. Does NOT move lot stock — the caller
+   * does that (consumeWithDetails), or it already happened (a job issued by quantity whose thans are
+   * recorded afterwards — recordThansForJob).
+   */
+  async markThansIssued(
+    stockId: string,
+    details: Array<{ greigeStockDetailId: string; metersToIssue: number }>,
+    userId: string,
+    client: TransactionClient | typeof prisma,
+    options?: { jobWorkOrderId?: string; challanId?: string }
+  ): Promise<string[]> {
+    const issueDetailIds: string[] = [];
+
+    // Validate all details belong to this stock and have sufficient meters
+    for (const { greigeStockDetailId, metersToIssue } of details) {
+      const detail = await client.greige_stock_details.findUnique({
+        where: { id: greigeStockDetailId },
+      });
+
+      if (!detail) {
+        throw new Error(`Greige stock detail ${greigeStockDetailId} not found`);
+      }
+      if (detail.greigeStockId !== stockId) {
+        throw new Error(`Detail ${greigeStockDetailId} does not belong to stock ${stockId}`);
+      }
+      if (qtyExceeds(metersToIssue, detail.metersRemaining)) {
+        throw new Error(
+          `Detail ${greigeStockDetailId} has only ${detail.metersRemaining}m remaining, ` +
+            `but ${metersToIssue}m requested`
+        );
+      }
+
+      // Update the detail's remaining meters. Quantity rule (utils/quantity): issuing a than
+      // within dust of what is left consumes it — 0 remaining, CONSUMED, not 0.002 PARTIAL.
+      const newRemaining = qtyRemaining(detail.metersRemaining, metersToIssue);
+      const newStatus = isQtyZero(newRemaining)
+        ? 'CONSUMED'
+        : newRemaining < Number(detail.meters)
+          ? 'PARTIAL'
+          : 'AVAILABLE';
+
+      await client.greige_stock_details.update({
+        where: { id: greigeStockDetailId },
+        data: {
+          metersRemaining: new Prisma.Decimal(newRemaining),
+          status: newStatus,
+        },
+      });
+
+      // Create issue detail record for audit
+      const issueDetail = await client.greige_issue_details.create({
+        data: {
+          greigeStockDetailId,
+          jobWorkOrderId: options?.jobWorkOrderId || null,
+          challanId: options?.challanId || null,
+          metersIssued: new Prisma.Decimal(metersToIssue),
+          issuedById: userId,
+        },
+      });
+      issueDetailIds.push(issueDetail.id);
+    }
+    return issueDetailIds;
+  }
+
+  /**
+   * Give a cancelled job's thans back: every greige_issue_details row of the job restores its metres
+   * to the than it came from, and the row is removed. The lot quantity is restored by the caller.
+   */
+  async restoreThansForJob(jobWorkOrderId: string, client: TransactionClient | typeof prisma): Promise<number> {
+    const issued = await client.greige_issue_details.findMany({
+      where: { jobWorkOrderId },
+      include: { greigeStockDetail: { select: { id: true, meters: true, metersRemaining: true } } },
+    });
+    for (const row of issued) {
+      const than = row.greigeStockDetail;
+      if (!than) continue;
+      const remaining = Math.min(Number(than.meters), Number(than.metersRemaining) + Number(row.metersIssued));
+      await client.greige_stock_details.update({
+        where: { id: than.id },
+        data: {
+          metersRemaining: new Prisma.Decimal(remaining),
+          status: qtyAtLeast(remaining, than.meters) ? 'AVAILABLE' : isQtyZero(remaining) ? 'CONSUMED' : 'PARTIAL',
+        },
+      });
+    }
+    if (issued.length > 0) {
+      await client.greige_issue_details.deleteMany({ where: { jobWorkOrderId } });
+    }
+    return issued.length;
   }
 
   /**
@@ -931,6 +975,10 @@ class GreigeStockService {
       meters: number;
       metersRemaining: number;
       status: string;
+      /** Printed bale number / than tag (null when not entered at GRN) */
+      baleNo: string | null;
+      thanNo: string | null;
+      remarks: string | null;
     }>;
   }> {
     try {
@@ -969,6 +1017,9 @@ class GreigeStockService {
           meters: Number(d.meters),
           metersRemaining: Number(d.metersRemaining),
           status: d.status,
+          baleNo: d.baleNo,
+          thanNo: d.thanNo,
+          remarks: d.remarks,
         })),
       };
     } catch (error: unknown) {

@@ -43,6 +43,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermissions } from '@/hooks/usePermissions';
+import { distributeByShares, percentageSum, type ShareMode } from '@/lib/distribute';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
@@ -116,6 +117,10 @@ export default function SaleOrderDetail() {
   const [amendDialogOpen, setAmendDialogOpen] = useState(false);
   const [amendQty, setAmendQty] = useState<Record<string, string>>({});
   const [amendReason, setAmendReason] = useState('');
+  // Absolute = type pieces per line; Percentage / Ratio = type shares and a total, pieces are worked out
+  const [amendMode, setAmendMode] = useState<'absolute' | ShareMode>('absolute');
+  const [amendShares, setAmendShares] = useState<Record<string, string>>({});
+  const [amendTotal, setAmendTotal] = useState('');
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [prodDeliveryDate, setProdDeliveryDate] = useState('');
@@ -514,6 +519,51 @@ export default function SaleOrderDetail() {
     (i) => amendQty[i.id] === '' || !Number.isInteger(Number(amendQty[i.id]))
   );
   const amendNewTotal = (so.items ?? []).reduce((sum, i) => sum + (Number(amendQty[i.id] ?? i.quantity) || 0), 0);
+  const amendShareValues = (so.items ?? []).map((i) => Number(amendShares[i.id]) || 0);
+  const amendShareSum =
+    amendMode === 'percentage' ? percentageSum(amendShareValues) : amendShareValues.reduce((sum, v) => sum + v, 0);
+  const amendShareInvalid =
+    amendMode !== 'absolute' &&
+    (!(parseInt(amendTotal, 10) > 0) || (amendMode === 'percentage' ? amendShareSum !== 100 : amendShareSum <= 0));
+
+  /** Work the pieces out from the shares — only once the shares are complete (percentages = 100). */
+  const applyAmendShares = (shares: Record<string, string>, total: number, mode: ShareMode) => {
+    const items = so.items ?? [];
+    const values = items.map((i) => Number(shares[i.id]) || 0);
+    if (mode === 'percentage' && percentageSum(values) !== 100) return;
+    const result = distributeByShares(
+      total,
+      items.map((i, idx) => ({ key: i.id, share: values[idx] })),
+      mode
+    );
+    if (!result) return;
+    setAmendQty(Object.fromEntries(items.map((i) => [i.id, String(result.get(i.id) ?? 0)])));
+  };
+
+  const changeAmendMode = (mode: 'absolute' | ShareMode) => {
+    const items = so.items ?? [];
+    if (mode !== 'absolute') {
+      // Start from the split on screen, so switching modes changes nothing until a share is edited
+      const qty = items.map((i) => Number(amendQty[i.id] ?? i.quantity) || 0);
+      const total = qty.reduce((sum, q) => sum + q, 0);
+      let shares: string[];
+      if (mode === 'percentage') {
+        const pct = qty.map((q) => (total > 0 ? Math.round((q / total) * 10000) / 100 : 0));
+        // Put the rounding difference on the largest line so the percentages read exactly 100
+        const diff = Math.round((100 - pct.reduce((sum, p) => sum + p, 0)) * 100) / 100;
+        const largest = pct.indexOf(Math.max(...pct));
+        if (total > 0 && largest >= 0) pct[largest] = Math.round((pct[largest] + diff) * 100) / 100;
+        shares = pct.map(String);
+      } else {
+        const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+        const g = qty.reduce((acc, q) => gcd(acc, q), 0) || 1;
+        shares = qty.map((q) => String(q / g));
+      }
+      setAmendShares(Object.fromEntries(items.map((i, idx) => [i.id, shares[idx]])));
+      setAmendTotal(String(total));
+    }
+    setAmendMode(mode);
+  };
   const hasHeaderActions =
     isDraft || canConfirm || canStartProduction || canLinkProduction || canAmendQuantities || canShowCancelButton;
 
@@ -598,6 +648,9 @@ export default function SaleOrderDetail() {
                   onSelect={() => {
                     setAmendQty(Object.fromEntries((so.items ?? []).map((i) => [i.id, String(i.quantity)])));
                     setAmendReason('');
+                    setAmendMode('absolute');
+                    setAmendShares({});
+                    setAmendTotal('');
                     setAmendDialogOpen(true);
                   }}
                 >
@@ -1142,6 +1195,52 @@ export default function SaleOrderDetail() {
               a production order is linked and its sizes match this sale order, it is updated to the new sizes too,
               along with its pending production run and size-wise labels.
             </p>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+                {(
+                  [
+                    ['absolute', 'Absolute'],
+                    ['percentage', 'Percentage'],
+                    ['ratio', 'Ratio'],
+                  ] as const
+                ).map(([mode, label]) => (
+                  <Button
+                    key={mode}
+                    type="button"
+                    size="sm"
+                    variant={amendMode === mode ? 'default' : 'ghost'}
+                    onClick={() => changeAmendMode(mode)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {amendMode !== 'absolute' && (
+                <div className="space-y-1">
+                  <Label htmlFor="amend-total" className="text-xs">
+                    Total pcs *
+                  </Label>
+                  <Input
+                    id="amend-total"
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    className="h-8 w-32 text-right"
+                    value={amendTotal}
+                    onChange={(e) => {
+                      setAmendTotal(e.target.value);
+                      applyAmendShares(amendShares, parseInt(e.target.value, 10), amendMode);
+                    }}
+                  />
+                </div>
+              )}
+              {amendMode !== 'absolute' && (
+                <div className={`pb-1.5 text-sm ${amendShareInvalid ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  {amendMode === 'percentage' ? `Percentages: ${amendShareSum} / 100` : `Ratio total: ${amendShareSum}`}
+                </div>
+              )}
+            </div>
             <div className="max-h-[50vh] overflow-y-auto rounded-md border">
               <Table>
                 <TableHeader>
@@ -1151,6 +1250,9 @@ export default function SaleOrderDetail() {
                     <TableHead>Size</TableHead>
                     <TableHead className="text-right">Allocated / Dispatched</TableHead>
                     <TableHead className="text-right">Ordered</TableHead>
+                    {amendMode !== 'absolute' && (
+                      <TableHead className="w-24 text-right">{amendMode === 'percentage' ? '%' : 'Ratio'}</TableHead>
+                    )}
                     <TableHead className="w-28 text-right">New Qty</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1168,17 +1270,39 @@ export default function SaleOrderDetail() {
                           {i.allocatedQty} / {i.dispatchedQty}
                         </TableCell>
                         <TableCell className="text-right">{i.quantity}</TableCell>
+                        {amendMode !== 'absolute' && (
+                          <TableCell className="text-right">
+                            <Input
+                              type="number"
+                              min={0}
+                              step="any"
+                              inputMode="decimal"
+                              aria-label={`${amendMode === 'percentage' ? 'Percentage' : 'Ratio'} for ${i.size?.sizeName ?? 'line'}`}
+                              className="h-8 text-right"
+                              value={amendShares[i.id] ?? ''}
+                              onChange={(e) => {
+                                const next = { ...amendShares, [i.id]: e.target.value };
+                                setAmendShares(next);
+                                applyAmendShares(next, parseInt(amendTotal, 10), amendMode);
+                              }}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            min={committed}
-                            step={1}
-                            inputMode="numeric"
-                            aria-label={`New quantity for ${i.size?.sizeName ?? 'line'}`}
-                            className={`h-8 text-right ${tooLow ? 'border-destructive' : ''}`}
-                            value={value}
-                            onChange={(e) => setAmendQty((prev) => ({ ...prev, [i.id]: e.target.value }))}
-                          />
+                          {amendMode !== 'absolute' ? (
+                            <span className={`font-medium ${tooLow ? 'text-destructive' : ''}`}>{value}</span>
+                          ) : (
+                            <Input
+                              type="number"
+                              min={committed}
+                              step={1}
+                              inputMode="numeric"
+                              aria-label={`New quantity for ${i.size?.sizeName ?? 'line'}`}
+                              className={`h-8 text-right ${tooLow ? 'border-destructive' : ''}`}
+                              value={value}
+                              onChange={(e) => setAmendQty((prev) => ({ ...prev, [i.id]: e.target.value }))}
+                            />
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -1214,6 +1338,7 @@ export default function SaleOrderDetail() {
                 amendChangedCount === 0 ||
                 amendBelowCommitted ||
                 amendHasBlank ||
+                amendShareInvalid ||
                 amendNewTotal === 0 ||
                 amendReason.trim().length < 3
               }

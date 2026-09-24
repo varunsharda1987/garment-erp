@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { distributeByShares } from '@/lib/distribute';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -791,59 +792,15 @@ export default function OrderForm() {
   const applyDistribution = (total: number, mode: 'percentage' | 'ratio', values: Record<string, number>) => {
     if (!total || isNaN(total) || sizes.length === 0) return;
 
-    // Calculate proportions based on mode
-    let totalProportion: number;
-    if (mode === 'percentage') {
-      totalProportion = 100; // Percentages sum to 100
-    } else {
-      // Ratios sum to total ratio value
-      totalProportion = Object.values(values).reduce((sum, v) => sum + (v || 0), 0);
-      if (totalProportion === 0) return;
-    }
-
-    // Calculate exact quantities with remainders
-    const calculations: Array<{
-      key: string;
-      proportion: number;
-      exactQty: number;
-      floorQty: number;
-      remainder: number;
-    }> = [];
-
-    breakup.forEach((b) => {
-      const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
-      const proportion = values[key] || 0;
-      const exactQty = (proportion / totalProportion) * total;
-      const floorQty = Math.floor(exactQty);
-      const remainder = exactQty - floorQty;
-
-      calculations.push({
-        key,
-        proportion,
-        exactQty,
-        floorQty,
-        remainder,
-      });
-    });
-
-    // Sum of floor quantities
-    const sumFloor = calculations.reduce((sum, c) => sum + c.floorQty, 0);
-    const remaining = total - sumFloor;
-
-    // Sort by remainder descending to distribute remaining units fairly
-    const sortedByRemainder = [...calculations].sort((a, b) => b.remainder - a.remainder);
-
-    // Create a map for final quantities
-    const finalQtyMap = new Map<string, number>();
-    calculations.forEach((c) => {
-      finalQtyMap.set(c.key, c.floorQty);
-    });
-
-    // Distribute remaining units to items with largest remainders
-    for (let i = 0; i < remaining && i < sortedByRemainder.length; i++) {
-      const key = sortedByRemainder[i].key;
-      finalQtyMap.set(key, (finalQtyMap.get(key) || 0) + 1);
-    }
+    const finalQtyMap = distributeByShares(
+      total,
+      breakup.map((b) => {
+        const key = b.colorId ? `${b.colorId}-${b.sizeId}` : b.sizeId;
+        return { key, share: values[key] || 0 };
+      }),
+      mode
+    );
+    if (!finalQtyMap) return;
 
     // Apply final quantities to breakup
     const newBreakup = breakup.map((b) => {

@@ -197,6 +197,10 @@ export interface CreateCuttingBatchRequest {
     colorId: string | null;
     sizeId: string;
     plannedQty: number;
+    /** The order's pieces for this size; plannedQty − orderQty is the Extra % on top */
+    orderQty?: number;
+    extraAllowed?: number;
+    toCut?: number;
   }[];
   fabricStocks?: {
     fabricStockId: string;

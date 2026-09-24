@@ -657,6 +657,28 @@ export default function CuttingDetail() {
               </TableHeader>
               <TableBody>
                 <TableRow>
+                  <TableCell className="font-medium text-muted-foreground">Order</TableCell>
+                  {sortedSkus.map((sku) => (
+                    <TableCell key={sku.id} className="text-center text-muted-foreground">
+                      {sku.orderQty}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-center font-semibold text-muted-foreground">
+                    {skuOutputs.reduce((sum, s) => sum + (s.orderQty || 0), 0)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-muted-foreground">Extra</TableCell>
+                  {sortedSkus.map((sku) => (
+                    <TableCell key={sku.id} className="text-center text-muted-foreground">
+                      +{sku.extraAllowed || 0}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-center font-semibold text-muted-foreground">
+                    +{skuOutputs.reduce((sum, s) => sum + (s.extraAllowed || 0), 0)}
+                  </TableCell>
+                </TableRow>
+                <TableRow>
                   <TableCell className="font-medium text-muted-foreground">Planned</TableCell>
                   {sortedSkus.map((sku) => (
                     <TableCell key={sku.id} className="text-center">

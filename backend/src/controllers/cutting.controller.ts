@@ -299,17 +299,24 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
         create: dedupeSkuRows(
           // as any[]: req.body is untyped, and a bare `any` receiver makes the generic collapse to its
           // constraint, losing the quantity fields at the Prisma boundary
-          ((skuOutputs || []) as any[]).map((sku: any) => ({
-            colorId: sku.colorId || null,
-            sizeId: sku.sizeId,
-            orderQty: sku.orderQty || sku.plannedQty,
-            extraAllowed: sku.extraAllowed || 0,
-            maxCuttable: sku.maxCuttable || sku.orderQty || sku.plannedQty,
-            toCut: sku.toCut || sku.plannedQty,
-            cutQty: 0,
-            rejectedQty: 0,
-            goodPcs: 0,
-          })),
+          // The order and the extra on top of it are kept apart: a caller that sent only the total
+          // (plannedQty) had its Extra % recorded as ORDER quantity with extra 0 (2026-09-24).
+          ((skuOutputs || []) as any[]).map((sku: any) => {
+            const toCut = sku.toCut || sku.plannedQty;
+            const orderQty = sku.orderQty || toCut;
+            return {
+              colorId: sku.colorId || null,
+              sizeId: sku.sizeId,
+              orderQty,
+              extraAllowed: sku.extraAllowed ?? Math.max(0, toCut - orderQty),
+              // Never below what is planned — a max under the plan would read as over-cutting
+              maxCuttable: Math.max(sku.maxCuttable || 0, toCut),
+              toCut,
+              cutQty: 0,
+              rejectedQty: 0,
+              goodPcs: 0,
+            };
+          }),
           ['orderQty', 'extraAllowed', 'maxCuttable', 'toCut']
         ),
       },

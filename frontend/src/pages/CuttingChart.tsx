@@ -201,6 +201,10 @@ export default function CuttingChart() {
             colorId,
             sizeId: s.sizeId,
             plannedQty: s.cutQty,
+            // Sent apart so the batch records the order and the Extra % on top of it, not one total
+            orderQty: Math.min(s.orderQty, s.cutQty),
+            extraAllowed: Math.max(0, s.cutQty - s.orderQty),
+            toCut: s.cutQty,
           })),
         // All selected lots across all fabrics stored in junction table
         fabricStocks: fabricsWithLots.flatMap((fabric) => {

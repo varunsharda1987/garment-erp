@@ -580,9 +580,10 @@ describe('the first cut: from greige to a cutting batch', () => {
         cadWidthUsed: RECEIVED_WIDTH,
         layersPerLay: 0,
         numberOfLays: 0,
+        // Since 2026-09-24 the page also sends the order and the Extra % apart (48 ordered + 2 extra)
         skuOutputs: [
-          { colorId: null, sizeId: sizeS, plannedQty: 50 },
-          { colorId: null, sizeId: sizeM, plannedQty: 50 },
+          { colorId: null, sizeId: sizeS, plannedQty: 50, orderQty: 48, extraAllowed: 2, toCut: 50 },
+          { colorId: null, sizeId: sizeM, plannedQty: 50, orderQty: 48, extraAllowed: 2, toCut: 50 },
         ],
         fabricStocks: [
           { fabricStockId, cadAvgUsed: CAD_AVERAGE, cadWidthUsed: RECEIVED_WIDTH, actualWidth: RECEIVED_WIDTH },
@@ -601,6 +602,10 @@ describe('the first cut: from greige to a cutting batch', () => {
     const skus = await prisma.cutting_batch_skus.findMany({ where: { cuttingBatchId } });
     expect(skus).toHaveLength(2);
     expect(skus.map((s) => s.toCut)).toEqual([50, 50]); // from plannedQty
+    // The Extra % is recorded as extra, not folded into the order (it was: order 50, extra 0)
+    expect(skus.map((s) => s.orderQty)).toEqual([48, 48]);
+    expect(skus.map((s) => s.extraAllowed)).toEqual([2, 2]);
+    expect(skus.every((s) => s.maxCuttable >= s.toCut)).toBe(true);
 
     // The lot the batch will consume is on record — completion sums issued metres through this row.
     const lotRows = await prisma.cutting_batch_fabrics.findMany({ where: { batchId: cuttingBatchId } });

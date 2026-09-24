@@ -20,6 +20,8 @@ import {
   issueJobWorkOrderWithDetails,
   getThanRecordStatus,
   recordThansForJob,
+  recordThansForJobs,
+  getSameTripThanSiblings,
   validateIssue,
   unissueForCancel,
   dispatchJobWorkOrders,
@@ -2061,13 +2063,45 @@ class JobWorkOrderController {
   async thanRecordStatus(req: Request, res: Response) {
     try {
       const data = await getThanRecordStatus(req.params.id);
-      res.json({ success: true, data });
+      // Jobs that went to the same processor the same day from the same lot — fitted together
+      const siblings = await getSameTripThanSiblings(req.params.id);
+      res.json({ success: true, data: { ...data, siblings } });
     } catch (error) {
       if (error instanceof JobWorkOrderError && error.code === 'NOT_FOUND') {
         return res.status(404).json({ success: false, message: error.message });
       }
       logger.error('Error reading than record status:', error);
       res.status(500).json({ success: false, message: 'Failed to read which thans are recorded' });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/record-thans-batch
+   * Several jobs' thans (fitted on their total) recorded in one transaction.
+   */
+  async recordThansBatch(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+      const data = await recordThansForJobs(req.body.jobs, userId);
+      res.json({
+        success: true,
+        data,
+        message: `Thans recorded on ${data.map((d) => d.jobWorkNumber).join(', ')}`,
+      });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError) {
+        return res
+          .status(error.code === 'NOT_FOUND' ? 404 : 422)
+          .json({ success: false, code: error.code, message: error.message });
+      }
+      logger.error('Error recording thans for several jobs:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to record thans',
+      });
     }
   }
 

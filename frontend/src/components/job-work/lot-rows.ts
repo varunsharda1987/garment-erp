@@ -203,6 +203,24 @@ export function thanPickActual(
   return actual;
 }
 
+/**
+ * ACTUAL metres a lot row should cover when thans are picked for it: a typed quantity as typed,
+ * otherwise what the order still needs after its other rows — never more than the lot holds.
+ */
+export function lotRowTarget(
+  rows: IssueLotRow[],
+  index: number,
+  requiredQty: number,
+  lots: JwoIssuePreviewLot[]
+): number {
+  const row = rows[index];
+  const typed = parseFloat(row.qty) || 0;
+  const others = rows.reduce((sum, r, i) => (i === index ? sum : sum + (parseFloat(r.qty) || 0)), 0);
+  const target = !rowHasPicks(row) && qtyExceeds(typed, 0) ? typed : qtyRemaining(requiredQty, others);
+  const lot = lots.find((l) => l.id === row.lotId);
+  return lot ? minQty(target, lot.quantityAvailable) : target;
+}
+
 /** True when the row names thans. */
 export function rowHasPicks(row: IssueLotRow): boolean {
   return (row.selectedDetails?.length ?? 0) > 0;
@@ -367,15 +385,22 @@ interface FitBale {
  * Returns null when no whole-than set fits — the caller falls back to "Pick thans for me" (which
  * cuts the last than). The search runs in decimetres (0.1 m); the answer is re-checked in exact
  * metres before it is returned.
+ *
+ * `window` narrows the accepted ACTUAL range further (never widens it past ±1%) — the multi-job
+ * split uses it so what is left over still fits the jobs after this one.
  */
-export function bestFitThans(lotThans: GreigeLotThans, targetActual: number): BestFitResult | null {
+export function bestFitThans(
+  lotThans: GreigeLotThans,
+  targetActual: number,
+  window?: { low: number; high: number }
+): BestFitResult | null {
   if (!(targetActual > 0)) return null;
   const fold = lotThans.foldLengthCm;
-  const targetCounted = foldCounted(targetActual, fold);
-  const lowActual = (targetActual * (100 - THAN_PICK_TOLERANCE_PCT)) / 100;
-  const highActual = (targetActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100;
-  const hi = Math.ceil(((targetCounted * (100 + THAN_PICK_TOLERANCE_PCT)) / 100) * 10) + 1;
-  const lo = Math.floor(((targetCounted * (100 - THAN_PICK_TOLERANCE_PCT)) / 100) * 10) - 1;
+  const lowActual = Math.max((targetActual * (100 - THAN_PICK_TOLERANCE_PCT)) / 100, window?.low ?? 0);
+  const highActual = Math.min((targetActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100, window?.high ?? Infinity);
+  if (lowActual > highActual + QTY_EPSILON) return null;
+  const hi = Math.ceil(foldCounted(highActual, fold) * 10) + 1;
+  const lo = Math.floor(foldCounted(lowActual, fold) * 10) - 1;
 
   // Bales: a than outside any bale is a bale of one
   const bales: FitBale[] = [];
@@ -464,6 +489,146 @@ export function bestFitThans(lotThans: GreigeLotThans, targetActual: number): Be
     }
   }
   return bestBroken?.result ?? null;
+}
+
+export interface JobFitTarget {
+  key: string;
+  /** ACTUAL metres this job takes from the lot */
+  targetActual: number;
+}
+
+export interface MultiJobFitResult {
+  /** The picks per job, keyed by JobFitTarget.key */
+  perJob: Record<string, BestFitResult>;
+  /** ACTUAL metres of all picks together */
+  actual: number;
+  /** Bales that leave whole, and bales left broken in the godown — counted across ALL the jobs */
+  balesWhole: number;
+  balesBroken: number;
+  /** Bales whose thans are split between two jobs (all of it still leaves on the same vehicle) */
+  balesShared: number;
+  /** true: fitted on the total; false: the total would not split, so the jobs were fitted one by one */
+  combined: boolean;
+}
+
+/**
+ * Best fit for several jobs going to the SAME processor together (owner, 2026-09-24): fit the TOTAL
+ * first — whole bales, fewest broken, in the godown's terms — and only then share those thans out,
+ * each job within ±1% of its own metres. A bale may be split between two jobs; that is harmless,
+ * because the whole bale still goes on the one vehicle. If the total's thans cannot be shared out,
+ * the jobs are fitted one after another instead (each later job finishing what the earlier opened).
+ */
+export function bestFitThansForJobs(lotThans: GreigeLotThans, jobs: JobFitTarget[]): MultiJobFitResult | null {
+  const live = jobs.filter((j) => j.targetActual > 0);
+  if (live.length === 0) return null;
+  if (live.length === 1) {
+    const one = bestFitThans(lotThans, live[0].targetActual);
+    return one ? summariseJobs(lotThans, { [live[0].key]: one }, true) : null;
+  }
+  const total = live.reduce((sum, j) => sum + j.targetActual, 0);
+  const pct = THAN_PICK_TOLERANCE_PCT / 100;
+
+  const combinedFit = bestFitThans(lotThans, total);
+  if (combinedFit) {
+    const chosen = new Set(combinedFit.picks.map((p) => p.detailId));
+    let pool = lotThans.details.filter((d) => chosen.has(d.id));
+    const perJob: Record<string, BestFitResult> = {};
+    let ok = true;
+    for (let i = 0; i < live.length && ok; i++) {
+      const job = live[i];
+      const poolLot = { ...lotThans, details: pool };
+      const poolActual = foldActual(
+        pool.reduce((sum, d) => sum + Number(d.metersRemaining), 0),
+        lotThans.foldLengthCm
+      );
+      if (i === live.length - 1) {
+        // The last job takes what is left — it must still be within its own ±1%
+        if (Math.abs(poolActual - job.targetActual) > job.targetActual * pct + QTY_EPSILON) ok = false;
+        else perJob[job.key] = describeFit(poolLot, pool);
+        break;
+      }
+      const rest = live.slice(i + 1).reduce((sum, j) => sum + j.targetActual, 0);
+      const fit = bestFitThans(poolLot, job.targetActual, {
+        low: poolActual - rest * (1 + pct),
+        high: poolActual - rest * (1 - pct),
+      });
+      if (!fit) ok = false;
+      else {
+        perJob[job.key] = fit;
+        pool = takeFromPool(pool, fit);
+      }
+    }
+    if (ok) return summariseJobs(lotThans, perJob, true);
+  }
+
+  // Fallback: one after another over the whole lot, each later job finishing opened bales
+  let details = lotThans.details;
+  const perJob: Record<string, BestFitResult> = {};
+  for (const job of live) {
+    const fit = bestFitThans({ ...lotThans, details }, job.targetActual);
+    if (!fit) return null;
+    perJob[job.key] = fit;
+    details = takeFromPool(details, fit);
+  }
+  return summariseJobs(lotThans, perJob, false);
+}
+
+/** Remove a job's picks from the pool; the bales it broke read as opened for the next job. */
+function takeFromPool(pool: GreigeStockDetail[], fit: BestFitResult): GreigeStockDetail[] {
+  const taken = new Set(fit.picks.map((p) => p.detailId));
+  const opened = new Set(pool.filter((d) => taken.has(d.id)).map((d) => d.baleNumber));
+  return pool
+    .filter((d) => !taken.has(d.id))
+    .map((d) => (d.baleNumber != null && opened.has(d.baleNumber) ? { ...d, baleOpen: true } : d));
+}
+
+/** A BestFitResult for an explicit set of whole thans (the last job's remainder). */
+function describeFit(lotThans: GreigeLotThans, thans: GreigeStockDetail[]): BestFitResult {
+  const counted = thans.reduce((sum, d) => sum + Number(d.metersRemaining), 0);
+  const bales = new Set(thans.map((d) => d.baleNumber));
+  return {
+    picks: thans.map((d) => ({ detailId: d.id, metersToIssue: prefillQty(d.metersRemaining) })),
+    actual: foldActual(counted, lotThans.foldLengthCm),
+    balesWhole: bales.size,
+    balesBroken: 0,
+    openBalesFinished: 0,
+  };
+}
+
+/** Whole / broken / shared bales across all the jobs, judged against the lot as it stands. */
+function summariseJobs(
+  lotThans: GreigeLotThans,
+  perJob: Record<string, BestFitResult>,
+  combined: boolean
+): MultiJobFitResult {
+  const ownerOf = new Map<string, string>();
+  for (const [key, fit] of Object.entries(perJob)) for (const p of fit.picks) ownerOf.set(p.detailId, key);
+  let whole = 0;
+  let broken = 0;
+  let shared = 0;
+  for (const group of groupDetailsByBale(lotThans.details)) {
+    const live = group.thans.filter((t) => !isQtyZero(t.metersRemaining));
+    const units = group.baleNumber == null ? live.map((t) => [t]) : [live];
+    for (const thans of units) {
+      const owners = new Set(thans.filter((t) => ownerOf.has(t.id)).map((t) => ownerOf.get(t.id)));
+      if (owners.size === 0) continue;
+      if (thans.every((t) => ownerOf.has(t.id))) whole += 1;
+      else broken += 1;
+      if (owners.size > 1) shared += 1;
+    }
+  }
+  const counted = Object.values(perJob).reduce(
+    (sum, fit) => sum + fit.picks.reduce((s, p) => s + Number(p.metersToIssue), 0),
+    0
+  );
+  return {
+    perJob,
+    actual: foldActual(counted, lotThans.foldLengthCm),
+    balesWhole: whole,
+    balesBroken: broken,
+    balesShared: shared,
+    combined,
+  };
 }
 
 function lexLess(a: number[], b: number[]): boolean {

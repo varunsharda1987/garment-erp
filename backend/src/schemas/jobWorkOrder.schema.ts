@@ -337,6 +337,18 @@ export const recordThansSchema = z.object({
     .min(1, 'At least one lot is required'),
 });
 
+/** Several jobs' thans recorded together (fitted on their total — same processor, same day). */
+export const recordThansBatchSchema = z.object({
+  jobs: z
+    .array(
+      z.object({
+        jwoId: z.string().uuid(),
+        lots: recordThansSchema.shape.lots,
+      })
+    )
+    .min(1, 'At least one job is required'),
+});
+
 export type IssueWithDetailsInput = z.infer<typeof issueWithDetailsSchema>;
 
 /**

@@ -21,6 +21,7 @@ import {
   issueJwoSchema,
   issueWithDetailsSchema,
   recordThansSchema,
+  recordThansBatchSchema,
   receiveJwoSchema,
   cancelJwoSchema,
   dispatchJwoSchema,
@@ -40,6 +41,12 @@ router.get('/receivable', jobWorkOrderController.getReceivable.bind(jobWorkOrder
 // Consolidated dispatch — one challan, many orders, one processor. BOTH must stay above
 // '/:id', or Express reads "dispatch"/"dispatchable" as an order id.
 router.get('/dispatchable', jobWorkOrderController.dispatchable.bind(jobWorkOrderController));
+// Several jobs' thans in one transaction — "Best fit for all jobs" on Record thans sent
+router.post(
+  '/record-thans-batch',
+  validateBody(recordThansBatchSchema),
+  jobWorkOrderController.recordThansBatch.bind(jobWorkOrderController)
+);
 router.post('/dispatch', validateBody(dispatchJwoSchema), jobWorkOrderController.dispatch.bind(jobWorkOrderController));
 
 // List, get, create (Consolidation Phase 3: generic create surface)

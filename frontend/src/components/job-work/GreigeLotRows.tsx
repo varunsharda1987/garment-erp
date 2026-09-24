@@ -23,12 +23,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import type { GreigeLotThans, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
-import { minQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
+import { qtyExceeds } from '@/lib/quantity';
 import { ThanPicker } from './ThanPicker';
 import {
   autoFillLotRows,
   emptyLotRow,
   lotHasThans,
+  lotRowTarget,
   rowHasPicks,
   withPicks,
   type IssueLotRow,
@@ -130,14 +131,7 @@ export function GreigeLotRows({
    * The ACTUAL metres "Pick thans for me" aims for on a row: the quantity typed on it, else what the
    * order still needs after the other rows — never more than the lot holds.
    */
-  const rowTarget = (index: number): number => {
-    const row = rows[index];
-    const typed = parseFloat(row.qty) || 0;
-    const others = rows.reduce((sum, r, i) => (i === index ? sum : sum + (parseFloat(r.qty) || 0)), 0);
-    const target = !rowHasPicks(row) && qtyExceeds(typed, 0) ? typed : qtyRemaining(requiredQty, others);
-    const lot = lots.find((l) => l.id === row.lotId);
-    return lot ? minQty(target, lot.quantityAvailable) : target;
-  };
+  const rowTarget = (index: number): number => lotRowTarget(rows, index, requiredQty, lots);
 
   const setPicks = (index: number, selected: SelectedDetail[]) =>
     onRowsChange(rows.map((row, i) => (i === index ? withPicks(row, selected) : row)));

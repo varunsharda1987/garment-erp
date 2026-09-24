@@ -103,6 +103,11 @@ export interface ThanRecord {
   jobWorkNumber: string;
   jwoStatus: string;
   lots: ThanRecordLot[];
+  /**
+   * Other issued jobs to the SAME processor on the SAME day that took from one of this job's lots and
+   * still have thans to name — "Best fit for all jobs" fits them together with this one.
+   */
+  siblings?: Array<{ jwoId: string; jobWorkNumber: string; lots: ThanRecordLot[] }>;
 }
 
 /** POST /api/job-work-orders/:id/record-thans */
@@ -503,6 +508,14 @@ export const jobWorkOrderService = {
     payload: RecordThansPayload
   ): Promise<{ jobWorkNumber: string; lots: ThanRecordLot[] }> {
     const response = await api.post(`${BASE_URL}/${id}/record-thans`, payload);
+    return response.data.data;
+  },
+
+  /** Several jobs' thans in ONE transaction — fitted on their total (same processor, same day). */
+  async recordThansBatch(
+    jobs: Array<{ jwoId: string } & RecordThansPayload>
+  ): Promise<Array<{ jobWorkNumber: string; lots: ThanRecordLot[] }>> {
+    const response = await api.post(`${BASE_URL}/record-thans-batch`, { jobs });
     return response.data.data;
   },
 };

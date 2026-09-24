@@ -287,4 +287,55 @@ describe('issuing greige than by than', () => {
     expect(await prisma.greige_issue_details.count({ where: { jobWorkOrderId: jobA } })).toBe(1);
     expect(await prisma.greige_issue_details.count({ where: { jobWorkOrderId: jobB } })).toBe(1);
   });
+
+  it('records thans for two same-day jobs to one processor together, all or nothing', async () => {
+    const jobC = await createJwo(98);
+    const jobD = await createJwo(98);
+    for (const job of [jobC, jobD]) {
+      const issued = await request(app)
+        .post(`/api/job-work-orders/${job}/issue`)
+        .set(authHeader)
+        .send({ lots: [{ greigeStockLotId: lotId, qty: 98 }] });
+      expect(issued.status).toBe(200);
+    }
+
+    // Same processor, same day, same lot, thans unnamed → offered as a sibling to fit together
+    const status = await request(app).get(`/api/job-work-orders/${jobC}/than-record`).set(authHeader);
+    expect(status.status).toBe(200);
+    expect(status.body.data.siblings).toHaveLength(1);
+    expect(status.body.data.siblings[0]).toMatchObject({ jwoId: jobD });
+    expect(status.body.data.siblings[0].lots[0]).toMatchObject({ greigeStockLotId: lotId, takenActual: 98 });
+
+    const batch = (thanForD: string) =>
+      request(app)
+        .post('/api/job-work-orders/record-thans-batch')
+        .set(authHeader)
+        .send({
+          jobs: [
+            {
+              jwoId: jobC,
+              lots: [{ greigeStockLotId: lotId, details: [{ greigeStockDetailId: thanIds[0], metersToIssue: 100 }] }],
+            },
+            {
+              jwoId: jobD,
+              lots: [{ greigeStockLotId: lotId, details: [{ greigeStockDetailId: thanForD, metersToIssue: 100 }] }],
+            },
+          ],
+        });
+
+    // The same than on both jobs: refused, and the first job's half is rolled back too
+    const clash = await batch(thanIds[0]);
+    expect(clash.status).toBe(422);
+    expect((await than(0)).status).toBe('AVAILABLE');
+    expect(await prisma.greige_issue_details.count({ where: { jobWorkOrderId: jobC } })).toBe(0);
+
+    const ok = await batch(thanIds[1]);
+    expect(ok.status).toBe(200);
+    expect(ok.body.data).toHaveLength(2);
+    expect((await than(0)).status).toBe('CONSUMED');
+    expect((await than(1)).status).toBe('CONSUMED');
+
+    const after = await request(app).get(`/api/job-work-orders/${jobC}/than-record`).set(authHeader);
+    expect(after.body.data.siblings).toHaveLength(0);
+  });
 });

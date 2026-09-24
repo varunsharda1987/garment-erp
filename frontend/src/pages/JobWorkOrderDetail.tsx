@@ -28,6 +28,7 @@ import {
   MessageCircle,
   Undo2,
   ListChecks,
+  Boxes,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,6 +56,7 @@ import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
 import {
+  bestFitThansForJobs,
   evaluateLotRows,
   lotHasThans,
   picksPayload,
@@ -183,6 +185,9 @@ export default function JobWorkOrderDetail() {
   const [recordThansOpen, setRecordThansOpen] = useState(false);
   const [recordLotId, setRecordLotId] = useState('');
   const [recordPicks, setRecordPicks] = useState<SelectedDetail[]>([]);
+  // "Best fit for all jobs": the thans fitted to the OTHER same-trip jobs, keyed by their job id
+  const [recordGroupPicks, setRecordGroupPicks] = useState<Record<string, SelectedDetail[]>>({});
+  const [recordGroupNote, setRecordGroupNote] = useState<string | null>(null);
 
   const {
     data: jwo,
@@ -428,22 +433,85 @@ export default function JobWorkOrderDetail() {
     !!recordLot && qtyExceeds(recordAfterActual, (recordLot.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100);
   const recordPickErrors = thanPickErrors(recordPicks, recordLotThans);
 
+  // Other jobs that went to this processor the same day from this lot, thans still unnamed
+  const recordSiblings = (thanRecord?.siblings ?? []).flatMap((sib) =>
+    sib.lots
+      .filter((lot) => lot.greigeStockLotId === recordLotId)
+      .map((lot) => ({
+        jwoId: sib.jwoId,
+        jobWorkNumber: sib.jobWorkNumber,
+        target: qtyRemaining(lot.takenActual, lot.recordedActual),
+      }))
+  );
+  const groupJobs = recordSiblings.filter((sib) => (recordGroupPicks[sib.jwoId] ?? []).length > 0);
+  // The picker for THIS job hides thans already fitted to the other jobs
+  const groupTaken = new Set(Object.values(recordGroupPicks).flatMap((picks) => picks.map((p) => p.detailId)));
+  const recordPickerThans =
+    recordLotThans && groupTaken.size > 0
+      ? { ...recordLotThans, details: recordLotThans.details.filter((d) => !groupTaken.has(d.id)) }
+      : recordLotThans;
+
+  const clearRecordGroup = () => {
+    setRecordGroupPicks({});
+    setRecordGroupNote(null);
+  };
+
+  const fitRecordGroup = () => {
+    if (!recordLotThans || !id) return;
+    const fit = bestFitThansForJobs(recordLotThans, [
+      { key: id, targetActual: recordTarget },
+      ...recordSiblings.map((sib) => ({ key: sib.jwoId, targetActual: sib.target })),
+    ]);
+    if (!fit) {
+      clearRecordGroup();
+      setRecordGroupNote(
+        `No set of whole thans fits all ${recordSiblings.length + 1} jobs within ${THAN_PICK_TOLERANCE_PCT}% each — record them one by one.`
+      );
+      return;
+    }
+    setRecordPicks(fit.perJob[id]?.picks ?? []);
+    setRecordGroupPicks(
+      Object.fromEntries(recordSiblings.map((sib) => [sib.jwoId, fit.perJob[sib.jwoId]?.picks ?? []]))
+    );
+    const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const parts = [plural(fit.balesWhole, 'whole bale')];
+    if (fit.balesBroken > 0) parts.push(`${plural(fit.balesBroken, 'bale')} broken`);
+    if (fit.balesShared > 0) parts.push(`${plural(fit.balesShared, 'bale')} shared between jobs`);
+    setRecordGroupNote(
+      `Fitted on the total: ${parts.join(', ')} — ${formatQuantity(fit.actual, jwo?.uom ?? 'MTR')} actual, no than cut.` +
+        (fit.combined ? '' : ' (The total would not share out, so the jobs were fitted one after another.)')
+    );
+  };
+
   const openRecordThans = () => {
     setRecordLotId(thanRecordPending[0]?.greigeStockLotId ?? '');
     setRecordPicks([]);
+    clearRecordGroup();
     setRecordThansOpen(true);
   };
 
   const recordThansMutation = useMutation({
-    mutationFn: () =>
-      jobWorkOrderService.recordThans(id!, {
-        lots: [{ greigeStockLotId: recordLotId, details: picksPayload(recordPicks) }],
-      }),
-    onSuccess: (result) => {
-      toast.success(`Thans recorded on ${result.jobWorkNumber}`);
+    mutationFn: async () => {
+      const own = { greigeStockLotId: recordLotId, details: picksPayload(recordPicks) };
+      if (groupJobs.length === 0) {
+        const result = await jobWorkOrderService.recordThans(id!, { lots: [own] });
+        return [result.jobWorkNumber];
+      }
+      const results = await jobWorkOrderService.recordThansBatch([
+        { jwoId: id!, lots: [own] },
+        ...groupJobs.map((sib) => ({
+          jwoId: sib.jwoId,
+          lots: [{ greigeStockLotId: recordLotId, details: picksPayload(recordGroupPicks[sib.jwoId]) }],
+        })),
+      ]);
+      return results.map((r) => r.jobWorkNumber);
+    },
+    onSuccess: (jobNumbers) => {
+      toast.success(`Thans recorded on ${jobNumbers.join(', ')}`);
       setRecordThansOpen(false);
       setRecordPicks([]);
-      queryClient.invalidateQueries({ queryKey: ['jwo-than-record', id] });
+      clearRecordGroup();
+      queryClient.invalidateQueries({ queryKey: ['jwo-than-record'] });
       queryClient.invalidateQueries({ queryKey: ['greige-lot-thans'] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['greige-stock'] });
@@ -1646,6 +1714,7 @@ export default function JobWorkOrderDetail() {
                   onValueChange={(v) => {
                     setRecordLotId(v);
                     setRecordPicks([]);
+                    clearRecordGroup();
                   }}
                   disabled={recordThansMutation.isPending}
                 >
@@ -1671,12 +1740,57 @@ export default function JobWorkOrderDetail() {
               </p>
             )}
 
+            {recordSiblings.length > 0 && recordLotThans && (
+              <div className="space-y-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                <p>
+                  {recordSiblings.map((sib) => sib.jobWorkNumber).join(', ')} also went to this processor the same day
+                  from this lot, with thans still to record. Fit them together so whole bales are used across all the
+                  jobs:
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={fitRecordGroup}
+                    disabled={recordThansMutation.isPending || isQtyZero(recordTarget)}
+                  >
+                    <Boxes className="mr-1 h-3.5 w-3.5" />
+                    Best fit for all {recordSiblings.length + 1} jobs
+                  </Button>
+                  {groupJobs.length > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={clearRecordGroup}
+                      disabled={recordThansMutation.isPending}
+                    >
+                      Record this job only
+                    </Button>
+                  )}
+                </div>
+                {recordGroupNote && <p className="text-xs">{recordGroupNote}</p>}
+                {groupJobs.map((sib) => {
+                  const picks = recordGroupPicks[sib.jwoId] ?? [];
+                  return (
+                    <p key={sib.jwoId} className="text-xs">
+                      {sib.jobWorkNumber}: {picks.length} thans ·{' '}
+                      {formatQuantity(foldActual(totalDetailMeters(picks), recordLotThans.foldLengthCm), jwo.uom)}{' '}
+                      actual of {formatQuantity(sib.target, jwo.uom)} — recorded together with this job
+                    </p>
+                  );
+                })}
+              </div>
+            )}
+
             {recordLotThansLoading ? (
               <Skeleton className="h-32 w-full" />
-            ) : recordLotThans ? (
+            ) : recordPickerThans ? (
               <div className="rounded-md border bg-muted/30 p-3">
+                {groupJobs.length > 0 && <p className="mb-2 text-xs font-medium">{jwo.jobWorkNumber} (this job)</p>}
                 <ThanPicker
-                  lotThans={recordLotThans}
+                  lotThans={recordPickerThans}
                   selected={recordPicks}
                   onChange={setRecordPicks}
                   targetActual={recordTarget}
@@ -1711,7 +1825,11 @@ export default function JobWorkOrderDetail() {
               }
             >
               <ListChecks className="mr-2 h-4 w-4" />
-              {recordThansMutation.isPending ? 'Recording…' : 'Record thans sent'}
+              {recordThansMutation.isPending
+                ? 'Recording…'
+                : groupJobs.length > 0
+                  ? `Record thans for ${groupJobs.length + 1} jobs`
+                  : 'Record thans sent'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -3,7 +3,7 @@
  * whole bales first; finish opened bales; break as few bales as possible.
  */
 import { describe, expect, it } from 'vitest';
-import { bestFitThans } from '../lot-rows';
+import { bestFitThans, bestFitThansForJobs } from '../lot-rows';
 import type { GreigeLotThans, GreigeStockDetail } from '@/services/jobWorkOrder.service';
 
 let seq = 0;
@@ -92,5 +92,57 @@ describe('bestFitThans', () => {
     expect(Date.now() - start).toBeLessThan(3000);
     expect(fit).not.toBeNull();
     expect(Math.abs(fit!.actual - 2786.6)).toBeLessThanOrEqual(27.87);
+  });
+});
+
+describe('bestFitThansForJobs — several jobs to one processor', () => {
+  const pickedIds = (fit: { picks: { detailId: string }[] }) => fit.picks.map((p) => p.detailId);
+
+  it('fits the total in whole bales, then shares a bale between the jobs', () => {
+    // 3 bales of 3 × 100: jobs of 400 + 500 = 900 → all three bales whole; alone each would break one
+    const l = lot([1, 1, 1, 2, 2, 2, 3, 3, 3].map((b) => than(b, 100)));
+    const r = bestFitThansForJobs(l, [
+      { key: 'a', targetActual: 400 },
+      { key: 'b', targetActual: 500 },
+    ])!;
+    expect(r.combined).toBe(true);
+    expect(r.balesBroken).toBe(0);
+    expect(r.balesWhole).toBe(3);
+    expect(r.balesShared).toBe(1);
+    expect(r.perJob.a.actual).toBe(400);
+    expect(r.perJob.b.actual).toBe(500);
+    const all = [...pickedIds(r.perJob.a), ...pickedIds(r.perJob.b)];
+    expect(new Set(all).size).toBe(all.length); // no than on two jobs
+  });
+
+  it('keeps every job within its own 1%', () => {
+    const details: GreigeStockDetail[] = [];
+    for (let b = 1; b <= 6; b++) for (let t = 0; t < 8; t++) details.push(than(b, 90 + ((b * 5 + t * 11) % 25)));
+    const l = lot(details, 98);
+    const jobs = [
+      { key: 'x', targetActual: 1340.72 },
+      { key: 'y', targetActual: 2786.6 },
+    ];
+    const r = bestFitThansForJobs(l, jobs);
+    if (!r) return; // a lot this size may not fit — covered by the null test
+    for (const j of jobs)
+      expect(Math.abs(r.perJob[j.key].actual - j.targetActual)).toBeLessThanOrEqual(j.targetActual * 0.01 + 0.005);
+  });
+
+  it('a single job is the plain best fit', () => {
+    const l = lot([1, 1, 2, 2].map((b) => than(b, 100)));
+    const r = bestFitThansForJobs(l, [{ key: 'only', targetActual: 200 }])!;
+    expect(r.perJob.only.picks).toHaveLength(2);
+    expect(r.balesBroken).toBe(0);
+  });
+
+  it('returns null when the jobs cannot be fitted', () => {
+    const l = lot([than(1, 100)]);
+    expect(
+      bestFitThansForJobs(l, [
+        { key: 'a', targetActual: 50 },
+        { key: 'b', targetActual: 50 },
+      ])
+    ).toBeNull();
   });
 });

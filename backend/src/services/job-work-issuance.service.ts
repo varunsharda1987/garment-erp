@@ -30,7 +30,7 @@ import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
-import { formatDate } from '../utils/date';
+import { formatDate, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
 
 type Tx = Prisma.TransactionClient;
@@ -1542,49 +1542,122 @@ export async function recordThansForJob(
   lots: Array<{ greigeStockLotId: string; details: IssueDetailInput[] }>,
   userId: string
 ): Promise<{ jobWorkNumber: string; lots: ThanRecordLotStatus[] }> {
+  return prisma.$transaction((tx) => recordThansWithinTx(tx, jwoId, lots, userId), {
+    timeout: 15000,
+    maxWait: 5000,
+  });
+}
+
+/**
+ * Several jobs that went to one processor together, recorded in ONE transaction — the thans were
+ * fitted on their total ("Best fit for all jobs"), so recording half of them would leave the godown
+ * list wrong. A than named on two jobs is refused by markThansIssued (it is no longer available).
+ */
+export async function recordThansForJobs(
+  jobs: Array<{ jwoId: string; lots: Array<{ greigeStockLotId: string; details: IssueDetailInput[] }> }>,
+  userId: string
+): Promise<Array<{ jobWorkNumber: string; lots: ThanRecordLotStatus[] }>> {
   return prisma.$transaction(
     async (tx) => {
-      const status = await getThanRecordStatus(jwoId, tx);
-      if (!(ISSUED_JOB_STATUSES as readonly string[]).includes(status.jwoStatus)) {
-        throw new JobWorkOrderError(
-          'JOB_NOT_ISSUED',
-          `${status.jobWorkNumber} has not been issued yet — pick the thans on the Issue dialog instead.`
-        );
-      }
-      const jwo = await tx.job_work_orders.findUnique({
-        where: { id: jwoId },
-        select: { outwardChallanId: true },
-      });
-
-      for (const lot of lots) {
-        const s = status.lots.find((l) => l.greigeStockLotId === lot.greigeStockLotId);
-        if (!s) {
-          throw new JobWorkOrderError(
-            'THAN_RECORD_INVALID',
-            `${status.jobWorkNumber} did not take cloth from that lot — only its own lots can be recorded.`
-          );
-        }
-        const pickedCounted = lot.details.reduce((sum, d) => sum + d.metersToIssue, 0);
-        const afterActual = foldActual(s.recordedCounted + pickedCounted, s.foldLengthCm).toNumber();
-        if (qtyExceeds(afterActual, (s.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100)) {
-          throw new JobWorkOrderError(
-            'THAN_RECORD_INVALID',
-            `These thans come to ${afterActual} m actual with what is already recorded, but ` +
-              `${status.jobWorkNumber} took only ${s.takenActual} m from ${s.greigeCode ?? 'this lot'}.`
-          );
-        }
-        await greigeStockService.markThansIssued(lot.greigeStockLotId, lot.details, userId, tx, {
-          jobWorkOrderId: jwoId,
-          challanId: jwo?.outwardChallanId ?? undefined,
-        });
-      }
-
-      const after = await getThanRecordStatus(jwoId, tx);
-      logInfo(
-        `[Issuance] Recorded ${lots.reduce((n, l) => n + l.details.length, 0)} than(s) on ${after.jobWorkNumber}`
-      );
-      return { jobWorkNumber: after.jobWorkNumber, lots: after.lots };
+      const out: Array<{ jobWorkNumber: string; lots: ThanRecordLotStatus[] }> = [];
+      for (const job of jobs) out.push(await recordThansWithinTx(tx, job.jwoId, job.lots, userId));
+      return out;
     },
-    { timeout: 15000, maxWait: 5000 }
+    { timeout: 30000, maxWait: 5000 }
   );
+}
+
+/**
+ * Other issued jobs that went to the SAME processor on the SAME day (IST) and took from one of this
+ * job's lots with thans still unnamed — the jobs "Best fit for all jobs" fits together with this one.
+ */
+export async function getSameTripThanSiblings(
+  jwoId: string
+): Promise<Array<{ jwoId: string; jobWorkNumber: string; lots: ThanRecordLotStatus[] }>> {
+  const jwo = await prisma.job_work_orders.findUnique({
+    where: { id: jwoId },
+    select: { processorId: true, sentDate: true },
+  });
+  if (!jwo?.sentDate) return [];
+  const day = toDateInputValue(jwo.sentDate);
+  const from = new Date(`${day}T00:00:00+05:30`);
+  const to = new Date(from.getTime() + 24 * 60 * 60 * 1000);
+  const own = await getThanRecordStatus(jwoId);
+  const ownLots = new Set(own.lots.filter((l) => l.lotHasThans).map((l) => l.greigeStockLotId));
+  if (ownLots.size === 0) return [];
+
+  const candidates = await prisma.job_work_orders.findMany({
+    where: {
+      id: { not: jwoId },
+      processorId: jwo.processorId,
+      fabricType: 'GREIGE',
+      jwoStatus: { in: [...ISSUED_JOB_STATUSES] },
+      sentDate: { gte: from, lt: to },
+    },
+    select: { id: true },
+    orderBy: { jobWorkNumber: 'asc' },
+  });
+  const siblings: Array<{ jwoId: string; jobWorkNumber: string; lots: ThanRecordLotStatus[] }> = [];
+  for (const c of candidates) {
+    const status = await getThanRecordStatus(c.id);
+    const pending = status.lots.filter(
+      (l) => ownLots.has(l.greigeStockLotId) && l.lotHasThans && qtyExceeds(l.takenActual, l.recordedActual)
+    );
+    if (pending.length > 0) siblings.push({ jwoId: c.id, jobWorkNumber: status.jobWorkNumber, lots: pending });
+  }
+  return siblings;
+}
+
+async function recordThansWithinTx(
+  tx: Tx,
+  jwoId: string,
+  lots: Array<{ greigeStockLotId: string; details: IssueDetailInput[] }>,
+  userId: string
+): Promise<{ jobWorkNumber: string; lots: ThanRecordLotStatus[] }> {
+  const status = await getThanRecordStatus(jwoId, tx);
+  if (!(ISSUED_JOB_STATUSES as readonly string[]).includes(status.jwoStatus)) {
+    throw new JobWorkOrderError(
+      'JOB_NOT_ISSUED',
+      `${status.jobWorkNumber} has not been issued yet — pick the thans on the Issue dialog instead.`
+    );
+  }
+  const jwo = await tx.job_work_orders.findUnique({
+    where: { id: jwoId },
+    select: { outwardChallanId: true },
+  });
+
+  for (const lot of lots) {
+    const s = status.lots.find((l) => l.greigeStockLotId === lot.greigeStockLotId);
+    if (!s) {
+      throw new JobWorkOrderError(
+        'THAN_RECORD_INVALID',
+        `${status.jobWorkNumber} did not take cloth from that lot — only its own lots can be recorded.`
+      );
+    }
+    const pickedCounted = lot.details.reduce((sum, d) => sum + d.metersToIssue, 0);
+    const afterActual = foldActual(s.recordedCounted + pickedCounted, s.foldLengthCm).toNumber();
+    if (qtyExceeds(afterActual, (s.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100)) {
+      throw new JobWorkOrderError(
+        'THAN_RECORD_INVALID',
+        `These thans come to ${afterActual} m actual with what is already recorded, but ` +
+          `${status.jobWorkNumber} took only ${s.takenActual} m from ${s.greigeCode ?? 'this lot'}.`
+      );
+    }
+    try {
+      await greigeStockService.markThansIssued(lot.greigeStockLotId, lot.details, userId, tx, {
+        jobWorkOrderId: jwoId,
+        challanId: jwo?.outwardChallanId ?? undefined,
+      });
+    } catch (error) {
+      // A than already sent (or named twice across jobs in one batch) — the user's to fix, not a 500
+      throw new JobWorkOrderError(
+        'THAN_RECORD_INVALID',
+        `${status.jobWorkNumber}: ${error instanceof Error ? error.message : 'a than could not be recorded'}`
+      );
+    }
+  }
+
+  const after = await getThanRecordStatus(jwoId, tx);
+  logInfo(`[Issuance] Recorded ${lots.reduce((n, l) => n + l.details.length, 0)} than(s) on ${after.jobWorkNumber}`);
+  return { jobWorkNumber: after.jobWorkNumber, lots: after.lots };
 }

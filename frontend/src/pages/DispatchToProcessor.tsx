@@ -15,7 +15,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { AlertTriangle, ArrowLeft, Loader2, Truck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Boxes, Loader2, Truck } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -29,8 +29,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import {
   autoFillLotRows,
+  bestFitThansForJobs,
   emptyLotRow,
   evaluateLotRows,
+  lotHasThans,
+  lotRowTarget,
+  THAN_PICK_TOLERANCE_PCT,
+  withPicks,
   picksPayload,
   round3,
   rowHasPicks,
@@ -63,6 +68,8 @@ export default function DispatchToProcessor() {
   const [challanNumber, setChallanNumber] = useState('');
   const [widthAcknowledged, setWidthAcknowledged] = useState(false);
   const [selection, setSelection] = useState<Record<string, OrderSelection>>({});
+  /** What "Best fit for all orders" did, one line per lot */
+  const [truckFitNotes, setTruckFitNotes] = useState<string[]>([]);
   /** Per-order message from a rejected submit, shown against the row it belongs to. */
   const [orderErrors, setOrderErrors] = useState<Record<string, string>>({});
 
@@ -84,6 +91,7 @@ export default function DispatchToProcessor() {
     setSelection({});
     setOrderErrors({});
     setWidthAcknowledged(false);
+    setTruckFitNotes([]);
   };
 
   const stateFor = (order: DispatchableOrder): OrderSelection =>
@@ -174,6 +182,73 @@ export default function DispatchToProcessor() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrders, selection, processorId, widthAcknowledged]);
 
+  /**
+   * Every order on this truck goes to the same processor on the same day, so fit each lot's thans
+   * on the TOTAL of the orders drawing on it — whole bales across the truck, a bale shared between
+   * two orders rather than two bales broken — then share them out, each order within ±1%.
+   */
+  const lotsWithThans = new Set(
+    assessment.perOrder.flatMap(({ state }) => state.rows.filter((r) => r.lotId && lotHasThans(r)).map((r) => r.lotId))
+  );
+  const fitTruck = () => {
+    const byLot = new Map<
+      string,
+      {
+        lotThans: NonNullable<IssueLotRow['lotThans']>;
+        label: string;
+        jobs: Array<{ key: string; targetActual: number }>;
+      }
+    >();
+    for (const { order, state, needsLots } of assessment.perOrder) {
+      if (!needsLots) continue;
+      state.rows.forEach((row, index) => {
+        if (!row.lotId || !row.lotThans || !lotHasThans(row)) return;
+        const entry = byLot.get(row.lotId) ?? {
+          lotThans: row.lotThans,
+          label: order.availableLots.find((l) => l.id === row.lotId)?.greigeCode ?? 'A lot',
+          jobs: [],
+        };
+        entry.jobs.push({
+          key: `${order.id}#${index}`,
+          targetActual: lotRowTarget(state.rows, index, order.requiredQty, order.availableLots),
+        });
+        byLot.set(row.lotId, entry);
+      });
+    }
+    const next = { ...selection };
+    const notes: string[] = [];
+    for (const { lotThans, label, jobs } of byLot.values()) {
+      const fit = bestFitThansForJobs(lotThans, jobs);
+      if (!fit) {
+        notes.push(
+          `${label}: no set of whole thans fits ${jobs.length === 1 ? 'the order' : `all ${jobs.length} orders`} within ${THAN_PICK_TOLERANCE_PCT}% — pick those thans by hand.`
+        );
+        continue;
+      }
+      for (const job of jobs) {
+        const [orderId, indexText] = job.key.split('#');
+        const current = next[orderId];
+        if (!current) continue;
+        const index = Number(indexText);
+        next[orderId] = {
+          ...current,
+          rows: current.rows.map((row, i) =>
+            i === index ? { ...withPicks(row, fit.perJob[job.key]?.picks ?? []), detailsExpanded: true } : row
+          ),
+        };
+      }
+      const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+      const parts = [plural(fit.balesWhole, 'whole bale')];
+      if (fit.balesBroken > 0) parts.push(`${plural(fit.balesBroken, 'bale')} broken`);
+      if (fit.balesShared > 0) parts.push(`${plural(fit.balesShared, 'bale')} shared between orders`);
+      notes.push(
+        `${label}: ${jobs.length === 1 ? '1 order' : `${jobs.length} orders fitted on their total`} — ${parts.join(', ')}, no than cut.`
+      );
+    }
+    setSelection(next);
+    setTruckFitNotes(notes);
+  };
+
   const dispatchMutation = useMutation({
     mutationFn: () => {
       const payloadOrders: DispatchOrderInput[] = assessment.perOrder.map(({ order, state, needsLots }) => {
@@ -232,6 +307,7 @@ export default function DispatchToProcessor() {
       setSelection({});
       setOrderErrors({});
       setWidthAcknowledged(false);
+      setTruckFitNotes([]);
       queryClient.invalidateQueries({ queryKey: ['jwo-dispatchable'] });
       queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['challans'] });
@@ -430,6 +506,28 @@ export default function DispatchToProcessor() {
                 </div>
               );
             })}
+          </CardContent>
+        </Card>
+      )}
+
+      {lotsWithThans.size > 0 && (
+        <Card>
+          <CardContent className="space-y-2 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Everything on this truck goes to one processor, so the thans are best chosen for all the orders
+                together: whole bales across the truck, each order within {THAN_PICK_TOLERANCE_PCT}%, no than cut.
+              </p>
+              <Button type="button" variant="outline" onClick={fitTruck} disabled={dispatchMutation.isPending}>
+                <Boxes className="mr-2 h-4 w-4" />
+                Best fit for all orders
+              </Button>
+            </div>
+            {truckFitNotes.map((note) => (
+              <p key={note} className="text-xs text-muted-foreground">
+                {note}
+              </p>
+            ))}
           </CardContent>
         </Card>
       )}

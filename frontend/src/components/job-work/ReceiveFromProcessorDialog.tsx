@@ -386,7 +386,7 @@ export default function ReceiveFromProcessorDialog({
                 id="rfp-qty"
                 type="number"
                 min={0.01}
-                step={0.01}
+                step="any"
                 value={qtyMeters > 0 ? qtyMeters : ''}
                 onChange={(e) => setQtyMeters(parseFloat(e.target.value) || 0)}
                 placeholder={expected != null ? `e.g. ${fmt(expected)}` : undefined}
@@ -537,7 +537,7 @@ export default function ReceiveFromProcessorDialog({
                 id="rfp-defects"
                 type="number"
                 min={0}
-                step={0.01}
+                step="any"
                 value={defectMeters > 0 ? defectMeters : ''}
                 onChange={(e) => setDefectMeters(parseFloat(e.target.value) || 0)}
               />

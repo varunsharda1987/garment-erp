@@ -54,6 +54,7 @@ import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { formatDate } from '@/lib/date';
+import { isQtyZero, qtyAtLeast } from '@/lib/quantity';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
 // NOTE: the backend serializer maps the Prisma `styles` relation key to `style`
@@ -293,7 +294,11 @@ export default function PurchaseOrderDetail() {
     if (!purchaseOrder?.items?.length) return 0;
     const totalOrdered = purchaseOrder.items.reduce((sum, item) => sum + Number(item.orderedQuantity), 0);
     const totalReceived = purchaseOrder.items.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
-    return totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0;
+    if (totalOrdered <= 0) return 0;
+    const percent = Math.round((totalReceived / totalOrdered) * 100);
+    // 100% only when every line is complete: rounding must not show 100 while a line still waits
+    const allComplete = purchaseOrder.items.every((item) => qtyAtLeast(item.receivedQuantity, item.orderedQuantity));
+    return allComplete ? percent : Math.min(percent, 99);
   };
 
   // Extract linked style numbers from requirement_po_links or po_source_links
@@ -679,9 +684,9 @@ export default function PurchaseOrderDetail() {
             </TableHeader>
             <TableBody>
               {purchaseOrder.items?.map((item) => {
-                const pending = Number(item.orderedQuantity) - Number(item.receivedQuantity);
-                const isFullyReceived = pending <= 0;
-                const isPartiallyReceived = Number(item.receivedQuantity) > 0 && pending > 0;
+                // Within rounding dust of the ordered quantity IS fully received (see @/lib/quantity)
+                const isFullyReceived = qtyAtLeast(item.receivedQuantity, item.orderedQuantity);
+                const isPartiallyReceived = !isQtyZero(item.receivedQuantity) && !isFullyReceived;
                 const taxAmt = Number(item.taxAmount || 0);
                 const lineWithTax = Number(item.totalPrice) + taxAmt;
 

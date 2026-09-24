@@ -14,6 +14,7 @@ import { Prisma, StockEntryType, StockStatus } from '@prisma/client';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { toCurrency, multiplyCurrency, toNumber, roundToCent, Decimal } from '../utils/currency'; // BUG-LAC8 fix
 import { applySearch } from '../utils/search-filter';
+import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 
 // ============================================================================
 // INTERFACES
@@ -441,9 +442,11 @@ export async function allocateStock(input: AllocateStockInput) {
   }
 
   const available = Number(stock.quantityAvailable);
-  if (input.quantityToAllocate > available) {
+  if (qtyExceeds(input.quantityToAllocate, available)) {
     throw new Error(`Insufficient stock. Available: ${available}, Requested: ${input.quantityToAllocate}`);
   }
+  // Quantity rule (utils/quantity): allocating the whole lot within dust allocates exactly the lot.
+  input.quantityToAllocate = snapToLimit(input.quantityToAllocate, available);
 
   // Determine allocation type
   let allocationType = input.allocationType || 'SAME_STYLE';
@@ -499,7 +502,7 @@ export async function allocateStock(input: AllocateStockInput) {
       data: {
         quantityAvailable: newAvailable,
         quantityReserved: { increment: input.quantityToAllocate },
-        status: newAvailable === 0 ? 'RESERVED' : 'AVAILABLE',
+        status: isQtyZero(newAvailable) || newAvailable < 0 ? 'RESERVED' : 'AVAILABLE',
       },
     });
 
@@ -543,9 +546,11 @@ export async function transferStock(input: TransferStockInput) {
   }
 
   const available = Number(stock.quantityAvailable);
-  if (input.quantityToTransfer > available) {
+  if (qtyExceeds(input.quantityToTransfer, available)) {
     throw new Error(`Insufficient available stock. Available: ${available}, Requested: ${input.quantityToTransfer}`);
   }
+  // Quantity rule (utils/quantity): transferring the whole lot within dust transfers exactly the lot.
+  input.quantityToTransfer = snapToLimit(input.quantityToTransfer, available);
 
   const result = await prisma.$transaction(async (tx) => {
     // Create new allocation for target style
@@ -575,7 +580,7 @@ export async function transferStock(input: TransferStockInput) {
       data: {
         quantityAvailable: newAvailable,
         quantityReserved: { increment: input.quantityToTransfer },
-        status: newAvailable === 0 ? 'RESERVED' : 'AVAILABLE',
+        status: isQtyZero(newAvailable) || newAvailable < 0 ? 'RESERVED' : 'AVAILABLE',
       },
     });
 
@@ -620,13 +625,15 @@ export async function consumeStock(input: ConsumeStockInput) {
 
   const allocated = Number(allocation.quantityAllocated);
   const consumed = Number(allocation.quantityConsumed);
-  const remaining = allocated - consumed;
+  const remaining = qtyRemaining(allocated, consumed);
 
-  if (input.quantityConsumed > remaining) {
+  if (qtyExceeds(input.quantityConsumed, remaining)) {
     throw new Error(
       `Cannot consume more than allocated. Remaining: ${remaining}, Requested: ${input.quantityConsumed}`
     );
   }
+  // Quantity rule (utils/quantity): consuming the rest within dust consumes exactly the rest.
+  input.quantityConsumed = snapToLimit(input.quantityConsumed, remaining);
 
   const result = await prisma.$transaction(async (tx) => {
     // Update allocation
@@ -635,7 +642,7 @@ export async function consumeStock(input: ConsumeStockInput) {
       where: { id: input.allocationId },
       data: {
         quantityConsumed: newConsumed,
-        allocationStatus: newConsumed >= allocated ? 'CONSUMED' : 'IN_USE',
+        allocationStatus: qtyAtLeast(newConsumed, allocated) ? 'CONSUMED' : 'IN_USE',
       },
     });
 
@@ -704,11 +711,13 @@ export async function returnStock(input: ReturnStockInput) {
   const allocated = Number(allocation.quantityAllocated);
   const consumed = Number(allocation.quantityConsumed);
   const returned = Number(allocation.quantityReturned);
-  const maxReturnable = allocated - consumed - returned;
+  const maxReturnable = qtyRemaining(allocated, consumed + returned);
 
-  if (input.quantityToReturn > maxReturnable) {
+  if (qtyExceeds(input.quantityToReturn, maxReturnable)) {
     throw new Error(`Cannot return more than available. Max returnable: ${maxReturnable}`);
   }
+  // Quantity rule (utils/quantity): returning the rest within dust returns exactly the rest.
+  input.quantityToReturn = snapToLimit(input.quantityToReturn, maxReturnable);
 
   const result = await prisma.$transaction(async (tx) => {
     // Update allocation

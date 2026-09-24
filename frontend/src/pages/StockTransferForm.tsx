@@ -1,5 +1,6 @@
 // Stock Transfer Form - Transfer between warehouses
 import { unitShort } from '@/lib/units';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X, ArrowLeftRight } from 'lucide-react';
@@ -81,7 +82,7 @@ export default function StockTransferForm() {
       return;
     }
 
-    if (selectedStock && Number(formData.quantity) > Number(selectedStock.quantity)) {
+    if (selectedStock && qtyExceeds(formData.quantity, selectedStock.quantity)) {
       setError(`Insufficient stock. Available: ${selectedStock.quantity} ${unitShort(selectedStock.unit)}`);
       return;
     }
@@ -92,7 +93,8 @@ export default function StockTransferForm() {
         materialId: formData.materialId,
         fromWarehouseId: formData.fromWarehouseId,
         toWarehouseId: formData.toWarehouseId,
-        quantity: Number(formData.quantity),
+        // A full quantity typed at 2 decimals IS the full stock (see @/lib/quantity)
+        quantity: selectedStock ? snapToLimit(formData.quantity, selectedStock.quantity) : Number(formData.quantity),
         unit: formData.unit as Unit,
         remarks: formData.remarks || undefined,
       });
@@ -231,7 +233,7 @@ export default function StockTransferForm() {
                   value={formData.quantity}
                   onChange={(e) => handleChange('quantity', e.target.value)}
                   min="0"
-                  step="0.01"
+                  step="any"
                   required
                 />
               </div>

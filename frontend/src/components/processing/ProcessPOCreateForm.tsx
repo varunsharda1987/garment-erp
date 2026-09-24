@@ -31,6 +31,7 @@ import type { DyeLabDip } from '@/types/dyeing.types';
 import type { LabDip, CreateProcessPORequest } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 type CreateMode = 'lab-dip' | 'style-based';
@@ -393,10 +394,12 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       handleApiError(new Error('Invalid quantity'), 'Please enter a valid quantity');
       return;
     }
-    if (qtySentMeters > Number(selectedGreigeStock.quantityAvailable)) {
+    if (qtyExceeds(qtySentMeters, selectedGreigeStock.quantityAvailable)) {
       handleApiError(new Error('Quantity exceeds available'), 'Quantity cannot exceed available stock');
       return;
     }
+    // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
+    const qtyToSend = snapToLimit(qtySentMeters, selectedGreigeStock.quantityAvailable);
     if (expectedFinishedWidth <= 0) {
       handleApiError(new Error('Invalid width'), 'Please enter expected finished width');
       return;
@@ -411,7 +414,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         ? {
             labDipId: selectedLabDip!.id,
             greigeStockLotId: selectedGreigeStock.id,
-            qtySentMeters,
+            qtySentMeters: qtyToSend,
             sentWidthInches: expectedFinishedWidth,
             agreedRatePerMeter,
             isRateTbd,
@@ -426,7 +429,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
             fabricId: selectedStyleFabric?.fabricId || selectedFabric!.id,
             processorId: selectedProcessor!.id,
             greigeStockLotId: selectedGreigeStock.id,
-            qtySentMeters,
+            qtySentMeters: qtyToSend,
             sentWidthInches: expectedFinishedWidth,
             agreedRatePerMeter,
             isRateTbd,
@@ -1034,7 +1037,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   id="qtySentMeters"
                   type="number"
                   min={0}
-                  step={0.01}
+                  step="any"
                   max={Number(selectedGreigeStock.quantityAvailable)}
                   value={qtySentMeters || ''}
                   onChange={(e) => setQtySentMeters(parseFloat(e.target.value) || 0)}

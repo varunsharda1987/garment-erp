@@ -16,6 +16,7 @@ import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber }
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { toDateInputValue } from '../utils/date';
 import { foldActual, hasFold } from '../utils/fold-length';
+import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -194,11 +195,11 @@ class StockMovementService {
     }
 
     const currentQty = new Decimal(existing.quantity.toString());
-    const decreaseQty = new Decimal(quantity.toString());
-
-    if (currentQty.lt(decreaseQty)) {
-      throw new Error(`Insufficient stock. Available: ${currentQty}, Requested: ${decreaseQty}`);
+    // Quantity rule (utils/quantity): taking the whole balance within dust takes exactly the balance.
+    if (qtyExceeds(quantity, currentQty)) {
+      throw new Error(`Insufficient stock. Available: ${currentQty}, Requested: ${quantity}`);
     }
+    const decreaseQty = new Decimal(snapToLimit(quantity, currentQty));
 
     const newQuantity = currentQty.sub(decreaseQty);
     let newStockValue = existing.stockValue;
@@ -443,11 +444,14 @@ class StockMovementService {
       }
 
       const availableQty = new Decimal(stockLevel.quantity.toString());
-      const requiredQty = new Decimal(data.quantity.toString());
 
-      if (availableQty.lt(requiredQty)) {
-        throw new Error(`Insufficient stock. Available: ${availableQty}, Required: ${requiredQty}`);
+      // Quantity rule (utils/quantity): issuing the whole balance within dust issues exactly the balance —
+      // snapped once here so the movement, the valuation row and the decrease all carry the same number.
+      if (qtyExceeds(data.quantity, availableQty)) {
+        throw new Error(`Insufficient stock. Available: ${availableQty}, Required: ${data.quantity}`);
       }
+      data.quantity = new Decimal(snapToLimit(data.quantity, availableQty));
+      const requiredQty = new Decimal(data.quantity.toString());
 
       // Create stock movement record
       const movement = await tx.stock_movements.create({
@@ -543,11 +547,15 @@ class StockMovementService {
       }
 
       const availableQty = new Decimal(sourceStock.quantity.toString());
-      const transferQty = new Decimal(data.quantity.toString());
 
-      if (availableQty.lt(transferQty)) {
-        throw new Error(`Insufficient stock in source warehouse. Available: ${availableQty}, Required: ${transferQty}`);
+      // Quantity rule (utils/quantity): moving the whole balance within dust moves exactly the balance.
+      if (qtyExceeds(data.quantity, availableQty)) {
+        throw new Error(
+          `Insufficient stock in source warehouse. Available: ${availableQty}, Required: ${data.quantity}`
+        );
       }
+      data.quantity = new Decimal(snapToLimit(data.quantity, availableQty));
+      const transferQty = new Decimal(data.quantity.toString());
 
       const valuationRate = sourceStock.valuationRate;
 

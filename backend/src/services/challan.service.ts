@@ -13,6 +13,7 @@ import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber }
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
 import { normalizeUnit, unitLabel } from '../utils/units';
+import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
 
 /**
  * challan_items.unit is free text (schema default 'PCS'); a stock movement takes the Unit enum.
@@ -281,6 +282,9 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.greigeStockId },
             include: { greige: true },
           });
+          // Quantity rule (utils/quantity): a 3-decimal challan line within dust of the 2-decimal lot
+          // takes exactly the lot — otherwise the guarded consume refuses 500.002 against 500.00.
+          const greigeQty = originalStock ? snapToLimit(qty, originalStock.quantityAvailable) : qty;
 
           // Consume from source warehouse — pass the outer tx so the consumption rolls back with the
           // challan if issuance later fails (was on the global client → stock deducted with no challan; F4).
@@ -288,7 +292,7 @@ export async function issueChallan(id: string, userId?: string) {
           // used to be omitted, leaving referenceId null and forcing a second, duplicate row below.
           const isProcessorTransfer =
             existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && !!existing.toId;
-          await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId, tx, {
+          await greigeStockService.consumeGreigeStock(item.greigeStockId, greigeQty, effectiveUserId, tx, {
             referenceType: 'CHALLAN',
             referenceId: existing.id,
             notes: isProcessorTransfer
@@ -311,7 +315,7 @@ export async function issueChallan(id: string, userId?: string) {
               await tx.greige_stock.create({
                 data: {
                   greigeId: originalStock.greigeId,
-                  quantityAvailable: new Prisma.Decimal(qty),
+                  quantityAvailable: new Prisma.Decimal(greigeQty),
                   quantityReserved: new Prisma.Decimal(0),
                   quantityConsumed: new Prisma.Decimal(0),
                   unit: originalStock.unit,
@@ -358,20 +362,23 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.fabricStockId },
           });
           if (!fabricStock) throw new Error(`Fabric stock ${item.fabricStockId} not found`);
-          // BUG-CHN5 fix: Use decimal.js for safe subtraction
-          const newAvailable = toNumber(subtractCurrency(fabricStock.quantityAvailable, qty));
-          if (newAvailable < 0)
+          // Quantity rule (utils/quantity): the challan line is 3-decimal, the lot 2 — a line within dust
+          // of the lot takes the whole lot, and the lot is left at exactly 0 (closed), not 0.002.
+          if (qtyExceeds(qty, fabricStock.quantityAvailable))
             throw new Error(
               `Insufficient fabric stock. Available: ${fabricStock.quantityAvailable}, Requested: ${qty}`
             );
+          const lotQty = snapToLimit(qty, fabricStock.quantityAvailable);
+          // BUG-CHN5 fix: Use decimal.js for safe subtraction
+          const newAvailable = toNumber(subtractCurrency(fabricStock.quantityAvailable, lotQty));
 
           await tx.fabric_stock.update({
             where: { id: item.fabricStockId },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
-              quantityConsumed: { increment: qty },
+              quantityConsumed: { increment: lotQty },
               lastConsumedDate: new Date(),
-              status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+              status: isQtyZero(newAvailable) || newAvailable < 0 ? 'EXHAUSTED' : 'AVAILABLE',
             },
           });
 
@@ -380,7 +387,7 @@ export async function issueChallan(id: string, userId?: string) {
             where: { fabricId: fabricStock.fabricId },
             select: { id: true },
           });
-          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -qty, undefined, 'METER', tx);
+          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -lotQty, undefined, 'METER', tx);
         }
 
         // 3. Lace stock deduction
@@ -389,18 +396,21 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.laceStockId },
           });
           if (!laceStock) throw new Error(`Lace stock ${item.laceStockId} not found`);
-          // BUG-CHN5 fix: Use decimal.js for safe subtraction
-          const newAvailable = toNumber(subtractCurrency(laceStock.quantityAvailable, qty));
-          if (newAvailable < 0)
+          // Quantity rule (utils/quantity): the challan line is 3-decimal, the lot 2 — a line within dust
+          // of the lot takes the whole lot, and the lot is left at exactly 0 (closed), not 0.002.
+          if (qtyExceeds(qty, laceStock.quantityAvailable))
             throw new Error(`Insufficient lace stock. Available: ${laceStock.quantityAvailable}, Requested: ${qty}`);
+          const lotQty = snapToLimit(qty, laceStock.quantityAvailable);
+          // BUG-CHN5 fix: Use decimal.js for safe subtraction
+          const newAvailable = toNumber(subtractCurrency(laceStock.quantityAvailable, lotQty));
 
           await tx.lace_stock.update({
             where: { id: item.laceStockId },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
-              quantityConsumed: { increment: qty },
+              quantityConsumed: { increment: lotQty },
               lastConsumedDate: new Date(),
-              status: newAvailable <= 0 ? 'ISSUED' : 'AVAILABLE',
+              status: isQtyZero(newAvailable) || newAvailable < 0 ? 'ISSUED' : 'AVAILABLE',
             },
           });
 
@@ -409,7 +419,7 @@ export async function issueChallan(id: string, userId?: string) {
             data: {
               stockId: item.laceStockId,
               transactionType: 'CONSUMPTION',
-              quantity: -qty,
+              quantity: -lotQty,
               balanceAfter: newAvailable,
               referenceType: 'CHALLAN',
               referenceId: existing.id,
@@ -425,7 +435,7 @@ export async function issueChallan(id: string, userId?: string) {
               select: { id: true },
             });
             if (laceMaterial)
-              await syncStockLevelQuantity(laceMaterial.id, -qty, laceStock.warehouseId ?? undefined, 'METER', tx);
+              await syncStockLevelQuantity(laceMaterial.id, -lotQty, laceStock.warehouseId ?? undefined, 'METER', tx);
           }
         }
 
@@ -435,12 +445,15 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.threadStockId },
           });
           if (!threadStock) throw new Error(`Thread stock ${item.threadStockId} not found`);
-          // BUG-CHN5 fix: Use decimal.js for safe subtraction
-          const newAvailable = toNumber(subtractCurrency(threadStock.quantityAvailable, qty));
-          if (newAvailable < 0)
+          // Quantity rule (utils/quantity): the challan line is 3-decimal, the lot 2 — a line within dust
+          // of the lot takes the whole lot, and the lot is left at exactly 0 (closed), not 0.002.
+          if (qtyExceeds(qty, threadStock.quantityAvailable))
             throw new Error(
               `Insufficient thread stock. Available: ${threadStock.quantityAvailable}, Requested: ${qty}`
             );
+          const lotQty = snapToLimit(qty, threadStock.quantityAvailable);
+          // BUG-CHN5 fix: Use decimal.js for safe subtraction
+          const newAvailable = toNumber(subtractCurrency(threadStock.quantityAvailable, lotQty));
 
           // Recalculate derived quantities from packaging specs
           const spec = await tx.thread_packaging_specs.findFirst({
@@ -461,11 +474,11 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.threadStockId },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
-              quantityConsumed: { increment: qty },
+              quantityConsumed: { increment: lotQty },
               metersAvailable: newMeters !== null ? new Prisma.Decimal(newMeters) : null,
               boxesAvailable: newBoxes !== null ? new Prisma.Decimal(newBoxes) : null,
               lastConsumedDate: new Date(),
-              status: newAvailable <= 0 ? 'ISSUED' : 'AVAILABLE',
+              status: isQtyZero(newAvailable) || newAvailable < 0 ? 'ISSUED' : 'AVAILABLE',
             },
           });
 
@@ -474,7 +487,7 @@ export async function issueChallan(id: string, userId?: string) {
             data: {
               stockId: item.threadStockId,
               transactionType: 'CONSUMPTION',
-              quantity: -qty,
+              quantity: -lotQty,
               balanceAfter: newAvailable,
               referenceType: 'CHALLAN',
               referenceId: existing.id,
@@ -490,7 +503,13 @@ export async function issueChallan(id: string, userId?: string) {
               select: { id: true },
             });
             if (threadMaterial)
-              await syncStockLevelQuantity(threadMaterial.id, -qty, threadStock.warehouseId ?? undefined, 'METER', tx);
+              await syncStockLevelQuantity(
+                threadMaterial.id,
+                -lotQty,
+                threadStock.warehouseId ?? undefined,
+                'METER',
+                tx
+              );
           }
         }
 
@@ -832,11 +851,12 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
     );
     const totalExpected = toNumber(allItems.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0)));
 
-    // Determine status
+    // Determine status. Quantity rule (utils/quantity): a line received within dust of its quantity
+    // (2-decimal entry against a 3-decimal line) is fully received.
     const allReceived = allItems.every(
-      (item) => item.receivedQty !== null && Number(item.receivedQty) >= Number(item.quantity)
+      (item) => item.receivedQty !== null && qtyAtLeast(item.receivedQty, item.quantity)
     );
-    const someReceived = allItems.some((item) => item.receivedQty !== null && Number(item.receivedQty) > 0);
+    const someReceived = allItems.some((item) => item.receivedQty !== null && qtyExceeds(item.receivedQty, 0));
 
     let newStatus: ChallanStatus = 'IN_TRANSIT';
     if (allReceived) {
@@ -987,7 +1007,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
             await tx.work_order_service_requirements.update({
               where: { id: item.serviceRequirementId },
               data: {
-                status: Number(item.receivedQty) >= requiredQty ? 'COMPLETED' : 'IN_PROGRESS',
+                status: qtyAtLeast(item.receivedQty, requiredQty) ? 'COMPLETED' : 'IN_PROGRESS',
               },
             });
           }
@@ -1169,8 +1189,10 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
     const itemsToCreate: CreateChallanItemInput[] = [];
     let remaining = requiredQty;
 
+    // Quantity rule (utils/quantity): the requirement is 3-decimal, greige lots 2 — a remainder
+    // within dust is covered, not a reason to open another lot or refuse the challan.
     for (const stock of greigeStocks) {
-      if (remaining <= 0) break;
+      if (isQtyZero(remaining) || remaining < 0) break;
       const available = Number(stock.quantityAvailable);
       const allocate = Math.min(available, remaining);
 
@@ -1186,7 +1208,7 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
       remaining -= allocate;
     }
 
-    if (remaining > 0) {
+    if (qtyExceeds(remaining, 0)) {
       throw new Error(`Insufficient greige stock. Short by ${remaining} meters`);
     }
 
@@ -1278,12 +1300,15 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
       if (!stock) {
         throw new Error(`Fabric stock ${item.fabricStockId} not found`);
       }
-      if (item.quantity > Number(stock.quantityConsumed)) {
+      if (qtyExceeds(item.quantity, stock.quantityConsumed)) {
         throw new Error(
           `Cannot return ${item.quantity}m to fabric stock ${item.fabricStockId} — only ` +
             `${Number(stock.quantityConsumed)}m was consumed`
         );
       }
+      // Quantity rule (utils/quantity): returning everything consumed, typed at 2 decimals, returns
+      // exactly what was consumed — the challan line and the stock credit below both read this.
+      item.quantity = snapToLimit(item.quantity, stock.quantityConsumed);
     }
 
     const challanNumber = await generateChallanNumber(tx);

@@ -45,6 +45,7 @@ import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resol
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
+import { qtyExceeds, snapToLimit } from '../utils/quantity';
 import type {
   CreateJobWorkOrderInput,
   AddJwoComponentInput,
@@ -203,12 +204,15 @@ class JobWorkOrderController {
         if (!fabricLot) {
           return res.status(404).json({ success: false, message: 'Fabric stock lot not found' });
         }
-        if (Number(fabricLot.quantityAvailable) < body.quantity) {
+        const lotAvailable = Number(fabricLot.quantityAvailable);
+        if (qtyExceeds(body.quantity, lotAvailable)) {
           return res.status(422).json({
             success: false,
-            message: `Insufficient fabric stock. Available: ${Number(fabricLot.quantityAvailable)}, Requested: ${body.quantity}`,
+            message: `Insufficient fabric stock. Available: ${lotAvailable}, Requested: ${body.quantity}`,
           });
         }
+        // Quantity rule (utils/quantity): sending the whole lot within dust sends exactly the lot.
+        body.quantity = snapToLimit(body.quantity, lotAvailable);
       }
       if (body.embroideryId) {
         const emb = await prisma.embroidery_master.findUnique({

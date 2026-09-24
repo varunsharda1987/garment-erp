@@ -43,6 +43,7 @@
  * so nothing is silently re-rounded on write.
  */
 import { Decimal, toCurrency } from '../../utils/currency';
+import { QTY_EPSILON } from '../../utils/quantity';
 
 /** Every link table stores allocatedQuantity/receivedQuantity as Decimal(12,3). */
 export const RECEIPT_SPLIT_DP = 3;
@@ -57,8 +58,12 @@ export const RECEIPT_SPLIT_DP = 3;
  * PARTIALLY_RECEIVED for ever and keep a 1 mm shortfall alive in MRP — the mirror image of the bug
  * this module exists to fix. One millimetre is below the resolution of the stored column, so
  * treating it as complete is honest, not lenient.
+ *
+ * Since 2026-09-24 this is the project's one quantity tolerance (QTY_EPSILON, utils/quantity): the
+ * receipt arrives from 2-decimal job/lot quantities while the allocation is stored at 3, so the
+ * slack has to cover half the coarsest step, not just the split's own rounding.
  */
-export const RECEIPT_COMPLETE_TOLERANCE = 0.001;
+export const RECEIPT_COMPLETE_TOLERANCE = QTY_EPSILON;
 
 /**
  * Is a receipt complete? Yes once the ACTUAL quantity received is within `underTolerancePercent` of

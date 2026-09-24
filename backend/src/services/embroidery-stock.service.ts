@@ -13,6 +13,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 // Money math via decimal.js helpers — raw float divide/multiply drifted the stock ledger
 // value column a paisa per receipt (bug-hunt samples-embroidery-12)
 import { toCurrency, divideCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
+import { qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 
 // ============================================
 // Types
@@ -88,9 +89,12 @@ class EmbroideryStockService {
       }
 
       const availableQty = parseFloat(sourceStock.quantityAvailable.toString());
-      if (availableQty < data.quantitySent) {
+      if (qtyExceeds(data.quantitySent, availableQty)) {
         throw new Error(`Insufficient stock. Available: ${availableQty}, Requested: ${data.quantitySent}`);
       }
+      // Quantity rule (utils/quantity): sending the whole lot within dust sends exactly the lot, so the
+      // guarded gte deduct below passes and the lot is left at 0.
+      data.quantitySent = snapToLimit(data.quantitySent, availableQty);
 
       // 2. Verify embroidery design exists
       const embroidery = await tx.embroidery_master.findUnique({
@@ -279,10 +283,17 @@ class EmbroideryStockService {
       // Bounds check: cannot receive more than was sent (bug-hunt samples-embroidery EMB3)
       const sentQty = parseFloat(sendOut.quantitySent.toString());
       const alreadyReceived = sendOut.quantityReceived ? parseFloat(sendOut.quantityReceived.toString()) : 0;
-      const maxReceivable = sentQty - alreadyReceived;
-      if (data.quantityReceived > maxReceivable) {
+      const maxReceivable = qtyRemaining(sentQty, alreadyReceived);
+      if (qtyExceeds(data.quantityReceived, maxReceivable)) {
         throw new Error(
           `Cannot receive ${data.quantityReceived}m: only ${maxReceivable.toFixed(2)}m remaining (sent: ${sentQty}, already received: ${alreadyReceived})`
+        );
+      }
+      // Quantity rule (utils/quantity): receiving the rest within dust receives exactly the rest.
+      data.quantityReceived = snapToLimit(data.quantityReceived, maxReceivable);
+      if (data.quantityReceived <= 0) {
+        throw new Error(
+          `Nothing left to receive on this send-out (sent: ${sentQty}, already received: ${alreadyReceived})`
         );
       }
 
@@ -353,7 +364,7 @@ class EmbroideryStockService {
       // 5. Update send-out record
       const totalReceived = data.quantityReceived + (data.quantityDamaged || 0);
       const quantitySent = parseFloat(sendOut.quantitySent.toString());
-      const newStatus = totalReceived >= quantitySent ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
+      const newStatus = qtyAtLeast(totalReceived, quantitySent) ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
 
       const updatedSendOut = await tx.embroidery_send_out.update({
         where: { id: data.sendOutId },

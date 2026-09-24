@@ -18,6 +18,7 @@ import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 export default function EmbroideryStockReceive() {
   const navigate = useNavigate();
@@ -151,8 +152,9 @@ export default function EmbroideryStockReceive() {
 
       // Validate against sent quantity
       if (sendOut) {
-        const totalReceived = parsedQuantityReceived + parsedQuantityDamaged;
-        if (totalReceived > sendOut.quantitySent) {
+        // Summed at 3dp so float noise (0.1 + 0.2) never reads as "over"; compared with the one tolerance
+        const totalReceived = Math.round((parsedQuantityReceived + parsedQuantityDamaged) * 1000) / 1000;
+        if (qtyExceeds(totalReceived, sendOut.quantitySent)) {
           setError(`Total received (${totalReceived}m) cannot exceed sent quantity (${sendOut.quantitySent}m)`);
           return;
         }
@@ -161,7 +163,10 @@ export default function EmbroideryStockReceive() {
       // BUG-EMB10 fix: use pre-validated parsed values
       const receiveData: EmbroideryReceiveRequest = {
         sendOutId: activeSendOutId,
-        quantityReceived: parsedQuantityReceived,
+        // A full return typed at 2 decimals IS the rest of the send-out (see @/lib/quantity)
+        quantityReceived: sendOut
+          ? snapToLimit(parsedQuantityReceived, qtyRemaining(sendOut.quantitySent, parsedQuantityDamaged))
+          : parsedQuantityReceived,
         quantityDamaged: parsedQuantityDamaged > 0 ? parsedQuantityDamaged : undefined,
         receivedWidth: parsedReceivedWidth,
         actualReturnDate: formData.actualReturnDate,
@@ -400,7 +405,7 @@ export default function EmbroideryStockReceive() {
                       <Input
                         id="quantityReceived"
                         type="number"
-                        step="0.01"
+                        step="any"
                         value={formData.quantityReceived}
                         onChange={(e) => handleFieldChange('quantityReceived', e.target.value)}
                         placeholder="e.g., 100"
@@ -414,7 +419,7 @@ export default function EmbroideryStockReceive() {
                       <Input
                         id="quantityDamaged"
                         type="number"
-                        step="0.01"
+                        step="any"
                         value={formData.quantityDamaged}
                         onChange={(e) => handleFieldChange('quantityDamaged', e.target.value)}
                         placeholder="e.g., 5"

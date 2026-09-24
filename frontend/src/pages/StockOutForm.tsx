@@ -42,6 +42,7 @@ import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 import { toDateInputValue } from '@/lib/date';
 import { foldActual, foldLabel } from '@/lib/fold-length';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 import {
   getAllowedMaterialTypes,
   MATERIAL_SUPPLIER_CATEGORIES,
@@ -491,7 +492,8 @@ export default function StockOutForm() {
     if (item.stockType === 'GREIGE' && !item.greigeStockId) return false;
 
     // A quantity typed with a fold length is the counted figure; stock gives up the actual metres.
-    if (item.availableQty !== null && foldActual(item.quantity, item.foldLengthCm) > item.availableQty) return false;
+    if (item.availableQty !== null && qtyExceeds(foldActual(item.quantity, item.foldLengthCm), item.availableQty))
+      return false;
 
     return true;
   };
@@ -523,7 +525,9 @@ export default function StockOutForm() {
     const challanItems = lineItems.map((item) => {
       const itemFoldLengthCm = item.foldLengthCm ? Number(item.foldLengthCm) : undefined;
       // Challan quantities are ACTUAL metres (what leaves stock); the L rides along for the print.
-      const qty = foldActual(item.quantity, itemFoldLengthCm);
+      // A full quantity typed at 2 decimals IS the full available quantity (see @/lib/quantity)
+      const typedQty = foldActual(item.quantity, itemFoldLengthCm);
+      const qty = item.availableQty !== null ? snapToLimit(typedQty, item.availableQty) : typedQty;
       const itemThanCount = item.thanCount ? parseInt(item.thanCount) : undefined;
 
       if (item.stockType === 'GREIGE') {
@@ -1019,10 +1023,10 @@ export default function StockOutForm() {
                             value={item.quantity}
                             onChange={(e) => updateLineItem(item.tempId, 'quantity', e.target.value)}
                             min="0"
-                            step="0.01"
+                            step="any"
                             placeholder="0.00"
                           />
-                          {item.availableQty !== null && Number(item.quantity) > item.availableQty && (
+                          {item.availableQty !== null && qtyExceeds(item.quantity, item.availableQty) && (
                             <p className="text-xs text-destructive">
                               Exceeds available ({item.availableQty.toFixed(2)})
                             </p>
@@ -1062,7 +1066,7 @@ export default function StockOutForm() {
                                 value={item.foldLengthCm}
                                 onChange={(e) => updateLineItem(item.tempId, 'foldLengthCm', e.target.value)}
                                 placeholder="e.g. 97"
-                                step="0.01"
+                                step="any"
                                 min="0"
                               />
                               {foldLabel(item.quantity, item.foldLengthCm, 'METER') && Number(item.quantity) > 0 && (

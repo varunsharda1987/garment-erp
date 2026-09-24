@@ -8,6 +8,7 @@
  * different ideas of what a valid issue looks like.
  */
 import type { GreigeStockDetail, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
+import { QTY_EPSILON, isQtyZero, minQty, prefillQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 
 /** One selected than/bale for detail-level issuance. */
 export interface SelectedDetail {
@@ -29,13 +30,21 @@ export interface IssueLotRow {
   detailsExpanded?: boolean;
 }
 
-/** Metres are quoted to 2dp everywhere; sums of typed values must be pinned there before comparing. */
+/** Pins a value to 2dp — for DISPLAY only; quantities are compared through `@/lib/quantity`. */
 export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** The server's own slack when matching lot totals to the order quantity. */
-export const ISSUE_QTY_TOLERANCE = 0.01;
+/**
+ * Sums of typed values are pinned to 3dp (the finest storage step) — never 2dp, which would
+ * re-round an exact 3-decimal pre-fill and leave dust against the limit.
+ */
+export function round3(value: number): number {
+  return Math.round(value * 1000) / 1000;
+}
+
+/** Slack when matching lot totals to the order quantity: the project's one quantity tolerance. */
+export const ISSUE_QTY_TOLERANCE = QTY_EPSILON;
 
 /** Nominal greige width varies loom to loom — mirrors WIDTH_TOLERANCE_INCHES on the server. */
 export const ISSUE_WIDTH_TOLERANCE_INCHES = 1.0;
@@ -78,8 +87,8 @@ export function evaluateLotRows({
 }: EvaluateLotRowsInput): LotRowsEvaluation {
   const lotById = new Map(lots.map((lot) => [lot.id, lot]));
   const chosenLotIds = rows.map((row) => row.lotId).filter(Boolean);
-  const totalQty = round2(rows.reduce((sum, row) => sum + (parseFloat(row.qty) || 0), 0));
-  const qtyDelta = round2(totalQty - requiredQty);
+  const totalQty = round3(rows.reduce((sum, row) => sum + (parseFloat(row.qty) || 0), 0));
+  const qtyDelta = round3(totalQty - requiredQty);
   const chosenGreigeIds = new Set(chosenLotIds.map((id) => lotById.get(id)?.greigeId).filter(Boolean));
 
   const width = orderWidthInches != null ? Number(orderWidthInches) : null;
@@ -97,10 +106,10 @@ export function evaluateLotRows({
     chosenLotIds,
     totalQty,
     qtyDelta,
-    totalMatches: Math.abs(qtyDelta) <= ISSUE_QTY_TOLERANCE,
+    totalMatches: !qtyExceeds(totalQty, requiredQty) && !qtyExceeds(requiredQty, totalQty),
     hasDuplicateLot: new Set(chosenLotIds).size !== chosenLotIds.length,
     hasMixedGreige: chosenGreigeIds.size > 1,
-    rowsComplete: rows.length > 0 && rows.every((row) => row.lotId && parseFloat(row.qty) > 0),
+    rowsComplete: rows.length > 0 && rows.every((row) => row.lotId && qtyExceeds(parseFloat(row.qty) || 0, 0)),
     noLotChosen: chosenLotIds.length === 0,
     unusedLotCount: lots.filter((lot) => !chosenLotIds.includes(lot.id)).length,
     widthMismatchLots,
@@ -127,15 +136,16 @@ export function autoFillLotRows(
       .map((id) => lotById.get(id)?.greigeId)
       .find(Boolean) ?? lots[0].greigeId;
 
-  let remaining = requiredQty;
+  let remaining = qtyRemaining(requiredQty, 0);
   const filled: IssueLotRow[] = [];
   for (const lot of lots) {
-    if (remaining <= ISSUE_QTY_TOLERANCE) break;
+    if (isQtyZero(remaining)) break;
     if (lot.greigeId !== anchorGreigeId) continue;
-    const take = round2(Math.min(lot.quantityAvailable, remaining));
-    if (take <= 0) continue;
-    filled.push({ lotId: lot.id, qty: take.toFixed(2) });
-    remaining = round2(remaining - take);
+    // Exact value, never rounded: toFixed(2) could round a take up past the lot's availability
+    const take = minQty(lot.quantityAvailable, remaining);
+    if (isQtyZero(take) || take < 0) continue;
+    filled.push({ lotId: lot.id, qty: prefillQty(take) });
+    remaining = qtyRemaining(remaining, take);
   }
   return filled.length > 0 ? filled : null;
 }
@@ -145,7 +155,7 @@ export function autoFillLotRows(
  */
 export function totalDetailMeters(selectedDetails?: SelectedDetail[]): number {
   if (!selectedDetails) return 0;
-  return round2(selectedDetails.reduce((sum, d) => sum + (parseFloat(d.metersToIssue) || 0), 0));
+  return round3(selectedDetails.reduce((sum, d) => sum + (parseFloat(d.metersToIssue) || 0), 0));
 }
 
 /**
@@ -162,8 +172,8 @@ export function hasDetailOverSelection(
       const detail = detailById.get(sel.detailId);
       if (!detail) return null;
       const requested = parseFloat(sel.metersToIssue) || 0;
-      if (requested > detail.metersRemaining + ISSUE_QTY_TOLERANCE) {
-        return { detailId: sel.detailId, over: round2(requested - detail.metersRemaining) };
+      if (qtyExceeds(requested, detail.metersRemaining)) {
+        return { detailId: sel.detailId, over: round3(requested - detail.metersRemaining) };
       }
       return null;
     })

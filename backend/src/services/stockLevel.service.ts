@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
 import { AppError, NotFoundError, ValidationError } from '../errors';
 import { getDerivedStockDetailed, getDerivedValuation } from './helpers/derived-stock.helper';
+import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
 export interface StockLevelFilters {
   warehouseId?: string;
@@ -348,11 +349,11 @@ class StockLevelService {
     }
 
     const currentQty = new Decimal(existing.quantity.toString());
-    const decreaseQty = new Decimal(quantity.toString());
-
-    if (currentQty.lt(decreaseQty)) {
-      throw new Error(`Insufficient stock. Available: ${currentQty}, Requested: ${decreaseQty}`);
+    // Quantity rule (utils/quantity): taking the whole balance within dust takes exactly the balance.
+    if (qtyExceeds(quantity, currentQty)) {
+      throw new Error(`Insufficient stock. Available: ${currentQty}, Requested: ${quantity}`);
     }
+    const decreaseQty = new Decimal(snapToLimit(quantity, currentQty));
 
     const newQuantity = currentQty.sub(decreaseQty);
 

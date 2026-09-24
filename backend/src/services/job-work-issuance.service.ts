@@ -31,6 +31,7 @@ import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { hasFold } from '../utils/fold-length';
 import { formatDate } from '../utils/date';
+import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
 type Tx = Prisma.TransactionClient;
 
@@ -259,13 +260,15 @@ export async function validateIssue(
         });
       }
       // Friendly pre-check; the guarded consume inside the tx is the authority
-      if (Number(row.quantityAvailable) < input.qty) {
+      // Quantity rule (utils/quantity): the whole lot typed within dust is the whole lot — snapped
+      // below so the guarded consume is asked for exactly what the lot holds.
+      if (qtyExceeds(input.qty, row.quantityAvailable)) {
         blockers.push({
           code: ISSUE_ERROR_CODES.INSUFFICIENT_LACE,
           message: `Insufficient lace in lot ${row.laceMaster?.laceCode ?? row.id.slice(0, 8)}: ${Number(row.quantityAvailable)}m available, ${input.qty}m needed.`,
         });
       }
-      laceLots.push({ row, qty: input.qty });
+      laceLots.push({ row, qty: snapToLimit(input.qty, row.quantityAvailable) });
     }
 
     const laceLotIds = laceLotInputs.map((l) => l.laceStockLotId);
@@ -376,7 +379,9 @@ export async function validateIssue(
         });
       }
       // Friendly pre-check; the guarded consume inside the tx is the authority
-      if (Number(row.quantityAvailable) < input.qty) {
+      // Quantity rule (utils/quantity): the whole lot typed within dust is the whole lot — snapped
+      // below so the guarded consume is asked for exactly what the lot holds.
+      if (qtyExceeds(input.qty, row.quantityAvailable)) {
         blockers.push({
           code: ISSUE_ERROR_CODES.INSUFFICIENT_GREIGE,
           message: `Insufficient greige in lot ${row.greige?.greigeCode ?? ''}: ${Number(row.quantityAvailable)}m available, ${input.qty}m needed.`,
@@ -384,7 +389,7 @@ export async function validateIssue(
       }
       // Track if lot is already at target processor (virtual issuance — no challan needed)
       const atProcessor = row.processorId != null && row.processorId === jwo.processorId;
-      lots.push({ row, qty: input.qty, atProcessor });
+      lots.push({ row, qty: snapToLimit(input.qty, row.quantityAvailable), atProcessor });
     }
 
     // Two rows on one lot double-consume it and mint two components for one physical lot.

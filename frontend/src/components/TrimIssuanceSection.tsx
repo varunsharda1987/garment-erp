@@ -12,6 +12,7 @@ import workOrderService from '@/services/workOrder.service';
 import type { MaterialIssuanceData, MaterialIssuanceItem, IssuedChallan } from '@/types/production.types';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/lib/date';
+import { isQtyZero, prefillQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 
 interface TrimIssuanceSectionProps {
   workOrderId: string;
@@ -35,9 +36,9 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
       const initSel: Record<string, boolean> = {};
       for (const item of result.items) {
         if (item.materialId) {
-          const remaining = Math.max(0, item.requiredQty - item.alreadyIssued);
-          initQty[item.materialId] = remaining > 0 ? remaining.toFixed(2) : '0';
-          initSel[item.materialId] = remaining > 0 && item.availableStock > 0;
+          const remaining = qtyRemaining(item.requiredQty, item.alreadyIssued);
+          initQty[item.materialId] = remaining > 0 ? prefillQty(remaining) : '0';
+          initSel[item.materialId] = remaining > 0 && !isQtyZero(item.availableStock);
         }
       }
       setQuantities(initQty);
@@ -105,8 +106,8 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
   if (!data || (data.items.length === 0 && data.issuedChallans.length === 0)) return null;
 
   const hasIssuedChallans = data.issuedChallans.length > 0;
-  const itemsWithStock = data.items.filter((i) => i.availableStock > 0);
-  const hasShortage = data.items.some((i) => i.shortage > 0);
+  const itemsWithStock = data.items.filter((i) => !isQtyZero(i.availableStock));
+  const hasShortage = data.items.some((i) => qtyExceeds(i.shortage, 0));
 
   return (
     <div className="space-y-4">
@@ -152,9 +153,9 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
             </TableHeader>
             <TableBody>
               {data.items.map((item: MaterialIssuanceItem) => {
-                const remaining = Math.max(0, item.requiredQty - item.alreadyIssued);
+                const remaining = qtyRemaining(item.requiredQty, item.alreadyIssued);
                 const isSelected = item.materialId ? !!selected[item.materialId] : false;
-                const hasStock = item.availableStock > 0;
+                const hasStock = !isQtyZero(item.availableStock);
                 return (
                   <TableRow
                     key={item.bomItemId}
@@ -190,14 +191,16 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                     <TableCell className="text-right text-success">
                       {item.alreadyIssued > 0 ? item.alreadyIssued.toFixed(1) : '-'}
                     </TableCell>
-                    <TableCell className={`text-right ${item.shortage > 0 ? 'text-destructive font-medium' : ''}`}>
+                    <TableCell
+                      className={`text-right ${qtyExceeds(item.shortage, 0) ? 'text-destructive font-medium' : ''}`}
+                    >
                       {item.availableStock.toFixed(1)}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       {item.materialId && hasStock && remaining > 0 ? (
                         <Input
                           type="number"
-                          step="0.01"
+                          step="any"
                           className="w-24 h-7 text-right text-sm"
                           value={quantities[item.materialId] || ''}
                           onChange={(e) => setQuantities((prev) => ({ ...prev, [item.materialId!]: e.target.value }))}

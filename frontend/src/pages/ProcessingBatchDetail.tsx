@@ -429,7 +429,7 @@ export default function ProcessingBatchDetail() {
                 <Input
                   id="receiveQty"
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0.01"
                   value={receiveQty}
                   onChange={(e) => setReceiveQty(e.target.value)}

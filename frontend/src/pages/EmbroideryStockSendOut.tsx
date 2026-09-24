@@ -25,6 +25,7 @@ import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { toDateInputValue } from '@/lib/date';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 interface FabricStock {
   id: string;
@@ -208,7 +209,7 @@ export default function EmbroideryStockSendOut() {
 
       // Check available quantity
       const selectedStock = fabricStockList.find((s) => s.id === selectedStockId);
-      if (selectedStock && parsedQuantitySent > selectedStock.quantityAvailable) {
+      if (selectedStock && qtyExceeds(parsedQuantitySent, selectedStock.quantityAvailable)) {
         setError(`Quantity exceeds available stock (${selectedStock.quantityAvailable} meters)`);
         return;
       }
@@ -218,7 +219,10 @@ export default function EmbroideryStockSendOut() {
         sourceFabricStockId: selectedStockId,
         embroideryId: selectedEmbroideryId,
         supplierId: selectedSupplierId,
-        quantitySent: parsedQuantitySent,
+        // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
+        quantitySent: selectedStock
+          ? snapToLimit(parsedQuantitySent, selectedStock.quantityAvailable)
+          : parsedQuantitySent,
         sentWidth: parsedSentWidth,
         sendDate: formData.sendDate,
         expectedReturnDate: formData.expectedReturnDate || undefined,
@@ -511,7 +515,7 @@ export default function EmbroideryStockSendOut() {
                     <Input
                       id="quantitySent"
                       type="number"
-                      step="0.01"
+                      step="any"
                       value={formData.quantitySent}
                       onChange={(e) => handleFieldChange('quantitySent', e.target.value)}
                       placeholder="e.g., 100"

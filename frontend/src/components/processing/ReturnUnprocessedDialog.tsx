@@ -19,6 +19,7 @@ import { processPOService as printProcessPOService } from '@/services/printing.s
 import type { ProcessPO } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { toDateInputValue } from '@/lib/date';
+import { qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -60,8 +61,11 @@ export default function ReturnUnprocessedDialog({
   const returnMutation = useMutation({
     mutationFn: async () => {
       if (!processPO) throw new Error('No job work order');
+      const sent = Number(processPO.jobWorkOrder?.qtySentMeters || 0);
+      const leftAtMill = qtyRemaining(sent, Number(processPO.jobWorkOrder?.qtyReceivedMeters || 0));
       const data = {
-        returnedQtyMeters,
+        // The full quantity typed at 2 decimals IS the full quantity (see @/lib/quantity)
+        returnedQtyMeters: snapToLimit(returnedQtyMeters, leftAtMill > 0 ? leftAtMill : sent),
         returnDate,
         remarks: remarks || undefined,
       };
@@ -104,7 +108,8 @@ export default function ReturnUnprocessedDialog({
   const jwo = processPO.jobWorkOrder;
   const sentQty = Number(jwo?.qtySentMeters || 0);
   const receivedQty = Number(jwo?.qtyReceivedMeters || 0);
-  const remainingAtMill = sentQty - receivedQty;
+  // Snapped to 0 within rounding dust, so a 0.002 leftover is not shown as still at the mill
+  const remainingAtMill = qtyRemaining(sentQty, receivedQty);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -146,7 +151,7 @@ export default function ReturnUnprocessedDialog({
               type="number"
               min={0.01}
               max={remainingAtMill > 0 ? remainingAtMill : sentQty}
-              step={0.01}
+              step="any"
               value={returnedQtyMeters || ''}
               onChange={(e) => setReturnedQtyMeters(parseFloat(e.target.value) || 0)}
             />

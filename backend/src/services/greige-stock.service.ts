@@ -14,6 +14,7 @@ import { systemSettingsService } from './system-settings.service';
 // BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
 import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currency';
 import { foldActual } from '../utils/fold-length';
+import { isQtyZero, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 
 // Than tags are 3 dp and counted; a lot is 2 dp and actual. A pick that empties every than may differ
 // from what the lot holds by the half-cents each earlier issue rounded away.
@@ -794,17 +795,21 @@ class GreigeStockService {
         if (detail.greigeStockId !== stockId) {
           throw new Error(`Detail ${greigeStockDetailId} does not belong to stock ${stockId}`);
         }
-        if (Number(detail.metersRemaining) < metersToIssue) {
+        if (qtyExceeds(metersToIssue, detail.metersRemaining)) {
           throw new Error(
             `Detail ${greigeStockDetailId} has only ${detail.metersRemaining}m remaining, ` +
               `but ${metersToIssue}m requested`
           );
         }
 
-        // Update the detail's remaining meters
-        const newRemaining = Number(detail.metersRemaining) - metersToIssue;
-        const newStatus =
-          newRemaining <= 0 ? 'CONSUMED' : newRemaining < Number(detail.meters) ? 'PARTIAL' : 'AVAILABLE';
+        // Update the detail's remaining meters. Quantity rule (utils/quantity): issuing a than
+        // within dust of what is left consumes it — 0 remaining, CONSUMED, not 0.002 PARTIAL.
+        const newRemaining = qtyRemaining(detail.metersRemaining, metersToIssue);
+        const newStatus = isQtyZero(newRemaining)
+          ? 'CONSUMED'
+          : newRemaining < Number(detail.meters)
+            ? 'PARTIAL'
+            : 'AVAILABLE';
 
         await client.greige_stock_details.update({
           where: { id: greigeStockDetailId },
@@ -1097,9 +1102,11 @@ class GreigeStockService {
     const currentQty = Number(existing.quantityAvailable);
 
     if (data.adjustmentType === 'DECREASE') {
-      if (data.quantity > currentQty) {
+      if (qtyExceeds(data.quantity, currentQty)) {
         throw new Error(`Cannot decrease by ${data.quantity}. Only ${currentQty} meters available.`);
       }
+      // Quantity rule (utils/quantity): writing off the whole lot within dust writes off exactly the lot.
+      data.quantity = snapToLimit(data.quantity, currentQty);
     }
 
     const newQty = data.adjustmentType === 'INCREASE' ? currentQty + data.quantity : currentQty - data.quantity;
@@ -1108,7 +1115,7 @@ class GreigeStockService {
       where: { id: stockId },
       data: {
         quantityAvailable: new Prisma.Decimal(newQty),
-        status: newQty <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+        status: isQtyZero(newQty) || newQty < 0 ? 'EXHAUSTED' : 'AVAILABLE',
       },
     });
 

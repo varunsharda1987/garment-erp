@@ -33,6 +33,7 @@ import {
   resolveProcessJwo,
 } from '../services/helpers/process-po-envelope.helper';
 import { applySearch } from '../utils/search-filter';
+import { qtyExceeds } from '../utils/quantity';
 
 // Atomic scoped numbering helpers now live in utils/jobWorkNumber.ts
 // (shared with printing.controller.ts and the MRP → JWO bridge in mrp.service.ts)
@@ -930,7 +931,9 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
     throw new NotFoundError('Fabric stock lot', fabricStockLotId);
   }
 
-  if (Number(fabricStock.quantityAvailable) < qtySentMeters) {
+  // Quantity rule (utils/quantity): the whole lot within rounding dust is the whole lot. No snap needed —
+  // qtySentMeters is a 2-decimal column, so the stored value lands on the lot's own 2-decimal quantity.
+  if (qtyExceeds(qtySentMeters, fabricStock.quantityAvailable)) {
     throw new ValidationError('Insufficient fabric stock');
   }
 
@@ -1501,7 +1504,8 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       throw new NotFoundError('Greige stock lot', greigeStockLotId);
     }
 
-    if (Number(greigeStock.quantityAvailable) < qtySentMeters) {
+    // Quantity rule (utils/quantity): the whole lot within dust is the whole lot (2-decimal column, no snap).
+    if (qtyExceeds(qtySentMeters, greigeStock.quantityAvailable)) {
       throw new ValidationError(
         `Insufficient greige stock. Available: ${Number(greigeStock.quantityAvailable)} meters, Requested: ${qtySentMeters} meters`
       );

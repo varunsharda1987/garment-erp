@@ -61,6 +61,7 @@ import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import { formatDate } from '@/lib/date';
+import { isQtyZero, prefillQty, qtyAtLeast, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -275,14 +276,16 @@ export default function JobWorkOrderDetail() {
       // send material that nobody asked to send. Greige and lace jobs both do consume.
       if (issuePreview.fabricType !== 'GREIGE' && issuePreview.fabricType !== 'LACE') return rows;
       const required = issuePreview.requiredQty;
-      const singleCoveringLot = issuePreview.availableLots.find((lot) => lot.quantityAvailable >= required);
-      return [{ lotId: singleCoveringLot?.id ?? '', qty: required > 0 ? String(round2(required)) : '' }];
+      const singleCoveringLot = issuePreview.availableLots.find((lot) => qtyAtLeast(lot.quantityAvailable, required));
+      return [{ lotId: singleCoveringLot?.id ?? '', qty: required > 0 ? prefillQty(required) : '' }];
     });
   }, [issueDialogOpen, issuePreview]);
 
   const issueMutation = useMutation({
     mutationFn: () => {
       const filledRows = issueRows.filter((row) => row.lotId && parseFloat(row.qty) > 0);
+      const lotAvailable = (lotId: string, fallback: number) =>
+        issuePreview?.availableLots.find((lot) => lot.id === lotId)?.quantityAvailable ?? fallback;
       const payload: IssueJwoPayload = {
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
@@ -292,7 +295,8 @@ export default function JobWorkOrderDetail() {
       if (issuePreview?.fabricType === 'LACE') {
         payload.lots = filledRows.map((row) => ({
           laceStockLotId: row.lotId,
-          qty: round2(parseFloat(row.qty)),
+          // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
+          qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
         }));
       }
       // One lot goes on the wire exactly as it always has. The server then consumes the order's
@@ -303,7 +307,7 @@ export default function JobWorkOrderDetail() {
       } else if (filledRows.length > 1) {
         payload.lots = filledRows.map((row) => ({
           greigeStockLotId: row.lotId,
-          qty: round2(parseFloat(row.qty)),
+          qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
         }));
       }
       return jobWorkOrderService.issue(id!, payload);
@@ -815,7 +819,7 @@ export default function JobWorkOrderDetail() {
                     {(jwo.qtyReceivedMeters ?? 0).toFixed(2)} {unitShort(jwo.uom)}
                   </span>{' '}
                   of {jwo.qtyBillable.toFixed(2)} expected —{' '}
-                  {Math.max(0, jwo.qtyBillable - (jwo.qtyReceivedMeters ?? 0)).toFixed(2)} {unitShort(jwo.uom)} still to
+                  {qtyRemaining(jwo.qtyBillable, jwo.qtyReceivedMeters ?? 0).toFixed(2)} {unitShort(jwo.uom)} still to
                   come. Tick "This is the final delivery" on the last receipt, or use Close short if nothing more is
                   coming.
                 </p>
@@ -1089,7 +1093,7 @@ export default function JobWorkOrderDetail() {
                   would zero that receipt. */}
               {['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR'].includes(currentStatus) &&
                 !jwo.receivedDate &&
-                receivedSoFar === 0 && (
+                isQtyZero(receivedSoFar) && (
                   <Button className="w-full" variant="outline" onClick={() => setReturnUnprocessedOpen(true)}>
                     <Undo2 className="mr-2 h-4 w-4" />
                     Returned unprocessed
@@ -1295,7 +1299,7 @@ export default function JobWorkOrderDetail() {
               <Input
                 id="qtyReceived"
                 type="number"
-                step="0.01"
+                step="any"
                 value={qtyReceived}
                 onChange={(e) => setQtyReceived(e.target.value)}
                 placeholder={`Expected: ~${(jwo.qtyBillable ?? billableFromGreige(jwo.qtySentMeters, jwo.expectedShrinkage)).toFixed(2)}`}

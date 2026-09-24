@@ -1240,7 +1240,7 @@ export default function CuttingDetail() {
                           <TableCell className="text-right">
                             <Input
                               type="number"
-                              step="0.01"
+                              step="any"
                               min="0"
                               max={f.issuedQty}
                               value={returnQty}

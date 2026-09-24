@@ -723,7 +723,7 @@ export default function BulkPOGenerationDialog({
                                     <Input
                                       type="number"
                                       min={item.quantity}
-                                      step="0.01"
+                                      step="any"
                                       className="h-7 text-xs text-right w-[100px]"
                                       value={editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity}
                                       onChange={(e) => handleQuantityChange(group.supplierId, itemKey, e.target.value)}

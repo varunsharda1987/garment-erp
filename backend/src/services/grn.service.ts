@@ -51,6 +51,7 @@ import {
 } from './helpers/jwo-arriving-material.helper';
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
+import { qtyExceeds } from '../utils/quantity';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError } from '../errors';
 import {
@@ -127,7 +128,9 @@ class GRNService {
       const alreadyReceived = Number(poItem.receivedQuantity);
       const maxAllowed = orderedQty * (1 + tolerancePercent / 100) - alreadyReceived;
       const actualReceived = foldActual(item.receivedQuantity, item.foldLengthCm).toNumber();
-      if (actualReceived > maxAllowed) {
+      // Quantity rule (utils/quantity): over the cap by rounding dust is not over — at a 0% tolerance
+      // a 2-decimal receipt against a 3-decimal line must not trip on 0.002.
+      if (qtyExceeds(actualReceived, maxAllowed)) {
         const materialCode = poItem.materials?.code || item.materialId;
         const counted = hasFold(item.foldLengthCm)
           ? `${item.receivedQuantity} counted @ L=${item.foldLengthCm} (= ${actualReceived})`
@@ -2866,7 +2869,8 @@ class GRNService {
     const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
     const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
     const receivedSoFar = Number(jwo.qtyReceivedMeters ?? 0);
-    if (receivedSoFar + actualReceived > maxReceivable) {
+    // Quantity rule (utils/quantity): over the cap by rounding dust is not over (0% tolerance setting).
+    if (qtyExceeds(receivedSoFar + actualReceived, maxReceivable)) {
       throw new BusinessError(
         (receivedSoFar > 0
           ? `Received ${receivedText} on top of the ${receivedSoFar.toFixed(2)} MTR already received `

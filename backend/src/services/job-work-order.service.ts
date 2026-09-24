@@ -19,6 +19,7 @@ import { BusinessError } from '../errors';
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { companyProfileService } from './company-profile.service';
 import { formatDate } from '../utils/date';
+import { isQtyZero } from '../utils/quantity';
 import {
   toCurrency,
   multiplyCurrency,
@@ -158,7 +159,10 @@ class JobWorkOrderService {
     const totalLoss = Decimal.max(new Decimal(0), sent.minus(received)); // physical
     const shortfall = Decimal.max(new Decimal(0), expected.minus(received)); // vs contract
     const allowedLoss = percentOf(expected, tolerance); // allowance on the deliverable
-    const qtyAbnormalLoss = Decimal.max(new Decimal(0), shortfall.minus(allowedLoss));
+    // Quantity rule (utils/quantity): an abnormal loss within rounding dust is none — at a 0% tolerance
+    // a 2-decimal return against a 3-decimal expectation must not raise a debit note for 0.002 m.
+    const rawAbnormalLoss = Decimal.max(new Decimal(0), shortfall.minus(allowedLoss));
+    const qtyAbnormalLoss = isQtyZero(rawAbnormalLoss) ? new Decimal(0) : rawAbnormalLoss;
     const qtyNormalLoss = Decimal.max(new Decimal(0), totalLoss.minus(qtyAbnormalLoss));
     const isOverTolerance = qtyAbnormalLoss.gt(0);
 

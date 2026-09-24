@@ -22,6 +22,7 @@ import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { invalidateControlCenter } from '@/lib/control-center-keys';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { toDateInputValue } from '@/lib/date';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 interface ReturnFromProcessorDialogProps {
   open: boolean;
@@ -64,7 +65,8 @@ export default function ReturnFromProcessorDialog({
   const mutation = useMutation({
     mutationFn: () =>
       jobWorkOrderService.returnUnprocessed(jobWorkOrderId, {
-        returnedQty: qty,
+        // All of it typed at 2 decimals IS all of it (see @/lib/quantity)
+        returnedQty: snapToLimit(qty, qtySent),
         returnDate,
         remarks: remarks || undefined,
       }),
@@ -81,7 +83,7 @@ export default function ReturnFromProcessorDialog({
     onError: (error) => handleApiError(error, 'Could not record the return'),
   });
 
-  const short = qty > 0 && qtySent - qty > 0.005;
+  const short = qty > 0 && qtyExceeds(qtySent, qty);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -101,7 +103,7 @@ export default function ReturnFromProcessorDialog({
               <Input
                 id="ru-qty"
                 type="number"
-                step="0.01"
+                step="any"
                 min="0"
                 value={qty > 0 ? qty : ''}
                 onChange={(e) => setQty(Number(e.target.value))}

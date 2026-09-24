@@ -12,6 +12,7 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { applySearch } from '../utils/search-filter';
+import { qtyExceeds, qtyRemaining, isQtyZero, snapToLimit } from '../utils/quantity';
 
 // ============================================
 // Types
@@ -89,9 +90,11 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
     }
 
     const available = Number(stock.quantityAvailable) - Number(stock.quantityReserved);
-    if (available < input.issuedQuantity) {
+    // Quantity rule (utils/quantity): issuing the whole lot typed at 2 decimals is issuing the lot.
+    if (qtyExceeds(input.issuedQuantity, available)) {
       throw new Error(`Insufficient stock available. Required: ${input.issuedQuantity}, Available: ${available}`);
     }
+    const issuedQty = snapToLimit(input.issuedQuantity, available);
 
     // Create issue note
     const issueNote = await tx.lace_issue_note.create({
@@ -102,7 +105,7 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
         cuttingBatchId: input.cuttingBatchId,
         stockId: input.stockId,
         laceId: input.laceId,
-        issuedQuantity: input.issuedQuantity,
+        issuedQuantity: issuedQty,
         consumedQuantity: 0,
         returnedQuantity: 0,
         status: 'ISSUED',
@@ -123,18 +126,18 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
     await tx.lace_stock.update({
       where: { id: input.stockId },
       data: {
-        quantityAvailable: { decrement: input.issuedQuantity },
-        quantityReserved: { increment: input.issuedQuantity },
+        quantityAvailable: { decrement: issuedQty },
+        quantityReserved: { increment: issuedQty },
       },
     });
 
     // Create stock transaction
-    const newBalance = Number(stock.quantityAvailable) - input.issuedQuantity;
+    const newBalance = Number(stock.quantityAvailable) - issuedQty;
     await tx.lace_stock_transaction.create({
       data: {
         stockId: input.stockId,
         transactionType: 'ISSUE',
-        quantity: -input.issuedQuantity,
+        quantity: -issuedQty,
         balanceAfter: newBalance,
         referenceType: 'ISSUE_NOTE',
         referenceId: issueNote.id,
@@ -180,13 +183,16 @@ export async function recordConsumption(input: RecordConsumptionInput) {
   const currentConsumed = Number(issueNote.consumedQuantity);
   const currentReturned = Number(issueNote.returnedQuantity);
   const issued = Number(issueNote.issuedQuantity);
-  const newConsumed = currentConsumed + input.consumedQuantity;
-
-  if (newConsumed + currentReturned > issued) {
+  // Quantity rule (utils/quantity): consuming everything left, typed at 2 decimals, is consuming
+  // everything left — snap it so no dust stays on the note.
+  const unaccounted = qtyRemaining(issued, currentConsumed + currentReturned);
+  if (qtyExceeds(input.consumedQuantity, unaccounted)) {
     throw new Error(
       `Cannot consume more than issued. Issued: ${issued}, Already consumed: ${currentConsumed}, Already returned: ${currentReturned}`
     );
   }
+  const consumedQty = snapToLimit(input.consumedQuantity, unaccounted);
+  const newConsumed = currentConsumed + consumedQty;
 
   // Update issue note and stock
   const result = await prisma.$transaction(async (tx) => {
@@ -208,8 +214,8 @@ export async function recordConsumption(input: RecordConsumptionInput) {
     await tx.lace_stock.update({
       where: { id: issueNote.stockId },
       data: {
-        quantityReserved: { decrement: input.consumedQuantity },
-        quantityConsumed: { increment: input.consumedQuantity },
+        quantityReserved: { decrement: consumedQty },
+        quantityConsumed: { increment: consumedQty },
       },
     });
 
@@ -220,13 +226,7 @@ export async function recordConsumption(input: RecordConsumptionInput) {
         select: { id: true },
       });
       if (material) {
-        await syncStockLevelQuantity(
-          material.id,
-          -input.consumedQuantity,
-          updated.stock.warehouseId ?? undefined,
-          'METER',
-          tx
-        );
+        await syncStockLevelQuantity(material.id, -consumedQty, updated.stock.warehouseId ?? undefined, 'METER', tx);
       }
     }
 
@@ -235,7 +235,7 @@ export async function recordConsumption(input: RecordConsumptionInput) {
       data: {
         stockId: issueNote.stockId,
         transactionType: 'CONSUMPTION',
-        quantity: -input.consumedQuantity,
+        quantity: -consumedQty,
         balanceAfter: 0, // Will be calculated
         referenceType: 'ISSUE_NOTE',
         referenceId: issueNote.id,
@@ -281,17 +281,20 @@ export async function returnToStock(input: ReturnToStockInput) {
   const currentConsumed = Number(issueNote.consumedQuantity);
   const currentReturned = Number(issueNote.returnedQuantity);
   const issued = Number(issueNote.issuedQuantity);
-  const newReturned = currentReturned + input.returnQuantity;
-
-  if (currentConsumed + newReturned > issued) {
+  // Quantity rule (utils/quantity): returning everything left, typed at 2 decimals, returns everything
+  // left and closes the note — float sums must not leave it PARTIALLY_RETURNED for 2 mm.
+  const unaccounted = qtyRemaining(issued, currentConsumed + currentReturned);
+  if (qtyExceeds(input.returnQuantity, unaccounted)) {
     throw new Error(
       `Cannot return more than remaining. Issued: ${issued}, Consumed: ${currentConsumed}, Already returned: ${currentReturned}`
     );
   }
+  const returnQty = snapToLimit(input.returnQuantity, unaccounted);
+  const newReturned = currentReturned + returnQty;
 
   // Determine new status
-  const remaining = issued - currentConsumed - newReturned;
-  const newStatus = remaining === 0 ? 'CLOSED' : 'PARTIALLY_RETURNED';
+  const remaining = qtyRemaining(unaccounted, returnQty);
+  const newStatus = isQtyZero(remaining) ? 'CLOSED' : 'PARTIALLY_RETURNED';
 
   // Update issue note and stock
   const result = await prisma.$transaction(async (tx) => {
@@ -315,8 +318,8 @@ export async function returnToStock(input: ReturnToStockInput) {
     await tx.lace_stock.update({
       where: { id: issueNote.stockId },
       data: {
-        quantityReserved: { decrement: input.returnQuantity },
-        quantityAvailable: { increment: input.returnQuantity },
+        quantityReserved: { decrement: returnQty },
+        quantityAvailable: { increment: returnQty },
       },
     });
 
@@ -325,7 +328,7 @@ export async function returnToStock(input: ReturnToStockInput) {
       data: {
         stockId: issueNote.stockId,
         transactionType: 'RETURN',
-        quantity: input.returnQuantity,
+        quantity: returnQty,
         balanceAfter: 0, // Will be calculated
         referenceType: 'ISSUE_NOTE',
         referenceId: issueNote.id,
@@ -367,7 +370,8 @@ export async function closeIssueNote(issueNoteId: string, userId: string) {
   const consumed = Number(issueNote.consumedQuantity);
   const returned = Number(issueNote.returnedQuantity);
   const issued = Number(issueNote.issuedQuantity);
-  const remaining = issued - consumed - returned;
+  // Snapped to 0 within rounding dust (utils/quantity).
+  const remaining = qtyRemaining(issued, consumed + returned);
 
   if (remaining > 0) {
     throw new Error(

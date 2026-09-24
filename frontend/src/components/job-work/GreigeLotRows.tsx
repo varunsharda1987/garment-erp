@@ -17,8 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import type { GreigeStockDetail, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
+import { prefillQty, qtyExceeds } from '@/lib/quantity';
 import {
-  ISSUE_QTY_TOLERANCE,
   autoFillLotRows,
   emptyLotRow,
   groupDetailsByBale,
@@ -126,13 +126,13 @@ export function GreigeLotRows({
         // Add selection with full available meters
         const newSelection: SelectedDetail = {
           detailId: detail.id,
-          metersToIssue: detail.metersRemaining.toFixed(2),
+          metersToIssue: prefillQty(detail.metersRemaining),
         };
         const updatedSelections = [...currentSelections, newSelection];
         const totalFromDetails = totalDetailMeters(updatedSelections);
         updateRow(rowIndex, {
           selectedDetails: updatedSelections,
-          qty: totalFromDetails.toFixed(2),
+          qty: prefillQty(totalFromDetails),
         });
       } else {
         // Remove selection
@@ -140,7 +140,7 @@ export function GreigeLotRows({
         const totalFromDetails = totalDetailMeters(updatedSelections);
         updateRow(rowIndex, {
           selectedDetails: updatedSelections,
-          qty: totalFromDetails.toFixed(2),
+          qty: prefillQty(totalFromDetails),
         });
       }
     },
@@ -157,7 +157,7 @@ export function GreigeLotRows({
       const totalFromDetails = totalDetailMeters(updatedSelections);
       updateRow(rowIndex, {
         selectedDetails: updatedSelections,
-        qty: totalFromDetails.toFixed(2),
+        qty: prefillQty(totalFromDetails),
       });
     },
     [rows, updateRow]
@@ -193,7 +193,7 @@ export function GreigeLotRows({
       {rows.map((row, index) => {
         const lot = row.lotId ? lots.find((l) => l.id === row.lotId) : undefined;
         const rowQty = parseFloat(row.qty);
-        const overAvailable = !!lot && rowQty > lot.quantityAvailable + ISSUE_QTY_TOLERANCE;
+        const overAvailable = !!lot && qtyExceeds(rowQty, lot.quantityAvailable);
         const isLoading = row.lotId ? loadingDetails.has(row.lotId) : false;
         const groupedDetails = row.availableDetails ? groupDetailsByBale(row.availableDetails) : [];
         const selectedIds = new Set((row.selectedDetails ?? []).map((d) => d.detailId));
@@ -264,7 +264,7 @@ export function GreigeLotRows({
 
               <Input
                 type="number"
-                step="0.01"
+                step="any"
                 min="0"
                 className="w-32"
                 value={row.qty}
@@ -331,7 +331,7 @@ export function GreigeLotRows({
                                 {isSelected && (
                                   <Input
                                     type="number"
-                                    step="0.01"
+                                    step="any"
                                     min="0"
                                     max={detail.metersRemaining}
                                     className="h-7 w-24 text-sm"

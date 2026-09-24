@@ -286,6 +286,7 @@ export default function ChallanForm() {
                   <Label>Quantity *</Label>
                   <Input
                     type="number"
+                    step="any"
                     value={item.quantity || ''}
                     onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
                   />

@@ -31,6 +31,7 @@ import { logError } from '../lib/logger';
 import { toast } from 'sonner';
 import { getSystemSettingByKey } from '../services/system-settings.service';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 const PAGE_SIZE = 25;
 // BUG-GR10 fix: Default aging threshold; overridden by STOCK_AGING_THRESHOLD_DAYS system setting
@@ -247,8 +248,10 @@ export default function GreigeAvailableStock() {
     if (!adjustingEntry || !adjustForm.quantity) return;
     setIsAdjusting(true);
     try {
-      const qty = parseFloat(adjustForm.quantity);
-      if (isNaN(qty) || qty <= 0) {
+      const typedQty = parseFloat(adjustForm.quantity);
+      // A full write-off typed at 2 decimals IS the full lot (see @/lib/quantity)
+      const qty = adjustForm.type === 'DECREASE' ? snapToLimit(typedQty, adjustingEntry.quantityAvailable) : typedQty;
+      if (isNaN(typedQty) || qty <= 0) {
         toast.error('Enter a valid quantity');
         return;
       }
@@ -872,7 +875,7 @@ export default function GreigeAvailableStock() {
               <Label>Quantity (meters)</Label>
               <Input
                 type="number"
-                step="0.01"
+                step="any"
                 value={adjustForm.quantity}
                 onChange={(e) => setAdjustForm({ ...adjustForm, quantity: e.target.value })}
                 placeholder="Enter adjustment quantity"
@@ -880,7 +883,7 @@ export default function GreigeAvailableStock() {
               {adjustForm.type === 'DECREASE' &&
                 adjustForm.quantity &&
                 adjustingEntry &&
-                parseFloat(adjustForm.quantity) > adjustingEntry.quantityAvailable && (
+                qtyExceeds(parseFloat(adjustForm.quantity), adjustingEntry.quantityAvailable) && (
                   <p className="text-xs text-destructive">Cannot decrease more than available stock</p>
                 )}
             </div>
@@ -920,7 +923,7 @@ export default function GreigeAvailableStock() {
                 !adjustForm.quantity ||
                 (adjustForm.type === 'DECREASE' &&
                   adjustingEntry != null &&
-                  parseFloat(adjustForm.quantity || '0') > adjustingEntry.quantityAvailable)
+                  qtyExceeds(parseFloat(adjustForm.quantity || '0'), adjustingEntry.quantityAvailable))
               }
             >
               {isAdjusting ? 'Adjusting...' : 'Apply Adjustment'}

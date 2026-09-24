@@ -23,6 +23,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { systemSettingsService } from '../services/system-settings.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { qtyExceeds, snapToLimit } from '../utils/quantity';
 import type {
   CreateFabricStockInput,
   UpdateFabricStockInput,
@@ -975,9 +976,11 @@ export const transferStock = async (req: Request, res: Response) => {
 
   const available = Number(stock.quantityAvailable);
 
-  if (available < data.quantityToTransfer) {
+  if (qtyExceeds(data.quantityToTransfer, available)) {
     throw new ValidationError(`Insufficient stock. Available: ${available}, Requested: ${data.quantityToTransfer}`);
   }
+  // Quantity rule (utils/quantity): moving the whole lot within dust moves exactly the lot.
+  data.quantityToTransfer = snapToLimit(data.quantityToTransfer, available);
 
   // Update stock record
   const updatedStock = await prisma.fabric_stock.update({
@@ -1034,9 +1037,11 @@ export const adjustStock = async (req: Request, res: Response) => {
   if (data.adjustmentType === 'INCREASE') {
     newQty = currentQty + data.quantity;
   } else {
-    if (currentQty < data.quantity) {
+    if (qtyExceeds(data.quantity, currentQty)) {
       throw new ValidationError(`Cannot decrease by ${data.quantity}. Only ${currentQty} available`);
     }
+    // Quantity rule (utils/quantity): writing off the whole lot within dust leaves exactly 0.
+    data.quantity = snapToLimit(data.quantity, currentQty);
     newQty = currentQty - data.quantity;
   }
 

@@ -26,6 +26,7 @@ import { notify } from '../lib/notify';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { ArrowLeft, Package, ArrowRightLeft, History, MapPin, DollarSign, Undo2 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/date';
+import { isQtyZero, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 export default function LaceStockDetail() {
   const { id } = useParams<{ id: string }>();
@@ -104,7 +105,7 @@ export default function LaceStockDetail() {
 
   const handleTransfer = async () => {
     if (!id || !stock) return;
-    if (transferForm.quantityToTransfer <= 0 || transferForm.quantityToTransfer > stock.quantityAvailable) {
+    if (transferForm.quantityToTransfer <= 0 || qtyExceeds(transferForm.quantityToTransfer, stock.quantityAvailable)) {
       notify.error('Invalid transfer quantity');
       return;
     }
@@ -115,7 +116,11 @@ export default function LaceStockDetail() {
 
     setProcessing(true);
     try {
-      await laceStockService.transferStock(id, transferForm);
+      // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
+      await laceStockService.transferStock(id, {
+        ...transferForm,
+        quantityToTransfer: snapToLimit(transferForm.quantityToTransfer, stock.quantityAvailable),
+      });
       notify.success('Stock transferred successfully');
       setShowTransferModal(false);
       setTransferForm({ toStyleId: '', toOrderId: '', quantityToTransfer: 0, transferNotes: '' });
@@ -129,8 +134,9 @@ export default function LaceStockDetail() {
   };
 
   // Unused-but-not-yet-consumed quantity that can be returned for a given allocation.
+  // Snapped to 0 within rounding dust, so a 0.002 leftover does not offer a Return.
   const getReturnableQty = (alloc: LaceStockAllocation) =>
-    alloc.quantityAllocated - alloc.quantityConsumed - alloc.quantityReturned;
+    qtyRemaining(alloc.quantityAllocated, Number(alloc.quantityConsumed) + Number(alloc.quantityReturned));
 
   const openReturnModal = (alloc: LaceStockAllocation) => {
     setSelectedAllocation(alloc);
@@ -141,14 +147,17 @@ export default function LaceStockDetail() {
   const handleReturn = async () => {
     if (!id || !selectedAllocation) return;
     const maxReturnable = getReturnableQty(selectedAllocation);
-    if (returnForm.quantityToReturn <= 0 || returnForm.quantityToReturn > maxReturnable) {
+    if (returnForm.quantityToReturn <= 0 || qtyExceeds(returnForm.quantityToReturn, maxReturnable)) {
       notify.error('Invalid return quantity');
       return;
     }
 
     setProcessing(true);
     try {
-      await laceStockService.returnStock(selectedAllocation.id, returnForm);
+      await laceStockService.returnStock(selectedAllocation.id, {
+        ...returnForm,
+        quantityToReturn: snapToLimit(returnForm.quantityToReturn, maxReturnable),
+      });
       notify.success('Stock returned successfully');
       setShowReturnModal(false);
       setSelectedAllocation(null);
@@ -455,7 +464,7 @@ export default function LaceStockDetail() {
                         </td>
                         <td className="px-4 py-4 text-sm">{formatDate(alloc.createdAt)}</td>
                         <td className="px-4 py-4 text-right">
-                          {getReturnableQty(alloc) > 0 && (
+                          {!isQtyZero(getReturnableQty(alloc)) && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -558,6 +567,7 @@ export default function LaceStockDetail() {
               <Label>Quantity (meters)</Label>
               <Input
                 type="number"
+                step="any"
                 value={transferForm.quantityToTransfer || ''}
                 onChange={(e) =>
                   setTransferForm({
@@ -614,6 +624,7 @@ export default function LaceStockDetail() {
               <Label>Quantity (meters)</Label>
               <Input
                 type="number"
+                step="any"
                 value={returnForm.quantityToReturn || ''}
                 onChange={(e) =>
                   setReturnForm({

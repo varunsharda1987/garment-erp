@@ -28,6 +28,7 @@ import { systemSettingsService } from '../system-settings.service';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
 import { getQualityGradeOrDefault } from '../../constants/stock.constants';
 import { foldActual } from '../../utils/fold-length';
+import { isQtyZero, snapToLimit } from '../../utils/quantity';
 
 export interface StockInRoutingData {
   materialId: string;
@@ -292,6 +293,9 @@ export async function routeFromSpecializedStock(
 
     let remainingQty = data.quantity;
     const deductedRecords: Array<{ stockId: string; quantity: number }> = [];
+    // Quantity rule (utils/quantity), applied in every FIFO loop below: a remainder within dust of a
+    // lot takes the whole lot (no 0.002 m left behind on an EXHAUSTED/ISSUED lot), and a remainder
+    // that is itself dust opens no further lot.
 
     // Route to appropriate specialized table based on FK presence
     if (material.greigeId) {
@@ -308,16 +312,16 @@ export async function routeFromSpecializedStock(
       });
 
       for (const stock of stocks) {
-        if (remainingQty <= 0) break;
+        if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, remainingQty);
+        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
 
         await client.greige_stock.update({
           where: { id: stock.id },
           data: {
             quantityAvailable: { decrement: deductQty },
             quantityConsumed: { increment: deductQty },
-            status: available - deductQty <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+            status: isQtyZero(available - deductQty) || available - deductQty < 0 ? 'EXHAUSTED' : 'AVAILABLE',
           },
         });
 
@@ -360,9 +364,9 @@ export async function routeFromSpecializedStock(
       });
 
       for (const stock of stocks) {
-        if (remainingQty <= 0) break;
+        if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, remainingQty);
+        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
 
         await client.fabric_stock.update({
           where: { id: stock.id },
@@ -370,7 +374,7 @@ export async function routeFromSpecializedStock(
             quantityAvailable: { decrement: deductQty },
             quantityConsumed: { increment: deductQty },
             lastConsumedDate: new Date(),
-            status: available - deductQty <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
+            status: isQtyZero(available - deductQty) || available - deductQty < 0 ? 'EXHAUSTED' : 'AVAILABLE',
           },
         });
 
@@ -399,9 +403,9 @@ export async function routeFromSpecializedStock(
       });
 
       for (const stock of stocks) {
-        if (remainingQty <= 0) break;
+        if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, remainingQty);
+        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
 
         await client.lace_stock.update({
           where: { id: stock.id },
@@ -409,7 +413,7 @@ export async function routeFromSpecializedStock(
             quantityAvailable: { decrement: deductQty },
             quantityConsumed: { increment: deductQty },
             lastConsumedDate: new Date(),
-            status: available - deductQty <= 0 ? 'ISSUED' : 'AVAILABLE',
+            status: isQtyZero(available - deductQty) || available - deductQty < 0 ? 'ISSUED' : 'AVAILABLE',
           },
         });
 
@@ -452,9 +456,9 @@ export async function routeFromSpecializedStock(
       });
 
       for (const stock of stocks) {
-        if (remainingQty <= 0) break;
+        if (isQtyZero(remainingQty) || remainingQty < 0) break;
         const available = Number(stock.quantityAvailable);
-        const deductQty = Math.min(available, remainingQty);
+        const deductQty = Math.min(available, snapToLimit(remainingQty, available));
 
         await client.thread_stock.update({
           where: { id: stock.id },
@@ -462,7 +466,7 @@ export async function routeFromSpecializedStock(
             quantityAvailable: { decrement: deductQty },
             quantityConsumed: { increment: deductQty },
             lastConsumedDate: new Date(),
-            status: available - deductQty <= 0 ? 'ISSUED' : 'AVAILABLE',
+            status: isQtyZero(available - deductQty) || available - deductQty < 0 ? 'ISSUED' : 'AVAILABLE',
           },
         });
 
@@ -520,9 +524,9 @@ export async function routeFromSpecializedStock(
         });
 
         for (const stock of stocks) {
-          if (remainingQty <= 0) break;
+          if (isQtyZero(remainingQty) || remainingQty < 0) break;
           const available = Number(stock.quantityAvailable);
-          const deductQty = Math.min(available, remainingQty);
+          const deductQty = Math.min(available, snapToLimit(remainingQty, available));
 
           await (client as any)[table].update({
             where: { id: stock.id },
@@ -530,7 +534,7 @@ export async function routeFromSpecializedStock(
               quantityAvailable: { decrement: deductQty },
               quantityConsumed: { increment: deductQty },
               lastConsumedDate: new Date(),
-              status: available - deductQty <= 0 ? 'ISSUED' : 'AVAILABLE',
+              status: isQtyZero(available - deductQty) || available - deductQty < 0 ? 'ISSUED' : 'AVAILABLE',
             },
           });
 

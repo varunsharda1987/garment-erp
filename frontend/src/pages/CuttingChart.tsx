@@ -22,6 +22,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 import { toDateInputValue } from '@/lib/date';
+import { qtyExceeds } from '@/lib/quantity';
 
 interface AvailableWorkOrder {
   id: string;
@@ -611,9 +612,9 @@ export default function CuttingChart() {
                         </TableCell>
                         <TableCell className="text-right">{fa.requiredForOrder.toFixed(1)}</TableCell>
                         <TableCell
-                          className={`text-right font-medium ${fa.shortfallMeters > 0 ? 'text-destructive' : 'text-success'}`}
+                          className={`text-right font-medium ${qtyExceeds(fa.shortfallMeters, 0) ? 'text-destructive' : 'text-success'}`}
                         >
-                          {fa.shortfallMeters > 0 ? fa.shortfallMeters.toFixed(1) : '—'}
+                          {qtyExceeds(fa.shortfallMeters, 0) ? fa.shortfallMeters.toFixed(1) : '—'}
                         </TableCell>
                       </TableRow>
                     ))}

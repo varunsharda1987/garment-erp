@@ -56,7 +56,7 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/jwo-rate.helper';
 import logger, { logWarn } from '../utils/logger';
 import { BusinessError } from '../errors';
-import { isQtyZero, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
+import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
@@ -77,6 +77,18 @@ const TRIM_FK_FIELDS = Object.values(MASTER_CONFIG)
 const FK_TO_MASTER_TYPE: Record<string, string> = Object.fromEntries(
   Object.entries(MASTER_CONFIG).map(([type, config]) => [config.fkField, type])
 );
+
+/**
+ * "Still needs a PO": PO_REQUIRED, or PARTIAL_STOCK with a real shortfall. Quantity rule
+ * (utils/quantity): a PARTIAL_STOCK row short by less than QTY_EPSILON is covered by stock — rounding
+ * dust must not put it in the PO lists.
+ */
+const NEEDS_PO_WHERE: Prisma.material_requirementsWhereInput = {
+  OR: [
+    { status: MaterialRequirementStatus.PO_REQUIRED },
+    { status: MaterialRequirementStatus.PARTIAL_STOCK, shortfall: { gte: QTY_EPSILON } },
+  ],
+};
 
 /**
  * Ensure a materials record exists for a fabric_master entry.
@@ -1445,6 +1457,9 @@ export async function calculateRequirementsFromOrder(
       let shortfall = totalRequired;
       let status: MaterialRequirementStatus = MaterialRequirementStatus.PO_REQUIRED;
 
+      // Quantity rule (utils/quantity): stock lots are stored at 2 decimals, the requirement at 3.
+      // Stock within dust of the need covers it, dust stock is no stock, and a shortfall within dust
+      // is stored as 0 — otherwise a 2 mm gap reads "Partially from Stock" and sits in the PO lists.
       if (checkStock) {
         // For GREIGE_PROCESSED and LANDED GREIGE items, check greige_stock table
         if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
@@ -1462,15 +1477,15 @@ export async function calculateRequirementsFromOrder(
           });
           const totalGreigeStock = netFreeStock(greigeStockResult._sum);
 
-          if (totalGreigeStock >= totalRequired) {
+          if (qtyAtLeast(totalGreigeStock, totalRequired)) {
             availableStock = totalGreigeStock;
             allocatedFromStock = totalRequired;
             shortfall = 0;
             status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (totalGreigeStock > 0) {
+          } else if (qtyExceeds(totalGreigeStock, 0)) {
             availableStock = totalGreigeStock;
             allocatedFromStock = totalGreigeStock;
-            shortfall = totalRequired - totalGreigeStock;
+            shortfall = qtyRemaining(totalRequired, totalGreigeStock);
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no greige stock, defaults remain (PO_REQUIRED)
@@ -1500,19 +1515,19 @@ export async function calculateRequirementsFromOrder(
           });
           const totalFabricStock = netFreeStock(fabricStockAnyWidth._sum);
 
-          if (stockAtBomWidth >= totalRequired) {
+          if (qtyAtLeast(stockAtBomWidth, totalRequired)) {
             // Fully available at requested width
             availableStock = stockAtBomWidth;
             allocatedFromStock = totalRequired;
             shortfall = 0;
             status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (stockAtBomWidth > 0) {
+          } else if (qtyExceeds(stockAtBomWidth, 0)) {
             // Partial stock at requested width
             availableStock = stockAtBomWidth;
             allocatedFromStock = stockAtBomWidth;
-            shortfall = totalRequired - stockAtBomWidth;
+            shortfall = qtyRemaining(totalRequired, stockAtBomWidth);
             status = MaterialRequirementStatus.PARTIAL_STOCK;
-          } else if (totalFabricStock > 0) {
+          } else if (qtyExceeds(totalFabricStock, 0)) {
             // Stock exists, but only at a different width — net it the same way the partial
             // branch above does.
             // MRP-13: this used to read `totalFabricStock > 0 && totalFabricStock < totalRequired`,
@@ -1520,10 +1535,11 @@ export async function calculateRequirementsFromOrder(
             // silently fell through to PO_REQUIRED with availableStock 0 — more stock produced
             // less netting.
             availableStock = totalFabricStock;
-            allocatedFromStock = Math.min(totalFabricStock, totalRequired);
-            shortfall = Math.max(0, totalRequired - totalFabricStock);
-            status =
-              shortfall === 0 ? MaterialRequirementStatus.FULFILLED_STOCK : MaterialRequirementStatus.PARTIAL_STOCK;
+            shortfall = qtyRemaining(totalRequired, totalFabricStock);
+            allocatedFromStock = isQtyZero(shortfall) ? totalRequired : totalFabricStock;
+            status = isQtyZero(shortfall)
+              ? MaterialRequirementStatus.FULFILLED_STOCK
+              : MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
         } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && !bomItem.fabricWidthInches) {
@@ -1537,15 +1553,15 @@ export async function calculateRequirementsFromOrder(
           });
           const totalFabricStock = netFreeStock(fabricStockAnyWidth._sum);
 
-          if (totalFabricStock >= totalRequired) {
+          if (qtyAtLeast(totalFabricStock, totalRequired)) {
             availableStock = totalFabricStock;
             allocatedFromStock = totalRequired;
             shortfall = 0;
             status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (totalFabricStock > 0) {
+          } else if (qtyExceeds(totalFabricStock, 0)) {
             availableStock = totalFabricStock;
             allocatedFromStock = totalFabricStock;
-            shortfall = totalRequired - totalFabricStock;
+            shortfall = qtyRemaining(totalRequired, totalFabricStock);
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock, defaults remain (PO_REQUIRED)
@@ -1561,17 +1577,17 @@ export async function calculateRequirementsFromOrder(
           });
           const totalLaceStock = netFreeStock(laceStockResult._sum);
 
-          if (totalLaceStock >= totalRequired) {
+          if (qtyAtLeast(totalLaceStock, totalRequired)) {
             // Fully available from lace stock
             availableStock = totalLaceStock;
             allocatedFromStock = totalRequired;
             shortfall = 0;
             status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (totalLaceStock > 0) {
+          } else if (qtyExceeds(totalLaceStock, 0)) {
             // Partial stock available
             availableStock = totalLaceStock;
             allocatedFromStock = totalLaceStock;
-            shortfall = totalRequired - totalLaceStock;
+            shortfall = qtyRemaining(totalRequired, totalLaceStock);
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
@@ -1581,13 +1597,13 @@ export async function calculateRequirementsFromOrder(
           // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
           availableStock = await getDerivedOnHand(stockMaterialId);
 
-          if (availableStock >= totalRequired) {
+          if (qtyAtLeast(availableStock, totalRequired)) {
             allocatedFromStock = totalRequired;
             shortfall = 0;
             status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (availableStock > 0) {
+          } else if (qtyExceeds(availableStock, 0)) {
             allocatedFromStock = availableStock;
-            shortfall = totalRequired - availableStock;
+            shortfall = qtyRemaining(totalRequired, availableStock);
             status = MaterialRequirementStatus.PARTIAL_STOCK;
           }
         }
@@ -2679,8 +2695,11 @@ export async function getOrderRequirementsSummary(orderId: string): Promise<Orde
     .filter((s) => s.count > 0);
 
   const totalShortfall = requirements.reduce((sum, r) => sum + Number(r.shortfall), 0);
+  // Same rule as NEEDS_PO_WHERE: a PARTIAL_STOCK row short only by rounding dust does not need a PO.
   const requirementsNeedingPO = requirements.filter(
-    (r) => r.status === MaterialRequirementStatus.PO_REQUIRED || r.status === MaterialRequirementStatus.PARTIAL_STOCK
+    (r) =>
+      r.status === MaterialRequirementStatus.PO_REQUIRED ||
+      (r.status === MaterialRequirementStatus.PARTIAL_STOCK && !isQtyZero(r.shortfall))
   ).length;
   // Reported separately so callers do not read "0 need PO" as "procurement complete" while
   // size-wise labels are still waiting for the order's size split.
@@ -2736,9 +2755,10 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
         },
       },
     }),
-    // Total shortfall (all types)
+    // Total shortfall (all types). Quantity rule (utils/quantity): a shortfall under QTY_EPSILON is
+    // rounding dust, not a shortage.
     prisma.material_requirements.aggregate({
-      where: { shortfall: { gt: 0 } },
+      where: { shortfall: { gte: QTY_EPSILON } },
       _sum: { shortfall: true },
     }),
     // MATERIAL requirements needing PO
@@ -2823,7 +2843,7 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
       SELECT m."materialType", COUNT(*)::int as count, SUM(mr.shortfall)::float as shortfall
       FROM material_requirements mr
       JOIN materials m ON mr."materialId" = m.id
-      WHERE mr.shortfall > 0
+      WHERE mr.shortfall >= ${QTY_EPSILON}
       GROUP BY m."materialType"
     ` as Promise<{ materialType: string; count: number; shortfall: number }[]>,
     // By supplier
@@ -3316,7 +3336,7 @@ export async function generatePOFromRequirements(
   const requirements = await prisma.material_requirements.findMany({
     where: {
       id: { in: effectiveReqIds },
-      status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
+      ...NEEDS_PO_WHERE,
     },
     include: {
       materials: true,
@@ -4538,7 +4558,7 @@ export async function updateReceivedQuantity(
     // short across successive partials, and a delivery within the under-receipt tolerance is complete.
     if (isReceiptComplete(totalReceived, totalAllocated, underTolerance)) {
       newStatus = MaterialRequirementStatus.RECEIVED;
-    } else if (totalReceived > 0) {
+    } else if (qtyExceeds(totalReceived, 0)) {
       newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;
     } else {
       // P1.5: Zero received (after reversal) → downgrade to PO_SENT
@@ -4608,9 +4628,10 @@ export async function updateJwoReceivedQuantity(
     let newStatus: MaterialRequirementStatus;
     // Tolerance, not a bare >=: independent per-receipt rounding can leave a link a millimetre
     // short across successive partials, which would strand a fully-received requirement.
+    // RECEIPT_COMPLETE_TOLERANCE is QTY_EPSILON (utils/quantity) — the job returns at 2 decimals.
     if (totalReceived >= totalAllocated - RECEIPT_COMPLETE_TOLERANCE) {
       newStatus = MaterialRequirementStatus.RECEIVED;
-    } else if (totalReceived > 0) {
+    } else if (qtyExceeds(totalReceived, 0)) {
       newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;
     } else {
       newStatus = MaterialRequirementStatus.PO_SENT;
@@ -4922,7 +4943,7 @@ export async function groupRequirementsBySupplier(requirementIds: string[]): Pro
   const requirements = await prisma.material_requirements.findMany({
     where: {
       id: { in: requirementIds },
-      status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
+      ...NEEDS_PO_WHERE,
     },
     include: getRequirementIncludes(),
   });
@@ -5260,14 +5281,16 @@ export async function convertToGreigeProcessing(
   });
   const greigeAvailable = netFreeStock(greigeStockResult._sum);
 
-  const greigeAllocated = Math.min(greigeAvailable, greigeQtyNeeded);
-  const greigeShortfall = greigeQtyNeeded - greigeAllocated;
-  const greigeStatus =
-    greigeShortfall === 0
-      ? MaterialRequirementStatus.FULFILLED_STOCK
-      : greigeAllocated > 0
-        ? MaterialRequirementStatus.PARTIAL_STOCK
-        : MaterialRequirementStatus.PO_REQUIRED;
+  // Quantity rule (utils/quantity): greige lots are 2-decimal, the adjusted need 3 — stock within
+  // dust of the need covers it, and the shortfall is stored as 0, not 0.002.
+  const greigeFree = Math.max(0, greigeAvailable);
+  const greigeShortfall = qtyRemaining(greigeQtyNeeded, greigeFree);
+  const greigeAllocated = isQtyZero(greigeShortfall) ? greigeQtyNeeded : greigeFree;
+  const greigeStatus = isQtyZero(greigeShortfall)
+    ? MaterialRequirementStatus.FULFILLED_STOCK
+    : qtyExceeds(greigeAllocated, 0)
+      ? MaterialRequirementStatus.PARTIAL_STOCK
+      : MaterialRequirementStatus.PO_REQUIRED;
 
   // Qty-rate audit 2026-08-24: this dialog accepted a free-typed processing cost with no
   // rate-card consultation at all (rateSource stayed 'MANUAL' even when a card existed for
@@ -5465,7 +5488,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
     const requirements = await prisma.material_requirements.findMany({
       where: {
         id: { in: previewableIds },
-        status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
+        ...NEEDS_PO_WHERE,
       },
       include: {
         materials: true,

@@ -76,6 +76,7 @@ import type { Label as LabelType } from '../types/label.types';
 import type { Packaging } from '../types/packaging.types';
 import { logError } from '../lib/logger';
 import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
+import { isQtyZero, qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { formatCurrency } from '@/lib/currency';
 
 // Material type for unified dropdown
@@ -632,7 +633,7 @@ export default function StockInForm() {
         setError('Received quantity must be greater than 0');
         return;
       }
-      if (qty > selectedProcessorStock.quantityAvailable) {
+      if (qtyExceeds(qty, selectedProcessorStock.quantityAvailable)) {
         setError('Received quantity cannot exceed sent quantity');
         return;
       }
@@ -659,7 +660,8 @@ export default function StockInForm() {
       if (sourceType === 'PROCESSOR_RETURN' && selectedProcessorStock) {
         await stockMovementService.createStockInFromProcessor({
           greigeStockId: selectedProcessorStock.id,
-          receivedQuantity: Number(receivedQuantity),
+          // A full return typed at 2 decimals IS the full quantity at the processor (see @/lib/quantity)
+          receivedQuantity: snapToLimit(receivedQuantity, selectedProcessorStock.quantityAvailable),
           warehouseId: formData.warehouseId,
           remarks: formData.remarks || undefined,
         });
@@ -936,7 +938,7 @@ export default function StockInForm() {
                         onChange={(e) => setReceivedQuantity(e.target.value)}
                         min="0.01"
                         max={selectedProcessorStock.quantityAvailable}
-                        step="0.01"
+                        step="any"
                         placeholder="Enter quantity to receive"
                       />
                     </div>
@@ -947,14 +949,15 @@ export default function StockInForm() {
                       {(() => {
                         const qty = Number(receivedQuantity) || 0;
                         const available = selectedProcessorStock.quantityAvailable;
-                        const balance = available - qty;
+                        // Within rounding dust of the full quantity IS a full receipt (see @/lib/quantity)
+                        const balance = isQtyZero(available - qty) ? 0 : available - qty;
                         if (qty <= 0) return <Input value="-" disabled className="bg-muted" />;
                         return (
                           <div
-                            className={`p-2 rounded-md text-center ${balance > 0 ? 'bg-muted' : 'bg-success-muted text-success'}`}
+                            className={`p-2 rounded-md text-center ${!isQtyZero(balance) ? 'bg-muted' : 'bg-success-muted text-success'}`}
                           >
                             <span className="font-medium">{balance.toFixed(2)} MTR</span>
-                            {balance === 0 && <div className="text-xs mt-1">Full receipt - no balance</div>}
+                            {isQtyZero(balance) && <div className="text-xs mt-1">Full receipt - no balance</div>}
                           </div>
                         );
                       })()}
@@ -1247,7 +1250,7 @@ export default function StockInForm() {
                             value={item.quantity}
                             onChange={(e) => updateLineItem(item.tempId, 'quantity', e.target.value)}
                             min="0"
-                            step="0.01"
+                            step="any"
                             placeholder="0.00"
                           />
                         </div>
@@ -1314,7 +1317,7 @@ export default function StockInForm() {
                                 value={item.foldLengthCm}
                                 onChange={(e) => updateLineItem(item.tempId, 'foldLengthCm', e.target.value)}
                                 placeholder="e.g. 97"
-                                step="0.01"
+                                step="any"
                                 min="0"
                               />
                             </div>

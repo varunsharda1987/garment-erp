@@ -26,6 +26,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
+import { qtyExceeds } from '@/lib/quantity';
 
 // ============================================
 // Types
@@ -146,7 +147,8 @@ export default function GRNForm() {
         setTolerancePercent(response.tolerancePercent);
       }
       const pendingItems: GRNItemForm[] = (response.data || [])
-        .filter((item: PendingPOItem) => item.pendingQuantity > 0)
+        // A line pending only rounding dust is fully received (see @/lib/quantity)
+        .filter((item: PendingPOItem) => qtyExceeds(item.pendingQuantity, 0))
         .map((item: PendingPOItem) => ({
           poItemId: item.poItemId,
           materialId: item.materialId,

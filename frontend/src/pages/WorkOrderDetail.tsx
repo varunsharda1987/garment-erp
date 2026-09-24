@@ -56,6 +56,7 @@ import ThreadIssuanceSection from '@/components/ThreadIssuanceSection';
 import PackagingIssuanceSection from '@/components/PackagingIssuanceSection';
 import WipSummarySection from '@/components/WipSummarySection';
 import { formatDate } from '@/lib/date';
+import { qtyExceeds } from '@/lib/quantity';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -531,26 +532,29 @@ export default function WorkOrderDetail() {
                   </div>
 
                   {/* Missing Materials */}
-                  {materialReadiness.missingMaterials.length > 0 && (
+                  {/* A shortfall of rounding dust is not missing (see @/lib/quantity) */}
+                  {materialReadiness.missingMaterials.some((m) => qtyExceeds(m.shortfall, 0)) && (
                     <div className="border border-warning/20 rounded-lg p-4 bg-warning-muted">
                       <h4 className="font-medium text-warning mb-3">Missing Materials:</h4>
                       <div className="space-y-2">
-                        {materialReadiness.missingMaterials.map((material, idx) => (
-                          <div key={idx} className="flex justify-between items-center text-sm">
-                            <div>
-                              <span className="font-medium text-foreground">{material.materialName}</span>
-                              <span className="text-muted-foreground ml-2">({material.materialCode})</span>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-destructive font-medium">
-                                Short: {material.shortfall.toFixed(2)} {unitShort(material.unit)}
+                        {materialReadiness.missingMaterials
+                          .filter((m) => qtyExceeds(m.shortfall, 0))
+                          .map((material, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-sm">
+                              <div>
+                                <span className="font-medium text-foreground">{material.materialName}</span>
+                                <span className="text-muted-foreground ml-2">({material.materialCode})</span>
                               </div>
-                              <div className="text-xs text-muted-foreground">
-                                Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
+                              <div className="text-right">
+                                <div className="text-destructive font-medium">
+                                  Short: {material.shortfall.toFixed(2)} {unitShort(material.unit)}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Need: {material.required.toFixed(2)}, Have: {material.available.toFixed(2)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
                       </div>
                       <Alert className="mt-4 bg-info-muted border-info/30">
                         <AlertCircle className="h-4 w-4 text-info" />

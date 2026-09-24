@@ -12,6 +12,7 @@ import workOrderService from '@/services/workOrder.service';
 import type { FabricIssuanceData, FabricIssuanceAnalysis, IssuedChallan } from '@/types/production.types';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '@/lib/date';
+import { qtyExceeds } from '@/lib/quantity';
 
 interface FabricIssuanceSectionProps {
   workOrderId: string;
@@ -180,9 +181,9 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                         {fa.maxPcsFromStock !== null ? fa.maxPcsFromStock.toLocaleString() : '-'}
                       </TableCell>
                       <TableCell
-                        className={`text-right ${fa.shortfallMeters > 0 ? 'text-destructive font-medium' : 'text-success'}`}
+                        className={`text-right ${qtyExceeds(fa.shortfallMeters, 0) ? 'text-destructive font-medium' : 'text-success'}`}
                       >
-                        {fa.shortfallMeters > 0 ? fa.shortfallMeters.toFixed(1) : '-'}
+                        {qtyExceeds(fa.shortfallMeters, 0) ? fa.shortfallMeters.toFixed(1) : '-'}
                       </TableCell>
                     </TableRow>
                   ))}

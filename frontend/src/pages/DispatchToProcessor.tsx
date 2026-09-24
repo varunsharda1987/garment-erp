@@ -28,16 +28,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import {
-  ISSUE_QTY_TOLERANCE,
   autoFillLotRows,
   emptyLotRow,
   evaluateLotRows,
-  round2,
+  round3,
   type IssueLotRow,
 } from '@/components/job-work/lot-rows';
 import { jobWorkOrderService, type DispatchOrderInput, type DispatchableOrder } from '@/services/jobWorkOrder.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { toDateInputValue } from '@/lib/date';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 /**
  * Blockers no lot selection can clear. Everything else the server reports on a dispatchable order
@@ -145,7 +145,7 @@ export default function DispatchToProcessor() {
     const reusedLots = [...lotOwners.entries()].filter(([, owners]) => new Set(owners).size > 1);
 
     const widthAckNeeded = perOrder.some((p) => p.evaluation.needsWidthAck);
-    const totalQty = round2(perOrder.reduce((sum, p) => sum + p.evaluation.totalQty, 0));
+    const totalQty = round3(perOrder.reduce((sum, p) => sum + p.evaluation.totalQty, 0));
 
     return {
       perOrder,
@@ -170,12 +170,20 @@ export default function DispatchToProcessor() {
         // A single lot covering the whole order travels as greigeStockLotId, never as a
         // one-element lots[]: the server then consumes the order's own quantity verbatim, so the
         // figure cannot drift by a paisa from a number that went through an input box and back.
-        if (filled.length === 1 && Math.abs(parseFloat(filled[0].qty) - order.requiredQty) <= ISSUE_QTY_TOLERANCE) {
+        const onlyQty = filled.length === 1 ? parseFloat(filled[0].qty) : NaN;
+        if (filled.length === 1 && !qtyExceeds(onlyQty, order.requiredQty) && !qtyExceeds(order.requiredQty, onlyQty)) {
           return { jwoId: order.id, greigeStockLotId: filled[0].lotId };
         }
         return {
           jwoId: order.id,
-          lots: filled.map((r) => ({ greigeStockLotId: r.lotId, qty: parseFloat(r.qty) })),
+          // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
+          lots: filled.map((r) => ({
+            greigeStockLotId: r.lotId,
+            qty: snapToLimit(
+              parseFloat(r.qty),
+              order.availableLots.find((lot) => lot.id === r.lotId)?.quantityAvailable ?? parseFloat(r.qty)
+            ),
+          })),
         };
       });
 

@@ -55,6 +55,7 @@ import { logError } from '../lib/logger';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { SizeBreakupDialog } from '@/components/orders/SizeBreakupDialog';
 import { formatDate } from '@/lib/date';
+import { qtyExceeds } from '@/lib/quantity';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -628,7 +629,7 @@ export default function OrderDetail() {
                   totalRequirements: mrpSummary.totalRequirements,
                   requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
                   requirementsAwaitingSizes: mrpSummary.requirementsAwaitingSizes,
-                  hasShortfall: mrpSummary.totalShortfall > 0,
+                  hasShortfall: qtyExceeds(mrpSummary.totalShortfall, 0),
                 }
               : null,
             // P5.1: GRN status - derive from MRP received counts
@@ -740,7 +741,7 @@ export default function OrderDetail() {
                       </div>
                       <div className="bg-card rounded-lg p-3 text-center border border-info/15">
                         <div className="text-2xl font-bold text-destructive">
-                          {mrpSummary.totalShortfall > 0 ? mrpSummary.requirementsNeedingPO : 0}
+                          {qtyExceeds(mrpSummary.totalShortfall, 0) ? mrpSummary.requirementsNeedingPO : 0}
                         </div>
                         <div className="text-xs text-destructive">With Shortfall</div>
                       </div>

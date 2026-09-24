@@ -12,6 +12,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import greigeStockService from '../services/greige-stock.service';
+import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
 // Map polymorphic item types to their FK field in the materials table.
 // KEEP IN SYNC with ItemTypeEnum in ../schemas/stockMovement.schema.ts.
@@ -538,14 +539,17 @@ export const createProcessorReturn = async (req: Request, res: Response) => {
     throw new ValidationError('Greige stock not found');
   }
 
-  if (Number(receivedQuantity) > stock.quantityAvailable) {
+  if (qtyExceeds(receivedQuantity, stock.quantityAvailable)) {
     throw new ValidationError(
       `Received quantity (${receivedQuantity}) exceeds available at processor (${stock.quantityAvailable})`
     );
   }
+  // Quantity rule (utils/quantity): receiving everything at the processor within dust receives exactly
+  // that — the guarded consume below needs gte, and must not leave 0.002 m "at processor".
+  const receiveQty = snapToLimit(receivedQuantity, stock.quantityAvailable);
 
   // Consume the received quantity from processor's stock (partial receipt)
-  const result = await greigeStockService.receiveFromProcessor(greigeStockId, Number(receivedQuantity), userId, {
+  const result = await greigeStockService.receiveFromProcessor(greigeStockId, receiveQty, userId, {
     notes: remarks,
     referenceType: 'PROCESSING_DELIVERY',
   });

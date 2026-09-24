@@ -24,6 +24,7 @@ import { updateWosrReceivedQuantity } from './work-order-service-requirement.ser
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { applySearch } from '../utils/search-filter';
+import { qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -185,11 +186,15 @@ class ExternalProcessService {
       });
       const alreadySent = Number(siblingAgg._sum.quantitySent ?? 0);
       const orderedQty = Number(jwo.qtySentMeters);
-      if (alreadySent + data.quantitySent > orderedQty) {
+      // Quantity rule (utils/quantity): sending the rest of the job, typed at 2 decimals, sends exactly
+      // the rest — snapped here so every write below (send-out, stock, ledger) carries the same number.
+      const jwoRemaining = qtyRemaining(orderedQty, alreadySent);
+      if (qtyExceeds(data.quantitySent, jwoRemaining)) {
         throw new Error(
           `Send quantity exceeds the job work order: ${alreadySent} of ${orderedQty} already sent on ${jwo.jobWorkNumber}, requested ${data.quantitySent}`
         );
       }
+      data.quantitySent = snapToLimit(data.quantitySent, jwoRemaining);
 
       // Default the service requirement from the JWO's 5a execution pointer
       let serviceRequirementId = data.serviceRequirementId;
@@ -217,9 +222,11 @@ class ExternalProcessService {
         });
         if (!stock) throw new Error('Fabric stock not found');
         const available = parseFloat(stock.quantityAvailable.toString());
-        if (available < data.quantitySent) {
+        if (qtyExceeds(data.quantitySent, available)) {
           throw new Error(`Insufficient fabric stock. Available: ${available}, Requested: ${data.quantitySent}`);
         }
+        // Sending the whole lot within dust empties it exactly (the guarded deduct below needs gte).
+        data.quantitySent = snapToLimit(data.quantitySent, available);
         // Phase 5b ledger fix: guarded deduct + transaction row + stock_levels sync
         // (the bare decrement left no fabric_stock_transaction and stale stock_levels)
         const deducted = await tx.fabric_stock.updateMany({
@@ -445,12 +452,14 @@ class ExternalProcessService {
         throw new Error(`Send-out is already ${sendOut.status.toLowerCase()}`);
       }
 
-      const quantityDamaged = data.quantityDamaged || 0;
-      if (quantityDamaged > data.quantityReceived) {
+      const damagedEntered = data.quantityDamaged || 0;
+      if (qtyExceeds(damagedEntered, data.quantityReceived)) {
         throw new Error(
-          `Damaged quantity (${quantityDamaged}) cannot exceed received quantity (${data.quantityReceived}) — received is INCLUSIVE of damaged pieces`
+          `Damaged quantity (${damagedEntered}) cannot exceed received quantity (${data.quantityReceived}) — received is INCLUSIVE of damaged pieces`
         );
       }
+      // Quantity rule (utils/quantity): "all of it damaged" within dust is all of it — good stays 0, not −0.002.
+      const quantityDamaged = snapToLimit(damagedEntered, data.quantityReceived);
       const quantityGood = data.quantityReceived - quantityDamaged;
 
       // 2. Update SKU breakdown if provided
@@ -473,7 +482,10 @@ class ExternalProcessService {
       // service requirement to COMPLETED) while pieces were still at the vendor (bug-hunt production-11).
       const totalAccountedFor = data.quantityReceived;
       const quantitySent = parseFloat(sendOut.quantitySent.toString());
-      const newStatus: ExternalProcessStatus = totalAccountedFor >= quantitySent ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
+      // Quantity rule (utils/quantity): received within dust of sent is fully received.
+      const newStatus: ExternalProcessStatus = qtyAtLeast(totalAccountedFor, quantitySent)
+        ? 'RECEIVED'
+        : 'PARTIALLY_RECEIVED';
 
       // 4. Calculate actual cost
       const agreedRate = parseFloat(sendOut.agreedRate.toString());
@@ -518,7 +530,7 @@ class ExternalProcessService {
           select: { qtySentMeters: true, receivedDate: true },
         });
         const ordered = Number(jwoRow?.qtySentMeters ?? totalSent);
-        const fullyReceived = totalReceived >= ordered;
+        const fullyReceived = qtyAtLeast(totalReceived, ordered);
         // Helper maps the legacy mirror (RECEIVED→RECEIVED; PARTIALLY_RECEIVED leaves
         // legacy at AT_MILL by design until fully received)
         await setJwoStatus(tx, sendOut.jobWorkOrderId, fullyReceived ? 'RECEIVED' : 'PARTIALLY_RECEIVED', {

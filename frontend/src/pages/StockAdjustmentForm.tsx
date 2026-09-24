@@ -1,5 +1,6 @@
 // Stock Adjustment Form - Adjust stock with reason
 import { unitShort } from '@/lib/units';
+import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Save, X } from 'lucide-react';
@@ -79,7 +80,7 @@ export default function StockAdjustmentForm() {
     }
 
     if (formData.adjustmentType === 'decrease') {
-      if (selectedStock && Number(formData.quantity) > Number(selectedStock.quantity)) {
+      if (selectedStock && qtyExceeds(formData.quantity, selectedStock.quantity)) {
         setError(
           `Cannot decrease by more than available stock: ${selectedStock.quantity} ${unitShort(selectedStock.unit)}`
         );
@@ -90,7 +91,10 @@ export default function StockAdjustmentForm() {
     try {
       setLoading(true);
       const adjustmentQuantity =
-        formData.adjustmentType === 'increase' ? Number(formData.quantity) : -Number(formData.quantity);
+        formData.adjustmentType === 'increase'
+          ? Number(formData.quantity)
+          : // A full decrease typed at 2 decimals IS the full stock (see @/lib/quantity)
+            -(selectedStock ? snapToLimit(formData.quantity, selectedStock.quantity) : Number(formData.quantity));
 
       await stockMovementService.createAdjustment({
         materialId: formData.materialId,
@@ -228,7 +232,7 @@ export default function StockAdjustmentForm() {
                   value={formData.quantity}
                   onChange={(e) => handleChange('quantity', e.target.value)}
                   min="0"
-                  step="0.01"
+                  step="any"
                   required
                 />
               </div>

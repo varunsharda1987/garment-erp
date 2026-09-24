@@ -125,7 +125,7 @@ const JWO_ISSUE_INCLUDE = {
   requirementLinks: {
     select: {
       material_requirements: {
-        select: { id: true, materialId: true, materials: { select: { greigeId: true } } },
+        select: { id: true, materialId: true, linkedRequirementId: true, materials: { select: { greigeId: true } } },
       },
     },
   },
@@ -727,7 +727,13 @@ async function issueOneWithinTx(
   }
 
   // 5. RESERVATION RELEASE — this order's own MRP reservations are fulfilled by the issue
-  const reqIds = jwo.requirementLinks.map((l) => l.material_requirements.id);
+  // A dyeing/printing job is linked to the PROCESSING requirement, but MRP reserved the greige on
+  // the MATERIAL requirement it came from (linkedRequirementId). Matching only the job's own links
+  // never found that hold: DJ-ESSKY086LS-004 sent 1,833.25 m on 21-Sep 2026 and the lot kept
+  // reading 1,833.25 m reserved against 421.5 m on the shelf — zero free greige.
+  const reqIds = jwo.requirementLinks.flatMap((l) =>
+    [l.material_requirements.id, l.material_requirements.linkedRequirementId].filter((id): id is string => !!id)
+  );
   if (reqIds.length > 0) {
     const released = await tx.stock_reservations.updateMany({
       where: { referenceId: { in: reqIds }, status: 'ACTIVE' },

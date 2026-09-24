@@ -20,6 +20,7 @@
  */
 
 import request from 'supertest';
+import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
@@ -125,6 +126,9 @@ afterAll(async () => {
   await prisma.challans.deleteMany({ where: { id: { in: challanIds } } });
   await prisma.job_work_order_components.deleteMany({ where: { jobWorkOrderId: { in: jwoIds } } });
   await prisma.job_work_orders.deleteMany({ where: { id: { in: jwoIds } } });
+
+  await prisma.stock_reservations.deleteMany({ where: { referenceNumber: { startsWith: RUN } } });
+  await prisma.material_requirements.deleteMany({ where: { requirementNumber: { startsWith: RUN } } }); // cascades links
 
   const mintedIds = (
     await prisma.fabric_master.findMany({
@@ -247,5 +251,69 @@ describe('issuing greige fabric on a job work order', () => {
 
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
     expect(jwo!.jwoStatus).toBe('CANCELLED');
+  });
+
+  it("settles the order's greige reservation when the greige leaves for the dyer", async () => {
+    // As MRP builds it: the greige is reserved on the MATERIAL requirement; the dyeing job is linked
+    // to the PROCESSING requirement, which points back via linkedRequirementId. Until 2026-09-24 the
+    // release matched only the job's own links, so the hold outlived the greige: DJ-ESSKY086LS-004
+    // left lot 2726b4f2 showing 1,833.25 m reserved against 421.5 m on the shelf.
+    const RESERVED = 600;
+    const req = (suffix: string, extra: Record<string, unknown>) =>
+      prisma.material_requirements.create({
+        data: {
+          id: randomUUID(),
+          requirementNumber: `${RUN}-${suffix}`,
+          source: 'WORK_ORDER',
+          unit: 'METER',
+          materialId: greigeMaterialId,
+          orderQuantity: 1000,
+          quantityPerUnit: 1,
+          wastagePercent: 0,
+          totalRequired: SEND_QTY,
+          shortfall: 0,
+          requiredDate: new Date(Date.now() + 30 * 86400000),
+          createdById: userId,
+          ...extra,
+        },
+      });
+    const greigeReq = await req('G', { status: 'FULFILLED_STOCK', allocatedFromStock: RESERVED });
+    const dyeReq = await req('P', {
+      status: 'PENDING',
+      requirementType: 'PROCESSING',
+      linkedRequirementId: greigeReq.id,
+    });
+    await prisma.stock_reservations.create({
+      data: {
+        materialId: greigeMaterialId,
+        warehouseId,
+        reservationType: 'ORDER',
+        referenceType: 'MATERIAL_REQUIREMENT',
+        referenceId: greigeReq.id,
+        referenceNumber: `${RUN}-G`,
+        reservedQuantity: RESERVED,
+        unit: 'METER',
+        reservedById: userId,
+      },
+    });
+    await prisma.greige_stock.update({ where: { id: lotId }, data: { quantityReserved: RESERVED } });
+
+    const created = await createJwo();
+    expect(created.status).toBe(201);
+    const jobId = created.body.data.id as string;
+    await prisma.requirement_jwo_links.create({
+      data: { requirementId: dyeReq.id, jobWorkOrderId: jobId, allocatedQuantity: SEND_QTY },
+    });
+
+    const res = await request(app)
+      .post(`/api/job-work-orders/${jobId}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: lotId, qty: SEND_QTY }] });
+    expect(res.status).toBe(200);
+
+    const lot = await prisma.greige_stock.findUnique({ where: { id: lotId } });
+    expect(Number(lot!.quantityReserved)).toBe(0);
+    const reservation = await prisma.stock_reservations.findFirst({ where: { referenceId: greigeReq.id } });
+    expect(reservation!.status).toBe('CONSUMED');
   });
 });

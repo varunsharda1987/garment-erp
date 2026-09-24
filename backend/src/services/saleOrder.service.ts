@@ -713,6 +713,30 @@ export class SaleOrderService {
       throw new ConflictError(`Production order ${existing.orderNumber} already exists for this sale order`);
     }
 
+    // A production order may already plan these styles WITHOUT being linked: orders are raised early
+    // (sizeless) so greige can be bought and dyed before the buyer's PO arrives. All 8 Easybuy orders
+    // of Aug 2026 were like that; Start Production made a SECOND order beside each — its fabric, its
+    // BOM, its MRP. Refuse and name the order to link instead.
+    const unlinked = await prisma.orders.findMany({
+      where: {
+        saleOrderId: null,
+        isActive: true,
+        status: { notIn: ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'] },
+        order_items: { some: { styleId: { in: [...new Set(so.items.map((i) => i.styleId))] } } },
+      },
+      select: { orderNumber: true, order_items: { select: { styles: { select: { styleCode: true } } } } },
+    });
+    if (unlinked.length > 0) {
+      const names = unlinked
+        .map((o) => `${o.orderNumber} (${[...new Set(o.order_items.map((i) => i.styles.styleCode))].join(', ')})`)
+        .join(', ');
+      throw new ConflictError(
+        `Production is already planned for this style on ${names}, which is not linked to a sale order. ` +
+          `Link it to this sale order instead of starting a second production order.`,
+        { code: 'UNLINKED_PRODUCTION_ORDER_EXISTS', orders: unlinked.map((o) => o.orderNumber) }
+      );
+    }
+
     // Cost-sheet gate: same predicate the Order form enforces client-side —
     // an APPROVED cost sheet for RAW_MATERIAL_CALCULATION or PRODUCTION purpose per style.
     const styleIds = [...new Set(so.items.map((i) => i.styleId))];
@@ -897,6 +921,180 @@ export class SaleOrderService {
       return { ...createdOrder, rateWarnings } as typeof createdOrder;
     }
     return createdOrder;
+  }
+
+  /**
+   * Production orders that already plan this sale order's styles but are linked to no sale order —
+   * raised early (sizeless) so greige could be bought and dyed before the buyer's PO arrived.
+   * These are what "Link to production order" offers, and what Start Production now refuses beside.
+   */
+  async getLinkableProductionOrders(saleOrderId: string) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      select: { customerId: true, items: { select: { styleId: true } } },
+    });
+    if (!so) throw new NotFoundError('Sale Order', saleOrderId);
+    const styleIds = [...new Set(so.items.map((i) => i.styleId))];
+    const orders = await prisma.orders.findMany({
+      where: {
+        saleOrderId: null,
+        isActive: true,
+        status: { notIn: ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'] },
+        order_items: { some: { styleId: { in: styleIds } } },
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        totalQuantity: true,
+        expectedDeliveryDate: true,
+        customerId: true,
+        customers: { select: { name: true } },
+        order_items: {
+          select: {
+            id: true,
+            totalQuantity: true,
+            styles: { select: { id: true, styleCode: true } },
+            _count: { select: { order_item_breakup: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return orders.map((o) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      status: o.status,
+      totalQuantity: o.totalQuantity,
+      expectedDeliveryDate: o.expectedDeliveryDate,
+      customerName: o.customers?.name ?? null,
+      sameCustomer: o.customerId === so.customerId,
+      styles: o.order_items.map((i) => i.styles.styleCode),
+      hasSizes: o.order_items.every((i) => i._count.order_item_breakup > 0),
+    }));
+  }
+
+  /**
+   * Link an EXISTING production order to this sale order (the make-to-order link Start Production
+   * writes when it creates the order). Only the link is written here; the caller then copies the
+   * buyer PO's sizes onto any order item that has none, through the sizes-later cascade.
+   *
+   * Refuses when: the sale order is not CONFIRMED/PARTIALLY_ALLOCATED; it already has an active
+   * production order; the order is inactive, cancelled, split, completed or dispatched, or already
+   * linked; the customer differs; the order plans a style the sale order does not carry; or an order
+   * item that already has sizes plans more than the sale order line quantity still open for it.
+   */
+  async linkProductionOrder(saleOrderId: string, orderId: string) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      select: {
+        id: true,
+        saleOrderNumber: true,
+        status: true,
+        customerId: true,
+        items: {
+          select: {
+            styleId: true,
+            colorId: true,
+            sizeId: true,
+            quantity: true,
+            allocatedQty: true,
+            dispatchedQty: true,
+          },
+        },
+      },
+    });
+    if (!so) throw new NotFoundError('Sale Order', saleOrderId);
+    const linkable: SaleOrderStatus[] = [SaleOrderStatus.CONFIRMED, SaleOrderStatus.PARTIALLY_ALLOCATED];
+    if (!linkable.includes(so.status)) {
+      throw new BusinessError(`A ${so.status} sale order cannot be linked to production — confirm it first.`);
+    }
+    const already = await prisma.orders.findFirst({
+      where: { saleOrderId, status: { not: 'CANCELLED' }, isActive: true },
+      select: { orderNumber: true },
+    });
+    if (already) {
+      throw new ConflictError(`${so.saleOrderNumber} is already linked to production order ${already.orderNumber}.`);
+    }
+
+    const order = await prisma.orders.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        isActive: true,
+        saleOrderId: true,
+        customerId: true,
+        order_items: {
+          select: {
+            id: true,
+            styleId: true,
+            totalQuantity: true,
+            styles: { select: { styleCode: true } },
+            order_item_breakup: { select: { quantity: true } },
+          },
+        },
+      },
+    });
+    if (!order) throw new NotFoundError('Production order', orderId);
+    if (!order.isActive || ['CANCELLED', 'SPLIT', 'COMPLETED', 'DISPATCHED'].includes(String(order.status))) {
+      throw new BusinessError(`${order.orderNumber} is ${order.status} and cannot be linked.`);
+    }
+    if (order.saleOrderId) {
+      throw new ConflictError(`${order.orderNumber} is already linked to another sale order.`);
+    }
+    if (order.customerId !== so.customerId) {
+      throw new BusinessError(`${order.orderNumber} is for a different customer than ${so.saleOrderNumber}.`);
+    }
+    const soStyles = new Set(so.items.map((i) => i.styleId));
+    const foreign = order.order_items.filter((i) => !soStyles.has(i.styleId));
+    if (foreign.length > 0) {
+      throw new BusinessError(
+        `${order.orderNumber} plans ${foreign.map((i) => i.styles.styleCode).join(', ')}, which ${so.saleOrderNumber} does not carry.`
+      );
+    }
+    // An item that already has sizes keeps them: it must not plan more than the line has open
+    // (ordered − allocated − dispatched), or the sale order is produced beyond what was bought.
+    for (const item of order.order_items.filter((i) => i.order_item_breakup.length > 0)) {
+      const open = so.items
+        .filter((l) => l.styleId === item.styleId)
+        .reduce((sum, l) => sum + Math.max(0, l.quantity - (l.allocatedQty ?? 0) - (l.dispatchedQty ?? 0)), 0);
+      if (item.totalQuantity > open) {
+        throw new BusinessError(
+          `${order.orderNumber} plans ${item.totalQuantity} pcs of ${item.styles.styleCode}, more than the ${open} pcs ${so.saleOrderNumber} still has open.`
+        );
+      }
+    }
+
+    try {
+      await prisma.orders.update({ where: { id: orderId }, data: { saleOrderId } });
+    } catch (err) {
+      // The partial unique index orders_saleOrderId_active_key catches a simultaneous second link
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictError(`${so.saleOrderNumber} was linked to another production order a moment ago.`);
+      }
+      throw err;
+    }
+    logInfo(`[SO link] ${order.orderNumber} linked to ${so.saleOrderNumber}`);
+
+    // The buyer PO's colour/size split, per sizeless order item — the production order makes the
+    // PO exactly (owner decision 2026-09-24; the buyer's +5 % allowance is cut via Extra % at cutting)
+    const toSize = order.order_items
+      .filter((i) => i.order_item_breakup.length === 0)
+      .map((i) => {
+        const byKey = new Map<string, { colorId: string | null; sizeId: string; quantity: number }>();
+        for (const l of so.items.filter((x) => x.styleId === i.styleId && x.sizeId)) {
+          const key = `${l.colorId ?? ''}|${l.sizeId}`;
+          const entry = byKey.get(key);
+          if (entry) entry.quantity += l.quantity;
+          else byKey.set(key, { colorId: l.colorId ?? null, sizeId: l.sizeId as string, quantity: l.quantity });
+        }
+        return { orderItemId: i.id, breakup: [...byKey.values()] };
+      })
+      .filter((x) => x.breakup.length > 0);
+
+    return { orderId: order.id, orderNumber: order.orderNumber, saleOrderNumber: so.saleOrderNumber, toSize };
   }
 
   /**

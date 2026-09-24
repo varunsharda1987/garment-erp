@@ -1,0 +1,227 @@
+/**
+ * A buyer's sale order meeting a production order that was raised BEFORE it (2026-09-24).
+ *
+ * Production orders are raised early, without sizes, so greige can be bought and dyed; the buyer's
+ * PO arrives later as a sale order. All 8 Easybuy orders of Aug 2026 were like that and none was
+ * linked — and Start Production would have made a SECOND production order beside each (its own
+ * BOM, its own fabric plan). Pins:
+ *  - Start Production refuses while an unlinked production order plans the style, naming it;
+ *  - Link to Production Order links it and copies the PO's sizes WITH colour (the production order
+ *    makes the PO exactly), creating the production run;
+ *  - a size breakdown with no colour takes the style's only colour (a colourless run cannot record
+ *    stitching output, so it never becomes finished goods).
+ *
+ * Runs against the real app + live DB; tagged fixtures, per-step teardown.
+ */
+
+import request from 'supertest';
+import { randomUUID } from 'crypto';
+import app from '../../app';
+import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
+
+const RUN = `SLP${Date.now().toString(36).toUpperCase()}`;
+const SIZES: Array<[string, number]> = [
+  ['S', 30],
+  ['M', 45],
+  ['L', 26],
+];
+const PO_TOTAL = SIZES.reduce((s, [, q]) => s + q, 0); // 101
+const PLANNED = 100;
+
+let authHeader: Record<string, string>;
+let userId: string;
+let customerId: string;
+let otherCustomerId: string;
+let styleId: string;
+let colourId: string;
+const sizeIds: Record<string, string> = {};
+let orderId: string;
+let orderItemId: string;
+let soId: string;
+
+beforeAll(async () => {
+  const user = await createTestUser({
+    email: `test-${RUN.toLowerCase()}@smoke.test`,
+    role: 'ADMIN',
+    isActive: true,
+    isApproved: true,
+  });
+  userId = user.id;
+  authHeader = getAuthHeader(user.id, 'ADMIN');
+
+  customerId = (
+    await prisma.customers.create({
+      data: { code: `${RUN}C`, name: `${RUN} Buyer`, type: 'BUYER', category: 'DOMESTIC', createdById: userId },
+    })
+  ).id;
+  otherCustomerId = (
+    await prisma.customers.create({
+      data: { code: `${RUN}X`, name: `${RUN} Other`, type: 'BUYER', category: 'DOMESTIC', createdById: userId },
+    })
+  ).id;
+  styleId = (
+    await prisma.styles.create({
+      data: { id: randomUUID(), styleCode: `${RUN}S`, styleName: `${RUN} Top`, createdById: userId },
+    })
+  ).id;
+  colourId = (await prisma.color_options.create({ data: { id: randomUUID(), styleId, colorName: 'Black' } })).id;
+  for (const [name] of SIZES) {
+    sizeIds[name] = (
+      await prisma.size_options.create({ data: { id: randomUUID(), styleId, sizeName: name, sizeCode: name } })
+    ).id;
+  }
+
+  // The production order as raised in August: total only, no sizes, no sale order
+  orderId = randomUUID();
+  await prisma.orders.create({
+    data: {
+      id: orderId,
+      orderNumber: `${RUN}ORD`,
+      customerId,
+      expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+      totalQuantity: PLANNED,
+      totalAmount: 1000,
+      createdById: userId,
+    },
+  });
+  orderItemId = (
+    await prisma.order_items.create({
+      data: { id: randomUUID(), orderId, styleId, totalQuantity: PLANNED, unitPrice: 10, totalPrice: 10 * PLANNED },
+    })
+  ).id;
+
+  // The buyer's PO, later, with sizes and colour
+  const so = await request(app)
+    .post('/api/sale-orders')
+    .set(authHeader)
+    .send({
+      customerId,
+      items: SIZES.map(([name, quantity]) => ({
+        styleId,
+        colorId: colourId,
+        sizeId: sizeIds[name],
+        quantity,
+        unitPrice: 200,
+      })),
+    })
+    .expect(201);
+  soId = so.body.data.id;
+  await prisma.sale_orders.update({ where: { id: soId }, data: { status: 'CONFIRMED' } });
+});
+
+afterAll(async () => {
+  const steps: Array<[string, () => Promise<unknown>]> = [
+    ['material_requirements', () => prisma.material_requirements.deleteMany({ where: { orderId: only(orderId) } })],
+    [
+      'work_order_breakup',
+      () => prisma.work_order_breakup.deleteMany({ where: { work_orders: { orderId: only(orderId) } } }),
+    ],
+    [
+      'production_tracking',
+      () => prisma.production_tracking.deleteMany({ where: { work_orders: { orderId: only(orderId) } } }),
+    ],
+    ['work_orders', () => prisma.work_orders.deleteMany({ where: { orderId: only(orderId) } })],
+    ['orders', () => prisma.orders.deleteMany({ where: { orderNumber: { startsWith: RUN } } })],
+    ['sale_order_items', () => prisma.sale_order_items.deleteMany({ where: { saleOrderId: only(soId) } })],
+    ['sale_orders', () => prisma.sale_orders.deleteMany({ where: { id: only(soId) } })],
+    ['size_options', () => prisma.size_options.deleteMany({ where: { styleId: only(styleId) } })],
+    ['color_options', () => prisma.color_options.deleteMany({ where: { styleId: only(styleId) } })],
+    ['styles', () => prisma.styles.deleteMany({ where: { id: only(styleId) } })],
+    [
+      'customers',
+      () => prisma.customers.deleteMany({ where: { id: { in: [only(customerId), only(otherCustomerId)] } } }),
+    ],
+    ['users', () => prisma.users.deleteMany({ where: { id: only(userId) } })],
+  ];
+  for (const [label, run] of steps) {
+    try {
+      await run();
+    } catch (err) {
+      console.error(`[sale-order-link-production teardown] could not clean ${label}:`, err);
+    }
+  }
+  await prisma.$disconnect();
+});
+
+describe('a sale order meets the production order raised before it', () => {
+  it('Start Production refuses while an unlinked production order plans the style', async () => {
+    const res = await request(app).post(`/api/sale-orders/${soId}/start-production`).set(authHeader).send({});
+    expect(res.status).toBe(409);
+    expect(res.body.message).toContain(`${RUN}ORD`);
+    expect(await prisma.orders.count({ where: { order_items: { some: { styleId } } } })).toBe(1);
+  });
+
+  it('lists the unlinked order as linkable', async () => {
+    const res = await request(app)
+      .get(`/api/sale-orders/${soId}/linkable-production-orders`)
+      .set(authHeader)
+      .expect(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].orderNumber).toBe(`${RUN}ORD`);
+    expect(res.body.data[0].sameCustomer).toBe(true);
+    expect(res.body.data[0].hasSizes).toBe(false);
+  });
+
+  it('refuses to link an order for another customer', async () => {
+    const foreign = randomUUID();
+    await prisma.orders.create({
+      data: {
+        id: foreign,
+        orderNumber: `${RUN}ORDX`,
+        customerId: otherCustomerId,
+        expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+        totalQuantity: 10,
+        totalAmount: 100,
+        createdById: userId,
+      },
+    });
+    const res = await request(app)
+      .post(`/api/sale-orders/${soId}/link-production-order`)
+      .set(authHeader)
+      .send({ orderId: foreign });
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/different customer/);
+  });
+
+  it('links, copies the PO sizes with colour, and creates the production run', async () => {
+    const res = await request(app)
+      .post(`/api/sale-orders/${soId}/link-production-order`)
+      .set(authHeader)
+      .send({ orderId })
+      .expect(200);
+    // The fixture has no Order BOM: the MRP re-run is refused and SAID so, but the link and sizes stand
+    expect(res.body.data.sized[0].error).toMatch(/No active Order BOM/);
+    expect(res.body.message).toMatch(/No active Order BOM/);
+
+    const order = await prisma.orders.findUniqueOrThrow({ where: { id: orderId } });
+    expect(order.saleOrderId).toBe(soId);
+    expect(order.totalQuantity).toBe(PO_TOTAL); // the PO exactly, not the planned 100
+
+    const breakup = await prisma.order_item_breakup.findMany({ where: { orderItemId } });
+    expect(breakup).toHaveLength(SIZES.length);
+    for (const b of breakup) expect(b.colorId).toBe(colourId);
+
+    const run = await prisma.work_orders.findFirstOrThrow({
+      where: { orderId },
+      include: { work_order_breakup: true },
+    });
+    expect(run.totalQuantity).toBe(PO_TOTAL);
+    for (const b of run.work_order_breakup) expect(b.colorId).toBe(colourId);
+
+    // Linked now: the SO shows its production order and Start Production is refused as before
+    const read = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
+    expect(read.body.productionOrders.map((o: { orderNumber: string }) => o.orderNumber)).toContain(`${RUN}ORD`);
+    const again = await request(app).post(`/api/sale-orders/${soId}/start-production`).set(authHeader).send({});
+    expect(again.status).toBe(409);
+  });
+
+  it("a size breakdown with no colour takes the style's only colour", async () => {
+    const res = await request(app)
+      .put(`/api/orders/${orderId}/items/${orderItemId}/size-breakup`)
+      .set(authHeader)
+      .send({ breakup: SIZES.map(([name, quantity]) => ({ colorId: null, sizeId: sizeIds[name], quantity })) })
+      .expect(200);
+    expect(res.body.data.breakup.every((b: { colorId: string }) => b.colorId === colourId)).toBe(true);
+  });
+});

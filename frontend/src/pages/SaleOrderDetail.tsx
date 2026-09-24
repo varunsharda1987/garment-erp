@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   CheckCircle,
   Factory,
+  Link2,
   Package,
   ShoppingBag,
   Pencil,
@@ -54,6 +55,8 @@ import {
   deallocateStock,
   getAvailableStock,
   startProduction,
+  getLinkableProductionOrders,
+  linkProductionOrder,
   updateSaleOrder,
   cancelSaleOrder,
   addBuyerPo,
@@ -102,6 +105,8 @@ export default function SaleOrderDetail() {
   const queryClient = useQueryClient();
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [startProdDialogOpen, setStartProdDialogOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkOrderId, setLinkOrderId] = useState('');
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [prodDeliveryDate, setProdDeliveryDate] = useState('');
@@ -143,6 +148,35 @@ export default function SaleOrderDetail() {
     queryKey: queryKeys.saleOrders.detail(id || ''),
     queryFn: () => getSaleOrderById(id!),
     enabled: !!id,
+  });
+
+  // Production orders already planning these styles but linked to no sale order (raised early so
+  // fabric could be bought and dyed). When any exist the page offers Link instead of Start
+  // Production — the server refuses a second production order beside them.
+  const awaitingProductionLink =
+    !!so &&
+    ['CONFIRMED', 'PARTIALLY_ALLOCATED'].includes(so.status) &&
+    !(so.productionOrders || []).some((po) => po.status !== 'CANCELLED');
+  const { data: linkableOrders = [] } = useQuery({
+    queryKey: ['sale-order-linkable-production', id],
+    queryFn: () => getLinkableProductionOrders(id!),
+    enabled: !!id && awaitingProductionLink,
+  });
+
+  const linkMutation = useMutation({
+    mutationFn: () => linkProductionOrder(id!, linkOrderId),
+    onSuccess: (result) => {
+      invalidateSaleOrder();
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sale-order-linkable-production', id] });
+      if (result.data.sized.some((s) => s.error)) toast.warning(result.message);
+      else toast.success(result.message);
+      setLinkDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to link the production order');
+    },
   });
 
   // The customer's own saved locations — a PO ships to one of them. Only fetched while the
@@ -429,12 +463,14 @@ export default function SaleOrderDetail() {
   const colourlessItemCount = so.items?.filter((i) => !i.colorId).length ?? 0;
   const canAllocate = ['CONFIRMED', 'PARTIALLY_ALLOCATED'].includes(so.status);
   const activeProductionOrders = (so.productionOrders || []).filter((po) => po.status !== 'CANCELLED');
-  const canStartProduction = canAllocate && activeProductionOrders.length === 0 && (so.items?.length || 0) > 0;
+  const canLinkProduction = canAllocate && activeProductionOrders.length === 0 && linkableOrders.length > 0;
+  const canStartProduction =
+    canAllocate && activeProductionOrders.length === 0 && (so.items?.length || 0) > 0 && !canLinkProduction;
   const isTerminal = ['CANCELLED', 'DELIVERED'].includes(so.status);
   const canShowCancelButton = !isTerminal;
   /** Confirm is offered only on a draft that actually has lines — an empty order is a dead end. */
   const canConfirm = isDraft && (so.items?.length || 0) > 0;
-  const hasHeaderActions = isDraft || canConfirm || canStartProduction || canShowCancelButton;
+  const hasHeaderActions = isDraft || canConfirm || canStartProduction || canLinkProduction || canShowCancelButton;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -499,6 +535,17 @@ export default function SaleOrderDetail() {
                 >
                   <Factory className="h-4 w-4 mr-2" />
                   Start Production
+                </DropdownMenuItem>
+              )}
+              {canLinkProduction && (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setLinkOrderId(linkableOrders.find((o) => o.sameCustomer)?.id ?? '');
+                    setLinkDialogOpen(true);
+                  }}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Link to Production Order
                 </DropdownMenuItem>
               )}
               {canShowCancelButton && (
@@ -1021,6 +1068,54 @@ export default function SaleOrderDetail() {
               disabled={startProductionMutation.isPending}
             >
               {startProductionMutation.isPending ? 'Creating...' : 'Create Production Order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Link to Production Order — a production order already plans this style (raised early,
+          sizeless, to buy and dye fabric). Linking copies this sale order's sizes onto it. */}
+      <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Link to Production Order</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Production is already planned for this style. Link that production order to this sale order instead of
+              starting a second one. If it has no sizes yet, this sale order&apos;s sizes and colour are copied onto it
+              and its production run is created.
+            </p>
+            <RadioGroup value={linkOrderId} onValueChange={setLinkOrderId} className="space-y-2">
+              {linkableOrders.map((o) => (
+                <Label
+                  key={o.id}
+                  htmlFor={`link-${o.id}`}
+                  className={`flex items-start gap-3 rounded-md border p-3 ${o.sameCustomer ? 'cursor-pointer' : 'opacity-60'}`}
+                >
+                  <RadioGroupItem id={`link-${o.id}`} value={o.id} disabled={!o.sameCustomer} className="mt-1" />
+                  <div className="space-y-0.5 text-sm">
+                    <div className="font-medium">
+                      {o.orderNumber} · {o.styles.join(', ')}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {o.totalQuantity} pcs · {o.status} · due {formatDate(o.expectedDeliveryDate)}
+                      {o.hasSizes ? ' · sizes entered' : ' · no sizes yet'}
+                    </div>
+                    {!o.sameCustomer && (
+                      <div className="text-destructive">For a different customer ({o.customerName}) — cannot link</div>
+                    )}
+                  </div>
+                </Label>
+              ))}
+            </RadioGroup>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkDialogOpen(false)} disabled={linkMutation.isPending}>
+              Cancel
+            </Button>
+            <Button onClick={() => linkMutation.mutate()} disabled={!linkOrderId || linkMutation.isPending}>
+              {linkMutation.isPending ? 'Linking...' : 'Link Production Order'}
             </Button>
           </DialogFooter>
         </DialogContent>

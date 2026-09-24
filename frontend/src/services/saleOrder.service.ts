@@ -68,6 +68,39 @@ export async function startProduction(
   return response.data;
 }
 
+/** A production order already planning this sale order's styles but linked to no sale order. */
+export interface LinkableProductionOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalQuantity: number;
+  expectedDeliveryDate: string | null;
+  customerName: string | null;
+  sameCustomer: boolean;
+  styles: string[];
+  hasSizes: boolean;
+}
+
+export async function getLinkableProductionOrders(id: string): Promise<LinkableProductionOrder[]> {
+  const response = await api.get(`${BASE_URL}/${id}/linkable-production-orders`);
+  return response.data.data;
+}
+
+/**
+ * Link an existing production order to this sale order; a sizeless order gets the buyer PO's
+ * colour/size split copied onto it (which re-plans its requirements and creates its production run).
+ */
+export async function linkProductionOrder(
+  id: string,
+  orderId: string
+): Promise<{
+  data: { orderNumber: string; saleOrderNumber: string; sized: Array<{ orderItemId: string; error?: string }> };
+  message: string;
+}> {
+  const response = await api.post(`${BASE_URL}/${id}/link-production-order`, { orderId });
+  return response.data;
+}
+
 export async function allocateStock(data: {
   saleOrderItemId: string;
   fgStockId: string;

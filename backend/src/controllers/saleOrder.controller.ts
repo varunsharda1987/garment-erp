@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { saleOrderService } from '../services/saleOrder.service';
+import { applyOrderItemSizeBreakup } from './order.controller';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
@@ -185,6 +186,56 @@ export class SaleOrderController {
     });
 
     res.status(201).json({ data: order, message: 'Production order created' });
+  }
+
+  async getLinkableProductionOrders(req: Request, res: Response) {
+    const data = await saleOrderService.getLinkableProductionOrders(req.params.id);
+    res.json({ data });
+  }
+
+  /**
+   * Link an existing production order to this sale order, then copy the buyer PO's sizes onto any
+   * order item that has none (the sizes-later cascade: MRP re-run, production run created).
+   */
+  async linkProductionOrder(req: Request, res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
+    const linked = await saleOrderService.linkProductionOrder(req.params.id, req.body.orderId);
+
+    const sized: Array<{ orderItemId: string; newTotal?: number; error?: string; runs?: string[] }> = [];
+    for (const item of linked.toSize) {
+      try {
+        const result = await applyOrderItemSizeBreakup({
+          orderId: linked.orderId,
+          orderItemId: item.orderItemId,
+          breakup: item.breakup,
+          confirmQuantityChange: true, // the production order makes the buyer PO exactly
+          userId,
+        });
+        sized.push({
+          orderItemId: item.orderItemId,
+          newTotal: result.data.newTotal,
+          runs: result.data.workOrders?.created ?? [],
+          ...(result.data.mrpError ? { error: `Requirements not recalculated: ${result.data.mrpError}` } : {}),
+        });
+      } catch (err) {
+        // The link stands; the sizes can still be entered on the order page
+        sized.push({ orderItemId: item.orderItemId, error: err instanceof Error ? err.message : 'Unknown error' });
+      }
+    }
+
+    const failed = sized.filter((s) => s.error);
+    res.json({
+      data: { ...linked, sized },
+      message:
+        `${linked.orderNumber} linked to ${linked.saleOrderNumber}` +
+        (sized.length > 0
+          ? ` — sizes copied from the buyer PO (${sized.length - failed.length}/${sized.length})`
+          : '') +
+        (failed.length > 0 ? `. ${failed[0].error}` : ''),
+    });
   }
 
   async allocateStock(req: Request, res: Response) {

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertTriangle } from 'lucide-react';
 import { notify } from '@/lib/notify';
 import { getStyleById } from '@/services/style.service';
@@ -47,7 +48,8 @@ interface Props {
  */
 export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, styleId, currentTotal, onSaved }: Props) {
   const [sizes, setSizes] = useState<SizeOption[]>([]);
-  const [colorCount, setColorCount] = useState(0);
+  const [colours, setColours] = useState<ColorOption[]>([]);
+  const [colorId, setColorId] = useState<string>('');
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -63,10 +65,11 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
         const styleAny = style as unknown as { sizeOptions?: SizeOption[]; colorOptions?: ColorOption[] };
         const styleSizes = (styleAny.sizeOptions ?? []).filter((s) => s.id);
         setSizes(styleSizes);
-        // This dialog writes a size-only breakup (colorId null). That is valid and is what a
-        // sizeless order needs, but if the style has colours the split is not colour-wise —
-        // say so rather than letting the user assume otherwise.
-        setColorCount((styleAny.colorOptions ?? []).length);
+        // Sizes are saved WITH the style's colour: a size line without one reaches cutting but
+        // stitching output refuses it, so the goods never become finished stock (2026-09-24).
+        const styleColours = (styleAny.colorOptions ?? []).filter((c) => c.id);
+        setColours(styleColours);
+        setColorId(styleColours.length === 1 ? styleColours[0].id : '');
         setQuantities(Object.fromEntries(styleSizes.map((s) => [s.id, ''])));
       } catch (err) {
         logError('Failed to load style sizes', err);
@@ -95,11 +98,15 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
 
   const save = async (confirmQuantityChange: boolean) => {
     const breakup: SizeBreakupLine[] = sizes
-      .map((s) => ({ colorId: null, sizeId: s.id, quantity: parseInt(quantities[s.id] || '0', 10) || 0 }))
+      .map((s) => ({ colorId: colorId || null, sizeId: s.id, quantity: parseInt(quantities[s.id] || '0', 10) || 0 }))
       .filter((b) => b.quantity > 0);
 
     if (breakup.length === 0) {
       notify.error('Enter a quantity for at least one size');
+      return;
+    }
+    if (colours.length > 0 && !colorId) {
+      notify.error('Choose the colour for these sizes');
       return;
     }
 
@@ -199,14 +206,32 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
               ))}
             </div>
 
-            {colorCount > 1 && (
+            {colours.length === 0 ? (
               <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  This style has {colorCount} colours. These quantities are recorded per size only, not split by colour
-                  — use the order edit screen if you need a colour-wise split.
+                  This style has no colour yet. Set the style&apos;s Primary Color first — production needs a colour for
+                  every size.
                 </AlertDescription>
               </Alert>
+            ) : (
+              <div className="space-y-1">
+                <Label htmlFor="size-breakup-colour" className="text-xs">
+                  Colour *
+                </Label>
+                <Select value={colorId} onValueChange={setColorId} disabled={saving || colours.length === 1}>
+                  <SelectTrigger id="size-breakup-colour">
+                    <SelectValue placeholder="Choose the colour" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {colours.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.colorName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
             {confirmMessage && (
@@ -227,7 +252,10 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
               {saving ? 'Saving…' : `Confirm & change quantity to ${enteredTotal}`}
             </Button>
           ) : (
-            <Button onClick={() => save(false)} disabled={saving || sizes.length === 0 || enteredTotal === 0}>
+            <Button
+              onClick={() => save(false)}
+              disabled={saving || sizes.length === 0 || enteredTotal === 0 || colours.length === 0 || !colorId}
+            >
               {saving ? 'Saving…' : 'Save Size Breakdown'}
             </Button>
           )}

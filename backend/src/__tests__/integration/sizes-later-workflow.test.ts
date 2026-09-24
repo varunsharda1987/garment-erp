@@ -51,6 +51,8 @@ beforeAll(async () => {
     data: { id: randomUUID(), styleCode: `${RUN}S`, styleName: `${RUN} Style`, createdById: userId },
   });
   styleId = style.id;
+  // One colour: a size breakdown with no colour takes it (a colourless run cannot record stitching output)
+  await prisma.color_options.create({ data: { id: randomUUID(), styleId, colorName: 'Black' } });
 
   for (const s of SIZES) {
     const so = await prisma.size_options.create({ data: { id: randomUUID(), styleId, sizeName: s, sizeCode: s } });
@@ -154,6 +156,7 @@ afterAll(async () => {
   await prisma.materials.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } });
   await prisma.label_master.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } });
   await prisma.size_options.deleteMany({ where: { styleId } });
+  await prisma.color_options.deleteMany({ where: { styleId: only(styleId) } });
   await prisma.customers.deleteMany({ where: { id: only(customerId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
   await prisma.users.deleteMany({ where: { id: only(userId) } });

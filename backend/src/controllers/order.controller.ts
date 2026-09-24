@@ -1413,6 +1413,23 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
     breakup: OrderItemBreakup[];
     confirmQuantityChange?: boolean;
   };
+  const result = await applyOrderItemSizeBreakup({ orderId, orderItemId, breakup, confirmQuantityChange, userId });
+  res.json({ success: true, data: result.data, message: result.message });
+};
+
+/**
+ * The whole sizes-later cascade — breakup (with colour), pending work-order sync, MRP re-run,
+ * work-order catch-up. Shared by PUT …/size-breakup and linking a production order to its sale
+ * order (which copies the buyer PO's sizes onto a sizeless order).
+ */
+export async function applyOrderItemSizeBreakup(params: {
+  orderId: string;
+  orderItemId: string;
+  breakup: OrderItemBreakup[];
+  confirmQuantityChange?: boolean;
+  userId: string;
+}) {
+  const { orderId, orderItemId, breakup, confirmQuantityChange, userId } = params;
 
   const orderItem = await prisma.order_items.findFirst({
     where: { id: orderItemId, orderId },
@@ -1431,10 +1448,35 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
     throw new BusinessError(`Cannot set a size breakdown on a ${orderItem.orders.status} order.`);
   }
 
-  const cleaned = dedupeBreakup(breakup).filter((b) => b.quantity > 0);
-  if (cleaned.length === 0) {
+  const sizesOnly = dedupeBreakup(breakup).filter((b) => b.quantity > 0);
+  if (sizesOnly.length === 0) {
     throw new ValidationError('Provide at least one size with a quantity greater than zero.');
   }
+
+  // Every size line needs the style's colour. The Add Size Breakdown dialog sent null, the run
+  // inherited it, and stitching output (colour required) then refused — so no finished goods, no
+  // allocation to the buyer's Black/Beige lines, no dispatch (Easybuy orders, 2026-09-24). A
+  // one-colour style fills it in; a several-colour style must say which; a foreign colour is refused.
+  const styleColours = await prisma.color_options.findMany({
+    where: { styleId: orderItem.styleId },
+    select: { id: true, colorName: true },
+  });
+  const allowedColours = new Set(styleColours.map((c) => c.id));
+  const withColour = sizesOnly.map((b) => ({
+    ...b,
+    colorId: b.colorId ?? (styleColours.length === 1 ? styleColours[0].id : null),
+  }));
+  if (withColour.some((b) => !b.colorId)) {
+    throw new ValidationError(
+      styleColours.length === 0
+        ? "This style has no colour yet — set the style's Primary Color, then enter the sizes."
+        : `This style comes in ${styleColours.length} colours (${styleColours.map((c) => c.colorName).join(', ')}) — choose the colour for each size.`
+    );
+  }
+  if (withColour.some((b) => !allowedColours.has(b.colorId as string))) {
+    throw new ValidationError("One or more sizes carry a colour that is not this style's colour.");
+  }
+  const cleaned = dedupeBreakup(withColour);
 
   // Every size must belong to this style, or the breakup silently plans for sizes the style
   // does not have (and the label size-variant match downstream would never resolve).
@@ -1609,8 +1651,7 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
     messageParts.push(`${workOrders.created.length} work order(s) created`);
   if (workOrderError) messageParts.push(`Work order creation failed: ${workOrderError}`);
 
-  res.json({
-    success: true,
+  return {
     data: {
       orderItemId: orderItem.id,
       breakup: cleaned,
@@ -1625,8 +1666,8 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
       workOrderError,
     },
     message: messageParts.join('. '),
-  });
-};
+  };
+}
 
 /**
  * Idempotently create work orders for any order item that lacks one.

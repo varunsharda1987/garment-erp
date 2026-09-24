@@ -126,6 +126,11 @@ export const confirmSaleOrderSchema = z.object({
  * Start Production (make-to-order: create the linked production order for the full SO quantity)
  * POST /api/sale-orders/:id/start-production
  */
+/** POST /api/sale-orders/:id/link-production-order — the existing production order to link */
+export const linkProductionOrderSchema = z.object({
+  orderId: z.string().uuid('Invalid production order ID'),
+});
+
 export const startProductionSchema = z.object({
   // Optional override; falls back to buyerDeadline ?? expectedShipDate ?? deliveryDate server-side
   expectedDeliveryDate: z

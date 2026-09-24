@@ -7,6 +7,7 @@ import {
   updateSaleOrderSchema,
   confirmSaleOrderSchema,
   startProductionSchema,
+  linkProductionOrderSchema,
   allocateStockSchema,
   deallocateStockSchema,
   saleOrderQuerySchema,
@@ -83,6 +84,21 @@ router.post(
   validateParams(idParamSchema),
   validateBody(startProductionSchema),
   asyncHandler(saleOrderController.startProduction.bind(saleOrderController))
+);
+
+// GET /api/sale-orders/:id/linkable-production-orders - unlinked production orders for its styles
+router.get(
+  '/:id/linkable-production-orders',
+  validateParams(idParamSchema),
+  asyncHandler(saleOrderController.getLinkableProductionOrders.bind(saleOrderController))
+);
+
+// POST /api/sale-orders/:id/link-production-order - link an EXISTING production order (make-to-order)
+router.post(
+  '/:id/link-production-order',
+  validateParams(idParamSchema),
+  validateBody(linkProductionOrderSchema),
+  asyncHandler(saleOrderController.linkProductionOrder.bind(saleOrderController))
 );
 
 // POST /api/sale-orders/allocate-stock - Allocate FG stock to sale order item

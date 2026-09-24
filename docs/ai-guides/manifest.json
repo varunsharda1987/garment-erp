@@ -523,15 +523,16 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/GRNList.tsx": "07d28a84ca9c",
-      "frontend/src/pages/GRNForm.tsx": "4c54950d7e02",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "bc448465af07",
-      "backend/src/schemas/grn.schema.ts": "5ce1a535dc07",
-      "backend/src/services/grn.service.ts": "19a480046ede",
-      "backend/src/services/purchaseOrder.service.ts": "af54023fbf24"
+      "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
+      "frontend/src/pages/GRNForm.tsx": "05976d097896",
+      "frontend/src/pages/GRNDetail.tsx": "50aef869eb6a",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
+      "backend/src/schemas/grn.schema.ts": "c8eeb3f32607",
+      "backend/src/services/grn.service.ts": "9ea520831778",
+      "backend/src/services/purchaseOrder.service.ts": "caf9fc97aac1"
     },
-    "contentHash": "461c64edb237",
-    "generatedAt": "2026-09-23T06:17:36.097Z"
+    "contentHash": "b2f36c20fe3f",
+    "generatedAt": "2026-09-24T08:54:35.753Z"
   },
   "gst-reports": {
     "sources": {
@@ -607,20 +608,22 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/JobWorkOrderList.tsx": "17aaf4e7ff0c",
-      "frontend/src/components/JobWorkOrderCreateDialog.tsx": "c9b7d13b774f",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "6b48ac2dacc1",
-      "frontend/src/components/job-work/GreigeLotRows.tsx": "3d782f8dcb6e",
-      "frontend/src/pages/DispatchToProcessor.tsx": "f9707ec67ab0",
+      "frontend/src/pages/JobWorkOrderList.tsx": "ba5fc942f429",
+      "frontend/src/components/JobWorkOrderCreateDialog.tsx": "afdd83c7b4c8",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "f66d7c298874",
+      "frontend/src/components/job-work/GreigeLotRows.tsx": "8ba24e678c7c",
+      "frontend/src/components/job-work/ThanPicker.tsx": "dc613098e848",
+      "frontend/src/components/job-work/lot-rows.ts": "95863b097299",
+      "frontend/src/pages/DispatchToProcessor.tsx": "bfd440967a1b",
       "frontend/src/components/GreigeCombobox.tsx": "40717b7be9d3",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
-      "backend/src/schemas/jobWorkOrder.schema.ts": "901418928ded",
-      "backend/src/controllers/job-work-order.controller.ts": "cd7a8ffe0b4f",
+      "backend/src/schemas/jobWorkOrder.schema.ts": "dbfe6c7faf56",
+      "backend/src/controllers/job-work-order.controller.ts": "21e52e6d095f",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "666b160c335e"
+      "backend/src/services/job-work-issuance.service.ts": "15fedb58b9fd"
     },
-    "contentHash": "64b9854d316b",
-    "generatedAt": "2026-09-23T06:17:36.125Z"
+    "contentHash": "4113097cdf8f",
+    "generatedAt": "2026-09-24T08:54:35.906Z"
   },
   "job-work-receive": {
     "sources": {

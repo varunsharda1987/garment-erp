@@ -1204,15 +1204,18 @@ export default function SaleOrderDetail() {
                     ['ratio', 'Ratio'],
                   ] as const
                 ).map(([mode, label]) => (
-                  <Button
+                  // Same toggle as the order form's size grid
+                  <button
                     key={mode}
                     type="button"
-                    size="sm"
-                    variant={amendMode === mode ? 'default' : 'ghost'}
+                    aria-pressed={amendMode === mode}
                     onClick={() => changeAmendMode(mode)}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      amendMode === mode ? 'bg-info text-white' : 'text-muted-foreground hover:bg-muted'
+                    }`}
                   >
                     {label}
-                  </Button>
+                  </button>
                 ))}
               </div>
               {amendMode !== 'absolute' && (

@@ -42,7 +42,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 ## Before you start
 - The style must have an **approved Size Set Sample** (Manufacturing → Sample Tracking). The samples go in order — FIT, then PP, then Size Set — each approved. Without it, **Push to Cutting** and **Create Batch** both refuse with "No Size Set Sample exists for this style". This applies to stock production too.
 - The production run must be **In Production** (use **Push to Cutting** on the run page).
-- Fabric must be issued: on the production run page open **Fabric Issuance**, tick the lots and click **Issue to Cutting**.
+- Fabric is issued **for a cutting batch**, so create the batch first (step 8), then issue the fabric for it (step 9).
 - Every fabric needs an **approved** Production CAD with a width and a CAD Average (Pre-Production → CAD Planning → **Create CAD** on the received lot, then row menu → **Approve**). A pending or rejected Production CAD does not count: **Push to Cutting** refuses and **Create Batch** stays greyed out with "No approved Production CAD for: …".
 
 ## Create the batch
@@ -53,7 +53,8 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 5. In **Size Breakup**, set **Extra %**. The **Cut Qty** row fills automatically. You can type over any size's Cut Qty.
 6. If stock is short, click **Fill to Max** to spread the cuttable quantity across sizes by ratio.
 7. In **Lot Details**, tick at least one lot for every fabric listed. A component that uses two different fabrics now shows **one row per fabric** (labelled with its width, e.g. "Shirt (54\")"), and each needs its own lots — previously two such fabrics were shown as a single row with only one of the two CAD averages.
-8. Click **Create Batch**. The batch page opens, with a reminder that fabric is **not** issued automatically — issue it from **Procurement → Challans** (or **Fabric Issuance** on the production run) if you have not already.
+8. Click **Create Batch**. The batch page opens, with a reminder that fabric is **not** issued automatically.
+8a. Issue the fabric for the batch: on the production run page open **Fabric Issuance**, tick the lots and click **Issue to Cutting**. With one open batch the fabric goes to it (the panel says "For cutting batch …"); with several, pick the batch in the box next to the button first. Without a batch the issue is refused with "Create the cutting batch first". The panel then shows the fabric under **At Cutting (m)**, and the Cutting Chart shows those lots as "at cutting" — they still count towards **Max Cuttable**.
 
 ## Record the lays
 9. The batch page shows, per size, the **Order** quantity, the **Extra** added by the Extra % you set on the chart, and **Planned** (order + extra) — what is to be cut. Click **Start Cutting** on the batch page.
@@ -61,6 +62,8 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 11. In the size table, tick each size and enter **Pcs/Layer**. **Total Cut** is calculated for you.
 12. Add **Remarks (optional)** and click **Save Lay**. Repeat for each new lay.
 13. When cutting is finished, click **Complete**, enter **Return to Store (m)** for leftover fabric, and confirm.
+
+If a batch is **deleted** before any lay is recorded (or cancelled with no lays), the fabric issued for it goes back to the store automatically on a return challan — the panel lists it as **Returned to store**. Once lays exist, the leftover is returned at **Complete** instead.
 
 ## Traps to avoid
 - **Number of Layers** must be at least 1 and **Layer Length** must be more than zero.

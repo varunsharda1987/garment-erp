@@ -19,6 +19,12 @@ keywords:
   - b2b
   - add item
   - link production order
+  - amend quantities
+  - change size split
+  - size wise quantity galat hai
+  - confirmed order ki quantity badlo
+  - मात्रा बदलें
+  - साइज़ वाइज़ मात्रा
   - link to production order
   - production order link karo
   - sale order ko order se jodo
@@ -102,6 +108,7 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 15. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
 16. If production for this style was already planned before the buyer's PO came in (an order raised early so greige could be bought and dyed), open **Actions** and click **Link to Production Order** instead. The dialog lists the production orders for this sale order's styles that are not linked to any sale order; one for a different customer is shown but cannot be picked. Choose it and click **Link Production Order**. If that production order has no sizes yet, this sale order's sizes and colour are copied onto it exactly — its quantity becomes the sale order's — and its production run is created. While such an order exists, **Start Production** is not offered, so the same goods are never planned twice.
 17. To make the goods when nothing is planned yet: open **Actions** and click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
+18. To correct the quantities of an order that is already confirmed (for example, the size-wise split was entered wrong): open **Actions** and click **Amend Quantities**. Only an administrator sees this. The dialog lists every line with its **Style**, **Colour**, **Size**, **Allocated / Dispatched** and **Ordered** quantity; type the corrected number in **New Qty**, check **New total**, write a **Reason \***, and click **Save Quantities**. If a production order is linked and its sizes still match this sale order, it is updated to the new sizes too, along with its pending production run and size-wise labels. If its sizes had already been changed on the order page, it is left as it is and the message names it — correct those sizes on the order with **Edit Size Breakdown**.
 
 ## Validation traps
 - Only the customer is required to create a new order — the **Create Sale Order** button stays disabled until one is picked. Items may be added afterwards.
@@ -112,6 +119,7 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 - The same style, colour and size on two lines must carry the same unit price — differing prices are refused, naming both.
 - The delete (bin) icon on the list only works on Draft sale orders.
 - **Start Production** only appears when the status is Confirmed or Partially Allocated, items exist, no live production order is linked already, and no unlinked production order already plans one of its styles (then **Link to Production Order** appears instead; Start Production is refused naming that order).
+- A confirmed order cannot be changed with **Edit**; only **Amend Quantities** changes it, and only for an administrator. A line cannot go below what is already allocated or dispatched on it, **Save Quantities** stays disabled until something changed and a reason is written, and an order cannot be amended to zero pieces (cancel it instead).
 - **Link to Production Order** copies the sizes only when the style has a colour. If the message says **This style has no colour yet**, the link is still made — set the style's Primary Color, then enter the sizes on the production order with **Add Size Breakdown**. Every line must have a size, and every style needs an approved cost sheet.
 - Expected Delivery Date is required in the Start Production dialog. It pre-fills from the buyer deadline or ship date when set.
 - **Allocate** only shows on lines that have a size; a size-less line shows "Set a size to allocate" instead. Allocation is limited to what the line still needs and only accepts stock of that exact style, colour and size.

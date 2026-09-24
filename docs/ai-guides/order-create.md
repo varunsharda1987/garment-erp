@@ -88,4 +88,7 @@ Traps in this dialog:
 - A **Cancelled** or **Split** order will not accept a size breakdown.
 - If the confirmation message mentions requirements already on a purchase order, those are not adjusted automatically — check them yourself afterwards.
 - **Save Size Breakdown** stays disabled until a colour is chosen. If the dialog says **This style has no colour yet**, set the style's Primary Color first — production needs a colour to record stitched pieces and put them into finished-goods stock.
-- An order linked to a sale order with **Link to Production Order** gets its sizes from that sale order automatically; you do not enter them here.
+- An order linked to a sale order with **Link to Production Order** gets its sizes from that sale order automatically; you do not enter them here. If the buyer's split was entered wrong, an administrator corrects it on the sale order with **Amend Quantities**, which updates this order too.
+
+## Change the size breakdown
+Once sizes exist, the item shows a **Quantity Breakup** table with an **Edit Size Breakdown** button. Click it: the dialog opens titled **Edit Size Breakdown** with the saved quantities and colour already filled in. Change the numbers and click **Save Size Breakdown** (or **Confirm & change quantity to [N]** if the total changes). The size-wise label requirements and any production run that is still Pending are updated to the new split; a run already in production is not re-planned.

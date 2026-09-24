@@ -91,6 +91,24 @@ const NEEDS_PO_WHERE: Prisma.material_requirementsWhereInput = {
 };
 
 /**
+ * A MATERIAL (greige) requirement met from stock whose stock a job-work order has already taken
+ * to the processor: one of its PROCESSING children carries a job that is at least ISSUED.
+ * Settled — MRP must neither cancel it nor create a second one beside it.
+ */
+const GREIGE_SENT_TO_PROCESSOR: Prisma.material_requirementsWhereInput = {
+  requirementType: 'MATERIAL',
+  status: MaterialRequirementStatus.FULFILLED_STOCK,
+  childRequirements: {
+    some: {
+      requirementType: 'PROCESSING',
+      requirement_jwo_links: {
+        some: { job_work_orders: { jwoStatus: { notIn: ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'CANCELLED'] } } },
+      },
+    },
+  },
+};
+
+/**
  * Ensure a materials record exists for a fabric_master entry.
  * Auto-creates one using materialService.createFromMaster if missing.
  * Handles legacy/imported fabrics that were created before the auto-creation logic.
@@ -1120,6 +1138,17 @@ export async function calculateRequirementsFromOrder(
     });
     const splitRemainderIds = splitRemainderRows.map((r) => r.id);
 
+    // A greige requirement whose greige has already LEFT for the dyer/printer is settled, not
+    // re-plannable: it was met from stock and a job-work order issued that stock. Cancelling and
+    // re-netting it against today's free greige re-opened a purchase for cloth already dyed —
+    // saving ESSKY085LS's/086LS's size breakdown would have put 1,833.25 m back on "PO required"
+    // (2026-09-24). Its processing child is protected already (RECEIVED / PO progression).
+    const sentToProcessorRows = await tx.material_requirements.findMany({
+      where: { orderId, ...GREIGE_SENT_TO_PROCESSOR },
+      select: { id: true },
+    });
+    const sentToProcessorIds = sentToProcessorRows.map((r) => r.id);
+
     // Cancel only requirements:
     // 1. Belonging to this order AND one of the active BOMs (or null orderBomId for manual reqs)
     // 2. NOT in terminal/PO-progression statuses
@@ -1138,7 +1167,7 @@ export async function calculateRequirementsFromOrder(
         status: { notIn: ['RECEIVED', 'CANCELLED', 'CONVERTED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
         // Also exclude any with active PO links (belt-and-suspenders), a live conversion chain,
         // or an outstanding split balance
-        id: { notIn: [...poLinkedIds, ...conversionChainIds, ...splitRemainderIds] },
+        id: { notIn: [...poLinkedIds, ...conversionChainIds, ...splitRemainderIds, ...sentToProcessorIds] },
       },
       data: { status: 'CANCELLED' },
     });
@@ -2200,7 +2229,11 @@ export async function calculateRequirementsFromOrder(
             // RECEIVED included: the supersede pass preserves terminal RECEIVED rows, so
             // omitting it here made recalculation create a SECOND row alongside goods that
             // had already arrived — double-counting the requirement.
-            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] },
+            // …and a greige row whose greige already went to the dyer (see GREIGE_SENT_TO_PROCESSOR)
+            OR: [
+              { status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] } },
+              GREIGE_SENT_TO_PROCESSOR,
+            ],
           },
           select: { id: true },
         });

@@ -610,20 +610,20 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkOrderList.tsx": "ba5fc942f429",
       "frontend/src/components/JobWorkOrderCreateDialog.tsx": "afdd83c7b4c8",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "f66d7c298874",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "f3588f5bfbbd",
       "frontend/src/components/job-work/GreigeLotRows.tsx": "8ba24e678c7c",
-      "frontend/src/components/job-work/ThanPicker.tsx": "dc613098e848",
-      "frontend/src/components/job-work/lot-rows.ts": "95863b097299",
+      "frontend/src/components/job-work/ThanPicker.tsx": "e75b65ca9851",
+      "frontend/src/components/job-work/lot-rows.ts": "72bd63322852",
       "frontend/src/pages/DispatchToProcessor.tsx": "bfd440967a1b",
       "frontend/src/components/GreigeCombobox.tsx": "40717b7be9d3",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
       "backend/src/schemas/jobWorkOrder.schema.ts": "dbfe6c7faf56",
       "backend/src/controllers/job-work-order.controller.ts": "21e52e6d095f",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "15fedb58b9fd"
+      "backend/src/services/job-work-issuance.service.ts": "66b7990864ba"
     },
-    "contentHash": "4113097cdf8f",
-    "generatedAt": "2026-09-24T08:54:35.906Z"
+    "contentHash": "0434968ce038",
+    "generatedAt": "2026-09-24T09:28:57.909Z"
   },
   "job-work-receive": {
     "sources": {

@@ -60,6 +60,21 @@ export const RECEIPT_SPLIT_DP = 3;
  */
 export const RECEIPT_COMPLETE_TOLERANCE = 0.001;
 
+/**
+ * Is a receipt complete? Yes once the ACTUAL quantity received is within `underTolerancePercent` of
+ * what was ordered/allocated (the GRN_UNDER_RECEIPT_TOLERANCE_PERCENT setting). Owner, 2026-09-24: a
+ * PO a few centimetres short — 10,105.65 m actual against 10,105.7 ordered — is received, not a
+ * short-close. The same rule closes the PO and its MRP requirement, so neither is left open on its own.
+ */
+export function isReceiptComplete(
+  received: Decimal | string | number,
+  expected: Decimal | string | number,
+  underTolerancePercent: number
+): boolean {
+  const floor = toCurrency(expected).times(toCurrency(100).minus(underTolerancePercent)).div(100);
+  return toCurrency(received).gte(floor.minus(RECEIPT_COMPLETE_TOLERANCE));
+}
+
 export interface AllocationLink {
   id: string;
   allocatedQuantity: Decimal | string | number;

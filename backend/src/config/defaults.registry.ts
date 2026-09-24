@@ -268,6 +268,20 @@ export const SYSTEM_DEFAULTS = {
     max: 100,
     unit: '%',
   },
+  GRN_UNDER_RECEIPT_TOLERANCE_PERCENT: {
+    value: '5',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    group: 'Receiving',
+    label: 'Under-receipt tolerance',
+    description:
+      'A PO line counts as fully received once the actual quantity received is within this much of the ' +
+      'ordered quantity — the purchase order closes as Received and needs no short-close. A larger ' +
+      'shortfall leaves it Partially Received.',
+    min: 0,
+    max: 50,
+    unit: '%',
+  },
   VARIANCE_ALERT_THRESHOLD_PERCENT: {
     value: '5',
     dataType: 'NUMBER',

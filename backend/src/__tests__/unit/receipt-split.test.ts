@@ -8,7 +8,11 @@
  * receipt used to be credited in full to both links.
  */
 
-import { splitReceiptAcrossLinks, RECEIPT_SPLIT_DP } from '../../services/helpers/receipt-split.helper';
+import {
+  splitReceiptAcrossLinks,
+  RECEIPT_SPLIT_DP,
+  isReceiptComplete,
+} from '../../services/helpers/receipt-split.helper';
 import { toCurrency, Decimal } from '../../utils/currency';
 
 /** Compare quantities at column scale — never float ===. */
@@ -170,5 +174,26 @@ describe('splitReceiptAcrossLinks — exactness grid', () => {
         }
       }
     }
+  });
+});
+
+describe('isReceiptComplete — under-receipt tolerance', () => {
+  it('PO2609-0007: 10,105.65 m actual against 10,105.7 ordered is complete at 5%', () => {
+    expect(isReceiptComplete(10105.65, 10105.7, 5)).toBe(true);
+  });
+
+  it('draws the line at the tolerance, on actual metres', () => {
+    expect(isReceiptComplete(95, 100, 5)).toBe(true);
+    expect(isReceiptComplete(94.99, 100, 5)).toBe(false);
+    expect(isReceiptComplete(40, 100, 5)).toBe(false);
+  });
+
+  it('with 0% keeps only the millimetre rounding slack', () => {
+    expect(isReceiptComplete(999.999, 1000, 0)).toBe(true);
+    expect(isReceiptComplete(999.99, 1000, 0)).toBe(false);
+  });
+
+  it('an over-receipt is complete', () => {
+    expect(isReceiptComplete(110, 100, 5)).toBe(true);
   });
 });

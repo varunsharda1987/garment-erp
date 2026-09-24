@@ -27,6 +27,8 @@ import {
 import { generateAtomicPONumber, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { addCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
+import { systemSettingsService } from './system-settings.service';
+import { isReceiptComplete } from './helpers/receipt-split.helper';
 import { BusinessError, NotFoundError } from '../errors';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
@@ -1372,7 +1374,11 @@ class PurchaseOrderService {
       return;
     }
 
-    const allFullyReceived = items.every((item) => Number(item.receivedQuantity) >= Number(item.orderedQuantity));
+    // Within the under-receipt tolerance is RECEIVED — a few centimetres short is not a short-close.
+    const underTolerance = await systemSettingsService.getNumberDefault('GRN_UNDER_RECEIPT_TOLERANCE_PERCENT');
+    const allFullyReceived = items.every((item) =>
+      isReceiptComplete(item.receivedQuantity, item.orderedQuantity, underTolerance)
+    );
     const anyPartiallyReceived = items.some((item) => Number(item.receivedQuantity) > 0);
 
     let newStatus: PurchaseOrderStatus;

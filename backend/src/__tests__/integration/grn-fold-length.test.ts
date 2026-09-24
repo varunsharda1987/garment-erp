@@ -35,6 +35,7 @@ let poId: string;
 let poItemId: string;
 let grnId: string;
 let grnItemId: string;
+let po2Id: string;
 
 beforeAll(async () => {
   const user = await createTestUser({
@@ -122,9 +123,11 @@ afterAll(async () => {
   await prisma.stock_movements.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_transactions.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_levels.deleteMany({ where: { materialId: only(materialId) } });
-  await prisma.goods_receiving_notes.deleteMany({ where: { poId: only(poId) } }); // cascades items + details
-  await prisma.purchase_order_items.deleteMany({ where: { poId: only(poId) } });
-  await prisma.purchase_orders.deleteMany({ where: { id: only(poId) } });
+  for (const id of [poId, po2Id]) {
+    await prisma.goods_receiving_notes.deleteMany({ where: { poId: only(id) } }); // cascades items + details
+    await prisma.purchase_order_items.deleteMany({ where: { poId: only(id) } });
+    await prisma.purchase_orders.deleteMany({ where: { id: only(id) } });
+  }
   await prisma.materials.deleteMany({ where: { greigeId: only(greigeId) } });
   await prisma.greige_master.deleteMany({ where: { id: only(greigeId) } });
   await prisma.warehouses.deleteMany({ where: { id: only(warehouseId) } });
@@ -214,6 +217,62 @@ describe('greige received at L=98', () => {
 
     const after = await prisma.greige_stock.findUniqueOrThrow({ where: { id: lot.id } });
     expect(Number(after.quantityAvailable)).toBeCloseTo(0, 2);
+  });
+});
+
+describe('a receipt a few centimetres short of the PO (under-receipt tolerance)', () => {
+  it('PO2609-0007: 10,418.2 counted @ L=97 = 10,105.65 m against 10,105.7 ordered closes as RECEIVED', async () => {
+    po2Id = (
+      await prisma.purchase_orders.create({
+        data: {
+          id: randomUUID(),
+          poNumber: `${RUN}-PO2`,
+          supplierId,
+          poDate: new Date(),
+          expectedDeliveryDate: new Date(Date.now() + 7 * 86400000),
+          status: 'SENT',
+          poCategory: 'GREIGE',
+          createdById: userId,
+        },
+      })
+    ).id;
+    const item = await prisma.purchase_order_items.create({
+      data: {
+        id: randomUUID(),
+        poId: po2Id,
+        materialId,
+        orderedQuantity: 10105.7,
+        receivedQuantity: 0,
+        unitPrice: 58,
+        totalPrice: 586130.6,
+        unit: 'METER',
+        foldLengthCm: new Prisma.Decimal(97),
+      },
+    });
+
+    await grnService.createGRN(
+      {
+        poId: po2Id,
+        warehouseId,
+        items: [
+          {
+            poItemId: item.id,
+            materialId,
+            receivedQuantity: 10418.2,
+            acceptedQuantity: 10418.2,
+            rejectedQuantity: 0,
+            unit: 'METER',
+            foldLengthCm: 97,
+          },
+        ],
+      },
+      userId
+    );
+
+    const line = await prisma.purchase_order_items.findUniqueOrThrow({ where: { id: item.id } });
+    expect(Number(line.receivedQuantity)).toBeCloseTo(10105.65, 2);
+    const po = await prisma.purchase_orders.findUniqueOrThrow({ where: { id: po2Id } });
+    expect(po.status).toBe('RECEIVED');
   });
 });
 

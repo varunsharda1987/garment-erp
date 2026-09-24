@@ -51,7 +51,8 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 ## Validation traps
 - PO, Warehouse and Receiving Date are required, and at least one item must have a received quantity.
 - The PO quantity is in actual metres, so over-receipt is checked on the actual metres, not the counted figure — a delivery counted at L=98 that matches the PO after conversion is not an over-receipt.
-- Over-receipt is allowed only up to the tolerance shown on the **Items to Receive** card. Beyond that the save is blocked with the maximum allowed quantity in the message.
+- Over-receipt is allowed only up to the tolerance shown on the **Items to Receive** card.
+- A PO line counts as fully received once the actual metres received are within the **Under-receipt tolerance** (Settings, 5% unless changed) of the ordered quantity. The PO then closes as Received on its own — a delivery a few centimetres short never needs a short-close. A bigger shortfall leaves it Partially Received. Beyond that the save is blocked with the maximum allowed quantity in the message.
 - Accepted + Rejected must equal Received on every line, or the save fails.
 - Lines that are already fully received do not appear — only pending quantity is shown.
 - A Processing PO whose linked job was cancelled refuses the save — that material was already credited back to stock. If the mill really returned goods, ask the office to re-open the job first.

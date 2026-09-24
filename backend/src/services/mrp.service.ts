@@ -30,7 +30,7 @@ import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
-import { splitReceiptAcrossLinks, RECEIPT_COMPLETE_TOLERANCE } from './helpers/receipt-split.helper';
+import { splitReceiptAcrossLinks, isReceiptComplete, RECEIPT_COMPLETE_TOLERANCE } from './helpers/receipt-split.helper';
 import {
   CalculateRequirementsInput,
   CalculatedRequirement,
@@ -4476,6 +4476,11 @@ export async function updateReceivedQuantity(
   // amount (crediting the full receipt to every link declared small requirements RECEIVED early).
   const shares = splitReceiptAcrossLinks(links, receivedQuantity);
   const shareByLinkId = new Map(shares.map((s) => [s.id, s.qty]));
+  // Same rule that closes the PO (purchaseOrder.service updateReceivingStatus): within the
+  // under-receipt tolerance the requirement is RECEIVED, so it never outlives its closed PO.
+  const underTolerance = links.length
+    ? await systemSettingsService.getNumberDefault('GRN_UNDER_RECEIPT_TOLERANCE_PERCENT')
+    : 0;
 
   // Track which requirements we've updated (avoid updating the same requirement multiple times
   // if it has multiple links to the same PO item — shouldn't happen but belt-and-suspenders)
@@ -4519,8 +4524,8 @@ export async function updateReceivedQuantity(
     // P1.5: Determine correct status based on aggregated quantities
     let newStatus: MaterialRequirementStatus;
     // Tolerance, not a bare >=: independent per-receipt rounding can leave a link a millimetre
-    // short across successive partials, which would strand a fully-received requirement.
-    if (totalReceived >= totalAllocated - RECEIPT_COMPLETE_TOLERANCE) {
+    // short across successive partials, and a delivery within the under-receipt tolerance is complete.
+    if (isReceiptComplete(totalReceived, totalAllocated, underTolerance)) {
       newStatus = MaterialRequirementStatus.RECEIVED;
     } else if (totalReceived > 0) {
       newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;

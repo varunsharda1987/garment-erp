@@ -228,3 +228,26 @@ describe('cost-sheet order-consumption freeze', () => {
       .expect(409);
   });
 });
+
+describe("a live BOM that never recorded its source sheet still locks the style's sheet", () => {
+  // Eight live BOMs built 25-29 Aug 2026 carry sourceCostSheetId NULL; the guard missed them and
+  // ESSKY085LS's / ESSKY086LS's approved sheets were revoked on 24-Sep under approved BOMs.
+  it('revoke is refused while an unlinked active BOM of the style exists', async () => {
+    const sheet = await createCostSheet();
+    const order = await createOrder();
+    const bom = await createBomFromSheet(order.id, sheet.id, { sourceCostSheetId: null });
+    try {
+      const res = await request(app)
+        .patch(`/api/style-costing/${sheet.id}/approve`)
+        .set(authHeader)
+        .send({ action: 'revoke' })
+        .expect(409);
+      expect(res.body.details.code).toBe('COST_SHEET_IN_USE');
+      expect(res.body.message).toContain(order.orderNumber);
+      const after = await prisma.style_costing.findUnique({ where: { id: sheet.id } });
+      expect(after!.approvalStatus).toBe('APPROVED');
+    } finally {
+      await prisma.order_bom.update({ where: { id: bom.id }, data: { isActive: false } });
+    }
+  });
+});

@@ -278,6 +278,22 @@ export async function getCostSheetOrderDependents(
     db.order_item_costing.count({ where: { baseCostingId: costSheetId } }),
   ]);
 
+  // Order BOMs that never recorded their source sheet (8 live ones, built 25-29 Aug 2026) were
+  // invisible here, so ESSKY085LS's and ESSKY086LS's approved sheets could be revoked on
+  // 24-Sep under approved BOMs. An unlinked active BOM of the same style counts as using the
+  // style's CURRENT (not superseded) sheet — erring on blocking; a new version stays allowed.
+  const sheet = await db.style_costing.findUnique({
+    where: { id: costSheetId },
+    select: { styleId: true, supersededById: true },
+  });
+  if (sheet && !sheet.supersededById) {
+    const unlinked = await db.order_bom.findMany({
+      where: { styleId: sheet.styleId, sourceCostSheetId: null, isActive: true },
+      select: { id: true, version: true, status: true, order: { select: { orderNumber: true, status: true } } },
+    });
+    activeBomRows.push(...unlinked);
+  }
+
   const activeBoms = activeBomRows.map((b) => ({
     orderBomId: b.id,
     bomVersion: b.version,

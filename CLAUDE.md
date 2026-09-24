@@ -297,6 +297,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
 | Strict number schema | An optional `z.number()` on a form-fed numeric field (`price…units` names): HTML inputs post strings and `''` when blank, so every save carrying that field 400s (six of seven trim forms could not add a supplier row, 2026-09-10) | Use `formNumber(z.number()…)` from `backend/src/schemas/common.schema.ts` (or mark `// allow-strict-number` for typed-client-only fields) |
 | Unit vocabulary drift | A new hand-written unit list or map: 3+ distinct unit spellings (`METER`, `MTR`, `pcs`, `KG`…) quoted on one line, or 3+ consecutive lines keyed on units. The frontend's live `Unit` copy had 13 of 16 values, a 9-value material enum refused a PACK material, and a dozen local maps disagreed (kilograms printed as metres) | Use the unit registry (see *Units: one registry*): `unitShort`/`unitPer`/`unitLabel`, `normalizeUnit`, `UNIT_OPTIONS`, the generated `Unit`. A genuine subset takes `// allow-unit-list` |
+| Quantity exact compare | An exact zero comparison on a quantity-named value (`shortfall` / `remaining` / `pending` / `balance` / `outstanding` / `leftover` with `=== 0`, `<= 0`, `> 0`…; money and count names skipped), or a quantity input pre-filled with `.toFixed()`. Mixed 3dp/2dp storage leaves 0.002 of dust: a requirement read "Partially from Stock" for 2 mm and a dialog refused its own pre-fill (2026-09-24) | Use `isQtyZero` / `qtyAtLeast` / `qtyExceeds` / `qtyRemaining` / `snapToLimit` / `prefillQty` from `utils/quantity` or `@/lib/quantity` (see *Quantities: one tolerance*). A genuine count or money value takes `// allow-exact-qty` |
 | Radix singleton split (no baseline) | **(a)** any `@radix-ui/react-*` declared directly in `frontend/package.json` (only `@radix-ui/react-icons` is allowed — it is an icon set, not a primitive); **(b)** two resolved copies of a package holding module-scope state: `react-focus-scope`, `react-dismissable-layer`, `react-focus-guards`, `aria-hidden`, `react-remove-scroll(-bar)`, `react`, `react-dom`. Radix pins its internals to EXACT versions and keeps its focus-trap stack in module scope, so a second copy means a Sheet/Dialog never pauses for a Popover inside it and steals focus back — no combobox inside any dialog could be typed in (Sale Order Primary Style, 2026-09-14; introduced by bumping `react-dialog` alone in `8ca11d39`) | Import the namespace from the meta-package — `import { Dialog as DialogPrimitive } from 'radix-ui'` — and delete the direct entry. To move to a newer generation, bump **`radix-ui`** itself: one version number owns every primitive, so a partial bump is not an operation that exists. Never `resolve.dedupe` or npm `overrides` |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
@@ -391,6 +392,40 @@ vocabulary but not stock units: `normalizeUnit` returns null for them and the ca
 Migrating the text columns to the enum is a separate project (needs a decision on what `lot` means).
 
 Enforced by the *unit vocabulary drift* smart-check. Tests: `backend/src/__tests__/unit/units.test.ts`.
+
+## Quantities: one tolerance
+
+**A quantity within 0.005 of a limit IS that limit.** Storage scales are mixed — 3 decimals on
+`material_requirements`, requirement links, `challan_items`, PO and GRN lines; 2 on the stock lots,
+`job_work_orders`, send-outs and lace issue notes — so moving a value between them leaves up to 0.005
+behind. Exact comparisons turned that into false states: MR2609-0084 read "Partially from Stock" for
+0.002 m (and sat in the needs-PO lists), and the Allocate dialog refused its own pre-filled 2786.60
+against a 2786.598 shortfall (2026-09-24, `ea1fef23`, `3f147da8`).
+
+ONE helper, byte-identical on both sides (a test asserts it):
+
+- **`backend/src/utils/quantity.ts`**
+- **`frontend/src/lib/quantity.ts`** — import as `@/lib/quantity`
+
+```ts
+isQtyZero(x)              // |x| < 0.005 — "is it done / empty?"
+qtyAtLeast(a, b)          // a ≥ b − 0.005 — "fully received / covered?"
+qtyExceeds(a, b)          // a > b + 0.005 — "really over the limit?"
+qtyRemaining(total, done) // leftover, snapped to 0 within dust, never negative
+snapToLimit(qty, limit)   // a full quantity typed at 2dp → exactly the limit (write THIS)
+prefillQty(value)         // exact input pre-fill, ≤3 decimals, never rounded up
+```
+
+Rules: never decide a status with `=== 0` / `<= 0` / `> 0` / `>=` on a quantity; never pre-fill a
+quantity input with `toFixed(2)`; quantity inputs use `step="any"` (a `step="0.01"` inside a `<form>`
+makes the browser refuse 3-decimal values). Percentage tolerances (under/over-receipt, processing loss)
+are business rules and stay separate; money keeps its own tolerance (`invoice-status.helper.ts`); the
+guarded Prisma `lte: 0` / `gte` stock predicates stay exact — callers snap before them. Existing dust
+rows: `cd backend && npx ts-node scripts/repair-quantity-dust.ts` (dry run; `--apply` writes).
+
+Enforced by the *quantity exact compare* smart-check (`// allow-exact-qty` for a genuine count or money
+value). Tests: `unit/quantity.test.ts`, `integration/mrp-allocate-stock-dust.test.ts`,
+`integration/lace-issue-note-dust.test.ts`.
 
 
 ## CRITICAL: Keep the AI Assistant's Guides in Sync (MANDATORY)

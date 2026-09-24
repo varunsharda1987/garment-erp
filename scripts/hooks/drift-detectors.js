@@ -510,6 +510,67 @@ function dateFormatDrift(relFiles) {
   return out;
 }
 
+// --- quantityExactCompare (2026-09-24) --------------------------------------------------------
+// Quantities have ONE tolerance: backend/src/utils/quantity.ts and its twin frontend/src/lib/quantity.ts
+// (a quantity within 0.005 of a limit IS the limit). Storage is mixed — 3 decimals on requirements,
+// links, challans, PO/GRN lines; 2 on stock lots and job work — and ~95 server + ~45 screen checks
+// compared exactly, so MR2609-0084 read "Partially from Stock" for 0.002 m and a dialog refused its own
+// pre-filled 2786.60 against a 2786.598 shortfall.
+//
+// Flags a NEW (1) exact zero comparison on a quantity-named identifier — shortfall / remaining /
+// pending / balance / outstanding / leftover compared `=== 0`, `!== 0`, `== 0`, `<= 0`, `> 0`, `< 0`,
+// `>= 0` (money names like amount / value / cost / price are skipped: money has its own tolerance);
+// and (2) a quantity input pre-filled with .toFixed(n) (rounds UP past the limit or leaves dust).
+// Per-line opt-out: // allow-exact-qty.
+const QTY_HELPER_FILES = ['backend/src/utils/quantity.ts', 'frontend/src/lib/quantity.ts'];
+
+function quantityExactCompare(relFiles) {
+  const out = [];
+  const exactZero =
+    /\b((?:[A-Za-z_$][\w$.]*?)?(?:shortfall|remaining|pending|balance|outstanding|leftover)\w*)\s*(===|!==|==|<=|>=|>|<)\s*0(?![.\d])/gi;
+  const money = /amount|value|cost|price|paid|due|credit|debit|tax|rupee|money|days|count|index|length|page|samples|grns|receipts|orders|items/i;
+  const prefill = /\bset\w*(?:Qty|Quantity|Quantities|Amount)\w*\([^;\n]*\.toFixed\(\d\)/;
+
+  for (const rel of relFiles) {
+    if (!/\.(ts|tsx)$/.test(rel)) continue;
+    const norm = rel.split(String.fromCharCode(92)).join('/');
+    if (QTY_HELPER_FILES.some((f) => norm.endsWith(f))) continue;
+    if (/__tests__|\.test\.tsx?$|\/scripts\//.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const lines = content.split('\n');
+    const rawLines = (readRel(rel) || '').split('\n');
+    const optedOut = (i) => /allow-exact-qty/.test(`${rawLines[i - 1] || ''}\n${rawLines[i] || ''}`);
+    const seen = new Map();
+    const flag = (i, what, detail) => {
+      const base = `${norm} :: ${what}`;
+      const n = (seen.get(base) || 0) + 1;
+      seen.set(base, n);
+      out.push({ key: `${base}${n > 1 ? ` #${n}` : ''}`, file: rel, line: i + 1, detail });
+    };
+
+    lines.forEach((line, i) => {
+      if (optedOut(i)) return;
+      let m;
+      exactZero.lastIndex = 0;
+      while ((m = exactZero.exec(line))) {
+        const ident = m[1];
+        const last = ident.split('.').pop();
+        if (money.test(last)) continue;
+        flag(
+          i,
+          `exact ${last} ${m[2]} 0`,
+          `exact comparison \`${ident} ${m[2]} 0\` — rounding dust (0.002 m) decides the outcome; use isQtyZero / qtyExceeds / qtyAtLeast from utils/quantity or @/lib/quantity`
+        );
+      }
+      if (prefill.test(line)) {
+        flag(i, 'toFixed quantity pre-fill', 'quantity pre-filled with .toFixed() — use prefillQty() (exact, never rounded up)');
+      }
+    });
+  }
+  return out;
+}
+
 // --- unitVocabularyDrift (2026-09-23) ---------------------------------------------------------
 // Units have ONE registry: backend/src/utils/units.ts and its twin frontend/src/lib/units.ts, with
 // the values generated from `enum Unit`. Before it: three hand-typed frontend `Unit` copies (the one
@@ -2125,6 +2186,7 @@ module.exports = {
   currencyFormat,
   dateFormatDrift,
   unitVocabularyDrift,
+  quantityExactCompare,
   controllerReparse,
   globalPrismaInTx,
   decimalCompare,

@@ -274,6 +274,16 @@ ${c.cyan}Checking date formatting...${c.reset}`);
   );
 }
 
+function checkQuantityExactCompare(tsFiles) {
+  console.log(`\n${c.cyan}Checking quantity comparisons...${c.reset}`);
+  return runRatchetedCheck(
+    'exact quantity comparison(s) / rounded quantity pre-fill(s) bypassing the quantity rule',
+    detectors.quantityExactCompare(tsFiles),
+    'quantity-exact-compare-baseline.json',
+    'Quantities have ONE tolerance: backend/src/utils/quantity.ts and its twin @/lib/quantity — a quantity within 0.005 of a limit IS the limit (stored scales are mixed 3dp/2dp). Decide with isQtyZero / qtyAtLeast / qtyExceeds, compute leftovers with qtyRemaining, write snapToLimit, pre-fill with prefillQty. A genuine count or money value takes // allow-exact-qty.'
+  );
+}
+
 function checkUnitVocabulary(tsFiles) {
   console.log(`\n${c.cyan}Checking unit vocabulary...${c.reset}`);
   return runRatchetedCheck(
@@ -1282,6 +1292,7 @@ function runAllModeChecks() {
   if (!checkCurrencyFormat(tsFiles)) ok = false;
   if (!checkDateFormat(tsFiles)) ok = false;
   if (!checkUnitVocabulary(tsFiles)) ok = false;
+  if (!checkQuantityExactCompare(tsFiles)) ok = false;
   if (!checkControllerReparse(tsFiles)) ok = false;
   if (!checkGlobalPrismaInTx(tsFiles)) ok = false;
   if (!checkDecimalCompare(tsFiles)) ok = false;
@@ -1403,6 +1414,7 @@ function main() {
     if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
     if (!checkDateFormat(categories.typescript)) allPassed = false;
     if (!checkUnitVocabulary(categories.typescript)) allPassed = false;
+    if (!checkQuantityExactCompare(categories.typescript)) allPassed = false;
     // Phase-3 guardrails: dual-schema re-parse, rollback-escaping writes, Decimal string-compare,
     // count-based numbering (BLOCKING new + ratchet)
     if (!checkControllerReparse(categories.typescript)) allPassed = false;

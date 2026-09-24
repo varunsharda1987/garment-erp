@@ -10,7 +10,7 @@ import { addCurrency, roundToCent, multiplyCurrency, toCurrency } from '../../ut
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
 import { unitHeader } from '../../utils/units';
-import { foldCounted, hasFold } from '../../utils/fold-length';
+import { foldActual, foldCounted, hasFold } from '../../utils/fold-length';
 
 const challanDocInclude = {
   items: {
@@ -30,7 +30,15 @@ const challanDocInclude = {
   greigeIssueDetails: {
     include: {
       greigeStockDetail: {
-        select: { baleNumber: true, sequenceNo: true, meters: true, baleNo: true, thanNo: true },
+        select: {
+          id: true,
+          greigeStockId: true,
+          baleNumber: true,
+          sequenceNo: true,
+          meters: true,
+          baleNo: true,
+          thanNo: true,
+        },
       },
     },
   },
@@ -85,8 +93,8 @@ export interface ChallanDocData {
    * Packing list: the thans that left, one line per bale (printed bale / than numbers where known).
    * Than metres are the COUNTED tag figures; the goods table above is in ACTUAL metres.
    */
-  thanList: Array<{ bale: string; thans: string; count: number; metres: string }> | null;
-  thanListTotal: { count: number; metres: string } | null;
+  thanList: Array<{ bale: string; baleNote: string; thans: string; count: number; metres: string }> | null;
+  thanListTotal: { count: number; metres: string; actualNote: string | null } | null;
 }
 
 interface PartyDetails {
@@ -133,8 +141,11 @@ function itemHsn(item: ChallanWithDetails['items'][number]): string {
 function itemSubline(item: ChallanWithDetails['items'][number], countedTagSum: number | null): string | null {
   const bits: string[] = [];
   if (hasFold(item.foldLengthCm)) {
-    const counted = countedTagSum ?? foldCounted(item.quantity, item.foldLengthCm).toNumber();
-    bits.push(`counted ${fmtQty(counted, item.unit)} @ L=${Number(item.foldLengthCm)}`);
+    // With a packing list the tag total is printed there, beside the thans it adds up
+    if (countedTagSum == null) {
+      const counted = foldCounted(item.quantity, item.foldLengthCm).toNumber();
+      bits.push(`${fmtQty(counted, item.unit)} m on the than tags (fold ${Number(item.foldLengthCm)} cm)`);
+    } else bits.push('thans listed below');
   }
   if (item.componentName) bits.push(item.componentName);
   if (item.colorName) bits.push(item.colorName);
@@ -284,44 +295,119 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
             metersIssued: fmtQty(Number(d.metersIssued), 'MTR'),
           }))
         : null,
-    ...thanPackingList(challan.greigeIssueDetails ?? []),
+    ...(await thanPackingList(
+      challan.id,
+      challan.greigeIssueDetails ?? [],
+      foldedLines === 1 ? Number(challan.items.find((i) => hasFold(i.foldLengthCm))?.foldLengthCm) : null,
+      foldedLines === 1 ? Number(challan.items.find((i) => hasFold(i.foldLengthCm))?.quantity) : null
+    )),
   };
 }
 
-/** Group the challan's issued thans by bale for the printed packing list (2026-09-24). */
-function thanPackingList(
-  rows: Array<{
-    metersIssued: Prisma.Decimal | number;
-    greigeStockDetail: {
-      baleNumber: number | null;
-      sequenceNo: number;
-      baleNo: string | null;
-      thanNo: string | null;
-    } | null;
-  }>
-): Pick<ChallanDocData, 'thanList' | 'thanListTotal'> {
+/**
+ * The packing list: the thans on this challan, one line per bale, thans in number order (2026-09-24).
+ * Each bale says whether it went WHOLE or in part — and, for a part bale, where its other thans went
+ * (another job's challan on the same trip, or still in the godown), so a bale split between two jobs
+ * does not read as a broken bale. Than metres are the TAG figures; the total line converts them once
+ * at the lot's fold length, in words, to the ACTUAL metres the goods table is in.
+ */
+async function thanPackingList(
+  challanId: string,
+  rows: ChallanWithDetails['greigeIssueDetails'],
+  foldLengthCm: number | null,
+  lineQty: number | null
+): Promise<Pick<ChallanDocData, 'thanList' | 'thanListTotal'>> {
   if (rows.length === 0) return { thanList: null, thanListTotal: null };
-  const bales = new Map<string, { label: string; order: number; thans: string[]; metres: number }>();
+
+  type Bale = {
+    lotId: string;
+    baleNumber: number | null;
+    label: string;
+    thans: Array<{ seq: number; text: string }>;
+    metres: number;
+  };
+  const bales = new Map<string, Bale>();
   for (const r of rows) {
     const d = r.greigeStockDetail;
-    const key = d?.baleNumber != null ? `b${d.baleNumber}` : 'loose';
-    const label = d?.baleNo ?? (d?.baleNumber != null ? String(d.baleNumber) : 'Loose');
-    const bale = bales.get(key) ?? { label, order: d?.baleNumber ?? Number.MAX_SAFE_INTEGER, thans: [], metres: 0 };
-    const tag = d?.thanNo ?? (d ? `#${d.sequenceNo}` : '—');
-    bale.thans.push(`${tag} (${fmtQty(Number(r.metersIssued), 'MTR')})`);
+    const key = d.baleNumber != null ? `${d.greigeStockId}:${d.baleNumber}` : `loose:${d.id}`;
+    const bale = bales.get(key) ?? {
+      lotId: d.greigeStockId,
+      baleNumber: d.baleNumber,
+      label: d.baleNo ?? (d.baleNumber != null ? String(d.baleNumber) : 'Loose'),
+      thans: [],
+      metres: 0,
+    };
+    const tag = d.thanNo ?? `T${d.sequenceNo}`;
+    bale.thans.push({ seq: d.sequenceNo, text: `${tag} (${fmtQty(Number(r.metersIssued), 'MTR')})` });
     bale.metres += Number(r.metersIssued);
     bales.set(key, bale);
   }
-  const list = [...bales.values()].sort((a, b) => a.order - b.order);
-  const totalMetres = list.reduce((sum, b) => sum + b.metres, 0);
+
+  // Where the rest of each bale is: the bale's size, and its thans issued on OTHER challans
+  const baled = [...bales.values()].filter((b) => b.baleNumber != null);
+  const pairs = baled.map((b) => ({ greigeStockId: b.lotId, baleNumber: b.baleNumber as number }));
+  const [sizes, elsewhere] =
+    pairs.length > 0
+      ? await Promise.all([
+          prisma.greige_stock_details.groupBy({
+            by: ['greigeStockId', 'baleNumber'],
+            where: { OR: pairs },
+            _count: { _all: true },
+          }),
+          prisma.greige_issue_details.findMany({
+            where: { challanId: { not: challanId }, greigeStockDetail: { OR: pairs } },
+            select: {
+              greigeStockDetail: { select: { greigeStockId: true, baleNumber: true } },
+              challan: { select: { challanNumber: true } },
+              jobWorkOrder: { select: { jobWorkNumber: true } },
+            },
+          }),
+        ])
+      : [[], []];
+
+  const note = (b: Bale): string => {
+    if (b.baleNumber == null) return 'Loose than';
+    const size = sizes.find((x) => x.greigeStockId === b.lotId && x.baleNumber === b.baleNumber)?._count._all ?? 0;
+    if (b.thans.length >= size) return 'Full bale';
+    const others = elsewhere.filter(
+      (e) => e.greigeStockDetail.greigeStockId === b.lotId && e.greigeStockDetail.baleNumber === b.baleNumber
+    );
+    const byDoc = new Map<string, number>();
+    for (const e of others) {
+      const doc =
+        [e.challan?.challanNumber, e.jobWorkOrder?.jobWorkNumber].filter(Boolean).join(' · ') || 'another issue';
+      byDoc.set(doc, (byDoc.get(doc) ?? 0) + 1);
+    }
+    const parts = [...byDoc.entries()].map(([doc, n]) => `${n} on ${doc}`);
+    const left = size - b.thans.length - others.length;
+    if (left > 0) parts.push(`${left} still in godown`);
+    return `Part bale — ${b.thans.length} of ${size} thans; ${parts.join(', ')}`;
+  };
+
+  const list = [...bales.values()].sort(
+    (a, b) => (a.baleNumber ?? Number.MAX_SAFE_INTEGER) - (b.baleNumber ?? Number.MAX_SAFE_INTEGER)
+  );
+  const totalTag = addCurrency(...rows.map((r) => Number(r.metersIssued))).toNumber();
+  let actualNote: string | null = null;
+  if (foldLengthCm != null && hasFold(foldLengthCm)) {
+    const actual = foldActual(totalTag, foldLengthCm).toNumber();
+    actualNote = `At fold ${foldLengthCm} cm, ${fmtQty(totalTag, 'MTR')} tag metres × ${foldLengthCm}/100 = ${fmtQty(actual, 'MTR')} m actual`; // allow-fold-math (printed wording; the figure is foldActual)
+    if (lineQty != null && Math.abs(actual - lineQty) >= 0.005) {
+      actualNote += ` (the order is ${fmtQty(lineQty, 'MTR')} m — whole thans, none cut)`;
+    }
+  }
   return {
     thanList: list.map((b) => ({
       bale: b.label,
-      thans: b.thans.join(', '),
+      baleNote: note(b),
+      thans: b.thans
+        .sort((x, y) => x.seq - y.seq)
+        .map((t) => t.text)
+        .join(', '),
       count: b.thans.length,
       metres: fmtQty(b.metres, 'MTR'),
     })),
-    thanListTotal: { count: rows.length, metres: fmtQty(totalMetres, 'MTR') },
+    thanListTotal: { count: rows.length, metres: fmtQty(totalTag, 'MTR'), actualNote },
   };
 }
 

@@ -102,6 +102,7 @@ import type { ServiceDashboardStats } from '@/types/serviceRequirement.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
+import { isQtyZero, minQty, prefillQty, qtyAtLeast, qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import {
@@ -691,26 +692,29 @@ function MaterialRequirementsTab({
   const openAllocateStockDialog = (req: MaterialRequirement) => {
     setAllocatingRequirement(req);
     // Default to allocating the full shortfall or available stock, whichever is less
-    const maxAllocatable = Math.min(req.currentStock, req.shortfall);
-    setAllocateQuantity(maxAllocatable.toFixed(2));
+    // Exact value, never rounded: toFixed(2) turned 2786.598 into 2786.60 (then refused it) and
+    // 1340.722 into 1340.72 (leaving 2 mm "Partially from Stock").
+    setAllocateQuantity(prefillQty(minQty(req.currentStock, req.shortfall)));
     setAllocateStockDialogOpen(true);
   };
 
   const handleAllocateStock = async () => {
     if (!allocatingRequirement) return;
-    const qty = parseFloat(allocateQuantity);
-    if (isNaN(qty) || qty <= 0) {
+    const typed = parseFloat(allocateQuantity);
+    if (isNaN(typed) || typed <= 0) {
       handleApiError(new Error('Invalid quantity'), 'Please enter a valid quantity');
       return;
     }
-    if (qty > allocatingRequirement.currentStock) {
+    // A full quantity typed at 2 decimals IS the full quantity (see @/lib/quantity)
+    const qty = snapToLimit(typed, minQty(allocatingRequirement.currentStock, allocatingRequirement.shortfall));
+    if (qtyExceeds(qty, allocatingRequirement.currentStock)) {
       handleApiError(
         new Error('Exceeds available'),
         `Cannot allocate more than available stock (${allocatingRequirement.currentStock})`
       );
       return;
     }
-    if (qty > allocatingRequirement.shortfall) {
+    if (qtyExceeds(qty, allocatingRequirement.shortfall)) {
       handleApiError(
         new Error('Exceeds shortfall'),
         `Cannot allocate more than shortfall (${allocatingRequirement.shortfall})`
@@ -1036,9 +1040,16 @@ function MaterialRequirementsTab({
                         </div>
                         <div className="flex items-center gap-3 text-sm">
                           <Badge variant="secondary">{group.count} items</Badge>
-                          {group.totalShortfall > 0 && (
-                            <Badge variant="destructive">{group.totalShortfall.toFixed(2)} shortfall</Badge>
-                          )}
+                          {(() => {
+                            // A total only means something in one unit — metres plus pieces is not a number
+                            const units = new Set(group.requirements.map((r) => unitShort(r.unit)));
+                            if (units.size !== 1 || isQtyZero(group.totalShortfall)) return null;
+                            return (
+                              <Badge variant="destructive">
+                                {formatQuantity(group.totalShortfall, group.requirements[0].unit)} shortfall
+                              </Badge>
+                            );
+                          })()}
                         </div>
                       </div>
                     </CardHeader>
@@ -1130,18 +1141,18 @@ function MaterialRequirementsTab({
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <span
-                                    className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}
+                                    className={`text-sm font-medium ${!isQtyZero(req.shortfall) ? 'text-primary' : 'text-success'}`}
                                   >
-                                    {req.shortfall > 0 ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
+                                    {!isQtyZero(req.shortfall) ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
                                   </span>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  {req.currentStock > 0 ? (
+                                  {!isQtyZero(req.currentStock) ? (
                                     <div>
                                       <span className="text-sm font-medium text-success">
                                         {formatQuantity(req.currentStock, req.unit)}
                                       </span>
-                                      {req.currentStock >= req.shortfall && req.shortfall > 0 && (
+                                      {qtyAtLeast(req.currentStock, req.shortfall) && !isQtyZero(req.shortfall) && (
                                         <Badge className="ml-2 text-xs bg-success/10 text-success border-success/20">
                                           Can Fulfill
                                         </Badge>
@@ -1167,8 +1178,8 @@ function MaterialRequirementsTab({
                                 <TableCell className="text-right">
                                   <div className="flex gap-1 justify-end">
                                     {/* Allocate from Stock button */}
-                                    {req.currentStock > 0 &&
-                                      req.shortfall > 0 &&
+                                    {!isQtyZero(req.currentStock) &&
+                                      !isQtyZero(req.shortfall) &&
                                       (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
                                         <Button
                                           variant="ghost"
@@ -1179,7 +1190,7 @@ function MaterialRequirementsTab({
                                           Use Stock
                                         </Button>
                                       )}
-                                    {req.shortfall > 0 &&
+                                    {!isQtyZero(req.shortfall) &&
                                       req.material?.materialType === 'FABRIC' &&
                                       !req.material?.fabricId &&
                                       (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
@@ -1335,18 +1346,18 @@ function MaterialRequirementsTab({
                         </TableCell>
                         <TableCell className="text-right">
                           <span
-                            className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}
+                            className={`text-sm font-medium ${!isQtyZero(req.shortfall) ? 'text-primary' : 'text-success'}`}
                           >
-                            {req.shortfall > 0 ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
+                            {!isQtyZero(req.shortfall) ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
-                          {req.currentStock > 0 ? (
+                          {!isQtyZero(req.currentStock) ? (
                             <div>
                               <span className="text-sm font-medium text-success">
                                 {formatQuantity(req.currentStock, req.unit)}
                               </span>
-                              {req.currentStock >= req.shortfall && req.shortfall > 0 && (
+                              {qtyAtLeast(req.currentStock, req.shortfall) && !isQtyZero(req.shortfall) && (
                                 <Badge className="ml-2 text-xs bg-success/10 text-success border-success/20">
                                   Can Fulfill
                                 </Badge>
@@ -1370,8 +1381,8 @@ function MaterialRequirementsTab({
                         <TableCell className="text-right">
                           <div className="flex gap-1 justify-end">
                             {/* Allocate from Stock button - show when stock available and requirement has shortfall */}
-                            {req.currentStock > 0 &&
-                              req.shortfall > 0 &&
+                            {!isQtyZero(req.currentStock) &&
+                              !isQtyZero(req.shortfall) &&
                               (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
                                 <Button
                                   variant="ghost"
@@ -1382,7 +1393,7 @@ function MaterialRequirementsTab({
                                   Use Stock
                                 </Button>
                               )}
-                            {req.shortfall > 0 &&
+                            {!isQtyZero(req.shortfall) &&
                               req.material?.materialType === 'FABRIC' &&
                               !req.material?.fabricId &&
                               (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
@@ -1696,9 +1707,9 @@ function MaterialRequirementsTab({
                 <Label>Quantity to Allocate ({unitShort(allocatingRequirement.unit)})</Label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
-                  max={Math.min(allocatingRequirement.currentStock, allocatingRequirement.shortfall)}
+                  max={minQty(allocatingRequirement.currentStock, allocatingRequirement.shortfall)}
                   value={allocateQuantity}
                   onChange={(e) => setAllocateQuantity(e.target.value)}
                   className="mt-1"

@@ -55,6 +55,8 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 // Qty-rate audit 2026-08-24: slab-correct JWO pricing at the job's ACTUAL meters + provenance
 import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/jwo-rate.helper';
 import logger, { logWarn } from '../utils/logger';
+import { BusinessError } from '../errors';
+import { isQtyZero, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
@@ -2875,16 +2877,25 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
     throw new Error(`Requirement ${data.requirementId} not found`);
   }
 
+  // Quantity rule (utils/quantity): the requirement is stored at 3 decimals, screens and lots at 2.
+  // A full allocation typed at 2 decimals (1340.72 against 1340.722) is the full allocation — snap it
+  // to the shortfall, so the requirement closes instead of reading "Partially from Stock" for 2 mm.
+  const currentShortfall = qtyRemaining(requirement.totalRequired, requirement.allocatedFromStock);
+  if (qtyExceeds(data.quantity, currentShortfall)) {
+    throw new BusinessError(
+      `Cannot allocate ${data.quantity} — only ${currentShortfall} is still short on ${requirement.requirementNumber}`
+    );
+  }
+  const allocateQty = snapToLimit(data.quantity, currentShortfall);
+
   // BUG-MRP5 fix: use decimal.js for precision in allocation calculations
   const allocatedFromStockNum = Number(requirement.allocatedFromStock);
-  const totalRequiredNum = Number(requirement.totalRequired);
-  const newAllocatedDecimal = toCurrency(allocatedFromStockNum).plus(toCurrency(data.quantity));
-  const newShortfallDecimal = toCurrency(totalRequiredNum).minus(toNumber(newAllocatedDecimal));
+  const newAllocatedDecimal = toCurrency(allocatedFromStockNum).plus(toCurrency(allocateQty));
   const newAllocated = toNumber(newAllocatedDecimal);
-  const newShortfall = Math.max(0, toNumber(newShortfallDecimal));
+  const newShortfall = qtyRemaining(requirement.totalRequired, newAllocated);
   let newStatus = requirement.status;
 
-  if (newShortfall === 0) {
+  if (isQtyZero(newShortfall)) {
     newStatus = MaterialRequirementStatus.FULFILLED_STOCK;
   } else if (newAllocated > 0) {
     newStatus = MaterialRequirementStatus.PARTIAL_STOCK;
@@ -2917,7 +2928,7 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
 
     if (reqWithMaterial?.materials) {
       const matType = reqWithMaterial.materials.materialType;
-      const reserveQty = data.quantity;
+      const reserveQty = allocateQty;
 
       if (matType === 'FABRIC' && reqWithMaterial.materials.fabricId) {
         const lots = await tx.fabric_stock.findMany({
@@ -2926,7 +2937,7 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         });
         let remaining = reserveQty;
         for (const lot of lots) {
-          if (remaining <= 0) break;
+          if (isQtyZero(remaining) || remaining < 0) break;
           const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
           await tx.fabric_stock.update({
             where: { id: lot.id },
@@ -2941,7 +2952,7 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         });
         let remaining = reserveQty;
         for (const lot of lots) {
-          if (remaining <= 0) break;
+          if (isQtyZero(remaining) || remaining < 0) break;
           const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
           await tx.greige_stock.update({
             where: { id: lot.id },
@@ -2956,7 +2967,7 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         });
         let remaining = reserveQty;
         for (const lot of lots) {
-          if (remaining <= 0) break;
+          if (isQtyZero(remaining) || remaining < 0) break;
           const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
           await tx.lace_stock.update({
             where: { id: lot.id },

@@ -40,6 +40,7 @@ import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
 import { countsForPurposeAverage } from '../helpers/cad-status.helper';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtPct, fmtQty } from './format';
+import { maxCutBySize, maxCutForSize, plannedCutForSize } from '../../utils/cut-allowance';
 
 /**
  * House cutting allowance when nothing better is on record. Mirrors
@@ -160,6 +161,9 @@ export interface CuttingChartColourGrid {
   orderQty: string[];
   extraQty: string[];
   toCut: string[];
+  /** Max Cuttable per size — the lower of the fabric (shared in the order ratio) and order + 5 % */
+  maxCut: string[];
+  maxCutTotal: string;
   /** Recorded cut for THIS colour. null → nothing laid in it yet, so the row is hatched. */
   actualCut: string[] | null;
   orderTotal: string;
@@ -219,6 +223,8 @@ export interface CuttingChartDocData {
   statusLabel: string;
   orderQtyLabel: string;
   cutQtyLabel: string;
+  /** Extra pieces on top of the order, in pieces — a % worked back from a batch read "5.2%" */
+  extraQtyLabel: string;
   extraPctLabel: string;
   extraBasis: string;
   sizes: string[];
@@ -304,19 +310,23 @@ function humanise(value: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
-export async function buildCuttingChartDocData(workOrderId: string): Promise<CuttingChartDocData> {
+export async function buildCuttingChartDocData(
+  workOrderId: string,
+  opts: { extraPercent?: number } = {}
+): Promise<CuttingChartDocData> {
   const [company, workOrder] = await Promise.all([
     buildCompanyBlock(),
     prisma.work_orders.findUnique({ where: { id: workOrderId }, include: cuttingChartInclude }),
   ]);
   if (!workOrder) throw new NotFoundError('Work Order', workOrderId);
-  return transformCuttingChart(company, workOrder);
+  return transformCuttingChart(company, workOrder, opts);
 }
 
 /** Pure transform — split from the loader so previews/tests can exercise it with a fixture record. */
 export function transformCuttingChart(
   company: CompanyBlock,
-  workOrder: WorkOrderWithCuttingDetails
+  workOrder: WorkOrderWithCuttingDetails,
+  opts: { extraPercent?: number } = {}
 ): CuttingChartDocData {
   const style = workOrder.styles;
 
@@ -329,12 +339,21 @@ export function transformCuttingChart(
     bookedExtra = addCurrency(bookedExtra, sku.extraAllowed);
   }
   const hasBookedExtra = !isZero(bookedOrder);
+  // Before any batch: the Extra % typed on the chart (the page passes it), else the house default
+  const typedExtraPercent =
+    opts.extraPercent != null && opts.extraPercent >= 0 ? opts.extraPercent : HOUSE_EXTRA_PERCENT;
   const extraPercent = hasBookedExtra
     ? multiplyCurrency(divideCurrency(bookedExtra, bookedOrder), 100)
-    : toCurrency(HOUSE_EXTRA_PERCENT);
-  const extraFactor = addCurrency(1, divideCurrency(extraPercent, 100));
+    : toCurrency(typedExtraPercent);
 
   // ---- Recorded cut, by colour+size, from the cutting batches ----
+  // What the batches actually plan per colour+size. Once booked, the print shows THAT — re-deriving
+  // a % from the booked total and re-rounding each size printed 2,421 for batches planning 2,419.
+  const bookedToCutBySku = new Map<string, number>();
+  for (const sku of allSkuOutputs) {
+    const key = `${sku.colorId ?? ''}|${sku.sizeId}`;
+    bookedToCutBySku.set(key, (bookedToCutBySku.get(key) ?? 0) + sku.toCut);
+  }
   const cutBySku = new Map<string, ReturnType<typeof toCurrency>>();
   for (const sku of allSkuOutputs) {
     const key = `${sku.colorId ?? ''}|${sku.sizeId}`;
@@ -408,8 +427,10 @@ export function transformCuttingChart(
         ratio.push(
           isZero(groupTotal) ? EM_DASH : fmtPct(multiplyCurrency(divideCurrency(planned, groupTotal), 100).toNumber())
         );
-        // Whole garments only: the lay is rounded up, exactly as the pdfkit chart does.
-        const cut = new Decimal(multiplyCurrency(planned, extraFactor).toString()).ceil();
+        // Booked on a batch → exactly that; otherwise the Extra % rounded up to whole garments,
+        // never past the order + 5 % allowance (cut-allowance.ts)
+        const booked = bookedToCutBySku.get(`${colourId}|${sizeId}`);
+        const cut = new Decimal(booked ?? plannedCutForSize(planned.toNumber(), toCurrency(extraPercent).toNumber()));
         const extra = subtractCurrency(cut, planned);
         orderQty.push(fmtQty(planned.toNumber(), 'PCS'));
         extraQty.push(fmtQty(extra.toNumber(), 'PCS'));
@@ -440,6 +461,8 @@ export function transformCuttingChart(
       // Hatched unless THIS colour has been cut — a colour with no lay must not
       // print a 0 next to a colour that has genuinely produced zero pieces.
       actualCut: anyRecordedInColour ? actualCut : null,
+      maxCut: [] as string[], // filled once the fabric's limit is known (below)
+      maxCutTotal: EM_DASH,
       orderTotal: fmtQty(groupTotal.toNumber(), 'PCS'),
       extraTotal: fmtQty(extraTotal.toNumber(), 'PCS'),
       toCutTotal: fmtQty(toCutTotal.toNumber(), 'PCS'),
@@ -451,8 +474,14 @@ export function transformCuttingChart(
   const headerQty = toCurrency(workOrder.totalQuantity);
   const plannedForCut = isZero(plannedGrand) ? headerQty : plannedGrand;
   const cutTarget = isZero(toCutGrand)
-    ? new Decimal(multiplyCurrency(headerQty, extraFactor).toString()).ceil()
+    ? new Decimal(plannedCutForSize(headerQty.toNumber(), toCurrency(extraPercent).toNumber()))
     : toCutGrand;
+  // The order + allowance ceiling, summed size by size (the header quantity when there is no breakup)
+  let allowanceMax = 0;
+  for (const group of colourGroups.values()) {
+    for (const qty of group.planned.values()) allowanceMax += maxCutForSize(toCurrency(qty).toNumber());
+  }
+  if (allowanceMax === 0) allowanceMax = maxCutForSize(headerQty.toNumber());
 
   // ---- Marker / CAD rows, one per component × fabric that has a CAD or a width ----
   const markerRows: CuttingChartMarkerRow[] = [];
@@ -537,6 +566,36 @@ export function transformCuttingChart(
     }
   }
 
+  // Owner rule (2026-09-24): Max Cuttable is the LOWER of the fabric and the order + allowance —
+  // per size too: the fabric's pieces shared across every colour × size in the order ratio
+  const fabricMaxPcs = maxCuttable !== null ? maxCuttable.toNumber() : null;
+  const groupList = [...colourGroups.values()];
+  const cells: Array<{ grid: number; sizeIdx: number; qty: number }> = [];
+  groupList.forEach((group, g) => {
+    sizeIds.forEach((sizeId, idx) => {
+      const planned = group.planned.get(sizeId);
+      if (planned !== undefined) cells.push({ grid: g, sizeIdx: idx, qty: toCurrency(planned).toNumber() });
+    });
+  });
+  const perCellMax = maxCutBySize(
+    cells.map((c) => c.qty),
+    fabricMaxPcs
+  );
+  grids.forEach((grid, g) => {
+    grid.maxCut = sizeIds.map(() => '');
+    let total = 0;
+    cells.forEach((c, i) => {
+      if (c.grid !== g) return;
+      grid.maxCut[c.sizeIdx] = fmtQty(perCellMax[i], 'PCS');
+      total += perCellMax[i];
+    });
+    grid.maxCutTotal = fmtQty(total, 'PCS');
+  });
+  if (maxCuttable === null || maxCuttable.gt(allowanceMax)) {
+    maxCuttable = new Decimal(allowanceMax);
+    bottleneckPart = null;
+  }
+
   // ---- Lays already recorded ----
   const layRows: CuttingChartLayRow[] = workOrder.cutting_batches.map((batch) => {
     const cut = batch.skuOutputs.reduce((acc, s) => addCurrency(acc, s.cutQty), toCurrency(0));
@@ -584,6 +643,7 @@ export function transformCuttingChart(
     statusLabel: humanise(workOrder.status),
     orderQtyLabel: fmtQty(plannedForCut.toNumber(), 'PCS'),
     cutQtyLabel: fmtQty(cutTarget.toNumber(), 'PCS'),
+    extraQtyLabel: fmtQty(Math.max(0, cutTarget.toNumber() - plannedForCut.toNumber()), 'PCS'),
     extraPctLabel: fmtPct(extraPercent.toNumber()),
     extraBasis: hasBookedExtra
       ? 'Booked on the cutting batches for this order'

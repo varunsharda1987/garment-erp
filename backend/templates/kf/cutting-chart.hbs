@@ -12,9 +12,11 @@
      2. A hand-fill CELL. base.css hatches whole rows (.open td); a planned-vs-
         actual table has to hatch only the actual columns, so the same hatch is
         expressed per cell. Same gradient, same intent, cell scope. */
+  /* Landscape A4 (the renderer is asked for landscape for this document) */
+  .sheet{width:297mm; min-height:210mm;}
   .grid{table-layout:fixed;}
   .grid th,.grid td{padding:2px 3px; text-align:center;}
-  .grid th:first-child,.grid td:first-child{text-align:left; padding-left:6px; width:30%;}
+  .grid th:first-child,.grid td:first-child{text-align:left; padding-left:6px; width:18%;}
   td.hand{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
           rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px); border-left:1px solid var(--rule);}
 </style>
@@ -32,7 +34,7 @@
         <div class="row"><span class="k">Style</span><span class="v">{{styleLabel}}{{#if styleName}} &middot; <span class="muted">{{styleName}}</span>{{/if}}</span></div>
         {{#if buyer}}<div class="row"><span class="k">Buyer</span><span class="v">{{buyer}}{{#if brand}} &middot; <span class="muted">{{brand}}</span>{{/if}}</span></div>{{/if}}
         {{#if orderRef}}<div class="row"><span class="k">Order</span><span class="v">{{orderRef}}</span></div>{{/if}}
-        <div class="row"><span class="k">Qty</span><span class="v">{{orderQtyLabel}} ordered &rarr; <strong>{{cutQtyLabel}} to cut</strong> <span class="muted">incl. {{extraPctLabel}} extra</span></span></div>
+        <div class="row"><span class="k">Qty</span><span class="v">{{orderQtyLabel}} ordered &rarr; <strong>{{cutQtyLabel}} to cut</strong> <span class="muted">incl. {{extraQtyLabel}} extra</span></span></div>
       </div>
       <div>
         <div class="row"><span class="k">Work Order</span><span class="v">{{docNo}} &middot; <span class="muted">{{statusLabel}}</span></span></div>
@@ -58,8 +60,9 @@
       <tbody>
         <tr><td>Ratio</td>{{#each this.ratio}}<td>{{this}}</td>{{/each}}<td>{{this.ratioTotal}}</td></tr>
         <tr><td>Order qty</td>{{#each this.orderQty}}<td>{{this}}</td>{{/each}}<td>{{this.orderTotal}}</td></tr>
-        <tr><td>Extra @ {{../extraPctLabel}}</td>{{#each this.extraQty}}<td>{{this}}</td>{{/each}}<td>{{this.extraTotal}}</td></tr>
+        <tr><td>Extra</td>{{#each this.extraQty}}<td>{{this}}</td>{{/each}}<td>{{this.extraTotal}}</td></tr>
         <tr class="sub"><td>To cut</td>{{#each this.toCut}}<td>{{this}}</td>{{/each}}<td>{{this.toCutTotal}}</td></tr>
+        <tr><td>Max cuttable</td>{{#each this.maxCut}}<td>{{this}}</td>{{/each}}<td>{{this.maxCutTotal}}</td></tr>
         <!-- Actual side: printed when cutting batches exist (base.css: never hatch a
              system-populated field), hatched for the cutter when nothing is laid yet.
              Either way exactly one hand-fill row stays open. -->
@@ -72,13 +75,6 @@
       </tbody>
     </table>
     {{/each}}
-    <div class="callout">
-      <b>Cutting allowance {{extraPctLabel}}</b>
-      {{extraBasis}}. It covers end-of-lay loss, shade rejects and line damage &mdash; it is not spare stock.
-      Measure every roll before the first lay and write the plies and metres actually used in the hatched
-      columns: cutting to a planned average on a narrower roll is how a run goes short with no shortage
-      showing anywhere in the system.
-    </div>
   </div>
 
   <!-- 03 ───────────────────────────────────────────── -->
@@ -108,28 +104,6 @@
         <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
         <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
         {{/each}}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- 04 ───────────────────────────────────────────── -->
-  <div class="sec">
-    <div class="sec-h"><span>04 &mdash; Lay Record</span><b>{{#if alreadyCut}}{{alreadyCut}} pcs cut so far{{else}}Nothing laid yet{{/if}}</b></div>
-    <table>
-      <thead>
-        <tr><th style="width:96px">Batch</th><th style="width:70px">Date</th><th>Rolls laid</th>
-            <th class="num" style="width:46px">Width</th><th class="num" style="width:40px">Plies</th>
-            <th class="num" style="width:36px">Lays</th><th class="num" style="width:58px">Fabric m</th>
-            <th class="num" style="width:48px">Pcs cut</th></tr>
-      </thead>
-      <tbody>
-        {{#each layRows}}
-        <tr><td>{{this.batch}}<br><span class="muted">{{this.status}}</span></td><td>{{this.date}}</td><td class="muted">{{this.rolls}}</td><td class="num">{{this.width}}</td><td class="num">{{this.plies}}</td><td class="num">{{this.lays}}</td><td class="num">{{this.consumed}}</td><td class="num">{{this.cut}}</td></tr>
-        {{/each}}
-        <!-- Always open below the recorded lays — the next lay is written here first
-             and keyed into a cutting batch afterwards. -->
-        <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        {{#unless layRows.length}}<tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>{{/unless}}
       </tbody>
     </table>
   </div>

@@ -142,7 +142,7 @@ export async function closeBrowser(): Promise<void> {
   }
 }
 
-async function renderOnce(html: string, timeoutMs: number, baseDir?: string): Promise<Buffer> {
+async function renderOnce(html: string, timeoutMs: number, baseDir?: string, landscape = false): Promise<Buffer> {
   const browser = await getBrowser();
   const page = await browser.newPage();
   // Chrome refuses file:// subresources from setContent (about:blank origin), so
@@ -159,6 +159,7 @@ async function renderOnce(html: string, timeoutMs: number, baseDir?: string): Pr
     await page.evaluate('document.fonts.ready');
     const pdf = await page.pdf({
       format: 'A4',
+      landscape,
       printBackground: true,
       margin: { top: 0, right: 0, bottom: 0, left: 0 }, // print CSS carries its own 10mm padding
       timeout: timeoutMs,
@@ -182,18 +183,21 @@ async function renderOnce(html: string, timeoutMs: number, baseDir?: string): Pr
  * Render an HTML string to a PDF buffer. Serialized via a mutex; one automatic
  * relaunch retry if Chrome crashed between renders.
  */
-export async function htmlToPdf(html: string, opts?: { timeoutMs?: number; baseDir?: string }): Promise<Buffer> {
+export async function htmlToPdf(
+  html: string,
+  opts?: { timeoutMs?: number; baseDir?: string; landscape?: boolean }
+): Promise<Buffer> {
   const timeoutMs = opts?.timeoutMs ?? DEFAULT_RENDER_TIMEOUT_MS;
   const task = renderChain.then(async () => {
     lastUsedAt = Date.now();
     try {
-      return await renderOnce(html, timeoutMs, opts?.baseDir);
+      return await renderOnce(html, timeoutMs, opts?.baseDir, opts?.landscape);
     } catch (err) {
       if (err instanceof RendererUnavailableError) throw err;
       // one retry with a fresh browser (covers Chrome crash / stale pipe)
       logger.warn('[HtmlRenderer] render failed, relaunching Chrome for one retry', { error: String(err) });
       await closeBrowser();
-      return await renderOnce(html, timeoutMs, opts?.baseDir);
+      return await renderOnce(html, timeoutMs, opts?.baseDir, opts?.landscape);
     } finally {
       lastUsedAt = Date.now();
     }

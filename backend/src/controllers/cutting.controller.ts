@@ -16,6 +16,7 @@ import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
+import { maxCutForSize, maxCutBySize, MAX_EXTRA_CUT_PERCENT } from '../utils/cut-allowance';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 // BUG-CUT5 fix: Import decimal.js utilities for precision calculations
@@ -228,6 +229,50 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
   for (const sku of skuOutputs) {
     if (!sku.sizeId) {
       throw new ValidationError('Each SKU output must have a valid sizeId');
+    }
+  }
+
+  // No size may be cut past its order + the buyer's allowance (5 %, rounded down), counting what
+  // this run's other batches already plan for it (owner rule 2026-09-24)
+  {
+    const [breakupRows, otherBatchSkus] = await Promise.all([
+      prisma.work_order_breakup.findMany({
+        where: { workOrderId },
+        select: { sizeId: true, plannedQuantity: true, size_options: { select: { sizeName: true } } },
+      }),
+      prisma.cutting_batch_skus.findMany({
+        where: { cuttingBatch: { workOrderId, isActive: true } },
+        select: { sizeId: true, toCut: true },
+      }),
+    ]);
+    if (breakupRows.length > 0) {
+      const orderedBySize = new Map<string, { qty: number; name: string }>();
+      for (const r of breakupRows) {
+        const e = orderedBySize.get(r.sizeId) ?? { qty: 0, name: r.size_options.sizeName };
+        e.qty += r.plannedQuantity;
+        orderedBySize.set(r.sizeId, e);
+      }
+      const plannedBySize = new Map<string, number>();
+      for (const s of otherBatchSkus) plannedBySize.set(s.sizeId, (plannedBySize.get(s.sizeId) ?? 0) + s.toCut);
+      for (const sku of skuOutputs as Array<{ sizeId: string; toCut?: number; plannedQty?: number }>) {
+        plannedBySize.set(
+          sku.sizeId,
+          (plannedBySize.get(sku.sizeId) ?? 0) + (Number(sku.toCut) || Number(sku.plannedQty) || 0)
+        );
+      }
+      const over = [...plannedBySize]
+        .filter(([sizeId]) => orderedBySize.has(sizeId))
+        .map(([sizeId, planned]) => ({ ...orderedBySize.get(sizeId)!, planned }))
+        .filter((s) => s.planned > maxCutForSize(s.qty));
+      if (over.length > 0) {
+        throw new ValidationError(
+          `More than the order + ${MAX_EXTRA_CUT_PERCENT}% allowance: ` +
+            over
+              .map((s) => `${s.name} ${s.planned} pcs (at most ${maxCutForSize(s.qty)} for ${s.qty} ordered)`)
+              .join(', ') +
+            '. Lower the Extra % or the quantities to cut.'
+        );
+      }
     }
   }
 
@@ -1673,6 +1718,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   const sizesWithRatio = sizes.map((s) => ({
     ...s,
     ratio: totalOrderQty > 0 ? Math.round((s.orderQty / totalOrderQty) * 100) : 0,
+    // The most this size may be cut against the order: order + the buyer's allowance, rounded down
+    allowanceCutQty: maxCutForSize(s.orderQty),
+    // Max Cuttable for this size — the lower of the fabric and the allowance; filled in below
+    maxCutQty: maxCutForSize(s.orderQty),
   }));
 
   // 3. Fetch CAD rows for the style — search all 3 linking paths
@@ -2225,12 +2274,28 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
 
   // Max cuttable = min across all fabrics with Production CAD set
   const fabricsWithCad = fabricAnalysis.filter((fa) => fa.cadSet && fa.maxPcsFromStock !== null);
-  const maxCuttablePcs =
-    fabricsWithCad.length > 0 ? Math.min(...fabricsWithCad.map((fa) => fa.maxPcsFromStock!)) : totalOrderQty;
+  const maxFromFabric = fabricsWithCad.length > 0 ? Math.min(...fabricsWithCad.map((fa) => fa.maxPcsFromStock!)) : null;
+  // Owner rule (2026-09-24): Max Cuttable is the LOWER of what the fabric can make and the order +
+  // the buyer's allowance (5 % per size, rounded down)
+  const maxFromAllowance =
+    sizesWithRatio.length > 0
+      ? sizesWithRatio.reduce((sum, s) => sum + s.allowanceCutQty, 0)
+      : maxCutForSize(totalOrderQty);
+  const maxCutLimitedBy: 'FABRIC' | 'ALLOWANCE' =
+    maxFromFabric !== null && maxFromFabric < maxFromAllowance ? 'FABRIC' : 'ALLOWANCE';
+  const maxCuttablePcs = maxCutLimitedBy === 'FABRIC' ? maxFromFabric! : maxFromAllowance;
+  // Per size: the fabric's pieces shared in the order ratio, none past its allowance
+  const perSizeMax = maxCutBySize(
+    sizesWithRatio.map((s) => s.orderQty),
+    maxFromFabric
+  );
+  sizesWithRatio.forEach((s, i) => {
+    s.maxCutQty = perSizeMax[i];
+  });
 
-  // Identify the bottleneck fabric (lowest max pcs)
+  // Identify the bottleneck fabric (lowest max pcs) — only when the fabric, not the allowance, limits
   const bottleneckFabric =
-    fabricsWithCad.length > 0
+    maxCutLimitedBy === 'FABRIC' && fabricsWithCad.length > 0
       ? fabricsWithCad.reduce((min, fa) => (fa.maxPcsFromStock! < min.maxPcsFromStock! ? fa : min)).part
       : null;
 
@@ -2289,6 +2354,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     // Fabric Stock Analysis (per part — max cuttable pcs)
     fabricAnalysis,
     maxCuttablePcs,
+    maxCutLimitedBy,
+    maxExtraCutPercent: MAX_EXTRA_CUT_PERCENT,
     bottleneckFabric,
     pendingCutQty,
 

@@ -218,8 +218,8 @@ export const documentFacadeService = {
     return withPdfkitFallback(
       'cutting-chart',
       async () => {
-        const data = await buildCuttingChartDocData(workOrderId);
-        return renderDocument('cutting-chart', data as unknown as Record<string, unknown>);
+        const data = await buildCuttingChartDocData(workOrderId, { extraPercent: opts?.extraPercent });
+        return renderDocument('cutting-chart', data as unknown as Record<string, unknown>, { landscape: true });
       },
       () =>
         documentGeneratorService.generateCuttingChartPDF(

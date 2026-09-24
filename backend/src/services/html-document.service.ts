@@ -136,6 +136,8 @@ export interface RenderDocumentOptions {
    */
   copies?: Array<string | { copyMark: string; [key: string]: unknown }>;
   timeoutMs?: number;
+  /** A4 landscape instead of portrait — the template must size its .sheet to 297 × 210 mm */
+  landscape?: boolean;
 }
 
 export async function renderDocument(
@@ -151,5 +153,5 @@ export async function renderDocument(
   const html = compiled(renderData);
   // Rendered next to its assets: the renderer writes a temp .html in TEMPLATE_DIR
   // and navigates to it, so `assets/base.css` and fonts resolve as real files.
-  return htmlToPdf(html, { timeoutMs: opts?.timeoutMs, baseDir: TEMPLATE_DIR });
+  return htmlToPdf(html, { timeoutMs: opts?.timeoutMs, baseDir: TEMPLATE_DIR, landscape: opts?.landscape });
 }

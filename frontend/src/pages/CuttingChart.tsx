@@ -103,7 +103,14 @@ export default function CuttingChart() {
     if (!chartData) return [];
     return chartData.sizes.map((s) => ({
       ...s,
-      cutQty: manualCutQty[s.sizeId] ?? Math.ceil(s.orderQty * (1 + extraPercent / 100)),
+      // Extra % rounded up to whole garments (scaled to integers so 1.05 cannot land a hair over),
+      // never past the size's allowance from the server
+      cutQty:
+        manualCutQty[s.sizeId] ??
+        Math.min(
+          Math.ceil((s.orderQty * Math.round((100 + extraPercent) * 100)) / 10000 - 1e-9),
+          s.allowanceCutQty ?? Number.POSITIVE_INFINITY
+        ),
     }));
   }, [chartData, extraPercent, manualCutQty]);
 
@@ -111,22 +118,19 @@ export default function CuttingChart() {
 
   // Whether total cut exceeds max cuttable
   const exceedsMaxCuttable = chartData ? totalCutQty > chartData.maxCuttablePcs : false;
+  // Sizes typed past their allowance (order + 5 %) — the server refuses these too
+  const sizesOverAllowance = sizesWithCutQty.filter(
+    (s) => s.allowanceCutQty != null && Number(s.cutQty) > Number(s.allowanceCutQty)
+  );
+  const cutPlanBlocked = exceedsMaxCuttable || sizesOverAllowance.length > 0;
 
   // Auto-fill cut qty proportionally to max cuttable
   const fillProportionalToMax = () => {
     if (!chartData) return;
-    const maxPcs = chartData.maxCuttablePcs;
+    // The server's Max Cuttable row: the fabric shared in the order ratio, none past its allowance
     const newManual: Record<string, number> = {};
-    let distributed = 0;
-    chartData.sizes.forEach((s, idx) => {
-      if (idx < chartData.sizes.length - 1) {
-        const qty = Math.floor((s.ratio / 100) * maxPcs);
-        newManual[s.sizeId] = qty;
-        distributed += qty;
-      } else {
-        // Last size gets remainder to avoid rounding gaps
-        newManual[s.sizeId] = maxPcs - distributed;
-      }
+    chartData.sizes.forEach((s) => {
+      newManual[s.sizeId] = s.maxCutQty ?? s.orderQty;
     });
     setManualCutQty(newManual);
   };
@@ -312,7 +316,7 @@ export default function CuttingChart() {
             </span>
           )}
           {chartData && (
-            <Button onClick={handleCreateBatch} disabled={isSaving || !hasProductionCAD}>
+            <Button onClick={handleCreateBatch} disabled={isSaving || !hasProductionCAD || cutPlanBlocked}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Creating...' : 'Create Batch'}
             </Button>
@@ -527,7 +531,13 @@ export default function CuttingChart() {
                             <Input
                               type="number"
                               min={0}
-                              className="w-16 h-7 text-center font-semibold text-primary mx-auto"
+                              max={s.allowanceCutQty}
+                              title={s.allowanceCutQty != null ? `At most ${s.allowanceCutQty}` : undefined}
+                              className={`w-16 h-7 text-center font-semibold mx-auto ${
+                                s.allowanceCutQty != null && Number(s.cutQty) > Number(s.allowanceCutQty)
+                                  ? 'text-destructive border-destructive'
+                                  : 'text-primary'
+                              }`}
                               value={s.cutQty}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value) || 0;
@@ -545,6 +555,19 @@ export default function CuttingChart() {
                           )}
                         </TableCell>
                       </TableRow>
+                      {sizesWithCutQty.some((s) => s.maxCutQty != null) && (
+                        <TableRow>
+                          <TableCell className="font-medium text-muted-foreground">Max Cuttable</TableCell>
+                          {sizesWithCutQty.map((s) => (
+                            <TableCell key={s.sizeId} className="text-center text-xs text-muted-foreground">
+                              {s.maxCutQty ?? '—'}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-center text-xs text-muted-foreground">
+                            {sizesWithCutQty.reduce((sum, s) => sum + (s.maxCutQty ?? 0), 0).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -569,9 +592,11 @@ export default function CuttingChart() {
                       className={chartData.maxCuttablePcs >= chartData.pendingCutQty ? 'text-success' : 'text-warning'}
                     >
                       Max Cuttable: <strong>{chartData.maxCuttablePcs} pcs</strong>
-                      {chartData.bottleneckFabric && chartData.maxCuttablePcs < chartData.pendingCutQty && (
-                        <span className="text-xs ml-1">(limited by {chartData.bottleneckFabric})</span>
-                      )}
+                      <span className="text-xs ml-1">
+                        {chartData.maxCutLimitedBy === 'FABRIC'
+                          ? `(limited by fabric${chartData.bottleneckFabric ? ` — ${chartData.bottleneckFabric}` : ''})`
+                          : `(order + ${chartData.maxExtraCutPercent ?? 5}% — the fabric allows more)`}
+                      </span>
                     </span>
                   </div>
                 </CardTitle>

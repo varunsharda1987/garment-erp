@@ -357,6 +357,10 @@ export interface CuttingChartSize {
   orderQty: number;
   completedQty: number;
   ratio: number;
+  /** The most this size may be cut against the order: order + the buyer's allowance (5 %), rounded down */
+  allowanceCutQty?: number;
+  /** Max Cuttable for this size — the lower of the fabric (shared in the order ratio) and the allowance */
+  maxCutQty?: number;
 }
 
 export interface CuttingChartFabricDetail {
@@ -446,6 +450,9 @@ export interface CuttingChartData {
   // Fabric Stock Analysis — per-fabric max cuttable pcs
   fabricAnalysis: CuttingFabricAnalysis[];
   maxCuttablePcs: number;
+  /** Which limit set Max Cuttable — the fabric in hand, or the order + allowance */
+  maxCutLimitedBy?: 'FABRIC' | 'ALLOWANCE';
+  maxExtraCutPercent?: number;
   bottleneckFabric: string | null;
   pendingCutQty: number;
 

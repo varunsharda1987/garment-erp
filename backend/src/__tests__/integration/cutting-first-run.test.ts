@@ -624,7 +624,8 @@ describe('the first cut: from greige to a cutting batch', () => {
         actualFabricWidth: 0,
         cadAverageUsed: CAD_AVERAGE,
         cadWidthUsed: 0,
-        skuOutputs: [{ colorId: null, sizeId: sizeS, plannedQty: 10 }],
+        // 50 already planned + 2 = 52 = S's order (50) + 5 %, rounded down — the most allowed
+        skuOutputs: [{ colorId: null, sizeId: sizeS, plannedQty: 2 }],
         fabricStocks: [{ fabricStockId, cadAvgUsed: CAD_AVERAGE, cadWidthUsed: 0, actualWidth: 0 }],
       });
     expectStatus(res, (s) => s === 201);
@@ -633,5 +634,25 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(Number(batch!.actualFabricWidth)).toBe(RECEIVED_WIDTH); // fabric_stock.finishedWidth from the GRN
     expect(Number(batch!.cadWidthUsed)).toBe(RECEIVED_WIDTH);
     expect(batch!.layersPerLay).toBe(0);
+  });
+
+  it('phase 7f: no size may be cut past its order + 5 % (owner rule 2026-09-24), counting earlier batches', async () => {
+    const res = await request(app)
+      .post('/api/cutting/batches')
+      .set(authHeader)
+      .send({
+        workOrderId,
+        cuttingDate: new Date().toISOString(),
+        fabricStockId,
+        actualFabricWidth: RECEIVED_WIDTH,
+        cadAverageUsed: CAD_AVERAGE,
+        cadWidthUsed: RECEIVED_WIDTH,
+        skuOutputs: [{ colorId: null, sizeId: sizeS, plannedQty: 1 }], // 52 planned already → 53
+        fabricStocks: [
+          { fabricStockId, cadAvgUsed: CAD_AVERAGE, cadWidthUsed: RECEIVED_WIDTH, actualWidth: RECEIVED_WIDTH },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/at most 52 for 50 ordered/);
   });
 });

@@ -24,6 +24,7 @@ import fs from 'fs';
 import { logWarn } from '../utils/logger';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { unitHeader } from '../utils/units';
+import { plannedCutForSize } from '../utils/cut-allowance';
 import { buildCostSheetDocData, formatPurpose, formatStatus } from './document-data/cost-sheet.doc-data';
 
 // Types
@@ -3198,7 +3199,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     // Pre-calculate cut quantities
     const sizesWithCut = chartData.sizes.map((s: any) => ({
       ...s,
-      cutQty: Math.ceil(s.orderQty * (1 + extraPercent / 100)),
+      cutQty: plannedCutForSize(s.orderQty, extraPercent),
     }));
     const totalCutQty = sizesWithCut.reduce((sum: number, s: any) => sum + s.cutQty, 0);
 

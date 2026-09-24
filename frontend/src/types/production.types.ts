@@ -384,7 +384,9 @@ export interface FabricIssuanceAnalysis {
   cadAverage: number;
   cadSet: boolean;
   availableStock: number;
-  issuedStock: number; // Meters already issued via challans
+  issuedStock: number; // Meters issued to Cutting for this run
+  returnedStock?: number; // Meters returned from Cutting
+  atCuttingStock?: number; // Issued, not returned, not yet used by a completed batch
   maxPcsFromStock: number | null;
   requiredForOrder: number;
   shortfallMeters: number;
@@ -411,6 +413,10 @@ export interface IssuedChallan {
   challanNumber: string;
   status: string;
   challanDate: string;
+  /** ISSUE = store → Cutting; RETURN = Cutting → store */
+  direction?: 'ISSUE' | 'RETURN';
+  /** The cutting batch the fabric went out for / came back from */
+  batchNumber?: string | null;
   items: IssuedChallanItem[];
 }
 
@@ -429,6 +435,8 @@ export interface FabricIssuanceData {
   maxCuttablePcs: number;
   bottleneckFabric: string | null;
   totalOrderQty: number;
+  /** The run's open cutting batches — fabric is issued for one of them */
+  openBatches?: Array<{ id: string; batchNumber: string; status: string }>;
   issuedChallans: IssuedChallan[];
 }
 
@@ -439,6 +447,8 @@ export interface IssueFabricRequest {
     quantity: number;
     description: string;
   }>;
+  /** The cutting batch this fabric is for (needed when the run has more than one open batch) */
+  cuttingBatchId?: string;
   remarks?: string;
 }
 

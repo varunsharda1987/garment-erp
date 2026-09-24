@@ -1,4 +1,5 @@
 // Work Order Controller - RESTful API endpoints for work order management
+import { getRunFabricPosition } from '../services/helpers/run-fabric.helper';
 import { Request, Response } from 'express';
 import workOrderService, {
   CreateWorkOrderDTO,
@@ -428,7 +429,7 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
   const uniqueFabricIds = chartData.fabrics.map((f: any) => f.fabricId).filter(Boolean) as string[];
 
   const availableStockRecords = await prisma.fabric_stock.findMany({
-    where: { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 } },
+    where: { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 }, status: 'AVAILABLE' },
     select: {
       id: true,
       fabricId: true,
@@ -466,8 +467,9 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
   // Fetch existing INTERNAL challans for this work order (fabric issuance records)
   // Moved up so we can use issued quantities in analysis calculation
   const issuedChallans = await prisma.challans.findMany({
-    where: { productionRunId: id, challanType: 'INTERNAL' },
+    where: { productionRunId: id, challanType: 'INTERNAL', status: { notIn: ['DRAFT', 'CANCELLED'] } },
     include: {
+      cuttingBatch: { select: { batchNumber: true } },
       items: {
         select: {
           id: true,
@@ -491,30 +493,34 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     orderBy: { challanDate: 'desc' },
   });
 
-  // Calculate issued meters per fabric from challans
-  const issuedMetersByFabric = new Map<string, number>();
-  for (const challan of issuedChallans) {
-    for (const item of challan.items) {
-      const fabricId = item.fabricId || item.fabricStock?.fabricId;
-      if (fabricId) {
-        const current = issuedMetersByFabric.get(fabricId) || 0;
-        issuedMetersByFabric.set(fabricId, current + Number(item.quantity));
-      }
-    }
+  // Issued / returned / still at Cutting per fabric — the run's fabric position (run-fabric.helper.ts).
+  // This panel used to count every INTERNAL challan on the run as "issued": drafts, cancelled ones and
+  // the returns FROM Cutting included.
+  const position = await getRunFabricPosition([id]);
+  const byFabric = new Map<string, { issued: number; returned: number; atCutting: number }>();
+  for (const lot of position.lots.values()) {
+    if (!lot.fabricId) continue;
+    const t = byFabric.get(lot.fabricId) ?? { issued: 0, returned: 0, atCutting: 0 };
+    t.issued += lot.issued;
+    t.returned += lot.returned;
+    t.atCutting += lot.atCutting;
+    byFabric.set(lot.fabricId, t);
   }
 
-  // Recalculate analysis with available stock AND issued quantities
   const fabricAnalysisForIssuance = chartData.fabrics.map((f: any) => {
     const stocks = f.fabricId ? availableStockMap.get(f.fabricId) || [] : [];
     const availableStock = stocks.reduce((sum: number, s: any) => sum + Number(s.quantityAvailable), 0);
-    const issuedStock = f.fabricId ? issuedMetersByFabric.get(f.fabricId) || 0 : 0;
-    const cadAvg = f.productionAverage || f.rawMatCalcAverage || f.costingAverage || 0;
+    const moved = (f.fabricId && byFabric.get(f.fabricId)) || { issued: 0, returned: 0, atCutting: 0 };
+    // The same CAD average the Cutting Chart uses (approved Production only)
+    const chartRow = chartData.fabricAnalysis.find((fa: any) => fa.part === f.part);
+    const cadAvg = chartRow?.cadAverage || 0;
     const cadSet = cadAvg > 0;
-    const maxPcs = cadSet ? Math.floor(availableStock / cadAvg) : null;
+    // Pieces from what is physically there for this run: in the store + at Cutting
+    const maxPcs = cadSet ? Math.floor((availableStock + moved.atCutting) / cadAvg) : null;
     const totalOrderQty = chartData.totalOrderQty || 0;
     const requiredMeters = totalOrderQty * cadAvg;
-    // Shortfall = required - available - already issued
-    const shortfallMeters = cadSet ? Math.max(0, requiredMeters - availableStock - issuedStock) : 0;
+    const netIssued = Math.max(0, moved.issued - moved.returned);
+    const shortfallMeters = cadSet ? Math.max(0, requiredMeters - availableStock - netIssued) : 0;
     return {
       part: f.part,
       fabricId: f.fabricId,
@@ -522,11 +528,20 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       cadAverage: cadAvg,
       cadSet,
       availableStock,
-      issuedStock, // NEW: track what's already been issued
+      issuedStock: moved.issued,
+      returnedStock: moved.returned,
+      atCuttingStock: moved.atCutting,
       maxPcsFromStock: maxPcs,
       requiredForOrder: requiredMeters,
       shortfallMeters,
     };
+  });
+
+  // Fabric is issued FOR a cutting batch — the panel offers the run's open batches
+  const openBatches = await prisma.cutting_batches.findMany({
+    where: { workOrderId: id, isActive: true, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+    select: { id: true, batchNumber: true, status: true },
+    orderBy: { createdAt: 'asc' },
   });
 
   res.json({
@@ -541,11 +556,15 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       // This screen builds its own envelope rather than spreading chartData, so the CAD-collision
       // warnings have to be carried across explicitly or the issuance screen loses them silently.
       warnings: chartData.warnings,
+      openBatches,
       issuedChallans: issuedChallans.map((c) => ({
         id: c.id,
         challanNumber: c.challanNumber,
         status: c.status,
         challanDate: c.challanDate,
+        // A return FROM Cutting is listed too — say which way it went
+        direction: c.fromName === 'Cutting' ? 'RETURN' : 'ISSUE',
+        batchNumber: c.cuttingBatch?.batchNumber ?? null,
         items: c.items,
       })),
     },
@@ -562,9 +581,10 @@ export const issueFabric = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new UnauthorizedError('User not authenticated');
 
-  const { lots, remarks } = req.body as {
+  const { lots, remarks, cuttingBatchId } = req.body as {
     lots: Array<{ fabricStockId: string; fabricId: string; quantity: number; description: string }>;
     remarks?: string;
+    cuttingBatchId?: string;
   };
 
   if (!lots || lots.length === 0) throw new ValidationError('At least one fabric lot must be selected');
@@ -578,17 +598,37 @@ export const issueFabric = async (req: Request, res: Response) => {
     throw new ValidationError('Fabric can only be issued for work orders in IN_PRODUCTION status');
   }
 
+  // Fabric goes out FOR a cutting batch (owner rule 2026-09-24): deleting that batch sends it back.
+  const openBatches = await prisma.cutting_batches.findMany({
+    where: { workOrderId: id, isActive: true, status: { in: ['PENDING', 'IN_PROGRESS'] } },
+    select: { id: true, batchNumber: true },
+  });
+  let batch: { id: string; batchNumber: string } | undefined;
+  if (cuttingBatchId) {
+    batch = openBatches.find((b) => b.id === cuttingBatchId);
+    if (!batch) throw new ValidationError('That cutting batch is not an open batch of this production run.');
+  } else if (openBatches.length === 1) {
+    batch = openBatches[0];
+  } else if (openBatches.length === 0) {
+    throw new ValidationError('Create the cutting batch first — fabric is issued for a cutting batch.');
+  } else {
+    throw new ValidationError(
+      `Choose which cutting batch this fabric is for: ${openBatches.map((b) => b.batchNumber).join(', ')}.`
+    );
+  }
+
   // Create INTERNAL challan (store → cutting)
   const challan = await createChallan({
     challanType: 'INTERNAL' as ChallanType,
     challanDate: new Date(),
     orderId: workOrder.orderId || undefined,
     productionRunId: id,
+    cuttingBatchId: batch.id,
     fromType: 'DEPARTMENT',
     fromName: 'Fabric Store',
     toType: 'DEPARTMENT',
     toName: 'Cutting',
-    remarks: remarks || `Fabric issued for ${workOrder.workOrderNumber}`,
+    remarks: remarks || `Fabric issued for ${workOrder.workOrderNumber} — batch ${batch.batchNumber}`,
     issuedById: userId,
     items: lots.map((lot) => ({
       itemType: 'FABRIC',

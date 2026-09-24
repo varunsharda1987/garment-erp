@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, Loader2, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
@@ -25,12 +26,16 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
   const [isLoading, setIsLoading] = useState(true);
   const [isIssuing, setIsIssuing] = useState(false);
   const [selectedLots, setSelectedLots] = useState<Record<string, boolean>>({});
+  // Fabric goes out FOR a cutting batch; deleting that batch sends it back to the store
+  const [batchId, setBatchId] = useState('');
 
   const loadData = async () => {
     try {
       setIsLoading(true);
       const result = await workOrderService.getFabricIssuanceData(workOrderId);
       setData(result);
+      const open = result.openBatches ?? [];
+      setBatchId((prev) => (open.some((b) => b.id === prev) ? prev : open.length === 1 ? open[0].id : ''));
     } catch (err) {
       console.error('Failed to load fabric issuance data:', err);
     } finally {
@@ -88,7 +93,7 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
 
     try {
       setIsIssuing(true);
-      await workOrderService.issueFabric(workOrderId, { lots: lotsToIssue });
+      await workOrderService.issueFabric(workOrderId, { lots: lotsToIssue, cuttingBatchId: batchId || undefined });
       handleApiSuccess('Fabric Issued', 'Fabric has been issued to cutting department via challan.');
       setSelectedLots({});
       loadData(); // Refresh to show updated challans
@@ -114,6 +119,8 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
 
   const hasIssuedChallans = data.issuedChallans.length > 0;
   const hasAvailableLots = allLots.length > 0;
+  const openBatches = data.openBatches ?? [];
+  const needsBatch = openBatches.length === 0 || !batchId;
 
   return (
     <div className="space-y-4">
@@ -125,25 +132,49 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
               <CardTitle className="text-lg">Fabric Issuance</CardTitle>
             </div>
             {hasAvailableLots && (
-              <Button onClick={handleIssueFabric} disabled={isIssuing || selectedCount === 0} size="sm">
-                {isIssuing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Issuing...
-                  </>
-                ) : (
-                  <>
-                    <Package className="h-4 w-4 mr-2" />
-                    Issue to Cutting ({selectedCount})
-                  </>
+              <div className="flex items-center gap-2">
+                {openBatches.length > 1 && (
+                  <Select value={batchId} onValueChange={setBatchId}>
+                    <SelectTrigger className="h-8 w-[200px]" aria-label="Cutting batch">
+                      <SelectValue placeholder="For cutting batch…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {openBatches.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.batchNumber}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
-              </Button>
+                <Button onClick={handleIssueFabric} disabled={isIssuing || selectedCount === 0 || needsBatch} size="sm">
+                  {isIssuing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Issuing...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      Issue to Cutting ({selectedCount})
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </div>
           <p className="text-sm text-muted-foreground">
             Select fabric lots from stock to issue to the cutting department. Full lot quantity will be issued via
-            internal challan.
+            internal challan, for a cutting batch — deleting that batch returns the fabric to the store.
           </p>
+          {hasAvailableLots && openBatches.length === 0 && (
+            <p className="text-sm text-warning">
+              Create the cutting batch first — fabric is issued for a cutting batch.
+            </p>
+          )}
+          {openBatches.length === 1 && (
+            <p className="text-xs text-muted-foreground">For cutting batch {openBatches[0].batchNumber}</p>
+          )}
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -159,6 +190,8 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                     <TableHead className="text-right">CAD Avg (m/pc)</TableHead>
                     <TableHead className="text-right">Available (m)</TableHead>
                     <TableHead className="text-right">Issued (m)</TableHead>
+                    <TableHead className="text-right">Returned (m)</TableHead>
+                    <TableHead className="text-right">At Cutting (m)</TableHead>
                     <TableHead className="text-right">Required (m)</TableHead>
                     <TableHead className="text-right">Max Pcs</TableHead>
                     <TableHead className="text-right">Shortfall (m)</TableHead>
@@ -175,6 +208,12 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                       <TableCell className="text-right">{fa.availableStock.toFixed(1)}</TableCell>
                       <TableCell className="text-right text-success font-medium">
                         {(fa.issuedStock ?? 0) > 0 ? fa.issuedStock.toFixed(1) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(fa.returnedStock ?? 0) > 0 ? (fa.returnedStock ?? 0).toFixed(1) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {(fa.atCuttingStock ?? 0) > 0 ? (fa.atCuttingStock ?? 0).toFixed(1) : '-'}
                       </TableCell>
                       <TableCell className="text-right">{fa.cadSet ? fa.requiredForOrder.toFixed(1) : '-'}</TableCell>
                       <TableCell className="text-right font-semibold">
@@ -280,7 +319,7 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-success" />
-              <CardTitle className="text-lg">Issued Fabric Challans</CardTitle>
+              <CardTitle className="text-lg">Fabric Challans (issued &amp; returned)</CardTitle>
             </div>
           </CardHeader>
           <CardContent>
@@ -288,6 +327,8 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
               <TableHeader>
                 <TableRow>
                   <TableHead>Challan #</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Batch</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Fabrics</TableHead>
@@ -301,6 +342,10 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                   return (
                     <TableRow key={challan.id}>
                       <TableCell className="font-medium">{challan.challanNumber}</TableCell>
+                      <TableCell>
+                        {challan.direction === 'RETURN' ? 'Returned to store' : 'Issued to Cutting'}
+                      </TableCell>
+                      <TableCell>{challan.batchNumber ?? '—'}</TableCell>
                       <TableCell>{formatDate(new Date(challan.challanDate))}</TableCell>
                       <TableCell>
                         <Badge

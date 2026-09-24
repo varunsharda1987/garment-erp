@@ -6412,6 +6412,7 @@ model cutting_batches {
   cuttingOperator            users?                       @relation("CuttingOperator", fields: [cuttingOperatorId], references: [id])
   fabricStock                fabric_stock                 @relation(fields: [fabricStockId], references: [id])
   returnChallan              challans?                    @relation("CuttingReturnChallan", fields: [returnChallanId], references: [id])
+  issueChallans              challans[]                   @relation("CuttingIssueChallans")
   workOrder                  work_orders                  @relation(fields: [workOrderId], references: [id])
   transferSlips              transfer_slips[]
   additionalFabrics          cutting_batch_fabrics[]
@@ -9212,6 +9213,9 @@ model challans {
   productionRunId    String? // work_orders.id
   purchaseOrderId    String? // Linked PO (for outsourced work)
   jobWorkOrderId     String? // Phase 4a: header-level JWO attribution (JWO IS the PO endgame)
+  /// The cutting batch a fabric movement to or from Cutting is FOR (2026-09-24): the issue that sent it and
+  /// any return that brought it back. Deleting the batch returns what is still out, on a return challan.
+  cuttingBatchId     String?
   grnId              String? // The job-work receipt this INWARD challan was filed for — one challan per part when a return comes in parts (2026-09-19)
   fabricProcessingId String? // FK to fabric_processing (greige→processor→fabric tracking)
 
@@ -9272,6 +9276,7 @@ model challans {
   processingMovements  processing_movement[]
   processingDeliveries processing_delivery[]
   cuttingBatchReturn   cutting_batches?       @relation("CuttingReturnChallan")
+  cuttingBatch         cutting_batches?       @relation("CuttingIssueChallans", fields: [cuttingBatchId], references: [id], onDelete: SetNull)
   greigeStockTransfers greige_stock[]         @relation("GreigeStockSourceChallan")
   greigeIssueDetails   greige_issue_details[] @relation("GreigeIssueDetailsChallan")
 
@@ -9279,6 +9284,7 @@ model challans {
   @@index([productionRunId])
   @@index([purchaseOrderId])
   @@index([jobWorkOrderId])
+  @@index([cuttingBatchId])
   @@index([fabricProcessingId])
   @@index([grnId])
   @@index([challanType])

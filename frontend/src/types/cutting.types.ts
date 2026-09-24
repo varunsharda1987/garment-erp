@@ -361,6 +361,11 @@ export interface CuttingChartSize {
   allowanceCutQty?: number;
   /** Max Cuttable for this size — the lower of the fabric (shared in the order ratio) and the allowance */
   maxCutQty?: number;
+  /** Already planned by this run's batches (completed: cut; open: to cut) */
+  alreadyPlanned?: number;
+  /** What a NEW batch may still take: allowance / Max Cuttable less already planned */
+  allowanceRemaining?: number;
+  maxCutRemaining?: number;
 }
 
 export interface CuttingChartFabricDetail {
@@ -378,7 +383,11 @@ export interface CuttingChartLot {
   lotNumber: number;
   rollNumbers: string;
   actualWidth: number;
+  /** In the store + at Cutting for this run */
   quantityAvailable: number;
+  inStore?: number;
+  /** Issued to this run's cutting, not returned, not yet used by a completed batch */
+  atCutting?: number;
   qualityGrade: string;
 }
 
@@ -450,6 +459,8 @@ export interface CuttingChartData {
   // Fabric Stock Analysis — per-fabric max cuttable pcs
   fabricAnalysis: CuttingFabricAnalysis[];
   maxCuttablePcs: number;
+  /** Max Cuttable left for a new batch after this run's batches */
+  maxCuttableNewBatchPcs?: number;
   /** Which limit set Max Cuttable — the fabric in hand, or the order + allowance */
   maxCutLimitedBy?: 'FABRIC' | 'ALLOWANCE';
   maxExtraCutPercent?: number;

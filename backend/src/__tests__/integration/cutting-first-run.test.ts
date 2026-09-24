@@ -516,7 +516,7 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(wo!.status).toBe('IN_PRODUCTION');
   });
 
-  it('phase 7d: the store sees the lot and issues it to cutting', async () => {
+  it('phase 7d: the store sees the lot; fabric cannot be issued before its cutting batch exists', async () => {
     const data = await request(app).get(`/api/work-orders/${workOrderId}/fabric-issuance-data`).set(authHeader);
     expectStatus(data, (s) => s === 200);
     const fabrics = data.body.data?.fabrics ?? data.body.fabrics;
@@ -526,22 +526,17 @@ describe('the first cut: from greige to a cutting batch', () => {
     const lotIds = (ours.lots ?? []).map((l: any) => l.lotId ?? l.id);
     expect(lotIds).toContain(fabricStockId);
 
-    const issued = await request(app)
+    // Owner rule 2026-09-24: fabric is issued FOR a cutting batch (deleting the batch returns it)
+    const refused = await request(app)
       .post(`/api/work-orders/${workOrderId}/issue-fabric`)
       .set(authHeader)
       .send({
         lots: [{ fabricStockId, fabricId: finishedFabricId, quantity: ISSUE_METERS, description: 'first cut' }],
       });
-    expectStatus(issued, (s) => s < 300);
-
-    // Metres left the store on an INTERNAL challan.
+    expect(refused.status).toBe(400);
+    expect(refused.body.message).toMatch(/Create the cutting batch first/);
     const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });
-    expect(Number(lot!.quantityAvailable)).toBe(RECEIVE_QTY - ISSUE_METERS);
-    const internal = await prisma.challans.findFirst({
-      where: { productionRunId: workOrderId, challanType: 'INTERNAL' },
-    });
-    expect(internal).not.toBeNull();
-    expect(internal!.status).toBe('ISSUED');
+    expect(Number(lot!.quantityAvailable)).toBe(RECEIVE_QTY);
   });
 
   it('phase 7e: the cutting chart shows the lot with a real cuttable quantity', async () => {
@@ -555,9 +550,11 @@ describe('the first cut: from greige to a cutting batch', () => {
 
     const analysis = d.fabricAnalysis.find((a: any) => a.fabricId === finishedFabricId);
     expect(analysis.cadSet).toBe(true);
-    // Once fabric is issued, the chart plans against the issued metres, not the store.
-    expect(Number(analysis.availableStock)).toBe(ISSUE_METERS);
-    expect(analysis.maxPcsFromStock).toBe(Math.floor(ISSUE_METERS / CAD_AVERAGE)); // 133
+    // Nothing issued yet: the run's fabric is the store lot
+    expect(Number(analysis.availableStock)).toBe(RECEIVE_QTY);
+    expect(Number(analysis.inStore)).toBe(RECEIVE_QTY);
+    expect(Number(analysis.atCutting)).toBe(0);
+    expect(analysis.maxPcsFromStock).toBe(Math.floor(RECEIVE_QTY / CAD_AVERAGE)); // 600
     expect(d.maxCuttablePcs).toBeGreaterThanOrEqual(RUN_QTY);
     expect(d.warnings ?? []).toHaveLength(0);
   });
@@ -612,7 +609,50 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(lotRows.map((r) => r.fabricStockId)).toEqual([fabricStockId]);
   });
 
+  it('phase 7e: the whole lot is issued for the batch — the run still has its fabric (at Cutting)', async () => {
+    const issued = await request(app)
+      .post(`/api/work-orders/${workOrderId}/issue-fabric`)
+      .set(authHeader)
+      .send({
+        lots: [{ fabricStockId, fabricId: finishedFabricId, quantity: ISSUE_METERS, description: 'first cut' }],
+      });
+    expectStatus(issued, (s) => s < 300);
+    const rest = await request(app)
+      .post(`/api/work-orders/${workOrderId}/issue-fabric`)
+      .set(authHeader)
+      .send({
+        lots: [
+          { fabricStockId, fabricId: finishedFabricId, quantity: RECEIVE_QTY - ISSUE_METERS, description: 'rest' },
+        ],
+      });
+    expectStatus(rest, (s) => s < 300);
+
+    // The store is empty — the lot reads EXHAUSTED — and both challans belong to the batch
+    const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });
+    expect(Number(lot!.quantityAvailable)).toBe(0);
+    expect(lot!.status).toBe('EXHAUSTED');
+    const issues = await prisma.challans.findMany({
+      where: { productionRunId: workOrderId, challanType: 'INTERNAL', toName: 'Cutting' },
+    });
+    expect(issues).toHaveLength(2);
+    expect(issues.every((c) => c.cuttingBatchId === cuttingBatchId)).toBe(true);
+
+    // …but the run has not lost it: the chart and the issuance panel count it at Cutting
+    const chart = await request(app).get(`/api/cutting/chart-data/${workOrderId}`).set(authHeader);
+    const analysis = chart.body.data.fabricAnalysis.find((a: any) => a.fabricId === finishedFabricId);
+    expect(Number(analysis.availableStock)).toBe(RECEIVE_QTY);
+    expect(Number(analysis.atCutting)).toBe(RECEIVE_QTY);
+    expect(Number(analysis.inStore)).toBe(0);
+    const panel = await request(app).get(`/api/work-orders/${workOrderId}/fabric-issuance-data`).set(authHeader);
+    const row = panel.body.data.fabricAnalysis.find((a: any) => a.fabricId === finishedFabricId);
+    expect(Number(row.issuedStock)).toBe(RECEIVE_QTY);
+    expect(Number(row.atCuttingStock)).toBe(RECEIVE_QTY);
+    expect(row.maxPcsFromStock).toBe(Math.floor(RECEIVE_QTY / CAD_AVERAGE));
+  });
+
   it('phase 7e: a lot with no width in the request still gets a width — from the lot itself', async () => {
+    // Runs after the FULL issue: the cutting gate must count the fabric at Cutting (ESSKY085LS was
+    // refused MATERIAL_SHORTAGE here with its 1,704 m on the floor, 2026-09-24)
     // The page sends `lot.actualWidth || 0`; the API must not turn that into a masked database error.
     const res = await request(app)
       .post('/api/cutting/batches')
@@ -654,5 +694,25 @@ describe('the first cut: from greige to a cutting batch', () => {
       });
     expect(res.status).toBe(400);
     expect(res.body.message).toMatch(/at most 52 for 50 ordered/);
+  });
+
+  it('phase 7g: deleting a batch sends the fabric issued for it back to the store', async () => {
+    const res = await request(app).delete(`/api/cutting/batches/${cuttingBatchId}`).set(authHeader);
+    expectStatus(res, (s) => s === 200);
+    expect(res.body.fabricsRestored.reduce((sum: number, f: any) => sum + f.quantityRestored, 0)).toBe(RECEIVE_QTY);
+
+    const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });
+    expect(Number(lot!.quantityAvailable)).toBe(RECEIVE_QTY);
+    expect(lot!.status).toBe('AVAILABLE');
+    const back = await prisma.challans.findFirst({
+      where: { productionRunId: workOrderId, challanType: 'INTERNAL', fromName: 'Cutting' },
+    });
+    expect(back?.status).toBe('RECEIVED');
+
+    // Nothing is left "at Cutting" for the run
+    const panel = await request(app).get(`/api/work-orders/${workOrderId}/fabric-issuance-data`).set(authHeader);
+    const row = panel.body.data.fabricAnalysis.find((a: any) => a.fabricId === finishedFabricId);
+    expect(Number(row.returnedStock)).toBe(RECEIVE_QTY);
+    expect(Number(row.atCuttingStock ?? 0)).toBe(0);
   });
 });

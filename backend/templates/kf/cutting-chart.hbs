@@ -39,7 +39,7 @@
       <div>
         <div class="row"><span class="k">Work Order</span><span class="v">{{docNo}} &middot; <span class="muted">{{statusLabel}}</span></span></div>
         <div class="row"><span class="k">Planned Run</span><span class="v">{{plannedStart}} &rarr; {{plannedEnd}}{{#if deliveryDate}} <span class="muted">&middot; delivery {{deliveryDate}}</span>{{/if}}</span></div>
-        <div class="row"><span class="k">Fabric</span><span class="v">{{#if lotsAvailable}}{{lotsAvailable}} m across {{lotCount}} lots{{else}}<span class="muted">No issued lot on record</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Fabric</span><span class="v">{{#if lotsAvailable}}{{lotsAvailable}} m across {{lotCount}} lots{{else}}<span class="muted">No fabric in store or at cutting</span>{{/if}}</span></div>
         <div class="row"><span class="k">Max Cuttable</span><span class="v">{{#if maxCuttableLabel}}{{maxCuttableLabel}} pcs{{#if bottleneckPart}} <span class="muted">&mdash; limited by {{bottleneckPart}}</span>{{/if}}{{else}}<span class="muted">Not computable &mdash; no CAD average against issued stock</span>{{/if}}</span></div>
       </div>
     </div>
@@ -90,7 +90,7 @@
       <tbody>
         {{#each markerRows}}
         <tr>
-          <td>{{this.part}} &mdash; {{this.fabric}}{{#if this.fabricSubline}}<br><span class="muted">{{this.fabricSubline}}</span>{{/if}}{{#if this.markerRatio}}<br><span class="muted">Marker ratio {{this.markerRatio}}</span>{{/if}}{{#each this.lots}}<br><span class="muted">Rolls {{this.rolls}} &middot; {{this.width}} &middot; {{this.available}} m &middot; grade {{this.grade}}</span>{{/each}}</td>
+          <td>{{this.part}} &mdash; {{this.fabric}}{{#if this.fabricSubline}}<br><span class="muted">{{this.fabricSubline}}</span>{{/if}}{{#if this.markerRatio}}<br><span class="muted">Marker ratio {{this.markerRatio}}</span>{{/if}}{{#each this.lots}}<br><span class="muted">Rolls {{this.rolls}} &middot; {{this.width}} &middot; {{this.available}} m{{#if this.where}} ({{this.where}}){{/if}} &middot; grade {{this.grade}}</span>{{/each}}</td>
           <td class="muted">{{this.basis}}</td>
           <td class="num">{{this.width}}</td>
           <td class="num">{{this.markerLength}}</td>

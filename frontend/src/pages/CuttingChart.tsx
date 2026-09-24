@@ -107,9 +107,12 @@ export default function CuttingChart() {
       // never past the size's allowance from the server
       cutQty:
         manualCutQty[s.sizeId] ??
-        Math.min(
-          Math.ceil((s.orderQty * Math.round((100 + extraPercent) * 100)) / 10000 - 1e-9),
-          s.allowanceCutQty ?? Number.POSITIVE_INFINITY
+        Math.max(
+          0,
+          Math.min(
+            Math.ceil((s.orderQty * Math.round((100 + extraPercent) * 100)) / 10000 - 1e-9),
+            s.allowanceCutQty ?? Number.POSITIVE_INFINITY
+          ) - (s.alreadyPlanned ?? 0)
         ),
     }));
   }, [chartData, extraPercent, manualCutQty]);
@@ -117,10 +120,12 @@ export default function CuttingChart() {
   const totalCutQty = sizesWithCutQty.reduce((sum, s) => sum + s.cutQty, 0);
 
   // Whether total cut exceeds max cuttable
-  const exceedsMaxCuttable = chartData ? totalCutQty > chartData.maxCuttablePcs : false;
+  // A new batch may take what the run's batches have not already planned
+  const newBatchMax = chartData ? (chartData.maxCuttableNewBatchPcs ?? chartData.maxCuttablePcs) : 0;
+  const exceedsMaxCuttable = chartData ? totalCutQty > newBatchMax : false;
   // Sizes typed past their allowance (order + 5 %) — the server refuses these too
   const sizesOverAllowance = sizesWithCutQty.filter(
-    (s) => s.allowanceCutQty != null && Number(s.cutQty) > Number(s.allowanceCutQty)
+    (s) => s.allowanceCutQty != null && Number(s.cutQty) > Number(s.allowanceRemaining ?? s.allowanceCutQty)
   );
   const cutPlanBlocked = exceedsMaxCuttable || sizesOverAllowance.length > 0;
 
@@ -130,7 +135,7 @@ export default function CuttingChart() {
     // The server's Max Cuttable row: the fabric shared in the order ratio, none past its allowance
     const newManual: Record<string, number> = {};
     chartData.sizes.forEach((s) => {
-      newManual[s.sizeId] = s.maxCutQty ?? s.orderQty;
+      newManual[s.sizeId] = s.maxCutRemaining ?? s.maxCutQty ?? s.orderQty;
     });
     setManualCutQty(newManual);
   };
@@ -477,9 +482,9 @@ export default function CuttingChart() {
                     }}
                   />
                 </div>
-                {chartData && chartData.maxCuttablePcs < chartData.totalOrderQty && (
+                {chartData && (
                   <Button size="sm" variant="outline" onClick={fillProportionalToMax}>
-                    Fill to Max ({chartData.maxCuttablePcs})
+                    Fill to Max ({newBatchMax})
                   </Button>
                 )}
               </div>
@@ -531,10 +536,15 @@ export default function CuttingChart() {
                             <Input
                               type="number"
                               min={0}
-                              max={s.allowanceCutQty}
-                              title={s.allowanceCutQty != null ? `At most ${s.allowanceCutQty}` : undefined}
+                              max={s.allowanceRemaining ?? s.allowanceCutQty}
+                              title={
+                                s.allowanceCutQty != null
+                                  ? `At most ${s.allowanceRemaining ?? s.allowanceCutQty} more`
+                                  : undefined
+                              }
                               className={`w-16 h-7 text-center font-semibold mx-auto ${
-                                s.allowanceCutQty != null && Number(s.cutQty) > Number(s.allowanceCutQty)
+                                s.allowanceCutQty != null &&
+                                Number(s.cutQty) > Number(s.allowanceRemaining ?? s.allowanceCutQty)
                                   ? 'text-destructive border-destructive'
                                   : 'text-primary'
                               }`}
@@ -551,7 +561,7 @@ export default function CuttingChart() {
                         >
                           {totalCutQty.toLocaleString()}
                           {exceedsMaxCuttable && chartData && (
-                            <div className="text-xs font-normal">max: {chartData.maxCuttablePcs}</div>
+                            <div className="text-xs font-normal">max: {newBatchMax}</div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -565,6 +575,19 @@ export default function CuttingChart() {
                           ))}
                           <TableCell className="text-center text-xs text-muted-foreground">
                             {sizesWithCutQty.reduce((sum, s) => sum + (s.maxCutQty ?? 0), 0).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {sizesWithCutQty.some((s) => (s.alreadyPlanned ?? 0) > 0) && (
+                        <TableRow>
+                          <TableCell className="font-medium text-muted-foreground">Already planned</TableCell>
+                          {sizesWithCutQty.map((s) => (
+                            <TableCell key={s.sizeId} className="text-center text-xs text-muted-foreground">
+                              {s.alreadyPlanned ?? 0}
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-center text-xs text-muted-foreground">
+                            {sizesWithCutQty.reduce((sum, s) => sum + (s.alreadyPlanned ?? 0), 0).toLocaleString()}
                           </TableCell>
                         </TableRow>
                       )}
@@ -861,6 +884,13 @@ export default function CuttingChart() {
                                   <TableCell className="text-center">{lot.actualWidth}"</TableCell>
                                   <TableCell className="text-right font-medium">
                                     {lot.quantityAvailable.toFixed(1)}
+                                    {(lot.atCutting ?? 0) > 0 && (
+                                      <div className="text-xs font-normal text-muted-foreground">
+                                        {(lot.inStore ?? 0) > 0
+                                          ? `${(lot.atCutting ?? 0).toFixed(1)} at cutting + ${(lot.inStore ?? 0).toFixed(1)} in store`
+                                          : 'at cutting'}
+                                      </div>
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     <Badge variant={lot.qualityGrade === 'A' ? 'default' : 'secondary'}>

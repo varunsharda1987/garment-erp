@@ -1,4 +1,5 @@
 import { Prisma, ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/client';
+import { getRunFabricPosition, runIdsForOrderStyle } from './helpers/run-fabric.helper';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
@@ -119,12 +120,14 @@ function resolveCustomerGates(
  * will plan against.
  */
 async function availableFabricForBomLine(bom: BomFabricLine, run: RunIdentity): Promise<number> {
-  let where: Prisma.fabric_stockWhereInput;
+  // Which lots may serve this line (lineage); availability is then the store PLUS what is already
+  // with Cutting for this order's runs of the style — issuing fabric must not read as a shortage
+  // (ESSKY085LS was BLOCKED with its 1,704 m on the cutting floor, 2026-09-24). run-fabric.helper.ts
+  let lineage: Prisma.fabric_stockWhereInput;
   if (bom.fabricId) {
-    where = { fabricId: bom.fabricId, status: 'AVAILABLE' };
+    lineage = { fabricId: bom.fabricId };
   } else if (bom.greigeId) {
-    where = {
-      status: 'AVAILABLE',
+    lineage = {
       fabricMaster: { greigeId: bom.greigeId },
       OR: [
         { originStyleId: run.styleId },
@@ -135,8 +138,22 @@ async function availableFabricForBomLine(bom: BomFabricLine, run: RunIdentity): 
   } else {
     return 0;
   }
-  const agg = await prisma.fabric_stock.aggregate({ where, _sum: { quantityAvailable: true } });
-  return Number(agg._sum.quantityAvailable || 0);
+  const agg = await prisma.fabric_stock.aggregate({
+    where: { AND: [lineage, { status: 'AVAILABLE' }] },
+    _sum: { quantityAvailable: true },
+  });
+  const inStore = Number(agg._sum.quantityAvailable || 0);
+
+  if (!run.orderId) return inStore;
+  const position = await getRunFabricPosition(await runIdsForOrderStyle(run.orderId, run.styleId));
+  const withCutting = [...position.lots.values()].filter((l) => l.atCutting > 0);
+  if (withCutting.length === 0) return inStore;
+  const matching = await prisma.fabric_stock.findMany({
+    where: { AND: [lineage, { id: { in: withCutting.map((l) => l.fabricStockId) } }] },
+    select: { id: true },
+  });
+  const ids = new Set(matching.map((m) => m.id));
+  return inStore + withCutting.filter((l) => ids.has(l.fabricStockId)).reduce((sum, l) => sum + l.atCutting, 0);
 }
 
 /** The one-line "what to do" appended to a shortage on a line the lineage lookup could not answer. */

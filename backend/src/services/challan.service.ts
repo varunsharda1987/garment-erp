@@ -63,6 +63,8 @@ export interface CreateChallanInput {
   challanDate?: Date;
   orderId?: string;
   productionRunId?: string;
+  /** The cutting batch an issue to Cutting is for — run-fabric.helper.ts */
+  cuttingBatchId?: string;
   purchaseOrderId?: string;
   jobWorkOrderId?: string; // Phase 4a: header-level JWO attribution
   grnId?: string; // The job-work receipt an INWARD challan was filed for — one per part (2026-09-19)
@@ -160,6 +162,7 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
         challanDate: input.challanDate || new Date(),
         orderId: input.orderId,
         productionRunId: input.productionRunId,
+        cuttingBatchId: input.cuttingBatchId,
         purchaseOrderId: input.purchaseOrderId,
         jobWorkOrderId: input.jobWorkOrderId,
         grnId: input.grnId,
@@ -1276,6 +1279,8 @@ export interface FabricReturnItem {
 
 export interface CreateFabricReturnInput {
   workOrderId: string;
+  /** The cutting batch the fabric is coming back from — see run-fabric.helper.ts */
+  cuttingBatchId?: string | null;
   issuedById: string;
   items: FabricReturnItem[];
   remarks?: string;
@@ -1324,6 +1329,7 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
         challanType: 'INTERNAL',
         challanDate: new Date(),
         productionRunId: input.workOrderId,
+        cuttingBatchId: input.cuttingBatchId ?? null,
         fromType: 'DEPARTMENT',
         fromName: 'Cutting',
         toType: 'DEPARTMENT',

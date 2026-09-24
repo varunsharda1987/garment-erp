@@ -178,6 +178,24 @@ export interface CuttingChartLotLine {
   width: string;
   available: string;
   grade: string;
+  /** "at cutting", "in store" or both — where those metres physically are */
+  where?: string;
+}
+
+/**
+ * The run's fabric as the Cutting Chart screen computes it (buildCuttingChartData over
+ * run-fabric.helper.ts). The print takes it from there so screen and paper cannot disagree — the
+ * print's own store-only query read a fully issued run as "no fabric" (2026-09-24).
+ */
+export interface ChartFabricInput {
+  parts: Array<{
+    part: string;
+    cadAverage: number;
+    lots: Array<{ id: string; rolls: string; width: number | null; inStore: number; atCutting: number; grade: string }>;
+  }>;
+  /** Pieces the run's fabric can make (worst part), before the order + 5 % allowance */
+  maxPcsFromFabric: number | null;
+  bottleneck: string | null;
 }
 
 export interface CuttingChartMarkerRow {
@@ -314,19 +332,55 @@ export async function buildCuttingChartDocData(
   workOrderId: string,
   opts: { extraPercent?: number } = {}
 ): Promise<CuttingChartDocData> {
+  // Dynamic: the controller imports document services, so a static import would be a cycle
+  const { buildCuttingChartData } = await import('../../controllers/cutting.controller');
+  const chart = await buildCuttingChartData(workOrderId);
+  const fabricPcs = chart.fabricAnalysis
+    .map((fa: { maxPcsFromStock: number | null }) => fa.maxPcsFromStock)
+    .filter((p: number | null): p is number => p !== null);
+  const fabric: ChartFabricInput = {
+    parts: chart.fabricAnalysis.map((fa: { part: string; cadAverage: number }) => {
+      const withLots = chart.fabrics.find((f: { part: string }) => f.part === fa.part) as
+        | {
+            lots: Array<{
+              lotId: string;
+              rollNumbers: string;
+              actualWidth: number;
+              inStore: number;
+              atCutting: number;
+              qualityGrade: string;
+            }>;
+          }
+        | undefined;
+      return {
+        part: fa.part,
+        cadAverage: fa.cadAverage,
+        lots: (withLots?.lots ?? []).map((l) => ({
+          id: l.lotId,
+          rolls: l.rollNumbers,
+          width: Number.isFinite(l.actualWidth) ? l.actualWidth : null,
+          inStore: l.inStore,
+          atCutting: l.atCutting,
+          grade: l.qualityGrade,
+        })),
+      };
+    }),
+    maxPcsFromFabric: fabricPcs.length > 0 ? Math.min(...fabricPcs) : null,
+    bottleneck: chart.bottleneckFabric ?? null,
+  };
   const [company, workOrder] = await Promise.all([
     buildCompanyBlock(),
     prisma.work_orders.findUnique({ where: { id: workOrderId }, include: cuttingChartInclude }),
   ]);
   if (!workOrder) throw new NotFoundError('Work Order', workOrderId);
-  return transformCuttingChart(company, workOrder, opts);
+  return transformCuttingChart(company, workOrder, { ...opts, fabric });
 }
 
 /** Pure transform — split from the loader so previews/tests can exercise it with a fixture record. */
 export function transformCuttingChart(
   company: CompanyBlock,
   workOrder: WorkOrderWithCuttingDetails,
-  opts: { extraPercent?: number } = {}
+  opts: { extraPercent?: number; fabric?: ChartFabricInput } = {}
 ): CuttingChartDocData {
   const style = workOrder.styles;
 
@@ -499,7 +553,14 @@ export function transformCuttingChart(
       if (!cad && !hasLots) continue; // nothing planned and nothing in the room — no row to print
 
       const partName = component.componentName;
-      const cadAverage = cad?.cadAverage != null ? toCurrency(cad.cadAverage) : null;
+      // The chart's part for this component ("Top", or "Top (54\")" when two fabrics share a name)
+      const chartPart = opts.fabric?.parts.find((p) => p.part === partName || p.part.startsWith(`${partName} (`));
+      const cadAverage =
+        chartPart && chartPart.cadAverage > 0
+          ? toCurrency(chartPart.cadAverage)
+          : cad?.cadAverage != null
+            ? toCurrency(cad.cadAverage)
+            : null;
       const planned = cadAverage != null ? multiplyCurrency(cadAverage, cutTarget) : null;
 
       const markerRatio =
@@ -510,7 +571,26 @@ export function transformCuttingChart(
       // Roll lots sit with their fabric, not in a section of their own: the cutter
       // reads "this part, this fabric, these rolls" as one line.
       const lots: CuttingChartLotLine[] = [];
-      for (const lot of sf.fabric?.fabricStock ?? []) {
+      for (const lot of opts.fabric ? (chartPart?.lots ?? []) : []) {
+        if (seenLotIds.has(lot.id)) continue;
+        seenLotIds.add(lot.id);
+        lotCount += 1;
+        const qty = toCurrency(lot.inStore + lot.atCutting);
+        lotsAvailable = addCurrency(lotsAvailable, qty);
+        lots.push({
+          rolls: lot.rolls && lot.rolls.trim().length > 0 ? lot.rolls : EM_DASH,
+          width: widthLabel(lot.width != null ? new Prisma.Decimal(lot.width) : null, 'inches'),
+          available: fmtQty(qty.toNumber(), 'MTR'),
+          grade: lot.grade,
+          where:
+            lot.atCutting > 0 && lot.inStore > 0
+              ? `${fmtQty(lot.atCutting, 'MTR')} m at cutting + ${fmtQty(lot.inStore, 'MTR')} m in store`
+              : lot.atCutting > 0
+                ? 'at cutting'
+                : 'in store',
+        });
+      }
+      for (const lot of opts.fabric ? [] : (sf.fabric?.fabricStock ?? [])) {
         if (seenLotIds.has(lot.id)) continue; // the same fabric can hang off two components
         seenLotIds.add(lot.id);
         lotCount += 1;
@@ -554,9 +634,10 @@ export function transformCuttingChart(
   }
 
   // ---- Max cuttable from what is physically in the room, per part; the worst part rules ----
-  let maxCuttable: Decimal | null = null;
-  let bottleneckPart: string | null = null;
-  for (const [part, cadAverage] of cadAvgByPart) {
+  let maxCuttable: Decimal | null =
+    opts.fabric?.maxPcsFromFabric != null ? new Decimal(opts.fabric.maxPcsFromFabric) : null;
+  let bottleneckPart: string | null = opts.fabric ? opts.fabric.bottleneck : null;
+  for (const [part, cadAverage] of opts.fabric ? [] : cadAvgByPart) {
     const available = availableByPart.get(part);
     if (available === undefined || available.lte(0)) continue;
     const pcs = new Decimal(divideCurrency(available, cadAverage).toString()).floor();

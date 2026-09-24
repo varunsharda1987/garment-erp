@@ -164,6 +164,8 @@ export const issueFabricSchema = z.object({
       })
     )
     .min(1, 'At least one fabric lot must be selected'),
+  /** The cutting batch this fabric is for; optional when the run has exactly one open batch */
+  cuttingBatchId: z.string().uuid('Invalid cutting batch ID').optional(),
   remarks: z.string().max(1000).optional(),
 });
 

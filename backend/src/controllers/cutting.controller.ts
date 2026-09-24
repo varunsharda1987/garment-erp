@@ -21,7 +21,7 @@ import { logInfo, logError, logWarn } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 // BUG-CUT5 fix: Import decimal.js utilities for precision calculations
 import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils/currency';
-import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import { batchFabricAtCutting, batchIssuedFabric, getRunFabricPosition } from '../services/helpers/run-fabric.helper';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
 
@@ -30,61 +30,36 @@ export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.c
 export { issueToStitching, getStitchingIssues } from './cutting-issue.controller';
 
 /**
- * Restore consumed fabric back onto a fabric_stock lot AND keep the central ledger honest.
- * The old bare increments here credited only fabric_stock — no fabric_stock_transaction row,
- * no stock_levels sync — so every batch delete/cancel silently drifted the Stock Levels page
- * below reality (data-ownership landmine №4, 2026-08-22). Must run on the caller's tx.
+ * Send back to the store whatever went out FOR this batch and has not come back (owner rule
+ * 2026-09-24: fabric is issued for a cutting batch; deleting the batch returns it). Written as a
+ * proper return challan from Cutting, so the lot, stock_levels and the run's fabric position
+ * (run-fabric.helper.ts) all agree. Fabric issued to the run before issues carried a batch stays
+ * with the run for its next batch.
  */
-async function restoreFabricStockInTx(
-  tx: Prisma.TransactionClient,
-  fabricStockId: string,
-  quantity: number,
-  batchNumber: string,
-  userId: string | null
-): Promise<void> {
-  await tx.fabric_stock.update({
-    where: { id: fabricStockId },
-    data: {
-      quantityAvailable: { increment: quantity },
-      quantityConsumed: { decrement: quantity },
-      status: 'AVAILABLE',
-    },
+async function returnBatchFabricToStore(
+  batch: { id: string; batchNumber: string; workOrderId: string },
+  userId: string | null,
+  why: string
+): Promise<Array<{ fabricStockId: string; quantityRestored: number }>> {
+  const outstanding = await batchFabricAtCutting(batch.id, batch.workOrderId);
+  const items = [...outstanding]
+    .filter(([, qty]) => qty > 0)
+    .map(([fabricStockId, quantity]) => ({
+      fabricStockId,
+      quantity,
+      description: `Returned — batch ${batch.batchNumber} ${why}`,
+    }));
+  if (items.length === 0) return [];
+  if (!userId) throw new ValidationError('A signed-in user is needed to return fabric to the store.');
+  const challan = await createFabricReturnChallan({
+    workOrderId: batch.workOrderId,
+    cuttingBatchId: batch.id,
+    issuedById: userId,
+    items,
+    remarks: `Fabric returned to store — cutting batch ${batch.batchNumber} ${why}`,
   });
-
-  const stockRow = await tx.fabric_stock.findUnique({
-    where: { id: fabricStockId },
-    select: { fabricId: true, warehouseId: true, weightedAvgCost: true, purchaseCost: true, quantityAvailable: true },
-  });
-  if (!stockRow) return;
-
-  const costPerUnit = Number(stockRow.weightedAvgCost ?? stockRow.purchaseCost ?? 0);
-  const balanceAfter = Number(stockRow.quantityAvailable);
-  await tx.fabric_stock_transaction.create({
-    data: {
-      stockId: fabricStockId,
-      transactionType: 'RETURN',
-      quantity: new Prisma.Decimal(quantity),
-      referenceType: 'MANUAL_ADJUSTMENT',
-      referenceId: null,
-      costPerUnit: new Prisma.Decimal(costPerUnit),
-      weightedAvgCost: new Prisma.Decimal(costPerUnit),
-      totalValue: new Prisma.Decimal(toNumber(toCurrency(quantity).times(toCurrency(costPerUnit)))),
-      balanceAfter: new Prisma.Decimal(balanceAfter),
-      valueAfter: new Prisma.Decimal(toNumber(toCurrency(balanceAfter).times(toCurrency(costPerUnit)))),
-      notes: `Cutting batch ${batchNumber} deleted/cancelled — fabric restored`,
-      createdById: userId,
-    },
-  });
-
-  if (stockRow.fabricId) {
-    const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC', tx);
-    await syncStockLevelQuantity(materialId, quantity, stockRow.warehouseId ?? undefined, 'METER', tx);
-  } else {
-    logError(
-      `[Cutting] fabric_stock ${fabricStockId} has no fabricId — stock_levels NOT synced for ${quantity}m restore`,
-      new Error('missing fabricId on fabric_stock')
-    );
-  }
+  logInfo(`[Cutting] ${batch.batchNumber} ${why}: fabric returned on ${challan.challanNumber}`);
+  return items.map((i) => ({ fabricStockId: i.fabricStockId, quantityRestored: i.quantity }));
 }
 
 // ============================================
@@ -573,30 +548,12 @@ export const deleteCuttingBatch = async (req: Request, res: Response) => {
     throw new ValidationError('Cannot delete batch with cutting lays. Remove all lays first or complete the batch.');
   }
 
-  // Use transaction to ensure atomicity
-  const fabricsRestored: Array<{ fabricStockId: string; quantityRestored: number }> = [];
-
+  // Nothing has been laid (checked above), so everything issued for this batch is still whole:
+  // it goes back to the store on a return challan before the batch disappears.
   const deleteUserId = req.user?.userId ?? null;
+  const fabricsRestored = await returnBatchFabricToStore(existing, deleteUserId, 'deleted');
+
   await prisma.$transaction(async (tx) => {
-    // Restore primary fabric stock (from fabricStockId on batch) — ledger + central sync included
-    const primaryQuantity = Number(existing.fabricIssued || existing.fabricConsumed || 0);
-    if (primaryQuantity > 0 && existing.fabricStockId) {
-      await restoreFabricStockInTx(tx, existing.fabricStockId, primaryQuantity, existing.batchNumber, deleteUserId);
-      fabricsRestored.push({ fabricStockId: existing.fabricStockId, quantityRestored: primaryQuantity });
-      logInfo(`Restored ${primaryQuantity}m to primary fabric stock ${existing.fabricStockId}`);
-    }
-
-    // Restore additional fabrics (from additionalFabrics relation)
-    for (const fabric of existing.additionalFabrics) {
-      const quantityToRestore = Number(fabric.fabricIssued || fabric.fabricConsumed || 0);
-
-      if (quantityToRestore > 0) {
-        await restoreFabricStockInTx(tx, fabric.fabricStockId, quantityToRestore, existing.batchNumber, deleteUserId);
-        fabricsRestored.push({ fabricStockId: fabric.fabricStockId, quantityRestored: quantityToRestore });
-        logInfo(`Restored ${quantityToRestore}m to additional fabric stock ${fabric.fabricStockId}`);
-      }
-    }
-
     // Release this batch's fabric reservations before it disappears. The FK is ON DELETE SET NULL,
     // so without this the rows survive as RESERVED with no owner — and a later batch's completion
     // would sweep them up. `id` is a validated route param proven to exist by the findUnique above,
@@ -785,28 +742,9 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // Calculate total cut quantity
   const totalCut = existing.skuOutputs.reduce((sum: number, sku) => sum + sku.cutQty, 0);
 
-  // Query per-fabric issued quantities from INTERNAL challans to Cutting
-  const issuedItems = await prisma.challan_items.groupBy({
-    by: ['fabricStockId'],
-    _sum: { quantity: true },
-    where: {
-      challan: {
-        productionRunId: existing.workOrderId,
-        challanType: 'INTERNAL',
-        toName: 'Cutting',
-        status: { in: ['ISSUED', 'RECEIVED'] },
-      },
-      fabricStockId: { not: null },
-    },
-  });
-
-  // Build a map of fabricStockId -> issued quantity
-  const issuedMap = new Map<string, number>();
-  for (const item of issuedItems) {
-    if (item.fabricStockId) {
-      issuedMap.set(item.fabricStockId, Number(item._sum.quantity || 0));
-    }
-  }
+  // The fabric THIS batch accounts for: issued for it less anything already returned
+  // (run-fabric.helper.ts) — not the run's gross issue, which every batch on the run used to claim
+  const issuedMap = await batchIssuedFabric(existing.id, existing.workOrderId);
 
   // Build a map of fabricStockId -> returned quantity from request
   const returnMap = new Map<string, number>();
@@ -1109,27 +1047,8 @@ export const getIssuedFabric = async (req: Request, res: Response) => {
     throw new NotFoundError('CuttingBatch', id);
   }
 
-  // Query issued fabric from INTERNAL challans to Cutting for this work order
-  const issuedItems = await prisma.challan_items.groupBy({
-    by: ['fabricStockId'],
-    _sum: { quantity: true },
-    where: {
-      challan: {
-        productionRunId: batch.workOrderId,
-        challanType: 'INTERNAL',
-        toName: 'Cutting',
-        status: { in: ['ISSUED', 'RECEIVED'] },
-      },
-      fabricStockId: { not: null },
-    },
-  });
-
-  const issuedMap = new Map<string, number>();
-  for (const item of issuedItems) {
-    if (item.fabricStockId) {
-      issuedMap.set(item.fabricStockId, Number(item._sum.quantity || 0));
-    }
-  }
+  // Issued for this batch, less returns (run-fabric.helper.ts)
+  const issuedMap = await batchIssuedFabric(batch.id, batch.workOrderId);
 
   const result = batch.additionalFabrics.map((bf) => {
     const issuedQty = issuedMap.get(bf.fabricStockId) || 0;
@@ -1213,7 +1132,7 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
   const existing = await prisma.cutting_batches.findUnique({
     where: { id },
     include: {
-      additionalFabrics: true,
+      lays: { select: { id: true } },
     },
   });
 
@@ -1225,29 +1144,14 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
     throw new ValidationError('Cannot cancel completed batches');
   }
 
-  // BUG-MFG3 fix: Restore fabric stock when cancelling (same logic as delete)
-  const fabricsRestored: Array<{ fabricStockId: string; quantityRestored: number }> = [];
-
+  // Nothing laid → everything issued for the batch is still whole and goes back to the store.
+  // Once lays exist, fabric has been cut: it is NOT put back (the old restore credited cut metres
+  // to the store, and the primary lot twice) — the leftover is returned at completion.
   const cancelUserId = req.user?.userId ?? null;
+  const fabricsRestored =
+    existing.lays.length === 0 ? await returnBatchFabricToStore(existing, cancelUserId, 'cancelled') : [];
+
   const batch = await prisma.$transaction(async (tx) => {
-    // Restore primary fabric stock (from fabricStockId on batch) — ledger + central sync included
-    const primaryQuantity = Number(existing.fabricIssued || existing.fabricConsumed || 0);
-    if (primaryQuantity > 0 && existing.fabricStockId) {
-      await restoreFabricStockInTx(tx, existing.fabricStockId, primaryQuantity, existing.batchNumber, cancelUserId);
-      fabricsRestored.push({ fabricStockId: existing.fabricStockId, quantityRestored: primaryQuantity });
-      logInfo(`Restored ${primaryQuantity}m to primary fabric stock ${existing.fabricStockId} (cancelled)`);
-    }
-
-    // Restore additional fabrics
-    for (const fabric of existing.additionalFabrics) {
-      const quantityToRestore = Number(fabric.fabricIssued || fabric.fabricConsumed || 0);
-      if (quantityToRestore > 0) {
-        await restoreFabricStockInTx(tx, fabric.fabricStockId, quantityToRestore, existing.batchNumber, cancelUserId);
-        fabricsRestored.push({ fabricStockId: fabric.fabricStockId, quantityRestored: quantityToRestore });
-        logInfo(`Restored ${quantityToRestore}m to additional fabric stock ${fabric.fabricStockId} (cancelled)`);
-      }
-    }
-
     // Release this batch's fabric reservations. Cancel sets ON_HOLD rather than CANCELLED, so
     // without this a "cancelled" batch keeps a RESERVED row that a later batch's completion would
     // sweep up — the easiest way to reproduce the fan-out.
@@ -1640,7 +1544,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
           batchNumber: true,
           status: true,
           skuOutputs: {
-            select: { cutQty: true, goodPcs: true, colorId: true },
+            select: { cutQty: true, goodPcs: true, colorId: true, sizeId: true, toCut: true },
           },
         },
       },
@@ -2136,31 +2040,11 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     fabricReceivedMap.set(mat.fabricId, (fabricReceivedMap.get(mat.fabricId) || 0) + received);
   }
 
-  // Check for issued INTERNAL challans (fabric issuance from store to cutting)
-  const issuedChallanItems = await prisma.challan_items.findMany({
-    where: {
-      challan: {
-        productionRunId: workOrderId,
-        challanType: 'INTERNAL',
-        status: { in: ['ISSUED', 'IN_TRANSIT', 'RECEIVED', 'PARTIALLY_RECEIVED'] },
-      },
-      fabricStockId: { not: null },
-    },
-    select: { fabricStockId: true, fabricId: true, quantity: true },
-  });
-
-  // Build issued qty map: fabricStockId → issued meters
-  const issuedQtyMap = new Map<string, number>();
-  for (const ci of issuedChallanItems) {
-    if (ci.fabricStockId) {
-      issuedQtyMap.set(ci.fabricStockId, (issuedQtyMap.get(ci.fabricStockId) || 0) + Number(ci.quantity));
-    }
-  }
-  const issuedStockIds = [...issuedQtyMap.keys()];
-  const hasIssuedFabric = issuedStockIds.length > 0;
-
-  // If fabric has been issued via challan → only show issued lots
-  // Otherwise fallback to all available stock (backward compat for existing work orders)
+  // The run's fabric position (run-fabric.helper.ts): lots issued to this run with what is still at
+  // Cutting, plus the store lots of its fabrics. Before this, a full issue made the chart switch to
+  // "issued lots only" — a part not yet issued dropped to 0 — and return challans added to "issued".
+  const position = await getRunFabricPosition([workOrderId]);
+  const runLots = [...position.lots.values()].filter((l) => l.issued - l.returned > 0.005);
   const stockSelect = {
     id: true,
     fabricId: true,
@@ -2170,19 +2054,28 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     qualityGrade: true,
     plannedCad: true,
     actualCad: true,
+    status: true,
   } as const;
 
-  const fabricStockRecords = hasIssuedFabric
-    ? await prisma.fabric_stock.findMany({
-        where: { id: { in: issuedStockIds } },
-        select: stockSelect,
-        orderBy: { receivedDate: 'desc' },
-      })
-    : await prisma.fabric_stock.findMany({
-        where: { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 } },
-        select: stockSelect,
-        orderBy: { receivedDate: 'desc' },
-      });
+  const fabricStockRecords = await prisma.fabric_stock.findMany({
+    where: {
+      OR: [
+        { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 }, status: 'AVAILABLE' },
+        ...(runLots.length > 0 ? [{ id: { in: runLots.map((l) => l.fabricStockId) } }] : []),
+      ],
+    },
+    select: stockSelect,
+    orderBy: { receivedDate: 'desc' },
+  });
+  /** In the store (free to issue) */
+  const inStoreOf = (s: (typeof fabricStockRecords)[0]) => (s.status === 'AVAILABLE' ? Number(s.quantityAvailable) : 0);
+  /** On the cutting floor for this run, not yet used */
+  const atCuttingOf = (id: string) => position.lots.get(id)?.atCutting ?? 0;
+  /** Everything this run holds or has used from the lot — the basis of the RUN's Max Cuttable */
+  const runHeldOf = (id: string) => {
+    const l = position.lots.get(id);
+    return l ? Math.max(0, l.issued - l.returned) : 0;
+  };
 
   const fabricStockMap = new Map<string, typeof fabricStockRecords>();
   for (const fs of fabricStockRecords) {
@@ -2215,7 +2108,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     const ordered = f.fabricId ? fabricOrderedMap.get(f.fabricId) || 0 : 0;
     const received = f.fabricId ? fabricReceivedMap.get(f.fabricId) || 0 : 0;
     const stocks = f.fabricId ? fabricStockMap.get(f.fabricId) || [] : [];
-    const cutableQty = stocks.reduce((sum, s) => sum + Number(s.quantityAvailable), 0);
+    const cutableQty = stocks.reduce((sum, s) => sum + inStoreOf(s) + atCuttingOf(s.id), 0);
 
     return {
       part: f.part,
@@ -2229,7 +2122,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   });
 
   // 6. Build fabrics with lot details
-  // For issued lots, show the issued quantity (not current quantityAvailable which may be 0 after deduction)
+  // Each lot shows what is physically there for this run: in the store + at Cutting
   const fabricsWithLots = fabrics.map((f) => {
     const stocks = f.fabricId ? fabricStockMap.get(f.fabricId) || [] : [];
     return {
@@ -2240,9 +2133,9 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         lotNumber: idx + 1,
         rollNumbers: s.rollNumbers || '',
         actualWidth: Number(s.cutableWidth),
-        quantityAvailable: hasIssuedFabric
-          ? issuedQtyMap.get(s.id) || Number(s.quantityAvailable)
-          : Number(s.quantityAvailable),
+        quantityAvailable: inStoreOf(s) + atCuttingOf(s.id),
+        inStore: inStoreOf(s),
+        atCutting: atCuttingOf(s.id),
         qualityGrade: s.qualityGrade,
       })),
     };
@@ -2251,9 +2144,11 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   // 6b. Per-fabric stock analysis — calculate max cuttable pcs (Production CAD only)
   const fabricAnalysis = fabrics.map((f) => {
     const stocks = f.fabricId ? fabricStockMap.get(f.fabricId) || [] : [];
-    const availableStock = hasIssuedFabric
-      ? stocks.reduce((sum, s) => sum + (issuedQtyMap.get(s.id) || Number(s.quantityAvailable)), 0)
-      : stocks.reduce((sum, s) => sum + Number(s.quantityAvailable), 0);
+    // The run's fabric: in the store + everything issued to it and not returned (what its batches have
+    // used included — their pieces are counted as already planned, per size, below)
+    const availableStock = stocks.reduce((sum, s) => sum + inStoreOf(s) + runHeldOf(s.id), 0);
+    const atCutting = stocks.reduce((sum, s) => sum + atCuttingOf(s.id), 0);
+    const inStore = stocks.reduce((sum, s) => sum + inStoreOf(s), 0);
     const cadAvg = f.productionAverage ? Number(f.productionAverage) : 0; // Production CAD only
     const cadSet = cadAvg > 0;
     const maxPcs = cadSet ? Math.floor(availableStock / cadAvg) : null;
@@ -2266,6 +2161,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       cadAverage: cadAvg,
       cadSet,
       availableStock,
+      atCutting,
+      inStore,
       maxPcsFromStock: maxPcs,
       requiredForOrder: requiredMeters,
       shortfallMeters,
@@ -2292,6 +2189,25 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   sizesWithRatio.forEach((s, i) => {
     s.maxCutQty = perSizeMax[i];
   });
+  // What the run's batches already plan per size (completed: what was cut; open: what is to be cut),
+  // so a NEW batch is offered only the rest — of the allowance and of Max Cuttable
+  const plannedBySize = new Map<string, number>();
+  for (const b of workOrder.cutting_batches) {
+    for (const sku of b.skuOutputs) {
+      const qty = b.status === 'COMPLETED' ? sku.cutQty : sku.toCut;
+      plannedBySize.set(sku.sizeId, (plannedBySize.get(sku.sizeId) ?? 0) + (qty || 0));
+    }
+  }
+  const sizesForNewBatch = sizesWithRatio.map((s) => {
+    const alreadyPlanned = plannedBySize.get(s.sizeId) ?? 0;
+    return {
+      ...s,
+      alreadyPlanned,
+      allowanceRemaining: Math.max(0, s.allowanceCutQty - alreadyPlanned),
+      maxCutRemaining: Math.max(0, s.maxCutQty - alreadyPlanned),
+    };
+  });
+  const maxCuttableNewBatchPcs = sizesForNewBatch.reduce((sum, s) => sum + s.maxCutRemaining, 0);
 
   // Identify the bottleneck fabric (lowest max pcs) — only when the fabric, not the allowance, limits
   const bottleneckFabric =
@@ -2342,7 +2258,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     })),
 
     // Size Breakdown
-    sizes: sizesWithRatio,
+    sizes: sizesForNewBatch,
     totalOrderQty,
 
     // Fabric Details (per part)
@@ -2354,6 +2270,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     // Fabric Stock Analysis (per part — max cuttable pcs)
     fabricAnalysis,
     maxCuttablePcs,
+    maxCuttableNewBatchPcs,
     maxCutLimitedBy,
     maxExtraCutPercent: MAX_EXTRA_CUT_PERCENT,
     bottleneckFabric,

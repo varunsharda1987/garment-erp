@@ -1,0 +1,61 @@
+{
+  "takenAt": "2026-09-24T06:11:51.878Z",
+  "plan": [
+    {
+      "orderBomId": "4dff4c13-e61f-4927-a8ce-4ebd7b4578bc",
+      "orderNumber": "ORD2026080026",
+      "styleCode": "ESSKY086LS",
+      "sheetId": "CS-1786708963491-fjvqgpg",
+      "note": "sheet now PENDING"
+    },
+    {
+      "orderBomId": "221650a9-72a9-4af7-8c6e-1ea85573ad58",
+      "orderNumber": "ORD2026080031",
+      "styleCode": "ESSKY092LS",
+      "sheetId": "CS-1787647053909-fva3n0z",
+      "note": "sheet now APPROVED"
+    },
+    {
+      "orderBomId": "a6e55b9f-5c79-4260-83e0-0fada8157da2",
+      "orderNumber": "ORD2026080025",
+      "styleCode": "ESSKY085LS",
+      "sheetId": "CS-1786450557861-00ovxc2",
+      "note": "sheet now PENDING"
+    },
+    {
+      "orderBomId": "ea63eb67-3f77-4675-acb8-5e845ce6bf46",
+      "orderNumber": "ORD2026080027",
+      "styleCode": "ESSKY087LS",
+      "sheetId": "CS-1787287327710-5b2cer4",
+      "note": "sheet now APPROVED"
+    },
+    {
+      "orderBomId": "9f8172e8-03b1-46c5-873d-6f4cffccc004",
+      "orderNumber": "ORD2026080029",
+      "styleCode": "ESSKY090LS",
+      "sheetId": "CS-1787573492246-jkn39rs",
+      "note": "sheet now APPROVED"
+    },
+    {
+      "orderBomId": "e0826c52-e339-45a4-8310-7cddb88682a6",
+      "orderNumber": "ORD2026080030",
+      "styleCode": "ESSKY091LS",
+      "sheetId": "CS-1787665155067-lrf8yvx",
+      "note": "sheet now APPROVED"
+    },
+    {
+      "orderBomId": "ca957834-4b56-43b4-9823-5e06a9344584",
+      "orderNumber": "ORD2026080032",
+      "styleCode": "ESSKY075LS",
+      "sheetId": "CS-1787635366491-a6akz3p",
+      "note": "sheet now APPROVED"
+    },
+    {
+      "orderBomId": "df996ddf-74c9-4937-9185-da63a17853b4",
+      "orderNumber": "ORD2026080033",
+      "styleCode": "ESSKY076LS",
+      "sheetId": "CS-1787639033704-rwu8nhr",
+      "note": "sheet now APPROVED"
+    }
+  ]
+}

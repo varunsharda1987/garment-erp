@@ -31,6 +31,9 @@ keywords:
   - than select
   - kaunse than bheje
   - pick thans
+  - best fit for all orders
+  - ek saath than
+  - सभी ऑर्डर के थान
   - record thans sent
   - best fit
   - poore than
@@ -107,6 +110,8 @@ Both figures stay editable — type over either one and it will not be overwritt
 ## Name the thans after sending
 If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me** / **Best fit (whole thans)**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more than 1% over what the order took.
 
+If other orders went to the same processor on the same day from the same lot and their thans are not recorded yet, the dialog lists them and shows **Best fit for all N jobs**. It fits the thans on the total of all those orders — whole bales across the vehicle, a bale shared between two orders rather than two bales broken — then shares them out, each order within 1%. The button at the bottom then reads **Record thans for N jobs** and saves all of them together. Click **Record this job only** to go back to one order.
+
 ## Traps
 - Dyeing or Printing **with** a style shows a message pointing to **Go to Processing** — that flow is created on the Processing page instead. Clear the Style field to raise it here as a stock job. Lace is the exception: a lace job stays on this dialog whether or not a style is set.
 - **Expected Shrinkage** must be under 100.
@@ -116,4 +121,4 @@ If an order was sent by quantity from a lot that has thans, its page shows **Rec
 - The dyed variant must have been created from the greige lace being sent. Picking a variant of a different lace is refused — use the **Create** box to make the right one.
 - A lace job cannot also carry a fabric, and lace is refused on any process type other than Dyeing.
 - A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
-- Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**.
+- Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**. On that page **Best fit for all orders** picks whole thans for every order on the truck together, lot by lot, each order within 1%.

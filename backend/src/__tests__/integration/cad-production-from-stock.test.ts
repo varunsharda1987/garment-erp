@@ -279,6 +279,36 @@ describe('Create CAD on a received lot', () => {
   });
 });
 
+describe('a CAD row a cost sheet still uses cannot be deleted', () => {
+  // Deleting it used to BLANK the sheet's link (ON DELETE SET NULL) with no error — how
+  // ESSKY085LS's approved sheet and its order BOM lost their CAD in Aug 2026.
+  it('refuses, naming what still uses it, and deletes once nothing does', async () => {
+    const res0 = await request(app)
+      .post(`/api/cad-planning/${styleId}/copy`)
+      .set(authHeader)
+      .send({ sourceCadId: rmcId, targetPurpose: 'PRODUCTION', styleFabricId: slotId })
+      .expect(200);
+    const cadId = res0.body.data.newRecordId as string;
+    const sheetId = `${RUN}-CS`;
+    await prisma.style_costing.create({
+      data: { id: sheetId, styleId, createdById: userId, approvalStatus: 'PENDING', isApproved: false },
+    });
+    await prisma.style_costing_fabric_items.create({
+      data: { costingId: sheetId, fabricName: `${RUN} Moss`, fabricCADId: cadId, width: 52, cadMeters: 0.7333 },
+    });
+    try {
+      const refused = await request(app).delete(`/api/cad-planning/${styleId}/row/${cadId}`).set(authHeader);
+      expect(refused.status).toBe(422);
+      expect(refused.body.message).toMatch(/1 cost sheet line still use it/);
+      const line = await prisma.style_costing_fabric_items.findFirst({ where: { costingId: sheetId } });
+      expect(line?.fabricCADId).toBe(cadId); // the link survived
+    } finally {
+      await prisma.style_costing.delete({ where: { id: sheetId } }); // cascades its lines
+    }
+    await request(app).delete(`/api/cad-planning/${styleId}/row/${cadId}`).set(authHeader).expect(200);
+  });
+});
+
 describe('Copy to Production copies the marker, not the price', () => {
   it('the copy carries sizes but no cost, and can be deleted', async () => {
     const res = await request(app)

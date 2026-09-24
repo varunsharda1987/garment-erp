@@ -16,6 +16,10 @@
  *   D1  price/consumption drift on active APPROVED sheets  (the ESSKY091LS class)
  *   D3  snapshot's source costing is no longer price-approved (SOURCE_UNAPPROVED)
  *   D4  snapshot's source costing was cleared entirely (SOURCE_UNCOSTED)
+ *   L1  fabric line on an active APPROVED sheet with NO CAD link (2026-09-24). The sweep below
+ *       only visits sheets with at least one CAD-tracked line, so a sheet whose every line had
+ *       lost its link (ESSKY085LS: the CAD it was costed from was deleted, ON DELETE SET NULL)
+ *       was invisible here — and every order BOM built from it inherits "no CAD".
  *   B1  active order BOM whose source cost sheet is not APPROVED — the order's
  *       frozen prices no longer trace to an approved sheet (should be impossible
  *       once the cost-sheet order-consumption guard is live; catches legacy rows)
@@ -25,6 +29,8 @@
  *   I1  manual-override items (intentional divergence — overrideReason shown)
  *   I2  fabric items with no fabricCADId (legacy/untracked — not comparable)
  *   I3  active order BOMs with no source cost sheet link (legacy/deleted sheet)
+ *   L2  fabric lines on active order BOMs with no CAD (selectedCadId) — MRP colour batching,
+ *       width change and the dyed fabric's style link all read it
  */
 
 import prisma from '../src/config/database';
@@ -140,6 +146,36 @@ async function main() {
   // I3: active BOMs with no sheet link at all (legacy rows / deleted sheets)
   const i3 = await prisma.order_bom.count({ where: { isActive: true, sourceCostSheetId: null } });
 
+  // L1: approved sheets' fabric lines that point at no CAD — not comparable, so drift is unknowable
+  const l1 = await prisma.style_costing_fabric_items.findMany({
+    where: { fabricCADId: null, costing: { supersededById: null, approvalStatus: 'APPROVED' } },
+    select: {
+      fabricName: true,
+      width: true,
+      costing: { select: { id: true, styles: { select: { styleCode: true } } } },
+    },
+  });
+  for (const line of l1) {
+    console.log(
+      `L1  ${line.costing.styles?.styleCode ?? '?'}  ${line.costing.id}  ${line.fabricName} ${Number(line.width)}"` +
+        '  — no CAD row: its price cannot be checked, and orders built from it get no CAD'
+    );
+  }
+  // L2: live order BOM fabric lines with no CAD
+  const l2 = await prisma.order_bom_items.findMany({
+    where: { selectedCadId: null, usageCategory: 'FABRIC', orderBom: { isActive: true } },
+    select: {
+      componentName: true,
+      orderBom: { select: { status: true, order: { select: { orderNumber: true } }, style: { select: { styleCode: true } } } },
+    },
+  });
+  for (const line of l2) {
+    console.log(
+      `L2  ${line.orderBom.style.styleCode}  ${line.orderBom.order.orderNumber}  BOM ${String(line.orderBom.status)}` +
+        `  ${line.componentName ?? '-'}  — no CAD row`
+    );
+  }
+
   // I1: intentional manual overrides on active sheets (visibility only)
   const i1 = await prisma.style_costing_fabric_items.findMany({
     where: {
@@ -168,10 +204,12 @@ async function main() {
     );
   }
   console.log(`I2 untracked fabric items (no fabricCADId):    ${untrackedTotal}`);
+  console.log(`L1 approved-sheet fabric lines with no CAD:    ${l1.length}`);
+  console.log(`L2 live order-BOM fabric lines with no CAD:    ${l2.length}`);
   console.log(`B1 active BOMs on a non-APPROVED sheet:        ${b1.length}`);
   console.log(`I3 active BOMs with no sheet link (info):      ${i3}`);
 
-  const failing = d1 + d3 + d4 + b1.length;
+  const failing = d1 + d3 + d4 + l1.length + b1.length;
   console.log(
     failing > 0
       ? `\n${failing} drift finding(s) need attention — re-version the sheet from current costing, or revert the costing.`

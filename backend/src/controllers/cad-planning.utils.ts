@@ -245,11 +245,35 @@ export async function validateCADModification(cadId: string, operation: 'update'
       totalCostPerMeter: true,
       approvedAt: true,
       approvedBy: true,
+      _count: {
+        select: { costingFabricItems: true, orderBomItems: true, order_items: true, order_item_costings: true },
+      },
     },
   });
 
   if (!cad) {
     throw new NotFoundError('CAD entry', cadId);
+  }
+
+  // Every one of these links is ON DELETE SET NULL, so deleting the row BLANKS them with no error:
+  // the cost sheet loses the CAD its price came from and the order BOM inherits "no CAD". That is
+  // how ESSKY085LS's approved sheet and BOM (and EBEW-001's sheet) lost theirs in Aug 2026 — which
+  // later stopped the dyed fabric finding its style slot and hid the sheet from the drift sweep.
+  if (operation === 'delete') {
+    const refs = [
+      [cad._count.costingFabricItems, 'cost sheet line'],
+      [cad._count.orderBomItems, 'order BOM line'],
+      [cad._count.order_items, 'order line'],
+      [cad._count.order_item_costings, 'order costing'],
+    ]
+      .filter(([n]) => (n as number) > 0)
+      .map(([n, label]) => `${n} ${label}${(n as number) > 1 ? 's' : ''}`);
+    if (refs.length > 0) {
+      throw new BusinessError(
+        `Cannot delete CAD entry: ${refs.join(', ')} still use it. ` +
+          `Create a new version of the cost sheet (or order BOM) on another CAD row first, then delete this one.`
+      );
+    }
   }
 
   // Check if CAD is approved

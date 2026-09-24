@@ -64,6 +64,7 @@ export default function OrderDetail() {
 
   // Sizes-later workflow: which order item is having its size breakdown entered
   const [sizeBreakupItem, setSizeBreakupItem] = useState<{
+    initialBreakup?: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
     orderItemId: string;
     styleId: string;
     currentTotal: number;
@@ -951,6 +952,11 @@ export default function OrderDetail() {
                               orderItemId: item.id,
                               styleId: item.styleId,
                               currentTotal: item.totalQuantity,
+                              initialBreakup: (item.breakup ?? []).map((b) => ({
+                                colorId: b.colorId,
+                                sizeId: b.sizeId,
+                                quantity: b.quantity,
+                              })),
                             })
                           }
                         >
@@ -1282,6 +1288,7 @@ export default function OrderDetail() {
           orderItemId={sizeBreakupItem.orderItemId}
           styleId={sizeBreakupItem.styleId}
           currentTotal={sizeBreakupItem.currentTotal}
+          initialBreakup={sizeBreakupItem.initialBreakup}
           onSaved={() => {
             setSizeBreakupItem(null);
             // Saving the breakup also rewrites requirements and work orders server-side, so

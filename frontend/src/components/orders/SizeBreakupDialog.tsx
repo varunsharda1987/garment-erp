@@ -35,6 +35,8 @@ interface Props {
   orderItemId: string;
   styleId: string;
   currentTotal: number;
+  /** The split already saved — the dialog opens on it for editing instead of blank boxes. */
+  initialBreakup?: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
   onSaved: () => void;
 }
 
@@ -46,7 +48,17 @@ interface Props {
  * requirements switch from "size split pending" to real per-size lines, and production work
  * orders (impossible without sizes) get created.
  */
-export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, styleId, currentTotal, onSaved }: Props) {
+export function SizeBreakupDialog({
+  open,
+  onOpenChange,
+  orderId,
+  orderItemId,
+  styleId,
+  currentTotal,
+  initialBreakup,
+  onSaved,
+}: Props) {
+  const isEdit = (initialBreakup?.length ?? 0) > 0;
   const [sizes, setSizes] = useState<SizeOption[]>([]);
   const [colours, setColours] = useState<ColorOption[]>([]);
   const [colorId, setColorId] = useState<string>('');
@@ -69,8 +81,24 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
         // stitching output refuses it, so the goods never become finished stock (2026-09-24).
         const styleColours = (styleAny.colorOptions ?? []).filter((c) => c.id);
         setColours(styleColours);
-        setColorId(styleColours.length === 1 ? styleColours[0].id : '');
-        setQuantities(Object.fromEntries(styleSizes.map((s) => [s.id, ''])));
+        const savedColour = initialBreakup?.find((b) => b.colorId)?.colorId;
+        setColorId(
+          styleColours.length === 1
+            ? styleColours[0].id
+            : savedColour && styleColours.some((c) => c.id === savedColour)
+              ? savedColour
+              : ''
+        );
+        setQuantities(
+          Object.fromEntries(
+            styleSizes.map((s) => {
+              const saved = (initialBreakup ?? [])
+                .filter((b) => b.sizeId === s.id)
+                .reduce((sum, b) => sum + b.quantity, 0);
+              return [s.id, saved > 0 ? String(saved) : ''];
+            })
+          )
+        );
       } catch (err) {
         logError('Failed to load style sizes', err);
         notify.error('Could not load this style’s sizes');
@@ -79,7 +107,7 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
       }
     };
     loadSizes();
-  }, [open, styleId]);
+  }, [open, styleId, initialBreakup]);
 
   const enteredTotal = useMemo(
     () => Object.values(quantities).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0),
@@ -154,10 +182,11 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Size Breakdown</DialogTitle>
+          <DialogTitle>{isEdit ? 'Edit Size Breakdown' : 'Add Size Breakdown'}</DialogTitle>
           <DialogDescription>
-            This order item carries {currentTotal} pcs with no size split. Entering the sizes generates per-size label
-            requirements and lets production work orders be created.
+            {isEdit
+              ? `This order item carries ${currentTotal} pcs. Saving a new split updates the size-wise label requirements and the pending production run.`
+              : `This order item carries ${currentTotal} pcs with no size split. Entering the sizes generates per-size label requirements and lets production work orders be created.`}
           </DialogDescription>
         </DialogHeader>
 

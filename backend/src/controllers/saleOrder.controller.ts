@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { saleOrderService } from '../services/saleOrder.service';
 import { applyOrderItemSizeBreakup } from './order.controller';
+import { createAuditLog } from '../services/audit.service';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
@@ -233,6 +234,66 @@ export class SaleOrderController {
         `${linked.orderNumber} linked to ${linked.saleOrderNumber}` +
         (sized.length > 0
           ? ` — sizes copied from the buyer PO (${sized.length - failed.length}/${sized.length})`
+          : '') +
+        (failed.length > 0 ? `. ${failed[0].error}` : ''),
+    });
+  }
+
+  /**
+   * Admin correction of a confirmed order's size split. The new split is copied onto the linked
+   * production order (its PENDING runs follow) where that order still mirrored the old one.
+   */
+  async amendQuantities(req: Request, res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
+    const { lines, reason } = req.body;
+    const amended = await saleOrderService.amendQuantities(req.params.id, lines);
+
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entityType: 'SALE_ORDER',
+      entityId: req.params.id,
+      oldValues: { quantities: amended.changes.map((c) => ({ style: c.style, size: c.size, quantity: c.from })) },
+      newValues: {
+        quantities: amended.changes.map((c) => ({ style: c.style, size: c.size, quantity: c.to })),
+        reason,
+      },
+      ipAddress: req.ip ?? null,
+    });
+
+    const sized: Array<{ orderItemId: string; newTotal?: number; error?: string }> = [];
+    for (const item of amended.toSize) {
+      try {
+        const result = await applyOrderItemSizeBreakup({
+          orderId: amended.linkedOrder!.orderId,
+          orderItemId: item.orderItemId,
+          breakup: item.breakup,
+          confirmQuantityChange: true, // the production order makes the buyer PO exactly
+          userId,
+        });
+        sized.push({
+          orderItemId: item.orderItemId,
+          newTotal: result.data.newTotal,
+          ...(result.data.mrpError ? { error: `Requirements not recalculated: ${result.data.mrpError}` } : {}),
+        });
+      } catch (err) {
+        // The amendment stands; the order's sizes can still be corrected on the order page
+        sized.push({ orderItemId: item.orderItemId, error: err instanceof Error ? err.message : 'Unknown error' });
+      }
+    }
+
+    const failed = sized.filter((s) => s.error);
+    const order = amended.linkedOrder?.orderNumber;
+    res.json({
+      data: { ...amended, sized },
+      message:
+        `${amended.saleOrderNumber} amended (${amended.changes.length} line${amended.changes.length === 1 ? '' : 's'})` +
+        (sized.length - failed.length > 0 ? ` — ${order} updated to the new sizes` : '') +
+        (amended.notFollowed.length > 0
+          ? `. ${order} was NOT changed for ${amended.notFollowed.join(', ')} — its sizes already differed from this sale order; correct them on the order page`
           : '') +
         (failed.length > 0 ? `. ${failed[0].error}` : ''),
     });

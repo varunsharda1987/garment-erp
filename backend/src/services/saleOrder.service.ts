@@ -1098,6 +1098,175 @@ export class SaleOrderService {
   }
 
   /**
+   * Correct a CONFIRMED sale order's per-line quantities (admin only — the route carries
+   * requireAdmin). A confirmed order is otherwise frozen (`update` is DRAFT-only, and the B2B app
+   * relies on that for its own re-sends), so a buyer PO split entered wrong had no way back.
+   *
+   * No line may drop below what is already allocated + dispatched on it. Line money, the order
+   * total and the progress status are rewritten in one transaction. The linked production order's
+   * sizes are returned for the caller to apply ONLY where they still mirror this order's old split —
+   * an order made for the stock shortfall, or re-sized by hand, is left alone and reported.
+   */
+  async amendQuantities(saleOrderId: string, lines: Array<{ itemId: string; quantity: number }>) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      select: {
+        id: true,
+        saleOrderNumber: true,
+        status: true,
+        items: {
+          select: {
+            id: true,
+            styleId: true,
+            colorId: true,
+            sizeId: true,
+            quantity: true,
+            unitPrice: true,
+            allocatedQty: true,
+            dispatchedQty: true,
+            size: { select: { sizeName: true } },
+            style: { select: { styleCode: true } },
+          },
+        },
+      },
+    });
+    if (!so) throw new NotFoundError('Sale Order', saleOrderId);
+    if (so.status === SaleOrderStatus.DRAFT) {
+      throw new BusinessError(`${so.saleOrderNumber} is still a draft — change its lines with Edit.`);
+    }
+    const amendable: SaleOrderStatus[] = [
+      SaleOrderStatus.CONFIRMED,
+      SaleOrderStatus.PARTIALLY_ALLOCATED,
+      SaleOrderStatus.FULLY_ALLOCATED,
+      SaleOrderStatus.PARTIALLY_DISPATCHED,
+    ];
+    if (!amendable.includes(so.status)) {
+      throw new BusinessError(`A ${so.status} sale order cannot be amended.`);
+    }
+
+    const byId = new Map(so.items.map((i) => [i.id, i]));
+    const newQty = new Map(so.items.map((i) => [i.id, i.quantity]));
+    for (const l of lines) {
+      const item = byId.get(l.itemId);
+      if (!item) throw new ValidationError('One of the lines does not belong to this sale order.');
+      const committed = (item.allocatedQty ?? 0) + (item.dispatchedQty ?? 0);
+      if (l.quantity < committed) {
+        throw new BusinessError(
+          `${item.style.styleCode} ${item.size?.sizeName ?? '(no size)'} cannot go below ${committed} pcs — ` +
+            `that much is already allocated or dispatched.`
+        );
+      }
+      newQty.set(l.itemId, l.quantity);
+    }
+    const changed = so.items.filter((i) => newQty.get(i.id) !== i.quantity);
+    if (changed.length === 0) throw new ValidationError('No quantity was changed.');
+    if ([...newQty.values()].every((q) => q === 0)) {
+      throw new BusinessError('A sale order cannot be amended to zero pieces — cancel it instead.');
+    }
+
+    // Per style: colour|size → quantity, before and after (lines without a size are not a split)
+    const soItems = so.items;
+    const splitOf = (styleId: string, qty: (i: (typeof soItems)[number]) => number) => {
+      const m = new Map<string, number>();
+      for (const i of soItems.filter((x) => x.styleId === styleId && x.sizeId)) {
+        const k = `${i.colorId ?? ''}|${i.sizeId}`;
+        m.set(k, (m.get(k) ?? 0) + qty(i));
+      }
+      return m;
+    };
+
+    await prisma.$transaction(async (tx) => {
+      for (const i of changed) {
+        const q = newQty.get(i.id) as number;
+        // Guarded against a concurrent allocation/dispatch landing between the check and the write
+        const res = await tx.sale_order_items.updateMany({
+          where: { id: i.id, quantity: i.quantity },
+          data: { quantity: q, totalPrice: roundToCent(multiplyCurrency(q, Number(i.unitPrice))).toNumber() },
+        });
+        if (res.count === 0)
+          throw new ConflictError('This sale order changed while you were amending it. Reload and try again.');
+        const fresh = await tx.sale_order_items.findUniqueOrThrow({
+          where: { id: i.id },
+          select: { allocatedQty: true, dispatchedQty: true },
+        });
+        if (q < fresh.allocatedQty + fresh.dispatchedQty) {
+          throw new ConflictError('Stock was allocated on this sale order a moment ago. Reload and try again.');
+        }
+      }
+      const totals = await tx.sale_order_items.aggregate({ where: { saleOrderId }, _sum: { totalPrice: true } });
+      const subtotal = Number(totals._sum.totalPrice ?? 0);
+      await tx.sale_orders.update({ where: { id: saleOrderId }, data: { subtotal, totalAmount: subtotal } });
+      await recomputeSaleOrderStatus(tx, saleOrderId);
+    });
+
+    // The linked production order follows only where it still mirrors the old split
+    const linked = await prisma.orders.findFirst({
+      where: { saleOrderId, status: { not: 'CANCELLED' }, isActive: true },
+      select: {
+        id: true,
+        orderNumber: true,
+        order_items: {
+          select: {
+            id: true,
+            styleId: true,
+            styles: { select: { styleCode: true } },
+            order_item_breakup: { select: { colorId: true, sizeId: true, quantity: true } },
+          },
+        },
+      },
+    });
+    const toSize: Array<{
+      orderItemId: string;
+      breakup: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
+    }> = [];
+    const notFollowed: string[] = [];
+    for (const item of linked?.order_items ?? []) {
+      if (!changed.some((c) => c.styleId === item.styleId)) continue;
+      const before = splitOf(item.styleId, (i) => i.quantity);
+      const current = new Map<string, number>();
+      for (const b of item.order_item_breakup) {
+        const k = `${b.colorId ?? ''}|${b.sizeId}`;
+        current.set(k, (current.get(k) ?? 0) + b.quantity);
+      }
+      const mirrors =
+        current.size === 0 || (current.size === before.size && [...before].every(([k, q]) => current.get(k) === q));
+      if (!mirrors) {
+        notFollowed.push(item.styles.styleCode);
+        continue;
+      }
+      const after = splitOf(item.styleId, (i) => newQty.get(i.id) as number);
+      const breakup = [...after]
+        .filter(([, q]) => q > 0)
+        .map(([k, quantity]) => {
+          const [colorId, sizeId] = k.split('|');
+          return { colorId: colorId || null, sizeId, quantity };
+        });
+      if (breakup.length > 0) toSize.push({ orderItemId: item.id, breakup });
+    }
+
+    logInfo(
+      `[SO amend] ${so.saleOrderNumber}: ` +
+        changed
+          .map((i) => `${i.style.styleCode} ${i.size?.sizeName ?? '-'} ${i.quantity}→${newQty.get(i.id)}`)
+          .join(', ')
+    );
+
+    return {
+      saleOrderNumber: so.saleOrderNumber,
+      changes: changed.map((i) => ({
+        itemId: i.id,
+        style: i.style.styleCode,
+        size: i.size?.sizeName ?? null,
+        from: i.quantity,
+        to: newQty.get(i.id) as number,
+      })),
+      linkedOrder: linked ? { orderId: linked.id, orderNumber: linked.orderNumber } : null,
+      toSize,
+      notFollowed,
+    };
+  }
+
+  /**
    * Cancel a sale order and release all FG stock allocations.
    * P7.2: Allocation lifecycle — allocations must not stay permanent phantoms.
    */

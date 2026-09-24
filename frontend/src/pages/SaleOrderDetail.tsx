@@ -20,6 +20,7 @@ import {
   FileText,
   FileX,
   Upload,
+  ListOrdered,
 } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
@@ -40,6 +41,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
@@ -57,6 +60,7 @@ import {
   startProduction,
   getLinkableProductionOrders,
   linkProductionOrder,
+  amendSaleOrderQuantities,
   updateSaleOrder,
   cancelSaleOrder,
   addBuyerPo,
@@ -107,6 +111,11 @@ export default function SaleOrderDetail() {
   const [startProdDialogOpen, setStartProdDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkOrderId, setLinkOrderId] = useState('');
+  // Admin correction of a confirmed order's size split
+  const { isAdmin } = usePermissions();
+  const [amendDialogOpen, setAmendDialogOpen] = useState(false);
+  const [amendQty, setAmendQty] = useState<Record<string, string>>({});
+  const [amendReason, setAmendReason] = useState('');
   const [editSheetOpen, setEditSheetOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [prodDeliveryDate, setProdDeliveryDate] = useState('');
@@ -176,6 +185,28 @@ export default function SaleOrderDetail() {
     onError: (error: unknown) => {
       const axiosErr = error as { response?: { data?: { message?: string } } };
       toast.error(axiosErr?.response?.data?.message || 'Failed to link the production order');
+    },
+  });
+
+  const amendMutation = useMutation({
+    mutationFn: () =>
+      amendSaleOrderQuantities(id!, {
+        lines: (so?.items ?? [])
+          .filter((i) => amendQty[i.id] !== undefined && Number(amendQty[i.id]) !== i.quantity)
+          .map((i) => ({ itemId: i.id, quantity: Number(amendQty[i.id]) })),
+        reason: amendReason.trim(),
+      }),
+    onSuccess: (result) => {
+      invalidateSaleOrder();
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      if (result.data.notFollowed.length > 0 || result.data.sized.some((s) => s.error)) toast.warning(result.message);
+      else toast.success(result.message);
+      setAmendDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to amend the quantities');
     },
   });
 
@@ -470,7 +501,21 @@ export default function SaleOrderDetail() {
   const canShowCancelButton = !isTerminal;
   /** Confirm is offered only on a draft that actually has lines — an empty order is a dead end. */
   const canConfirm = isDraft && (so.items?.length || 0) > 0;
-  const hasHeaderActions = isDraft || canConfirm || canStartProduction || canLinkProduction || canShowCancelButton;
+  // A confirmed order is otherwise frozen; an admin can correct a wrongly entered size split
+  const canAmendQuantities =
+    isAdmin && ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED'].includes(so.status);
+  const amendChangedCount = (so.items ?? []).filter(
+    (i) => amendQty[i.id] !== undefined && amendQty[i.id] !== '' && Number(amendQty[i.id]) !== i.quantity
+  ).length;
+  const amendBelowCommitted = (so.items ?? []).some(
+    (i) => amendQty[i.id] !== undefined && Number(amendQty[i.id]) < i.allocatedQty + i.dispatchedQty
+  );
+  const amendHasBlank = (so.items ?? []).some(
+    (i) => amendQty[i.id] === '' || !Number.isInteger(Number(amendQty[i.id]))
+  );
+  const amendNewTotal = (so.items ?? []).reduce((sum, i) => sum + (Number(amendQty[i.id] ?? i.quantity) || 0), 0);
+  const hasHeaderActions =
+    isDraft || canConfirm || canStartProduction || canLinkProduction || canAmendQuantities || canShowCancelButton;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -546,6 +591,18 @@ export default function SaleOrderDetail() {
                 >
                   <Link2 className="h-4 w-4 mr-2" />
                   Link to Production Order
+                </DropdownMenuItem>
+              )}
+              {canAmendQuantities && (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    setAmendQty(Object.fromEntries((so.items ?? []).map((i) => [i.id, String(i.quantity)])));
+                    setAmendReason('');
+                    setAmendDialogOpen(true);
+                  }}
+                >
+                  <ListOrdered className="h-4 w-4 mr-2" />
+                  Amend Quantities
                 </DropdownMenuItem>
               )}
               {canShowCancelButton && (
@@ -1068,6 +1125,100 @@ export default function SaleOrderDetail() {
               disabled={startProductionMutation.isPending}
             >
               {startProductionMutation.isPending ? 'Creating...' : 'Create Production Order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Amend Quantities — admin correction of a confirmed order's size split */}
+      <Dialog open={amendDialogOpen} onOpenChange={setAmendDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Amend Quantities</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Correct the quantity ordered per line. A line cannot go below what is already allocated or dispatched. If
+              a production order is linked and its sizes match this sale order, it is updated to the new sizes too,
+              along with its pending production run and size-wise labels.
+            </p>
+            <div className="max-h-[50vh] overflow-y-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Style</TableHead>
+                    <TableHead>Colour</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-right">Allocated / Dispatched</TableHead>
+                    <TableHead className="text-right">Ordered</TableHead>
+                    <TableHead className="w-28 text-right">New Qty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(so.items ?? []).map((i) => {
+                    const committed = i.allocatedQty + i.dispatchedQty;
+                    const value = amendQty[i.id] ?? String(i.quantity);
+                    const tooLow = value !== '' && Number(value) < committed;
+                    return (
+                      <TableRow key={i.id}>
+                        <TableCell className="font-medium">{i.style?.styleCode ?? '—'}</TableCell>
+                        <TableCell>{i.color?.colorName ?? '—'}</TableCell>
+                        <TableCell>{i.size?.sizeName ?? '—'}</TableCell>
+                        <TableCell className="text-right">
+                          {i.allocatedQty} / {i.dispatchedQty}
+                        </TableCell>
+                        <TableCell className="text-right">{i.quantity}</TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            type="number"
+                            min={committed}
+                            step={1}
+                            inputMode="numeric"
+                            aria-label={`New quantity for ${i.size?.sizeName ?? 'line'}`}
+                            className={`h-8 text-right ${tooLow ? 'border-destructive' : ''}`}
+                            value={value}
+                            onChange={(e) => setAmendQty((prev) => ({ ...prev, [i.id]: e.target.value }))}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="text-sm">
+              New total: <span className="font-semibold">{amendNewTotal} pcs</span>
+              {amendBelowCommitted && (
+                <span className="ml-2 text-destructive">A line is below what is already allocated or dispatched.</span>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="amend-reason">Reason *</Label>
+              <Textarea
+                id="amend-reason"
+                rows={2}
+                placeholder="e.g. size split corrected to the buyer's PO"
+                value={amendReason}
+                onChange={(e) => setAmendReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAmendDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => amendMutation.mutate()}
+              disabled={
+                amendMutation.isPending ||
+                amendChangedCount === 0 ||
+                amendBelowCommitted ||
+                amendHasBlank ||
+                amendNewTotal === 0 ||
+                amendReason.trim().length < 3
+              }
+            >
+              {amendMutation.isPending ? 'Saving...' : 'Save Quantities'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1615,7 +1615,19 @@ function saleOrderStatusWrite(relFiles) {
     // and take the first status assignment at or after it (inline or on a later line).
     for (let i = 0; i < lines.length; i++) {
       if (!/sale_orders\.(update|updateMany)\(/.test(lines[i])) continue;
-      const window = lines.slice(i, Math.min(i + 15, lines.length)).join('\n');
+      // The window ends where the call's parentheses close: a fixed 15 lines ran into the NEXT
+      // statement, flagging a `status:` filter in a following query as a status write (2026-09-24).
+      let raw = lines.slice(i, Math.min(i + 15, lines.length)).join('\n');
+      const open = raw.search(/sale_orders\.(update|updateMany)\(/);
+      let depth = 0;
+      for (let c = raw.indexOf('(', open); c < raw.length; c++) {
+        if (raw[c] === '(') depth++;
+        else if (raw[c] === ')' && --depth === 0) {
+          raw = raw.slice(0, c + 1);
+          break;
+        }
+      }
+      const window = raw;
       const dataM = /\bdata\s*:/.exec(window);
       if (!dataM) continue;
       const statusM = /\bstatus\s*:/.exec(window.slice(dataM.index));

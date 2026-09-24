@@ -9,7 +9,9 @@
  *  - Link to Production Order links it and copies the PO's sizes WITH colour (the production order
  *    makes the PO exactly), creating the production run;
  *  - a size breakdown with no colour takes the style's only colour (a colourless run cannot record
- *    stitching output, so it never becomes finished goods).
+ *    stitching output, so it never becomes finished goods);
+ *  - Amend Quantities (admin only) corrects a CONFIRMED order's split, never below what is allocated,
+ *    and the linked production order + its pending run follow.
  *
  * Runs against the real app + live DB; tagged fixtures, per-step teardown.
  */
@@ -39,6 +41,8 @@ const sizeIds: Record<string, string> = {};
 let orderId: string;
 let orderItemId: string;
 let soId: string;
+let merchHeader: Record<string, string>;
+let merchId: string;
 
 beforeAll(async () => {
   const user = await createTestUser({
@@ -49,6 +53,14 @@ beforeAll(async () => {
   });
   userId = user.id;
   authHeader = getAuthHeader(user.id, 'ADMIN');
+  const merch = await createTestUser({
+    email: `test-${RUN.toLowerCase()}-m@smoke.test`,
+    role: 'MERCHANDISER',
+    isActive: true,
+    isApproved: true,
+  });
+  merchId = merch.id;
+  merchHeader = getAuthHeader(merch.id, 'MERCHANDISER');
 
   customerId = (
     await prisma.customers.create({
@@ -132,7 +144,8 @@ afterAll(async () => {
       'customers',
       () => prisma.customers.deleteMany({ where: { id: { in: [only(customerId), only(otherCustomerId)] } } }),
     ],
-    ['users', () => prisma.users.deleteMany({ where: { id: only(userId) } })],
+    ['audit_logs', () => prisma.audit_logs.deleteMany({ where: { entityId: only(soId) } })],
+    ['users', () => prisma.users.deleteMany({ where: { id: { in: [only(userId), only(merchId)] } } })],
   ];
   for (const [label, run] of steps) {
     try {
@@ -223,5 +236,95 @@ describe('a sale order meets the production order raised before it', () => {
       .send({ breakup: SIZES.map(([name, quantity]) => ({ colorId: null, sizeId: sizeIds[name], quantity })) })
       .expect(200);
     expect(res.body.data.breakup.every((b: { colorId: string }) => b.colorId === colourId)).toBe(true);
+  });
+
+  describe('Amend Quantities', () => {
+    const lineFor = async (size: string) =>
+      prisma.sale_order_items.findFirstOrThrow({ where: { saleOrderId: soId, sizeId: sizeIds[size] } });
+
+    it('is refused to a non-admin', async () => {
+      const m = await lineFor('M');
+      const res = await request(app)
+        .post(`/api/sale-orders/${soId}/amend-quantities`)
+        .set(merchHeader)
+        .send({ lines: [{ itemId: m.id, quantity: 50 }], reason: 'test' });
+      expect(res.status).toBe(403);
+    });
+
+    it('refuses a line below what is already allocated', async () => {
+      const s = await lineFor('S');
+      await prisma.sale_order_items.update({ where: { id: s.id }, data: { allocatedQty: 20 } });
+      try {
+        const res = await request(app)
+          .post(`/api/sale-orders/${soId}/amend-quantities`)
+          .set(authHeader)
+          .send({ lines: [{ itemId: s.id, quantity: 10 }], reason: 'test' });
+        expect(res.status).toBe(422);
+        expect(res.body.message).toMatch(/cannot go below 20/);
+      } finally {
+        await prisma.sale_order_items.update({ where: { id: s.id }, data: { allocatedQty: 0 } });
+      }
+    });
+
+    it('corrects the split, the order money, and the linked production order + pending run', async () => {
+      const m = await lineFor('M');
+      const l = await lineFor('L');
+      const res = await request(app)
+        .post(`/api/sale-orders/${soId}/amend-quantities`)
+        .set(authHeader)
+        .send({
+          lines: [
+            { itemId: m.id, quantity: 40 },
+            { itemId: l.id, quantity: 31 },
+          ],
+          reason: 'split corrected to the buyer PO',
+        })
+        .expect(200);
+      expect(res.body.data.notFollowed).toEqual([]);
+
+      expect((await lineFor('M')).quantity).toBe(40);
+      expect(Number((await lineFor('L')).totalPrice)).toBe(31 * 200);
+      const so = await prisma.sale_orders.findUniqueOrThrow({ where: { id: soId } });
+      expect(Number(so.totalAmount)).toBe((30 + 40 + 31) * 200);
+      expect(so.status).toBe('CONFIRMED');
+
+      const breakup = await prisma.order_item_breakup.findMany({ where: { orderItemId } });
+      const bySize = Object.fromEntries(breakup.map((b) => [b.sizeId, b.quantity]));
+      expect(bySize[sizeIds.M]).toBe(40);
+      expect(bySize[sizeIds.L]).toBe(31);
+      const run = await prisma.work_orders.findFirstOrThrow({
+        where: { orderId },
+        include: { work_order_breakup: true },
+      });
+      expect(run.totalQuantity).toBe(101);
+      expect(run.work_order_breakup.find((b) => b.sizeId === sizeIds.M)?.plannedQuantity).toBe(40);
+
+      const audit = await prisma.audit_logs.findFirst({ where: { entityId: soId, entityType: 'SALE_ORDER' } });
+      expect(JSON.stringify(audit?.newValues)).toContain('split corrected');
+    });
+
+    it('leaves a production order whose sizes differ from the sale order alone', async () => {
+      // Hand-edit the order so it no longer mirrors the sale order
+      await request(app)
+        .put(`/api/orders/${orderId}/items/${orderItemId}/size-breakup`)
+        .set(authHeader)
+        .send({
+          breakup: [
+            { colorId: colourId, sizeId: sizeIds.S, quantity: 31 },
+            { colorId: colourId, sizeId: sizeIds.M, quantity: 39 },
+            { colorId: colourId, sizeId: sizeIds.L, quantity: 31 },
+          ],
+        })
+        .expect(200);
+      const m = await lineFor('M');
+      const res = await request(app)
+        .post(`/api/sale-orders/${soId}/amend-quantities`)
+        .set(authHeader)
+        .send({ lines: [{ itemId: m.id, quantity: 41 }], reason: 'another correction' })
+        .expect(200);
+      expect(res.body.data.notFollowed).toEqual([`${RUN}S`]);
+      const mOrder = await prisma.order_item_breakup.findFirstOrThrow({ where: { orderItemId, sizeId: sizeIds.M } });
+      expect(mOrder.quantity).toBe(39);
+    });
   });
 });

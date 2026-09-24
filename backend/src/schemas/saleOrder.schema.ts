@@ -131,6 +131,19 @@ export const linkProductionOrderSchema = z.object({
   orderId: z.string().uuid('Invalid production order ID'),
 });
 
+/** Admin correction of a CONFIRMED order's per-line quantities (the buyer PO split was entered wrong). */
+export const amendSaleOrderQuantitiesSchema = z.object({
+  lines: z
+    .array(
+      z.object({
+        itemId: z.string().uuid('Invalid sale order line ID'),
+        quantity: z.coerce.number().int('Quantity must be whole pieces').min(0, 'Quantity cannot be negative'),
+      })
+    )
+    .min(1, 'Change at least one line'),
+  reason: z.string().trim().min(3, 'Say why the quantities are being amended').max(500),
+});
+
 export const startProductionSchema = z.object({
   // Optional override; falls back to buyerDeadline ?? expectedShipDate ?? deliveryDate server-side
   expectedDeliveryDate: z

@@ -101,6 +101,25 @@ export async function linkProductionOrder(
   return response.data;
 }
 
+/**
+ * Admin only: correct a CONFIRMED order's per-line quantities (the buyer PO split was entered
+ * wrong). The linked production order follows where its sizes still mirrored this order.
+ */
+export async function amendSaleOrderQuantities(
+  id: string,
+  body: { lines: Array<{ itemId: string; quantity: number }>; reason: string }
+): Promise<{
+  data: {
+    saleOrderNumber: string;
+    notFollowed: string[];
+    sized: Array<{ orderItemId: string; error?: string }>;
+  };
+  message: string;
+}> {
+  const response = await api.post(`${BASE_URL}/${id}/amend-quantities`, body);
+  return response.data;
+}
+
 export async function allocateStock(data: {
   saleOrderItemId: string;
   fgStockId: string;

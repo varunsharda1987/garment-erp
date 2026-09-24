@@ -8,6 +8,7 @@ import {
   confirmSaleOrderSchema,
   startProductionSchema,
   linkProductionOrderSchema,
+  amendSaleOrderQuantitiesSchema,
   allocateStockSchema,
   deallocateStockSchema,
   saleOrderQuerySchema,
@@ -15,7 +16,7 @@ import {
   updateBuyerPoSchema,
   uploadBuyerPoDocumentSchema,
 } from '../schemas/saleOrder.schema';
-import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { uploadBuyerPoDocument } from '../middleware/upload.middleware';
 import { idParamSchema, poIdParamSchema } from '../schemas/common.schema';
 
@@ -99,6 +100,16 @@ router.post(
   validateParams(idParamSchema),
   validateBody(linkProductionOrderSchema),
   asyncHandler(saleOrderController.linkProductionOrder.bind(saleOrderController))
+);
+
+// POST /api/sale-orders/:id/amend-quantities - correct a CONFIRMED order's size split (admin only:
+// it rewrites what the buyer ordered, and copies onto the linked production order)
+router.post(
+  '/:id/amend-quantities',
+  requireAdmin(),
+  validateParams(idParamSchema),
+  validateBody(amendSaleOrderQuantitiesSchema),
+  asyncHandler(saleOrderController.amendQuantities.bind(saleOrderController))
 );
 
 // POST /api/sale-orders/allocate-stock - Allocate FG stock to sale order item

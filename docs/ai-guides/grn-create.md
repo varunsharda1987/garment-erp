@@ -19,12 +19,20 @@ keywords:
   - bale
   - greige
   - greage
+  - bale number
+  - than number
+  - bale no
+  - than no
+  - bale number kahan likhe
+  - बेल नंबर
+  - थान नंबर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
   - frontend/src/pages/GRNList.tsx
   - frontend/src/pages/GRNForm.tsx
+  - frontend/src/pages/GRNDetail.tsx
   - frontend/src/pages/PurchaseOrderDetail.tsx
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
@@ -44,7 +52,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 6. Fill **Invoice Number** and **Invoice Date** if the supplier sent an invoice. Both are optional.
 7. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
 8. If something is damaged, enter **Rejected** and a reason. Accepted plus Rejected must equal Received.
-9. For Fabric and Greige POs, set **Entry Mode** — Total Meters, Than-wise, Bale-wise or Roll-wise. Than/Bale/Roll modes let you click **Add Than**, **Add Bale** or **Add Roll** and enter meters per piece; the total is summed into This Receipt automatically. Also fill **L / Fold (cm)** (it comes pre-filled from the PO line — change it if the mill delivered at a different L) and **Width (inches)**. Type the quantity exactly as the mill counted it (the figure on their bill and than tags). When **L / Fold (cm)** is under 100, a blue line under the quantity shows the conversion, e.g. "10,011 m counted @ L=98 → 9,810.78 m". The actual metres are what go to stock, what the PO counts as received, and what the value is worked out on.
+9. For Fabric and Greige POs, set **Entry Mode** — Total Meters, Than-wise, Bale-wise or Roll-wise. Than/Bale/Roll modes let you click **Add Than**, **Add Bale** or **Add Roll** and enter meters per piece; the total is summed into This Receipt automatically. Also fill **L / Fold (cm)** (it comes pre-filled from the PO line — change it if the mill delivered at a different L) and **Width (inches)**. In **Bale-wise** mode each bale has a **Bale No.** box for the number printed on the bale, and each than a **Than No.** box for its tag; in **Than-wise** mode each row has **Than No.**, and in **Roll-wise** mode **Roll No.** All are optional — blank bales show as Bale 1, 2, 3. Forgot them? Open the GRN and click **Edit bale / than numbers** on the greige line; it changes only the numbers, never the metres. Type the quantity exactly as the mill counted it (the figure on their bill and than tags). When **L / Fold (cm)** is under 100, a blue line under the quantity shows the conversion, e.g. "10,011 m counted @ L=98 → 9,810.78 m". The actual metres are what go to stock, what the PO counts as received, and what the value is worked out on.
 10. On a Greige PO only, if the supplier actually sent finished fabric, switch on **Received as Ready Fabric (not greige)** and choose **One-time exception** or **Permanent change**. This cancels the linked Processing PO.
 11. Add anything else in **Notes**, then click **Save GRN**.
 

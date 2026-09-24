@@ -30,7 +30,7 @@ const challanDocInclude = {
   greigeIssueDetails: {
     include: {
       greigeStockDetail: {
-        select: { baleNumber: true, sequenceNo: true, meters: true },
+        select: { baleNumber: true, sequenceNo: true, meters: true, baleNo: true, thanNo: true },
       },
     },
   },
@@ -81,6 +81,12 @@ export interface ChallanDocData {
   returnByDate: string;
   /** Bale/than-level issue details when issued with detail selection */
   issueDetails: ChallanIssueDetail[] | null;
+  /**
+   * Packing list: the thans that left, one line per bale (printed bale / than numbers where known).
+   * Than metres are the COUNTED tag figures; the goods table above is in ACTUAL metres.
+   */
+  thanList: Array<{ bale: string; thans: string; count: number; metres: string }> | null;
+  thanListTotal: { count: number; metres: string } | null;
 }
 
 interface PartyDetails {
@@ -278,6 +284,44 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
             metersIssued: fmtQty(Number(d.metersIssued), 'MTR'),
           }))
         : null,
+    ...thanPackingList(challan.greigeIssueDetails ?? []),
+  };
+}
+
+/** Group the challan's issued thans by bale for the printed packing list (2026-09-24). */
+function thanPackingList(
+  rows: Array<{
+    metersIssued: Prisma.Decimal | number;
+    greigeStockDetail: {
+      baleNumber: number | null;
+      sequenceNo: number;
+      baleNo: string | null;
+      thanNo: string | null;
+    } | null;
+  }>
+): Pick<ChallanDocData, 'thanList' | 'thanListTotal'> {
+  if (rows.length === 0) return { thanList: null, thanListTotal: null };
+  const bales = new Map<string, { label: string; order: number; thans: string[]; metres: number }>();
+  for (const r of rows) {
+    const d = r.greigeStockDetail;
+    const key = d?.baleNumber != null ? `b${d.baleNumber}` : 'loose';
+    const label = d?.baleNo ?? (d?.baleNumber != null ? String(d.baleNumber) : 'Loose');
+    const bale = bales.get(key) ?? { label, order: d?.baleNumber ?? Number.MAX_SAFE_INTEGER, thans: [], metres: 0 };
+    const tag = d?.thanNo ?? (d ? `#${d.sequenceNo}` : '—');
+    bale.thans.push(`${tag} (${fmtQty(Number(r.metersIssued), 'MTR')})`);
+    bale.metres += Number(r.metersIssued);
+    bales.set(key, bale);
+  }
+  const list = [...bales.values()].sort((a, b) => a.order - b.order);
+  const totalMetres = list.reduce((sum, b) => sum + b.metres, 0);
+  return {
+    thanList: list.map((b) => ({
+      bale: b.label,
+      thans: b.thans.join(', '),
+      count: b.thans.length,
+      metres: fmtQty(b.metres, 'MTR'),
+    })),
+    thanListTotal: { count: rows.length, metres: fmtQty(totalMetres, 'MTR') },
   };
 }
 

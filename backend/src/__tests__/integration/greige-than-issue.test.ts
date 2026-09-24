@@ -17,6 +17,7 @@ import request from 'supertest';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
+import { buildChallanDocData } from '../../services/document-data/challan.doc-data';
 
 const RUN = `GTI${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -192,6 +193,13 @@ describe('issuing greige than by than', () => {
     const issued = await prisma.greige_issue_details.findMany({ where: { jobWorkOrderId: namedJob } });
     expect(issued).toHaveLength(2);
     expect(issued.every((r) => r.challanId === jwo.outwardChallanId)).toBe(true);
+
+    // The printed challan carries a packing list: the thans by bale, with their printed numbers
+    const doc = await buildChallanDocData(jwo.outwardChallanId!);
+    expect(doc.thanList).toHaveLength(1);
+    expect(doc.thanList![0]).toMatchObject({ bale: '417', count: 2 });
+    expect(doc.thanList![0].thans).toContain('T-1000');
+    expect(doc.thanListTotal!.count).toBe(2);
   });
 
   it('lets a job issued by quantity name its thans afterwards, never more than it took', async () => {

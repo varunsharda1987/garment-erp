@@ -28,6 +28,13 @@ keywords:
   - छपाई का प्रकार
   - जॉब वर्क
   - प्रोसेसर
+  - than select
+  - kaunse than bheje
+  - pick thans
+  - record thans sent
+  - थान
+  - बेल
+  - थान चुनें
   - माल भेजना
   - रंगाई
   - कढ़ाई
@@ -41,6 +48,8 @@ sources:
   - frontend/src/components/JobWorkOrderCreateDialog.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/components/job-work/GreigeLotRows.tsx
+  - frontend/src/components/job-work/ThanPicker.tsx
+  - frontend/src/components/job-work/lot-rows.ts
   - frontend/src/pages/DispatchToProcessor.tsx
   - frontend/src/components/GreigeCombobox.tsx
   - frontend/src/services/processorRateCardV2.service.ts
@@ -85,8 +94,12 @@ Both figures stay editable — type over either one and it will not be overwritt
 2. Click **Approve**. The status becomes **Approved**.
 3. Click **Issue to Processor**. This button only appears while the order is **Approved** — there is no other status that can issue.
 4. Under **Greige Lots ***, pick the lot and quantity. Use **Add lot** to split across lots, or **Auto-fill**. The total must match the order, shown as "matches the order". Only lots of the greige the order names are offered — that is the cloth its rate and shrinkage were quoted on. On a lace job the list holds the greige lace lots instead, and every lot must be the lace the order names.
+   If the lot was received than-wise or bale-wise, its thans open under the lot, grouped by bale. Tick the thans you are sending (you can type fewer metres for the last one), or click **Pick thans for me** to tick whole thans bale by bale until the order is covered. The line under the list shows the metres counted on the tags and the actual metres they come to. Picking thans is optional — close the list to send by quantity only — but it keeps the godown list of thans right.
 5. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
 6. Click **Issue & Create Challan**. The confirmation shows the challan number that was created.
+
+## Name the thans after sending
+If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more metres than the order took.
 
 ## Traps
 - Dyeing or Printing **with** a style shows a message pointing to **Go to Processing** — that flow is created on the Processing page instead. Clear the Style field to raise it here as a stock job. Lace is the exception: a lace job stays on this dialog whether or not a style is set.

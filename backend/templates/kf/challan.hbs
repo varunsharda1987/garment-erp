@@ -55,6 +55,20 @@
         <tr class="tot"><td colspan="5">Total value of goods despatched</td><td class="num">{{../totalValue}}</td><td></td></tr>
       </tbody>
     </table>
+    {{#if ../thanList}}
+    <table style="margin-top:6px">
+      <thead>
+        <tr><th style="width:64px">Bale</th><th>Thans (tag &middot; tag metres)</th>
+            <th class="num" style="width:48px">Thans</th><th class="num" style="width:84px">Tag metres</th></tr>
+      </thead>
+      <tbody>
+        {{#each ../thanList}}
+        <tr><td>{{this.bale}}</td><td>{{this.thans}}</td><td class="num">{{this.count}}</td><td class="num">{{this.metres}}</td></tr>
+        {{/each}}
+        <tr class="tot"><td colspan="2">Thans despatched <span class="muted">(tag metres are as counted on the than; the quantity above is actual metres)</span></td><td class="num">{{../thanListTotal.count}}</td><td class="num">{{../thanListTotal.metres}}</td></tr>
+      </tbody>
+    </table>
+    {{/if}}
     {{#if ../showGst}}
     <div class="callout">
       <b>No tax charged on this movement</b>

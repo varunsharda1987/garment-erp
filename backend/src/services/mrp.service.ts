@@ -3277,6 +3277,8 @@ export async function generatePOFromRequirements(
   // Phase 4c: PROCESSING requirements return a jobWorkOrder and purchaseOrder: null
   purchaseOrder: { id: string; poNumber: string; totalAmount: number } | null;
   jobWorkOrder?: { id: string; jobWorkNumber: string; totalAmount: number };
+  /** Every job raised — more than one when the selected lines carry different rates */
+  jobWorkOrders?: Array<{ id: string; jobWorkNumber: string; totalAmount: number }>;
   linkedRequirements: number;
   totalItems: number;
   jobWorkNumber?: string;
@@ -3668,6 +3670,34 @@ export async function generatePOFromRequirements(
     throw new Error(`Cannot generate PO with zero-price items: ${names}. Please set prices for all items.`);
   }
 
+  // One job work order per rate. A JWO holds a single agreed rate, and bundling lines priced
+  // differently used to store a value-weighted average — KMC's White at ₹3 and Burgundy at ₹7 became
+  // one DJ-KMC-001 at ₹5.70, and the per-colour rates were stored nowhere (2026-09-24). Split the
+  // selection by rate and raise each group through this same path, so every job carries its own rate.
+  if (requirements.every((req) => req.requirementType === 'PROCESSING')) {
+    const byRate = new Map<number, string[]>();
+    for (const item of poItems) {
+      const ids = byRate.get(item.unitPrice) ?? [];
+      ids.push(...item.requirementIds);
+      byRate.set(item.unitPrice, ids);
+    }
+    if (byRate.size > 1) {
+      const results = [];
+      for (const ids of byRate.values()) {
+        results.push(await generatePOFromRequirements({ ...data, requirementIds: ids }, userId));
+      }
+      const jobWorkOrders = results.flatMap((r) => r.jobWorkOrders ?? (r.jobWorkOrder ? [r.jobWorkOrder] : []));
+      return {
+        purchaseOrder: null,
+        jobWorkOrder: jobWorkOrders[0],
+        jobWorkOrders,
+        jobWorkNumber: jobWorkOrders.map((j) => j.jobWorkNumber).join(', '),
+        linkedRequirements: results.reduce((sum, r) => sum + r.linkedRequirements, 0),
+        totalItems: results.reduce((sum, r) => sum + r.totalItems, 0),
+      };
+    }
+  }
+
   // Determine PO category from material types (material POs only — PROCESSING
   // requirements return early below with a JWO and never reach the PO create)
   const materialTypes = requirements.map((req) => ({
@@ -3758,7 +3788,8 @@ export async function generatePOFromRequirements(
     // MRP-15: the JWO stores a single qty + a single rate, but a job work order can bundle several
     // requirements. This used to take `poItems[0].unitPrice` — the FIRST item's rate — and apply it
     // to the SUMMED quantity, so a bundle of items priced differently was billed entirely at
-    // whichever happened to be first. Use the value-weighted average, which reproduces the exact
+    // whichever happened to be first. Lines at different rates are now split into one job each (see
+    // "One job work order per rate" above), so a bundle shares one rate. Still exact on the
     // line-total sum, and refuse to guess when the units differ.
     const jwoUnits = [...new Set(poItems.map((item) => toRequirementUnit(item.unit)))];
     if (jwoUnits.length > 1) {
@@ -3781,17 +3812,13 @@ export async function generatePOFromRequirements(
       (sum, item) => toNumber(addCurrency(sum, multiplyCurrency(item.quantity, item.unitPrice))),
       0
     );
+    // Every item here carries the same rate — lines at different rates were split into one job each
+    // above — so this is that rate (the division only guards the rounding of the summed total).
     const ratePerMeter = totalBillableMeters > 0 ? toNumber(roundToCent(totalJobValue / totalBillableMeters)) : 0;
-    if (poItems.length > 1 && new Set(poItems.map((i) => i.unitPrice)).size > 1) {
-      logWarn(
-        `[MRP] Job work order bundles ${poItems.length} items at different rates — storing the value-weighted ` +
-          `average ${ratePerMeter} so the total (${totalJobValue}) is preserved.`
-      );
-    }
 
     // Rate provenance for the JWO (qty-rate audit 2026-08-24). Single-item jobs (the norm —
     // each PROCESSING requirement is its own group) pin the exact card + slab; bundles carry
-    // the weighted average, with the card pinned only when every item resolved the SAME card.
+    // one shared rate, with the card pinned only when every item resolved the SAME card.
     const usedResolutions = poItems
       .map((item) => jwoRateResolutions.get(item.requirementIds[0]))
       .filter((r): r is JwoRateResolution => r != null);
@@ -3805,8 +3832,7 @@ export async function generatePOFromRequirements(
           rateSource: usedResolutions.some((r) => r.cardRatePerMeter != null) ? 'RATE_CARD' : 'ORDER_BOM',
           rateBasisQuantity: totalBillableMeters,
           costedRatePerMeter: null,
-          rateVarianceReason:
-            poItems.length > 1 ? `Value-weighted average of ${poItems.length} bundled requirement(s)` : null,
+          rateVarianceReason: null,
         };
     const primary = requirements[0] as any;
     const styleCode = primary.order_items?.styles?.styleCode || 'STK';
@@ -4731,6 +4757,9 @@ function getRequirementIncludes() {
             id: true,
             jobWorkNumber: true,
             jwoStatus: true,
+            // The rate the processor agreed — the list shows it once a job exists (the planned
+            // BOM rate is only an estimate until then)
+            agreedRatePerMeter: true,
           },
         },
       },
@@ -4901,6 +4930,8 @@ function mapToResponse(req: any): MaterialRequirementResponse {
             id: link.job_work_orders.id,
             jobWorkNumber: link.job_work_orders.jobWorkNumber,
             jwoStatus: link.job_work_orders.jwoStatus,
+            agreedRatePerMeter:
+              link.job_work_orders.agreedRatePerMeter != null ? Number(link.job_work_orders.agreedRatePerMeter) : null,
           }
         : undefined,
     })),
@@ -5081,12 +5112,13 @@ export async function generatePOsBySupplier(
       // their own list + count (no more flattening into purchaseOrders as "JWO <n>"),
       // so the UI reports "job work" rather than "purchase order". The dialog is updated
       // in the same release to read totalJwos.
-      if (result.jobWorkOrder) {
+      // More than one job when the group's lines carry different rates (one JWO per rate)
+      for (const jwo of result.jobWorkOrders ?? (result.jobWorkOrder ? [result.jobWorkOrder] : [])) {
         jobWorkOrders.push({
-          id: result.jobWorkOrder.id,
-          jobWorkNumber: result.jobWorkOrder.jobWorkNumber,
+          id: jwo.id,
+          jobWorkNumber: jwo.jobWorkNumber,
           supplierId: group.supplierId,
-          totalAmount: result.jobWorkOrder.totalAmount ?? 0,
+          totalAmount: jwo.totalAmount ?? 0,
         });
       }
       if (result.purchaseOrder) {

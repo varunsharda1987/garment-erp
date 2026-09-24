@@ -279,3 +279,79 @@ describe('MRP generates a lace dyeing job work order', () => {
     }
   });
 });
+
+describe('one job work order per rate (2026-09-24)', () => {
+  // KMC: White at ₹3 and Burgundy at ₹7 were bundled into one job at a value-weighted ₹5.70/m, and
+  // the per-colour rates were stored nowhere. Lines at different rates now become one job each.
+  const mkLine = (suffix: string) =>
+    prisma.material_requirements.create({
+      data: {
+        requirementNumber: `${RUN}-RATE${suffix}`,
+        source: 'SALES_ORDER',
+        orderId,
+        materialId: greigeLaceId,
+        orderBomId,
+        orderBomItemId: laceBomItemId,
+        orderQuantity: ORDER_QTY,
+        quantityPerUnit: QTY_PER_GARMENT,
+        wastagePercent: 0,
+        requiredDate: new Date(Date.now() + 20 * 86400000),
+        createdById: userId,
+        totalRequired: 100,
+        unit: 'METER',
+        availableStock: 0,
+        allocatedFromStock: 0,
+        shortfall: 100,
+        status: 'PO_REQUIRED',
+        requirementType: 'PROCESSING',
+        processorId: dyerId,
+        unitPrice: DYEING_RATE,
+      },
+    });
+
+  it('splits lines priced differently into one job per rate, each at its exact rate', async () => {
+    const white = await mkLine('W');
+    const burgundy = await mkLine('B');
+
+    const result = await generatePOFromRequirements(
+      {
+        requirementIds: [white.id, burgundy.id],
+        supplierId: dyerId,
+        expectedDeliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+        itemPrices: { [white.id]: 3, [burgundy.id]: 7 },
+      } as never,
+      userId
+    );
+
+    expect(result.jobWorkOrders).toHaveLength(2);
+    expect(result.linkedRequirements).toBe(2);
+    const jobs = await prisma.job_work_orders.findMany({
+      where: { id: { in: result.jobWorkOrders!.map((j) => j.id) } },
+      include: { requirementLinks: true },
+    });
+    const rateOf = (reqId: string) =>
+      Number(jobs.find((j) => j.requirementLinks.some((l) => l.requirementId === reqId))!.agreedRatePerMeter);
+    expect(rateOf(white.id)).toBe(3);
+    expect(rateOf(burgundy.id)).toBe(7);
+    for (const j of jobs) expect(j.rateVarianceReason ?? '').not.toMatch(/average/i);
+  });
+
+  it('keeps lines at the same rate on one job', async () => {
+    const a = await mkLine('S1');
+    const b = await mkLine('S2');
+
+    const result = await generatePOFromRequirements(
+      {
+        requirementIds: [a.id, b.id],
+        supplierId: dyerId,
+        expectedDeliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+        itemPrices: { [a.id]: 5, [b.id]: 5 },
+      } as never,
+      userId
+    );
+
+    expect(result.jobWorkOrders ?? [result.jobWorkOrder]).toHaveLength(1);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: result.jobWorkOrder!.id } });
+    expect(Number(jwo!.agreedRatePerMeter)).toBe(5);
+  });
+});

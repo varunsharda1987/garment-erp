@@ -1765,6 +1765,8 @@ interface OutsourcedRow {
   // explicitly: rate for reference, total as the comparable figure.
   costRate: number | null;
   costTotal: number | null;
+  /** PROCESSING with a job: the planned BOM rate, shown beside the agreed one when they differ */
+  plannedRate?: number | null;
   status: string;
   statusColor: string;
   statusLabel: string;
@@ -2432,11 +2434,18 @@ function OutsourcedWorkTab({
               : null,
           // processingCost is a per-unit rate (the convert-to-greige dialog labels it
           // "Processing Cost (per unit)"), so the comparable total is rate × billable quantity.
-          costRate: req.processingCost ?? null,
-          costTotal:
-            req.processingCost != null
-              ? Number(req.processingCost) * Number(req.billableQuantity ?? req.totalRequired)
-              : null,
+          // Once a job exists its AGREED rate is the real one (KMC's jobs were agreed at ₹3 and
+          // ₹7 against a planned ₹8); the planned rate then rides along for comparison.
+          ...(() => {
+            const agreed = jwo?.agreedRatePerMeter ?? null;
+            const rate = agreed ?? (req.processingCost != null ? Number(req.processingCost) : null);
+            const planned = req.processingCost != null ? Number(req.processingCost) : null;
+            return {
+              costRate: rate,
+              costTotal: rate != null ? rate * Number(req.billableQuantity ?? req.totalRequired) : null,
+              plannedRate: agreed != null && planned != null && planned !== agreed ? planned : null,
+            };
+          })(),
           status: req.status,
           statusColor: MaterialRequirementStatusColors[req.status] || 'bg-muted text-foreground',
           // Phase 4c: PROCESSING uses JWOs, not POs — job-work vocabulary for every status
@@ -3098,6 +3107,11 @@ function OutsourcedWorkTab({
                         </span>
                         {row.costRate != null && (
                           <div className="text-xs text-muted-foreground">{formatCurrency(row.costRate)}/unit</div>
+                        )}
+                        {row.plannedRate != null && (
+                          <div className="text-[10px] text-muted-foreground line-through">
+                            planned {formatCurrency(row.plannedRate)}/unit
+                          </div>
                         )}
                       </TableCell>
                       {/* Status */}

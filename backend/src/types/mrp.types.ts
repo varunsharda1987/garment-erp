@@ -463,6 +463,8 @@ export interface RequirementJWOLinkResponse {
     jobWorkNumber: string;
     status: string;
     jwoStatus: string;
+    /** The processor's agreed rate on the job (null until set) */
+    agreedRatePerMeter?: number | null;
   };
 }
 

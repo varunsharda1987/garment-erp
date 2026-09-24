@@ -60,7 +60,7 @@ The style must already exist and must have variants (colours and sizes) configur
 - If you see "No sizes found for this style", fix the style's variants first.
 
 ## Other way in
-From a sale order, open **Orders & Sales → Sale Orders**, open the order and click **Start Production**. That creates the production run for you — by default only for the pieces finished-goods stock does not already cover (choose **Full sale-order quantity** in the dialog to make everything). The order must be Confirmed, every line must have a size, and each style needs an approved cost sheet — otherwise the button explains exactly which of those is missing.
+From a sale order, open **Orders & Sales → Sale Orders**, open the order, open **Actions** and click **Start Production**. If a production order for that style was raised earlier and is not linked to a sale order, **Link to Production Order** appears instead — linking copies the sale order's sizes onto it and creates its production run. That creates the production run for you — by default only for the pieces finished-goods stock does not already cover (choose **Full sale-order quantity** in the dialog to make everything). The order must be Confirmed, every line must have a size, and each style needs an approved cost sheet — otherwise the button explains exactly which of those is missing.
 
 ## After creating
 Open the run and use **Push to Cutting** when materials are ready. Only runs still in **Pending** status can be edited with **Edit**.

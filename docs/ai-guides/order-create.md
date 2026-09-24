@@ -74,7 +74,7 @@ An order can be created with the total quantity only, so long-lead greige, dyein
 
 1. Open the order and scroll to **Order Items**.
 2. The item shows **Size breakdown not specified**. Click **Add Size Breakdown**.
-3. A dialog titled **Add Size Breakdown** opens. The description explains that entering sizes generates per-size label requirements and lets production work orders be created. Click **Distribute [N] evenly** (the button carries the item's total) to spread the pieces across every size, or type the pieces into the box under each size name.
+3. A dialog titled **Add Size Breakdown** opens. The description explains that entering sizes generates per-size label requirements and lets production work orders be created. Pick the **Colour *** for these sizes — it is filled in and locked when the style has only one colour. Click **Distribute [N] evenly** (the button carries the item's total) to spread the pieces across every size, or type the pieces into the box under each size name.
 4. Check the **Entered: X / Y pcs** counter. X is what you typed, Y is what the order currently carries.
 5. Click **Save Size Breakdown**.
 6. If the sizes add up to a different total, the save is refused once and an alert explains the difference. The button then reads **Confirm & change quantity to [N]**. Clicking it saves the sizes and changes the order quantity to N.
@@ -87,4 +87,5 @@ Traps in this dialog:
 - Only sizes belonging to the order's style are accepted.
 - A **Cancelled** or **Split** order will not accept a size breakdown.
 - If the confirmation message mentions requirements already on a purchase order, those are not adjusted automatically — check them yourself afterwards.
-- If the style has multiple colours, a note explains that these quantities are per size only, not split by colour — use the order edit screen for a colour-wise split.
+- **Save Size Breakdown** stays disabled until a colour is chosen. If the dialog says **This style has no colour yet**, set the style's Primary Color first — production needs a colour to record stitched pieces and put them into finished-goods stock.
+- An order linked to a sale order with **Link to Production Order** gets its sizes from that sale order automatically; you do not enter them here.

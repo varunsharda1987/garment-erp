@@ -99,6 +99,10 @@ export interface GRNItemDetail {
   detailType: 'THAN' | 'ROLL';
   baleNumber: number | null;
   sequenceNo: number;
+  /** The bale number PRINTED on the supplier's bale (e.g. "417"). baleNumber is only our 1,2,3 grouping. */
+  baleNo?: string | null;
+  /** The tag number on the than / roll. sequenceNo is only its order. */
+  thanNo?: string | null;
   meters: number;
   remarks: string | null;
 }
@@ -107,8 +111,15 @@ export interface GRNItemDetailRequest {
   detailType: 'THAN' | 'ROLL';
   baleNumber?: number | null;
   sequenceNo: number;
+  baleNo?: string | null;
+  thanNo?: string | null;
   meters: number;
   remarks?: string | null;
+}
+
+/** PATCH /grn/items/:itemId/detail-labels — printed bale / than numbers only, never quantities. */
+export interface GRNDetailLabelsRequest {
+  details: Array<{ id: string; baleNo?: string | null; thanNo?: string | null }>;
 }
 
 // ============================================

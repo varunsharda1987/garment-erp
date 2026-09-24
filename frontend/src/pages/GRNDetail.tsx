@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { getGRNById, approveGRN, rejectGRN } from '@/services/grn.service';
+import { getGRNById, approveGRN, rejectGRN, updateGRNDetailLabels } from '@/services/grn.service';
 import { openPDF } from '@/lib/document-utils';
-import type { GRN, GRNStatus, ProcessingQCData } from '@/types/grn.types';
+import type { GRN, GRNItem, GRNItemDetail, GRNStatus, ProcessingQCData } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -19,6 +19,14 @@ import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
   ArrowLeft,
   CheckCircle,
   XCircle,
@@ -28,11 +36,18 @@ import {
   ArrowRight,
   X,
   AlertTriangle,
+  Tag,
 } from 'lucide-react';
 import type { PendingCuttingInfo } from '@/services/grn.service';
 import { formatDate } from '@/lib/date';
 import { foldActual, hasFold } from '@/lib/fold-length';
 import { formatCurrency } from '@/lib/currency';
+
+/** "T-1023" when the than carries its printed tag, else "T5" by position */
+const detailLabel = (d: GRNItemDetail, position: number): string => {
+  const prefix = d.detailType === 'THAN' ? 'T' : 'R';
+  return d.thanNo ? `${prefix}-${d.thanNo}` : `${prefix}${position}`;
+};
 
 export default function GRNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -51,6 +66,12 @@ export default function GRNDetail() {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  // Printed bale / than numbers (labels only — never quantities, so editable in any status)
+  const [labelsItem, setLabelsItem] = useState<GRNItem | null>(null);
+  const [baleNoDrafts, setBaleNoDrafts] = useState<Record<number, string>>({});
+  const [thanNoDrafts, setThanNoDrafts] = useState<Record<string, string>>({});
+  const [isSavingLabels, setIsSavingLabels] = useState(false);
 
   // Processing QC state
   const [qcGrade, setQcGrade] = useState('A');
@@ -121,6 +142,41 @@ export default function GRNDetail() {
       handleApiError(err, 'Failed to approve GRN');
     } finally {
       setApproveDialogOpen(false);
+    }
+  };
+
+  const openLabelsDialog = (item: GRNItem) => {
+    const bales: Record<number, string> = {};
+    const thans: Record<string, string> = {};
+    (item.grnItemDetails ?? []).forEach((d) => {
+      const bale = d.baleNumber || 0;
+      if (bales[bale] === undefined || (!bales[bale] && d.baleNo)) bales[bale] = d.baleNo ?? '';
+      thans[d.id] = d.thanNo ?? '';
+    });
+    setBaleNoDrafts(bales);
+    setThanNoDrafts(thans);
+    setLabelsItem(item);
+  };
+
+  const handleSaveLabels = async () => {
+    if (!labelsItem) return;
+    const isBaleWise = labelsItem.entryMode === 'BALE_WISE';
+    try {
+      setIsSavingLabels(true);
+      await updateGRNDetailLabels(labelsItem.id, {
+        details: (labelsItem.grnItemDetails ?? []).map((d) => ({
+          id: d.id,
+          baleNo: isBaleWise ? baleNoDrafts[d.baleNumber || 0]?.trim() || null : (d.baleNo ?? null),
+          thanNo: thanNoDrafts[d.id]?.trim() || null,
+        })),
+      });
+      handleApiSuccess('Bale and than numbers saved');
+      setLabelsItem(null);
+      fetchGRN();
+    } catch (err) {
+      handleApiError(err, 'Failed to save bale and than numbers');
+    } finally {
+      setIsSavingLabels(false);
     }
   };
 
@@ -477,10 +533,7 @@ export default function GRNDetail() {
                         <div className="mt-2 bg-muted/30 rounded p-2 space-y-1">
                           {item.grnItemDetails!.map((d, di) => (
                             <div key={d.id} className="flex gap-2 text-xs">
-                              <span className="text-muted-foreground w-6">
-                                {d.detailType === 'THAN' ? 'T' : 'R'}
-                                {di + 1}
-                              </span>
+                              <span className="text-muted-foreground min-w-6">{detailLabel(d, di + 1)}</span>
                               <span className="font-medium">{Number(d.meters).toFixed(3)}m</span>
                             </div>
                           ))}
@@ -490,14 +543,15 @@ export default function GRNDetail() {
                         <div className="mt-2 space-y-2">
                           {Array.from(baleGroups.entries()).map(([baleNum, baleDetails]) => {
                             const baleSum = baleDetails!.reduce((s, d) => s + Number(d.meters), 0);
+                            const printedBaleNo = baleDetails!.find((d) => d.baleNo)?.baleNo;
                             return (
                               <div key={baleNum} className="bg-muted/30 rounded p-2">
                                 <div className="text-xs font-medium mb-1">
-                                  Bale {baleNum} ({baleDetails!.length} thans, {baleSum.toFixed(3)}m)
+                                  Bale {printedBaleNo || baleNum} ({baleDetails!.length} thans, {baleSum.toFixed(3)}m)
                                 </div>
                                 {baleDetails!.map((d, di) => (
                                   <div key={d.id} className="flex gap-2 text-xs pl-2">
-                                    <span className="text-muted-foreground w-6">T{di + 1}</span>
+                                    <span className="text-muted-foreground min-w-6">{detailLabel(d, di + 1)}</span>
                                     <span>{Number(d.meters).toFixed(3)}m</span>
                                   </div>
                                 ))}
@@ -505,6 +559,17 @@ export default function GRNDetail() {
                             );
                           })}
                         </div>
+                      )}
+                      {hasDetails && grn.purchaseOrders?.poCategory === 'GREIGE' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 h-7 text-xs"
+                          onClick={() => openLabelsDialog(item)}
+                        >
+                          <Tag className="h-3 w-3 mr-1" /> Edit bale / than numbers
+                        </Button>
                       )}
                     </TableCell>
                     <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
@@ -778,6 +843,76 @@ export default function GRNDetail() {
           </Card>
         </div>
       )}
+
+      {/* Printed bale / than numbers */}
+      <Dialog open={!!labelsItem} onOpenChange={(open) => !open && !isSavingLabels && setLabelsItem(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit bale / than numbers</DialogTitle>
+            <DialogDescription>
+              {labelsItem?.materials?.code} — the numbers printed on the supplier&apos;s bales and than tags. Metres are
+              not changed.
+            </DialogDescription>
+          </DialogHeader>
+          {labelsItem && (
+            <div className="space-y-3">
+              {(() => {
+                const groups = new Map<number, GRNItemDetail[]>();
+                (labelsItem.grnItemDetails ?? []).forEach((d) => {
+                  const bale = labelsItem.entryMode === 'BALE_WISE' ? d.baleNumber || 0 : 0;
+                  if (!groups.has(bale)) groups.set(bale, []);
+                  groups.get(bale)!.push(d);
+                });
+                const rowLabel = labelsItem.entryMode === 'ROLL_WISE' ? 'Roll No.' : 'Than No.';
+                return Array.from(groups.entries()).map(([baleNum, rows]) => (
+                  <div key={baleNum} className="rounded-md border p-2 space-y-2">
+                    {labelsItem.entryMode === 'BALE_WISE' && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium w-16">Bale {baleNum}</span>
+                        <Label className="text-xs text-muted-foreground">Bale No.</Label>
+                        <Input
+                          value={baleNoDrafts[baleNum] ?? ''}
+                          onChange={(e) => setBaleNoDrafts((prev) => ({ ...prev, [baleNum]: e.target.value }))}
+                          className="h-7 w-[110px] text-xs"
+                          placeholder="e.g. 417"
+                          maxLength={30}
+                          aria-label={`Bale No. for bale ${baleNum}`}
+                        />
+                      </div>
+                    )}
+                    {rows.map((d, di) => (
+                      <div key={d.id} className="flex items-center gap-2 pl-4">
+                        <span className="text-xs text-muted-foreground w-10">
+                          {d.detailType === 'THAN' ? 'T' : 'R'}
+                          {di + 1}
+                        </span>
+                        <span className="text-xs w-20">{Number(d.meters).toFixed(3)}m</span>
+                        <Label className="text-xs text-muted-foreground">{rowLabel}</Label>
+                        <Input
+                          value={thanNoDrafts[d.id] ?? ''}
+                          onChange={(e) => setThanNoDrafts((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                          className="h-7 w-[110px] text-xs"
+                          placeholder="Optional"
+                          maxLength={30}
+                          aria-label={`${rowLabel} for row ${di + 1}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ));
+              })()}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLabelsItem(null)} disabled={isSavingLabels}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveLabels} disabled={isSavingLabels}>
+              {isSavingLabels ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   Ban,
   MessageCircle,
   Undo2,
+  ListChecks,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,12 +48,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrder.service';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
-import { evaluateLotRows, round2, type IssueLotRow } from '@/components/job-work/lot-rows';
+import {
+  evaluateLotRows,
+  lotHasThans,
+  picksPayload,
+  round2,
+  rowHasPicks,
+  thanPickErrors,
+  totalDetailMeters,
+  type IssueLotRow,
+  type SelectedDetail,
+} from '@/components/job-work/lot-rows';
+import { ThanPicker } from '@/components/job-work/ThanPicker';
+import { foldActual } from '@/lib/fold-length';
+import { formatQuantity } from '@/lib/formatters';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -61,7 +76,7 @@ import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import { formatDate } from '@/lib/date';
-import { isQtyZero, prefillQty, qtyAtLeast, qtyRemaining, snapToLimit } from '@/lib/quantity';
+import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -105,6 +120,18 @@ function getDaysOutstanding(sentDate?: string): number | null {
  * else the preview reports is about the order's stamped lot, which the rows below replace.
  */
 const ISSUE_FATAL_BLOCKER_CODES = new Set(['ALREADY_ISSUED', 'ORDER_CANCELLED', 'NOT_FOUND']);
+
+/** Job statuses after the material left — mirrors ISSUED_JOB_STATUSES behind record-thans. */
+const ISSUED_JOB_STATUSES = [
+  'ISSUED',
+  'IN_TRANSIT',
+  'AT_PROCESSOR',
+  'PARTIALLY_RECEIVED',
+  'RECEIVED',
+  'QUALITY_CHECKED',
+  'STOCK_UPDATED',
+  'CLOSED',
+];
 
 /**
  * Issue failures that name a specific lot, quantity or width. The operator has to read the whole
@@ -151,6 +178,10 @@ export default function JobWorkOrderDetail() {
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
   const [issueWidthAcknowledged, setIssueWidthAcknowledged] = useState(false);
   const [issueVehicle, setIssueVehicle] = useState('');
+  // Record thans sent — name the thans that left on a job issued by quantity only
+  const [recordThansOpen, setRecordThansOpen] = useState(false);
+  const [recordLotId, setRecordLotId] = useState('');
+  const [recordPicks, setRecordPicks] = useState<SelectedDetail[]>([]);
 
   const {
     data: jwo,
@@ -286,6 +317,28 @@ export default function JobWorkOrderDetail() {
       const filledRows = issueRows.filter((row) => row.lotId && parseFloat(row.qty) > 0);
       const lotAvailable = (lotId: string, fallback: number) =>
         issuePreview?.availableLots.find((lot) => lot.id === lotId)?.quantityAvailable ?? fallback;
+      const isGreigeIssue =
+        jwo?.fabricType === 'GREIGE' && !jwo?.fabricStockLotId && issuePreview?.fabricType !== 'LACE';
+      // A lot that has thans but went out by quantity leaves its thans unnamed — say so after the issue
+      const thansUnrecorded = isGreigeIssue && filledRows.some((row) => lotHasThans(row) && !rowHasPicks(row));
+      // Any picked than sends the whole issue through issue-with-details: rows with picks name their
+      // thans (COUNTED — the server converts them), rows without travel as an ACTUAL quantity.
+      if (isGreigeIssue && filledRows.some(rowHasPicks)) {
+        return jobWorkOrderService
+          .issueWithDetails(id!, {
+            vehicleNumber: issueVehicle || undefined,
+            acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
+            lots: filledRows.map((row) =>
+              rowHasPicks(row)
+                ? { greigeStockLotId: row.lotId, details: picksPayload(row.selectedDetails) }
+                : {
+                    greigeStockLotId: row.lotId,
+                    qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
+                  }
+            ),
+          })
+          .then((result) => ({ ...result, thansUnrecorded }));
+      }
       const payload: IssueJwoPayload = {
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
@@ -310,7 +363,7 @@ export default function JobWorkOrderDetail() {
           qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
         }));
       }
-      return jobWorkOrderService.issue(id!, payload);
+      return jobWorkOrderService.issue(id!, payload).then((result) => ({ ...result, thansUnrecorded }));
     },
     onSuccess: (result) => {
       setIssueDialogOpen(false);
@@ -318,15 +371,23 @@ export default function JobWorkOrderDetail() {
       setIssueWidthAcknowledged(false);
       setIssueVehicle('');
       // Virtual issuance (stock already at processor) vs physical dispatch
+      const thansNote = result.thansUnrecorded
+        ? {
+            description: 'Thans not recorded — you can record them later from the job (Record thans sent).',
+            duration: 8000,
+          }
+        : undefined;
       if (result.challanNumber === 'VIRTUAL-ALLOCATION') {
-        toast.success('Job work order issued — stock already at processor (no challan needed)');
+        toast.success('Job work order issued — stock already at processor (no challan needed)', thansNote);
       } else {
-        toast.success(`Job work order issued — Challan ${result.challanNumber} created`);
+        toast.success(`Job work order issued — Challan ${result.challanNumber} created`, thansNote);
       }
       if (result.warning) toast.warning(result.warning);
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
       queryClient.invalidateQueries({ queryKey: ['jwo-issue-preview', id] });
+      queryClient.invalidateQueries({ queryKey: ['jwo-than-record', id] });
+      queryClient.invalidateQueries({ queryKey: ['greige-lot-thans'] });
     },
     onError: (err: any) => {
       const code = err.response?.data?.code;
@@ -336,6 +397,58 @@ export default function JobWorkOrderDetail() {
       } else {
         toast.error(message || 'Failed to issue');
       }
+    },
+  });
+
+  // Record thans sent: which greige lots this issued job took, and how much of each is named by than
+  const thanRecordEnabled = !!id && jwo?.fabricType === 'GREIGE' && ISSUED_JOB_STATUSES.includes(jwo.jwoStatus);
+  const { data: thanRecord } = useQuery({
+    queryKey: ['jwo-than-record', id],
+    queryFn: () => jobWorkOrderService.getThanRecord(id!),
+    enabled: thanRecordEnabled,
+  });
+  const thanRecordPending = (thanRecord?.lots ?? []).filter(
+    (lot) => lot.lotHasThans && qtyExceeds(lot.takenActual, lot.recordedActual)
+  );
+  const recordLot = thanRecordPending.find((lot) => lot.greigeStockLotId === recordLotId);
+  const { data: recordLotThans, isLoading: recordLotThansLoading } = useQuery({
+    queryKey: ['greige-lot-thans', recordLotId],
+    queryFn: () => jobWorkOrderService.getAvailableDetails(recordLotId),
+    enabled: recordThansOpen && !!recordLotId,
+    staleTime: 0,
+  });
+  // ACTUAL metres still to name on this lot
+  const recordTarget = recordLot ? qtyRemaining(recordLot.takenActual, recordLot.recordedActual) : 0;
+  // The server's own check: everything named on the lot, converted once, must not exceed what the job took
+  const recordAfterActual = recordLot
+    ? foldActual(recordLot.recordedCounted + totalDetailMeters(recordPicks), recordLot.foldLengthCm)
+    : 0;
+  const recordOverTaken = !!recordLot && qtyExceeds(recordAfterActual, recordLot.takenActual);
+  const recordPickErrors = thanPickErrors(recordPicks, recordLotThans);
+
+  const openRecordThans = () => {
+    setRecordLotId(thanRecordPending[0]?.greigeStockLotId ?? '');
+    setRecordPicks([]);
+    setRecordThansOpen(true);
+  };
+
+  const recordThansMutation = useMutation({
+    mutationFn: () =>
+      jobWorkOrderService.recordThans(id!, {
+        lots: [{ greigeStockLotId: recordLotId, details: picksPayload(recordPicks) }],
+      }),
+    onSuccess: (result) => {
+      toast.success(`Thans recorded on ${result.jobWorkNumber}`);
+      setRecordThansOpen(false);
+      setRecordPicks([]);
+      queryClient.invalidateQueries({ queryKey: ['jwo-than-record', id] });
+      queryClient.invalidateQueries({ queryKey: ['greige-lot-thans'] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['greige-stock'] });
+    },
+    onError: (err: unknown) => {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || 'Could not record the thans', { duration: 8000 });
     },
   });
 
@@ -539,6 +652,7 @@ export default function JobWorkOrderDetail() {
       ? true
       : issueRowsComplete &&
         issueTotalMatches &&
+        !issueEval.hasThanErrors &&
         !issueHasDuplicateLot &&
         !issueHasMixedGreige &&
         (!issueNeedsWidthAck || issueWidthAcknowledged);
@@ -1100,6 +1214,23 @@ export default function JobWorkOrderDetail() {
                   </Button>
                 )}
 
+              {/* A job issued by quantity left its thans unnamed — name them now so the godown list is right */}
+              {thanRecordPending.length > 0 && (
+                <div className="space-y-1">
+                  <Button className="w-full" variant="outline" onClick={openRecordThans}>
+                    <ListChecks className="mr-2 h-4 w-4" />
+                    Record thans sent
+                  </Button>
+                  {thanRecordPending.map((lot) => (
+                    <p key={lot.greigeStockLotId} className="text-xs text-muted-foreground">
+                      {thanRecordPending.length > 1 && lot.greigeCode ? `${lot.greigeCode}: ` : ''}
+                      {formatQuantity(lot.recordedActual, jwo.uom)} of {formatQuantity(lot.takenActual, jwo.uom)}{' '}
+                      recorded by than
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {jwo.jwoStatus !== 'CLOSED' &&
                 ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.jwoStatus) && (
                   <Button
@@ -1434,6 +1565,8 @@ export default function JobWorkOrderDetail() {
                   required={issuesGreige || issuesLace}
                   allowNoLot={issueAllowsNoLot}
                   disabled={issueMutation.isPending}
+                  // Greige leaves the godown by the than: guide the operator to name them
+                  enableDetailSelection={issuesGreige && !issuesLace && !issuesFromFabricRoll}
                 />
 
                 {issueAllowsNoLot && (
@@ -1486,6 +1619,97 @@ export default function JobWorkOrderDetail() {
             >
               <Send className="mr-2 h-4 w-4" />
               {issueMutation.isPending ? 'Issuing...' : 'Issue & Create Challan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record thans sent — the thans that left on a job issued by quantity */}
+      <Dialog open={recordThansOpen} onOpenChange={setRecordThansOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Record thans sent</DialogTitle>
+            <DialogDescription>
+              {jwo.jobWorkNumber} went out by quantity. Tick the thans that were on the vehicle — this only updates the
+              godown's than list; the lot's stock already moved when the job was issued.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {thanRecordPending.length > 1 && (
+              <div className="space-y-1.5">
+                <Label>Lot</Label>
+                <Select
+                  value={recordLotId}
+                  onValueChange={(v) => {
+                    setRecordLotId(v);
+                    setRecordPicks([]);
+                  }}
+                  disabled={recordThansMutation.isPending}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select lot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {thanRecordPending.map((lot) => (
+                      <SelectItem key={lot.greigeStockLotId} value={lot.greigeStockLotId}>
+                        {lot.greigeCode ?? 'Lot'} — {formatQuantity(lot.recordedActual, jwo.uom)} of{' '}
+                        {formatQuantity(lot.takenActual, jwo.uom)} recorded
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {recordLot && (
+              <p className="text-sm">
+                {recordLot.greigeCode ?? 'This lot'}: the job took {formatQuantity(recordLot.takenActual, jwo.uom)};{' '}
+                {formatQuantity(recordLot.recordedActual, jwo.uom)} already recorded by than.
+              </p>
+            )}
+
+            {recordLotThansLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : recordLotThans ? (
+              <div className="rounded-md border bg-muted/30 p-3">
+                <ThanPicker
+                  lotThans={recordLotThans}
+                  selected={recordPicks}
+                  onChange={setRecordPicks}
+                  targetActual={recordTarget}
+                  uom={jwo.uom}
+                  disabled={recordThansMutation.isPending}
+                  snapToLot={false}
+                />
+              </div>
+            ) : null}
+
+            {recordOverTaken && recordLot && (
+              <p className="text-xs text-red-600">
+                These thans come to more than the job took from this lot ({formatQuantity(recordAfterActual, jwo.uom)}{' '}
+                against {formatQuantity(recordLot.takenActual, jwo.uom)} actual) — untick some or send a part of the
+                last than.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecordThansOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => recordThansMutation.mutate()}
+              disabled={
+                recordThansMutation.isPending ||
+                !recordLot ||
+                picksPayload(recordPicks).length === 0 ||
+                recordPickErrors ||
+                recordOverTaken
+              }
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              {recordThansMutation.isPending ? 'Recording…' : 'Record thans sent'}
             </Button>
           </DialogFooter>
         </DialogContent>

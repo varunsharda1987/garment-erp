@@ -31,7 +31,10 @@ import {
   autoFillLotRows,
   emptyLotRow,
   evaluateLotRows,
+  picksPayload,
   round3,
+  rowHasPicks,
+  thanPickActual,
   type IssueLotRow,
 } from '@/components/job-work/lot-rows';
 import { jobWorkOrderService, type DispatchOrderInput, type DispatchableOrder } from '@/services/jobWorkOrder.service';
@@ -127,6 +130,7 @@ export default function DispatchToProcessor() {
         (!needsLots ||
           (evaluation.rowsComplete &&
             evaluation.totalMatches &&
+            !evaluation.hasThanErrors &&
             !evaluation.hasDuplicateLot &&
             !evaluation.hasMixedGreige));
       return { order, state, evaluation, needsLots, fatal, valid };
@@ -134,15 +138,23 @@ export default function DispatchToProcessor() {
 
     // The server refuses a lot that appears on two orders (LOT_REUSED_ACROSS_ORDERS): each order
     // dedups its own rows but cannot see its siblings'. Mirror it here so the operator is told at
-    // the point of the mistake rather than by a rejected submit.
-    const lotOwners = new Map<string, string[]>();
+    // the point of the mistake rather than by a rejected submit. The one exception: two orders may
+    // share a lot when each names its own thans and no than is on both.
+    const lotOwners = new Map<string, Array<{ jobWorkNumber: string; row: IssueLotRow }>>();
     for (const { order, state } of perOrder) {
       for (const row of state.rows) {
         if (!row.lotId) continue;
-        lotOwners.set(row.lotId, [...(lotOwners.get(row.lotId) ?? []), order.jobWorkNumber]);
+        lotOwners.set(row.lotId, [...(lotOwners.get(row.lotId) ?? []), { jobWorkNumber: order.jobWorkNumber, row }]);
       }
     }
-    const reusedLots = [...lotOwners.entries()].filter(([, owners]) => new Set(owners).size > 1);
+    const reusedLots = [...lotOwners.entries()]
+      .filter(([, owners]) => {
+        if (new Set(owners.map((o) => o.jobWorkNumber)).size < 2) return false;
+        if (!owners.every((o) => rowHasPicks(o.row))) return true;
+        const thanIds = owners.flatMap((o) => (o.row.selectedDetails ?? []).map((d) => d.detailId));
+        return new Set(thanIds).size !== thanIds.length;
+      })
+      .map(([lotId, owners]) => [lotId, owners.map((o) => o.jobWorkNumber)] as const);
 
     const widthAckNeeded = perOrder.some((p) => p.evaluation.needsWidthAck);
     const totalQty = round3(perOrder.reduce((sum, p) => sum + p.evaluation.totalQty, 0));
@@ -170,20 +182,35 @@ export default function DispatchToProcessor() {
         // A single lot covering the whole order travels as greigeStockLotId, never as a
         // one-element lots[]: the server then consumes the order's own quantity verbatim, so the
         // figure cannot drift by a paisa from a number that went through an input box and back.
+        // Picked thans always travel as lots[] with their details — the server books those thans.
         const onlyQty = filled.length === 1 ? parseFloat(filled[0].qty) : NaN;
-        if (filled.length === 1 && !qtyExceeds(onlyQty, order.requiredQty) && !qtyExceeds(order.requiredQty, onlyQty)) {
+        if (
+          filled.length === 1 &&
+          !rowHasPicks(filled[0]) &&
+          !qtyExceeds(onlyQty, order.requiredQty) &&
+          !qtyExceeds(order.requiredQty, onlyQty)
+        ) {
           return { jwoId: order.id, greigeStockLotId: filled[0].lotId };
         }
         return {
           jwoId: order.id,
-          // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
-          lots: filled.map((r) => ({
-            greigeStockLotId: r.lotId,
-            qty: snapToLimit(
-              parseFloat(r.qty),
-              order.availableLots.find((lot) => lot.id === r.lotId)?.quantityAvailable ?? parseFloat(r.qty)
-            ),
-          })),
+          lots: filled.map((r) =>
+            rowHasPicks(r)
+              ? {
+                  greigeStockLotId: r.lotId,
+                  // The picks' ACTUAL metres (the server recomputes them from the thans)
+                  qty: thanPickActual(r.selectedDetails, r.lotThans),
+                  details: picksPayload(r.selectedDetails),
+                }
+              : {
+                  greigeStockLotId: r.lotId,
+                  // A full lot typed at 2 decimals IS the full lot (see @/lib/quantity)
+                  qty: snapToLimit(
+                    parseFloat(r.qty),
+                    order.availableLots.find((lot) => lot.id === r.lotId)?.quantityAvailable ?? parseFloat(r.qty)
+                  ),
+                }
+          ),
         };
       });
 
@@ -394,6 +421,7 @@ export default function DispatchToProcessor() {
                             uom={order.uom}
                             evaluation={evaluation}
                             disabled={dispatchMutation.isPending}
+                            enableDetailSelection
                           />
                         </>
                       )}
@@ -414,7 +442,7 @@ export default function DispatchToProcessor() {
             {assessment.reusedLots.map(([lotId, owners]) => (
               <div key={lotId}>
                 A lot is listed on {[...new Set(owners)].join(' and ')}. One roll of cloth can only be sent once — split
-                the quantity across different lots.
+                the quantity across different lots, or pick different thans of it on each order.
               </div>
             ))}
           </AlertDescription>

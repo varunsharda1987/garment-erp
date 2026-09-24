@@ -22,35 +22,90 @@ export interface IssueLotInput {
   qty: number;
 }
 
-/** A single than/bale detail within a greige lot (for bale/than-level issuance). */
+/**
+ * One than (a folded piece) of a greige lot, grouped in bales. `meters` / `metersRemaining` are
+ * COUNTED (tag) metres at the lot's fold length — never compare them to a lot or job quantity,
+ * which are ACTUAL metres (see @/lib/fold-length).
+ */
 export interface GreigeStockDetail {
   id: string;
+  /** Internal bale grouping (1, 2, 3…); null for a than received outside any bale */
   baleNumber: number | null;
   sequenceNo: number;
+  /** COUNTED metres the than arrived with */
   meters: number;
+  /** COUNTED metres still in the godown */
   metersRemaining: number;
   status: 'AVAILABLE' | 'PARTIAL' | 'CONSUMED';
+  /** Bale number printed on the bale, when it was entered at receipt */
+  baleNo: string | null;
+  /** Than tag number, when it was entered at receipt */
+  thanNo: string | null;
   remarks: string | null;
 }
 
-/** Detail-level selection for bale/than issuance. */
+/** GET /api/greige/stock/:stockId/available-details — the lot's thans still in the godown. */
+export interface GreigeLotThans {
+  stockId: string;
+  baleCount: number | null;
+  thanCount: number | null;
+  /** ACTUAL metres available in the lot */
+  totalAvailable: number;
+  /** The lot's fold length L in cm — than metres are counted at it; null = no fold */
+  foldLengthCm: number | null;
+  details: GreigeStockDetail[];
+}
+
+/** One picked than: which than, and how many COUNTED metres of it (a partial than is allowed). */
 export interface IssueDetailInput {
   greigeStockDetailId: string;
   metersToIssue: number;
 }
 
-/** One lot with detail-level selections for issue-with-details. */
+/**
+ * One lot on issue-with-details: either the thans that leave (`details`, COUNTED metres — the
+ * server converts them to actual itself) or a plain quantity (`qty`, ACTUAL metres). Mixed lots
+ * in one issue are allowed.
+ */
 export interface IssueLotWithDetailsInput {
   greigeStockLotId: string;
-  details: IssueDetailInput[];
+  details?: IssueDetailInput[];
+  qty?: number;
 }
 
-/** Payload for bale/than-level issuance. */
+/** POST /api/job-work-orders/:id/issue-with-details */
 export interface IssueWithDetailsPayload {
   sentDate?: string;
   vehicleNumber?: string;
   challanNumber?: string;
+  acknowledgeWidthMismatch?: boolean;
+  finishedFabricId?: string | null;
   lots: IssueLotWithDetailsInput[];
+}
+
+/** GET /api/job-work-orders/:id/than-record — one greige lot the job took. */
+export interface ThanRecordLot {
+  greigeStockLotId: string;
+  greigeCode: string | null;
+  foldLengthCm: number | null;
+  /** ACTUAL metres the job took from this lot */
+  takenActual: number;
+  /** Thans already named against the job, COUNTED and ACTUAL */
+  recordedCounted: number;
+  recordedActual: number;
+  /** false = the lot was received without a than breakdown, so there is nothing to name */
+  lotHasThans: boolean;
+}
+
+export interface ThanRecord {
+  jobWorkNumber: string;
+  jwoStatus: string;
+  lots: ThanRecordLot[];
+}
+
+/** POST /api/job-work-orders/:id/record-thans */
+export interface RecordThansPayload {
+  lots: Array<{ greigeStockLotId: string; details: IssueDetailInput[] }>;
 }
 
 /** POST /api/grn/jwo/receive — the one-action job-work receipt. */
@@ -169,9 +224,15 @@ export interface DispatchableOrder {
 }
 
 /** One order's place on the truck. Same lot rule as a single issue: omit `lots` to use the stamp. */
+/** A dispatch lot row: an issue lot that may also name the thans that leave (COUNTED metres). */
+export interface DispatchLotInput extends IssueLotInput {
+  /** qty must then be the picks' ACTUAL metres — the server recomputes it from the thans */
+  details?: IssueDetailInput[];
+}
+
 export interface DispatchOrderInput {
   jwoId: string;
-  lots?: IssueLotInput[];
+  lots?: DispatchLotInput[];
   greigeStockLotId?: string | null;
   fabricStockLotId?: string | null;
 }
@@ -405,17 +466,17 @@ export const jobWorkOrderService = {
   },
 
   /**
-   * Get available bale/than details for a greige stock lot (for bale/than-level issuance).
-   * Returns the individual thans grouped by bale, with remaining meters.
+   * The thans of a greige lot still in the godown, grouped by bale, with the lot's fold length.
+   * Than metres are COUNTED; `totalAvailable` is ACTUAL.
    */
-  async getAvailableDetails(greigeStockId: string): Promise<GreigeStockDetail[]> {
+  async getAvailableDetails(greigeStockId: string): Promise<GreigeLotThans> {
     const response = await api.get(`/greige/stock/${greigeStockId}/available-details`);
     return response.data.data;
   },
 
   /**
-   * Issue with bale/than-level detail selection (for processor dispatch).
-   * Allows selecting specific thans and optionally splitting them.
+   * Issue naming the thans that leave. Each lot carries either picked thans (COUNTED metres) or a
+   * plain ACTUAL quantity; the server converts picks to actual itself.
    */
   async issueWithDetails(
     id: string,
@@ -423,6 +484,24 @@ export const jobWorkOrderService = {
   ): Promise<{ data: JobWorkOrder; challanNumber: string; warning?: string }> {
     const response = await api.post(`${BASE_URL}/${id}/issue-with-details`, payload);
     return { data: response.data.data, challanNumber: response.data.challanNumber, warning: response.data.warning };
+  },
+
+  /** The greige lots an issued job took, and how much of each is already named by than. */
+  async getThanRecord(id: string): Promise<ThanRecord> {
+    const response = await api.get(`${BASE_URL}/${id}/than-record`);
+    return response.data.data;
+  },
+
+  /**
+   * Name the thans that left on a job issued by quantity. Marks them issued; the lot's stock is
+   * not moved again. Refused (422) when the picks exceed what the job took from the lot.
+   */
+  async recordThans(
+    id: string,
+    payload: RecordThansPayload
+  ): Promise<{ jobWorkNumber: string; lots: ThanRecordLot[] }> {
+    const response = await api.post(`${BASE_URL}/${id}/record-thans`, payload);
+    return response.data.data;
   },
 };
 

@@ -36,6 +36,10 @@ interface DetailRow {
   detailType: 'THAN' | 'ROLL';
   baleNumber: number | null;
   sequenceNo: number;
+  /** Bale number printed on the supplier's bale (e.g. "417"); shared by every than of the bale */
+  baleNo?: string;
+  /** Tag number on the than (or roll) */
+  thanNo?: string;
   meters: string;
   remarks: string;
 }
@@ -80,9 +84,16 @@ const getNextBaleNumber = (details: DetailRow[]): number => {
   return maxBale + 1;
 };
 
+// max + 1, never count + 1: after a row is removed a count would repeat an existing sequenceNo
 const getNextSequence = (details: DetailRow[], baleNumber?: number | null): number => {
   const relevant = baleNumber ? details.filter((d) => d.baleNumber === baleNumber) : details;
-  return relevant.length + 1;
+  return Math.max(0, ...relevant.map((d) => d.sequenceNo)) + 1;
+};
+
+/** Trimmed label, or null when blank */
+const cleanLabel = (value?: string): string | null => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 };
 
 // ============================================
@@ -219,10 +230,13 @@ export default function GRNForm() {
       prev.map((item, i) => {
         if (i !== itemIndex) return item;
         const seq = getNextSequence(item.details, baleNumber);
+        // A new than in a bale inherits the bale's printed number
+        const baleNo = baleNumber ? item.details.find((d) => d.baleNumber === baleNumber)?.baleNo : undefined;
         const newDetail: DetailRow = {
           detailType,
           baleNumber: baleNumber ?? null,
           sequenceNo: seq,
+          baleNo,
           meters: '',
           remarks: '',
         };
@@ -244,6 +258,19 @@ export default function GRNForm() {
           remarks: '',
         };
         return { ...item, details: [...item.details, newDetail] };
+      })
+    );
+  }, []);
+
+  // The printed bale number belongs to the bale: store it on every than row of that bale
+  const updateBaleNo = useCallback((itemIndex: number, baleNumber: number, value: string) => {
+    setItems((prev) =>
+      prev.map((item, i) => {
+        if (i !== itemIndex) return item;
+        return {
+          ...item,
+          details: item.details.map((d) => (d.baleNumber === baleNumber ? { ...d, baleNo: value } : d)),
+        };
       })
     );
   }, []);
@@ -398,6 +425,8 @@ export default function GRNForm() {
                     detailType: d.detailType,
                     baleNumber: d.baleNumber,
                     sequenceNo: d.sequenceNo,
+                    baleNo: cleanLabel(d.baleNo),
+                    thanNo: cleanLabel(d.thanNo),
                     meters: parseFloat(d.meters),
                     remarks: d.remarks || undefined,
                   })
@@ -506,12 +535,12 @@ export default function GRNForm() {
     const hasMismatch = item.details.length > 0 && detailSum > 0 && Math.abs(detailSum - manualQty) > 0.001;
 
     // Group details by bale for BALE_WISE mode
-    const baleGroups: Map<number, DetailRow[]> = new Map();
+    const baleGroups: Map<number, Array<{ d: DetailRow; origIdx: number }>> = new Map();
     if (item.entryMode === 'BALE_WISE') {
       item.details.forEach((d, idx) => {
         const baleNum = d.baleNumber || 0;
         if (!baleGroups.has(baleNum)) baleGroups.set(baleNum, []);
-        baleGroups.get(baleNum)!.push({ ...d, sequenceNo: idx }); // store original index
+        baleGroups.get(baleNum)!.push({ d, origIdx: idx }); // keep the index into item.details
       });
     }
 
@@ -598,6 +627,15 @@ export default function GRNForm() {
                   placeholder="Meters"
                 />
                 <span className="text-xs text-muted-foreground">m</span>
+                <Label className="text-xs text-muted-foreground ml-2">Than No.</Label>
+                <Input
+                  value={d.thanNo ?? ''}
+                  onChange={(e) => updateDetail(itemIndex, di, 'thanNo', e.target.value)}
+                  className="h-7 w-[90px] text-xs"
+                  placeholder="Optional"
+                  maxLength={30}
+                  aria-label={`Than No. for than ${di + 1}`}
+                />
                 <Button
                   type="button"
                   variant="ghost"
@@ -631,13 +669,25 @@ export default function GRNForm() {
               </Button>
             </div>
             {Array.from(baleGroups.entries()).map(([baleNum, baleDetails]) => {
-              const baleSum = baleDetails.reduce((s, d) => s + (parseFloat(d.meters) || 0), 0);
+              const baleSum = baleDetails.reduce((s, { d }) => s + (parseFloat(d.meters) || 0), 0);
+              const baleNo = baleDetails[0]?.d.baleNo ?? '';
               return (
                 <div key={baleNum} className="border rounded-md p-2 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium">
-                      Bale {baleNum} ({baleDetails.length} thans, {baleSum.toFixed(3)}m)
-                    </span>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium">
+                        Bale {baleNum} ({baleDetails.length} thans, {baleSum.toFixed(3)}m)
+                      </span>
+                      <Label className="text-xs text-muted-foreground">Bale No.</Label>
+                      <Input
+                        value={baleNo}
+                        onChange={(e) => updateBaleNo(itemIndex, baleNum, e.target.value)}
+                        className="h-6 w-[90px] text-xs"
+                        placeholder="e.g. 417"
+                        maxLength={30}
+                        aria-label={`Bale No. for bale ${baleNum}`}
+                      />
+                    </div>
                     <Button
                       type="button"
                       variant="outline"
@@ -648,12 +698,10 @@ export default function GRNForm() {
                       <Plus className="h-3 w-3 mr-1" /> Than
                     </Button>
                   </div>
-                  {baleDetails.map((d) => {
-                    // Find original index in item.details
-                    const origIdx = item.details.findIndex((_, oi) => oi === d.sequenceNo);
+                  {baleDetails.map(({ d, origIdx }, posInBale) => {
                     return (
-                      <div key={d.sequenceNo} className="flex items-center gap-2 pl-4">
-                        <span className="text-xs text-muted-foreground w-8">T{baleDetails.indexOf(d) + 1}</span>
+                      <div key={origIdx} className="flex items-center gap-2 pl-4">
+                        <span className="text-xs text-muted-foreground w-8">T{posInBale + 1}</span>
                         <Input
                           type="number"
                           min="0"
@@ -664,6 +712,15 @@ export default function GRNForm() {
                           placeholder="Meters"
                         />
                         <span className="text-xs text-muted-foreground">m</span>
+                        <Label className="text-xs text-muted-foreground ml-2">Than No.</Label>
+                        <Input
+                          value={d.thanNo ?? ''}
+                          onChange={(e) => updateDetail(itemIndex, origIdx, 'thanNo', e.target.value)}
+                          className="h-7 w-[90px] text-xs"
+                          placeholder="Optional"
+                          maxLength={30}
+                          aria-label={`Than No. for bale ${baleNum} than ${posInBale + 1}`}
+                        />
                         <Button
                           type="button"
                           variant="ghost"
@@ -710,6 +767,15 @@ export default function GRNForm() {
                   placeholder="Meters"
                 />
                 <span className="text-xs text-muted-foreground">m</span>
+                <Label className="text-xs text-muted-foreground ml-2">Roll No.</Label>
+                <Input
+                  value={d.thanNo ?? ''}
+                  onChange={(e) => updateDetail(itemIndex, di, 'thanNo', e.target.value)}
+                  className="h-7 w-[90px] text-xs"
+                  placeholder="Optional"
+                  maxLength={30}
+                  aria-label={`Roll No. for roll ${di + 1}`}
+                />
                 <Button
                   type="button"
                   variant="ghost"

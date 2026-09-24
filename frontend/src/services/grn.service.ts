@@ -6,6 +6,8 @@
 import api from '../lib/api';
 import type {
   GRN,
+  GRNDetailLabelsRequest,
+  GRNItemDetail,
   GRNListResponse,
   GRNResponse,
   GRNFilters,
@@ -122,6 +124,21 @@ export const rejectGRN = async (id: string, request: RejectGRNRequest): Promise<
   return data.data;
 };
 
+/**
+ * Label a received line's bales and thans with the numbers printed on them.
+ * Labels only — quantities never change, so this works on a GRN in any status.
+ */
+export const updateGRNDetailLabels = async (
+  itemId: string,
+  request: GRNDetailLabelsRequest
+): Promise<GRNItemDetail[]> => {
+  const { data } = await api.patch<{ success: boolean; data: GRNItemDetail[]; message?: string }>(
+    `${BASE_URL}/items/${itemId}/detail-labels`,
+    request
+  );
+  return data.data;
+};
+
 // ============================================
 // Export all functions as default object
 // ============================================
@@ -136,4 +153,5 @@ export default {
   approveGRN,
   rejectGRN,
   getProcessingContext,
+  updateGRNDetailLabels,
 };

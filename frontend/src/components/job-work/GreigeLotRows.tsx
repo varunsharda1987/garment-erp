@@ -4,26 +4,33 @@
  *
  * Supports two issue modes:
  * - Simple mode: Just lot + quantity (internal/cutting issuance)
- * - Detail mode: Select specific bales/thans (processor issuance)
+ * - Than mode (`enableDetailSelection`, processor issuance): when a chosen lot has thans, the
+ *   picker opens so the operator ticks the thans that leave. Picking is optional — collapsing the
+ *   picker falls back to a typed quantity — but it is the default path, because thans that leave
+ *   unnamed leave the godown list wrong.
+ *
+ * `row.qty` is always ACTUAL metres. With thans picked it is derived from them (counted metres
+ * converted once at the lot's fold length), so the totals, the lot-availability check and the
+ * order-quantity match below all stay in actual metres.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Wand2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import type { GreigeStockDetail, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
+import type { GreigeLotThans, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
-import { prefillQty, qtyExceeds } from '@/lib/quantity';
+import { minQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
+import { ThanPicker } from './ThanPicker';
 import {
   autoFillLotRows,
   emptyLotRow,
-  groupDetailsByBale,
-  hasDetailOverSelection,
-  totalDetailMeters,
+  lotHasThans,
+  rowHasPicks,
+  withPicks,
   type IssueLotRow,
   type LotRowsEvaluation,
   type SelectedDetail,
@@ -43,7 +50,7 @@ export interface GreigeLotRowsProps {
   disabled?: boolean;
   /** Omit the "Greige Lots" heading row when the caller already has its own header. */
   hideHeader?: boolean;
-  /** Enable bale/than detail selection (for processor dispatch). */
+  /** Let the operator pick the bales/thans that leave (processor issuance). */
   enableDetailSelection?: boolean;
 }
 
@@ -60,13 +67,57 @@ export function GreigeLotRows({
   hideHeader = false,
   enableDetailSelection = false,
 }: GreigeLotRowsProps) {
-  const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
+  // Thans per lot, loaded once per lot. Kept here (not only on the row) so two loads finishing in
+  // the same tick can never overwrite each other's row patch.
+  const [thansByLot, setThansByLot] = useState<Record<string, GreigeLotThans>>({});
+  const [loadingLots, setLoadingLots] = useState<Set<string>>(new Set());
+  const failedLots = useRef<Set<string>>(new Set());
 
   const updateRow = useCallback(
     (index: number, patch: Partial<IssueLotRow>) =>
       onRowsChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row))),
     [rows, onRowsChange]
   );
+
+  // Load the thans of every chosen lot we have not seen yet.
+  useEffect(() => {
+    if (!enableDetailSelection) return;
+    const wanted = [...new Set(rows.map((r) => r.lotId).filter(Boolean))].filter(
+      (lotId) => !thansByLot[lotId] && !loadingLots.has(lotId) && !failedLots.current.has(lotId)
+    );
+    if (wanted.length === 0) return;
+    setLoadingLots((prev) => new Set([...prev, ...wanted]));
+    for (const lotId of wanted) {
+      jobWorkOrderService
+        .getAvailableDetails(lotId)
+        .then((data) => setThansByLot((prev) => ({ ...prev, [lotId]: data })))
+        .catch((err) => {
+          failedLots.current.add(lotId);
+          toast.error('Could not load the thans of this lot', {
+            description: `${err instanceof Error ? err.message : 'The request failed'} — you can still send it by quantity.`,
+          });
+        })
+        .finally(() =>
+          setLoadingLots((prev) => {
+            const next = new Set(prev);
+            next.delete(lotId);
+            return next;
+          })
+        );
+    }
+  }, [enableDetailSelection, rows, thansByLot, loadingLots]);
+
+  // Attach loaded thans to their rows; a lot that has thans opens its picker by default.
+  useEffect(() => {
+    if (!enableDetailSelection) return;
+    if (!rows.some((r) => r.lotId && !r.lotThans && thansByLot[r.lotId])) return;
+    onRowsChange(
+      rows.map((r) => {
+        const loaded = r.lotId && !r.lotThans ? thansByLot[r.lotId] : undefined;
+        return loaded ? { ...r, lotThans: loaded, detailsExpanded: loaded.details.length > 0 } : r;
+      })
+    );
+  }, [enableDetailSelection, rows, thansByLot, onRowsChange]);
 
   const addRow = () => onRowsChange([...rows, emptyLotRow()]);
   const removeRow = (index: number) => onRowsChange(rows.filter((_, i) => i !== index));
@@ -75,93 +126,28 @@ export function GreigeLotRows({
     if (filled) onRowsChange(filled);
   };
 
-  // Load bale/than details for a lot when expanding
-  const loadDetails = useCallback(
-    async (index: number, lotId: string) => {
-      if (loadingDetails.has(lotId)) return;
-      setLoadingDetails((prev) => new Set(prev).add(lotId));
-      try {
-        const details = await jobWorkOrderService.getAvailableDetails(lotId);
-        updateRow(index, { availableDetails: details, detailsExpanded: true });
-      } catch (err) {
-        toast.error('Failed to load bale/than details', {
-          description: err instanceof Error ? err.message : 'Unable to fetch details for this lot',
-        });
-      } finally {
-        setLoadingDetails((prev) => {
-          const next = new Set(prev);
-          next.delete(lotId);
-          return next;
-        });
-      }
-    },
-    [loadingDetails, updateRow]
-  );
+  /**
+   * The ACTUAL metres "Pick thans for me" aims for on a row: the quantity typed on it, else what the
+   * order still needs after the other rows — never more than the lot holds.
+   */
+  const rowTarget = (index: number): number => {
+    const row = rows[index];
+    const typed = parseFloat(row.qty) || 0;
+    const others = rows.reduce((sum, r, i) => (i === index ? sum : sum + (parseFloat(r.qty) || 0)), 0);
+    const target = !rowHasPicks(row) && qtyExceeds(typed, 0) ? typed : qtyRemaining(requiredQty, others);
+    const lot = lots.find((l) => l.id === row.lotId);
+    return lot ? minQty(target, lot.quantityAvailable) : target;
+  };
 
-  // Toggle detail expansion
-  const toggleDetails = useCallback(
-    (index: number, row: IssueLotRow) => {
-      if (!row.lotId) return;
-      if (row.detailsExpanded) {
-        // Collapse
-        updateRow(index, { detailsExpanded: false });
-      } else if (row.availableDetails) {
-        // Already loaded, just expand
-        updateRow(index, { detailsExpanded: true });
-      } else {
-        // Load and expand
-        loadDetails(index, row.lotId);
-      }
-    },
-    [loadDetails, updateRow]
-  );
+  const setPicks = (index: number, selected: SelectedDetail[]) =>
+    onRowsChange(rows.map((row, i) => (i === index ? withPicks(row, selected) : row)));
 
-  // Toggle a detail selection
-  const toggleDetail = useCallback(
-    (rowIndex: number, detail: GreigeStockDetail, checked: boolean) => {
-      const row = rows[rowIndex];
-      const currentSelections = row.selectedDetails ?? [];
-
-      if (checked) {
-        // Add selection with full available meters
-        const newSelection: SelectedDetail = {
-          detailId: detail.id,
-          metersToIssue: prefillQty(detail.metersRemaining),
-        };
-        const updatedSelections = [...currentSelections, newSelection];
-        const totalFromDetails = totalDetailMeters(updatedSelections);
-        updateRow(rowIndex, {
-          selectedDetails: updatedSelections,
-          qty: prefillQty(totalFromDetails),
-        });
-      } else {
-        // Remove selection
-        const updatedSelections = currentSelections.filter((d) => d.detailId !== detail.id);
-        const totalFromDetails = totalDetailMeters(updatedSelections);
-        updateRow(rowIndex, {
-          selectedDetails: updatedSelections,
-          qty: prefillQty(totalFromDetails),
-        });
-      }
-    },
-    [rows, updateRow]
-  );
-
-  // Update meters for a selected detail
-  const updateDetailMeters = useCallback(
-    (rowIndex: number, detailId: string, metersStr: string) => {
-      const row = rows[rowIndex];
-      const updatedSelections = (row.selectedDetails ?? []).map((d) =>
-        d.detailId === detailId ? { ...d, metersToIssue: metersStr } : d
-      );
-      const totalFromDetails = totalDetailMeters(updatedSelections);
-      updateRow(rowIndex, {
-        selectedDetails: updatedSelections,
-        qty: prefillQty(totalFromDetails),
-      });
-    },
-    [rows, updateRow]
-  );
+  // Collapsing the picker means "send by quantity": the picks go, the actual quantity stays editable.
+  const toggleDetails = (index: number) => {
+    const row = rows[index];
+    if (row.detailsExpanded) updateRow(index, { detailsExpanded: false, selectedDetails: [] });
+    else updateRow(index, { detailsExpanded: true });
+  };
 
   return (
     <div className="space-y-2">
@@ -194,10 +180,9 @@ export function GreigeLotRows({
         const lot = row.lotId ? lots.find((l) => l.id === row.lotId) : undefined;
         const rowQty = parseFloat(row.qty);
         const overAvailable = !!lot && qtyExceeds(rowQty, lot.quantityAvailable);
-        const isLoading = row.lotId ? loadingDetails.has(row.lotId) : false;
-        const groupedDetails = row.availableDetails ? groupDetailsByBale(row.availableDetails) : [];
-        const selectedIds = new Set((row.selectedDetails ?? []).map((d) => d.detailId));
-        const detailOverSelections = hasDetailOverSelection(row.selectedDetails, row.availableDetails);
+        const isLoading = row.lotId ? loadingLots.has(row.lotId) : false;
+        const picking = rowHasPicks(row);
+        const canPick = enableDetailSelection && lotHasThans(row);
 
         // Disabling lots taken by another row is what keeps LOT_DUPLICATE from ever reaching the server
         const takenElsewhere = new Set(
@@ -210,14 +195,14 @@ export function GreigeLotRows({
         return (
           <div key={index} className="space-y-1">
             <div className="flex items-start gap-2">
-              {/* Expand/collapse toggle for detail mode */}
-              {enableDetailSelection && row.lotId && (
+              {/* Than picker toggle — only for a lot that has thans */}
+              {enableDetailSelection && row.lotId && (isLoading || canPick) && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   className="h-9 w-9 shrink-0"
-                  onClick={() => toggleDetails(index, row)}
+                  onClick={() => toggleDetails(index)}
                   disabled={disabled || isLoading}
                   aria-label={row.detailsExpanded ? 'Hide bales/thans' : 'Show bales/thans'}
                 >
@@ -236,10 +221,10 @@ export function GreigeLotRows({
                   value={row.lotId || 'none'}
                   onValueChange={(v) => {
                     const newLotId = v === 'none' ? '' : v;
-                    // Clear details when lot changes
+                    // Thans belong to a lot: a new lot starts with none picked
                     updateRow(index, {
                       lotId: newLotId,
-                      availableDetails: undefined,
+                      lotThans: undefined,
                       selectedDetails: undefined,
                       detailsExpanded: false,
                     });
@@ -268,7 +253,8 @@ export function GreigeLotRows({
                 min="0"
                 className="w-32"
                 value={row.qty}
-                disabled={disabled || (enableDetailSelection && row.detailsExpanded)}
+                // Picked thans decide the quantity; untick them (or collapse the picker) to type one
+                disabled={disabled || picking}
                 onChange={(e) => updateRow(index, { qty: e.target.value })}
                 placeholder={`Qty ${uom}`}
                 aria-label={`Quantity for lot ${index + 1}`}
@@ -295,66 +281,30 @@ export function GreigeLotRows({
               </p>
             )}
 
-            {/* Detail picker when expanded */}
-            {enableDetailSelection && row.detailsExpanded && row.availableDetails && (
-              <div className="ml-9 mt-2 rounded-md border bg-muted/30 p-3">
-                {groupedDetails.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No bale/than details available for this lot.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {groupedDetails.map((group) => (
-                      <div key={group.baleNumber ?? 'unbaled'} className="space-y-1">
-                        <div className="text-xs font-medium text-muted-foreground">
-                          {group.baleNumber ? `Bale ${group.baleNumber}` : 'Unbaled Thans'}
-                        </div>
-                        <div className="space-y-1">
-                          {group.thans.map((detail) => {
-                            const isSelected = selectedIds.has(detail.id);
-                            const selection = (row.selectedDetails ?? []).find((d) => d.detailId === detail.id);
-                            const overSelection = detailOverSelections.find((o) => o.detailId === detail.id);
+            {canPick && !row.detailsExpanded && (
+              <p className="ml-11 text-xs text-muted-foreground">
+                Sending by quantity — thans not picked.{' '}
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => toggleDetails(index)}
+                  disabled={disabled}
+                >
+                  Pick the thans
+                </button>
+              </p>
+            )}
 
-                            return (
-                              <div key={detail.id} className="flex items-center gap-2">
-                                <Checkbox
-                                  id={`detail-${detail.id}`}
-                                  checked={isSelected}
-                                  disabled={disabled || (detail.status !== 'AVAILABLE' && detail.status !== 'PARTIAL')}
-                                  onCheckedChange={(checked) => toggleDetail(index, detail, checked === true)}
-                                />
-                                <label htmlFor={`detail-${detail.id}`} className="flex-1 text-sm cursor-pointer">
-                                  Than {detail.sequenceNo}
-                                  <span className="ml-1 text-muted-foreground">
-                                    ({detail.metersRemaining.toFixed(2)}m avail
-                                    {detail.status === 'PARTIAL' && ` of ${detail.meters.toFixed(2)}m`})
-                                  </span>
-                                </label>
-                                {isSelected && (
-                                  <Input
-                                    type="number"
-                                    step="any"
-                                    min="0"
-                                    max={detail.metersRemaining}
-                                    className="h-7 w-24 text-sm"
-                                    value={selection?.metersToIssue ?? ''}
-                                    disabled={disabled}
-                                    onChange={(e) => updateDetailMeters(index, detail.id, e.target.value)}
-                                    aria-label={`Meters to issue from than ${detail.sequenceNo}`}
-                                  />
-                                )}
-                                {overSelection && (
-                                  <span className="text-xs text-red-600">{overSelection.over.toFixed(2)}m over</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                    <div className="border-t pt-2 text-sm font-medium">
-                      Selected: {totalDetailMeters(row.selectedDetails).toFixed(2)} m
-                    </div>
-                  </div>
-                )}
+            {canPick && row.detailsExpanded && row.lotThans && (
+              <div className="ml-11 mt-2 rounded-md border bg-muted/30 p-3">
+                <ThanPicker
+                  lotThans={row.lotThans}
+                  selected={row.selectedDetails ?? []}
+                  onChange={(selected) => setPicks(index, selected)}
+                  targetActual={rowTarget(index)}
+                  uom={uom}
+                  disabled={disabled}
+                />
               </div>
             )}
           </div>
@@ -379,6 +329,12 @@ export function GreigeLotRows({
                 : `${evaluation.qtyDelta.toFixed(2)} ${uom} over`}
           </span>
         </div>
+      )}
+
+      {evaluation.hasThanErrors && (
+        <p className="text-xs text-red-600">
+          A picked than is blank or asks for more metres than it has left — fix it or untick it.
+        </p>
       )}
 
       {evaluation.hasMixedGreige && (

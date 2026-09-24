@@ -2,6 +2,7 @@
   "backend/scripts/backfill-grn-item-links.ts",
   "backend/scripts/cleanup-transactional-data.ts",
   "backend/scripts/migrations/unify-material-ids.ts",
+  "backend/scripts/repair-essky085-086-align.ts",
   "backend/scripts/repair-quantity-drift.ts",
   "backend/scripts/repair-stockvalue-drift.ts",
   "backend/src/controllers/cad-approval.controller.ts",

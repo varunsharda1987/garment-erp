@@ -51,6 +51,7 @@ let fabricStockId: string;
 let cadRowId: string;
 let workOrderId: string;
 let cuttingBatchId: string;
+let secondBatchId: string;
 
 const only = (id: string | undefined) => id ?? '__unset__';
 
@@ -73,6 +74,10 @@ const PIECES_PER_MARKER = 100;
 const CAD_AVERAGE = CAD_METERS / PIECES_PER_MARKER;
 const RUN_QTY = 100; // 50 S + 50 M
 const ISSUE_METERS = 200; // floor(200 / 1.5) = 133 cuttable ≥ 100
+// Phase 7h: the first lay on the remaining 2-piece batch — 2 layers × 1.5 m, 1 pc of S per layer
+const LAY_ISSUE_METERS = 10;
+const LAY_LAYERS = 2;
+const LAY_LENGTH = 1.5;
 
 beforeAll(async () => {
   const user = await createTestUser({
@@ -669,6 +674,7 @@ describe('the first cut: from greige to a cutting batch', () => {
         fabricStocks: [{ fabricStockId, cadAvgUsed: CAD_AVERAGE, cadWidthUsed: 0, actualWidth: 0 }],
       });
     expectStatus(res, (s) => s === 201);
+    secondBatchId = res.body.data.id;
 
     const batch = await prisma.cutting_batches.findUnique({ where: { id: res.body.data.id } });
     expect(Number(batch!.actualFabricWidth)).toBe(RECEIVED_WIDTH); // fabric_stock.finishedWidth from the GRN
@@ -714,5 +720,72 @@ describe('the first cut: from greige to a cutting batch', () => {
     const row = panel.body.data.fabricAnalysis.find((a: any) => a.fabricId === finishedFabricId);
     expect(Number(row.returnedStock)).toBe(RECEIVE_QTY);
     expect(Number(row.atCuttingStock ?? 0)).toBe(0);
+  });
+
+  it('phase 7h: the first lay is recorded — with exactly what the batch page sends', async () => {
+    // The remaining open batch (2 pcs of S). Issue a little fabric for it, start it, and Save Lay
+    // as CuttingDetail.tsx posts it: per ticked size { colorId, sizeId, piecesPerLayer }, no sizeName.
+    // The schema had demanded a sizeName the page never sent (since 2026-04-24), so no lay had ever
+    // been saved — found 2026-09-25 on the first real batch, CB-WO2609-0087-002.
+    const issued = await request(app)
+      .post(`/api/work-orders/${workOrderId}/issue-fabric`)
+      .set(authHeader)
+      .send({ lots: [{ fabricStockId, fabricId: finishedFabricId, quantity: LAY_ISSUE_METERS, description: 'lay' }] });
+    expectStatus(issued, (s) => s < 300);
+
+    const started = await request(app).post(`/api/cutting/batches/${secondBatchId}/start`).set(authHeader);
+    expectStatus(started, (s) => s === 200);
+    expect(started.body.data.status).toBe('IN_PROGRESS');
+
+    const lay = await request(app)
+      .post(`/api/cutting/batches/${secondBatchId}/lays`)
+      .set(authHeader)
+      .send({
+        layDate: new Date().toISOString().slice(0, 10),
+        numberOfLayers: LAY_LAYERS,
+        layerLength: LAY_LENGTH,
+        remarks: undefined,
+        fabricLengths: undefined,
+        skuOutputs: [{ colorId: null, sizeId: sizeS, piecesPerLayer: 1 }],
+      });
+    expectStatus(lay, (s) => s === 201);
+    expect(lay.body.data.layNumber).toBe(1);
+    expect(lay.body.data.totalPieces).toBe(LAY_LAYERS);
+
+    // The batch totals follow the lay: S cut = pieces per layer × layers; fabric = length × layers
+    const skus = await prisma.cutting_batch_skus.findMany({ where: { cuttingBatchId: secondBatchId } });
+    expect(skus.find((s) => s.sizeId === sizeS)!.cutQty).toBe(LAY_LAYERS);
+    const batch = await prisma.cutting_batches.findUnique({ where: { id: secondBatchId } });
+    expect(Number(batch!.fabricConsumed)).toBeCloseTo(LAY_LENGTH * LAY_LAYERS, 2);
+
+    // A two-fabric batch posts per-fabric lengths under the page's name for them, and is accepted.
+    const { addCuttingLaySchema } = await import('../../schemas/production.schema');
+    const twoFabrics = addCuttingLaySchema.safeParse({
+      layDate: '2026-09-25',
+      numberOfLayers: 2,
+      layerLength: 1.5,
+      fabricLengths: [{ cuttingBatchFabricId: randomUUID(), layerLength: 1.5 }],
+      skuOutputs: [{ colorId: null, sizeId: sizeS, piecesPerLayer: 1 }],
+    });
+    expect(twoFabrics.success).toBe(true);
+  });
+
+  it('phase 7h: the batch is completed — with exactly what the batch page sends — and the leftover goes back', async () => {
+    const leftover = LAY_ISSUE_METERS - LAY_LENGTH * LAY_LAYERS; // issued − consumed
+    const done = await request(app)
+      .post(`/api/cutting/batches/${secondBatchId}/complete`)
+      .set(authHeader)
+      .send({ fabricReturns: [{ fabricStockId, returnedQuantity: leftover }] });
+    expectStatus(done, (s) => s === 200);
+    expect(done.body.data.status).toBe('COMPLETED');
+    expect(Number(done.body.data.fabricIssued)).toBeCloseTo(LAY_ISSUE_METERS, 2);
+    expect(Number(done.body.data.fabricReturned)).toBeCloseTo(leftover, 2);
+    expect(Number(done.body.data.actualConsumption)).toBeCloseTo(LAY_LENGTH * LAY_LAYERS, 2);
+    expect(Number(done.body.data.actualAverage)).toBeCloseTo(LAY_LENGTH, 2); // 1 pc per layer
+
+    // The store has everything back except what was cut
+    const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });
+    expect(Number(lot!.quantityAvailable)).toBeCloseTo(RECEIVE_QTY - LAY_LENGTH * LAY_LAYERS, 2);
+    expect(lot!.status).toBe('AVAILABLE');
   });
 });

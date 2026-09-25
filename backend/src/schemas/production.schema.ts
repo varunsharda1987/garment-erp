@@ -164,6 +164,15 @@ export const recordCuttingOutputSchema = z
  * Add Cutting Lay
  * POST /api/cutting/batches/:id/lays
  */
+/**
+ * Save Lay on the batch page (CuttingDetail.tsx handleSaveLay) posts, per ticked size,
+ * `{ colorId, sizeId, piecesPerLayer }` and, with more than one fabric, `fabricLengths[]` as
+ * `{ cuttingBatchFabricId, layerLength }` — which is also exactly what cutting-lay.controller reads
+ * and stores (cutting_lay_skus.sizeId / colorId, cutting_lay_fabrics.layerLength). This schema had
+ * demanded a `sizeName` the page never sent (since 5ccbc1a0, 2026-04-24) and a per-fabric `length`
+ * nobody wrote, so every Save Lay answered "Invalid request data" — found 2026-09-25 preparing the
+ * first real lay on CB-WO2609-0087-002; no lay had ever been recorded. Post what the PAGE posts.
+ */
 export const addCuttingLaySchema = z.object({
   layDate: z.string().or(z.date()).optional(),
   numberOfLayers: z.number().int().positive(),
@@ -171,18 +180,28 @@ export const addCuttingLaySchema = z.object({
   remarks: z.string().max(500).optional(),
   skuOutputs: z
     .array(
-      z.object({
-        sizeId: z.string().uuid().optional(),
-        sizeName: z.string(),
-        piecesPerLayer: z.number().int().nonnegative(),
-      })
+      z
+        .object({
+          colorId: z.string().uuid().nullable().optional(),
+          sizeId: z.string().uuid(),
+          sizeName: z.string().optional(),
+          // Typed client only: CuttingDetail.tsx keeps layPieces as numbers (no free-text form field)
+          piecesPerLayer: z.number().int().nonnegative().optional(), // allow-strict-number
+          // legacy name for the same number
+          pieces: z.number().int().nonnegative().optional(), // allow-strict-number
+        })
+        .refine((s) => s.piecesPerLayer != null || s.pieces != null, {
+          message: 'piecesPerLayer is required for every size on the lay',
+          path: ['piecesPerLayer'],
+        })
     )
+    .min(1, 'At least one size with pieces per layer is required')
     .optional(),
   fabricLengths: z
     .array(
       z.object({
         cuttingBatchFabricId: z.string().uuid(),
-        length: z.number().positive(),
+        layerLength: z.number().positive(),
       })
     )
     .optional(),

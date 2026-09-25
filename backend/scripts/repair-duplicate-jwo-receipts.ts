@@ -13,7 +13,7 @@
  * closed the job on 3,932.1 m — correct, because the job had only ever counted one of the six. That
  * receipt is a different delivery and is never touched.
  *
- * Keeps GRN2609-0480 (the one the job pointed to until 0502 arrived) and reverses every EXACT
+ * Keeps GRN2609-0477 — the first of the six (owner's choice, 25-Sep-2026) — and reverses every EXACT
  * duplicate of it through the one tested writer,
  * `grnService.reverseGRN`: receipt → REVERSED, lot deleted, stock_levels decremented, inward challan
  * CANCELLED, MRP / service-requirement links decremented (status recomputed), job recomputed from the
@@ -42,7 +42,7 @@ import { grnLineActualQty } from '../src/services/helpers/grn-line-value.helper'
 const APPLY = process.argv.includes('--apply');
 const JOB_NUMBER = 'DJ-ESSKY076LS-001';
 /** The one of the six identical receipts that stays. */
-const KEEP_GRN = 'GRN2609-0480';
+const KEEP_GRN = 'GRN2609-0477';
 /** The account the reversal is recorded against. */
 const ADMIN_EMAIL = 'admin@kasya.in';
 /** The duplicates were filed within seconds of each other; a genuine second delivery is not. */

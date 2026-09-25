@@ -168,20 +168,25 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { grn, jwo } = await grnService.receiveJwoToStock(req.body, userId);
+  const { grn, jwo, replayed } = await grnService.receiveJwoToStock(req.body, userId);
 
-  logInfo(`Job-work receipt booked to stock: ${grn.grnNumber} (${jwo.jobWorkNumber})`);
+  if (!replayed) logInfo(`Job-work receipt booked to stock: ${grn.grnNumber} (${jwo.jobWorkNumber})`);
 
-  res.status(201).json({
+  // A replay (the same submission sent again — a retry after a timeout, a double press) is answered
+  // 200 with the receipt already filed: nothing new was created, and the dialog says so.
+  res.status(replayed ? 200 : 201).json({
     success: true,
     data: grn,
+    replayed,
     lossSplit: {
       qtyNormalLoss: jwo.qtyNormalLoss,
       qtyAbnormalLoss: jwo.qtyAbnormalLoss,
       tolerancePercent: jwo.tolerancePercent,
       actualShrinkage: jwo.actualShrinkage,
     },
-    message: `${jwo.jobWorkNumber} received into stock`,
+    message: replayed
+      ? `${jwo.jobWorkNumber} was already received — ${grn.grnNumber} (no second receipt filed)`
+      : `${jwo.jobWorkNumber} received into stock`,
   });
 };
 
@@ -192,14 +197,16 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
  */
 export const approveGRN = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { warehouseId, processingQC } = req.body; // Optional - can be provided if not set on GRN
+  const { warehouseId, processingQC, directDeliveryConfirmed } = req.body; // Optional - can be provided if not set on GRN
   const userId = req.user?.userId;
 
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
 
-  const grn = await grnService.approveGRN(id, userId, warehouseId, processingQC as ProcessingQCData | undefined);
+  const grn = await grnService.approveGRN(id, userId, warehouseId, processingQC as ProcessingQCData | undefined, {
+    directDeliveryConfirmed: directDeliveryConfirmed === true,
+  });
 
   logInfo(`GRN approved: ${grn.grnNumber} - Stock movements created`);
 

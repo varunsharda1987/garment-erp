@@ -278,13 +278,14 @@ export default function ReceiveFromProcessorDialog({
         return;
       }
       // Timed out / no answer / 502-504: the server may still be saving — never call that a failure.
-      // Saying "failed" is what made the user press again on 2026-09-25. Refresh the job so a receipt
-      // that did land shows up under "Received so far" and in the job's Return receipts.
+      // Saying "failed" is what made the user press again on 2026-09-25. Pressing again IS safe now:
+      // this opening's submissionKey makes the server answer with the receipt it already filed. Refresh
+      // the job so a receipt that did land shows up under "Received so far" and in Return receipts.
       if (isOutcomeUnknown(err)) {
         notify.warning('The server is slow — this receipt may still be saving', {
           description:
-            `Do not press Receive again yet. Wait a minute, then check ${jwo?.jobWorkNumber ?? 'the job'}'s ` +
-            `Return receipts: if the receipt is there, it went in.`,
+            'Wait a moment and press Receive again. It is safe: if the first press went in, you will ' +
+            'be shown that receipt — a second one is never filed.',
           duration: 15000,
         });
         queryClient.invalidateQueries({ queryKey: ['job-work-order', jobWorkOrderId] });

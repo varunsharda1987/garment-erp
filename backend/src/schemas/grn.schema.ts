@@ -132,6 +132,11 @@ export const receiveJwoToStockSchema = z.object({
   entryMode: entryModeEnum.optional().nullable(),
   // Detail rows for THAN_WISE / BALE_WISE entry modes
   details: z.array(grnItemDetailSchema).optional(),
+  // The Receive dialog's per-opening key (2026-09-25): the same submission sent twice — a retry after
+  // a timeout, a double press — returns the receipt already filed instead of filing a second one.
+  // A string, not .uuid(): the frontend's generateId() falls back to a non-UUID on plain-HTTP LAN.
+  // Optional so an old open tab still posts; the job-row lock still protects it.
+  submissionKey: z.string().trim().min(8).max(64).optional(),
   // Declared explicitly: processingQCSchema below never names these and they only survive through
   // .passthrough(), the silent-stripping class the smart-check exists to catch.
   processingQC: z
@@ -166,6 +171,9 @@ export const approveGRNSchema = z
   .object({
     warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
     processingQC: processingQCSchema.optional(),
+    // Approving into a processor's unit: "the supplier delivered these straight to the processor"
+    // (implicit when the PO's Deliver To is that unit). Phase 2, 2026-09-25.
+    directDeliveryConfirmed: z.boolean().optional(),
   })
   .passthrough();
 

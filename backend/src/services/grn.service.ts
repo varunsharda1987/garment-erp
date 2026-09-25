@@ -54,6 +54,7 @@ import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from '
 import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyExceeds } from '../utils/quantity';
 import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
+import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
@@ -83,6 +84,22 @@ import { applySearch } from '../utils/search-filter';
  */
 const GRN_WEAVER_REQUIRED = true;
 
+/**
+ * Phase 2 rollout switch: book greige received into a processor's unit as HELD by that processor, with
+ * its Rule 45 challan, and ask for the "Delivered straight to …" confirmation. OFF until the GRN approval
+ * screen carries the tick — switching it on first would refuse every approval into a processor's unit.
+ * While off, such receipts book exactly as before (a lot in the unit, no challan).
+ */
+const DIRECT_DELIVERY_BOOKING = false;
+
+/** Goods a supplier delivered straight to a processor: who holds them (Phase 2). */
+interface DirectDelivery {
+  processorId: string;
+  processorName: string;
+  supplierName: string;
+  warehouseId: string;
+}
+
 class GRNService {
   /**
    * Generate unique GRN number - Format: GRN2511-0001
@@ -95,6 +112,65 @@ class GRNService {
   /**
    * Create a new GRN
    */
+  /**
+   * A receipt booked at a processor's unit (warehouseType JOB_WORK) means the supplier delivered the goods
+   * STRAIGHT to that job worker (direct-to-processor plan, Phase 2). Returns who holds them, or null for
+   * our own stores. Refuses — before anything is written — what cannot be booked truthfully:
+   *  - a unit linked to no processor;
+   *  - a supplier who IS the processor (bought from and kept by the same party: Phase 4g);
+   *  - a job-work return into a unit (processed goods going on to the next processor: Phase 4d);
+   *  - an unconfirmed delivery: implicit when the PO's Deliver To is this unit, else the approval must
+   *    say so ("Delivered straight to …" → directDeliveryConfirmed).
+   */
+  private async resolveDirectDelivery(
+    grn: { poId: string | null; jobWorkOrderId: string | null; supplierId: string | null; grnNumber: string },
+    warehouse: { id: string; warehouseType: string; warehouseName: string; supplierId: string | null },
+    confirmed: boolean
+  ): Promise<DirectDelivery | null> {
+    if (!DIRECT_DELIVERY_BOOKING || warehouse.warehouseType !== 'JOB_WORK') return null;
+    if (!warehouse.supplierId) {
+      throw new BusinessError(
+        `${warehouse.warehouseName} is not linked to a processor, so goods cannot be booked there. Pick our store, or link the unit to its processor first.`,
+        { reason: 'DIRECT_DELIVERY_UNIT_UNLINKED', warehouseId: warehouse.id }
+      );
+    }
+    if (!grn.poId) {
+      throw new BusinessError(
+        `Processed goods going straight on to ${warehouse.warehouseName} are not supported yet — receive them into our store.`,
+        { reason: 'DIRECT_DELIVERY_JOB_RETURN', warehouseId: warehouse.id }
+      );
+    }
+    const [po, processor, supplier] = await Promise.all([
+      prisma.purchase_orders.findUnique({ where: { id: grn.poId }, select: { deliveryLocationId: true } }),
+      prisma.suppliers.findUnique({ where: { id: warehouse.supplierId }, select: { id: true, name: true } }),
+      grn.supplierId ? prisma.suppliers.findUnique({ where: { id: grn.supplierId }, select: { name: true } }) : null,
+    ]);
+    if (!processor) {
+      throw new BusinessError(`The processor behind ${warehouse.warehouseName} no longer exists.`, {
+        reason: 'DIRECT_DELIVERY_UNIT_UNLINKED',
+      });
+    }
+    if (grn.supplierId && grn.supplierId === processor.id) {
+      throw new BusinessError(
+        `${processor.name} is both the supplier and the processor on ${grn.grnNumber}. Booking goods a processor sold us and keeps is not supported yet — receive them into our store.`,
+        { reason: 'DIRECT_DELIVERY_SELF_SUPPLY' }
+      );
+    }
+    const implicit = po?.deliveryLocationId === warehouse.id;
+    if (!implicit && !confirmed) {
+      throw new BusinessError(
+        `${grn.grnNumber} books the goods at ${warehouse.warehouseName}. Confirm the supplier delivered them straight to ${processor.name} (tick "Delivered straight to ${processor.name}"), or approve into our store.`,
+        { reason: 'DIRECT_DELIVERY_UNCONFIRMED', processorName: processor.name, warehouseName: warehouse.warehouseName }
+      );
+    }
+    return {
+      processorId: processor.id,
+      processorName: processor.name,
+      supplierName: supplier?.name ?? 'the supplier',
+      warehouseId: warehouse.id,
+    };
+  }
+
   /**
    * The weaver of every line of a new receipt (Phase 1b). Greige and ready fabric are woven cloth, and
    * the weaver we buy from keeps changing, so the LOT carries it — never the greige master. A line
@@ -841,7 +917,13 @@ class GRNService {
   /**
    * Approve a GRN and create stock movements
    */
-  async approveGRN(id: string, userId: string, warehouseId?: string, processingQC?: ProcessingQCData) {
+  async approveGRN(
+    id: string,
+    userId: string,
+    warehouseId?: string,
+    processingQC?: ProcessingQCData,
+    opts?: { directDeliveryConfirmed?: boolean }
+  ) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
       include: {
@@ -875,6 +957,10 @@ class GRNService {
     if (!warehouse || !warehouse.isActive) {
       throw new Error('Invalid or inactive warehouse');
     }
+
+    // Goods booked at a processor's unit were delivered STRAIGHT to that job worker (Phase 2): decide
+    // it — and refuse what we cannot book truthfully — before anything is written.
+    const direct = await this.resolveDirectDelivery(grn, warehouse, opts?.directDeliveryConfirmed === true);
 
     // Collector for non-critical, best-effort work that must run AFTER the transaction commits — its
     // failure must not roll back a valid receipt, and it must never open a nested tx inside ours.
@@ -1488,7 +1574,7 @@ class GRNService {
         // AFTER commit with per-category error swallowing, which could leave an ACCEPTED GRN with no
         // stock ("books say received, shelf says empty").
         if (po) {
-          await this.createSpecializedStockInTx(tx, grn, po, userId, targetWarehouseId);
+          await this.createSpecializedStockInTx(tx, grn, po, userId, targetWarehouseId, direct);
         }
 
         return approved;
@@ -1594,8 +1680,11 @@ class GRNService {
     grn: any,
     po: { id: string; poCategory: string | null; supplierId: string | null },
     userId: string,
-    warehouseId: string
+    warehouseId: string,
+    direct: DirectDelivery | null = null
   ): Promise<void> {
+    // Greige delivered straight to a processor: the lots this receipt books there, for its Rule 45 challan
+    const directGreigeLines: DirectSupplyLine[] = [];
     const postCommit = (grn.__postCommit = grn.__postCommit || {
       updateProcessingPOStatus: false,
       sourcingUpdates: [] as Array<{ poId: string; fabricId: string; actualRate: number }>,
@@ -1787,7 +1876,9 @@ class GRNService {
               receivedDate: grn.receivingDate,
               warehouseId: warehouseId,
               qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-              sourceType: 'GRN', // Track that this stock came from GRN receipt
+              // GRN, or DIRECT when the supplier delivered it straight to a processor: ours, held there
+              sourceType: direct ? 'DIRECT' : 'GRN',
+              processorId: direct?.processorId ?? null,
               // Pass fold length for actual quantity calculation
               foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
               thanCount: item.thanCount || undefined,
@@ -1799,6 +1890,17 @@ class GRNService {
             },
             userId
           );
+          if (direct) {
+            directGreigeLines.push({
+              itemType: 'GREIGE',
+              greigeStockId: createdGreige.id,
+              quantity: Number(createdGreige.quantityAvailable),
+              unit: Unit.METER,
+              rate: unitPrice,
+              ...(hasFold(item.foldLengthCm) ? { foldLengthCm: Number(item.foldLengthCm) } : {}),
+              description: `${greige.greigeCode} — ${greige.greigeName ?? 'greige'}`,
+            });
+          }
 
           // P2: Store actualQuantity on the grn_item (physical qty after fold adjustment)
           // Documents stay NOMINAL (receivedQuantity), stock is ACTUAL (quantityAvailable)
@@ -1861,6 +1963,34 @@ class GRNService {
           }
         }
       }
+    }
+
+    // Rule 45: the challan for greige the supplier delivered straight to the processor — same tx, dated
+    // the day the processor got it (the receipt date).
+    if (direct && directGreigeLines.length > 0) {
+      const receivedOn = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
+      const challan = await createDirectSupplyChallanInTx(tx, {
+        grnId: grn.id,
+        grnNumber: grn.grnNumber,
+        supplierId: grn.supplierId ?? null,
+        supplierName: direct.supplierName,
+        processorId: direct.processorId,
+        processorName: direct.processorName,
+        invoiceNumber: grn.invoiceNumber ?? null,
+        invoiceDate: grn.invoiceDate ? new Date(grn.invoiceDate) : null,
+        receivedOn,
+        challanDate: receivedOn,
+        lines: directGreigeLines,
+        userId,
+      });
+      logInfo(
+        `GRN ${grn.grnNumber}: greige delivered straight to ${direct.processorName} — challan ${challan.challanNumber}`,
+        {
+          grnId: grn.id,
+          challanId: challan.id,
+          lots: directGreigeLines.length,
+        }
+      );
     }
 
     // ===== FABRIC =====
@@ -2891,6 +3021,8 @@ class GRNService {
         meters: number;
         remarks?: string | null;
       }>;
+      /** The Receive dialog's per-opening key, stored on the receipt (unique) — see receiveJwoToStock. */
+      submissionKey?: string | null;
     },
     userId: string,
     // `tx`: join a caller's transaction (receiveJwoToStock). `acceptedBy`: file the row ACCEPTED at
@@ -3076,6 +3208,7 @@ class GRNService {
       data: {
         id: randomUUID(),
         grnNumber,
+        submissionKey: data.submissionKey ?? null,
         poId: null,
         jobWorkOrderId: jwo.id,
         supplierId: jwo.processorId,
@@ -3154,11 +3287,15 @@ class GRNService {
    * finished-fabric mint before the create: a refusal leaves no row, and a minted master is the
    * same harmless catalog row the two-step path already tolerated.
    *
-   * Receipts for one job run one at a time (2026-09-25: a stalled server answered the first press
-   * "Response timeout" while still working, the user pressed again, and six receipts were filed for
-   * DJ-ESSKY076LS-001 — each had read "0 received so far"). The job row is locked first, so each
-   * receipt reads the totals the previous one committed: the over-receipt cap, the "already received"
-   * guard and the running total are never stale.
+   * One delivery, one receipt — however many times it is sent (2026-09-25: a stalled server answered
+   * the first press "Response timeout" while still working, the user pressed again, and six receipts
+   * were filed for DJ-ESSKY076LS-001 — each had read "0 received so far"). Two guards:
+   *   - the job row is locked first, so receipts for one job run one at a time and each reads the
+   *     totals the previous one committed — the over-receipt cap, the "already received" guard and
+   *     the running total are never stale;
+   *   - `submissionKey` (the dialog's per-opening key, unique on the receipt): the same submission
+   *     arriving again returns the receipt it already filed, `replayed: true`, and books nothing. Only
+   *     the key tells a repeated PART from a genuine second part — two parts can both fit the cap.
    */
   async receiveJwoToStock(
     data: Parameters<typeof grnService.createGRNFromJWO>[0] & {
@@ -3172,18 +3309,49 @@ class GRNService {
       throw new BusinessError('Invalid or inactive warehouse');
     }
 
-    const grn = await prisma.$transaction(
-      async (tx) => {
-        // FIRST: a second submit for this job waits here until the first commits.
-        await lockJobWorkOrder(tx, data.jobWorkOrderId);
-        const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
-        await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
-          isFinal: data.isFinal ?? true,
-        });
-        return created;
-      },
-      { timeout: 30000, maxWait: 10000 }
-    );
+    const submissionKey = data.submissionKey || null;
+    const alreadyFiled = async (client: Prisma.TransactionClient | typeof prisma) => {
+      if (!submissionKey) return null;
+      const existing = await client.goods_receiving_notes.findUnique({
+        where: { submissionKey },
+        include: this.getFullInclude(),
+      });
+      if (existing && existing.jobWorkOrderId !== data.jobWorkOrderId) {
+        // A key is minted per dialog opening, so this is never a retry — refuse rather than answer
+        // with another job's receipt.
+        throw new BusinessError(
+          'This submission was already used for a different job. Close the dialog and open it again.'
+        );
+      }
+      return existing;
+    };
+
+    let result: { grn: Awaited<ReturnType<GRNService['createGRNFromJWO']>>; replayed: boolean };
+    try {
+      result = await prisma.$transaction(
+        async (tx) => {
+          // FIRST: a second submit for this job waits here until the first commits.
+          await lockJobWorkOrder(tx, data.jobWorkOrderId);
+          const existing = await alreadyFiled(tx);
+          if (existing) return { grn: existing, replayed: true };
+
+          const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
+          await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
+            isFinal: data.isFinal ?? true,
+          });
+          return { grn: created, replayed: false };
+        },
+        { timeout: 30000, maxWait: 10000 }
+      );
+    } catch (err) {
+      // Belt and braces: the lock already serialises one job's submits, so a clash on the unique key
+      // means a twin committed first. Answer with its receipt instead of an error.
+      const existing =
+        err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002' ? await alreadyFiled(prisma) : null;
+      if (!existing) throw err;
+      result = { grn: existing, replayed: true };
+    }
+    const { grn, replayed } = result;
 
     // The split applyLossSplit wrote inside the transaction — returned so the dialog can say
     // "abnormal loss, debit note needed" the moment it commits, as the piece-work receive does.
@@ -3198,12 +3366,13 @@ class GRNService {
       },
     });
 
-    logInfo('Job-work receipt booked to stock in one action', {
-      grnId: grn.id,
-      grnNumber: grn.grnNumber,
-      jobWorkNumber: jwo.jobWorkNumber,
-    });
-    return { grn, jwo };
+    logInfo(
+      replayed
+        ? 'Job-work receipt submitted again — answered with the receipt already filed, nothing booked'
+        : 'Job-work receipt booked to stock in one action',
+      { grnId: grn.id, grnNumber: grn.grnNumber, jobWorkNumber: jwo.jobWorkNumber }
+    );
+    return { grn, jwo, replayed };
   }
 
   /**
@@ -3722,6 +3891,13 @@ class GRNService {
     reason: string
   ): Promise<void> {
     if (!po) return;
+
+    // Goods delivered straight to a processor carry a Rule 45 challan filed with this receipt: reversing
+    // the receipt cancels it (same transaction — a refusal below rolls this back too). Phase 2.
+    await tx.challans.updateMany({
+      where: { directSupplyGrnId: grn.id, status: { not: 'CANCELLED' } },
+      data: { status: 'CANCELLED', remarks: `Cancelled: GRN ${grn.grnNumber} reversed — ${reason}` },
+    });
 
     const poCategory = po.poCategory;
 

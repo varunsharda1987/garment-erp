@@ -888,6 +888,63 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect((await receiptTrail(jobId)).lots).toHaveLength(0);
   });
 
+  // ---- The same submission, again (2026-09-25): the dialog sends one key per opening. A PART receipt
+  //      pressed twice is not refused by the cap (two parts can both fit), so only the key tells a
+  //      repeat of this press from a genuine second delivery. ----------------------------------------
+  it('answers a repeated submission with the receipt already filed — three at once, one receipt, all name it', async () => {
+    const jobId = await raiseAtProcessorJob(); // 500 expected; 200 + 200 would both fit under the cap
+    const submissionKey = `${RUN}-KEY-${randomUUID()}`;
+    const press = () =>
+      request(app)
+        .post('/api/grn/jwo/receive')
+        .set(authHeader)
+        .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 200, isFinal: false, warehouseId, submissionKey });
+
+    const results = await Promise.all([press(), press(), press()]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([200, 200, 201]);
+    const numbers = new Set(results.map((r) => r.body.data.grnNumber));
+    expect(numbers.size).toBe(1);
+    expect(results.filter((r) => r.body.replayed === true)).toHaveLength(2);
+    const trail = await receiptTrail(jobId);
+    expect(trail.receipts).toBe(1);
+    expect(trail.lots).toHaveLength(1);
+    expect(trail.challans).toBe(1);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(200);
+
+    // A genuine second part — a new opening, a new key — still goes in.
+    const second = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({
+        jobWorkOrderId: jobId,
+        qtyReceivedMeters: 200,
+        isFinal: false,
+        warehouseId,
+        submissionKey: `${RUN}-KEY-${randomUUID()}`,
+      });
+    expect(second.status).toBe(201);
+    expect((await receiptTrail(jobId)).receipts).toBe(2);
+  });
+
+  it('refuses a submission key already used on a different job', async () => {
+    const jobA = await raiseAtProcessorJob();
+    const jobB = await raiseAtProcessorJob();
+    const submissionKey = `${RUN}-KEY-${randomUUID()}`;
+    const first = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jobA, qtyReceivedMeters: 200, isFinal: false, warehouseId, submissionKey });
+    expect(first.status).toBe(201);
+    const other = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jobB, qtyReceivedMeters: 200, isFinal: false, warehouseId, submissionKey });
+    expect(other.status).toBe(422);
+    expect((await receiptTrail(jobB)).receipts).toBe(0);
+  });
+
   it('returns a job unprocessed ONCE when the press arrives twice at once — the second finds it cancelled', async () => {
     // Until 2026-09-25 the guards read the job outside the transaction, so both presses saw "at
     // processor", both credited the material and both filed an inward challan.

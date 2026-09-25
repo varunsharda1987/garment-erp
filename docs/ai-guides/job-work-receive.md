@@ -63,6 +63,24 @@ keywords:
   - कपड़ा वापस
   - रंगा हुआ कपड़ा
   - इनवर्ड चालान
+  - clicked twice
+  - pressed twice
+  - double click
+  - duplicate GRN
+  - duplicate receipt
+  - same GRN twice
+  - GRN twice
+  - multiple GRN
+  - server slow
+  - still saving
+  - already received
+  - do baar click
+  - do baar GRN
+  - double entry
+  - दो बार क्लिक
+  - दो बार जीआरएन
+  - डुप्लीकेट जीआरएन
+  - डबल एंट्री
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -113,7 +131,7 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
 9. **This is the final delivery — nothing more is expected from …** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. If you tick it while the total is short, the line under it turns red: **Short by … Only tick this if nothing more is coming from …**.
 10. If the total is short beyond the job's tolerance and the box is ticked, a warning names the metres beyond the allowance and the debit note that will be needed against the processor before the job can close.
-11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked). The button stays disabled until you have a quantity, a warehouse and a valid date. When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
+11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked) — once. The button stays disabled until you have a quantity, a warehouse and a valid date. When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
 
 ### What that one click does
 - Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date and metres.
@@ -121,6 +139,11 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 - Raises the **Inward** challan from the processor — the GST document for goods back from a job worker. **Print Inward Challan** appears on the job.
 - Writes the than count, fold length, width and quality onto the job. On the final delivery it also writes the actual shrinkage % and moves the job to **Stock Updated**; a part leaves it at **Partial Receipt**.
 - On the final delivery, splits the loss into normal and abnormal on the total of all parts. Every receipt advances any material requirement the job was covering by its own metres.
+
+### If the server is slow
+One opening of the dialog files at most one receipt, however many times the button is pressed.
+- If a message says **The server is slow — this receipt may still be saving**, wait a moment and click **Receive & add to stock** again. It is safe: if the first click already went in, you are told **… was already received** with that receipt's number, and no second receipt is made.
+- To record a genuine second delivery, close the dialog and open **Receive from processor** again — a fresh opening is a new delivery.
 
 ## Receiving in parts
 A processor often returns a job in more than one delivery. Record each delivery as its own receipt:
@@ -149,6 +172,8 @@ If you enter less than was sent, the dialog warns you: the job still closes, and
 3. Enter **Quantity Received**. It must be more than zero. The expected figure and the **Tolerance** percentage are shown for reference.
 4. Click **Receive & Calculate Loss**.
 
+A job that has already been received cannot be received again: a second click is refused with "… has already been received (status …) — nothing was recorded again."
+
 ## After receiving
 - If there is abnormal loss you are told when you receive, and an **Abnormal Loss Detected** banner shows on the job work order. A debit note against the processor is required.
 - Click **Close Order** on the job work order and enter **Processor Invoice Number \*** to finish the order. Closing is refused while abnormal loss has no debit note.
@@ -156,7 +181,10 @@ If you enter less than was sent, the dialog warns you: the job still closes, and
 
 ## Traps
 - **Receive from processor** only shows once the job has gone out (**Issued**, **In Transit**, **At Processor**, **Partial Receipt**; **At Mill** or **Partial Receipt** on the Dyeing & Printing page). A **Draft** job has not been sent — use **Issue to Processor** first.
-- A job that has had its final delivery is refused with "has already been received" — do not click again after a slow response; open the job and check its status. To receive in parts, untick **This is the final delivery** on every part but the last.
+- A job that has had its final delivery is refused with "has already been received". To receive in parts, untick **This is the final delivery** on every part but the last.
+- After a slow response, pressing the button again in the SAME dialog is safe — it returns the receipt already filed. What would make a second receipt is closing the dialog, opening it again and entering the same delivery again: check the job's **Return receipts** first.
+- If one delivery was ever filed twice (two receipts with the same metres and date), do not receive anything more on the job — note both receipt numbers from its **Return receipts** and ask an admin to reverse the extra one. There is no button for this on the screens; it is an administrator correction. The extra receipt's lot and inward challan go, the other receipt stays, and the job's total is recomputed.
+- **Returned unprocessed** pressed twice records the return once — the second press is refused because the job is already **Cancelled**.
 - **Fold length (cm)** must be under 1000. Typing metres or millimetres there is refused with "Fold length is in cm and must be under 1000".
 - Receiving more than **Maximum you can receive** is refused; the message shows the maximum. With parts the cap is on the total of all parts, and the message names the metres already received.
 - The final-delivery box follows the quantity only until you click it; after that it stays as you set it until the dialog is next opened.

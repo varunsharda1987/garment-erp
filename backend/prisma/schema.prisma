@@ -940,6 +940,10 @@ model goods_receiving_notes {
   receivedById                                    String
   approvedById                                    String?
   createdAt                                       DateTime          @default(now())
+  /// The Receive-from-processor dialog's per-opening key. The same submission sent again (a retry after a
+  /// timeout, a double press) returns this receipt instead of filing another — six were filed for one
+  /// delivery of DJ-ESSKY076LS-001 on 2026-09-25. Null on every receipt from any other door.
+  submissionKey                                   String?           @unique
   users_goods_receiving_notes_approvedByIdTousers users?            @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id])
   purchase_orders                                 purchase_orders?  @relation(fields: [poId], references: [id])
   jobWorkOrder                                    job_work_orders?  @relation("GRNJobWorkOrder", fields: [jobWorkOrderId], references: [id])

@@ -1,14 +1,23 @@
 /**
- * One-off repair: remove three wrong CAD rows the owner asked to delete (2026-09-25).
+ * One-off repair: remove wrong CAD rows the owner asked to delete (2026-09-25).
  *
+ * Run 1 (ee083d4c):
  *   dcd56333  IP00138 (STYFW-005)  PRODUCTION 52", rejected 21-Sep "worng entry"
  *   e7693adc  IP00138 (STYFW-005)  RAW MAT copy it was promoted from, rejected 25-Sep "incorrect"
  *   018933e8  LNG279  (STYSW-001)  PRODUCTION 52", rejected 21-Aug "worng entry"
- *
  * Both Production rows came from Fabric Costing → Promote to Production: a priced, isLocked row with
  * no fabric lot, which validateCADModification then refused to edit or delete ("costed PRODUCTION
  * CAD"). retire-production-costing.ts cleared their costing and lock and deleted LNG279's Production
- * cost sheet, so nothing references them now. None has a lot, a price approval or any link.
+ * cost sheet, so nothing references them now.
+ *
+ * Run 2 — the sweep's D17 leftovers, pending Production CADs with no lot, which can no longer be
+ * approved (owner: "You remove it"):
+ *   77f69525, adc6e902  LNG236     PRODUCTION 0", empty (no sizes, no average), since 02-Jan
+ *   9695fcb1            EMFK00262  PRODUCTION 52", "Created from stock lot" — that lot was deleted
+ *                                  later (the FK is ON DELETE SET NULL), since 02-Apr
+ *
+ * None has a lot, a price approval or any link. Rows already gone are reported and skipped; each
+ * --apply appends its snapshot to the snapshot file.
  *
  * Repair path = the SANCTIONED endpoints, driven as the admin user against the live API:
  *   1. DELETE /fabric-costing/option/:id       clears a costing still on the row (deleteCostingOption)
@@ -44,6 +53,24 @@ const ROWS = [
     id: '018933e8-0d94-4d85-b6f9-ff49c031bd10',
     styleId: '83b5f7bc-5ef6-4bda-9749-9c5e92a12aed', // LNG279
     label: 'LNG279 Production 52"',
+    purpose: 'PRODUCTION',
+  },
+  {
+    id: '77f69525-811e-436c-9cb4-482eb5e9ef85',
+    styleId: 'ab0af498-1138-4cff-a4d8-3cc8d8eeb222', // LNG236
+    label: 'LNG236 Production (empty) #1',
+    purpose: 'PRODUCTION',
+  },
+  {
+    id: 'adc6e902-09d1-447e-b6af-a588d0ea5cf3',
+    styleId: 'ab0af498-1138-4cff-a4d8-3cc8d8eeb222', // LNG236
+    label: 'LNG236 Production (empty) #2',
+    purpose: 'PRODUCTION',
+  },
+  {
+    id: '9695fcb1-a0ff-4a3a-9f00-15d8c47c9cdb',
+    styleId: '43dcd8a2-6f7d-45b4-b975-f304debec57d', // EMFK00262
+    label: 'EMFK00262 Production 52"',
     purpose: 'PRODUCTION',
   },
 ];
@@ -97,7 +124,10 @@ async function main() {
     const checks: Array<[string, boolean]> = [
       ['belongs to the style', row.styleFabric?.style_components?.styleId === target.styleId],
       [`is a ${target.purpose} row`, (row.purposeEnum ?? row.purpose) === target.purpose],
-      ['is REJECTED', row.approvalStatus === 'REJECTED'], // allow-cad-approval
+      [
+        'is PENDING or REJECTED (never approved)',
+        row.approvalStatus === 'REJECTED' || row.approvalStatus === 'PENDING', // allow-cad-approval
+      ],
       ['has no fabric lot', row.fabricStockId === null],
       ['has no price approval', row.costingApprovalStatus === null],
       ['is not locked', row.isLocked === false],
@@ -127,10 +157,11 @@ async function main() {
     return;
   }
 
-  fs.writeFileSync(
-    SNAPSHOT,
-    JSON.stringify({ takenAt: new Date().toISOString(), rows: found.map((f) => f.row) }, null, 2)
-  );
+  // One file, one entry per --apply run (run 1 wrote a single { takenAt, rows } object)
+  const previous = fs.existsSync(SNAPSHOT) ? JSON.parse(fs.readFileSync(SNAPSHOT, 'utf8')) : null;
+  const runs = previous ? (previous.runs ?? [previous]) : [];
+  runs.push({ takenAt: new Date().toISOString(), rows: found.map((f) => f.row) });
+  fs.writeFileSync(SNAPSHOT, JSON.stringify({ runs }, null, 2));
   console.log(`\nSnapshot written: ${SNAPSHOT}`);
 
   const secret = process.env.JWT_SECRET;

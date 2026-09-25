@@ -1070,7 +1070,7 @@ export class SaleOrderService {
 
     try {
       // Production must be finished by the buyer PO's Expected Ship Date (owner, 2026-09-25): the
-      // production order takes it, and so do its PENDING runs. Before this the link kept the date
+      // production order takes it, and so do its unfinished runs. Before this the link kept the date
       // typed in August — ORD2026080026 carried 20-Sep, already past, and its run printed
       // "24-Sep → 20-Sep".
       await prisma.$transaction(async (tx) => {
@@ -1079,8 +1079,9 @@ export class SaleOrderService {
           data: { saleOrderId, ...(so.expectedShipDate ? { expectedDeliveryDate: so.expectedShipDate } : {}) },
         });
         if (so.expectedShipDate) {
+          // Runs still being made follow the new date; finished / cancelled / split ones are history
           await tx.work_orders.updateMany({
-            where: { orderId, status: 'PENDING' },
+            where: { orderId, status: { in: ['PENDING', 'IN_PRODUCTION'] } },
             data: { plannedEndDate: so.expectedShipDate },
           });
         }

@@ -18,9 +18,45 @@
  * exercise with a large blast radius and little extra signal.
  */
 
-import { buildBatchFabricRows } from '../../controllers/cutting.utils';
+import { buildBatchFabricRows, splitFabricReservation } from '../../controllers/cutting.utils';
 
 const BATCH = 'batch-1';
+
+describe('splitFabricReservation — a batch holds its need once, split across lots', () => {
+  it('ESSKY085LS: 2,323 pcs × 0.7333 m over two lots of one fabric = 851.9 + the rest, not 1,703.5 on each', () => {
+    const shares = splitFabricReservation(2323, [
+      { stockId: 'lot1', fabricId: 'fab', cadAvg: 0.7333, capacity: 851.9 },
+      { stockId: 'lot2', fabricId: 'fab', cadAvg: 0.7333, capacity: 852.1 },
+    ]);
+    expect(shares).toEqual([
+      { stockId: 'lot1', quantity: 851.9, cadAvg: 0.7333 },
+      { stockId: 'lot2', quantity: 851.556, cadAvg: 0.7333 }, // 1,703.456 − 851.9
+    ]);
+    expect(shares.reduce((s, x) => s + x.quantity, 0)).toBeCloseTo(2323 * 0.7333, 3);
+  });
+
+  it('never holds more than the lots have', () => {
+    const shares = splitFabricReservation(1000, [{ stockId: 'lot1', fabricId: 'fab', cadAvg: 1, capacity: 600 }]);
+    expect(shares).toEqual([{ stockId: 'lot1', quantity: 600, cadAvg: 1 }]);
+  });
+
+  it('two different fabrics (parts) each get their own need', () => {
+    const shares = splitFabricReservation(100, [
+      { stockId: 'body', fabricId: 'fabA', cadAvg: 1.2, capacity: 500 },
+      { stockId: 'lining', fabricId: 'fabB', cadAvg: 0.4, capacity: 500 },
+    ]);
+    expect(shares.map((s) => s.quantity)).toEqual([120, 40]);
+  });
+
+  it('skips a lot with nothing left and one with no CAD average', () => {
+    const shares = splitFabricReservation(10, [
+      { stockId: 'empty', fabricId: 'fab', cadAvg: 1, capacity: 0 },
+      { stockId: 'nocad', fabricId: 'fab2', cadAvg: null, capacity: 100 },
+      { stockId: 'full', fabricId: 'fab', cadAvg: 1, capacity: 100 },
+    ]);
+    expect(shares).toEqual([{ stockId: 'full', quantity: 10, cadAvg: 1 }]);
+  });
+});
 
 describe('buildBatchFabricRows', () => {
   it('always includes the primary lot — this is what CuttingForm batches were missing', () => {

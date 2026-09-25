@@ -312,6 +312,36 @@ export async function recalculateBatchTotals(tx: any, batchId: string) {
 }
 
 /**
+ * How much of each lot a cutting batch holds (fabric_stock_allocation RESERVED rows).
+ *
+ * A batch needs `pieces × CAD average` metres of each FABRIC it cuts, not of each lot. Lots of the
+ * same fabric share that need in the order given (primary first), and no lot holds more than it has
+ * (in the store + already at Cutting for the run). The old loop wrote the whole need on EVERY lot:
+ * ESSKY085LS's batch held 1,703.5 m on a 851.9 m lot AND on a 852.1 m lot — 3,407 m for 1,704 m
+ * of cloth (2026-09-25). Need beyond what the lots hold is not reserved: a hold cannot exceed cloth.
+ */
+export function splitFabricReservation(
+  pieces: number,
+  lots: Array<{ stockId: string; fabricId: string | null; cadAvg: number | null; capacity: number }>
+): Array<{ stockId: string; quantity: number; cadAvg: number }> {
+  if (!(pieces > 0)) return [];
+  const out: Array<{ stockId: string; quantity: number; cadAvg: number }> = [];
+  const needByFabric = new Map<string, number>();
+  for (const lot of lots) {
+    if (!lot.cadAvg || lot.cadAvg <= 0) continue;
+    const key = lot.fabricId ?? `lot:${lot.stockId}`;
+    // A fabric's need is set by its first lot's CAD average (all lots of one fabric share one CAD)
+    if (!needByFabric.has(key)) needByFabric.set(key, Math.round(pieces * lot.cadAvg * 1000) / 1000);
+    const left = needByFabric.get(key)!;
+    const quantity = Math.round(Math.min(left, Math.max(0, lot.capacity)) * 1000) / 1000;
+    if (quantity <= 0) continue;
+    out.push({ stockId: lot.stockId, quantity, cadAvg: lot.cadAvg });
+    needByFabric.set(key, Math.round((left - quantity) * 1000) / 1000);
+  }
+  return out;
+}
+
+/**
  * The fabric lots a cutting batch expects to consume, as `cutting_batch_fabrics` rows.
  *
  * Completion sums issued fabric by walking these rows and looking each lot up in the challan-derived

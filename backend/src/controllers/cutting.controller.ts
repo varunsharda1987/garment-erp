@@ -11,6 +11,7 @@ import {
   dedupeSkuRows,
   buildBatchFabricRows,
   dedupeChartEntries,
+  splitFabricReservation,
 } from './cutting.utils';
 import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
@@ -380,9 +381,30 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       }
     }
 
-    for (const [stockId, cadAvg] of stocksToReserve) {
-      if (cadAvg && cadAvg > 0 && totalPiecesToCut > 0 && workOrder.orderId) {
-        const quantityToAllocate = totalPiecesToCut * cadAvg;
+    // Split each fabric's need across its lots, never more than a lot holds (in store + at Cutting
+    // for this run) — the whole need used to be written on EVERY lot (cutting.utils.ts)
+    const lotRows = await prisma.fabric_stock.findMany({
+      where: { id: { in: [...stocksToReserve.keys()] } },
+      select: { id: true, fabricId: true, quantityAvailable: true, status: true },
+    });
+    const lotById = new Map(lotRows.map((l) => [l.id, l]));
+    const position = await getRunFabricPosition([workOrder.id]);
+    const shares = splitFabricReservation(
+      totalPiecesToCut,
+      [...stocksToReserve].map(([stockId, cadAvg]) => {
+        const lot = lotById.get(stockId);
+        const inStore = lot && lot.status === 'AVAILABLE' ? Number(lot.quantityAvailable) : 0;
+        return {
+          stockId,
+          fabricId: lot?.fabricId ?? null,
+          cadAvg,
+          capacity: inStore + (position.lots.get(stockId)?.atCutting ?? 0),
+        };
+      })
+    );
+
+    for (const { stockId, quantity: quantityToAllocate, cadAvg } of shares) {
+      if (workOrder.orderId) {
         try {
           await prisma.fabric_stock_allocation.create({
             data: {

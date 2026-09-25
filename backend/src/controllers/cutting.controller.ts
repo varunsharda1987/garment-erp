@@ -464,12 +464,16 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
   //
   // The batch records which fabric lots it expects (cutting_batch_fabrics above), so a manually
   // issued challan is matched and counted at completion.
+  //
+  // Point at the run's Fabric Issuance (2026-09-25): it issues FOR this batch (challans.cuttingBatchId),
+  // so deleting the batch returns the fabric. A challan raised from Procurement → Challans carries no
+  // batch — the old message sent the cutter there.
   res.status(201).json({
     data: transformCuttingBatch(batch),
     message: 'Cutting batch created successfully',
     warning:
       batchFabricRows.length > 0
-        ? 'Fabric was NOT issued automatically. Issue it from Procurement → Challans before completing this batch, or completion will be blocked.'
+        ? `Fabric is not issued yet. On production run ${workOrder.workOrderNumber}, open Fabric Issuance, tick the lots and click Issue to Cutting — it is issued for this batch. Completing the batch is blocked until then.`
         : undefined,
   });
 };
@@ -808,7 +812,7 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   const legacyFabricConsumed = Number(existing.fabricConsumed) || 0;
   if (totalFabricIssued === 0 && legacyFabricConsumed === 0) {
     throw new ValidationError(
-      'Cannot complete batch: No fabric issue recorded. Please issue fabric via Challans before completing the batch.'
+      'Cannot complete batch: No fabric issue recorded. Issue the fabric for this batch from the production run — Fabric Issuance → Issue to Cutting — then complete it.'
     );
   }
 

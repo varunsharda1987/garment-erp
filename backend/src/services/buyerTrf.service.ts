@@ -24,6 +24,7 @@ import { EASYBUY_TRF_DEFAULTS, TRF_BO_NUMBER_NOT_REQUIRED } from '../constants/b
 import { washCareService } from './washCare.service';
 import { companyProfileService } from './company-profile.service';
 import { LAB_ROUND_TEST_SELECT, latestRoundForSample, roundResult } from './helpers/lab-round.helper';
+import { weaverLabel, type WeaverShare } from './helpers/weaver-lineage.helper';
 
 /** Fields the list screen searches. Registered in listSearchCoverage.test.ts. */
 const TRF_SEARCH_FIELDS = [
@@ -371,7 +372,6 @@ class BuyerTrfService {
             construction: true,
             weaveType: true,
             gsmRange: true,
-            weaver: true,
             supplierId: true,
           },
         },
@@ -429,7 +429,23 @@ class BuyerTrfService {
       });
       supplierName = proc?.supplier?.name ?? null;
     }
-    note('fabricSupplierName', supplierName ?? greige.weaver, 'greige supplier', 'Fabric Supplier Name');
+    // Last resort: the weaver of this style's own fabric (Phase 1b — the weaver lives on the lot, not
+    // the greige master, whose retired weaver column is no longer read).
+    let weaverName: string | null = null;
+    if (!supplierName) {
+      const lot = await prisma.fabric_stock.findFirst({
+        where: { originStyleId: styleId, OR: [{ weaverId: { not: null } }, { weaverMix: { not: Prisma.DbNull } }] },
+        orderBy: { receivedDate: 'desc' },
+        select: { weaver: { select: { name: true } }, weaverMix: true },
+      });
+      weaverName = lot ? weaverLabel(lot.weaver?.name, lot.weaverMix as unknown as WeaverShare[] | null) : null;
+    }
+    note(
+      'fabricSupplierName',
+      supplierName ?? weaverName,
+      supplierName ? 'greige supplier' : 'weaver of the style fabric',
+      'Fabric Supplier Name'
+    );
 
     return out;
   }

@@ -974,16 +974,16 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/routes/lazy-routes.tsx": "c1a31efdef59",
-      "frontend/src/pages/ProcessorStatement.tsx": "3844ddcd1373",
+      "frontend/src/pages/ProcessorStatement.tsx": "3c835fa1233e",
       "frontend/src/pages/JobWorkDashboard.tsx": "ad52b5890a7c",
       "frontend/src/services/processorStatement.service.ts": "02c80754edcc",
       "frontend/src/components/SupplierCombobox.tsx": "7113afec968b",
       "backend/src/routes/job-work-statutory.routes.ts": "b7b8d7cd4f4b",
       "backend/src/controllers/job-work-statutory.controller.ts": "a255ab32d849",
-      "backend/src/services/processor-statement.service.ts": "3e9d5e11a387"
+      "backend/src/services/processor-statement.service.ts": "893d26a75946"
     },
-    "contentHash": "c8e44d7965a1",
-    "generatedAt": "2026-09-23T06:17:36.217Z"
+    "contentHash": "14ad87869415",
+    "generatedAt": "2026-09-25T12:06:23.109Z"
   },
   "product-category-create": {
     "sources": {

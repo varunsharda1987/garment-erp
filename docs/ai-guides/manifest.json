@@ -990,13 +990,13 @@
       "frontend/src/pages/ProductionStatus.tsx": "25e56fb0a37b",
       "frontend/src/components/status/StatusFilterBar.tsx": "d82a58a93599",
       "frontend/src/components/status/StatusSummaryCards.tsx": "4a62fcb06033",
-      "frontend/src/pages/WorkOrderList.tsx": "72c8f1c6945b",
-      "frontend/src/pages/WorkOrderDetail.tsx": "a55770846906",
+      "frontend/src/pages/WorkOrderList.tsx": "a781890b1be4",
+      "frontend/src/pages/WorkOrderDetail.tsx": "0fd224e036cb",
       "frontend/src/pages/CuttingList.tsx": "fe3e682c99ec",
-      "backend/src/schemas/workOrder.schema.ts": "e515662501f3"
+      "backend/src/schemas/workOrder.schema.ts": "3b06f5653c89"
     },
-    "contentHash": "2e07e12601e1",
-    "generatedAt": "2026-09-23T06:17:36.225Z"
+    "contentHash": "f2c49282fd05",
+    "generatedAt": "2026-09-25T05:20:23.481Z"
   },
   "purchase-order-close-short": {
     "sources": {
@@ -1411,17 +1411,20 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/routes/lazy-routes.tsx": "c1a31efdef59",
-      "frontend/src/pages/WorkOrderCreate.tsx": "ada45bbc5df9",
-      "frontend/src/pages/WorkOrderList.tsx": "72c8f1c6945b",
-      "frontend/src/pages/WorkOrderForm.tsx": "d8d0aedd56e3",
-      "frontend/src/pages/WorkOrderDetail.tsx": "5972d67585b1",
-      "frontend/src/pages/SaleOrderDetail.tsx": "926888466ae0",
-      "backend/src/schemas/workOrder.schema.ts": "e515662501f3",
+      "frontend/src/pages/WorkOrderCreate.tsx": "46d2123c5b76",
+      "frontend/src/pages/WorkOrderList.tsx": "a781890b1be4",
+      "frontend/src/pages/WorkOrderForm.tsx": "0d7313377ff0",
+      "frontend/src/pages/WorkOrderDetail.tsx": "0fd224e036cb",
+      "frontend/src/components/StyleCombobox.tsx": "abeb26e37650",
+      "frontend/src/components/SplitProductionModal.tsx": "18f309870ea6",
+      "frontend/src/pages/SaleOrderDetail.tsx": "37bc77fc873b",
+      "backend/src/schemas/workOrder.schema.ts": "3b06f5653c89",
       "backend/src/routes/workOrder.routes.ts": "1542e89d0d56",
-      "backend/src/services/productionBlockingValidation.service.ts": "eb36dbf916d4"
+      "backend/src/services/workOrder.service.ts": "98a040cce692",
+      "backend/src/services/productionBlockingValidation.service.ts": "77bed9420aa8"
     },
-    "contentHash": "d14e44c5187d",
-    "generatedAt": "2026-09-24T11:28:22.479Z"
+    "contentHash": "f1275f3dc623",
+    "generatedAt": "2026-09-25T05:20:23.692Z"
   },
   "zipper-create": {
     "sources": {

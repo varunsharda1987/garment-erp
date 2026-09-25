@@ -73,6 +73,12 @@ export interface ChallanDocData {
   showGst: boolean;
   consignorName: string;
   consignorGstin: string | null;
+  /**
+   * Where the goods physically left — our store, or "Supplied directly by <supplier>" for goods a
+   * supplier delivered straight to the job worker. Null on old challans that still read the made-up
+   * "Main Warehouse" (they reprint as they were issued).
+   */
+  despatchedFrom: string | null;
   consigneeName: string;
   consigneeAddress: string | null;
   consigneeGstin: string | null;
@@ -87,6 +93,8 @@ export interface ChallanDocData {
   items: ChallanDocItem[];
   totalValue: string;
   returnByDate: string;
+  /** The day a breach is deemed a supply from — the day the job worker received the goods */
+  deemedFromDate: string;
   /** Bale/than-level issue details when issued with detail selection */
   issueDetails: ChallanIssueDetail[] | null;
   /**
@@ -241,12 +249,25 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
   const totalDeclared =
     challan.totalDeclaredValue != null ? Number(challan.totalDeclaredValue) : roundToCent(runningTotal).toNumber();
 
+  // Goods a supplier delivered straight to the job worker (Rule 45): the challan's expectedDate is
+  // the year from the day the job worker received them — which a late challan is dated after.
+  const isDirectSupply = challan.directSupplyGrnId != null;
+  const receivedByJobWorker =
+    isDirectSupply && challan.expectedDate
+      ? (() => {
+          const d = new Date(challan.expectedDate);
+          d.setFullYear(d.getFullYear() - 1);
+          return d;
+        })()
+      : null;
+
   // Sec 143 return-by: the date the SYSTEM actually tracks, not a re-derivation of it.
   // A consolidated dispatch leaves the header order null, so without the line fallback this
   // printed challanDate + 1 year − 1 day while every order on it recorded issueDate + 1 year —
   // paperwork disagreeing with the record it is evidence for. Orders dispatched together share
   // one issue date, so any line's date is the whole challan's date.
   const returnBy =
+    (isDirectSupply ? challan.expectedDate : null) ??
     challan.jobWorkOrder?.statutoryDueDate ??
     challan.items.find((i) => i.jobWorkOrder?.statutoryDueDate)?.jobWorkOrder?.statutoryDueDate ??
     (() => {
@@ -256,7 +277,16 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
       return d;
     })();
 
-  const movementLabel = isInternal ? 'Internal Transfer' : isInward ? 'Inward · Job Work Return' : 'Outward · Job Work';
+  const movementLabel = isInternal
+    ? 'Internal Transfer'
+    : isInward
+      ? 'Inward · Job Work Return'
+      : isDirectSupply
+        ? 'Outward · Job Work · Delivered direct'
+        : 'Outward · Job Work';
+  // "Main Warehouse" was a name printed on every job challan until 2026-09-25 that exists nowhere
+  const despatchedFrom =
+    !isInward && challan.fromName && challan.fromName !== 'Main Warehouse' ? challan.fromName : null;
 
   return {
     company,
@@ -266,6 +296,7 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
     showGst: !isInternal,
     consignorName,
     consignorGstin: consignorGstin ?? null,
+    despatchedFrom,
     consigneeName,
     consigneeAddress,
     consigneeGstin: consigneeGstin ?? null,
@@ -285,6 +316,7 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
     items,
     totalValue: fmtMoney(totalDeclared),
     returnByDate: fmtDate(returnBy),
+    deemedFromDate: fmtDate(receivedByJobWorker ?? challan.challanDate),
     // Bale/than-level issue details when issued with detail selection
     issueDetails:
       challan.greigeIssueDetails && challan.greigeIssueDetails.length > 0

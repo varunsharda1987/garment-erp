@@ -63,6 +63,9 @@ const jwoDocInclude = {
       purchaseCost: true,
       greigeWidth: true,
       greige: { select: { greigeCode: true, greigeName: true } },
+      // Cloth the job took where it already lay at the processor: the challan it is there under
+      processorId: true,
+      sourceChallan: { select: { challanNumber: true, challanDate: true, status: true } },
     },
   },
   fabricStockLot: {
@@ -230,6 +233,18 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     .filter((b) => b.length > 0);
   const contactBits = [p.contactPerson?.trim(), p.phone?.trim()].filter((b): b is string => !!b && b.length > 0);
   const challan = jwo.outwardChallan ?? jwo.headerChallans[0] ?? null;
+  // A job that took cloth already lying at the processor (delivered straight there, or parked by a
+  // Stock-Out) moved nothing and has no challan of its own — the lot's challan already covers it.
+  const heldChallan = jwo.greigeStockLot?.sourceChallan;
+  const coveringChallan =
+    !challan &&
+    jwo.sentDate &&
+    jwo.greigeStockLot?.processorId != null &&
+    jwo.greigeStockLot.processorId === jwo.processorId &&
+    heldChallan &&
+    heldChallan.status !== 'CANCELLED'
+      ? heldChallan
+      : null;
 
   // Primary MRP requirement link — colour + greige lineage when there's no lab dip / lot yet
   const reqLink = jwo.requirementLinks[0]?.material_requirements ?? null;
@@ -478,7 +493,11 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     colourLine: colourName,
     orderDate: fmtDate(jwo.approvedAt ?? jwo.createdAt),
     approvedByName: jwo.approvedBy ? `${jwo.approvedBy.firstName} ${jwo.approvedBy.lastName}`.trim() : null,
-    challanRef: challan ? `${challan.challanNumber} · ${fmtDate(challan.challanDate)}` : '— issued on dispatch',
+    challanRef: challan
+      ? `${challan.challanNumber} · ${fmtDate(challan.challanDate)}`
+      : coveringChallan
+        ? `${coveringChallan.challanNumber} · ${fmtDate(coveringChallan.challanDate)} · goods already with you`
+        : '— issued on dispatch',
     dueBack: fmtDate(jwo.expectedReturnDate),
     statutoryDue: jwo.statutoryDueDate ? fmtDate(jwo.statutoryDueDate) : '— set on issue',
     materialRows,
@@ -504,6 +523,10 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     toleranceStr,
     uomHead: unitHeader(uomForRate),
     issuedQty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
-    issuedRemark: challan ? `Per challan ${challan.challanNumber}` : 'Per dispatch challan — to follow',
+    issuedRemark: challan
+      ? `Per challan ${challan.challanNumber}`
+      : coveringChallan
+        ? `Goods already with you under our challan ${coveringChallan.challanNumber} dated ${fmtDate(coveringChallan.challanDate)}`
+        : 'Per dispatch challan — to follow',
   };
 }

@@ -25,6 +25,7 @@
     <div class="kv">
       <div>
         <div class="row"><span class="k">Consignor</span><span class="v">{{../consignorName}}{{#if ../consignorGstin}} &middot; <span class="muted">{{../consignorGstin}}</span>{{/if}}</span></div>
+        {{#if ../despatchedFrom}}<div class="row"><span class="k">Despatched From</span><span class="v">{{../despatchedFrom}}</span></div>{{/if}}
         <div class="row"><span class="k">Consignee</span><span class="v">{{../consigneeName}}</span></div>
         {{#if ../consigneeAddress}}<div class="row"><span class="k">Address</span><span class="v">{{../consigneeAddress}}</span></div>{{/if}}
         {{#if ../showGst}}<div class="row"><span class="k">Consignee GST</span><span class="v">{{#if ../consigneeGstin}}{{../consigneeGstin}} &middot; <span class="muted">Registered</span>{{else}}<span class="muted">Unregistered</span>{{/if}}</span></div>{{/if}}
@@ -85,7 +86,7 @@
     <div class="sec-h"><span>03 &mdash; Return Undertaking</span><b>Sec. 143 &middot; 1 year</b></div>
     <ol class="terms">
       <li>Title to these goods remains with {{../company.name}}. The consignee holds them as bailee and shall create no lien or encumbrance.</li>
-      <li>Goods must be returned by <strong>{{../returnByDate}}</strong>. After that date this despatch is deemed a supply from {{../challanDate}}, with interest, recoverable from the consignee.</li>
+      <li>Goods must be returned by <strong>{{../returnByDate}}</strong>. After that date this despatch is deemed a supply from {{../deemedFromDate}}, with interest, recoverable from the consignee.</li>
       <li>Return under the consignee&rsquo;s own challan quoting {{../docNo}}{{#if ../againstOrders}} and order {{../againstOrders}}{{/if}}.</li>
       <li>This challan will be reported in ITC-04 for the relevant period.</li>
     </ol>

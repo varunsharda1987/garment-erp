@@ -29,6 +29,9 @@ import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 import { jobWorkStatutoryService } from '../../services/job-work-statutory.service';
 import { getProcessorStatement } from '../../services/processor-statement.service';
+import { buildChallanDocData } from '../../services/document-data/challan.doc-data';
+import { buildJobWorkOrderDocData } from '../../services/document-data/job-work-order.doc-data';
+import { formatDate } from '../../utils/date';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -381,6 +384,23 @@ describe('greige delivered straight to a processor', () => {
 
     const statementB = await getProcessorStatement(dyerB, from, new Date());
     expect(statementB.sections.flatMap((sec) => sec.rows).some((r) => r.material.id === greigeId)).toBe(false);
+  });
+
+  it('the printouts say where the goods came from and that nothing is "to follow"', async () => {
+    const covering = await prisma.challans.findUniqueOrThrow({ where: { id: challanId } });
+    const challanDoc = await buildChallanDocData(challanId);
+    expect(challanDoc.despatchedFrom).toBe(`Supplied directly by ${RUN} Hardik`);
+    expect(challanDoc.movementLabel).toMatch(/Delivered direct/);
+    const dueBack = new Date(RECEIVED_ON);
+    dueBack.setFullYear(dueBack.getFullYear() + 1);
+    expect(challanDoc.returnByDate).toBe(formatDate(dueBack));
+    expect(challanDoc.deemedFromDate).toBe(formatDate(RECEIVED_ON));
+
+    const jobDoc = await buildJobWorkOrderDocData(jwoA);
+    expect(jobDoc.issuedRemark).toBe(
+      `Goods already with you under our challan ${covering.challanNumber} dated ${formatDate(covering.challanDate)}`
+    );
+    expect(jobDoc.challanRef).toContain(covering.challanNumber);
   });
 
   let storeLotId: string;

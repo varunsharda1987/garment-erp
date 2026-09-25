@@ -315,7 +315,12 @@ class PurchaseOrderService {
               paymentTerms: true,
             },
           },
-          purchase_order_items: true,
+          // The list shows WHAT is on each PO, not only its category
+          purchase_order_items: {
+            include: {
+              materials: { select: { id: true, code: true, name: true, materialType: true, unit: true } },
+            },
+          },
         },
       }),
       prisma.purchase_orders.count({ where }),

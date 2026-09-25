@@ -53,6 +53,7 @@ import {
   PO_CATEGORY_LABELS,
   PO_CATEGORY_COLORS,
   type POGroup,
+  type PurchaseOrderItem,
 } from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
@@ -73,6 +74,28 @@ import {
   Plus,
   X,
 } from 'lucide-react';
+
+/**
+ * What is on the PO: the first line's material (a service line falls back to its
+ * description, as on the detail page), plus a count of the other lines.
+ */
+function POMaterialCell({ items = [] }: { items?: PurchaseOrderItem[] }) {
+  const lineName = (item: PurchaseOrderItem) => item.materials?.name || item.serviceDescription || 'Item';
+  const [first] = items;
+  if (!first) return <span className="text-sm text-muted-foreground">—</span>;
+
+  const code = first.materials?.code;
+  const extra = items.length - 1;
+  return (
+    <div className="max-w-[260px]" title={items.map(lineName).join('\n')}>
+      <div className="text-sm font-medium truncate">{lineName(first)}</div>
+      <div className="text-xs text-muted-foreground">
+        {code}
+        {extra > 0 && `${code ? ' · ' : ''}+${extra} more`}
+      </div>
+    </div>
+  );
+}
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
@@ -487,6 +510,7 @@ export default function PurchaseOrderList() {
                   <TableRow>
                     <TableHead>PO Number</TableHead>
                     <TableHead>Supplier</TableHead>
+                    <TableHead>Material</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Expected Delivery</TableHead>
                     <TableHead className="text-center">Items</TableHead>
@@ -500,7 +524,7 @@ export default function PurchaseOrderList() {
                   {isLoading ? (
                     <TableRow>
                       <TableCell
-                        colSpan={activeTab === 'all' ? 9 : 8}
+                        colSpan={activeTab === 'all' ? 10 : 9}
                         className="text-center py-12 text-muted-foreground"
                       >
                         Loading purchase orders...
@@ -508,7 +532,7 @@ export default function PurchaseOrderList() {
                     </TableRow>
                   ) : purchaseOrders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={activeTab === 'all' ? 9 : 8} className="text-center py-12">
+                      <TableCell colSpan={activeTab === 'all' ? 10 : 9} className="text-center py-12">
                         <div className="flex flex-col items-center gap-2 text-muted-foreground">
                           <ShoppingBag className="h-12 w-12 opacity-50" />
                           <p className="text-lg font-medium">No purchase orders found</p>
@@ -551,6 +575,11 @@ export default function PurchaseOrderList() {
                             <div className="text-sm font-medium">{po.supplier?.name || 'N/A'}</div>
                             <div className="text-xs text-muted-foreground">{po.supplier?.code}</div>
                           </div>
+                        </TableCell>
+
+                        {/* Material */}
+                        <TableCell>
+                          <POMaterialCell items={po.items} />
                         </TableCell>
 
                         {/* Category */}

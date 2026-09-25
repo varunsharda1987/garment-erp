@@ -44,7 +44,6 @@ export function SaleOrderForm({
   const [expectedShipDate, setExpectedShipDate] = useState('');
   const [buyerDeadline, setBuyerDeadline] = useState('');
   const [orderDate, setOrderDate] = useState('');
-  const [deliveryDate, setDeliveryDate] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -59,7 +58,6 @@ export function SaleOrderForm({
       setExpectedShipDate(toDateInputValue(saleOrder.expectedShipDate));
       setBuyerDeadline(toDateInputValue(saleOrder.buyerDeadline));
       setOrderDate(toDateInputValue(saleOrder.orderDate));
-      setDeliveryDate(toDateInputValue(saleOrder.deliveryDate));
       setPaymentTerms(saleOrder.paymentTerms || '');
       setDeliveryAddress(saleOrder.deliveryAddress || '');
       setRemarks(saleOrder.remarks || '');
@@ -90,7 +88,6 @@ export function SaleOrderForm({
       setExpectedShipDate('');
       setBuyerDeadline('');
       setOrderDate('');
-      setDeliveryDate('');
       setPaymentTerms('');
       setDeliveryAddress('');
       setRemarks('');
@@ -146,7 +143,6 @@ export function SaleOrderForm({
         expectedShipDate: expectedShipDate || undefined,
         buyerDeadline: buyerDeadline || undefined,
         orderDate: orderDate || undefined,
-        deliveryDate: deliveryDate || undefined,
         paymentTerms: paymentTerms || undefined,
         deliveryAddress: deliveryAddress || undefined,
         remarks: remarks || undefined,
@@ -160,8 +156,9 @@ export function SaleOrderForm({
         styleId: styleId || null,
         expectedShipDate: expectedShipDate || null,
         buyerDeadline: buyerDeadline || null,
+        // No deliveryDate: the field left the form (it duplicated the ship date and deadline, 2026-09-25)
+        // and is not sent, so an edit never wipes a stored one
         orderDate: orderDate || null,
-        deliveryDate: deliveryDate || null,
         paymentTerms: paymentTerms || null,
         deliveryAddress: deliveryAddress || null,
         remarks: remarks || null,
@@ -172,6 +169,8 @@ export function SaleOrderForm({
   };
 
   const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  // The goods leave by the Expected Ship Date, which may not be after the buyer's last day
+  const shipAfterDeadline = !!expectedShipDate && !!buyerDeadline && expectedShipDate > buyerDeadline;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -235,14 +234,20 @@ export function SaleOrderForm({
               <Input type="date" value={buyerDeadline} onChange={(e) => setBuyerDeadline(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Order Date</Label>
+              <Label>Buyer PO Date</Label>
               <Input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
             </div>
-            <div className="space-y-2">
-              <Label>Delivery Date</Label>
-              <Input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
-            </div>
           </div>
+          {shipAfterDeadline && (
+            <p className="text-sm text-destructive">
+              The Expected Ship Date is after the Buyer Deadline — the goods would leave after the buyer&apos;s last
+              day.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Production finishes by the Expected Ship Date; the Buyer Deadline is the buyer&apos;s last day. The Buyer PO
+            Date becomes the production order&apos;s Order Date.
+          </p>
 
           <Separator />
 
@@ -314,7 +319,7 @@ export function SaleOrderForm({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !customerId || (mode === 'edit' && items.length === 0)}
+            disabled={isSubmitting || !customerId || (mode === 'edit' && items.length === 0) || shipAfterDeadline}
           >
             {isSubmitting ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Sale Order'}
           </Button>

@@ -11,6 +11,41 @@ import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { deleteBuyerPoDocumentFile } from '../middleware/upload.middleware';
+import { colourForSaleOrderLine } from './helpers/sale-order-dispatch.helper';
+import { formatDate, toDateInputValue } from '../utils/date';
+
+/** A date as the IST calendar day it falls on, so two dates compare by day, never by clock time. */
+const dayOf = (d: Date) => toDateInputValue(d);
+
+/**
+ * The sale order's own date rule (owner, 2026-09-25): the goods leave by the Expected Ship Date, and
+ * that may not be after the Buyer Deadline — the buyer's last day. The B2B app sends only the ship
+ * date, so its pushes meet this only when an ERP user set an earlier deadline (a real contradiction).
+ */
+export function assertShipNotAfterDeadline(ship?: Date | null, deadline?: Date | null): void {
+  if (ship && deadline && dayOf(ship) > dayOf(deadline)) {
+    throw new ValidationError(
+      `The Expected Ship Date ${formatDate(ship)} is after the Buyer Deadline ${formatDate(deadline)} — ` +
+        `the goods would leave after the buyer's last day.`
+    );
+  }
+}
+
+/**
+ * A production order linked to a sale order must be finished by the buyer's last day: its Delivery
+ * may pass the Expected Ship Date (the page warns) but never the Buyer Deadline.
+ */
+export function assertDeliveryWithinDeadline(
+  delivery: Date,
+  so: { saleOrderNumber: string; buyerDeadline: Date | null }
+): void {
+  if (so.buyerDeadline && dayOf(delivery) > dayOf(so.buyerDeadline)) {
+    throw new ValidationError(
+      `Delivery ${formatDate(delivery)} is after ${so.saleOrderNumber}'s Buyer Deadline ${formatDate(so.buyerDeadline)} — ` +
+        `production has to finish by the buyer's last day.`
+    );
+  }
+}
 
 /** A line as it arrives from the ERP form or the B2B push. */
 interface SOItemInput {
@@ -278,6 +313,7 @@ export class SaleOrderService {
   }
 
   async create(data: SOCreateInput) {
+    assertShipNotAfterDeadline(data.expectedShipDate, data.buyerDeadline);
     const saleOrderNumber = await this.generateSONumber();
 
     // An empty item list is legitimate: the order starts as a DRAFT shell and lines are added on
@@ -463,13 +499,18 @@ export class SaleOrderService {
   async update(id: string, data: SOUpdateInput) {
     const so = await prisma.sale_orders.findUnique({
       where: { id },
-      select: { status: true },
+      select: { status: true, expectedShipDate: true, buyerDeadline: true },
     });
 
     if (!so) throw new NotFoundError('Sale Order', id);
     if (so.status !== SaleOrderStatus.DRAFT) {
       throw new BusinessError(`Can only update Sale Orders in DRAFT status (this one is ${so.status})`);
     }
+    // The dates as they will stand after this update (undefined = unchanged)
+    assertShipNotAfterDeadline(
+      data.expectedShipDate !== undefined ? data.expectedShipDate : so.expectedShipDate,
+      data.buyerDeadline !== undefined ? data.buyerDeadline : so.buyerDeadline
+    );
 
     return prisma.$transaction(async (tx) => {
       // Duplicate lines are merged and line money is computed BEFORE anything is written, so the
@@ -642,7 +683,7 @@ export class SaleOrderService {
         status: true,
         customerId: true,
         expectedShipDate: true,
-        deliveryDate: true,
+        buyerDeadline: true,
         items: { select: { styleId: true } },
       },
     });
@@ -679,7 +720,8 @@ export class SaleOrderService {
     // Auto-create samples based on customer requirements
     const styleIds = [...new Set(so.items.map((i) => i.styleId))];
     if (styleIds.length > 0 && so.customerId) {
-      const shipDate = so.expectedShipDate || so.deliveryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      // The sale order's "Delivery Date" is no longer read (owner, 2026-09-25): ship date, else deadline
+      const shipDate = so.expectedShipDate || so.buyerDeadline || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       try {
         const sampleResult = await sampleService.autoCreateSamplesForOrder(
           id,
@@ -805,14 +847,15 @@ export class SaleOrderService {
     // Production must be finished by the buyer PO's Expected Ship Date (owner, 2026-09-25) — the same
     // date Link to Production Order writes. The Buyer Deadline is the buyer's LAST day, so it is only
     // the fallback; until 2026-09-25 it came first and a fresh order aimed past the ship date.
+    // The sale order's "Delivery Date" is not read: it duplicated these two and contradicted them.
     const deliveryDate =
       (input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null) ??
       so.expectedShipDate ??
-      so.buyerDeadline ??
-      so.deliveryDate;
+      so.buyerDeadline;
     if (!deliveryDate) {
       throw new ValidationError('expectedDeliveryDate is required — the sale order has no buyer deadline or ship date');
     }
+    assertDeliveryWithinDeadline(deliveryDate, so);
 
     // Map SO items (style+colour+size grain) → order items (one per style, breakup per colour/size).
     // Items without sizeId cannot be converted to production orders - they need size breakdown first.
@@ -867,6 +910,16 @@ export class SaleOrderService {
       );
     }
 
+    // Every size line needs a colour: a colourless run can be cut but never records stitching output.
+    // A line ordered without one takes the style's only colour (all 7 ESSKY sale orders, 2026-09).
+    const lineColour = new Map<string, string>();
+    for (const group of byStyle.values()) {
+      for (const item of group) {
+        if ((toProduce.get(item.id) ?? 0) <= 0) continue;
+        lineColour.set(item.id, await colourForSaleOrderLine(prisma, { ...item, styleCode: item.style?.styleCode }));
+      }
+    }
+
     const orderItems: OrderItemInput[] = [...byStyle.values()].map((group) => {
       // Aggregate by (colorId, sizeId) — defends against nulls-distinct duplicate SO rows and
       // guarantees breakup sum === totalQuantity, which work-order auto-creation requires.
@@ -874,12 +927,13 @@ export class SaleOrderService {
       for (const item of group) {
         const quantity = toProduce.get(item.id) ?? 0;
         if (quantity <= 0) continue;
-        const key = `${item.colorId ?? ''}|${item.sizeId!}`;
+        const colorId = lineColour.get(item.id)!;
+        const key = `${colorId}|${item.sizeId!}`;
         const entry = breakupMap.get(key);
         if (entry) {
           entry.quantity += quantity;
         } else {
-          breakupMap.set(key, { colorId: item.colorId ?? null, sizeId: item.sizeId!, quantity });
+          breakupMap.set(key, { colorId, sizeId: item.sizeId!, quantity });
         }
       }
 
@@ -916,6 +970,8 @@ export class SaleOrderService {
         {
           customerId: so.customerId,
           saleOrderId: id,
+          // The production order is dated as the buyer's PO (owner, 2026-09-25); today when blank
+          orderDate: so.orderDate ?? undefined,
           expectedDeliveryDate: deliveryDate.toISOString(),
           priority: (input.priority as OrderPriority) || undefined,
           paymentTerms: so.paymentTerms ?? undefined,
@@ -968,6 +1024,64 @@ export class SaleOrderService {
       return { ...createdOrder, rateWarnings } as typeof createdOrder;
     }
     return createdOrder;
+  }
+
+  /**
+   * The sale orders Orders → New can fill from: this customer's CONFIRMED / PARTIALLY_ALLOCATED sale
+   * orders that carry the style and have no active production order yet (the same predicate as the
+   * Start Production duplicate guard). Lines are this style's only, each with what is still open
+   * (ordered − allocated − dispatched). Earliest ship date first.
+   */
+  async getOpenForStyle(customerId: string, styleId: string) {
+    const rows = await prisma.sale_orders.findMany({
+      where: {
+        customerId,
+        isActive: true,
+        status: { in: [SaleOrderStatus.CONFIRMED, SaleOrderStatus.PARTIALLY_ALLOCATED] },
+        items: { some: { styleId } },
+        productionOrders: { none: { status: { not: 'CANCELLED' }, isActive: true } },
+      },
+      select: {
+        id: true,
+        saleOrderNumber: true,
+        buyerPoNumber: true,
+        status: true,
+        orderDate: true,
+        expectedShipDate: true,
+        buyerDeadline: true,
+        items: {
+          select: {
+            styleId: true,
+            colorId: true,
+            sizeId: true,
+            quantity: true,
+            allocatedQty: true,
+            dispatchedQty: true,
+            unitPrice: true,
+          },
+        },
+      },
+      orderBy: [{ expectedShipDate: { sort: 'asc', nulls: 'last' } }, { saleOrderNumber: 'asc' }],
+    });
+    return rows.map((so) => ({
+      id: so.id,
+      saleOrderNumber: so.saleOrderNumber,
+      buyerPoNumber: so.buyerPoNumber,
+      status: so.status,
+      orderDate: so.orderDate,
+      expectedShipDate: so.expectedShipDate,
+      buyerDeadline: so.buyerDeadline,
+      styleCount: new Set(so.items.map((i) => i.styleId)).size,
+      lines: so.items
+        .filter((i) => i.styleId === styleId)
+        .map((i) => ({
+          colorId: i.colorId,
+          sizeId: i.sizeId,
+          quantity: i.quantity,
+          open: Math.max(0, i.quantity - (i.allocatedQty ?? 0) - (i.dispatchedQty ?? 0)),
+          unitPrice: Number(i.unitPrice),
+        })),
+    }));
   }
 
   /**
@@ -1031,7 +1145,24 @@ export class SaleOrderService {
    * linked; the customer differs; the order plans a style the sale order does not carry; or an order
    * item that already has sizes plans more than the sale order line quantity still open for it.
    */
-  async linkProductionOrder(saleOrderId: string, orderId: string) {
+  /**
+   * May a production order carrying these styles be linked to this sale order? ONE rule for every way
+   * a production order gets its sale order — Link to Production Order, Orders → New filled from the
+   * sale order, and Start Production's date part. Refuses when: the sale order is not
+   * CONFIRMED/PARTIALLY_ALLOCATED; it already has an active production order; the customer differs; an
+   * item plans a style the sale order does not carry; an item with sizes plans more than the sale
+   * order still has open for that style (ordered − allocated − dispatched); or the Delivery is after
+   * the Buyer Deadline. Returns the sale order it checked.
+   */
+  async assertLinkable(
+    saleOrderId: string,
+    order: {
+      label: string;
+      customerId: string;
+      items: Array<{ styleId: string; styleCode?: string; quantity: number; sized: boolean }>;
+      expectedDeliveryDate?: Date | null;
+    }
+  ) {
     const so = await prisma.sale_orders.findUnique({
       where: { id: saleOrderId },
       select: {
@@ -1039,7 +1170,9 @@ export class SaleOrderService {
         saleOrderNumber: true,
         status: true,
         customerId: true,
+        orderDate: true,
         expectedShipDate: true,
+        buyerDeadline: true,
         items: {
           select: {
             styleId: true,
@@ -1048,6 +1181,7 @@ export class SaleOrderService {
             quantity: true,
             allocatedQty: true,
             dispatchedQty: true,
+            style: { select: { styleCode: true } },
           },
         },
       },
@@ -1064,7 +1198,35 @@ export class SaleOrderService {
     if (already) {
       throw new ConflictError(`${so.saleOrderNumber} is already linked to production order ${already.orderNumber}.`);
     }
+    if (order.customerId !== so.customerId) {
+      throw new BusinessError(`${order.label} is for a different customer than ${so.saleOrderNumber}.`);
+    }
+    const soStyles = new Set(so.items.map((i) => i.styleId));
+    const foreign = order.items.filter((i) => !soStyles.has(i.styleId));
+    if (foreign.length > 0) {
+      throw new BusinessError(
+        `${order.label} plans ${foreign.map((i) => i.styleCode ?? i.styleId).join(', ')}, which ${so.saleOrderNumber} does not carry.`
+      );
+    }
+    // An item that already has sizes keeps them: it must not plan more than the line has open
+    // (ordered − allocated − dispatched), or the sale order is produced beyond what was bought.
+    for (const item of order.items.filter((i) => i.sized)) {
+      const open = so.items
+        .filter((l) => l.styleId === item.styleId)
+        .reduce((sum, l) => sum + Math.max(0, l.quantity - (l.allocatedQty ?? 0) - (l.dispatchedQty ?? 0)), 0);
+      if (item.quantity > open) {
+        throw new BusinessError(
+          `${order.label} plans ${item.quantity} pcs of ${item.styleCode ?? 'a style'}, more than the ${open} pcs ${so.saleOrderNumber} still has open.`
+        );
+      }
+    }
+    if (order.expectedDeliveryDate) {
+      assertDeliveryWithinDeadline(order.expectedDeliveryDate, so);
+    }
+    return so;
+  }
 
+  async linkProductionOrder(saleOrderId: string, orderId: string) {
     const order = await prisma.orders.findUnique({
       where: { id: orderId },
       select: {
@@ -1092,28 +1254,17 @@ export class SaleOrderService {
     if (order.saleOrderId) {
       throw new ConflictError(`${order.orderNumber} is already linked to another sale order.`);
     }
-    if (order.customerId !== so.customerId) {
-      throw new BusinessError(`${order.orderNumber} is for a different customer than ${so.saleOrderNumber}.`);
-    }
-    const soStyles = new Set(so.items.map((i) => i.styleId));
-    const foreign = order.order_items.filter((i) => !soStyles.has(i.styleId));
-    if (foreign.length > 0) {
-      throw new BusinessError(
-        `${order.orderNumber} plans ${foreign.map((i) => i.styles.styleCode).join(', ')}, which ${so.saleOrderNumber} does not carry.`
-      );
-    }
-    // An item that already has sizes keeps them: it must not plan more than the line has open
-    // (ordered − allocated − dispatched), or the sale order is produced beyond what was bought.
-    for (const item of order.order_items.filter((i) => i.order_item_breakup.length > 0)) {
-      const open = so.items
-        .filter((l) => l.styleId === item.styleId)
-        .reduce((sum, l) => sum + Math.max(0, l.quantity - (l.allocatedQty ?? 0) - (l.dispatchedQty ?? 0)), 0);
-      if (item.totalQuantity > open) {
-        throw new BusinessError(
-          `${order.orderNumber} plans ${item.totalQuantity} pcs of ${item.styles.styleCode}, more than the ${open} pcs ${so.saleOrderNumber} still has open.`
-        );
-      }
-    }
+    // Linking moves the order's Delivery to the sale order's ship date, so no Delivery is checked here
+    const so = await this.assertLinkable(saleOrderId, {
+      label: order.orderNumber,
+      customerId: order.customerId,
+      items: order.order_items.map((i) => ({
+        styleId: i.styleId,
+        styleCode: i.styles.styleCode,
+        quantity: i.totalQuantity,
+        sized: i.order_item_breakup.length > 0,
+      })),
+    });
 
     try {
       // Production must be finished by the buyer PO's Expected Ship Date (owner, 2026-09-25): the

@@ -42,6 +42,8 @@ export interface OrderItemInput {
 export interface CreateOrderDTO {
   customerId: string;
   saleOrderId?: string; // Make-to-order origin: the HOK B2B sale order this production order fulfils
+  /** When the order was placed — the buyer's PO date when it comes from a sale order; today if absent */
+  orderDate?: Date | string;
   expectedDeliveryDate: string;
   priority?: OrderPriority;
   totalQuantity?: number; // Direct total quantity (used when no size breakdown)
@@ -193,7 +195,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     });
 
     const orderId = randomUUID();
-    const orderDate = new Date();
+    const orderDate = data.orderDate ? new Date(data.orderDate) : new Date();
     const expectedDeliveryDate = new Date(data.expectedDeliveryDate);
     const priority = (data.priority || 'MEDIUM') as Priority;
 

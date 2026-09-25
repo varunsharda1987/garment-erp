@@ -28,6 +28,7 @@ let sizeMId: string;
 let sizeLId: string;
 let sizeB1Id: string;
 let costingId: string;
+let colourAId: string; // style A's one colour — production needs it (a colourless run makes no finished goods)
 
 let soId: string; // main SO (style A, 2 sizes)
 let so2Id: string; // cost-sheet-gate SO (style B)
@@ -63,6 +64,11 @@ beforeAll(async () => {
     data: { id: randomUUID(), styleCode: `${RUN}B`, styleName: `${RUN} Style B`, createdById: testUserId },
   });
   styleBId = styleB.id;
+  colourAId = (
+    await prisma.color_options.create({
+      data: { id: randomUUID(), styleId: styleAId, colorName: `${RUN} Black`, colorCode: `${RUN}-BLK` },
+    })
+  ).id;
 
   const [m, l, b1] = await Promise.all([
     prisma.size_options.create({
@@ -131,6 +137,7 @@ afterAll(async () => {
   // rest of the teardown and stranded the fixture customer + user in the live database.
   await prisma.samples.deleteMany({ where: { customerId: only(customerId) } });
   await prisma.size_options.deleteMany({ where: { id: { in: [sizeMId, sizeLId, sizeB1Id] } } });
+  await prisma.color_options.deleteMany({ where: { id: only(colourAId) } });
   await prisma.styles.deleteMany({ where: { id: { in: [styleAId, styleBId] } } });
   await prisma.customers.deleteMany({ where: { id: only(customerId) } });
   await prisma.users.deleteMany({ where: { id: only(testUserId) } });

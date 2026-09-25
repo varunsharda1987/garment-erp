@@ -55,12 +55,15 @@ export const createOrderSchema = z.object({
   shippingAddress: z.string().max(500).optional(),
   remarks: z.string().max(2000).optional(), // Renamed from notes to match frontend
   items: z.array(orderItemSchema).min(1, 'At least one item is required'), // Renamed from lineItems
+  // The sale order this order is made for (Orders → New fills from it). Set on create only — a later
+  // link goes through Sale Order → Link to Production Order.
+  saleOrderId: z.string().uuid('Invalid sale order ID').optional(),
 });
 
 // Update order schema. NO body `id`: the order id arrives as the :id route param (validated there) and
 // the frontend never sends it in the body — requiring it here made PUT /orders/:id 400 on every call
 // (bug-hunt orders-1).
-export const updateOrderSchema = createOrderSchema.partial();
+export const updateOrderSchema = createOrderSchema.omit({ saleOrderId: true }).partial();
 
 // Update order status schema (same: id comes from the route param, not the body).
 export const updateOrderStatusSchema = z.object({

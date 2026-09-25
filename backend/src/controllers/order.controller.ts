@@ -6,7 +6,8 @@ import { Prisma } from '@prisma/client';
 import { logInfo, logWarn } from '../utils/logger';
 import { orderService } from '../services/order.service';
 import { processorRateValidationService } from '../services/processor-rate-validation.service';
-import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError, UnauthorizedError, ConflictError } from '../errors';
+import { saleOrderService, assertDeliveryWithinDeadline } from '../services/saleOrder.service';
 import workOrderService from '../services/workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
@@ -68,6 +69,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     shippingAddress,
     remarks,
     items, // Array of { styleId, unitPrice, deliveryDate, breakup: [{ colorId, sizeId, quantity }] }
+    // The sale order this order is made for — Orders → New fills itself from it (2026-09-25). Until
+    // then this route had no such field and silently dropped it: no manual order was ever linked.
+    saleOrderId,
   } = req.body;
 
   // Debug logging
@@ -161,6 +165,42 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   // All validations passed -> Proceed with order creation
   logInfo('[createOrder] All cost sheet validations passed. Proceeding with order creation...');
 
+  // A size line without a colour takes the style's only colour: a colourless run can be cut but never
+  // records stitching output (the rule Link to Production Order and Start Production apply). A style
+  // with no colours stays size-only; one with several is left for the page to have chosen.
+  const onlyColour = new Map<string, string>();
+  for (const item of items as OrderItem[]) {
+    if (!(item.breakup || []).some((b) => !b.colorId && b.quantity > 0) || onlyColour.has(item.styleId)) continue;
+    const colours = await prisma.color_options.findMany({ where: { styleId: item.styleId }, select: { id: true } });
+    if (colours.length === 1) onlyColour.set(item.styleId, colours[0].id);
+  }
+
+  // The sale order link: the same rule as Link to Production Order, plus the Buyer Deadline
+  if (saleOrderId) {
+    const styleCodes = new Map(
+      (
+        await prisma.styles.findMany({
+          where: { id: { in: (items as OrderItem[]).map((i) => i.styleId) } },
+          select: { id: true, styleCode: true },
+        })
+      ).map((st) => [st.id, st.styleCode])
+    );
+    await saleOrderService.assertLinkable(saleOrderId, {
+      label: 'This order',
+      customerId,
+      items: (items as OrderItem[]).map((item) => {
+        const breakupQty = (item.breakup || []).reduce((sum, b) => sum + b.quantity, 0);
+        return {
+          styleId: item.styleId,
+          styleCode: styleCodes.get(item.styleId),
+          quantity: breakupQty > 0 ? breakupQty : item.totalQuantity || 0,
+          sized: breakupQty > 0,
+        };
+      }),
+      expectedDeliveryDate: new Date(expectedDeliveryDate),
+    });
+  }
+
   // Generate order number atomically — the old local findFirst+parseInt generator raced under
   // concurrent creates and collided on the orderNumber unique (bug-hunt orders-5)
   const orderNumber = await generateAtomicOrderNumber();
@@ -170,7 +210,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   let totalAmountDec = new Decimal(0);
 
   const orderItemsData = (items as OrderItem[]).map((item) => {
-    const breakup = dedupeBreakup(item.breakup || []);
+    const breakup = dedupeBreakup(
+      (item.breakup || []).map((b) => ({ ...b, colorId: b.colorId || onlyColour.get(item.styleId) || b.colorId }))
+    );
     // Use breakup sum if available, otherwise use direct totalQuantity
     const breakupQty = breakup.reduce((sum: number, b) => sum + b.quantity, 0);
     const itemTotalQty = breakupQty > 0 ? breakupQty : item.totalQuantity || 0;
@@ -213,64 +255,82 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     };
   });
 
-  const order = await prisma.orders.create({
-    data: {
-      id: randomUUID(),
-      orderNumber,
-      customerId,
-      orderDate: orderDate ? new Date(orderDate) : new Date(),
-      expectedDeliveryDate: new Date(expectedDeliveryDate),
-      priority: priority || 'MEDIUM',
-      totalQuantity,
-      totalAmount: roundToCent(totalAmountDec).toNumber(),
-      paymentTerms,
-      shippingAddress,
-      remarks,
-      createdById: userId,
-      order_items: {
-        create: orderItemsData,
-      },
-    } as any,
-    include: {
-      customers: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          contactPerson: true,
-          phone: true,
-          email: true,
+  const createOrderRow = () =>
+    prisma.orders.create({
+      data: {
+        id: randomUUID(),
+        orderNumber,
+        customerId,
+        saleOrderId: saleOrderId || null,
+        orderDate: orderDate ? new Date(orderDate) : new Date(),
+        expectedDeliveryDate: new Date(expectedDeliveryDate),
+        priority: priority || 'MEDIUM',
+        totalQuantity,
+        totalAmount: roundToCent(totalAmountDec).toNumber(),
+        paymentTerms,
+        shippingAddress,
+        remarks,
+        createdById: userId,
+        order_items: {
+          create: orderItemsData,
         },
-      },
-      users_orders_createdByIdTousers: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      },
-      order_items: {
-        include: {
-          styles: {
-            select: {
-              id: true,
-              styleCode: true,
-              buyerStyleRef: true,
-              styleName: true,
-              image: true,
-            },
-          },
-          order_item_breakup: {
-            include: {
-              color_options: true,
-              size_options: true,
-            },
+      } as any,
+      include: {
+        customers: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            contactPerson: true,
+            phone: true,
+            email: true,
           },
         },
+        users_orders_createdByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        order_items: {
+          include: {
+            styles: {
+              select: {
+                id: true,
+                styleCode: true,
+                buyerStyleRef: true,
+                styleName: true,
+                image: true,
+              },
+            },
+            order_item_breakup: {
+              include: {
+                color_options: true,
+                size_options: true,
+              },
+            },
+          },
+        },
       },
-    },
-  });
+    });
+  let order: Awaited<ReturnType<typeof createOrderRow>>;
+  try {
+    order = await createOrderRow();
+  } catch (err) {
+    // The partial unique index orders_saleOrderId_active_key: another order took this sale order
+    // between the check above and this insert
+    if (
+      saleOrderId &&
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002' &&
+      String(err.meta?.target ?? '').includes('saleOrderId')
+    ) {
+      throw new ConflictError('A production order was linked to this sale order a moment ago.');
+    }
+    throw err;
+  }
 
   // =====================================================
   // CREATE COST SHEET SNAPSHOTS FOR EACH ORDER ITEM
@@ -792,6 +852,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
       id: true,
       status: true,
       order_items: { select: { id: true, styleId: true } },
+      sale_orders: { select: { saleOrderNumber: true, buyerDeadline: true } },
     },
   });
   if (!existingOrder) {
@@ -799,6 +860,10 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
   }
   if (existingOrder.status === 'CANCELLED' || existingOrder.status === 'SPLIT') {
     throw new BusinessError(`Cannot edit a ${existingOrder.status} order.`);
+  }
+  // A linked order must still finish by its sale order's Buyer Deadline
+  if (expectedDeliveryDate && existingOrder.sale_orders) {
+    assertDeliveryWithinDeadline(new Date(expectedDeliveryDate), existingOrder.sale_orders);
   }
 
   // Build order-level update data

@@ -226,6 +226,8 @@ export interface CreateOrderRequest {
   shippingAddress?: string;
   remarks?: string;
   items: CreateOrderItem[];
+  /** The sale order this order is made for (Orders → New fills from it); set on create only */
+  saleOrderId?: string;
 }
 
 export interface UpdateOrderRequest {

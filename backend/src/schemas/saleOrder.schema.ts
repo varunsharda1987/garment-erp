@@ -169,6 +169,14 @@ export const startProductionSchema = z.object({
 });
 
 /**
+ * GET /api/sale-orders/open-for-style — the sale orders Orders → New can fill from
+ */
+export const openForStyleQuerySchema = z.object({
+  customerId: z.string().uuid('Invalid customer ID'),
+  styleId: z.string().uuid('Invalid style ID'),
+});
+
+/**
  * Allocate Stock
  * POST /api/sale-orders/allocate-stock
  */

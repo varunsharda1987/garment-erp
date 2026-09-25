@@ -81,13 +81,24 @@ export async function shippingColourFor(
     }
     return requestedColorId;
   }
+  return colourForSaleOrderLine(tx, line);
+}
+
+/**
+ * The colour a sale order line is made and shipped in: its own, else the style's only colour. Lines
+ * taken without a colour (all 7 ESSKY sale orders, 2026-09) would otherwise hand a colourless size
+ * split to production, and a colourless run can be cut but never records stitching output — so no
+ * finished goods (the rule applyOrderItemSizeBreakup already applies on Link to Production Order).
+ * A style with several colours must be told which; a style with none needs its Primary Color.
+ */
+export async function colourForSaleOrderLine(tx: Tx, line: SaleOrderLineRef & { styleCode?: string }): Promise<string> {
   if (line.colorId) return line.colorId;
   const colours = await tx.color_options.findMany({ where: { styleId: line.styleId }, select: { id: true } });
   if (colours.length === 1) return colours[0].id;
   throw new ValidationError(
     colours.length === 0
-      ? `${line.styleCode ?? 'This style'} has no colour yet — set the style's Primary Color before dispatching it.`
-      : `${line.styleCode ?? 'This style'} comes in ${colours.length} colours and the sale order line has none — choose the colour being shipped.`
+      ? `${line.styleCode ?? 'This style'} has no colour yet — set the style's Primary Color first.`
+      : `${line.styleCode ?? 'This style'} comes in ${colours.length} colours and the sale order line has none — choose the colour on the sale order lines.`
   );
 }
 

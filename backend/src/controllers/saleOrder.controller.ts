@@ -191,6 +191,12 @@ export class SaleOrderController {
     res.status(201).json({ data: order, message: 'Production order created' });
   }
 
+  /** Orders → New: this customer's open sale orders carrying the style, with that style's lines */
+  async getOpenForStyle(req: Request, res: Response) {
+    const data = await saleOrderService.getOpenForStyle(String(req.query.customerId), String(req.query.styleId));
+    res.json({ data });
+  }
+
   async getLinkableProductionOrders(req: Request, res: Response) {
     const data = await saleOrderService.getLinkableProductionOrders(req.params.id);
     res.json({ data });

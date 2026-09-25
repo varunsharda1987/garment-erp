@@ -68,6 +68,36 @@ export async function startProduction(
   return response.data;
 }
 
+/**
+ * A sale order Orders → New can fill from: the customer's CONFIRMED / PARTIALLY_ALLOCATED sale order
+ * carrying the style, with no production order yet. `lines` are that style's only; `open` is what
+ * is still to make (ordered − allocated − dispatched).
+ */
+export interface OpenSaleOrderForStyle {
+  id: string;
+  saleOrderNumber: string;
+  buyerPoNumber: string | null;
+  status: string;
+  /** The buyer's PO date — the production order is dated as it */
+  orderDate: string | null;
+  expectedShipDate: string | null;
+  buyerDeadline: string | null;
+  /** How many styles the sale order carries (this form makes one) */
+  styleCount: number;
+  lines: Array<{
+    colorId: string | null;
+    sizeId: string | null;
+    quantity: number;
+    open: number;
+    unitPrice: number;
+  }>;
+}
+
+export async function getOpenSaleOrdersForStyle(customerId: string, styleId: string): Promise<OpenSaleOrderForStyle[]> {
+  const response = await api.get(`${BASE_URL}/open-for-style`, { params: { customerId, styleId } });
+  return response.data.data;
+}
+
 /** A production order already planning this sale order's styles but linked to no sale order. */
 export interface LinkableProductionOrder {
   id: string;

@@ -644,7 +644,7 @@ export default function SaleOrderDetail() {
               {canStartProduction && (
                 <DropdownMenuItem
                   onSelect={() => {
-                    setProdDeliveryDate(toDateInputValue(so.expectedShipDate ?? so.buyerDeadline ?? so.deliveryDate));
+                    setProdDeliveryDate(toDateInputValue(so.expectedShipDate ?? so.buyerDeadline));
                     setProdPriority('MEDIUM');
                     setProdRemarks('');
                     setStartProdDialogOpen(true);

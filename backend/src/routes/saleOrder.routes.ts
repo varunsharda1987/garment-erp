@@ -12,6 +12,7 @@ import {
   allocateStockSchema,
   deallocateStockSchema,
   saleOrderQuerySchema,
+  openForStyleQuerySchema,
   addBuyerPoSchema,
   updateBuyerPoSchema,
   uploadBuyerPoDocumentSchema,
@@ -28,6 +29,14 @@ router.use(requirePermissionForWrites('orders'));
 
 // GET /api/sale-orders/search - Search for dropdown (must be before /:id)
 router.get('/search', asyncHandler(saleOrderController.search.bind(saleOrderController)));
+
+// GET /api/sale-orders/open-for-style - open sale orders of a customer carrying a style, for
+// Orders → New to fill from (must be before /:id)
+router.get(
+  '/open-for-style',
+  validateQuery(openForStyleQuerySchema),
+  asyncHandler(saleOrderController.getOpenForStyle.bind(saleOrderController))
+);
 
 // GET /api/sale-orders/available-stock - Get available FG stock for allocation
 router.get('/available-stock', asyncHandler(saleOrderController.getAvailableStock.bind(saleOrderController)));

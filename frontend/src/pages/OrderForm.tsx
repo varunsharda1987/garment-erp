@@ -12,6 +12,8 @@ import { styleService } from '../services/style.service';
 import { getAllPresetsForCustomer } from '../services/customerSizePreset.service';
 import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
 import { getQuotationById } from '../services/quotation.service';
+import { getOpenSaleOrdersForStyle, type OpenSaleOrderForStyle } from '../services/saleOrder.service';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
@@ -21,7 +23,7 @@ import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
 import { toast } from 'sonner';
 import CostSheetComparisonModal from '../components/cost-sheet/CostSheetComparisonModal';
-import { toDateInputValue } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import {
   Search,
   Check,
@@ -121,6 +123,22 @@ export default function OrderForm() {
       breakup: CreateOrderItemBreakup[];
     }>
   >([]);
+
+  // Orders → New fills itself from the customer's open sale order for the style (2026-09-25): the
+  // buyer PO's sizes, quantity, ship date, PO date and price — and the saved order is linked to it.
+  const [openSaleOrders, setOpenSaleOrders] = useState<OpenSaleOrderForStyle[]>([]);
+  const [linkedSaleOrderId, setLinkedSaleOrderId] = useState<string | null>(null);
+  const [unplacedNote, setUnplacedNote] = useState<string | null>(null);
+  // What the form held before a fill, so Undo puts it back
+  const beforeFillRef = useRef<{
+    breakup: CreateOrderItemBreakup[];
+    total: string;
+    delivery: string;
+    orderDate: string;
+    unitPrice: string;
+  } | null>(null);
+  // customer|style pairs whose fill was undone — not filled again automatically
+  const undoneForRef = useRef<Set<string>>(new Set());
 
   // Cost sheet selection for pricing
   const [costSheetDialogOpen, setCostSheetDialogOpen] = useState(false);
@@ -524,6 +542,9 @@ export default function OrderForm() {
     setBreakup([]);
     setColors([]);
     setSizes([]);
+    setLinkedSaleOrderId(null);
+    setUnplacedNote(null);
+    beforeFillRef.current = null;
     setHasApprovedCostSheet(null);
     setSelectedCostSheetId(null);
     setCostSheets([]);
@@ -762,8 +783,129 @@ export default function OrderForm() {
   };
 
   // Handle customer selection - auto-fill payment terms from customer credit days
+  /** The style's own size grid with every cell at zero (colour rows when the style has colours) */
+  const zeroGrid = (): CreateOrderItemBreakup[] =>
+    colors.length > 0
+      ? colors.flatMap((c) => sizes.map((sz) => ({ colorId: c.id, sizeId: sz.id, quantity: 0 })))
+      : sizes.map((sz) => ({ colorId: '', sizeId: sz.id, quantity: 0 }));
+
+  /**
+   * Fill the form from a sale order: each line's open pieces in its colour row (a line ordered
+   * without a colour goes in the style's only colour), Total Qty, Delivery = the Expected Ship Date
+   * (else the Buyer Deadline), Order Date = the buyer's PO date (else today), Unit Price = the sale
+   * order's price. Lines the grid cannot hold are named, not dropped.
+   */
+  const applySaleOrderFill = (so: OpenSaleOrderForStyle) => {
+    if (!beforeFillRef.current) {
+      beforeFillRef.current = {
+        breakup,
+        total: totalForDistribution,
+        delivery: expectedDeliveryDate,
+        orderDate,
+        unitPrice,
+      };
+    }
+    const grid = zeroGrid();
+    const onlyColour = colors.length === 1 ? colors[0].id : '';
+    const unplaced: string[] = [];
+    const sizeName = (sizeId: string | null) => sizes.find((sz) => sz.id === sizeId)?.sizeName ?? 'a size';
+    for (const line of so.lines) {
+      if (line.open < 1) continue;
+      const colorId = colors.length === 0 ? '' : line.colorId || onlyColour;
+      const cell = line.sizeId ? grid.find((b) => b.colorId === colorId && b.sizeId === line.sizeId) : undefined;
+      if (!line.sizeId) unplaced.push(`${line.open} pcs with no size yet`);
+      else if (!cell) unplaced.push(`${line.open} pcs of ${sizeName(line.sizeId)} with no colour chosen`);
+      else cell.quantity += line.open;
+    }
+    const total = so.lines.reduce((sum, l) => sum + l.open, 0);
+    // One price when the style's lines share it, else the quantity-weighted average
+    const qty = so.lines.reduce((sum, l) => sum + l.quantity, 0);
+    const prices = new Set(so.lines.map((l) => l.unitPrice));
+    const price =
+      prices.size === 1
+        ? [...prices][0]
+        : qty > 0
+          ? Number((so.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0) / qty).toFixed(2))
+          : 0;
+
+    setSizeOverrideActive(false);
+    setSelectedSizePresetId('');
+    setQuantityMode('absolute');
+    setDistributionValues({});
+    setBreakup(grid);
+    setTotalForDistribution(String(total));
+    const delivery = so.expectedShipDate ?? so.buyerDeadline;
+    if (delivery) setExpectedDeliveryDate(toDateInputValue(delivery));
+    setOrderDate(so.orderDate ? toDateInputValue(so.orderDate) : today);
+    if (price > 0) {
+      setUnitPrice(String(price));
+      setSelectedCostSheetId(null);
+    }
+    setLinkedSaleOrderId(so.id);
+    setUnplacedNote(unplaced.length > 0 ? unplaced.join('; ') : null);
+  };
+
+  const undoSaleOrderFill = () => {
+    const before = beforeFillRef.current;
+    if (before) {
+      setBreakup(before.breakup);
+      setTotalForDistribution(before.total);
+      setExpectedDeliveryDate(before.delivery);
+      setOrderDate(before.orderDate);
+      setUnitPrice(before.unitPrice);
+    }
+    beforeFillRef.current = null;
+    setLinkedSaleOrderId(null);
+    setUnplacedNote(null);
+    undoneForRef.current.add(`${customerId}|${selectedStyleId}`);
+  };
+
+  // Once the style's sizes are loaded (and so its zero grid), look for this customer's open sale
+  // orders of the style and fill from the earliest-shipping one — unless that was undone
+  useEffect(() => {
+    if (isEditMode || !customerId || !selectedStyleId || sizes.length === 0) {
+      setOpenSaleOrders([]);
+      return;
+    }
+    let cancelled = false;
+    getOpenSaleOrdersForStyle(customerId, selectedStyleId)
+      .then((found) => {
+        if (cancelled) return;
+        setOpenSaleOrders(found);
+        if (found.length > 0 && !undoneForRef.current.has(`${customerId}|${selectedStyleId}`)) {
+          applySaleOrderFill(found[0]);
+        }
+      })
+      .catch((err) => {
+        logError('Failed to look up open sale orders for the style', err);
+        toast.warning('Could not check for an open sale order for this style');
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, customerId, selectedStyleId, sizes, colors]);
+
+  const linkedSaleOrder = openSaleOrders.find((so) => so.id === linkedSaleOrderId) ?? null;
+  // Production must finish by the buyer's last day: after the ship date is a warning, after the
+  // Buyer Deadline the order is refused (the server refuses it too)
+  const deliveryAfterShip =
+    !!linkedSaleOrder?.expectedShipDate &&
+    !!expectedDeliveryDate &&
+    expectedDeliveryDate > toDateInputValue(linkedSaleOrder.expectedShipDate);
+  const deliveryAfterDeadline =
+    !!linkedSaleOrder?.buyerDeadline &&
+    !!expectedDeliveryDate &&
+    expectedDeliveryDate > toDateInputValue(linkedSaleOrder.buyerDeadline);
+
   const handleCustomerSelect = (selectedCustomerId: string) => {
     setCustomerId(selectedCustomerId);
+    if (selectedCustomerId !== customerId) {
+      // Another customer's sale orders are looked up afresh; this one's link no longer applies
+      setLinkedSaleOrderId(null);
+      setUnplacedNote(null);
+      beforeFillRef.current = null;
+    }
 
     // Find the selected customer and auto-fill payment terms
     const customer = customers.find((c) => c.id === selectedCustomerId);
@@ -972,6 +1114,13 @@ export default function OrderForm() {
         setIsLoading(false);
         return;
       }
+      if (deliveryAfterDeadline && linkedSaleOrder?.buyerDeadline) {
+        setError(
+          `Delivery is after ${linkedSaleOrder.saleOrderNumber}'s Buyer Deadline ${formatDate(linkedSaleOrder.buyerDeadline)} — production has to finish by the buyer's last day.`
+        );
+        setIsLoading(false);
+        return;
+      }
 
       // Size distribution is optional - filter to valid entries but allow empty array
       // Also filter out entries with synthetic preset IDs (no matching size_options in DB)
@@ -981,6 +1130,8 @@ export default function OrderForm() {
         customerId,
         orderDate,
         expectedDeliveryDate,
+        // The sale order this order is made for (filled from it); never on an edit
+        ...(!isEditMode && linkedSaleOrderId ? { saleOrderId: linkedSaleOrderId } : {}),
         priority,
         totalQuantity: enteredTotalQty, // Pass total quantity even without size breakdown
         paymentTerms: paymentTerms || undefined,
@@ -1190,6 +1341,15 @@ export default function OrderForm() {
                   onChange={(e) => setExpectedDeliveryDate(e.target.value)}
                   className="mt-1.5"
                 />
+                {deliveryAfterDeadline ? (
+                  <p className="text-xs text-destructive mt-1">
+                    After the Buyer Deadline {formatDate(linkedSaleOrder!.buyerDeadline)}
+                  </p>
+                ) : deliveryAfterShip ? (
+                  <p className="text-xs text-warning mt-1">
+                    After the ship date {formatDate(linkedSaleOrder!.expectedShipDate)}
+                  </p>
+                ) : null}
               </div>
 
               {/* Customer Code - Auto populated */}
@@ -1274,6 +1434,81 @@ export default function OrderForm() {
             )}
           </div>
         </div>
+
+        {/* Filled from / open sale order for this style */}
+        {!isEditMode && openSaleOrders.length > 0 && (
+          <div className="mb-6">
+            {linkedSaleOrder ? (
+              <Alert>
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>
+                      Filled from <b>{linkedSaleOrder.saleOrderNumber}</b>
+                      {linkedSaleOrder.buyerPoNumber ? ` · Buyer PO ${linkedSaleOrder.buyerPoNumber}` : ''} ·{' '}
+                      {linkedSaleOrder.lines.reduce((sum, l) => sum + l.open, 0).toLocaleString('en-IN')} pcs — this
+                      order will be linked to the sale order.
+                    </span>
+                    {openSaleOrders.length > 1 && (
+                      <Select
+                        value={linkedSaleOrder.id}
+                        onValueChange={(v) => {
+                          const so = openSaleOrders.find((o) => o.id === v);
+                          if (so) applySaleOrderFill(so);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[220px]">
+                          <SelectValue placeholder="Sale order" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {openSaleOrders.map((so) => (
+                            <SelectItem key={so.id} value={so.id}>
+                              {so.saleOrderNumber}
+                              {so.expectedShipDate ? ` · ships ${formatDate(so.expectedShipDate)}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Button type="button" variant="outline" size="sm" onClick={undoSaleOrderFill}>
+                      Undo
+                    </Button>
+                  </div>
+                  {linkedSaleOrder.styleCount > 1 && (
+                    <p className="text-sm mt-1">
+                      It also carries {linkedSaleOrder.styleCount - 1} other style(s) — give them their own order, or
+                      use Start Production on the sale order.
+                    </p>
+                  )}
+                  {unplacedNote && <p className="text-sm mt-1">Enter by hand: {unplacedNote}.</p>}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert className="border-warning/40 bg-warning-muted">
+                <AlertCircle className="h-4 w-4 text-warning" />
+                <AlertDescription>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span>
+                      <b>{openSaleOrders[0].saleOrderNumber}</b> is open for this style and not linked — link it later
+                      from the sale order (Link to Production Order), or the same goods may be planned twice.
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        undoneForRef.current.delete(`${customerId}|${selectedStyleId}`);
+                        applySaleOrderFill(openSaleOrders[0]);
+                      }}
+                    >
+                      Fill from sale order
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
 
         {/* Quantity & Pricing Section */}
         <div className="bg-card rounded-xl border shadow-sm mb-6 overflow-hidden">
@@ -1879,7 +2114,7 @@ export default function OrderForm() {
               </Button>
               <Button
                 type="submit"
-                disabled={isLoading || !validation.isComplete}
+                disabled={isLoading || !validation.isComplete || deliveryAfterDeadline}
                 onClick={handleSubmit}
                 className="min-w-[140px]"
               >

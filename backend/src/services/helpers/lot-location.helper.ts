@@ -127,6 +127,36 @@ export function lotCountsOnHand(lot: { sourceType?: string | null }): boolean {
   return lot.sourceType !== 'TRANSFER';
 }
 
+/** What a planning reader (MRP) selects on a greige lot, so `greigeCountsForPlanning` can place it. */
+export const PLANNING_LOT_SELECT = {
+  id: true,
+  greigeId: true,
+  processorId: true,
+  sourceType: true,
+  quantityAvailable: true,
+  quantityReserved: true,
+  receivedDate: true,
+  warehouse: { select: LOT_WAREHOUSE_SELECT },
+} as const;
+
+/**
+ * May MRP plan a requirement against this greige lot? Owner, 2026-09-25: greige held at a dyer counts.
+ * A requirement to be processed at `requirementProcessorId` may use our stores and the cloth already at
+ * THAT processor; one with no processor yet may use cloth at any processor. Never another processor's
+ * cloth when the processor is known — it would have to travel between job workers first.
+ * A TRANSFER lot with no holder is a Stock-Out leftover at our store and never counts.
+ */
+export function greigeCountsForPlanning(
+  lot: LocatableLot & { sourceType?: string | null },
+  requirementProcessorId: string | null
+): boolean {
+  if (lot.sourceType === 'TRANSFER' && !lot.processorId) return false;
+  const holder = greigeHolderId(lot);
+  const inUnit = lot.warehouse?.warehouseType === 'JOB_WORK';
+  if (!holder) return !inUnit; // our store — or a unit linked to no processor, which cannot be placed
+  return requirementProcessorId == null || holder === requirementProcessorId;
+}
+
 /**
  * Place a lot relative to the processor a job is for. Conflicting signals (processorId says one
  * processor, the unit another) take the conservative answer: AT_OTHER_PROCESSOR — never issued.

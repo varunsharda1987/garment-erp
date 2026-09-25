@@ -59,6 +59,7 @@ import { BusinessError } from '../errors';
 import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
+import { greigeCountsForPlanning, greigeHolderId, PLANNING_LOT_SELECT } from './helpers/lot-location.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
 import { applySearch } from '../utils/search-filter';
 import { normalizeUnit, unitLabel, unitToJwoUom } from '../utils/units';
@@ -810,14 +811,47 @@ function netFreeStock(sum: { quantityAvailable?: unknown; quantityReserved?: unk
   return Math.max(0, available - reserved);
 }
 
+type PlanningGreigeLot = Prisma.greige_stockGetPayload<{ select: typeof PLANNING_LOT_SELECT }>;
+
+/** Every AVAILABLE lot of these greiges, placed well enough for `greigeCountsForPlanning`. */
+async function loadPlanningGreigeLots(
+  client: Prisma.TransactionClient | typeof prisma,
+  greigeIds: string[]
+): Promise<PlanningGreigeLot[]> {
+  if (greigeIds.length === 0) return [];
+  return client.greige_stock.findMany({
+    where: { greigeId: { in: greigeIds }, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+    select: PLANNING_LOT_SELECT,
+  });
+}
+
+/**
+ * Free-to-plan greige for a requirement processed at `processorId` (null = no processor yet): our
+ * stores plus the cloth already at THAT processor (lot-location.helper), net of what is reserved.
+ * MRP-14 used to leave out every lot at a processor, so greige a supplier had delivered straight to
+ * the dyer was planned — and bought — a second time (owner, 2026-09-25: "MRP counts greige held at a
+ * dyer"). Another processor's cloth never counts once the processor is known.
+ */
+function netFreeGreige(lots: PlanningGreigeLot[], greigeId: string, processorId: string | null): number {
+  const counted = lots.filter((lot) => lot.greigeId === greigeId && greigeCountsForPlanning(lot, processorId));
+  return netFreeStock({
+    quantityAvailable: toNumber(addCurrency(0, ...counted.map((lot) => Number(lot.quantityAvailable)))),
+    quantityReserved: toNumber(addCurrency(0, ...counted.map((lot) => Number(lot.quantityReserved ?? 0)))),
+  });
+}
+
 /**
  * Batch lookup current stock for multiple requirements.
  * Groups requirements by stock table type and queries in bulk.
- * Returns a Map of materialId -> currentStock (live, not snapshot).
+ * Returns a Map of REQUIREMENT id -> currentStock (live, not snapshot). Keyed per requirement, not per
+ * material: two greige requirements of one cloth at different processors see different held cloth.
  */
 async function batchGetCurrentStock(
   requirements: Array<{
+    id: string;
     materialId: string;
+    /** The processor a greige requirement will be processed at — decides which held cloth counts */
+    processorId?: string | null;
     materials?: {
       id: string;
       materialType: string;
@@ -855,22 +889,8 @@ async function batchGetCurrentStock(
     }
   }
 
-  // Batch query greige_stock
-  const greigeStockMap = new Map<string, number>();
-  if (greigeIds.size > 0) {
-    const greigeStock = await prisma.greige_stock.groupBy({
-      by: ['greigeId'],
-      where: {
-        greigeId: { in: [...greigeIds] },
-        status: 'AVAILABLE',
-        processorId: null, // Stock at processor is not available for planning
-      },
-      _sum: { quantityAvailable: true, quantityReserved: true },
-    });
-    for (const g of greigeStock) {
-      greigeStockMap.set(g.greigeId, netFreeStock(g._sum));
-    }
-  }
+  // Greige lots: which count depends on the requirement's processor (our stores + cloth already there)
+  const greigeLots = await loadPlanningGreigeLots(prisma, [...greigeIds]);
 
   // Batch query fabric_stock
   const fabricStockMap = new Map<string, number>();
@@ -917,14 +937,14 @@ async function batchGetCurrentStock(
   for (const req of requirements) {
     const lookup = materialIdToLookupId.get(req.materialId);
     if (!lookup) {
-      result.set(req.materialId, 0);
+      result.set(req.id, 0);
       continue;
     }
 
     let stock = 0;
     switch (lookup.type) {
       case 'greige':
-        stock = greigeStockMap.get(lookup.lookupId) ?? 0;
+        stock = netFreeGreige(greigeLots, lookup.lookupId, req.processorId ?? null);
         break;
       case 'fabric':
         stock = fabricStockMap.get(lookup.lookupId) ?? 0;
@@ -936,7 +956,7 @@ async function batchGetCurrentStock(
         stock = genericStockMap.get(lookup.lookupId) ?? 0;
         break;
     }
-    result.set(req.materialId, stock);
+    result.set(req.id, stock);
   }
 
   return result;
@@ -1492,19 +1512,13 @@ export async function calculateRequirementsFromOrder(
       if (checkStock) {
         // For GREIGE_PROCESSED and LANDED GREIGE items, check greige_stock table
         if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
-          const greigeStockResult = await prisma.greige_stock.aggregate({
-            where: {
-              greigeId: bomItem.greigeId,
-              status: 'AVAILABLE',
-              quantityAvailable: { gt: 0 },
-              // MRP-14: greige physically sitting at a processor is not available to plan against.
-              // derived_stock_view (what the trim path reads) already excludes it; this aggregate
-              // did not, so the two stock readers disagreed on the same material.
-              processorId: null,
-            },
-            _sum: { quantityAvailable: true, quantityReserved: true },
-          });
-          const totalGreigeStock = netFreeStock(greigeStockResult._sum);
+          // MRP-14 / 2026-09-25: our stores, plus greige already at the processor this line will be
+          // dyed at (at any processor while none is chosen) — never another processor's cloth.
+          const totalGreigeStock = netFreeGreige(
+            await loadPlanningGreigeLots(prisma, [bomItem.greigeId]),
+            bomItem.greigeId,
+            bomItem.processorId ?? null
+          );
 
           if (qtyAtLeast(totalGreigeStock, totalRequired)) {
             availableStock = totalGreigeStock;
@@ -2624,7 +2638,7 @@ export async function getRequirements(
   return {
     data: data.map((req) => ({
       ...mapToResponse(req),
-      currentStock: currentStockMap.get(req.materialId) ?? 0,
+      currentStock: currentStockMap.get(req.id) ?? 0,
     })),
     total,
   };
@@ -2999,10 +3013,15 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
           remaining -= toReserve;
         }
       } else if (matType === 'GREIGE' && reqWithMaterial.materials.greigeId) {
-        const lots = await tx.greige_stock.findMany({
-          where: { greigeId: reqWithMaterial.materials.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
-          orderBy: { receivedDate: 'asc' },
-        });
+        // Only cloth this requirement may use (lot-location.helper): our stores and what is already at
+        // its processor — until 2026-09-25 this reserved ANY lot, another dyer's included. Cloth
+        // already at its processor goes first (its return clock is running), then FIFO.
+        const processorId = reqWithMaterial.processorId ?? null;
+        const atItsProcessor = (lot: PlanningGreigeLot) =>
+          processorId != null && greigeHolderId(lot) === processorId ? 0 : 1;
+        const lots = (await loadPlanningGreigeLots(tx, [reqWithMaterial.materials.greigeId]))
+          .filter((lot) => greigeCountsForPlanning(lot, processorId))
+          .sort((a, b) => atItsProcessor(a) - atItsProcessor(b) || a.receivedDate.getTime() - b.receivedDate.getTime());
         let remaining = reserveQty;
         for (const lot of lots) {
           if (isQtyZero(remaining) || remaining < 0) break;
@@ -5338,13 +5357,14 @@ export async function convertToGreigeProcessing(
   }
 
   // 3. Check greige stock for the adjusted quantity
-  // MRP-03/MRP-14: same netting rules as the main calculation — exclude reserved quantity and
-  // greige held at a processor, so this dialog and the recalc agree on what is actually free.
-  const greigeStockResult = await prisma.greige_stock.aggregate({
-    where: { greigeId: data.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 }, processorId: null },
-    _sum: { quantityAvailable: true, quantityReserved: true },
-  });
-  const greigeAvailable = netFreeStock(greigeStockResult._sum);
+  // MRP-03/MRP-14: same netting rules as the main calculation — exclude reserved quantity, count our
+  // stores plus greige already at the chosen processor (never another's), so this dialog and the
+  // recalc agree on what is actually free.
+  const greigeAvailable = netFreeGreige(
+    await loadPlanningGreigeLots(prisma, [data.greigeId]),
+    data.greigeId,
+    data.processorId ?? null
+  );
 
   // Quantity rule (utils/quantity): greige lots are 2-decimal, the adjusted need 3 — stock within
   // dust of the need covers it, and the shortfall is stored as 0, not 0.002.

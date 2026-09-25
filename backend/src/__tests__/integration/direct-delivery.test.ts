@@ -33,6 +33,7 @@ import { buildChallanDocData } from '../../services/document-data/challan.doc-da
 import { buildJobWorkOrderDocData } from '../../services/document-data/job-work-order.doc-data';
 import { formatDate } from '../../utils/date';
 import { recomputeCoveringChallansForJwo } from '../../services/helpers/jwo-challan-lifecycle.helper';
+import { getRequirements } from '../../services/mrp.service';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -224,6 +225,13 @@ afterAll(async () => {
   await prisma.job_work_orders.deleteMany({ where: { id: { in: jwoIds } } });
   await prisma.greige_stock.deleteMany({ where: { id: { in: lotIds } } });
   await prisma.fabric_procurement.deleteMany({ where: { greigeId: only(greigeId) } });
+  const reqIds = (
+    await prisma.material_requirements.findMany({ where: { materialId: only(materialId) }, select: { id: true } })
+  ).map((r) => r.id);
+  if (reqIds.length > 0) {
+    await prisma.stock_reservations.deleteMany({ where: { referenceId: { in: reqIds } } });
+    await prisma.material_requirements.deleteMany({ where: { id: { in: reqIds } } });
+  }
   await prisma.stock_movements.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_transactions.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_levels.deleteMany({ where: { materialId: only(materialId) } });
@@ -496,6 +504,60 @@ describe('greige delivered straight to a processor', () => {
     await prisma.job_work_orders.update({ where: { id: jwoAll }, data: { jwoStatus: 'STOCK_UPDATED' } });
     await recomputeCoveringChallansForJwo(prisma, jwoAll);
     expect(await statusOf(small.sourceChallanId!)).toBe('RECEIVED');
+  });
+
+  it("MRP counts greige already at a requirement's own dyer, never another dyer's, and reserves the same way", async () => {
+    let seq = 0;
+    const makeRequirement = (processorId: string | null) =>
+      prisma.material_requirements.create({
+        data: {
+          id: randomUUID(),
+          requirementNumber: `${RUN}-MR${++seq}`,
+          source: 'WORK_ORDER',
+          unit: 'METER',
+          materialId,
+          orderQuantity: 100,
+          quantityPerUnit: 3,
+          wastagePercent: 0,
+          totalRequired: 300,
+          shortfall: 300,
+          status: 'PO_REQUIRED',
+          requiredDate: new Date(Date.now() + 30 * DAY),
+          processorId,
+          createdById: userId,
+        },
+      });
+    const atA = await makeRequirement(dyerA);
+    const atB = await makeRequirement(dyerB);
+    const unassigned = await makeRequirement(null);
+
+    const { data } = await getRequirements({ materialId, page: 1, limit: 50 } as never);
+    const stockOf = (id: string) => data.find((r) => r.id === id)!.currentStock;
+    // Store 700 m; 1,800 m still held at dyer A (the 500 m lot was fully drawn)
+    expect(stockOf(atA.id)).toBe(2500);
+    expect(stockOf(atB.id)).toBe(700); // dyer A's cloth is not dyer B's to plan with
+    expect(stockOf(unassigned.id)).toBe(2500);
+
+    // Reserving for dyer B touches only the store lot; for dyer A, the cloth already there first
+    await request(app)
+      .post(`/api/mrp/requirements/${atB.id}/allocate-stock`)
+      .set(authHeader)
+      .send({ quantity: 300 })
+      .expect(200);
+    const reservedOn = async (id: string) =>
+      Number((await prisma.greige_stock.findUniqueOrThrow({ where: { id } })).quantityReserved ?? 0);
+    expect(await reservedOn(storeLotId)).toBe(300);
+    expect(await reservedOn(lotId)).toBe(0);
+    await request(app)
+      .post(`/api/mrp/requirements/${atA.id}/allocate-stock`)
+      .set(authHeader)
+      .send({ quantity: 300 })
+      .expect(200);
+    expect(await reservedOn(lotId)).toBe(300);
+    expect(await reservedOn(storeLotId)).toBe(300);
+
+    // leave the lots as the later tests expect them
+    await prisma.greige_stock.updateMany({ where: { id: { in: [lotId, storeLotId] } }, data: { quantityReserved: 0 } });
   });
 
   it('cannot allocate the same metres twice', async () => {

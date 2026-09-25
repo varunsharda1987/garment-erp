@@ -57,3 +57,105 @@ export async function challanOrigin(
     fromName: rest > 0 ? `${shown} +${rest} more` : shown,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// Where a lot IS (Phase 2). One authority, so no reader re-derives it from a single column.
+//
+// greige_stock has two homes for "which processor holds this": processorId (set for DIRECT lots a
+// supplier delivered straight to a processor, and for TRANSFER lots a Stock-Out challan parked
+// there) and the lot's warehouse (a processor's "… - Processing Unit", warehouseType JOB_WORK,
+// supplierId = the processor). Lace and fabric lots have only the warehouse. Read both, here.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Select this on a lot's `warehouse` relation so the helpers below can place it. */
+export const LOT_WAREHOUSE_SELECT = {
+  id: true,
+  warehouseName: true,
+  warehouseType: true,
+  supplierId: true,
+  supplier: { select: { name: true } },
+} as const;
+
+export interface LotWarehouseInfo {
+  id?: string;
+  warehouseName: string;
+  warehouseType: string;
+  supplierId: string | null;
+  supplier?: { name: string } | null;
+}
+
+export type LotLocationCategory = 'AT_THIS_PROCESSOR' | 'OUR_STORE' | 'AT_OTHER_PROCESSOR';
+
+export interface LotLocation {
+  category: LotLocationCategory;
+  /** The processor physically holding the lot, or null when it is in our store. */
+  holderProcessorId: string | null;
+  /** Its name when known (from the lot's processor or its unit's supplier). */
+  holderName: string | null;
+  warehouseName: string | null;
+  /**
+   * In a processor's unit with no processorId: greige a supplier delivered straight to a processor
+   * before such deliveries were booked as held there (the Aug-2026 lots). Converted by
+   * scripts/backfill-direct-delivery.ts; until then it issues like store stock, on a challan.
+   */
+  legacyUnitLot: boolean;
+}
+
+interface LocatableLot {
+  processorId?: string | null;
+  processor?: { name: string } | null;
+  warehouse?: LotWarehouseInfo | null;
+}
+
+function unitHolder(warehouse: LotWarehouseInfo | null | undefined): string | null {
+  if (!warehouse || warehouse.warehouseType !== 'JOB_WORK') return null;
+  return warehouse.supplierId ?? 'UNLINKED_UNIT';
+}
+
+/** Who physically holds a greige lot: its processorId, else the processor whose unit it sits in. */
+export function greigeHolderId(lot: LocatableLot): string | null {
+  const unit = unitHolder(lot.warehouse);
+  return lot.processorId ?? (unit && unit !== 'UNLINKED_UNIT' ? unit : null);
+}
+
+/**
+ * Does this lot's quantity sit in the stock ledger (stock_levels / derived_stock_view)? A TRANSFER lot
+ * is a shadow of metres already taken off a store lot by a Stock-Out challan — never added to the
+ * ledger, so it must never be taken off it either. Every other lot (GRN, DIRECT, MANUAL…) is on it.
+ */
+export function lotCountsOnHand(lot: { sourceType?: string | null }): boolean {
+  return lot.sourceType !== 'TRANSFER';
+}
+
+/**
+ * Place a lot relative to the processor a job is for. Conflicting signals (processorId says one
+ * processor, the unit another) take the conservative answer: AT_OTHER_PROCESSOR — never issued.
+ */
+export function resolveLotLocation(lot: LocatableLot, targetProcessorId: string | null): LotLocation {
+  const unit = unitHolder(lot.warehouse);
+  const warehouseName = lot.warehouse?.warehouseName ?? null;
+  const unitName = lot.warehouse?.supplier?.name ?? warehouseName;
+
+  if (lot.processorId) {
+    const conflict = unit != null && unit !== lot.processorId;
+    const atThis = !conflict && targetProcessorId != null && lot.processorId === targetProcessorId;
+    return {
+      category: atThis ? 'AT_THIS_PROCESSOR' : 'AT_OTHER_PROCESSOR',
+      holderProcessorId: lot.processorId,
+      holderName: lot.processor?.name ?? unitName,
+      warehouseName,
+      legacyUnitLot: false,
+    };
+  }
+  if (unit) {
+    const atThis = unit !== 'UNLINKED_UNIT' && targetProcessorId != null && unit === targetProcessorId;
+    return {
+      category: atThis ? 'AT_THIS_PROCESSOR' : 'AT_OTHER_PROCESSOR',
+      holderProcessorId: unit === 'UNLINKED_UNIT' ? null : unit,
+      holderName: unitName,
+      warehouseName,
+      legacyUnitLot: true,
+    };
+  }
+  return { category: 'OUR_STORE', holderProcessorId: null, holderName: null, warehouseName, legacyUnitLot: false };
+}

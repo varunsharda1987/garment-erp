@@ -85,12 +85,12 @@ import { applySearch } from '../utils/search-filter';
 const GRN_WEAVER_REQUIRED = true;
 
 /**
- * Phase 2 rollout switch: book greige received into a processor's unit as HELD by that processor, with
- * its Rule 45 challan, and ask for the "Delivered straight to …" confirmation. OFF until the GRN approval
- * screen carries the tick — switching it on first would refuse every approval into a processor's unit.
- * While off, such receipts book exactly as before (a lot in the unit, no challan).
+ * Phase 2: book greige received into a processor's unit as HELD by that processor, with its Rule 45
+ * challan, after the "Delivered straight to …" confirmation. ON since the GRN approval screen asks for it
+ * (2026-09-25); shipped OFF one commit earlier so the backend could land first. Off = such receipts book
+ * as a plain lot in the unit with no challan (the pre-Phase-2 behaviour).
  */
-const DIRECT_DELIVERY_BOOKING = false;
+const DIRECT_DELIVERY_BOOKING = true;
 
 /** Goods a supplier delivered straight to a processor: who holds them (Phase 2). */
 interface DirectDelivery {

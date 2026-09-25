@@ -10,6 +10,7 @@ import {
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity, getDefaultWarehouseId } from './helpers/material-sync.helper';
+import { lotCountsOnHand } from './helpers/lot-location.helper';
 import { systemSettingsService } from './system-settings.service';
 // BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
 import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currency';
@@ -35,7 +36,9 @@ export interface CreateGreigeStockDTO {
   purchaseCost?: number;
   receivedDate?: Date;
   supplierId?: string;
-  sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT';
+  sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT' | 'DIRECT';
+  /** Set with sourceType 'DIRECT': the processor the supplier delivered this lot straight to (its holder). */
+  processorId?: string | null;
   invoiceNumber?: string;
   invoiceDate?: Date;
   // Fold/Than tracking - for calculating actual meters from nominal
@@ -219,6 +222,7 @@ class GreigeStockService {
           // P2: Identity-based reversal
           grnItemId: data.grnItemId || null,
           weaverId: data.weaverId ?? null,
+          processorId: data.processorId ?? null,
           agingDays: 0,
           status: 'AVAILABLE',
           stockType: 'GENERIC',
@@ -531,6 +535,15 @@ class GreigeStockService {
    * reservation. The availability check and the decrement are ONE guarded statement,
    * so concurrent consumers cannot both pass a stale check (no read-then-write).
    */
+  /**
+   * Point greige lots at the challan that covers them — a direct-supply (Rule 45) challan for greige a
+   * supplier delivered straight to a processor. A link only: no quantity moves, so no ledger sync.
+   */
+  async linkCoveringChallan(stockIds: string[], challanId: string, tx: TransactionClient): Promise<void> {
+    if (stockIds.length === 0) return;
+    await tx.greige_stock.updateMany({ where: { id: { in: stockIds } }, data: { sourceChallanId: challanId } });
+  }
+
   async consumeGreigeStock(
     stockId: string,
     quantity: number,
@@ -608,7 +621,11 @@ class GreigeStockService {
         where: { greigeId: updatedStock.greigeId },
         select: { id: true },
       });
-      if (material) {
+      if (!lotCountsOnHand(updatedStock)) {
+        // A TRANSFER lot was never in the ledger (its metres left the store lot when the Stock-Out
+        // challan parked it at the processor) — taking it off again would drive stock_levels below
+        // derived_stock_view (the GRG-0006 drift class).
+      } else if (material) {
         // Pass `client` (not the possibly-undefined outer tx var) so the sync always joins the tx
         await syncStockLevelQuantity(material.id, -quantity, updatedStock.warehouseId || undefined, 'METER', client);
       } else {
@@ -698,7 +715,9 @@ class GreigeStockService {
         where: { greigeId: updatedStock.greigeId },
         select: { id: true },
       });
-      if (material) {
+      if (!lotCountsOnHand(updatedStock)) {
+        // TRANSFER lot: off the ledger both ways (see consumeGreigeStock).
+      } else if (material) {
         await syncStockLevelQuantity(material.id, quantity, updatedStock.warehouseId || undefined, 'METER', client);
       } else {
         logError(

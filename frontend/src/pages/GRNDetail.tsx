@@ -64,6 +64,8 @@ export default function GRNDetail() {
 
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  // The server's "these go to a processor's unit — confirm they were delivered straight there" refusal
+  const [directConfirm, setDirectConfirm] = useState<{ processorName: string; warehouseName: string } | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -114,7 +116,7 @@ export default function GRNDetail() {
   // through the gap: no QC dialog, and processingQC never sent, so every lot got the default grade.
   const isProcessingReceipt = (g: typeof grn) => g?.purchaseOrders?.poCategory === 'PROCESSING' || !!g?.jobWorkOrderId;
 
-  const handleApprove = async () => {
+  const handleApprove = async (directDeliveryConfirmed = false) => {
     const wId = (grn?.warehouseId as string | undefined) || approveWarehouseId;
     if (!wId) {
       handleApiError(new Error('Please select a warehouse before approving'), 'Validation Error');
@@ -132,14 +134,32 @@ export default function GRNDetail() {
             remarks: qcRemarks || undefined,
           }
         : undefined;
-      const result = await approveGRN(id!, wId, qcData);
-      handleApiSuccess('GRN approved', 'The goods have been accepted and stock has been updated.');
+      const result = await approveGRN(id!, wId, qcData, { directDeliveryConfirmed });
+      handleApiSuccess(
+        'GRN approved',
+        directDeliveryConfirmed
+          ? 'Booked as held by the processor, with the job-work challan dated the receipt day.'
+          : 'The goods have been accepted and stock has been updated.'
+      );
       if (result.pendingCutting && result.pendingCutting.length > 0) {
         setPendingCutting(result.pendingCutting);
       }
       fetchGRN();
     } catch (err) {
-      handleApiError(err, 'Failed to approve GRN');
+      // Booked at a processor's unit: ask "delivered straight there?" instead of showing an error.
+      const d = (
+        err as {
+          response?: { data?: { details?: { reason?: string; processorName?: string; warehouseName?: string } } };
+        }
+      )?.response?.data?.details;
+      if (d?.reason === 'DIRECT_DELIVERY_UNCONFIRMED' && !directDeliveryConfirmed) {
+        setDirectConfirm({
+          processorName: d.processorName ?? 'the processor',
+          warehouseName: d.warehouseName ?? 'their unit',
+        });
+      } else {
+        handleApiError(err, 'Failed to approve GRN');
+      }
     } finally {
       setApproveDialogOpen(false);
     }
@@ -668,7 +688,7 @@ export default function GRNDetail() {
                 <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleApprove} disabled={!approveWarehouseId}>
+                <Button onClick={() => handleApprove()} disabled={!approveWarehouseId}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve
                 </Button>
@@ -687,9 +707,23 @@ export default function GRNDetail() {
           description={`Are you sure you want to approve GRN ${grn.grnNumber}? This will update the stock levels for all accepted items.`}
           confirmText="Approve"
           cancelText="Cancel"
-          onConfirm={handleApprove}
+          onConfirm={() => handleApprove()}
         />
       )}
+
+      {/* Goods booked at a processor's unit: confirm the supplier delivered them straight there (Phase 2) */}
+      <ConfirmDialog
+        open={!!directConfirm}
+        onOpenChange={(open) => !open && setDirectConfirm(null)}
+        title={`Delivered straight to ${directConfirm?.processorName ?? 'the processor'}?`}
+        description={`This GRN books the goods at ${directConfirm?.warehouseName ?? 'the processor'}. If the supplier delivered them straight to ${directConfirm?.processorName ?? 'the processor'}, they are recorded as ours, held there, and a job-work challan dated the receipt day is raised. If they came to our store, choose Go back and approve into our store instead.`}
+        confirmText={`Yes — delivered straight to ${directConfirm?.processorName ?? 'the processor'}`}
+        cancelText="Go back"
+        onConfirm={() => {
+          setDirectConfirm(null);
+          void handleApprove(true);
+        }}
+      />
 
       {/* Processing GRN Approval - with QC fields */}
       {approveDialogOpen && isProcessingGRN && (
@@ -794,7 +828,7 @@ export default function GRNDetail() {
                 <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleApprove}>
+                <Button onClick={() => handleApprove()}>
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Approve & Create Stock
                 </Button>

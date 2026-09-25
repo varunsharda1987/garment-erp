@@ -94,13 +94,16 @@ export interface PendingCuttingInfo {
 export const approveGRN = async (
   id: string,
   warehouseId?: string,
-  processingQC?: ProcessingQCData
+  processingQC?: ProcessingQCData,
+  /** Approving into a processor's unit: "the supplier delivered these straight to the processor". */
+  opts?: { directDeliveryConfirmed?: boolean }
 ): Promise<{ grn: GRN; pendingCutting?: PendingCuttingInfo[] }> => {
   const { data } = await api.patch<GRNResponse & { pendingCutting?: PendingCuttingInfo[] }>(
     `${BASE_URL}/${id}/approve`,
     {
       ...(warehouseId && { warehouseId }),
       ...(processingQC && { processingQC }),
+      ...(opts?.directDeliveryConfirmed && { directDeliveryConfirmed: true }),
     }
   );
   return { grn: data.data, pendingCutting: data.pendingCutting };

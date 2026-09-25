@@ -514,7 +514,17 @@ class JobWorkOrderService {
    *
    * @throws JobWorkOrderError with STATUTORY_DATE_IMMUTABLE if already set
    */
-  async setStatutoryDueDate(jwoId: string, sentDate: Date, tx?: Prisma.TransactionClient): Promise<job_work_orders> {
+  /**
+   * @param clockFrom When the one-year return period actually started, if earlier than `sentDate`: goods
+   *   a supplier delivered straight to the processor count from the day the processor received them
+   *   (Sec 19 explanation), not from the day a job was allocated to them (Phase 2, 2026-09-25).
+   */
+  async setStatutoryDueDate(
+    jwoId: string,
+    sentDate: Date,
+    tx?: Prisma.TransactionClient,
+    clockFrom?: Date | null
+  ): Promise<job_work_orders> {
     const client = tx || prisma;
 
     const jwo = await client.job_work_orders.findUnique({
@@ -534,7 +544,7 @@ class JobWorkOrderService {
       );
     }
 
-    const dueDate = this.calculateStatutoryDueDate(sentDate);
+    const dueDate = this.calculateStatutoryDueDate(clockFrom && clockFrom < sentDate ? clockFrom : sentDate);
 
     const updated = await client.job_work_orders.update({
       where: { id: jwoId },

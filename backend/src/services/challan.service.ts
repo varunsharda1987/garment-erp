@@ -56,6 +56,8 @@ export interface CreateChallanItemInput {
   thanCount?: number;
   componentName?: string;
   colorName?: string;
+  /** Value for the e-way bill / Rule 45 declaration (material value, never a job-work rate). */
+  declaredValue?: number;
 }
 
 export interface CreateChallanInput {
@@ -68,6 +70,14 @@ export interface CreateChallanInput {
   purchaseOrderId?: string;
   jobWorkOrderId?: string; // Phase 4a: header-level JWO attribution
   grnId?: string; // The job-work receipt an INWARD challan was filed for — one per part (2026-09-19)
+  /** OUTWARD Rule 45 challan for inputs a supplier delivered STRAIGHT to the job worker: the purchase
+   *  receipt it covers (Phase 2, 2026-09-25). Never the INWARD grnId. */
+  directSupplyGrnId?: string;
+  /** Rule 55 wording, e.g. "Job work — inputs supplied directly to the job worker … — not a supply". */
+  reasonForTransport?: string;
+  totalDeclaredValue?: number;
+  /** When the goods are already with the recipient at filing (a direct supply): the date they got them. */
+  issuedDate?: Date;
   fabricProcessingId?: string;
   fromType: string;
   fromId?: string;
@@ -166,6 +176,10 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
         purchaseOrderId: input.purchaseOrderId,
         jobWorkOrderId: input.jobWorkOrderId,
         grnId: input.grnId,
+        directSupplyGrnId: input.directSupplyGrnId,
+        reasonForTransport: input.reasonForTransport,
+        totalDeclaredValue: input.totalDeclaredValue,
+        issuedDate: input.issuedDate,
         fabricProcessingId: input.fabricProcessingId,
         fromType: input.fromType,
         fromId: input.fromId,
@@ -218,6 +232,7 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
             colorName: item.colorName || null,
             foldLengthCm: item.foldLengthCm,
             thanCount: item.thanCount,
+            declaredValue: item.declaredValue,
           })),
         },
       },
@@ -285,6 +300,14 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.greigeStockId },
             include: { greige: true },
           });
+          // A lot held by a processor is not in our store: it cannot leave on a Stock-Out challan. It
+          // is used by a job at that processor, or moved with its own door (direct-to-processor plan).
+          if (originalStock?.processorId) {
+            throw new Error(
+              `Lot ${originalStock.greige?.greigeCode ?? originalStock.id.slice(0, 8)} is held at a processor, not in our store — ` +
+                `it cannot go out on this challan. Use it on a job at that processor instead.`
+            );
+          }
           // Quantity rule (utils/quantity): a 3-decimal challan line within dust of the 2-decimal lot
           // takes exactly the lot — otherwise the guarded consume refuses 500.002 against 500.00.
           const greigeQty = originalStock ? snapToLimit(qty, originalStock.quantityAvailable) : qty;
@@ -789,11 +812,18 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
     // Fetch challan to check status + processing link
     const existingChallan = await tx.challans.findUnique({
       where: { id },
-      select: { challanType: true, fabricProcessingId: true, orderId: true, status: true },
+      select: { challanType: true, fabricProcessingId: true, orderId: true, status: true, directSupplyGrnId: true },
     });
 
     if (!existingChallan) {
       throw new Error('Challan not found');
+    }
+    // The Rule 45 challan for goods a supplier delivered straight to a processor is closed by the jobs
+    // that use them (Receive from processor), never received by hand here.
+    if (existingChallan.directSupplyGrnId) {
+      throw new Error(
+        'This challan covers goods the supplier delivered straight to the processor. They come back through the job work order (Receive from processor), not from here.'
+      );
     }
     // Status guard (bug-hunt procurement-4): re-receiving a RECEIVED challan used to re-credit the FULL
     // receivedQty of every item — double stock credit. PARTIALLY_RECEIVED stays receivable (progressive

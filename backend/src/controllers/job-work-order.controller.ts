@@ -1743,8 +1743,14 @@ class JobWorkOrderController {
             break;
 
           case 'AT_PROCESSOR':
-            // Material stays at processor — just update the field, no stock changes
-            // Material can be allocated to a future JWO at this processor
+            // A job DRAWN where the cloth lay (no outward challan — it never left the processor): the
+            // metres go back onto the held lot, where the next job at this processor can use them.
+            // Without this they vanished: consumed from the lot, owned by no job (Phase 2, 2026-09-25).
+            if (!jwo.outwardChallanId) {
+              await unissueForCancel(txClient, jwo, userId);
+            }
+            // A store-issued job's material stays at the processor with no stock record yet — the
+            // proper home (a held lot) comes with the cancel-disposition rework in this plan.
             break;
 
           case 'WRITTEN_OFF':

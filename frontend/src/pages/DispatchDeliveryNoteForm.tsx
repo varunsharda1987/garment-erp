@@ -1,5 +1,9 @@
 // Create Delivery Note — dispatch finished goods against a customer order.
-// Linked from DispatchList ("New Delivery Note" + ASN "Create Delivery Note" actions).
+// Linked from DispatchList ("New Delivery Note" + ASN "Create Delivery Note" actions) and from the
+// Sale Order page's "Create Delivery Note" (?orderId= for its linked production order, or
+// ?saleOrderId= for a sale order sold from stock, with no production order).
+// A note for a production order linked to a sale order is booked against that sale order by the
+// server (its lines' Dispatched quantity moves); in sale-order mode the page names the sale order.
 // BUG-DASH10 fix: corrected route path - /manufacturing/dispatch/delivery/new
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -15,6 +19,8 @@ import { Combobox } from '@/components/ui/combobox';
 import type { ComboboxOption } from '@/components/ui/combobox';
 import { deliveryNoteService, asnService } from '@/services/dispatch.service';
 import { getAllOrders, getOrderById } from '@/services/order.service';
+import { getSaleOrderById } from '@/services/saleOrder.service';
+import type { SaleOrder } from '@/types/saleOrder.types';
 import { customerService } from '@/services/customer.service';
 import { styleService } from '@/services/style.service';
 import type { Order } from '@/types/order.types';
@@ -70,6 +76,10 @@ export default function DispatchDeliveryNoteForm() {
   const asnId = searchParams.get('asnId');
   const [asnNumber, setAsnNumber] = useState<string | null>(null);
   const asnLoadedRef = useRef(false);
+  // From the Sale Order page: its linked production order, or the sale order itself (sale-order mode)
+  const orderIdParam = searchParams.get('orderId');
+  const saleOrderIdParam = searchParams.get('saleOrderId');
+  const paramLoadedRef = useRef(false);
 
   // Lookups
   const [orders, setOrders] = useState<Order[]>([]);
@@ -80,6 +90,8 @@ export default function DispatchDeliveryNoteForm() {
   // Selected order detail (with items + breakup)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderLoading, setOrderLoading] = useState(false);
+  // Sale-order mode: the sale order itself is what ships (no production order)
+  const [saleOrder, setSaleOrder] = useState<SaleOrder | null>(null);
 
   // Per-style color/size options (from style master; used for selects)
   const [styleOptionsMap, setStyleOptionsMap] = useState<Record<string, StyleOptions>>({});
@@ -127,6 +139,30 @@ export default function DispatchDeliveryNoteForm() {
     [fetchOrders]
   );
 
+  // Color/size options for each style (for manual rows and rows with no color yet).
+  // Serializer: color_options → colorOptions, size_options → sizeOptions.
+  const loadStyleOptions = async (styleIds: string[]): Promise<Record<string, StyleOptions>> => {
+    const optionsMap: Record<string, StyleOptions> = {};
+    await Promise.all(
+      styleIds.map(async (styleId) => {
+        try {
+          const fullStyle = (await styleService.getStyleById(styleId)) as unknown as {
+            colorOptions?: ColorOption[];
+            sizeOptions?: SizeOption[];
+          };
+          optionsMap[styleId] = {
+            colors: fullStyle.colorOptions ?? [],
+            sizes: fullStyle.sizeOptions ?? [],
+          };
+        } catch (err) {
+          logError(`Failed to load style options for ${styleId}`, err);
+          optionsMap[styleId] = { colors: [], sizes: [] };
+        }
+      })
+    );
+    return optionsMap;
+  };
+
   // ----- Order selection: auto-fill customer + prefill items from SKU breakup -----
 
   const handleOrderSelect = async (id: string) => {
@@ -160,26 +196,9 @@ export default function DispatchDeliveryNoteForm() {
       setItems(prefilled.length > 0 ? prefilled : [newRow()]);
 
       // Load color/size options for each style on the order (for manual rows and
-      // rows whose breakup had no color). Serializer: color_options → colorOptions, size_options → sizeOptions.
+      // rows whose breakup had no color).
       const styleIds = Array.from(new Set((order.orderItems || []).map((oi) => oi.styleId)));
-      const optionsMap: Record<string, StyleOptions> = {};
-      await Promise.all(
-        styleIds.map(async (styleId) => {
-          try {
-            const fullStyle = (await styleService.getStyleById(styleId)) as unknown as {
-              colorOptions?: ColorOption[];
-              sizeOptions?: SizeOption[];
-            };
-            optionsMap[styleId] = {
-              colors: fullStyle.colorOptions ?? [],
-              sizes: fullStyle.sizeOptions ?? [],
-            };
-          } catch (err) {
-            logError(`Failed to load style options for ${styleId}`, err);
-            optionsMap[styleId] = { colors: [], sizes: [] };
-          }
-        })
-      );
+      const optionsMap = await loadStyleOptions(styleIds);
 
       // Merge in color/size options seen on the breakup itself (covers styles whose
       // master options are incomplete but the order breakup carries the lookup rows).
@@ -211,6 +230,52 @@ export default function DispatchDeliveryNoteForm() {
       setOrderLoading(false);
     }
   };
+
+  // ----- Sale-order mode: rows are the sale order's lines, each at what is still to ship -----
+
+  const handleSaleOrderLoad = async (id: string) => {
+    try {
+      setOrderLoading(true);
+      const so = await getSaleOrderById(id);
+      setSaleOrder(so);
+      setCustomerId(so.customerId || '');
+      const lines = so.items || [];
+      const optionsMap = await loadStyleOptions(Array.from(new Set(lines.map((l) => l.styleId))));
+      setStyleOptionsMap(optionsMap);
+      const prefilled = lines
+        .filter((l) => l.sizeId && l.quantity - (l.dispatchedQty ?? 0) > 0)
+        .map((l) => {
+          // A line ordered without a colour ships in the style's colour when the style has only one
+          const colours = optionsMap[l.styleId]?.colors ?? [];
+          const colorId = l.colorId || (colours.length === 1 ? colours[0].id : '');
+          return newRow({
+            styleId: l.styleId,
+            colorId,
+            sizeId: l.sizeId || '',
+            quantity: String(l.quantity - (l.dispatchedQty ?? 0)),
+          });
+        });
+      setItems(prefilled.length > 0 ? prefilled : [newRow()]);
+    } catch (err) {
+      handleApiError(err, 'Failed to load the sale order');
+      setSaleOrder(null);
+      setItems([]);
+    } finally {
+      setOrderLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (paramLoadedRef.current || asnId) return;
+    if (orderIdParam) {
+      paramLoadedRef.current = true;
+      void handleOrderSelect(orderIdParam);
+    } else if (saleOrderIdParam) {
+      paramLoadedRef.current = true;
+      void handleSaleOrderLoad(saleOrderIdParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderIdParam, saleOrderIdParam, asnId]);
 
   // ----- ASN prefill: ?asnId=... loads the ASN's order and narrows rows to its shipment plan -----
 
@@ -261,10 +326,18 @@ export default function DispatchDeliveryNoteForm() {
   const addRow = () => setItems((prev) => [...prev, newRow()]);
   const removeRow = (tempId: string) => setItems((prev) => prev.filter((row) => row.tempId !== tempId));
 
-  // Deduped styles on the selected order (an order can have multiple items on the same style)
-  const orderStyles = (selectedOrder?.orderItems || [])
-    .map((oi) => oi.style)
-    .filter((s, idx, arr) => s && arr.findIndex((x) => x?.id === s.id) === idx);
+  // Deduped styles on the selected order (an order can have multiple items on the same style), or on
+  // the sale order's lines in sale-order mode
+  const sourceStyles: Array<{ id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }> =
+    saleOrder
+      ? (saleOrder.items || []).flatMap((l) => (l.style ? [l.style] : []))
+      : (selectedOrder?.orderItems || []).flatMap((oi) => (oi.style ? [oi.style] : []));
+  const orderStyles = sourceStyles.filter((s, idx, arr) => arr.findIndex((x) => x.id === s.id) === idx);
+  const hasSource = Boolean(selectedOrder || saleOrder);
+  // The sale order this note will be booked against (the linked one, or the one in sale-order mode)
+  const bookedAgainst = saleOrder
+    ? { saleOrderNumber: saleOrder.saleOrderNumber, buyerPoNumber: saleOrder.buyerPoNumber }
+    : (selectedOrder?.saleOrder ?? null);
   const totalQuantity = items.reduce((sum, row) => sum + (parseInt(row.quantity) || 0), 0);
 
   const styleLabel = (styleId: string) => {
@@ -275,7 +348,7 @@ export default function DispatchDeliveryNoteForm() {
   // ----- Submit -----
 
   const validate = (): boolean => {
-    if (!orderId) {
+    if (!orderId && !saleOrder) {
       notify.error('Please select an order');
       return false;
     }
@@ -312,7 +385,7 @@ export default function DispatchDeliveryNoteForm() {
     if (!validate()) return;
 
     const payload: CreateDeliveryNoteRequest = {
-      orderId,
+      ...(saleOrder ? { saleOrderId: saleOrder.id } : { orderId }),
       customerId,
       deliveryDate,
       asnId: asnId || undefined,
@@ -369,6 +442,13 @@ export default function DispatchDeliveryNoteForm() {
             {asnNumber && <Badge variant="secondary">Against ASN {asnNumber}</Badge>}
           </h1>
           <p className="text-muted-foreground">Dispatch finished goods against a customer order</p>
+          {bookedAgainst && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Booked against sale order <b>{bookedAgainst.saleOrderNumber}</b>
+              {bookedAgainst.buyerPoNumber ? ` (Buyer PO ${bookedAgainst.buyerPoNumber})` : ''} — its Dispatched
+              quantities update when this note is created.
+            </p>
+          )}
         </div>
       </div>
 
@@ -383,29 +463,42 @@ export default function DispatchDeliveryNoteForm() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Order *</Label>
-                <Combobox
-                  options={orders.map(
-                    (o): ComboboxOption => ({
-                      value: o.id,
-                      label: `${o.orderNumber} — ${o.customer?.name || 'Unknown customer'}`,
-                      searchText: `${o.orderNumber} ${o.customer?.name || ''}`,
-                    })
-                  )}
-                  value={orderId}
-                  onValueChange={handleOrderSelect}
-                  placeholder="Select order..."
-                  searchPlaceholder="Search by order number or customer..."
-                  onSearchChange={handleOrderSearch}
-                  isLoading={ordersLoading}
-                  footer={
-                    ordersTotal !== undefined && ordersTotal > orders.length
-                      ? `Showing the ${orders.length} most recent of ${ordersTotal.toLocaleString('en-IN')} orders — type an order number or customer to narrow`
-                      : undefined
-                  }
-                />
-              </div>
+              {saleOrder ? (
+                <div className="space-y-2">
+                  <Label>Sale Order *</Label>
+                  <div className="h-10 flex items-center rounded-md border px-3 text-sm bg-muted/40">
+                    {saleOrder.saleOrderNumber}
+                    {saleOrder.buyerPoNumber ? ` — Buyer PO ${saleOrder.buyerPoNumber}` : ''}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Shipped from finished-goods stock (no production order)
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Order *</Label>
+                  <Combobox
+                    options={orders.map(
+                      (o): ComboboxOption => ({
+                        value: o.id,
+                        label: `${o.orderNumber} — ${o.customer?.name || 'Unknown customer'}`,
+                        searchText: `${o.orderNumber} ${o.customer?.name || ''}`,
+                      })
+                    )}
+                    value={orderId}
+                    onValueChange={handleOrderSelect}
+                    placeholder="Select order..."
+                    searchPlaceholder="Search by order number or customer..."
+                    onSearchChange={handleOrderSearch}
+                    isLoading={ordersLoading}
+                    footer={
+                      ordersTotal !== undefined && ordersTotal > orders.length
+                        ? `Showing the ${orders.length} most recent of ${ordersTotal.toLocaleString('en-IN')} orders — type an order number or customer to narrow`
+                        : undefined
+                    }
+                  />
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Customer *</Label>
                 <Combobox
@@ -448,12 +541,12 @@ export default function DispatchDeliveryNoteForm() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!selectedOrder ? (
+            {orderLoading ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">Loading order items...</p>
+            ) : !hasSource ? (
               <p className="text-sm text-muted-foreground py-4 text-center">
                 Select an order to prefill items from its SKU breakup
               </p>
-            ) : orderLoading ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Loading order items...</p>
             ) : (
               <div className="space-y-4">
                 <div className="overflow-x-auto">
@@ -584,7 +677,7 @@ export default function DispatchDeliveryNoteForm() {
           <Button type="button" variant="outline" onClick={() => navigate('/manufacturing/dispatch')}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSaving || !selectedOrder}>
+          <Button type="submit" disabled={isSaving || !hasSource}>
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? 'Creating...' : 'Create Delivery Note'}
           </Button>

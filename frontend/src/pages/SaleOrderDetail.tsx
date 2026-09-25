@@ -21,6 +21,7 @@ import {
   FileX,
   Upload,
   ListOrdered,
+  Truck,
 } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
@@ -512,6 +513,18 @@ export default function SaleOrderDetail() {
   // A confirmed order is otherwise frozen; an admin can correct a wrongly entered size split
   const canAmendQuantities =
     isAdmin && ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED'].includes(so.status);
+  // Dispatch against this order: through its linked production order when it has one (the note is
+  // booked back onto this sale order), else straight from finished-goods stock (sale-order mode)
+  const canCreateDeliveryNote = [
+    'CONFIRMED',
+    'PARTIALLY_ALLOCATED',
+    'FULLY_ALLOCATED',
+    'PARTIALLY_DISPATCHED',
+  ].includes(so.status);
+  const deliveryNoteHref =
+    activeProductionOrders.length > 0
+      ? `/manufacturing/dispatch/delivery/new?orderId=${activeProductionOrders[0].id}`
+      : `/manufacturing/dispatch/delivery/new?saleOrderId=${so.id}`;
   const amendChangedCount = (so.items ?? []).filter(
     (i) => amendQty[i.id] !== undefined && amendQty[i.id] !== '' && Number(amendQty[i.id]) !== i.quantity
   ).length;
@@ -568,7 +581,13 @@ export default function SaleOrderDetail() {
     setAmendMode(mode);
   };
   const hasHeaderActions =
-    isDraft || canConfirm || canStartProduction || canLinkProduction || canAmendQuantities || canShowCancelButton;
+    isDraft ||
+    canConfirm ||
+    canStartProduction ||
+    canLinkProduction ||
+    canCreateDeliveryNote ||
+    canAmendQuantities ||
+    canShowCancelButton;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -644,6 +663,12 @@ export default function SaleOrderDetail() {
                 >
                   <Link2 className="h-4 w-4 mr-2" />
                   Link to Production Order
+                </DropdownMenuItem>
+              )}
+              {canCreateDeliveryNote && (
+                <DropdownMenuItem onSelect={() => navigate(deliveryNoteHref)}>
+                  <Truck className="h-4 w-4 mr-2" />
+                  Create Delivery Note
                 </DropdownMenuItem>
               )}
               {canAmendQuantities && (

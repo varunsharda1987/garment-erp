@@ -11,7 +11,7 @@
  * D1  allocated + in-production exceeds what was ordered   (start-production ignores allocatedQty)
  * D2  negative allocatedQty / dispatchedQty                [GATES CHECK allocatedQty>=0]
  * D3  allocatedQty exceeds ordered quantity                (allocation race: line never locked)
- * D4  dispatchedQty exceeds ordered quantity               (dispatch validated on stale snapshot)
+ * D4  dispatchedQty exceeds ordered + buyer's allowance     (dispatch validated on stale snapshot)
  * D5  negative finished_goods_stock.quantity               [GATES CHECK quantity>=0]
  * D6  negative / zero-but-ALLOCATED fg_stock_allocations   (double-drawn reservation)
  * D7  FG rows reserved beyond what they hold               (order-path DN ate reserved stock)
@@ -95,12 +95,15 @@ async function main() {
 
   await run(
     'D4',
-    'dispatchedQty exceeds the ordered quantity on the line',
+    // Up to ordered + the buyer's over-shipment allowance is legitimate (customers
+    // .overShipAllowancePercent, the same floor() cap sale-order-dispatch.helper.ts shipCap applies)
+    "dispatchedQty exceeds the ordered quantity + the buyer's over-shipment allowance",
     prisma.$queryRaw`
-      SELECT so."saleOrderNumber", soi.id, soi.quantity, soi."dispatchedQty"
+      SELECT so."saleOrderNumber", soi.id, soi.quantity, c."overShipAllowancePercent", soi."dispatchedQty"
         FROM sale_order_items soi
         JOIN sale_orders so ON so.id = soi."saleOrderId"
-       WHERE soi."dispatchedQty" > soi.quantity`
+        JOIN customers c ON c.id = so."customerId"
+       WHERE soi."dispatchedQty" > FLOOR(soi.quantity * (100 + c."overShipAllowancePercent") / 100)`
   );
 
   // ---- Finished goods -------------------------------------------------------------------

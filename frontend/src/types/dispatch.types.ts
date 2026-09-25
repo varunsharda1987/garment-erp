@@ -312,7 +312,10 @@ export interface CreateDeliveryNoteItemInput {
 }
 
 export interface CreateDeliveryNoteRequest {
-  orderId: string;
+  /** The production order being shipped. Either this or saleOrderId (a sale order sold from stock). */
+  orderId?: string;
+  /** Implied by a production order linked to a sale order; sent on its own only in sale-order mode. */
+  saleOrderId?: string;
   customerId: string;
   deliveryDate?: string;
   asnId?: string;

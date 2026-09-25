@@ -62,6 +62,7 @@ export interface CreateCustomerDTO {
   requiresGPT?: boolean;
   fptBlocksProduction?: boolean;
   gptBlocksShipment?: boolean;
+  overShipAllowancePercent?: number | null;
   fptTemplateId?: string | null;
   gptTemplateId?: string | null;
   buyerApprovesFPT?: boolean;
@@ -309,7 +310,15 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Create customer with brand categories and GST numbers
    */
   async createWithRelations(data: CreateCustomerDTO, userId: string): Promise<customers> {
-    const { brandCategories, gstNumbers, creditLimit, creditDays, agentCommissionPercent, ...customerData } = data;
+    const {
+      brandCategories,
+      gstNumbers,
+      creditLimit,
+      creditDays,
+      agentCommissionPercent,
+      overShipAllowancePercent,
+      ...customerData
+    } = data;
 
     // Check if code already exists (only among active customers)
     const existing = await this.prisma.customers.findFirst({
@@ -353,6 +362,8 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null,
         creditDays: creditDays ? parseInt(String(creditDays)) : null,
         agentCommissionPercent: agentCommissionPercent != null ? parseFloat(String(agentCommissionPercent)) : null,
+        // A cleared box means no over-shipment allowance, never a null the column cannot hold
+        overShipAllowancePercent: overShipAllowancePercent ?? 0,
         createdById: userId,
       },
       include: this.getDefaultIncludes(),
@@ -376,8 +387,16 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Update customer with brand categories and GST numbers
    */
   async updateWithRelations(id: string, data: UpdateCustomerDTO): Promise<customers> {
-    const { brandCategories, gstNumbers, creditLimit, creditDays, agentCommissionPercent, code, ...customerData } =
-      data;
+    const {
+      brandCategories,
+      gstNumbers,
+      creditLimit,
+      creditDays,
+      agentCommissionPercent,
+      overShipAllowancePercent,
+      code,
+      ...customerData
+    } = data;
 
     // Check if code is being changed and if it already exists (only among active customers)
     if (code) {
@@ -428,6 +447,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         ...(agentCommissionPercent !== undefined && {
           agentCommissionPercent: agentCommissionPercent != null ? parseFloat(String(agentCommissionPercent)) : null,
         }),
+        ...(overShipAllowancePercent !== undefined && { overShipAllowancePercent: overShipAllowancePercent ?? 0 }),
       },
     });
 

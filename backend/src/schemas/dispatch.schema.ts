@@ -61,6 +61,9 @@ const deliveryNoteItemSchema = z.object({
 export const createDeliveryNoteSchema = z
   .object({
     orderId: z.string().uuid('Invalid order ID').optional(),
+    // The sale order this note ships against. Implied by a production order linked to one; named on
+    // its own for a sale order sold from stock (no production order). Either this or orderId.
+    saleOrderId: z.string().uuid('Invalid sale order ID').optional(),
     customerId: z.string().uuid('Invalid customer ID'),
     warehouseId: z.string().uuid('Invalid warehouse ID').optional(), // Made optional - not used by controller currently
     transporterId: z.string().uuid('Invalid transporter ID').optional(),
@@ -76,7 +79,11 @@ export const createDeliveryNoteSchema = z
     // can flip them to DISPATCHED (bug-hunt dispatch-9).
     cartonIds: z.array(z.string().uuid('Invalid carton ID')).optional(),
   })
-  .passthrough();
+  .passthrough()
+  .refine((d) => Boolean(d.orderId || d.saleOrderId), {
+    message: 'Choose the production order or the sale order this delivery is for',
+    path: ['orderId'],
+  });
 
 /**
  * Update Delivery Note
@@ -343,6 +350,8 @@ export const rescheduleASNSchema = z
  */
 const saleOrderDispatchItemSchema = z.object({
   saleOrderItemId: z.string().uuid('Invalid sale order item ID'),
+  // Only for a line ordered without a colour, of a style that comes in several — which one is shipping
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
   quantity: z.number().int('Quantity must be a whole number').positive('Quantity must be positive'),
 });
 

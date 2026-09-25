@@ -464,6 +464,9 @@ model customers {
   fptBlocksProduction            Boolean                          @default(false)
   fptTemplateId                  String?
   gptBlocksShipment              Boolean                          @default(true)
+  /// How far over the ordered quantity a size may ship, in percent (Easybuy takes up to +5 %, cut via
+  /// the Cutting Chart's Extra %). 0 = never over. Widens every dispatch cap (sale-order-dispatch.helper.ts).
+  overShipAllowancePercent       Decimal                          @default(0) @db.Decimal(5, 2)
   gptTemplateId                  String?
   requiresFPT                    Boolean                          @default(false)
   requiresGPT                    Boolean                          @default(false)

@@ -66,6 +66,15 @@ const customerFormSchema = z.object({
       .nonnegative({ message: 'Credit days cannot be negative' })
       .optional()
   ),
+  // How far over the ordered quantity a size may ship, in percent (blank = 0 = never over)
+  overShipAllowancePercent: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : val),
+    z.coerce
+      .number({ message: 'Over-shipment allowance must be a number' })
+      .min(0, { message: 'Over-shipment allowance cannot be negative' })
+      .max(100, { message: 'Over-shipment allowance cannot be more than 100%' })
+      .optional()
+  ),
   // Testing Requirements
   requiresFPT: z.boolean().optional(),
   requiresGPT: z.boolean().optional(),
@@ -450,6 +459,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           setValue('gstNumber', customer.gstNumber || '');
           setValue('creditLimit', customer.creditLimit ?? undefined);
           setValue('creditDays', customer.creditDays ?? undefined);
+          setValue('overShipAllowancePercent', Number(customer.overShipAllowancePercent ?? 0));
 
           // Testing requirements
           setValue('requiresFPT', customer.requiresFPT || false);
@@ -684,6 +694,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         gstNumber: data.gstNumber,
         creditLimit: data.creditLimit,
         creditDays: data.creditDays,
+        overShipAllowancePercent: data.overShipAllowancePercent ?? 0,
         brandCategories,
         gstNumbers: validGstNumbers,
         // Testing requirements
@@ -1161,6 +1172,31 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Label htmlFor="creditDays">Credit Days</Label>
                     <Input id="creditDays" type="number" {...register('creditDays')} placeholder="0" />
                     {errors.creditDays && <p className="text-sm text-destructive mt-1">{errors.creditDays.message}</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dispatch */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Dispatch</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="overShipAllowancePercent">Over-shipment allowed (%)</Label>
+                    <Input
+                      id="overShipAllowancePercent"
+                      type="number"
+                      step="any"
+                      min={0}
+                      max={100}
+                      {...register('overShipAllowancePercent')}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      How much more than the ordered quantity of a size may be dispatched. 0 = never more than ordered.
+                    </p>
+                    {errors.overShipAllowancePercent && (
+                      <p className="text-sm text-destructive mt-1">{errors.overShipAllowancePercent.message}</p>
+                    )}
                   </div>
                 </div>
               </div>

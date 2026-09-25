@@ -161,6 +161,10 @@ export const createCustomerSchema = z.object({
 
   gptBlocksShipment: z.boolean().optional().default(true),
 
+  // How far over the ordered quantity a size may ship, in percent (0 = never over). Form-fed: a
+  // cleared box posts '' — formNumber keeps that a 400-free blank, which the service stores as 0.
+  overShipAllowancePercent: formNumber(z.number().min(0).max(100)),
+
   fptTemplateId: z.string().uuid('Invalid FPT template ID format').optional().nullable(),
 
   gptTemplateId: z.string().uuid('Invalid GPT template ID format').optional().nullable(),
@@ -279,6 +283,8 @@ export const updateCustomerSchema = z.object({
   fptBlocksProduction: z.boolean().optional(),
 
   gptBlocksShipment: z.boolean().optional(),
+
+  overShipAllowancePercent: formNumber(z.number().min(0).max(100)),
 
   fptTemplateId: z.string().uuid('Invalid FPT template ID format').optional().nullable(),
 

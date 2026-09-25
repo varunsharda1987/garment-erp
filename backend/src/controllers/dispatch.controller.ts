@@ -7,6 +7,16 @@ import { NotFoundError, ValidationError, UnauthorizedError, BusinessError } from
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
 import { recomputeSaleOrderStatus } from '../services/helpers/sale-order-status.helper';
+import {
+  DISPATCHABLE_SALE_ORDER_STATUSES,
+  assertWithinShipCaps,
+  drawFinishedGoods,
+  matchSaleOrderLine,
+  overShipAllowanceOf,
+  recordSaleOrderDispatch,
+  shipCap,
+  shippingColourFor,
+} from '../services/helpers/sale-order-dispatch.helper';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { applySearch } from '../utils/search-filter';
 
@@ -367,6 +377,74 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   }
   const { orderId, customerId, deliveryDate, remarks, items, cartonIds } = req.body;
 
+  // The sale order this note ships against: the one the production order is linked to, or — for a
+  // sale order sold from stock, with no production order — the one the page names. Until 2026-09-25
+  // this route never set it, so no delivery note ever moved a sale order's dispatched quantity.
+  let saleOrderId: string | null = req.body.saleOrderId ?? null;
+  if (orderId) {
+    const order = await prisma.orders.findUnique({
+      where: { id: orderId },
+      select: { orderNumber: true, saleOrderId: true },
+    });
+    if (!order) {
+      throw new NotFoundError('Order', orderId);
+    }
+    if (saleOrderId && order.saleOrderId !== saleOrderId) {
+      throw new ValidationError(
+        `${order.orderNumber} is not linked to that sale order — link it on the sale order first.`
+      );
+    }
+    saleOrderId = order.saleOrderId;
+  }
+
+  // Each item's sale order line, matched on style + colour + size before the transaction opens
+  // (the ship caps themselves are checked inside it, on locked rows).
+  let saleOrderNumber: string | null = null;
+  let lineFor: Array<{ id: string; label: string }> = [];
+  if (saleOrderId) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      select: {
+        saleOrderNumber: true,
+        status: true,
+        customerId: true,
+        items: {
+          select: {
+            id: true,
+            styleId: true,
+            colorId: true,
+            sizeId: true,
+            style: { select: { styleCode: true } },
+            size: { select: { sizeName: true } },
+          },
+        },
+      },
+    });
+    if (!so) {
+      throw new NotFoundError('Sale Order', saleOrderId);
+    }
+    if (!(DISPATCHABLE_SALE_ORDER_STATUSES as readonly string[]).includes(so.status)) {
+      throw new ValidationError(`${so.saleOrderNumber} is ${so.status} — a delivery note cannot be raised against it.`);
+    }
+    if (so.customerId !== customerId) {
+      throw new ValidationError(`The customer does not match ${so.saleOrderNumber}.`);
+    }
+    saleOrderNumber = so.saleOrderNumber;
+    lineFor = (items as Array<{ styleId: string; colorId: string; sizeId: string }>).map((item) => {
+      const line = matchSaleOrderLine(so.items, item);
+      if (!line) {
+        const styleCode = so.items.find((l) => l.styleId === item.styleId)?.style.styleCode;
+        const sizeName = so.items.find((l) => l.sizeId === item.sizeId)?.size?.sizeName;
+        throw new ValidationError(
+          styleCode
+            ? `${so.saleOrderNumber} has no line for ${styleCode}${sizeName ? ` size ${sizeName}` : ''} in that colour.`
+            : `${so.saleOrderNumber} does not carry that style.`
+        );
+      }
+      return { id: line.id, label: `${line.style.styleCode} ${line.size?.sizeName ?? ''}`.trim() };
+    });
+  }
+
   // Note creation + FG deductions run in ONE transaction with guarded atomic decrements (bug-hunt
   // dispatch-1). The old code was off-transaction read-modify-write: concurrent notes lost deductions,
   // a SKU split across locations was skipped entirely, and a missing colorId deducted ANY color's stock
@@ -387,6 +465,9 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   const attemptCreateNote = (deliveryNumber: string, fgShortfalls: FgShortfall[], fgAllocations: FgAllocation[]) =>
     prisma.$transaction(
       async (tx) => {
+        // The buyer's over-shipment allowance (e.g. Easybuy +5 % per size) widens every cap below.
+        const allowance = await overShipAllowanceOf(tx, customerId);
+
         // Over-dispatch validation runs INSIDE the tx with the order row locked — the old pre-tx
         // check-then-insert raced (two concurrent notes both passed, then both inserted), and it only
         // compared ORDER-TOTAL quantities, so one SKU could absorb another SKU's allowance
@@ -429,10 +510,12 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
                 if (!item.styleId || !item.sizeId || !item.quantity) continue;
                 const key = skuKey(item.styleId, item.colorId, item.sizeId);
                 const ordered = orderedMap.get(key) ?? 0;
+                const cap = shipCap(ordered, allowance);
                 const already = dispatchedMap.get(key) ?? 0;
-                if (already + item.quantity > ordered) {
+                if (already + item.quantity > cap) {
+                  const withAllowance = cap > ordered ? ` (up to ${cap} with the buyer's over-shipment allowance)` : '';
                   throw new ValidationError(
-                    `Dispatch exceeds ordered quantity for this SKU (style/color/size): ordered ${ordered}, ` +
+                    `Dispatch exceeds ordered quantity for this SKU (style/color/size): ordered ${ordered}${withAllowance}, ` +
                       `already dispatched ${already}, requested ${item.quantity}`
                   );
                 }
@@ -467,17 +550,34 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
 
             // Order-total backstop (also covers legacy orders without SKU breakups)
             const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
+            const totalCap = shipCap(totalOrdered, allowance);
             const totalAlreadyDispatched =
               Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0) - returnedQty;
             const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-            if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
+            if (totalAlreadyDispatched + totalNewDispatch > totalCap) {
+              const withAllowance =
+                totalCap > totalOrdered ? ` (up to ${totalCap} with the buyer's over-shipment allowance)` : '';
               throw new ValidationError(
                 `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
-                  `Ordered: ${totalOrdered}, already dispatched (net of returns): ${totalAlreadyDispatched}, ` +
-                  `remaining: ${totalOrdered - totalAlreadyDispatched}`
+                  `Ordered: ${totalOrdered}${withAllowance}, ` +
+                  `already dispatched (net of returns): ${totalAlreadyDispatched}, ` +
+                  `can still go: ${totalCap - totalAlreadyDispatched}`
               );
             }
           }
+        }
+
+        // The sale order's own caps (ordered + allowance per line), on locked lines.
+        if (saleOrderId) {
+          await assertWithinShipCaps(
+            tx,
+            items.map((item: any, i: number) => ({
+              saleOrderItemId: lineFor[i].id,
+              quantity: item.quantity,
+              label: `${saleOrderNumber} ${lineFor[i].label}`,
+            })),
+            allowance
+          );
         }
 
         const created = await tx.delivery_notes.create({
@@ -485,6 +585,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             id: crypto.randomUUID(),
             deliveryNumber,
             orderId,
+            saleOrderId,
             customerId,
             deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
             status: 'PENDING',
@@ -493,8 +594,9 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             delivery_note_items:
               items?.length > 0
                 ? {
-                    create: items.map((item: any) => ({
+                    create: items.map((item: any, i: number) => ({
                       id: crypto.randomUUID(),
+                      saleOrderItemId: saleOrderId ? lineFor[i].id : null,
                       styleId: item.styleId,
                       colorId: item.colorId,
                       sizeId: item.sizeId,
@@ -506,53 +608,28 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
           include: deliveryNoteIncludeOptions,
         });
 
-        if (items?.length > 0) {
-          for (const item of items) {
-            if (!item.styleId || !item.sizeId || !item.quantity) continue;
-            let remaining: number = item.quantity;
-
-            // Exact-SKU rows only. Without a colorId we cannot know WHICH color's stock left the warehouse,
-            // so nothing is deducted and the full quantity is flagged (never deduct a different SKU).
-            if (item.colorId) {
-              // Deterministic order (quantity desc, id asc) so concurrent notes lock rows in the same
-              // sequence — avoids lock-order deadlocks between notes covering the same SKU.
-              const rows = await tx.finished_goods_stock.findMany({
-                where: { styleId: item.styleId, colorId: item.colorId, sizeId: item.sizeId, quantity: { gt: 0 } },
-                orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
-                select: { id: true },
-              });
-              for (const row of rows) {
-                if (remaining <= 0) break;
-                // Atomic take-min under a row lock: takes whatever the row STILL has (up to remaining) even
-                // if a concurrent note consumed part of it after our findMany — the snapshot-based
-                // "decrement exactly N or skip" version under-deducted in that race (review finding).
-                const taken: Array<{ taken: number }> = await tx.$queryRaw`
-              WITH before AS (
-                SELECT quantity FROM finished_goods_stock WHERE id = ${row.id} FOR UPDATE
-              )
-              UPDATE finished_goods_stock f
-              SET quantity = f.quantity - LEAST(f.quantity, CAST(${remaining} AS int)),
-                  "lastUpdated" = now()
-              FROM before
-              WHERE f.id = ${row.id} AND f.quantity > 0
-              RETURNING LEAST(before.quantity, CAST(${remaining} AS int)) AS taken`;
-                if (taken.length > 0) {
-                  const took = Number(taken[0].taken);
-                  remaining -= took;
-                  if (took > 0) fgAllocations.push({ fgStockId: row.id, quantity: took });
-                }
-              }
-            }
-
-            if (remaining > 0) {
-              fgShortfalls.push({
-                styleId: item.styleId,
-                colorId: item.colorId ?? null,
-                sizeId: item.sizeId,
-                requested: item.quantity,
-                deducted: item.quantity - remaining,
-              });
-            }
+        // Stock out: the sale order line's own reservations first, then free stock — never pieces
+        // reserved for another buyer's order (sale-order-dispatch.helper.ts). The line is then booked.
+        for (const [i, item] of (items ?? []).entries()) {
+          const lineId = saleOrderId ? lineFor[i].id : null;
+          const drawn = await drawFinishedGoods(
+            tx,
+            { styleId: item.styleId, colorId: item.colorId, sizeId: item.sizeId },
+            item.quantity,
+            lineId
+          );
+          fgAllocations.push(...drawn.taken);
+          if (drawn.notFound > 0) {
+            fgShortfalls.push({
+              styleId: item.styleId,
+              colorId: item.colorId ?? null,
+              sizeId: item.sizeId,
+              requested: item.quantity,
+              deducted: item.quantity - drawn.notFound,
+            });
+          }
+          if (lineId) {
+            await recordSaleOrderDispatch(tx, lineId, item.quantity, drawn.fromReservations);
           }
         }
 
@@ -593,6 +670,10 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
               quantity: a.quantity,
             })),
           });
+        }
+
+        if (saleOrderId) {
+          await recomputeSaleOrderStatus(tx, saleOrderId);
         }
 
         return created;
@@ -845,16 +926,18 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
     throw new ValidationError('Can only dispatch pending delivery notes');
   }
 
-  // QC gate: check if customer requires GPT approval before dispatch
+  // QC gate: check if customer requires GPT approval before dispatch. The customer is the note's own:
+  // it read `orders.customers` until 2026-09-25, which is null for a note raised against a sale order
+  // sold from stock (no production order), so those were never GPT-checked.
   const deliveryNote = await prisma.delivery_notes.findUnique({
     where: { id },
     include: {
-      orders: { include: { customers: { select: { gptBlocksShipment: true } } } },
+      customers: { select: { gptBlocksShipment: true } },
       delivery_note_items: { select: { styleId: true } },
     },
   });
 
-  if (deliveryNote?.orders?.customers?.gptBlocksShipment) {
+  if (deliveryNote?.customers?.gptBlocksShipment) {
     const styleIds = [...new Set(deliveryNote.delivery_note_items.map((i) => i.styleId))];
     for (const styleId of styleIds) {
       // P7.3: Accept CONDITIONAL_PASS (aligns with production-blocking service semantics)
@@ -874,8 +957,7 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
 
   // Shipment Sample gate (owner, 2026-09-23): bulk ships on an APPROVED Shipment Sample whose latest
   // lab round PASSED. The rule lives in productionBlockingValidation.service.ts. The customer is the
-  // note's own (required) customerId — NOT `orders.customers` as the GPT check above reads, which is
-  // null for every sale-order delivery note, so that check never fires for them (left as-is).
+  // note's own (required) customerId, as for the GPT check above.
   if (deliveryNote) {
     const shipment = await productionBlockingValidationService.validateShipmentSampleForDispatch(
       deliveryNote.delivery_note_items.map((i) => i.styleId),
@@ -1591,10 +1673,6 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
           style: { select: { id: true, styleCode: true, styleName: true } },
           color: { select: { id: true, colorName: true, colorCode: true } },
           size: { select: { id: true, sizeName: true } },
-          allocations: {
-            where: { status: 'ALLOCATED' },
-            include: { fgStock: { select: { id: true, quantity: true } } },
-          },
         },
       },
     },
@@ -1604,8 +1682,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
     throw new NotFoundError('Sale Order', saleOrderId);
   }
 
-  const dispatchableStatuses = ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED'];
-  if (!dispatchableStatuses.includes(saleOrder.status)) {
+  if (!(DISPATCHABLE_SALE_ORDER_STATUSES as readonly string[]).includes(saleOrder.status)) {
     throw new ValidationError(`Cannot dispatch sale order in ${saleOrder.status} status`);
   }
 
@@ -1638,20 +1715,16 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
   );
   const shipmentSampleWarnings = shipmentSampleCheck.blockers.map((b) => b.message);
 
-  // Build a map of sale order items for validation
+  // Every line named must be on this order and carry a size (the buyer's size split is what ships)
   const soItemMap = new Map(saleOrder.items.map((i) => [i.id, i]));
-
-  // Validate all items exist and quantities don't exceed remaining
   for (const item of items) {
     const soItem = soItemMap.get(item.saleOrderItemId);
     if (!soItem) {
       throw new ValidationError(`Sale order item ${item.saleOrderItemId} not found`);
     }
-    const remaining = soItem.quantity - soItem.dispatchedQty;
-    if (item.quantity > remaining) {
+    if (!soItem.sizeId) {
       throw new ValidationError(
-        `Dispatch quantity (${item.quantity}) exceeds remaining for ${soItem.style?.styleCode || 'item'}: ` +
-          `ordered ${soItem.quantity}, already dispatched ${soItem.dispatchedQty}, remaining ${remaining}`
+        `${soItem.style?.styleCode ?? 'A line'} has no size on the sale order — size is required for dispatch.`
       );
     }
   }
@@ -1662,6 +1735,29 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
   const attemptCreate = async (deliveryNumber: string, fgAllocations: FgAllocation[], fgShortfalls: FgShortfall[]) =>
     prisma.$transaction(
       async (tx) => {
+        // The colour each line ships in (a colourless line takes the style's only colour, or the
+        // one the caller names), then the caps — ordered + the buyer's allowance — on locked lines.
+        const lines = [];
+        for (const item of items) {
+          const soItem = soItemMap.get(item.saleOrderItemId)!;
+          const colorId = await shippingColourFor(
+            tx,
+            { ...soItem, styleCode: soItem.style?.styleCode },
+            item.colorId ?? null
+          );
+          lines.push({ item, soItem, colorId });
+        }
+        await assertWithinShipCaps(
+          tx,
+          lines.map(({ item, soItem }) => ({
+            saleOrderItemId: soItem.id,
+            quantity: item.quantity,
+            label:
+              `${saleOrder.saleOrderNumber} ${soItem.style?.styleCode ?? ''} ${soItem.size?.sizeName ?? ''}`.trim(),
+          })),
+          await overShipAllowanceOf(tx, saleOrder.customerId)
+        );
+
         // Create the delivery note linked to the sale order
         const note = await tx.delivery_notes.create({
           data: {
@@ -1676,99 +1772,22 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
           },
         });
 
-        // Process each item
-        for (const item of items) {
-          const soItem = soItemMap.get(item.saleOrderItemId)!;
-          let remaining = item.quantity;
-          // How much of this line's RESERVED stock this note actually ships. `allocatedQty` means
-          // "reserved and not yet shipped", so it must fall by exactly this much.
-          let consumedFromReservations = 0;
-
-          // First: consume from allocations for this sale order item (respects prior reservations)
-          for (const alloc of soItem.allocations) {
-            if (remaining <= 0) break;
-            const fgStock = alloc.fgStock;
-            if (!fgStock || fgStock.quantity <= 0) continue;
-
-            const toTake = Math.min(remaining, alloc.allocatedQty, fgStock.quantity);
-            if (toTake <= 0) continue;
-
-            // Deduct from FG stock
-            await tx.finished_goods_stock.update({
-              where: { id: fgStock.id },
-              data: { quantity: { decrement: toTake }, lastUpdated: new Date() },
-            });
-
-            // Draw down the reservation. It only becomes CONSUMED once nothing is left on it:
-            // flagging a part-used reservation CONSUMED (what this did until 2026-09-12) hid the
-            // untouched remainder from every `status: 'ALLOCATED'` query, so those pieces looked
-            // free to other orders while this line still counted them as allocated.
-            await tx.fg_stock_allocations.update({
-              where: { id: alloc.id },
-              data: {
-                status: alloc.allocatedQty - toTake === 0 ? 'CONSUMED' : 'ALLOCATED',
-                allocatedQty: { decrement: toTake },
-              },
-            });
-
-            fgAllocations.push({ fgStockId: fgStock.id, quantity: toTake });
-            remaining -= toTake;
-            consumedFromReservations += toTake;
-          }
-
-          // Second: if still remaining, take from unallocated FG stock
-          // Requires both colorId and sizeId to be specified
-          if (remaining > 0 && soItem.colorId && soItem.sizeId) {
-            const fgRows = await tx.finished_goods_stock.findMany({
-              where: {
-                styleId: soItem.styleId,
-                colorId: soItem.colorId,
-                sizeId: soItem.sizeId,
-                quantity: { gt: 0 },
-              },
-              orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
-              select: { id: true },
-            });
-
-            for (const row of fgRows) {
-              if (remaining <= 0) break;
-              const taken: Array<{ taken: number }> = await tx.$queryRaw`
-                WITH before AS (
-                  SELECT quantity FROM finished_goods_stock WHERE id = ${row.id} FOR UPDATE
-                )
-                UPDATE finished_goods_stock f
-                SET quantity = f.quantity - LEAST(f.quantity, CAST(${remaining} AS int)),
-                    "lastUpdated" = now()
-                FROM before
-                WHERE f.id = ${row.id} AND f.quantity > 0
-                RETURNING LEAST(before.quantity, CAST(${remaining} AS int)) AS taken`;
-              if (taken.length > 0) {
-                const took = Number(taken[0].taken);
-                remaining -= took;
-                if (took > 0) fgAllocations.push({ fgStockId: row.id, quantity: took });
-              }
-            }
-          }
-
-          if (remaining > 0) {
+        // Stock out (the line's reservations first, then free stock) and book the line — the same
+        // helper POST /delivery-notes uses, so both routes move dispatchedQty identically.
+        for (const { item, soItem, colorId } of lines) {
+          const drawn = await drawFinishedGoods(
+            tx,
+            { styleId: soItem.styleId, colorId, sizeId: soItem.sizeId! },
+            item.quantity,
+            soItem.id
+          );
+          fgAllocations.push(...drawn.taken);
+          if (drawn.notFound > 0) {
             fgShortfalls.push({
               saleOrderItemId: item.saleOrderItemId,
               requested: item.quantity,
-              deducted: item.quantity - remaining,
+              deducted: item.quantity - drawn.notFound,
             });
-          }
-
-          // Create delivery note item linked to sale order item
-          // Note: colorId and sizeId are required in delivery_note_items schema
-          if (!soItem.colorId) {
-            throw new ValidationError(
-              `Sale order item ${item.saleOrderItemId} has no color specified - color is required for dispatch`
-            );
-          }
-          if (!soItem.sizeId) {
-            throw new ValidationError(
-              `Sale order item ${item.saleOrderItemId} has no size specified - size is required for dispatch. Please specify size via Production Order first.`
-            );
           }
           await tx.delivery_note_items.create({
             data: {
@@ -1776,21 +1795,12 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
               deliveryNoteId: note.id,
               saleOrderItemId: item.saleOrderItemId,
               styleId: soItem.styleId,
-              colorId: soItem.colorId,
-              sizeId: soItem.sizeId,
+              colorId,
+              sizeId: soItem.sizeId!,
               quantity: item.quantity,
             },
           });
-
-          // Update dispatchedQty on the sale order item, and release the reservations this note
-          // just shipped — reserved stock that has left the building is no longer reserved.
-          await tx.sale_order_items.update({
-            where: { id: item.saleOrderItemId },
-            data: {
-              dispatchedQty: { increment: item.quantity },
-              allocatedQty: { decrement: Math.min(consumedFromReservations, soItem.allocatedQty) },
-            },
-          });
+          await recordSaleOrderDispatch(tx, soItem.id, item.quantity, drawn.fromReservations);
         }
 
         // Persist FG allocations for potential reversal

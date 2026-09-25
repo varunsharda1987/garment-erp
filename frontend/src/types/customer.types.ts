@@ -101,6 +101,8 @@ export interface Customer {
   requiresGPT?: boolean;
   fptBlocksProduction?: boolean;
   gptBlocksShipment?: boolean;
+  /** How far over the ordered quantity a size may ship, in percent (Decimal — may arrive as a string) */
+  overShipAllowancePercent?: number | string;
   fptTemplateId?: string | null;
   gptTemplateId?: string | null;
   buyerApprovesFPT?: boolean;
@@ -194,6 +196,7 @@ export type CreateCustomerRequest = {
   requiresGPT?: boolean;
   fptBlocksProduction?: boolean;
   gptBlocksShipment?: boolean;
+  overShipAllowancePercent?: number;
   fptTemplateId?: string;
   gptTemplateId?: string;
   buyerApprovesFPT?: boolean;

@@ -50,10 +50,10 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/CADPlanningPage.tsx": "3c143bc81b4e",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "35428becf8e1"
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "9edc25314075"
     },
-    "contentHash": "a35db12b6b13",
-    "generatedAt": "2026-09-23T15:16:55.036Z"
+    "contentHash": "158633347d89",
+    "generatedAt": "2026-09-25T13:01:05.662Z"
   },
   "cad-costing": {
     "sources": {
@@ -71,11 +71,11 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/CADPlanningPage.tsx": "3c143bc81b4e",
       "frontend/src/pages/CADPlanningList.tsx": "3b3de982ce65",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "35428becf8e1",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "9edc25314075",
       "frontend/src/components/cad/StockSummaryBanner.tsx": "9585beb1e33a"
     },
-    "contentHash": "c83ad56030ca",
-    "generatedAt": "2026-09-25T12:50:52.552Z"
+    "contentHash": "f5ef76f1b2cc",
+    "generatedAt": "2026-09-25T13:01:05.798Z"
   },
   "catalogue-generate": {
     "sources": {

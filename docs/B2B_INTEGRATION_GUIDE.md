@@ -109,14 +109,19 @@ serializer — note `_count` becomes `count`):
   `POST /dispatch/sale-order-dispatch`, was never called — not by an ERP screen, not by this app —
   so it was always 0 and PARTIALLY_DISPATCHED / DISPATCHED / DELIVERED were unreachable. Now every
   ERP delivery note booked against the sale order (raised for its linked production order, or from
-  the sale order itself) raises it **when the note is created**; deleting a pending note or a
-  REJECTED proof of delivery lowers it again. One writer: `sale-order-dispatch.helper.ts`.
+  the sale order itself) raises it **when the note is created**. It goes back DOWN when a pending
+  note is cancelled, on a REJECTED proof of delivery (the whole note), and — from `6674afad` — on a
+  PARTIAL one by each line's shortage (the POD now records what each line received). So
+  `dispatchedQty` is "shipped and not returned", not a running total; a status can step back from
+  DISPATCHED to PARTIALLY_DISPATCHED. One writer: `sale-order-dispatch.helper.ts`.
   It may exceed `quantity` by the buyer's over-shipment allowance
   (`customers.overShipAllowancePercent`, e.g. Easybuy +5 % per size) — dispatched > ordered is
   legitimate there, not an error. Note that B2B stops polling at DISPATCHED, so it will not see a
   later DELIVERED.
 - delivery-note / invoice counts — **the serializer preserves the `_count` KEY but camelizes
   its inner keys**: the real shape is `_count.deliveryNotes` / `_count.invoices`.
+  `_count.deliveryNotes` leaves out CANCELLED notes (a pending note undone, kept on record;
+  DeliveryStatus gained CANCELLED in `6674afad`) — it counts notes that actually shipped or will.
   (Corrected 2026-08-24 — this doc previously claimed `count.deliveryNotes`, and the B2B
   client's defensive fallback (`count?.deliveryNotes ?? _count?.delivery_notes ?? 0`) missed
   BOTH spellings, so its Factory-status modal showed 0 counts silently. The contract test

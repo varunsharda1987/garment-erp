@@ -13,6 +13,11 @@ keywords:
   - finished goods dispatch
   - customer delivery
   - create DN
+  - dispatch sale order
+  - ship sale order
+  - dispatched quantity
+  - over shipment
+  - extra pieces
   # Hinglish
   - delivery note kaise banaye
   - dispatch karna
@@ -20,6 +25,9 @@ keywords:
   - shipment banana
   - customer ko maal bhejna
   - DN banana
+  - sale order ka maal bhejna
+  - extra maal bhejna
+  - dispatched quantity nahi badh rahi
   # Devanagari
   - डिलीवरी नोट
   - डिस्पैच
@@ -28,10 +36,15 @@ keywords:
   - डीएन बनाना
   - ग्राहक को माल भेजना
   - तैयार माल भेजना
+  - सेल ऑर्डर का माल भेजना
+  - ज़्यादा माल भेजना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/DispatchDeliveryNoteForm.tsx
+  - frontend/src/pages/SaleOrderDetail.tsx
   - backend/src/schemas/dispatch.schema.ts
+  - backend/src/controllers/dispatch.controller.ts
+  - backend/src/services/helpers/sale-order-dispatch.helper.ts
 route: /manufacturing/dispatch/delivery/new
 ---
 
@@ -46,6 +59,7 @@ route: /manufacturing/dispatch/delivery/new
 1. Open **Manufacturing > Dispatch** in the sidebar.
 
 2. Click **+ Create Delivery Note** (top-right button) or use the **Create Delivery Note** action from an existing ASN.
+   From a sale order you can also open **Actions** → **Create Delivery Note** on the sale order page (see *Dispatching a sale order* below).
 
 3. In the **Delivery Details** card:
    - Select the **Order *** by searching with order number or customer name. The box lists the 50 most recent orders; if it says **Showing the 50 most recent of …**, type part of the order number or the customer name to bring up an older one.
@@ -66,6 +80,14 @@ route: /manufacturing/dispatch/delivery/new
 
 6. Click **Create Delivery Note** to save.
 
+## Dispatching a sale order
+
+On the sale order page, open **Actions** and click **Create Delivery Note** (shown while the order is Confirmed, Partially/Fully Allocated or Partially Dispatched).
+- If a production order is linked to the sale order, the form opens with that **Order** already selected.
+- If there is no production order (goods sold from finished-goods stock), the form opens with the **Sale Order** shown in place of the Order box, and the items are pre-filled with what each sale order line still has to ship. A line ordered without a colour is filled with the style's colour when the style has only one.
+
+Either way the page says **Booked against sale order …**: when you click **Create Delivery Note**, the sale order's **Dispatched** quantities go up and its status moves to Partially Dispatched / Dispatched. A delivery note for a production order that is linked to a sale order is always booked against that sale order, even when you start from **Manufacturing > Dispatch**.
+
 ## Creating from an ASN
 
 When you click **Create Delivery Note** from an approved ASN:
@@ -80,6 +102,9 @@ When you click **Create Delivery Note** from an approved ASN:
 - **Quantity** must be a positive whole number (no decimals, no zero).
 - You need at least one item row with valid data. An empty items list blocks submission.
 - If FG stock is insufficient, the note still gets created but you will see a **warning toast** listing the shortfalls (e.g., "requested 50, deducted 30").
+- Stock reserved (allocated) for this sale order is used first. Stock reserved for a **different** sale order is never taken, even if it is on the shelf.
+- A size cannot ship more than the buyer ordered — unless the customer has an **Over-shipment allowed (%)** set on the Customer page (for example 5 lets 100 ordered ship as up to 105). Anything above that is refused, naming the size and how many can still go.
+- Against a sale order, every row must match one of its lines (same style and size; the colour must match, or the line was ordered without a colour). A size the sale order does not carry is refused.
 - Changing the **Style** on a row clears the Color and Size selections because they depend on the style.
 
 ## After saving
@@ -90,4 +115,4 @@ When you click **Create Delivery Note** from an approved ASN:
   - **Dispatch** the note (mark it as in-transit).
   - **Record POD** (Proof of Delivery) when the customer receives the goods.
   - **Print** the delivery note document.
-- The dispatched quantity updates on the linked order.
+- When the note is booked against a sale order, that sale order's **Dispatched** quantity and status update straight away (the House of Kasya B2B app sees the same numbers).

@@ -5,6 +5,11 @@ keywords:
   - customer
   - buyer
   - add customer
+  - over-shipment allowance
+  - extra pieces allowed
+  - 5 percent extra
+  - zyada maal bhejna allowed
+  - अतिरिक्त माल की अनुमति
   - naya customer kaise banaye
   - customer create
   - grahak
@@ -70,8 +75,9 @@ route: /customers/new
 10. Under **GST Numbers (State-wise)**, click **+ Add GST Number**. Pick the **State**, type the **GST Number** (exactly 15 characters) and tick **Primary GST Registration** for the main one. A wrong GST format is rejected by the server.
 11. Fill **Contact Person**, **Phone** (digits only, maximum 10) and **Email**, then **Billing Address** and **Shipping Address**.
 12. Under **Credit Terms**, **Credit Limit (₹)** cannot be negative and **Credit Days** must be a whole number from 0 to 365.
-13. Under **Testing Requirements (FPT/GPT)**, turn on **Fabric Physical Testing (FPT)** or **Garment Physical Testing (GPT)** if this buyer needs testing, then pick the template and **Default Testing Lab**.
-14. Click **Create Customer**.
+13. Under **Dispatch**, **Over-shipment allowed (%)** is how much more than the ordered quantity of a size may be dispatched to this buyer (for example 5 lets 100 ordered ship as up to 105). Leave it at 0 — or blank, which saves as 0 — to never ship more than ordered. It must be between 0 and 100.
+14. Under **Testing Requirements (FPT/GPT)**, turn on **Fabric Physical Testing (FPT)** or **Garment Physical Testing (GPT)** if this buyer needs testing, then pick the template and **Default Testing Lab**.
+15. Click **Create Customer**.
 
 ## Set which samples this buyer needs (edit mode only)
 

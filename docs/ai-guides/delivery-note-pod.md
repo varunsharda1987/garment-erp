@@ -79,6 +79,6 @@ You need a delivery note that is **In Transit** status. POD cannot be recorded f
 - The delivery note status changes to **Delivered**.
 - The POD details (delivery date, received by, status, customer GRN) are saved and visible on the delivery note detail page.
 - For **Partial** deliveries, the shortage quantity is recorded for reconciliation.
-- For **Rejected** deliveries, the rejection reason is stored for follow-up.
+- For **Rejected** deliveries, the rejection reason is stored for follow-up. The goods go back into finished-goods stock and, when the note was booked against a sale order, that order's **Dispatched** quantity goes back down.
 
-- The **Buyer PO** card on the delivery note shows the customer's PO number, delivery location and PO date, with a **View PO** link to open their PO document — useful for checking what was actually ordered before confirming delivery. It appears only on notes raised from a sale order.
+- The **Buyer PO** card on the delivery note shows the customer's PO number, delivery location and PO date, with a **View PO** link to open their PO document — useful for checking what was actually ordered before confirming delivery. It appears on notes booked against a sale order — raised from the sale order, or for a production order linked to one.

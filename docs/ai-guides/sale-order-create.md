@@ -26,6 +26,10 @@ keywords:
   - मात्रा बदलें
   - साइज़ वाइज़ मात्रा
   - link to production order
+  - create delivery note
+  - dispatch sale order
+  - sale order ka maal bhejo
+  - डिलीवरी नोट बनाएं
   - production order link karo
   - sale order ko order se jodo
   - प्रोडक्शन ऑर्डर जोड़ें
@@ -105,6 +109,8 @@ sources:
   - frontend/src/services/saleOrder.service.ts
   - backend/src/schemas/saleOrder.schema.ts
   - backend/src/routes/saleOrder.routes.ts
+  - backend/src/services/saleOrder.service.ts
+  - frontend/src/pages/DispatchDeliveryNoteForm.tsx
 route: /sale-orders
 ---
 
@@ -128,8 +134,9 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 14. Once the order has at least one item, click **Confirm**. The dialog shows stock availability and style readiness before you approve it.
 15. To ship from stock: on each item row click **Allocate**. In **Allocate Finished Goods Stock**, click an available stock line, set **Quantity to Allocate**, then click **Allocate**. Each reservation is then listed under the **Allocated** column with its quantity and location, and a **Release** button next to it puts that stock back if you picked the wrong lot.
 16. If production for this style was already planned before the buyer's PO came in (an order raised early so greige could be bought and dyed), open **Actions** and click **Link to Production Order** instead. The dialog lists the production orders for this sale order's styles that are not linked to any sale order; one for a different customer is shown but cannot be picked. Choose it and click **Link Production Order**. If that production order has no sizes yet, this sale order's sizes and colour are copied onto it exactly — its quantity becomes the sale order's — and its production run is created. While such an order exists, **Start Production** is not offered, so the same goods are never planned twice.
-17. To make the goods when nothing is planned yet: open **Actions** and click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date**, **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
-18. To correct the quantities of an order that is already confirmed (for example, the size-wise split was entered wrong): open **Actions** and click **Amend Quantities**. Only an administrator sees this. The dialog lists every line with its **Style**, **Colour**, **Size**, **Allocated / Dispatched** and **Ordered** quantity; choose how to enter it — **Absolute** (type the corrected pieces in **New Qty**), **Percentage** (type a % per line and the **Total pcs**; the percentages must add up to 100) or **Ratio** (type a ratio per line, e.g. 1:2:3:3:2:1, and the **Total pcs**); in Percentage and Ratio the **New Qty** is worked out for you and always adds up to the total. Check **New total**, write a **Reason \***, and click **Save Quantities**. If a production order is linked and its sizes still match this sale order, it is updated to the new sizes too, along with its pending production run and size-wise labels. If its sizes had already been changed on the order page, it is left as it is and the message names it — correct those sizes on the order with **Edit Size Breakdown**.
+17. To make the goods when nothing is planned yet: open **Actions** and click **Start Production**. In the dialog choose **What to produce** — **Only what stock does not cover** (the default; the pieces not already allocated or dispatched from finished-goods stock) or **Full sale-order quantity** — then set **Expected Delivery Date** (pre-filled with the sale order's **Expected Ship Date**, or the buyer deadline when there is no ship date — production must finish by the ship date), **Priority**, optional **Remarks**, and click **Create Production Order**. This creates one linked production order for that quantity, with work orders per style. If stock already covers every line, the default choice is refused with "nothing to produce" — pick the full quantity to make it anyway.
+18. To ship: open **Actions** and click **Create Delivery Note** (shown while the order is Confirmed, Partially/Fully Allocated or Partially Dispatched). If a production order is linked, the delivery note form opens on that order; if not (goods from finished-goods stock), it opens on this sale order with each line pre-filled at what it still has to ship. The form says **Booked against sale order …** — creating the note moves this order's **Dispatched** quantities and status.
+19. To correct the quantities of an order that is already confirmed (for example, the size-wise split was entered wrong): open **Actions** and click **Amend Quantities**. Only an administrator sees this. The dialog lists every line with its **Style**, **Colour**, **Size**, **Allocated / Dispatched** and **Ordered** quantity; choose how to enter it — **Absolute** (type the corrected pieces in **New Qty**), **Percentage** (type a % per line and the **Total pcs**; the percentages must add up to 100) or **Ratio** (type a ratio per line, e.g. 1:2:3:3:2:1, and the **Total pcs**); in Percentage and Ratio the **New Qty** is worked out for you and always adds up to the total. Check **New total**, write a **Reason \***, and click **Save Quantities**. If a production order is linked and its sizes still match this sale order, it is updated to the new sizes too, along with its pending production run and size-wise labels. If its sizes had already been changed on the order page, it is left as it is and the message names it — correct those sizes on the order with **Edit Size Breakdown**.
 
 ## Validation traps
 - Only the customer is required to create a new order — the **Create Sale Order** button stays disabled until one is picked. Items may be added afterwards.
@@ -142,7 +149,8 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 - **Start Production** only appears when the status is Confirmed or Partially Allocated, items exist, no live production order is linked already, and no unlinked production order already plans one of its styles (then **Link to Production Order** appears instead; Start Production is refused naming that order).
 - A confirmed order cannot be changed with **Edit**; only **Amend Quantities** changes it, and only for an administrator. A line cannot go below what is already allocated or dispatched on it, **Save Quantities** stays disabled until something changed and a reason is written, and an order cannot be amended to zero pieces (cancel it instead).
 - **Link to Production Order** copies the sizes only when the style has a colour. If the message says **This style has no colour yet**, the link is still made — set the style's Primary Color, then enter the sizes on the production order with **Add Size Breakdown**. Every line must have a size, and every style needs an approved cost sheet.
-- Expected Delivery Date is required in the Start Production dialog. It pre-fills from the buyer deadline or ship date when set.
+- Expected Delivery Date is required in the Start Production dialog. It pre-fills from the Expected Ship Date, or the buyer deadline when no ship date is set.
+- A size cannot be dispatched beyond what the buyer ordered, unless the customer has an **Over-shipment allowed (%)** on the Customer page (5 lets 100 ordered ship as up to 105).
 - **Allocate** only shows on lines that have a size; a size-less line shows "Set a size to allocate" instead. Allocation is limited to what the line still needs and only accepts stock of that exact style, colour and size.
 - **Cancel Order** is refused once anything on the order has been dispatched, or while a production order is still live.
 - Buyer POs can be added, removed or made primary only while the order is still live — not after it is Cancelled or Delivered. The same applies to attaching or removing a PO document.

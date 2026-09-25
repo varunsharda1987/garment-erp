@@ -23,6 +23,7 @@ interface StyleVariantRow {
   colorName: string | null;
   sizeId: string | null;
   sizeName: string | null;
+  sortOrder: number | null;
 }
 
 interface ColorOption {
@@ -79,7 +80,10 @@ export default function WorkOrderCreate() {
         if (cancelled) return;
         const colorMap = new Map<string, ColorOption>();
         const sizeMap = new Map<string, SizeOption>();
-        for (const v of response.data?.data?.styleVariants || []) {
+        const variants = [...(response.data?.data?.styleVariants || [])].sort(
+          (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+        );
+        for (const v of variants) {
           if (v.colorId) colorMap.set(v.colorId, { id: v.colorId, colorName: v.colorName || v.colorId });
           if (v.sizeId) sizeMap.set(v.sizeId, { id: v.sizeId, sizeName: v.sizeName || v.sizeId });
         }

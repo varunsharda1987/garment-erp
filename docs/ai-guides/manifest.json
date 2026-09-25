@@ -237,14 +237,14 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "99df84b9480c",
-      "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
+      "frontend/src/pages/SaleOrderDetail.tsx": "c8a21dd6d0a7",
       "backend/src/schemas/dispatch.schema.ts": "ad7da2fd8610",
       "backend/src/controllers/dispatch.controller.ts": "8aac08b70eaa",
-      "backend/src/services/helpers/sale-order-dispatch.helper.ts": "3bd75378ba4a",
+      "backend/src/services/helpers/sale-order-dispatch.helper.ts": "6eb3db2b6494",
       "frontend/src/components/AdminOverrideModal.tsx": "7f065d9f7700"
     },
     "contentHash": "2f4241471d04",
-    "generatedAt": "2026-09-25T11:13:58.210Z"
+    "generatedAt": "2026-09-25T11:56:11.354Z"
   },
   "delivery-note-pod": {
     "sources": {
@@ -840,15 +840,17 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/OrderList.tsx": "f4a460df1bab",
-      "frontend/src/pages/OrderForm.tsx": "5447302e0807",
-      "frontend/src/pages/OrderDetail.tsx": "91e49f9dbf81",
+      "frontend/src/pages/OrderForm.tsx": "045f13920157",
+      "frontend/src/pages/OrderDetail.tsx": "c300020f4692",
       "frontend/src/components/orders/SizeBreakupDialog.tsx": "65a6edf944b1",
-      "frontend/src/types/order.types.ts": "d19cdd2fab1c",
-      "backend/src/schemas/order.schema.ts": "7ee6a85e1f61",
-      "backend/src/controllers/order.controller.ts": "61a3dccdb496"
+      "frontend/src/types/order.types.ts": "d979ce3bf7a1",
+      "backend/src/schemas/order.schema.ts": "7837c5bf6bc0",
+      "backend/src/controllers/order.controller.ts": "23a6a559b83f",
+      "frontend/src/services/saleOrder.service.ts": "116953c8593b",
+      "backend/src/services/saleOrder.service.ts": "ba321fa39591"
     },
-    "contentHash": "5f05c5503e29",
-    "generatedAt": "2026-09-24T11:54:20.855Z"
+    "contentHash": "49db98da6748",
+    "generatedAt": "2026-09-25T11:56:11.495Z"
   },
   "order-track-status": {
     "sources": {
@@ -1042,10 +1044,10 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/QuotationDetail.tsx": "ac2b3e5376db",
       "frontend/src/pages/QuotationList.tsx": "544820107b40",
-      "frontend/src/pages/OrderForm.tsx": "5447302e0807"
+      "frontend/src/pages/OrderForm.tsx": "045f13920157"
     },
-    "contentHash": "e182a8da010c",
-    "generatedAt": "2026-09-23T06:17:36.237Z"
+    "contentHash": "1cf31de3d5d9",
+    "generatedAt": "2026-09-25T11:56:11.507Z"
   },
   "quotation-create": {
     "sources": {
@@ -1081,20 +1083,20 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/SaleOrderList.tsx": "5e05b34bf5b7",
-      "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
-      "frontend/src/components/sale-order/SaleOrderForm.tsx": "8f087de771ba",
+      "frontend/src/pages/SaleOrderDetail.tsx": "c8a21dd6d0a7",
+      "frontend/src/components/sale-order/SaleOrderForm.tsx": "2a08dd256ee2",
       "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "3a2d58ee87b9",
       "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "6b90c300f8e4",
       "frontend/src/components/sale-order/SizeBreakdownDialog.tsx": "aacb25829026",
       "frontend/src/components/sale-order/sale-order-lines.ts": "55db918c430a",
-      "frontend/src/services/saleOrder.service.ts": "b145386ffbfc",
-      "backend/src/schemas/saleOrder.schema.ts": "636e31b0c5da",
-      "backend/src/routes/saleOrder.routes.ts": "3e4372adda3f",
-      "backend/src/services/saleOrder.service.ts": "855e8a96e045",
+      "frontend/src/services/saleOrder.service.ts": "116953c8593b",
+      "backend/src/schemas/saleOrder.schema.ts": "2ad17ed485b5",
+      "backend/src/routes/saleOrder.routes.ts": "19c6022f348a",
+      "backend/src/services/saleOrder.service.ts": "ba321fa39591",
       "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "99df84b9480c"
     },
-    "contentHash": "581e63332b97",
-    "generatedAt": "2026-09-25T11:13:58.257Z"
+    "contentHash": "27162a4de5e6",
+    "generatedAt": "2026-09-25T11:56:11.517Z"
   },
   "sample-approve": {
     "sources": {
@@ -1434,15 +1436,15 @@
       "frontend/src/pages/WorkOrderDetail.tsx": "0fd224e036cb",
       "frontend/src/components/StyleCombobox.tsx": "abeb26e37650",
       "frontend/src/components/SplitProductionModal.tsx": "18f309870ea6",
-      "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
+      "frontend/src/pages/SaleOrderDetail.tsx": "c8a21dd6d0a7",
       "backend/src/schemas/workOrder.schema.ts": "3b06f5653c89",
       "backend/src/routes/workOrder.routes.ts": "1542e89d0d56",
       "backend/src/services/workOrder.service.ts": "1533c85fdfce",
       "backend/src/services/helpers/material-sync.helper.ts": "c125567b2af0",
       "backend/src/services/productionBlockingValidation.service.ts": "77bed9420aa8"
     },
-    "contentHash": "fcc19dfc57cc",
-    "generatedAt": "2026-09-25T08:45:57.986Z"
+    "contentHash": "e8d45818af18",
+    "generatedAt": "2026-09-25T11:56:11.530Z"
   },
   "zipper-create": {
     "sources": {

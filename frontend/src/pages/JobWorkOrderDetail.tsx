@@ -57,10 +57,13 @@ import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcess
 import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
 import {
   bestFitThansForJobs,
+  checkSentDate,
+  earliestSentDate,
   evaluateLotRows,
+  groupLotsForIssue,
+  issueMovement,
   lotHasThans,
   picksPayload,
-  round2,
   rowHasPicks,
   thanPickErrors,
   THAN_PICK_TOLERANCE_PCT,
@@ -78,7 +81,7 @@ import { openPDF } from '@/lib/document-utils';
 import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage';
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 function formatCurrency(value?: number | null): string {
@@ -149,6 +152,11 @@ const DETAILED_ISSUE_ERROR_CODES = [
   'LOT_QTY_MISMATCH',
   'PURCHASED_ITEM_AS_COMPONENT',
   'LOT_AT_PROCESSOR',
+  'LOT_AT_WRONG_PROCESSOR',
+  'LOT_HELD_WITHOUT_CHALLAN',
+  'SENT_DATE_IN_FUTURE',
+  'SENT_DATE_BEFORE_RECEIPT',
+  'SENT_BEFORE_ARRIVAL',
 ];
 
 export default function JobWorkOrderDetail() {
@@ -181,6 +189,8 @@ export default function JobWorkOrderDetail() {
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
   const [issueWidthAcknowledged, setIssueWidthAcknowledged] = useState(false);
   const [issueVehicle, setIssueVehicle] = useState('');
+  // The day the goods left (or the job took the cloth at the processor) — today unless told otherwise
+  const [issueSentDate, setIssueSentDate] = useState(() => toDateInputValue(new Date()));
   // Record thans sent — name the thans that left on a job issued by quantity only
   const [recordThansOpen, setRecordThansOpen] = useState(false);
   const [recordLotId, setRecordLotId] = useState('');
@@ -304,6 +314,7 @@ export default function JobWorkOrderDetail() {
     if (!issueDialogOpen) {
       setIssueRows([{ lotId: '', qty: '' }]);
       setIssueWidthAcknowledged(false);
+      setIssueSentDate(toDateInputValue(new Date()));
       return;
     }
     if (!issuePreview) return;
@@ -332,6 +343,7 @@ export default function JobWorkOrderDetail() {
       if (isGreigeIssue && filledRows.some(rowHasPicks)) {
         return jobWorkOrderService
           .issueWithDetails(id!, {
+            sentDate: issueSentDate || undefined,
             vehicleNumber: issueVehicle || undefined,
             acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
             lots: filledRows.map((row) =>
@@ -346,6 +358,7 @@ export default function JobWorkOrderDetail() {
           .then((result) => ({ ...result, thansUnrecorded }));
       }
       const payload: IssueJwoPayload = {
+        sentDate: issueSentDate || undefined,
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
       };
@@ -383,10 +396,17 @@ export default function JobWorkOrderDetail() {
             duration: 8000,
           }
         : undefined;
-      if (result.challanNumber === 'VIRTUAL-ALLOCATION') {
-        toast.success('Job work order issued — stock already at processor (no challan needed)', thansNote);
+      // Cloth already at the processor is drawn where it lies under the challan that covers it
+      const drawn = result.drawnAt
+        ? `allocated at ${result.drawnAt}${result.coveringChallans ? ` under challan ${result.coveringChallans}` : ''}`
+        : null;
+      if (!result.challanCreated) {
+        toast.success(`Job work order ${drawn ?? 'issued'} — nothing dispatched, no new challan`, thansNote);
       } else {
-        toast.success(`Job work order issued — Challan ${result.challanNumber} created`, thansNote);
+        toast.success(
+          `Job work order issued — Challan ${result.challanNumber} created${drawn ? `; the rest ${drawn}` : ''}`,
+          thansNote
+        );
       }
       if (result.warning) toast.warning(result.warning);
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
@@ -677,13 +697,8 @@ export default function JobWorkOrderDetail() {
   const issuesLace = jwo.fabricType === 'LACE';
   const issueRequiredQty = issuePreview?.requiredQty ?? jwo.qtySentMeters;
   const issueUom = issuePreview?.uom ?? jwo.uom;
-  // Two-section lots: processor stock (virtual issuance) + main warehouse (requires dispatch)
-  const issueAtProcessorLots = issuePreview?.atProcessor ?? [];
-  const issueAtProcessorTotal = issuePreview?.atProcessorTotal ?? 0;
-  const issueAtMainWarehouseLots = issuePreview?.atMainWarehouse ?? [];
-  const issueAtMainWarehouseTotal = issuePreview?.atMainWarehouseTotal ?? 0;
   const issueProcessorName = issuePreview?.processorName ?? jwo.processor?.name ?? 'Processor';
-  // Legacy: combined list for backwards compatibility with GreigeLotRows
+  // Everything this job may draw: at the processor first (oldest first), then our stores
   const issueAvailableLots = issuePreview?.availableLots ?? [];
 
   // The preview is computed with NO lots supplied, so it validates whatever lot the order was
@@ -711,6 +726,25 @@ export default function JobWorkOrderDetail() {
     widthMismatchLots: issueWidthMismatchLots,
     needsWidthAck: issueNeedsWidthAck,
   } = issueEval;
+
+  // Where the chosen cloth is: drawn where it lies at the processor, travelling on a challan, or both
+  const issueMove = issueMovement(issueRows, issueAvailableLots);
+  const issueNothingTravels = !issueMove.travels && issueMove.drawsHere;
+  // Where the offered lots are — one badge per place
+  const issueLotGroups = groupLotsForIssue(issueAvailableLots, issueProcessorName);
+  // The same cloth at OTHER processors: shown so nobody hunts for it, never offered on this job
+  const issueElsewhere = Object.entries(
+    (issuePreview?.greigeAnchored ? (issuePreview?.elsewhere ?? []) : []).reduce<Record<string, number>>((acc, lot) => {
+      const holder = lot.location?.holderName ?? 'another processor';
+      acc[holder] = (acc[holder] ?? 0) + lot.quantityAvailable;
+      return acc;
+    }, {})
+  );
+  const issueChosenLots = issueRows
+    .map((row) => issueAvailableLots.find((lot) => lot.id === row.lotId))
+    .filter((lot): lot is (typeof issueAvailableLots)[number] => !!lot);
+  const issueToday = toDateInputValue(new Date());
+  const issueDateCheck = checkSentDate(issueSentDate, issueChosenLots, issueToday);
 
   // Non-greige service work legitimately consumes nothing, so leaving every row blank is a valid
   // answer there — but a greige order that issues no material is the bug this dialog was built for.
@@ -1534,8 +1568,11 @@ export default function JobWorkOrderDetail() {
           <DialogHeader>
             <DialogTitle>Issue to Processor</DialogTitle>
             <DialogDescription>
-              Consumes {issueRequiredQty.toFixed(2)} {issueUom} — from one lot or several — creates the outward challan,
-              and locks the Section 143 due date.
+              Consumes {issueRequiredQty.toFixed(2)} {issueUom} — from one lot or several —{' '}
+              {issueNothingTravels
+                ? `takes it at ${issueProcessorName} under the challan already covering it (nothing is dispatched)`
+                : 'creates the outward challan'}
+              , and locks the Section 143 due date.
             </DialogDescription>
           </DialogHeader>
 
@@ -1592,7 +1629,7 @@ export default function JobWorkOrderDetail() {
                       : `No available ${issuesLace ? 'greige lace' : 'greige'} lots for this order. `}
                     {issuesLace
                       ? 'Receive the greige lace purchase into stock first.'
-                      : 'Receive the greige purchase order into stock first. Lots already sitting at a processor, and lots created by a transfer, are deliberately excluded from this list.'}
+                      : `Receive the greige purchase order into stock first. Lots at another processor cannot go on a job for ${issueProcessorName}.`}
                   </AlertDescription>
                 </Alert>
               )
@@ -1607,23 +1644,35 @@ export default function JobWorkOrderDetail() {
                   </Alert>
                 )}
 
-                {/* Two-section stock visibility. Lace never sits at a processor (lace_stock has
-                    no processor column), so only the warehouse line means anything there. */}
-                <div className="flex gap-4 text-sm">
-                  <div className={`flex items-center gap-2${issuesLace ? ' hidden' : ''}`}>
-                    <span className="text-muted-foreground">At {issueProcessorName}:</span>
-                    <Badge variant={issueAtProcessorTotal > 0 ? 'default' : 'secondary'}>
-                      {round2(issueAtProcessorTotal)}m ({issueAtProcessorLots.length} lots)
-                    </Badge>
-                    {issueAtProcessorTotal > 0 && <span className="text-xs text-green-600">(no dispatch needed)</span>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">At Main Warehouse:</span>
-                    <Badge variant={issueAtMainWarehouseTotal > 0 ? 'outline' : 'secondary'}>
-                      {round2(issueAtMainWarehouseTotal)}m ({issueAtMainWarehouseLots.length} lots)
-                    </Badge>
-                  </div>
+                {/* Where the offered lots are: one badge per place (the server placed every lot) */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  {issueLotGroups.map((group) => {
+                    const total = group.lots.reduce((sum, lot) => sum + lot.quantityAvailable, 0);
+                    return (
+                      <div key={group.key} className="flex items-center gap-2">
+                        <span className="text-muted-foreground">
+                          {group.key === 'held'
+                            ? `Already at ${issueProcessorName}:`
+                            : group.key === 'unit'
+                              ? `In ${issueProcessorName}'s unit (not yet booked there):`
+                              : `${group.label}:`}
+                        </span>
+                        <Badge variant={group.key === 'held' ? 'default' : 'outline'}>
+                          {formatQuantity(total, issueUom)} ({group.lots.length}{' '}
+                          {group.lots.length === 1 ? 'lot' : 'lots'})
+                        </Badge>
+                        {group.key === 'held' && <span className="text-xs text-green-600">(no dispatch needed)</span>}
+                      </div>
+                    );
+                  })}
                 </div>
+                {issueElsewhere.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Elsewhere:{' '}
+                    {issueElsewhere.map(([holder, qty]) => `${formatQuantity(qty, issueUom)} at ${holder}`).join(', ')}{' '}
+                    — cloth at another processor cannot go on this job.
+                  </p>
+                )}
 
                 <GreigeLotRows
                   rows={issueRows}
@@ -1637,6 +1686,7 @@ export default function JobWorkOrderDetail() {
                   disabled={issueMutation.isPending}
                   // Greige leaves the godown by the than: guide the operator to name them
                   enableDetailSelection={issuesGreige && !issuesLace && !issuesFromFabricRoll}
+                  processorName={issueProcessorName}
                 />
 
                 {issueAllowsNoLot && (
@@ -1673,9 +1723,32 @@ export default function JobWorkOrderDetail() {
               </Alert>
             )}
 
-            <div className="space-y-1.5">
-              <Label>Vehicle Number</Label>
-              <Input value={issueVehicle} onChange={(e) => setIssueVehicle(e.target.value)} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="issue-sent-date">Sent date</Label>
+                <Input
+                  id="issue-sent-date"
+                  type="date"
+                  value={issueSentDate}
+                  max={issueToday}
+                  min={earliestSentDate(issueChosenLots)}
+                  onChange={(e) => setIssueSentDate(e.target.value)}
+                  disabled={issueMutation.isPending}
+                />
+                {issueNothingTravels && !issueDateCheck.error && (
+                  <p className="text-xs text-muted-foreground">
+                    The day the job takes the cloth at {issueProcessorName}.
+                  </p>
+                )}
+                {issueDateCheck.error && <p className="text-xs text-red-600">{issueDateCheck.error}</p>}
+                {issueDateCheck.warning && <p className="text-xs text-amber-700">{issueDateCheck.warning}</p>}
+              </div>
+              {!issueNothingTravels && (
+                <div className="space-y-1.5">
+                  <Label>Vehicle Number</Label>
+                  <Input value={issueVehicle} onChange={(e) => setIssueVehicle(e.target.value)} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1685,10 +1758,16 @@ export default function JobWorkOrderDetail() {
             </Button>
             <Button
               onClick={() => issueMutation.mutate()}
-              disabled={issueMutation.isPending || issueBlockers.length > 0 || !issueSelectionValid}
+              disabled={
+                issueMutation.isPending || issueBlockers.length > 0 || !issueSelectionValid || !!issueDateCheck.error
+              }
             >
               <Send className="mr-2 h-4 w-4" />
-              {issueMutation.isPending ? 'Issuing...' : 'Issue & Create Challan'}
+              {issueMutation.isPending
+                ? 'Issuing...'
+                : issueNothingTravels
+                  ? `Allocate at ${issueProcessorName}`
+                  : 'Issue & Create Challan'}
             </Button>
           </DialogFooter>
         </DialogContent>

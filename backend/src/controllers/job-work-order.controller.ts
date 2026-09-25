@@ -25,6 +25,8 @@ import {
   validateIssue,
   unissueForCancel,
   dispatchJobWorkOrders,
+  listIssueCandidates,
+  type IssueCandidateLot,
 } from '../services/job-work-issuance.service';
 import greigeStockService from '../services/greige-stock.service';
 import { Prisma } from '@prisma/client';
@@ -140,6 +142,23 @@ const jwoInclude = {
     },
   },
 };
+
+/**
+ * What an issue did, in one sentence: a new challan, cloth drawn where it lies at the processor under
+ * the challan already covering it, or both (store lots travelled, held lots were drawn).
+ */
+function issueResultMessage(result: {
+  challanId: string | null;
+  challanNumber: string;
+  drawnAt: string | null;
+  coveringChallans: string;
+}): string {
+  const drawn = result.drawnAt
+    ? `allocated at ${result.drawnAt}${result.coveringChallans ? ` under challan ${result.coveringChallans}` : ''}`
+    : null;
+  if (!result.challanId) return `Job work order ${drawn ?? 'issued'} — nothing dispatched, no new challan`;
+  return `Job work order issued — challan ${result.challanNumber} created${drawn ? `; the rest ${drawn}` : ''}`;
+}
 
 class JobWorkOrderController {
   /**
@@ -1194,8 +1213,11 @@ class JobWorkOrderController {
         success: true,
         data: updated,
         challanNumber: result.challanNumber,
+        challanCreated: result.challanId != null,
+        drawnAt: result.drawnAt,
+        coveringChallans: result.coveringChallans,
         warning: result.warnings.join(' ') || undefined,
-        message: `Job work order issued — challan ${result.challanNumber} created`,
+        message: issueResultMessage(result),
       });
     } catch (error) {
       if (error instanceof JobWorkOrderError) {
@@ -1235,59 +1257,11 @@ class JobWorkOrderController {
           ? {}
           : null;
 
-      // Query 1: Stock already at the target processor (virtual issuance — no dispatch needed)
-      const atProcessorLots =
-        greigeFilter && v.jwo.processorId
-          ? await prisma.greige_stock.findMany({
-              where: {
-                ...greigeFilter,
-                status: 'AVAILABLE',
-                processorId: v.jwo.processorId,
-                quantityAvailable: { gt: 0 },
-              },
-              select: {
-                id: true,
-                greigeId: true,
-                greigeWidth: true,
-                quantityAvailable: true,
-                greige: { select: { greigeCode: true, greigeName: true } },
-                // Include original JWO info for reallocation prompt
-                stockDetails: {
-                  select: {
-                    issueDetails: {
-                      select: { jobWorkOrder: { select: { id: true, jobWorkNumber: true } } },
-                      orderBy: { issuedAt: 'desc' },
-                      take: 1,
-                    },
-                  },
-                  take: 1,
-                },
-              },
-              orderBy: { quantityAvailable: 'desc' },
-            })
-          : [];
-
-      // Query 2: Stock at main warehouse (requires outward challan)
-      const atMainWarehouseLots = greigeFilter
-        ? await prisma.greige_stock.findMany({
-            where: {
-              ...greigeFilter,
-              status: 'AVAILABLE',
-              processorId: null,
-              quantityAvailable: { gt: 0 },
-              // Explicit OR: `not` on a nullable column would silently exclude NULL rows
-              OR: [{ sourceType: null }, { sourceType: { not: 'TRANSFER' } }],
-            },
-            select: {
-              id: true,
-              greigeId: true,
-              greigeWidth: true,
-              quantityAvailable: true,
-              greige: { select: { greigeCode: true, greigeName: true } },
-            },
-            orderBy: { quantityAvailable: 'desc' },
-          })
-        : [];
+      // Where every lot of this cloth is, relative to this job's processor (lot-location.helper):
+      // at the processor (drawn where it lies), in our stores, or at another processor (shown only).
+      const candidates = greigeFilter
+        ? await listIssueCandidates(v.jwo.processorId, greigeFilter)
+        : { atProcessor: [], inStore: [], elsewhere: [] };
 
       // Lace jobs draw from lace_stock instead. There are no at-processor lace lots (lace_stock
       // has no processorId), so every lace lot is a main-warehouse lot and travels on a challan.
@@ -1318,28 +1292,9 @@ class JobWorkOrderController {
         quantityAvailable: Number(l.quantityAvailable),
       });
 
-      // Extract original JWO info for processor lots
-      const mapLot = (l: (typeof atMainWarehouseLots)[0]) => ({
-        id: l.id,
-        greigeId: l.greigeId,
-        greigeCode: l.greige?.greigeCode ?? null,
-        greigeName: l.greige?.greigeName ?? null,
-        greigeWidth: l.greigeWidth != null ? Number(l.greigeWidth) : null,
-        quantityAvailable: Number(l.quantityAvailable),
-      });
-
-      const mapProcessorLot = (l: (typeof atProcessorLots)[0]) => ({
-        ...mapLot(l as (typeof atMainWarehouseLots)[0]),
-        // Original JWO this lot was issued for (for reallocation prompt)
-        originalJwo: l.stockDetails?.[0]?.issueDetails?.[0]?.jobWorkOrder ?? null,
-      });
-
-      const processorStockTotal = atProcessorLots.reduce((s, l) => s + Number(l.quantityAvailable), 0);
-      const mainWarehouseStockTotal = [...atMainWarehouseLots, ...laceLots].reduce(
-        (s, l) => s + Number(l.quantityAvailable),
-        0
-      );
-      const mainWarehouseRows = [...atMainWarehouseLots.map(mapLot), ...laceLots.map(mapLaceLot)];
+      const sumQty = (lots: Array<{ quantityAvailable: number }>) =>
+        lots.reduce((sum, l) => sum + l.quantityAvailable, 0);
+      const mainWarehouseRows = [...candidates.inStore, ...laceLots.map(mapLaceLot)];
 
       return res.json({
         success: true,
@@ -1361,13 +1316,15 @@ class JobWorkOrderController {
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,
           processorName: v.jwo.processor?.name ?? null,
-          // Two-section response for the issue dialog
-          atProcessor: atProcessorLots.map(mapProcessorLot),
-          atProcessorTotal: processorStockTotal,
+          // Where the lots are: at this processor (oldest first), in our stores (largest first), and
+          // at other processors — listed so the dialog can say so, never offered on this job.
+          atProcessor: candidates.atProcessor,
+          atProcessorTotal: sumQty(candidates.atProcessor),
           atMainWarehouse: mainWarehouseRows,
-          atMainWarehouseTotal: mainWarehouseStockTotal,
-          // Legacy field for backwards compatibility
-          availableLots: [...atProcessorLots.map(mapProcessorLot), ...mainWarehouseRows],
+          atMainWarehouseTotal: sumQty(mainWarehouseRows),
+          elsewhere: candidates.elsewhere,
+          // Everything this job may draw, in the order Auto-fill takes it
+          availableLots: [...candidates.atProcessor, ...mainWarehouseRows],
         },
       });
     } catch (error) {
@@ -1413,41 +1370,22 @@ class JobWorkOrderController {
       // itself will apply — no second, drifting definition of "ready to send".
       const validations = await Promise.all(orders.map((o) => validateIssue(o.id, {})));
 
-      // One lot query for the whole screen rather than one per order.
+      // One lot query for the whole screen rather than one per order. Only lots in our stores go on a
+      // truck: cloth already at this processor is drawn from the job's own page, and cloth at another
+      // processor cannot go on this processor's job at all.
       const anchoredGreigeIds = [
         ...new Set(validations.map((v) => v.expectedGreigeId).filter((g): g is string => !!g)),
       ];
       const hasUnanchoredGreigeOrder = validations.some((v) => !v.expectedGreigeId && v.jwo.fabricType === 'GREIGE');
       const needLots = hasUnanchoredGreigeOrder || anchoredGreigeIds.length > 0;
-      const lotRows = needLots
-        ? await prisma.greige_stock.findMany({
-            where: {
-              ...(hasUnanchoredGreigeOrder ? {} : { greigeId: { in: anchoredGreigeIds } }),
-              status: 'AVAILABLE',
-              processorId: null,
-              quantityAvailable: { gt: 0 },
-              // Explicit OR: `not` on a nullable column would silently exclude NULL rows
-              OR: [{ sourceType: null }, { sourceType: { not: 'TRANSFER' } }],
-            },
-            select: {
-              id: true,
-              greigeId: true,
-              greigeWidth: true,
-              quantityAvailable: true,
-              greige: { select: { greigeCode: true, greigeName: true } },
-            },
-            orderBy: { quantityAvailable: 'desc' },
-          })
-        : [];
-
-      const toLot = (l: (typeof lotRows)[number]) => ({
-        id: l.id,
-        greigeId: l.greigeId,
-        greigeCode: l.greige?.greigeCode ?? null,
-        greigeName: l.greige?.greigeName ?? null,
-        greigeWidth: l.greigeWidth != null ? Number(l.greigeWidth) : null,
-        quantityAvailable: Number(l.quantityAvailable),
-      });
+      const candidates = needLots
+        ? await listIssueCandidates(
+            processorId,
+            hasUnanchoredGreigeOrder ? {} : { greigeId: { in: anchoredGreigeIds } }
+          )
+        : { atProcessor: [], inStore: [], elsewhere: [] };
+      const forOrder = (lots: IssueCandidateLot[], v: (typeof validations)[number]) =>
+        lots.filter((l) => !v.expectedGreigeId || l.greigeId === v.expectedGreigeId);
 
       return res.json({
         success: true,
@@ -1464,10 +1402,9 @@ class JobWorkOrderController {
           // NO_GREIGE_LOT is precisely what picking lots on this screen resolves, so it is not
           // a reason to hide or veto the order — showing it would be noise.
           blockers: v.blockers.filter((b) => b.code !== 'NO_GREIGE_LOT'),
-          availableLots:
-            v.jwo.fabricType === 'GREIGE'
-              ? lotRows.filter((l) => !v.expectedGreigeId || l.greigeId === v.expectedGreigeId).map(toLot)
-              : [],
+          availableLots: v.jwo.fabricType === 'GREIGE' ? forOrder(candidates.inStore, v) : [],
+          // Cloth of this order's greige already at the processor — issue it from the job's own page
+          atProcessor: v.jwo.fabricType === 'GREIGE' ? forOrder(candidates.atProcessor, v) : [],
         })),
       });
     } catch (error) {
@@ -2199,8 +2136,11 @@ class JobWorkOrderController {
         success: true,
         data: updated,
         challanNumber: result.challanNumber,
+        challanCreated: result.challanId != null,
+        drawnAt: result.drawnAt,
+        coveringChallans: result.coveringChallans,
         warning: result.warnings.join(' ') || undefined,
-        message: `Job work order issued with detail tracking — challan ${result.challanNumber} created`,
+        message: issueResultMessage(result),
       });
     } catch (error) {
       if (error instanceof JobWorkOrderError) {

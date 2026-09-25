@@ -16,6 +16,9 @@
  *  4. A job at ANOTHER dyer cannot take it; a truck dispatch cannot carry it.
  *  5. Cancelling the job ("At Processor") puts the metres back on the held lot.
  *  6. Reversing the receipt cancels the challan — refused once some of it was drawn.
+ *  7. The issue screens place every lot: at this dyer first (drawn where it lies), our stores, and
+ *     another dyer's cloth only as "elsewhere"; the truck lists store lots only; the sent date is
+ *     never after today, nor before the cloth got where it is.
  */
 
 import request from 'supertest';
@@ -315,6 +318,10 @@ describe('greige delivered straight to a processor', () => {
       .set(authHeader)
       .send({ lots: [{ greigeStockLotId: lotId, qty: 1200 }] });
     expect(res.status).toBe(200);
+    // the screen is told nothing travelled, and under which challan the cloth already sits
+    expect(res.body.challanCreated).toBe(false);
+    expect(res.body.drawnAt).toBe(`${RUN} Dyer A`);
+    expect(res.body.message).toMatch(/allocated at .* under challan .* nothing dispatched/);
 
     const lot = await prisma.greige_stock.findUniqueOrThrow({ where: { id: lotId } });
     expect(Number(lot.quantityAvailable)).toBe(1800);
@@ -335,6 +342,73 @@ describe('greige delivered straight to a processor', () => {
       where: { stockId: lotId, referenceType: 'JOB_WORK_ORDER', referenceId: jwoA },
     });
     expect(draw).not.toBeNull();
+  });
+
+  let storeLotId: string;
+  it('the issue screen lists cloth at the dyer first, then our store; another dyer sees it only as elsewhere', async () => {
+    const { grnId } = await receiveInto(storeId, 700);
+    await grnService.approveGRN(grnId, userId, storeId);
+    storeLotId = (await prisma.greige_stock.findFirstOrThrow({ where: { greigeId, grnItem: { grnId } } })).id;
+
+    type Lot = { id: string; greigeId: string; location?: Record<string, unknown> };
+    const mine = (lots: Lot[] | undefined) => (lots ?? []).filter((l) => l.greigeId === greigeId);
+
+    const jwoAt = await createJwo(dyerA, 400);
+    const atA = (await request(app).get(`/api/job-work-orders/${jwoAt}/issue-preview`).set(authHeader)).body.data;
+    const heldRow = mine(atA.atProcessor).find((l: Lot) => l.id === lotId)!;
+    expect(heldRow.location).toMatchObject({
+      category: 'AT_THIS_PROCESSOR',
+      drawnWhereItLies: true,
+      holderName: `${RUN} Dyer A`,
+    });
+    expect(heldRow.location!.coveringChallanNumber).toBeTruthy();
+    expect(mine(atA.atMainWarehouse).map((l: Lot) => l.id)).toEqual([storeLotId]);
+    expect(mine(atA.atMainWarehouse)[0].location).toMatchObject({
+      category: 'OUR_STORE',
+      warehouseName: `${RUN} Store`,
+    });
+    // the dyer's cloth is offered before the store's
+    const order = mine(atA.availableLots).map((l: Lot) => l.id);
+    expect(order.indexOf(lotId)).toBeLessThan(order.indexOf(storeLotId));
+    expect(mine(atA.elsewhere)).toHaveLength(0);
+
+    const jwoAtB = await createJwo(dyerB, 400);
+    const atB = (await request(app).get(`/api/job-work-orders/${jwoAtB}/issue-preview`).set(authHeader)).body.data;
+    expect(mine(atB.availableLots).map((l: Lot) => l.id)).toEqual([storeLotId]);
+    expect(mine(atB.elsewhere).find((l: Lot) => l.id === lotId)?.location).toMatchObject({
+      category: 'AT_OTHER_PROCESSOR',
+      holderName: `${RUN} Dyer A`,
+    });
+
+    // the truck offers store lots only, and says what is already at the dyer
+    await prisma.job_work_orders.update({ where: { id: jwoAt }, data: { jwoStatus: 'APPROVED' } });
+    const trucks = (await request(app).get(`/api/job-work-orders/dispatchable?processorId=${dyerA}`).set(authHeader))
+      .body.data;
+    const onTruck = trucks.find((o: { id: string }) => o.id === jwoAt);
+    expect(mine(onTruck.availableLots).map((l: Lot) => l.id)).toEqual([storeLotId]);
+    expect(mine(onTruck.atProcessor).map((l: Lot) => l.id)).toContain(lotId);
+  });
+
+  it('the sent date is never after today, nor before the cloth got where it is', async () => {
+    const jwo = await createJwo(dyerA, 100);
+    const issue = (sentDate: Date, lot: string) =>
+      request(app)
+        .post(`/api/job-work-orders/${jwo}/issue`)
+        .set(authHeader)
+        .send({ sentDate: sentDate.toISOString(), lots: [{ greigeStockLotId: lot, qty: 100 }] });
+
+    const beforeArrival = await issue(new Date(RECEIVED_ON.getTime() - 2 * DAY), lotId);
+    expect(beforeArrival.status).toBe(422);
+    expect(beforeArrival.body.code).toBe('SENT_BEFORE_ARRIVAL');
+
+    const beforeReceipt = await issue(new Date(RECEIVED_ON.getTime() - 2 * DAY), storeLotId);
+    expect(beforeReceipt.status).toBe(422);
+    expect(beforeReceipt.body.code).toBe('SENT_DATE_BEFORE_RECEIPT');
+
+    const tomorrow = await issue(new Date(Date.now() + 2 * DAY), storeLotId);
+    expect(tomorrow.status).toBe(422);
+    expect(tomorrow.body.code).toBe('SENT_DATE_IN_FUTURE');
+    expect((await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jwo } })).sentDate).toBeNull();
   });
 
   it('cannot allocate the same metres twice', async () => {

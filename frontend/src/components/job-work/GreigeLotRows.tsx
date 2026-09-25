@@ -19,7 +19,15 @@ import { ChevronDown, ChevronRight, Plus, Wand2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import type { GreigeLotThans, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
@@ -28,6 +36,8 @@ import { ThanPicker } from './ThanPicker';
 import {
   autoFillLotRows,
   emptyLotRow,
+  groupLotsForIssue,
+  lotOptionLabel,
   lotHasThans,
   lotRowTarget,
   rowHasPicks,
@@ -53,6 +63,8 @@ export interface GreigeLotRowsProps {
   hideHeader?: boolean;
   /** Let the operator pick the bales/thans that leave (processor issuance). */
   enableDetailSelection?: boolean;
+  /** The job's processor — names the "Already at …" section of the lot list. */
+  processorName?: string;
 }
 
 export function GreigeLotRows({
@@ -67,6 +79,7 @@ export function GreigeLotRows({
   disabled = false,
   hideHeader = false,
   enableDetailSelection = false,
+  processorName = 'the processor',
 }: GreigeLotRowsProps) {
   // Thans per lot, loaded once per lot. Kept here (not only on the row) so two loads finishing in
   // the same tick can never overwrite each other's row patch.
@@ -122,6 +135,10 @@ export function GreigeLotRows({
 
   const addRow = () => onRowsChange([...rows, emptyLotRow()]);
   const removeRow = (index: number) => onRowsChange(rows.filter((_, i) => i !== index));
+  // Sections by where the lots are; headings only when there is something to tell apart
+  const lotGroups = groupLotsForIssue(lots, processorName);
+  const showGroupLabels = lotGroups.length > 1 || lots.some((lot) => lot.location);
+
   const autoFill = () => {
     const filled = autoFillLotRows(lots, requiredQty, rows);
     if (filled) onRowsChange(filled);
@@ -230,12 +247,15 @@ export function GreigeLotRows({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">-- Select a lot --</SelectItem>
-                    {lots.map((option) => (
-                      <SelectItem key={option.id} value={option.id} disabled={takenElsewhere.has(option.id)}>
-                        {option.greigeCode ?? 'Lot'} — {option.greigeName ?? 'unnamed greige'} (
-                        {option.quantityAvailable.toFixed(1)}m avail
-                        {option.greigeWidth != null ? `, ${option.greigeWidth}″` : ''})
-                      </SelectItem>
+                    {lotGroups.map((group) => (
+                      <SelectGroup key={group.key}>
+                        {showGroupLabels && <SelectLabel>{group.label}</SelectLabel>}
+                        {group.lots.map((option) => (
+                          <SelectItem key={option.id} value={option.id} disabled={takenElsewhere.has(option.id)}>
+                            {lotOptionLabel(option, uom)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>

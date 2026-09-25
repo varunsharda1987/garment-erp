@@ -12,7 +12,7 @@
  */
 import { unitShort } from '@/lib/units';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { AlertTriangle, ArrowLeft, Boxes, Loader2, Truck } from 'lucide-react';
@@ -30,6 +30,7 @@ import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import {
   autoFillLotRows,
   bestFitThansForJobs,
+  checkSentDate,
   emptyLotRow,
   evaluateLotRows,
   lotHasThans,
@@ -45,6 +46,7 @@ import {
 import { jobWorkOrderService, type DispatchOrderInput, type DispatchableOrder } from '@/services/jobWorkOrder.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { toDateInputValue } from '@/lib/date';
+import { formatQuantity } from '@/lib/formatters';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 /**
@@ -167,20 +169,30 @@ export default function DispatchToProcessor() {
     const widthAckNeeded = perOrder.some((p) => p.evaluation.needsWidthAck);
     const totalQty = round3(perOrder.reduce((sum, p) => sum + p.evaluation.totalQty, 0));
 
+    // One date for the whole vehicle: never after today, never before any lot on it was received
+    const chosenLots = perOrder.flatMap(({ order, state }) =>
+      state.rows
+        .map((row) => order.availableLots.find((lot) => lot.id === row.lotId))
+        .filter((lot): lot is DispatchableOrder['availableLots'][number] => !!lot)
+    );
+    const dateCheck = checkSentDate(sentDate, chosenLots, toDateInputValue(new Date()));
+
     return {
       perOrder,
       reusedLots,
       widthAckNeeded,
       totalQty,
+      dateCheck,
       canSend:
         !!processorId &&
         perOrder.length > 0 &&
         perOrder.every((p) => p.valid) &&
         reusedLots.length === 0 &&
+        !dateCheck.error &&
         (!widthAckNeeded || widthAcknowledged),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOrders, selection, processorId, widthAcknowledged]);
+  }, [selectedOrders, selection, processorId, widthAcknowledged, sentDate]);
 
   /**
    * Every order on this truck goes to the same processor on the same day, so fit each lot's thans
@@ -355,7 +367,14 @@ export default function DispatchToProcessor() {
           </div>
           <div className="space-y-2">
             <Label>Dispatch date</Label>
-            <Input type="date" value={sentDate} onChange={(e) => setSentDate(e.target.value)} />
+            <Input
+              type="date"
+              value={sentDate}
+              max={toDateInputValue(new Date())}
+              onChange={(e) => setSentDate(e.target.value)}
+            />
+            {assessment.dateCheck.error && <p className="text-xs text-red-600">{assessment.dateCheck.error}</p>}
+            {assessment.dateCheck.warning && <p className="text-xs text-amber-700">{assessment.dateCheck.warning}</p>}
           </div>
           <div className="space-y-2">
             <Label>Vehicle number</Label>
@@ -424,6 +443,10 @@ export default function DispatchToProcessor() {
                   orderWidthInches: null,
                 });
               const needsLots = order.fabricType === 'GREIGE';
+              // This order's cloth already at the processor: allocated from the order's own page, never trucked
+              const atProcessor = order.atProcessor ?? [];
+              const atProcessorQty = atProcessor.reduce((sum, lot) => sum + lot.quantityAvailable, 0);
+              const holder = atProcessor[0]?.location?.holderName ?? 'the processor';
 
               return (
                 <div
@@ -468,6 +491,16 @@ export default function DispatchToProcessor() {
                           </p>
                         ))}
                       {orderErrors[order.id] && <p className="text-xs text-red-600">{orderErrors[order.id]}</p>}
+                      {atProcessor.length > 0 && (
+                        <p className="text-xs text-green-700">
+                          {formatQuantity(atProcessorQty, order.uom)} of this cloth is already at {holder} — it does not
+                          go on a truck.{' '}
+                          <Link to={`/job-work-orders/${order.id}`} className="underline underline-offset-2">
+                            Issue {order.jobWorkNumber} from its own page
+                          </Link>{' '}
+                          to use it.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -476,9 +509,11 @@ export default function DispatchToProcessor() {
                       {order.availableLots.length === 0 ? (
                         <Alert className="border-amber-300 bg-amber-50 text-amber-900">
                           <AlertDescription className="text-sm">
-                            No greige lots are available for this order
-                            {order.expectedGreige ? ` (${order.expectedGreige.greigeCode})` : ''} — its purchase order
-                            has to be received before it can be sent.
+                            No greige lots in our stores for this order
+                            {order.expectedGreige ? ` (${order.expectedGreige.greigeCode})` : ''}
+                            {atProcessor.length > 0
+                              ? ` — its cloth is already at ${holder}, so nothing needs to travel. Issue it from its own page.`
+                              : ' — its purchase order has to be received before it can be sent.'}
                           </AlertDescription>
                         </Alert>
                       ) : (

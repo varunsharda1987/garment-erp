@@ -93,10 +93,14 @@ export interface IssueJwoOptions {
 
 export interface IssueJwoResult {
   jwoId: string;
-  /** Null for virtual issuance (stock already at processor, no dispatch needed) */
+  /** Null when nothing travelled: every lot was drawn where it lies at the processor */
   challanId: string | null;
-  /** 'VIRTUAL-ALLOCATION' for virtual issuance */
+  /** The new challan's number; 'VIRTUAL-ALLOCATION' when nothing travelled */
   challanNumber: string;
+  /** The processor at which some of the cloth was drawn where it lies, or null */
+  drawnAt: string | null;
+  /** The challan(s) already covering the cloth drawn where it lies (comma-separated), or '' */
+  coveringChallans: string;
   warnings: string[];
 }
 
@@ -120,6 +124,12 @@ export const ISSUE_ERROR_CODES = {
   LOT_HELD_WITHOUT_CHALLAN: 'LOT_HELD_WITHOUT_CHALLAN',
   /** Dispatch only: a lot already held at the processor never goes on a truck challan. */
   LOT_NOT_ON_TRUCK: 'LOT_NOT_ON_TRUCK',
+  /** The sent date is after today. */
+  SENT_DATE_IN_FUTURE: 'SENT_DATE_IN_FUTURE',
+  /** A store lot cannot leave before the day it was received. */
+  SENT_DATE_BEFORE_RECEIPT: 'SENT_DATE_BEFORE_RECEIPT',
+  /** Cloth already at the processor cannot be drawn before the day it reached them. */
+  SENT_BEFORE_ARRIVAL: 'SENT_BEFORE_ARRIVAL',
   INSUFFICIENT_GREIGE: 'INSUFFICIENT_GREIGE',
   INSUFFICIENT_FABRIC_STOCK: 'INSUFFICIENT_FABRIC_STOCK',
   CANCEL_RESTORE_FAILED: 'CANCEL_RESTORE_FAILED',
@@ -218,6 +228,13 @@ export async function validateIssue(
     blockers.push({
       code: ISSUE_ERROR_CODES.ORDER_CANCELLED,
       message: `${jwo.jobWorkNumber} is ${jwo.jwoStatus.toLowerCase()} and cannot be issued.`,
+    });
+  }
+
+  if (opts.sentDate && toDateInputValue(opts.sentDate) > toDateInputValue(new Date())) {
+    blockers.push({
+      code: ISSUE_ERROR_CODES.SENT_DATE_IN_FUTURE,
+      message: `The sent date ${formatDate(opts.sentDate)} is after today — record the issue on the day it happens.`,
     });
   }
 
@@ -451,6 +468,25 @@ export async function validateIssue(
       lots.push({ row, qty: snapToLimit(input.qty, row.quantityAvailable), atProcessor: heldHere, location });
     }
 
+    // The day the goods leave — or, for cloth already at the processor, the day the job draws it:
+    // never before the lot got where it is (IST calendar days, the same as every date on screen).
+    const sentOn = toDateInputValue(opts.sentDate ?? new Date());
+    for (const { row, location } of lots) {
+      if (!row.receivedDate || sentOn >= toDateInputValue(row.receivedDate)) continue;
+      const lotCode = row.greige?.greigeCode ?? row.id.slice(0, 8);
+      blockers.push(
+        location?.category === 'AT_THIS_PROCESSOR'
+          ? {
+              code: ISSUE_ERROR_CODES.SENT_BEFORE_ARRIVAL,
+              message: `Lot ${lotCode} reached ${location.holderName ?? 'the processor'} on ${formatDate(row.receivedDate)} — ${jwo.jobWorkNumber} cannot draw it on ${formatDate(opts.sentDate ?? new Date())}.`,
+            }
+          : {
+              code: ISSUE_ERROR_CODES.SENT_DATE_BEFORE_RECEIPT,
+              message: `Lot ${lotCode} was received on ${formatDate(row.receivedDate)} — it cannot have left on ${formatDate(opts.sentDate ?? new Date())}.`,
+            }
+      );
+    }
+
     // Two rows on one lot double-consume it and mint two components for one physical lot.
     const lotIds = greigeLotInputs.map((l) => l.greigeStockLotId);
     if (new Set(lotIds).size !== lotIds.length) {
@@ -492,6 +528,120 @@ export async function validateIssue(
   }
 
   return { jwo, lots, laceLots, fabricLotRow, expectedGreigeId, expectedGreige, blockers };
+}
+
+/** One greige lot a job could draw, placed relative to the job's processor. */
+export interface IssueCandidateLot {
+  id: string;
+  greigeId: string;
+  greigeCode: string | null;
+  greigeName: string | null;
+  greigeWidth: number | null;
+  quantityAvailable: number;
+  /** The day the lot arrived where it is (our store, or the processor) — ISO date */
+  receivedDate: string | null;
+  weaverName: string | null;
+  location: {
+    category: LotLocation['category'];
+    /** The processor holding it (null in our store) */
+    holderName: string | null;
+    warehouseName: string | null;
+    /** Held by this job's processor under a challan: the job draws it where it lies, no new challan */
+    drawnWhereItLies: boolean;
+    /** In the processor's unit but not yet booked there (the Aug-2026 lots): issued on a challan until converted */
+    legacyUnitLot: boolean;
+    /** The challan that already covers a held lot */
+    coveringChallanNumber: string | null;
+  };
+  /** A held lot that came back from a cancelled job: the job it was first issued for */
+  originalJwo?: { id: string; jobWorkNumber: string } | null;
+}
+
+export interface IssueCandidates {
+  /** At this job's processor — oldest first, the order Auto-fill takes them */
+  atProcessor: IssueCandidateLot[];
+  /** In our stores — largest first */
+  inStore: IssueCandidateLot[];
+  /** At OTHER processors — shown, never issuable on this job */
+  elsewhere: IssueCandidateLot[];
+}
+
+/**
+ * THE list of greige lots a job for `processorId` could draw, with where each one is
+ * (lot-location.helper). Read by the issue preview and the dispatch screen, so the two can never
+ * disagree about what is at the dyer, what is in our store and what is at somebody else.
+ */
+export async function listIssueCandidates(
+  processorId: string | null,
+  greigeFilter: Prisma.greige_stockWhereInput
+): Promise<IssueCandidates> {
+  const rows = await prisma.greige_stock.findMany({
+    where: {
+      ...greigeFilter,
+      status: 'AVAILABLE',
+      quantityAvailable: { gt: 0 },
+      // A TRANSFER lot with no holder is a leftover of a Stock-Out — never issuable. Explicit OR: a
+      // `not` on the nullable sourceType would silently drop the NULL rows.
+      OR: [{ sourceType: null }, { sourceType: { not: 'TRANSFER' } }, { processorId: { not: null } }],
+    },
+    select: {
+      id: true,
+      greigeId: true,
+      greigeWidth: true,
+      quantityAvailable: true,
+      receivedDate: true,
+      processorId: true,
+      greige: { select: { greigeCode: true, greigeName: true } },
+      warehouse: { select: LOT_WAREHOUSE_SELECT },
+      processor: { select: { name: true } },
+      sourceChallan: { select: { challanNumber: true } },
+      weaver: { select: { name: true } },
+      stockDetails: {
+        select: {
+          issueDetails: {
+            select: { jobWorkOrder: { select: { id: true, jobWorkNumber: true } } },
+            orderBy: { issuedAt: 'desc' },
+            take: 1,
+          },
+        },
+        take: 1,
+      },
+    },
+  });
+
+  const out: IssueCandidates = { atProcessor: [], inStore: [], elsewhere: [] };
+  for (const row of rows) {
+    const location = resolveLotLocation(row, processorId);
+    const drawnWhereItLies = location.category === 'AT_THIS_PROCESSOR' && !location.legacyUnitLot;
+    const lot: IssueCandidateLot = {
+      id: row.id,
+      greigeId: row.greigeId,
+      greigeCode: row.greige?.greigeCode ?? null,
+      greigeName: row.greige?.greigeName ?? null,
+      greigeWidth: row.greigeWidth != null ? Number(row.greigeWidth) : null,
+      quantityAvailable: Number(row.quantityAvailable),
+      receivedDate: row.receivedDate ? toDateInputValue(row.receivedDate) : null,
+      weaverName: row.weaver?.name ?? null,
+      location: {
+        category: location.category,
+        holderName: location.holderName,
+        warehouseName: location.warehouseName,
+        drawnWhereItLies,
+        legacyUnitLot: location.legacyUnitLot,
+        coveringChallanNumber: drawnWhereItLies ? (row.sourceChallan?.challanNumber ?? null) : null,
+      },
+      ...(drawnWhereItLies ? { originalJwo: row.stockDetails?.[0]?.issueDetails?.[0]?.jobWorkOrder ?? null } : {}),
+    };
+    if (location.category === 'AT_THIS_PROCESSOR') out.atProcessor.push(lot);
+    else if (location.category === 'OUR_STORE') out.inStore.push(lot);
+    else out.elsewhere.push(lot);
+  }
+  // Cloth already at the dyer is used first, oldest first (its return clock is already running);
+  // store lots largest first (the fewest lots on the vehicle).
+  out.atProcessor.sort((a, b) => (a.receivedDate ?? '').localeCompare(b.receivedDate ?? ''));
+  out.inStore.sort((a, b) => b.quantityAvailable - a.quantityAvailable);
+  out.elsewhere.sort((a, b) => b.quantityAvailable - a.quantityAvailable);
+  return out;
 }
 
 /**
@@ -1013,6 +1163,10 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
         jwoId,
         challanId: challan?.id ?? null,
         challanNumber: challan?.challanNumber ?? (isVirtualIssuance ? 'VIRTUAL-ALLOCATION' : ''),
+        drawnAt: processorLots.length > 0 ? (jwo.processor?.name ?? 'the processor') : null,
+        coveringChallans: [
+          ...new Set(processorLots.map((l) => l.row.sourceChallan?.challanNumber).filter((n): n is string => !!n)),
+        ].join(', '),
         warnings,
       };
     },
@@ -1134,18 +1288,20 @@ export async function validateDispatch(rawInput: DispatchInput): Promise<Validat
       greigeStockLotId: order.greigeStockLotId,
       fabricStockLotId: order.fabricStockLotId,
       acknowledgeWidthMismatch: input.acknowledgeWidthMismatch,
+      sentDate: input.sentDate,
     });
     validations.push(v);
-    // Cloth already held at the processor does not travel on this truck: its job is allocated where
-    // it lies, from the job's own page, under the challan that already covers it (Phase 2).
-    const held = v.lots.filter((l) => l.atProcessor);
+    // Cloth already at the processor does not travel on this truck: its job is allocated where it
+    // lies, from the job's own page (Phase 2). That includes a lot that only sits in the processor's
+    // unit, not yet booked there — it is already there, so no vehicle carries it.
+    const held = v.lots.filter((l) => l.location?.category === 'AT_THIS_PROCESSOR');
     if (held.length > 0) {
       v.blockers.push({
         code: ISSUE_ERROR_CODES.LOT_NOT_ON_TRUCK,
         message:
           `Lot ${held[0].row.greige?.greigeCode ?? held[0].row.id.slice(0, 8)} is already at ` +
           `${held[0].location?.holderName ?? 'the processor'} — it does not go on this truck. Issue ${v.jwo.jobWorkNumber} ` +
-          `from its own page; it is allocated there with no challan.`,
+          `from its own page.`,
       });
     }
     if (v.blockers.length > 0) {

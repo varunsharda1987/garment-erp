@@ -12,6 +12,11 @@ keywords:
   - embroidery
   - kaaj button
   - challan
+  - already at processor
+  - allocate at processor
+  - sent date
+  - maal pehle se dyer ke paas
+  - डायर के पास पहले से माल
   - lace dyeing
   - greige lace
   - lace rangai
@@ -101,11 +106,12 @@ Both figures stay editable — type over either one and it will not be overwritt
 2. Click **Approve**. The status becomes **Approved**.
 3. Click **Issue to Processor**. This button only appears while the order is **Approved** — there is no other status that can issue.
 4. Under **Greige Lots ***, pick the lot and quantity. Use **Add lot** to split across lots, or **Auto-fill**. The total must match the order, shown as "matches the order". Only lots of the greige the order names are offered — that is the cloth its rate and shrinkage were quoted on. On a lace job the list holds the greige lace lots instead, and every lot must be the lace the order names.
+   The lots are grouped by where they are: **Already at <processor> — no dispatch needed** first, then one group per store, for example **In Kashaya Fabs**. Each lot shows its metres, width, weaver and place, for example "GRG-0072 — Cotton Flex (5,000 m, 63″) · Weaver … · at Aryan Dyeing since 28-Sep-2026". The badges above the list give the total in each place. **Auto-fill** takes the cloth already at the processor first, oldest first, and then the biggest store lots. An **Elsewhere** line shows the same cloth at other processors; it cannot go on this job.
    If the lot was received than-wise or bale-wise, its thans open under the lot, grouped by bale. Tick the thans you are sending (you can type fewer metres for the last one), or click **Pick thans for me** to tick whole thans bale by bale until the order is covered. The line under the list shows the metres counted on the tags and the actual metres they come to. Picking thans is optional — close the list to send by quantity only — but it keeps the godown list of thans right.
 
    **Best fit (whole thans)** ticks whole thans only — no than is cut — landing within 1% of the order, over or under. It uses whole bales first, finishes bales that are already opened, and breaks as few bales as possible; the note under the button says how many bales it used. The order quantity does not change. If no set of whole thans fits within 1%, it says so — use **Pick thans for me** instead.
-5. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
-6. Click **Issue & Create Challan**. The confirmation shows the challan number that was created. The challan names the store the goods leave from (for example Kashaya Fabs). Every issue that sends something out gets a challan — greige, lace, a fabric roll or garments; only greige that is already at this processor is allocated without one. Greige the supplier delivered straight to this processor (approved with **Delivered straight to …** on the GRN) is taken from where it lies: no truck and no new challan — the job shows the challan that already covers it, and the one-year return period counts from the day the processor received it. Greige sitting at a different processor cannot be put on this job.
+5. Check **Sent date**. It is today unless you change it. It cannot be after today, and it cannot be before the day a chosen lot was received (or reached the processor). A date more than 7 days back shows a reminder to make sure it is the real day. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
+6. Click **Issue & Create Challan**. When every chosen lot is already at the processor the button reads **Allocate at <processor>** instead, and there is no vehicle box. The confirmation shows the challan number that was created (or, for an allocation, "allocated at … under challan …, nothing dispatched"). The challan names the store the goods leave from (for example Kashaya Fabs). Every issue that sends something out gets a challan — greige, lace, a fabric roll or garments; only greige that is already at this processor is allocated without one. Greige the supplier delivered straight to this processor (approved with **Delivered straight to …** on the GRN) is taken from where it lies: no truck and no new challan — the job shows the challan that already covers it, and the one-year return period counts from the day the processor received it. Greige sitting at a different processor cannot be put on this job.
 
 ## Name the thans after sending
 If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me** / **Best fit (whole thans)**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more than 1% over what the order took.
@@ -121,4 +127,5 @@ If other orders went to the same processor on the same day from the same lot and
 - The dyed variant must have been created from the greige lace being sent. Picking a variant of a different lace is refused — use the **Create** box to make the right one.
 - A lace job cannot also carry a fabric, and lace is refused on any process type other than Dyeing.
 - A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
-- Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**. On that page **Best fit for all orders** picks whole thans for every order on the truck together, lot by lot, each order within 1%.
+- Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**. On that page **Best fit for all orders** picks whole thans for every order on the truck together, lot by lot, each order within 1%. Only store lots are offered there. If an order's cloth is already at the processor, the order says so, with a link: issue it from its own page.
+- A sent date after today, or before the lot arrived, is refused: "Lot … was received on … — it cannot have left on …".

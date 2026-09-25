@@ -182,7 +182,55 @@ export interface IssueJwoPayload {
   acknowledgeWidthMismatch?: boolean;
 }
 
-/** A greige lot the server considers issuable for this order — pre-filtered, sorted qty desc. */
+/** What an issue did: a new challan, cloth drawn where it lies at the processor, or both. */
+export interface IssueJwoResponse {
+  data: JobWorkOrder;
+  challanNumber: string;
+  /** false when nothing travelled — every lot was drawn where it lies */
+  challanCreated: boolean;
+  /** The processor at which cloth was drawn where it lies, or null */
+  drawnAt: string | null;
+  /** The challan(s) already covering that cloth */
+  coveringChallans: string;
+  message?: string;
+  warning?: string;
+}
+
+function issueResponseOf(body: {
+  data: JobWorkOrder;
+  challanNumber: string;
+  challanCreated?: boolean;
+  drawnAt?: string | null;
+  coveringChallans?: string;
+  message?: string;
+  warning?: string;
+}): IssueJwoResponse {
+  return {
+    data: body.data,
+    challanNumber: body.challanNumber,
+    challanCreated: body.challanCreated ?? body.challanNumber !== 'VIRTUAL-ALLOCATION',
+    drawnAt: body.drawnAt ?? null,
+    coveringChallans: body.coveringChallans ?? '',
+    message: body.message,
+    warning: body.warning,
+  };
+}
+
+/** Where a lot is, relative to the job's processor (server: lot-location.helper). */
+export interface JwoIssueLotLocation {
+  category: 'AT_THIS_PROCESSOR' | 'OUR_STORE' | 'AT_OTHER_PROCESSOR';
+  /** The processor holding it (null in our store) */
+  holderName: string | null;
+  warehouseName: string | null;
+  /** Held by this job's processor under a challan: drawn where it lies, no new challan */
+  drawnWhereItLies: boolean;
+  /** In the processor's unit but not yet booked there (Aug-2026 lots): goes on a challan until converted */
+  legacyUnitLot: boolean;
+  /** The challan already covering a held lot */
+  coveringChallanNumber: string | null;
+}
+
+/** A lot the server considers issuable for this order. Lace lots carry no location (always our store). */
 export interface JwoIssuePreviewLot {
   id: string;
   greigeId: string;
@@ -190,6 +238,10 @@ export interface JwoIssuePreviewLot {
   greigeName: string | null;
   greigeWidth: number | null;
   quantityAvailable: number;
+  /** The day the lot arrived where it is — ISO date (yyyy-MM-dd) */
+  receivedDate?: string | null;
+  weaverName?: string | null;
+  location?: JwoIssueLotLocation;
   /** For lots at processor: the JWO this lot was originally issued for (for reallocation prompt) */
   originalJwo?: { id: string; jobWorkNumber: string } | null;
 }
@@ -206,7 +258,7 @@ export interface JwoIssuePreview {
   fabricType: string | null;
   /** Processor name for display (e.g., "Mangal Textile") */
   processorName: string | null;
-  /** Lots already at the target processor (virtual issuance — no dispatch needed) */
+  /** Lots at this job's processor, oldest first */
   atProcessor: JwoIssuePreviewLot[];
   /** Total quantity available at processor */
   atProcessorTotal: number;
@@ -214,7 +266,9 @@ export interface JwoIssuePreview {
   atMainWarehouse: JwoIssuePreviewLot[];
   /** Total quantity available at main warehouse */
   atMainWarehouseTotal: number;
-  /** Legacy: combined list of all available lots (backwards compatibility) */
+  /** Lots of this cloth at OTHER processors — shown, never issuable on this job */
+  elsewhere?: JwoIssuePreviewLot[];
+  /** Everything this job may draw: at the processor first, then our stores */
   availableLots: JwoIssuePreviewLot[];
 }
 
@@ -232,7 +286,10 @@ export interface DispatchableOrder {
   greigeAnchored: boolean;
   /** NO_GREIGE_LOT is already filtered out server-side — picking lots here is what resolves it. */
   blockers: Array<{ code: string; message: string }>;
+  /** Lots in our stores — the only ones that go on a truck */
   availableLots: JwoIssuePreviewLot[];
+  /** This order's cloth already at the processor — issued from the job's own page, never trucked */
+  atProcessor?: JwoIssuePreviewLot[];
 }
 
 /** One order's place on the truck. Same lot rule as a single issue: omit `lots` to use the stamp. */
@@ -344,12 +401,9 @@ export const jobWorkOrderService = {
    * Issue material to processor (Phase 4c: operational — consumes the greige lot,
    * creates the OUTWARD challan, locks the statutory due date)
    */
-  async issue(
-    id: string,
-    payload?: IssueJwoPayload
-  ): Promise<{ data: JobWorkOrder; challanNumber: string; warning?: string }> {
+  async issue(id: string, payload?: IssueJwoPayload): Promise<IssueJwoResponse> {
     const response = await api.post(`${BASE_URL}/${id}/issue`, payload ?? {});
-    return { data: response.data.data, challanNumber: response.data.challanNumber, warning: response.data.warning };
+    return issueResponseOf(response.data);
   },
 
   /**
@@ -492,12 +546,9 @@ export const jobWorkOrderService = {
    * Issue naming the thans that leave. Each lot carries either picked thans (COUNTED metres) or a
    * plain ACTUAL quantity; the server converts picks to actual itself.
    */
-  async issueWithDetails(
-    id: string,
-    payload: IssueWithDetailsPayload
-  ): Promise<{ data: JobWorkOrder; challanNumber: string; warning?: string }> {
+  async issueWithDetails(id: string, payload: IssueWithDetailsPayload): Promise<IssueJwoResponse> {
     const response = await api.post(`${BASE_URL}/${id}/issue-with-details`, payload);
-    return { data: response.data.data, challanNumber: response.data.challanNumber, warning: response.data.warning };
+    return issueResponseOf(response.data);
   },
 
   /** The greige lots an issued job took, and how much of each is already named by than. */

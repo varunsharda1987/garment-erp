@@ -14,6 +14,8 @@ import type {
   JwoIssuePreviewLot,
 } from '@/services/jobWorkOrder.service';
 import { foldActual, foldCounted } from '@/lib/fold-length';
+import { formatDate } from '@/lib/date';
+import { formatQuantity } from '@/lib/formatters';
 import { QTY_EPSILON, isQtyZero, minQty, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 
 /** One picked than. `metersToIssue` is COUNTED (tag) metres at the lot's fold length. */
@@ -134,17 +136,147 @@ export function evaluateLotRows({
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Where the lots are (direct-to-processor plan, Phase 2 — 2026-09-25). The server places every lot
+// (lot-location.helper); these only order, group and word what it said.
+// ---------------------------------------------------------------------------------------------
+
+/** At this job's processor — held there, or sitting in its unit. */
+export function lotIsAtProcessor(lot: JwoIssuePreviewLot): boolean {
+  return lot.location?.category === 'AT_THIS_PROCESSOR';
+}
+
+/** Held by the processor under a challan: the job draws it where it lies, nothing travels. */
+export function lotIsDrawnWhereItLies(lot: JwoIssuePreviewLot | undefined): boolean {
+  return !!lot?.location?.drawnWhereItLies;
+}
+
 /**
- * Greedy largest-first fill. Lots arrive sorted quantity-desc, so taking from the top covers the
- * order in the fewest lots — the least paperwork at the gate. Anchored to whatever greige is
- * already chosen (else the largest lot's), because rows may not mix cloths.
+ * The order lots are offered and taken in: cloth already at the processor first, oldest first (its
+ * return clock is already running), then our stores, largest first (the fewest lots on the vehicle).
+ */
+export function sortLotsForIssue(lots: JwoIssuePreviewLot[]): JwoIssuePreviewLot[] {
+  const here = lots.filter(lotIsAtProcessor).sort((a, b) => (a.receivedDate ?? '').localeCompare(b.receivedDate ?? ''));
+  const stores = lots.filter((lot) => !lotIsAtProcessor(lot)).sort((a, b) => b.quantityAvailable - a.quantityAvailable);
+  return [...here, ...stores];
+}
+
+export interface IssueLotGroup {
+  key: string;
+  label: string;
+  lots: JwoIssuePreviewLot[];
+}
+
+/**
+ * The lot picker's sections: "Already at <processor> — no dispatch needed", the processor's unit lots
+ * not yet booked there (they still go on a challan), then one section per store.
+ */
+export function groupLotsForIssue(lots: JwoIssuePreviewLot[], processorName: string): IssueLotGroup[] {
+  const groups = new Map<string, IssueLotGroup>();
+  for (const lot of sortLotsForIssue(lots)) {
+    const loc = lot.location;
+    const [key, label] =
+      loc?.category === 'AT_THIS_PROCESSOR'
+        ? loc.drawnWhereItLies
+          ? ['held', `Already at ${processorName} — no dispatch needed`]
+          : ['unit', `At ${processorName} — not yet booked there, goes on a challan`]
+        : [`store:${loc?.warehouseName ?? ''}`, `In ${loc?.warehouseName ?? 'our store'}`];
+    if (!groups.has(key)) groups.set(key, { key, label, lots: [] });
+    groups.get(key)!.lots.push(lot);
+  }
+  return [...groups.values()];
+}
+
+/** "GRG-0072 — Cotton Flex (5,000 m, 63″) · Weaver Mangal · at Aryan Dyeing since 28-Sep-2026" */
+export function lotOptionLabel(lot: JwoIssuePreviewLot, uom = 'METER'): string {
+  const width = lot.greigeWidth != null ? `, ${lot.greigeWidth}″` : '';
+  const parts = [
+    `${lot.greigeCode ?? 'Lot'} — ${lot.greigeName ?? 'unnamed greige'} (${formatQuantity(lot.quantityAvailable, uom)}${width})`,
+  ];
+  if (lot.weaverName) parts.push(`Weaver ${lot.weaverName}`);
+  const loc = lot.location;
+  if (loc?.category === 'AT_THIS_PROCESSOR') {
+    parts.push(
+      `at ${loc.holderName ?? 'the processor'}${lot.receivedDate ? ` since ${formatDate(lot.receivedDate)}` : ''}`
+    );
+  } else if (loc?.warehouseName) {
+    parts.push(`in ${loc.warehouseName}`);
+  }
+  return parts.join(' · ');
+}
+
+/** Of the chosen lots: does anything travel (a challan is raised), and is anything drawn at the processor? */
+export function issueMovement(
+  rows: IssueLotRow[],
+  lots: JwoIssuePreviewLot[]
+): { travels: boolean; drawsHere: boolean } {
+  const lotById = new Map(lots.map((lot) => [lot.id, lot]));
+  const chosen = rows.map((row) => lotById.get(row.lotId)).filter((lot): lot is JwoIssuePreviewLot => !!lot);
+  return {
+    travels: chosen.length === 0 || chosen.some((lot) => !lotIsDrawnWhereItLies(lot)),
+    drawsHere: chosen.some(lotIsDrawnWhereItLies),
+  };
+}
+
+/** Sent dates further back than this ask the operator to make sure. */
+export const SENT_DATE_WARN_DAYS = 7;
+
+/** Whole days between two ISO dates (yyyy-MM-dd): b − a. */
+function isoDayDiff(a: string, b: string): number {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86_400_000);
+}
+
+/**
+ * The client half of the server's sent-date rules (SENT_DATE_IN_FUTURE / SENT_DATE_BEFORE_RECEIPT /
+ * SENT_BEFORE_ARRIVAL): never after today, never before a chosen lot got where it is; further back
+ * than a week is allowed but asks the operator to make sure. Dates are ISO (yyyy-MM-dd, IST).
+ */
+export function checkSentDate(
+  sentDate: string,
+  chosenLots: JwoIssuePreviewLot[],
+  today: string
+): { error: string | null; warning: string | null } {
+  if (!sentDate) return { error: null, warning: null };
+  if (sentDate > today) return { error: 'The sent date is after today.', warning: null };
+  for (const lot of chosenLots) {
+    if (!lot.receivedDate || sentDate >= lot.receivedDate) continue;
+    const code = lot.greigeCode ?? 'A chosen lot';
+    return {
+      error: lotIsAtProcessor(lot)
+        ? `${code} reached ${lot.location?.holderName ?? 'the processor'} on ${formatDate(lot.receivedDate)} — the job cannot draw it before that.`
+        : `${code} was received on ${formatDate(lot.receivedDate)} — it cannot have left before that.`,
+      warning: null,
+    };
+  }
+  const back = isoDayDiff(sentDate, today);
+  return {
+    error: null,
+    warning:
+      back > SENT_DATE_WARN_DAYS ? `That is ${back} days ago — make sure it is the day the goods actually left.` : null,
+  };
+}
+
+/** The earliest sent date the chosen lots allow: the latest day any of them got where it is. */
+export function earliestSentDate(chosenLots: JwoIssuePreviewLot[]): string | undefined {
+  const dates = chosenLots.map((lot) => lot.receivedDate).filter((d): d is string => !!d);
+  return dates.length > 0 ? dates.reduce((a, b) => (a > b ? a : b)) : undefined;
+}
+
+/**
+ * Greedy fill in the order `sortLotsForIssue` gives: cloth already at the processor first (oldest
+ * first), then store lots largest first — so the order is covered in the fewest lots, the least
+ * paperwork at the gate. Anchored to whatever greige is already chosen (else the first lot's),
+ * because rows may not mix cloths.
  */
 export function autoFillLotRows(
-  lots: JwoIssuePreviewLot[],
+  unsortedLots: JwoIssuePreviewLot[],
   requiredQty: number,
   currentRows: IssueLotRow[]
 ): IssueLotRow[] | null {
-  if (lots.length === 0) return null;
+  if (unsortedLots.length === 0) return null;
+  const lots = sortLotsForIssue(unsortedLots);
   const lotById = new Map(lots.map((lot) => [lot.id, lot]));
   const anchorGreigeId =
     currentRows

@@ -949,6 +949,7 @@ model goods_receiving_notes {
   grn_items                                       grn_items[]
   job_work_orders                                 job_work_orders[]
   inwardChallans                                  challans[]        @relation("ChallanReceipt")
+  directSupplyChallans                            challans[]        @relation("ChallanDirectSupplyGrn")
 
   @@index([grnNumber])
   @@index([poId])
@@ -4594,7 +4595,10 @@ model greige_stock {
   processorId     String? @db.VarChar(50) // Processor currently holding the stock (set on TRANSFER)
   sourceChallanId String? @db.VarChar(50)
   grnItemId       String? @db.VarChar(50) // P2: Link to GRN item for identity-based reversal
-  sourceType      String? @db.VarChar(20) // 'GRN', 'TRANSFER', 'ADJUSTMENT', 'MANUAL'
+  /// 'GRN' (bought, in our store) · 'DIRECT' (bought, delivered STRAIGHT to the processor in processorId — ours,
+  /// held there, covered by a Rule 45 challan, on-hand at that processor's unit) · 'TRANSFER' (moved to a
+  /// processor by a Stock-Out challan) · 'ADJUSTMENT' · 'MANUAL'. Read location through lot-location.helper.
+  sourceType      String? @db.VarChar(20)
   /// The weaver whose cloth this lot is (from the GRN line). Lots of every weaver stay under ONE greigeId.
   weaverId        String?
 
@@ -9275,7 +9279,11 @@ model challans {
   /// The cutting batch a fabric movement to or from Cutting is FOR (2026-09-24): the issue that sent it and
   /// any return that brought it back. Deleting the batch returns what is still out, on a return challan.
   cuttingBatchId     String?
+  /// INWARD only: the job-work receipt this challan was filed for (goods BACK from a processor) — one per part.
   grnId              String? // The job-work receipt this INWARD challan was filed for — one challan per part when a return comes in parts (2026-09-19)
+  /// OUTWARD only: the PURCHASE receipt whose goods the supplier delivered STRAIGHT to this job worker — the
+  /// Rule 45 challan we issue for inputs sent directly (goods OUT to a processor, never back). Not grnId.
+  directSupplyGrnId  String?
   fabricProcessingId String? // FK to fabric_processing (greige→processor→fabric tracking)
 
   // From/To
@@ -9325,6 +9333,7 @@ model challans {
   purchaseOrder        purchase_orders?       @relation(fields: [purchaseOrderId], references: [id])
   jobWorkOrder         job_work_orders?       @relation("ChallanHeaderJobWorkOrder", fields: [jobWorkOrderId], references: [id])
   grn                  goods_receiving_notes? @relation("ChallanReceipt", fields: [grnId], references: [id])
+  directSupplyGrn      goods_receiving_notes? @relation("ChallanDirectSupplyGrn", fields: [directSupplyGrnId], references: [id])
   fabricProcessing     fabric_processing?     @relation("ChallanProcessing", fields: [fabricProcessingId], references: [id])
   issuedBy             users                  @relation("ChallanIssuedBy", fields: [issuedById], references: [id])
   receivedBy           users?                 @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
@@ -9344,6 +9353,7 @@ model challans {
   @@index([purchaseOrderId])
   @@index([jobWorkOrderId])
   @@index([cuttingBatchId])
+  @@index([directSupplyGrnId])
   @@index([fabricProcessingId])
   @@index([grnId])
   @@index([challanType])

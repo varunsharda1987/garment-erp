@@ -80,6 +80,12 @@ keywords:
   - which season
   - sale order season
   - season kahan dikhega
+  - season filter
+  - filter by season
+  - season wise orders
+  - season se order dhundo
+  - सीज़न फ़िल्टर
+  - सीज़न से खोजें
   - सीज़न
   - सीजन
   - मौसम
@@ -118,7 +124,7 @@ route: /sale-orders
 A Sale Order sells finished goods that are already in stock, or triggers production for that quantity. It is different from a production order. The customer must exist in Customers and every line's style must exist in Styles. Sale orders can also arrive automatically from the House of Kasya B2B app with items already filled in — check the list before typing a new one.
 
 ## Steps
-1. Open **Orders & Sales → Sale Orders** in the sidebar. The list shows each order's styles, buyer style codes, **Season**, total quantity in pcs, amount and status. The Season is the style's own season (set on the style's form, e.g. WT26) — a sale order has no season field of its own, so it shows **—** until the style has one. To find an order, type into the search box — it matches the sale order number, any buyer PO on the order, the customer name or code, the remarks, our style code, the style name, and the buyer's own style code (both the one saved on the order and the style's current one). Typing several words narrows the list — each word must match something, so a customer name and a style code together find exactly that order. You can also narrow with the **All Customers** picker, the **All Status** dropdown, or the **Sale date range** calendar.
+1. Open **Orders & Sales → Sale Orders** in the sidebar. The list shows each order's styles, buyer style codes, **Season**, total quantity in pcs, amount and status. The Season is the style's own season (set on the style's form, e.g. WT26) — a sale order has no season field of its own, so it shows **—** until the style has one. To find an order, type into the search box — it matches the sale order number, any buyer PO on the order, the customer name or code, the remarks, our style code, the style name, the buyer's own style code (both the one saved on the order and the style's current one), and the style's season (for example type WT26). Typing several words narrows the list — each word must match something, so a customer name and a style code together find exactly that order. You can also narrow with the **All Customers** picker, the **All Status** dropdown, the **All Seasons** dropdown, or the **Sale date range** calendar. **All Seasons** lists the seasons from the Season master (the same ones the style form offers) and shows the orders whose styles carry the chosen season; an order whose styles have no season set appears under none of them.
 2. Click **New Sale Order**. A panel titled **New Sale Order** slides in from the right.
 3. In **Customer \***, search and pick the customer.
 4. Everything else in the header is optional: **Buyer PO Number** (the buyer's own PO reference), **Primary Style** (for single-style orders), **Expected Ship Date**, **Buyer Deadline**, **Order Date**, **Delivery Date**, **Payment Terms**, **Delivery Address**, **Remarks**.

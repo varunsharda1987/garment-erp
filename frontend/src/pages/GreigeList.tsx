@@ -254,15 +254,6 @@ export default function GreigeList() {
       ),
     },
     {
-      key: 'weaver',
-      header: 'Weaver',
-      render: (greige) => (
-        <div className="text-sm text-foreground">
-          {greige.weaver || <span className="text-muted-foreground">-</span>}
-        </div>
-      ),
-    },
-    {
       key: 'greigeWidth',
       header: 'Width (")',
       render: (greige) => <div className="text-sm text-foreground">{Number(greige.greigeWidth)}"</div>,

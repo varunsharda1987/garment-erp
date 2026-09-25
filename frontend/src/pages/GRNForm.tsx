@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
 import { createGRN, getPendingItemsForPO } from '@/services/grn.service';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import { WeaverCombobox } from '@/components/WeaverCombobox';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { PurchaseOrder } from '@/types/purchaseOrder.types';
 import type {
   CreateGRNRequest,
@@ -68,6 +70,11 @@ interface GRNItemForm {
   receivedAsReadyFabric: boolean;
   actualRatePerUnit: string;
   updateFutureSourcing: boolean;
+  // Weaver whose cloth arrived (Phase 1b): pre-filled from the PO line; required on greige / fabric
+  weaverId: string;
+  weaverName: string;
+  weaverNotKnown: boolean;
+  needsWeaver: boolean;
 }
 
 // ============================================
@@ -184,6 +191,10 @@ export default function GRNForm() {
           receivedAsReadyFabric: false,
           actualRatePerUnit: String(item.unitPrice || ''),
           updateFutureSourcing: false,
+          weaverId: item.weaverId ?? '',
+          weaverName: item.weaverName ?? '',
+          weaverNotKnown: false,
+          needsWeaver: item.needsWeaver === true,
         }));
       setItems(pendingItems);
     } catch (err) {
@@ -372,6 +383,15 @@ export default function GRNForm() {
           return false;
         }
 
+        // Stock records which weaver every lot came from: name one, or say it is not known.
+        if (item.needsWeaver && !item.weaverId && !item.weaverNotKnown) {
+          handleApiError(
+            new Error(`Name the weaver of ${item.materialCode} — or tick "Weaver not known".`),
+            'Validation Error'
+          );
+          return false;
+        }
+
         const accepted = parseFloat(item.acceptedQuantity) || 0;
         const rejected = parseFloat(item.rejectedQuantity) || 0;
         if (Math.abs(accepted + rejected - received) > 0.001) {
@@ -417,6 +437,8 @@ export default function GRNForm() {
             base.entryMode = item.entryMode;
             base.foldLengthCm = item.foldLengthCm ? parseFloat(item.foldLengthCm) : undefined;
             base.receivedWidthInches = item.receivedWidthInches ? parseFloat(item.receivedWidthInches) : undefined;
+            base.weaverId = item.weaverId || null;
+            base.weaverNotKnown = !item.weaverId && item.weaverNotKnown;
             if (item.details.length > 0) {
               base.details = item.details
                 .filter((d) => parseFloat(d.meters) > 0)
@@ -585,6 +607,49 @@ export default function GRNForm() {
               className="h-8 w-[100px] text-xs"
               placeholder="e.g. 44"
             />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Weaver{item.needsWeaver ? ' *' : ''}</Label>
+            <WeaverCombobox
+              value={item.weaverId}
+              selectedName={item.weaverName}
+              disabled={item.weaverNotKnown}
+              placeholder="Whose cloth arrived?"
+              onValueChange={(weaverId, weaver) =>
+                setItems((prev) =>
+                  prev.map((row, i) =>
+                    i === itemIndex
+                      ? {
+                          ...row,
+                          weaverId,
+                          weaverName: weaver?.name ?? '',
+                          weaverNotKnown: weaverId ? false : row.weaverNotKnown,
+                        }
+                      : row
+                  )
+                )
+              }
+              className="h-8 w-[220px] text-xs"
+            />
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Checkbox
+                checked={item.weaverNotKnown}
+                onCheckedChange={(checked) =>
+                  setItems((prev) =>
+                    prev.map((row, i) =>
+                      i === itemIndex
+                        ? {
+                            ...row,
+                            weaverNotKnown: checked === true,
+                            ...(checked === true ? { weaverId: '', weaverName: '' } : {}),
+                          }
+                        : row
+                    )
+                  )
+                }
+              />
+              Weaver not known
+            </label>
           </div>
           {item.details.length > 0 && (
             <div className="text-xs">

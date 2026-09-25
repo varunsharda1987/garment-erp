@@ -2,6 +2,9 @@
 slug: greige-create
 title: Add a Greige Master
 keywords:
+  - weaver
+  - bunkar
+  - बुनकर
   - greige
   - greage
   - grey fabric
@@ -38,6 +41,7 @@ keywords:
   - गुणवत्ता
   - बुनाई
 sources:
+  - frontend/src/pages/GreigeAvailableStock.tsx
   - frontend/src/config/navigation.ts
   - frontend/src/App.tsx
   - frontend/src/pages/GreigeForm.tsx
@@ -76,7 +80,7 @@ If the cloth is already there, open it and edit it instead of adding a second en
 5. Fill **Yarn Count** and **Construction**. Both are required.
 6. Enter **Composition** (required), for example 100% Cotton.
 7. **Greige Name** builds itself from Generic Name + Yarn Count / Construction / Width. It is read-only. Watch the green **Preview** line under it to confirm the name looks right.
-8. Optional in this section: **Weave Type** (Plain, Twill, Satin, Jersey, Rib, Interlock), **Greige Quality** (Printing, Dyeing, Super Dyeing), **Weaver**, **GSM Range**. Greige Quality is added to the end of the name when set.
+8. Optional in this section: **Weave Type** (Plain, Twill, Satin, Jersey, Rib, Interlock), **Greige Quality** (Printing, Dyeing, Super Dyeing), **GSM Range**. Greige Quality is added to the end of the name when set. There is no Weaver field: the weaver you buy from keeps changing, so it is recorded on the purchase order line and the GRN, and every stock lot shows its weaver — do NOT create a second greige just because the weaver is different. **Inventory → Greige Stock** shows each greige's metres per weaver and can filter by weaver.
 9. Under **Width & Shrinkage**, enter **Greige Width (inches)**. Required, and must be more than 0.
 10. **Default Cutable Width (inches)** is optional. Leave blank and the system uses Greige Width minus 4 in CAD Planning.
 11. Leave **Fallback Shrinkage (%)** blank in normal cases. The processor rate card is the real source of shrinkage. If you do enter a value it must be below 100.

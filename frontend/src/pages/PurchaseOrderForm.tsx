@@ -19,6 +19,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import { WeaverCombobox } from '@/components/WeaverCombobox';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { getAllMaterials } from '@/services/material.service';
 import { getSupplierById } from '@/services/supplier.service';
@@ -199,6 +200,9 @@ interface POItemForm {
   cadAverage?: number;
   // Greige-specific
   foldLengthCm?: string; // "L" - fold length in cm
+  // Greige / fabric: the weaver this line is bought from, when known (Phase 1b)
+  weaverId?: string;
+  weaverName?: string;
 }
 
 // ============================================
@@ -659,6 +663,8 @@ export default function PurchaseOrderForm() {
           remarks: item.remarks || '',
           // Was absent, so every save rewrote the roll fold length to NULL on every line.
           foldLengthCm: item.foldLengthCm != null ? String(item.foldLengthCm) : '',
+          weaverId: item.weaverId ?? '',
+          weaverName: item.weaver?.name ?? '',
         }));
         setItems(loadedItems);
       }
@@ -1016,6 +1022,7 @@ export default function PurchaseOrderForm() {
         unitPrice: parseFloat(item.unitPrice),
         remarks: item.remarks || undefined,
         foldLengthCm: item.foldLengthCm ? parseFloat(item.foldLengthCm) : undefined,
+        weaverId: item.weaverId || null,
       }));
 
       const data: CreatePurchaseOrderRequest = {
@@ -1832,6 +1839,9 @@ export default function PurchaseOrderForm() {
                     {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
                       <TableHead className="w-[100px]">Fold L (cm)</TableHead>
                     )}
+                    {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
+                      <TableHead className="w-[200px]">Weaver</TableHead>
+                    )}
                     <TableHead className="w-[120px]">Quantity</TableHead>
                     <TableHead className="w-[100px]">Unit</TableHead>
                     <TableHead className="w-[120px]">
@@ -1887,6 +1897,26 @@ export default function PurchaseOrderForm() {
                             value={item.foldLengthCm || ''}
                             onChange={(e) => updateItem(item.tempId, 'foldLengthCm', e.target.value)}
                             placeholder="L"
+                            className="w-full"
+                          />
+                        </TableCell>
+                      )}
+                      {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
+                        <TableCell>
+                          {/* Optional here — often known only at dispatch; the GRN records the weaver that came. */}
+                          <WeaverCombobox
+                            value={item.weaverId || ''}
+                            selectedName={item.weaverName}
+                            placeholder="Weaver (optional)"
+                            onValueChange={(weaverId, weaver) =>
+                              setItems((prev) =>
+                                prev.map((row) =>
+                                  row.tempId === item.tempId
+                                    ? { ...row, weaverId, weaverName: weaver?.name ?? (weaverId ? row.weaverName : '') }
+                                    : row
+                                )
+                              )
+                            }
                             className="w-full"
                           />
                         </TableCell>

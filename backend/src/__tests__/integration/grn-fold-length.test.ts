@@ -153,6 +153,7 @@ describe('greige received at L=98', () => {
             foldLengthCm: L,
             entryMode: 'THAN_WISE',
             details: THANS.map((meters, i) => ({ detailType: 'THAN' as const, sequenceNo: i + 1, meters })),
+            weaverNotKnown: true, // a greige receipt names its weaver or says so (Phase 1b)
           },
         ],
       },
@@ -263,6 +264,7 @@ describe('a receipt a few centimetres short of the PO (under-receipt tolerance)'
             rejectedQuantity: 0,
             unit: 'METER',
             foldLengthCm: 97,
+            weaverNotKnown: true,
           },
         ],
       },

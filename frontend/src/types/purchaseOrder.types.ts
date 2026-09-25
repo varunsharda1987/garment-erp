@@ -261,6 +261,8 @@ export interface PurchaseOrderItem {
   remarks: string | null;
   /** "L" — roll fold length in cm, set on greige/fabric lines and read by GRN than/roll receipt. */
   foldLengthCm?: number | null;
+  weaverId?: string | null; // Phase 1b: the weaver this line is bought from
+  weaver?: { id: string; name: string } | null;
   printingType?: string | null;
   // Service PO fields
   serviceType?: string | null;
@@ -385,6 +387,7 @@ export interface CreatePurchaseOrderItemRequest {
   unitPrice: number;
   remarks?: string;
   foldLengthCm?: number; // "L" - fold length in cm (for greige/fabric)
+  weaverId?: string | null; // Phase 1b: optional at ordering — the GRN line records what came
 }
 
 export interface CreatePurchaseOrderRequest {

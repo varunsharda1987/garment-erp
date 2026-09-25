@@ -62,7 +62,15 @@ async function receiveAndApprove(qty: number): Promise<{ grnId: string; grnItemI
       poId,
       warehouseId,
       items: [
-        { poItemId, materialId, receivedQuantity: qty, acceptedQuantity: qty, rejectedQuantity: 0, unit: 'METER' },
+        {
+          poItemId,
+          materialId,
+          receivedQuantity: qty,
+          acceptedQuantity: qty,
+          rejectedQuantity: 0,
+          unit: 'METER',
+          weaverNotKnown: true,
+        },
       ],
     },
     userId

@@ -754,7 +754,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
               weaveType: greige.weaveType || null,
               // BUG-GR6 fix: greigeQuality and weaver now supported in bulk import
               greigeQuality: greige.greigeQuality || null,
-              weaver: greige.weaver || null,
+              // weaver: retired 2026-09-25 — it lives on the PO line / GRN / lot, never the master
               greigeWidth: parseFloat(String(greige.greigeWidth)),
               // BUG-GR6 fix: defaultCutableWidth now supported in bulk import
               defaultCutableWidth: greige.defaultCutableWidth ? parseFloat(String(greige.defaultCutableWidth)) : null,

@@ -230,6 +230,9 @@ export interface CreateGRNItemRequest {
   receivedAsReadyFabric?: boolean; // Override: treat greige PO item as ready fabric
   actualRatePerUnit?: number | null; // Actual rate received (may differ from PO rate)
   updateFutureSourcing?: boolean; // true = permanent change, false = one-time exception (default)
+  // Phase 1b: the weaver whose cloth arrived (pre-filled from the PO line), or "not known"
+  weaverId?: string | null;
+  weaverNotKnown?: boolean;
 }
 
 export interface ProcessingReceiveData {
@@ -318,6 +321,11 @@ export interface PendingPOItem {
   unitPrice: number;
   /** The PO line's fold length — pre-fills the GRN line's L. PO quantities are actual metres. */
   foldLengthCm?: number | null;
+  /** The PO line's weaver — pre-fills the GRN line's weaver (Phase 1b). */
+  weaverId?: string | null;
+  weaverName?: string | null;
+  /** Greige / ready fabric: the receipt must name the weaver or tick "Weaver not known". */
+  needsWeaver?: boolean;
 }
 
 export interface PendingItemsResponse {

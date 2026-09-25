@@ -27,7 +27,6 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     composition: '',
     weaveType: '',
     greigeQuality: undefined,
-    weaver: '',
     yarnCount: '',
     construction: '',
     greigeWidth: 0,
@@ -110,7 +109,6 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         composition: greige.composition,
         weaveType: greige.weaveType || '',
         greigeQuality: greige.greigeQuality || undefined,
-        weaver: greige.weaver || '',
         yarnCount: greige.yarnCount || '',
         construction: greige.construction || '',
         greigeWidth: greige.greigeWidth,
@@ -382,16 +380,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Weaver</label>
-              <Input
-                type="text"
-                name="weaver"
-                value={formData.weaver}
-                onChange={handleChange}
-                placeholder="Weaver name"
-              />
-            </div>
+            {/* Weaver is NOT a greige property (retired 2026-09-25): the weaver we buy from keeps changing,
+                so it is recorded on the PO line, the GRN and the stock lot — every weaver stays under this
+                one greige. */}
 
             <div>
               <label className="block text-sm font-medium text-foreground mb-1">GSM Range</label>

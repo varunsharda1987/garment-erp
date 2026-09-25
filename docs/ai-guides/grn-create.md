@@ -2,6 +2,10 @@
 slug: grn-create
 title: Create a GRN (Goods Receipt)
 keywords:
+  - weaver
+  - weaver not known
+  - bunkar
+  - बुनकर
   - grn
   - goods receipt
   - goods receiving note
@@ -37,6 +41,7 @@ sources:
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/purchaseOrder.service.ts
+  - frontend/src/components/WeaverCombobox.tsx
 route: /procurement/grn/new
 ---
 
@@ -53,8 +58,9 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 7. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
 8. If something is damaged, enter **Rejected** and a reason. Accepted plus Rejected must equal Received.
 9. For Fabric and Greige POs, set **Entry Mode** — Total Meters, Than-wise, Bale-wise or Roll-wise. Than/Bale/Roll modes let you click **Add Than**, **Add Bale** or **Add Roll** and enter meters per piece; the total is summed into This Receipt automatically. Also fill **L / Fold (cm)** (it comes pre-filled from the PO line — change it if the mill delivered at a different L) and **Width (inches)**. In **Bale-wise** mode each bale has a **Bale No.** box for the number printed on the bale, and each than a **Than No.** box for its tag; in **Than-wise** mode each row has **Than No.**, and in **Roll-wise** mode **Roll No.** All are optional — blank bales show as Bale 1, 2, 3. Forgot them? Open the GRN and click **Edit bale / than numbers** on the greige line; it changes only the numbers, never the metres. Type the quantity exactly as the mill counted it (the figure on their bill and than tags). When **L / Fold (cm)** is under 100, a blue line under the quantity shows the conversion, e.g. "10,011 m counted @ L=98 → 9,810.78 m". The actual metres are what go to stock, what the PO counts as received, and what the value is worked out on.
-10. On a Greige PO only, if the supplier actually sent finished fabric, switch on **Received as Ready Fabric (not greige)** and choose **One-time exception** or **Permanent change**. This cancels the linked Processing PO.
-11. Add anything else in **Notes**, then click **Save GRN**.
+10. For Fabric and Greige POs also set **Weaver *** — whose cloth actually arrived. It comes pre-filled from the PO line; change it if the supplier's challan names a different mill, or type a new name and click **Add "…" as a new weaver**. If nobody knows, tick **Weaver not known**. The save is refused until each greige/fabric line has one or the other: "Name the weaver of … — or tick Weaver not known." The stock lot carries this weaver; lots of every weaver stay under the same greige.
+11. On a Greige PO only, if the supplier actually sent finished fabric, switch on **Received as Ready Fabric (not greige)** and choose **One-time exception** or **Permanent change**. This cancels the linked Processing PO.
+12. Add anything else in **Notes**, then click **Save GRN**.
 
 ## Validation traps
 - PO, Warehouse and Receiving Date are required, and at least one item must have a received quantity.

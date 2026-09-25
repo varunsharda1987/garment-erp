@@ -141,7 +141,10 @@ export interface GenericGreigeStock {
   greigeName: string;
   composition: string;
   greigeQuality: string | null;
+  /** The lots' weavers joined — never the retired greige master field (Phase 1b). */
   weaver: string | null;
+  /** Metres and lots per weaver, largest first; every weaver stays under this one greige. */
+  weavers: Array<{ weaverId: string | null; name: string; metres: number; lots: number }>;
   totalStock: number;
   unit: string;
   totalValue: number;
@@ -190,6 +193,8 @@ export interface GreigeStockDetail {
   processor: { id: string; name: string; code: string } | null;
   sourceChallanId: string | null;
   sourceChallan: { id: string; challanNumber: string; challanDate: string } | null;
+  weaverId?: string | null; // Phase 1b: whose cloth this lot is
+  weaver?: { id: string; name: string } | null;
 }
 
 export interface UpdateGreigeStockData {

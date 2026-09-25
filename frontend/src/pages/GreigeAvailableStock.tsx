@@ -31,6 +31,7 @@ import { logError } from '../lib/logger';
 import { toast } from 'sonner';
 import { getSystemSettingByKey } from '../services/system-settings.service';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { formatQuantity } from '@/lib/formatters';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 const PAGE_SIZE = 25;
@@ -66,6 +67,7 @@ export default function GreigeAvailableStock() {
   const [searchTerm, setSearchTerm] = useState('');
   const [qualityFilter, setQualityFilter] = useState('all');
   const [warehouseFilter, setWarehouseFilter] = useState('all');
+  const [weaverFilter, setWeaverFilter] = useState('all');
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -145,6 +147,10 @@ export default function GreigeAvailableStock() {
       filtered = filtered.filter((s) => s.warehouses?.includes(warehouseFilter));
     }
 
+    if (weaverFilter !== 'all') {
+      filtered = filtered.filter((s) => (s.weavers ?? []).some((w) => (w.weaverId ?? 'none') === weaverFilter));
+    }
+
     if (showAgedOnly) {
       // BUG-GR10 fix: Use configurable aging threshold
       filtered = filtered.filter((s) => s.maxAgingDays >= agingThreshold);
@@ -152,7 +158,7 @@ export default function GreigeAvailableStock() {
 
     setFilteredStock(filtered);
     setPage(1);
-  }, [greigeStock, searchTerm, qualityFilter, warehouseFilter, showAgedOnly, agingThreshold]);
+  }, [greigeStock, searchTerm, qualityFilter, warehouseFilter, weaverFilter, showAgedOnly, agingThreshold]);
 
   useEffect(() => {
     applyFilters();
@@ -163,6 +169,11 @@ export default function GreigeAvailableStock() {
   const paginatedStock = filteredStock.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const uniqueWarehouses = [...new Set(greigeStock.flatMap((s) => s.warehouses || []))].filter(Boolean).sort();
+  const weaverChoices = [
+    ...new Map(
+      greigeStock.flatMap((s) => s.weavers ?? []).map((w) => [w.weaverId ?? 'none', w.name] as const)
+    ).entries(),
+  ].sort((a, b) => a[1].localeCompare(b[1]));
 
   const getTotalStock = () => filteredStock.reduce((sum, s) => sum + (s.totalStock || 0), 0);
   const getTotalValue = () => filteredStock.reduce((sum, s) => sum + (s.totalValue || 0), 0);
@@ -403,7 +414,7 @@ export default function GreigeAvailableStock() {
           </div>
 
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -434,6 +445,19 @@ export default function GreigeAvailableStock() {
                 {uniqueWarehouses.map((wh) => (
                   <SelectItem key={wh} value={wh}>
                     {wh}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={weaverFilter} onValueChange={setWeaverFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Weavers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Weavers</SelectItem>
+                {weaverChoices.map(([key, name]) => (
+                  <SelectItem key={key} value={key}>
+                    {name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -556,8 +580,20 @@ export default function GreigeAvailableStock() {
                               <span className="text-muted-foreground">-</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-muted-foreground">
-                            {stock.weaver || <span className="text-muted-foreground">-</span>}
+                          <td className="px-4 py-3 text-xs text-muted-foreground">
+                            {/* Per weaver, from the LOTS — one greige, every weaver under it (Phase 1b) */}
+                            {(stock.weavers ?? []).length > 0 ? (
+                              <div className="space-y-0.5">
+                                {stock.weavers.map((w) => (
+                                  <div key={w.weaverId ?? 'none'} className="whitespace-nowrap">
+                                    <span className={w.weaverId ? 'text-foreground' : 'italic'}>{w.name}</span> ·{' '}
+                                    {formatQuantity(w.metres, 'METER')}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
                           </td>
                           <td className="px-3 py-3 text-sm text-center">
                             {stock.greigeWidth != null ? (
@@ -641,6 +677,7 @@ export default function GreigeAvailableStock() {
                                         <th className="px-3 py-2 text-center">Age</th>
                                         <th className="px-3 py-2 text-center">Status</th>
                                         <th className="px-3 py-2 text-left">Supplier</th>
+                                        <th className="px-3 py-2 text-left">Weaver</th>
                                         <th className="px-3 py-2 text-left">At Processor</th>
                                         <th className="px-3 py-2 text-left">Challan #</th>
                                         <th className="px-3 py-2 text-center">Actions</th>
@@ -691,6 +728,9 @@ export default function GreigeAvailableStock() {
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground text-xs">
                                             {entry.supplier?.name || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-muted-foreground text-xs">
+                                            {entry.weaver?.name || '-'}
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground text-xs">
                                             {entry.processor?.name || '-'}

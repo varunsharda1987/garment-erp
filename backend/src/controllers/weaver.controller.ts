@@ -11,7 +11,7 @@ export const weaverController = {
 
   async create(req: Request, res: Response) {
     const { name, city, supplierId } = req.body as CreateWeaverInput;
-    const { weaver, created } = await weaverService.findOrCreate({ name, city, supplierId }, req.user!.id);
+    const { weaver, created } = await weaverService.findOrCreate({ name, city, supplierId }, req.user!.userId);
     res.status(created ? 201 : 200).json({ success: true, data: weaver, created });
   },
 };

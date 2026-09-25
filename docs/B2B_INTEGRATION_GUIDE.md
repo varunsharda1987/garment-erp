@@ -105,6 +105,16 @@ serializer — note `_count` becomes `count`):
 - `saleOrderNumber`, `saleDate`, `expectedShipDate`
 - `items[].quantity / allocatedQty / dispatchedQty / unitPrice`,
   `items[].style{styleCode,styleName}`, `items[].color{colorName}`, `items[].size{sizeName,sizeCode}`
+  **`dispatchedQty` is written from 2026-09-25 (`1728e4ff`).** Until then its only writer,
+  `POST /dispatch/sale-order-dispatch`, was never called — not by an ERP screen, not by this app —
+  so it was always 0 and PARTIALLY_DISPATCHED / DISPATCHED / DELIVERED were unreachable. Now every
+  ERP delivery note booked against the sale order (raised for its linked production order, or from
+  the sale order itself) raises it **when the note is created**; deleting a pending note or a
+  REJECTED proof of delivery lowers it again. One writer: `sale-order-dispatch.helper.ts`.
+  It may exceed `quantity` by the buyer's over-shipment allowance
+  (`customers.overShipAllowancePercent`, e.g. Easybuy +5 % per size) — dispatched > ordered is
+  legitimate there, not an error. Note that B2B stops polling at DISPATCHED, so it will not see a
+  later DELIVERED.
 - delivery-note / invoice counts — **the serializer preserves the `_count` KEY but camelizes
   its inner keys**: the real shape is `_count.deliveryNotes` / `_count.invoices`.
   (Corrected 2026-08-24 — this doc previously claimed `count.deliveryNotes`, and the B2B
@@ -144,7 +154,7 @@ deliveryDate, isDelayed, stageBreakdown{inCutting,inStitching,inFinishing,readyT
 2. **`expectedShipDate`** on create + update must accept **both** bare `YYYY-MM-DD` (this ERP's own
    `<input type="date">`) and full ISO (the B2B app). That's why it's a lenient `Date.parse`
    refine, not `.datetime()`.
-3. **Response serialization**: the B2B app reads the camelized keys (`count.deliveryNotes`,
+3. **Response serialization**: the B2B app reads the camelized keys (`_count.deliveryNotes`,
    `saleDate`). Changing the humps serializer or wrapping `GET /sale-orders/:id` in an envelope
    silently zeroes/blanks its Factory-status view.
 4. **HTTP status semantics**: a deleted sale order must return **404** on `GET /sale-orders/:id` —

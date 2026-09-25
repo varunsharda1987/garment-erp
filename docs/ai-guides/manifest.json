@@ -24,10 +24,10 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/ASNCreateForm.tsx": "9dadb0b866e7",
-      "frontend/src/pages/ASNDetail.tsx": "3121a8f1725b"
+      "frontend/src/pages/ASNDetail.tsx": "7dcf1a7e9c80"
     },
-    "contentHash": "24b2c56f0d33",
-    "generatedAt": "2026-09-23T06:17:35.950Z"
+    "contentHash": "31038547f1a6",
+    "generatedAt": "2026-09-25T11:13:58.077Z"
   },
   "button-create": {
     "sources": {
@@ -236,24 +236,25 @@
   "delivery-note-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "3a174de49076",
+      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "99df84b9480c",
       "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
-      "backend/src/schemas/dispatch.schema.ts": "c316ffeba2a9",
-      "backend/src/controllers/dispatch.controller.ts": "64402cb54eac",
-      "backend/src/services/helpers/sale-order-dispatch.helper.ts": "96669789d66b"
+      "backend/src/schemas/dispatch.schema.ts": "ad7da2fd8610",
+      "backend/src/controllers/dispatch.controller.ts": "8aac08b70eaa",
+      "backend/src/services/helpers/sale-order-dispatch.helper.ts": "3bd75378ba4a",
+      "frontend/src/components/AdminOverrideModal.tsx": "7f065d9f7700"
     },
-    "contentHash": "2f8c2d2a2038",
-    "generatedAt": "2026-09-25T08:22:17.869Z"
+    "contentHash": "2f4241471d04",
+    "generatedAt": "2026-09-25T11:13:58.210Z"
   },
   "delivery-note-pod": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/DispatchPODForm.tsx": "78974dfad71c",
-      "frontend/src/pages/DispatchDeliveryNoteDetail.tsx": "3cb7e8c919d0",
-      "frontend/src/types/dispatch.types.ts": "1af242868309"
+      "frontend/src/pages/DispatchPODForm.tsx": "52417ea06fd4",
+      "frontend/src/pages/DispatchDeliveryNoteDetail.tsx": "b5270af89051",
+      "frontend/src/types/dispatch.types.ts": "8af7976c3f90"
     },
-    "contentHash": "87005db244e2",
-    "generatedAt": "2026-09-25T08:22:17.879Z"
+    "contentHash": "730769b4f059",
+    "generatedAt": "2026-09-25T11:13:58.219Z"
   },
   "design-dashboard": {
     "sources": {
@@ -268,12 +269,12 @@
   "dispatch-track": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/DispatchList.tsx": "4cb8612043c9",
-      "frontend/src/pages/DispatchDeliveryNoteDetail.tsx": "3cb7e8c919d0",
-      "frontend/src/types/dispatch.types.ts": "797e03441ac1"
+      "frontend/src/pages/DispatchList.tsx": "15eb7b661f7d",
+      "frontend/src/pages/DispatchDeliveryNoteDetail.tsx": "b5270af89051",
+      "frontend/src/types/dispatch.types.ts": "8af7976c3f90"
     },
-    "contentHash": "217e6c9c5ffe",
-    "generatedAt": "2026-09-23T06:17:36.024Z"
+    "contentHash": "ba320b747658",
+    "generatedAt": "2026-09-25T11:13:58.225Z"
   },
   "drawstring-create": {
     "sources": {
@@ -569,32 +570,32 @@
   "invoice-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/InvoiceForm.tsx": "dee9722c38be",
+      "frontend/src/pages/InvoiceForm.tsx": "30497366dfbd",
       "frontend/src/pages/InvoiceList.tsx": "7d219dcddaaa",
       "backend/src/schemas/invoice.schema.ts": "7afc2829d468"
     },
-    "contentHash": "f28b41631285",
-    "generatedAt": "2026-09-23T06:17:36.107Z"
+    "contentHash": "48489896d303",
+    "generatedAt": "2026-09-25T11:13:58.230Z"
   },
   "invoice-edit": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/InvoiceForm.tsx": "dee9722c38be",
-      "frontend/src/pages/InvoiceDetail.tsx": "d70ea7f189b4"
+      "frontend/src/pages/InvoiceForm.tsx": "30497366dfbd",
+      "frontend/src/pages/InvoiceDetail.tsx": "aab7e7a583e8"
     },
-    "contentHash": "b8399de12b6a",
-    "generatedAt": "2026-09-23T06:17:36.110Z"
+    "contentHash": "31dd4cf41b8b",
+    "generatedAt": "2026-09-25T11:13:58.237Z"
   },
   "invoice-view": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/InvoiceDetail.tsx": "d70ea7f189b4",
+      "frontend/src/pages/InvoiceDetail.tsx": "aab7e7a583e8",
       "frontend/src/pages/InvoiceList.tsx": "7d219dcddaaa",
       "frontend/src/components/DocumentShareMenu.tsx": "29df82485f1f",
-      "frontend/src/types/invoice.types.ts": "54041104df71"
+      "frontend/src/types/invoice.types.ts": "84c5991be843"
     },
-    "contentHash": "bb277de8168f",
-    "generatedAt": "2026-09-23T06:17:36.112Z"
+    "contentHash": "425bc2d5cf91",
+    "generatedAt": "2026-09-25T11:13:58.248Z"
   },
   "job-work-dashboard": {
     "sources": {
@@ -1086,11 +1087,11 @@
       "frontend/src/services/saleOrder.service.ts": "b145386ffbfc",
       "backend/src/schemas/saleOrder.schema.ts": "636e31b0c5da",
       "backend/src/routes/saleOrder.routes.ts": "3e4372adda3f",
-      "backend/src/services/saleOrder.service.ts": "7e907663c413",
-      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "3a174de49076"
+      "backend/src/services/saleOrder.service.ts": "855e8a96e045",
+      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "99df84b9480c"
     },
-    "contentHash": "2bd20a2f333c",
-    "generatedAt": "2026-09-25T09:01:31.997Z"
+    "contentHash": "581e63332b97",
+    "generatedAt": "2026-09-25T11:13:58.257Z"
   },
   "sample-approve": {
     "sources": {
@@ -1464,5 +1465,18 @@
     },
     "contentHash": "f298c5349f35",
     "generatedAt": "2026-09-23T06:17:36.385Z"
+  },
+  "invoice-from-delivery-note": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "e20d92cdd59b",
+      "frontend/src/pages/DispatchList.tsx": "15eb7b661f7d",
+      "frontend/src/pages/DispatchDeliveryNoteDetail.tsx": "b5270af89051",
+      "frontend/src/pages/InvoiceDetail.tsx": "aab7e7a583e8",
+      "frontend/src/services/invoice.service.ts": "beff67177b2f",
+      "backend/src/services/invoice.service.ts": "43f68029d964",
+      "backend/src/schemas/invoice.schema.ts": "7afc2829d468"
+    },
+    "contentHash": "3b0a87d51840",
+    "generatedAt": "2026-09-25T11:13:58.243Z"
   }
 }

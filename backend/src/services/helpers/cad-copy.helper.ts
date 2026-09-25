@@ -1,16 +1,15 @@
 /**
  * Copying a CAD row's MARKER — the geometry CAD Planning owns — into a new row.
  *
- * Two writers make a row from another one: "Copy to Raw Mat / Copy to Production"
- * (cad-approval.controller copyCADPurpose) and "Create CAD" on a received stock lot
- * (cad-embroidery.controller createProductionCADFromStock). Until 2026-09-23 they copied
- * different subsets: Copy took the sizes but also the PRICE (so the Production row became a
- * "costed PRODUCTION CAD" that could never be edited or deleted — cad-planning.utils
- * validateCADModification), and Create CAD took the layer length but no sizes, pieces or
- * average (so the row arrived with CAD Avg blank). One field list now serves both.
+ * Two writers make a row from another one: "Copy to Raw Mat" (cad-approval.controller
+ * copyCADPurpose) and "Create CAD" on a received stock lot (cad-embroidery.controller
+ * createProductionCADFromStock). Until 2026-09-23 they copied different subsets: Copy (then also
+ * "Copy to Production") took the sizes but also the PRICE, and Create CAD took the layer length but
+ * no sizes, pieces or average (so the row arrived with CAD Avg blank). One field list now serves
+ * both. Since 2026-09-25 Create CAD is the only way to make a Production CAD.
  *
  * Costing columns are deliberately NOT here — see CLAUDE.md "Fabric Costing IS the CAD row":
- * they belong to Fabric Costing, and a PRODUCTION row is costed only by its Promote flow.
+ * they belong to Fabric Costing, and a PRODUCTION row is never costed.
  */
 
 import { Prisma, fabric_width_cad } from '@prisma/client';

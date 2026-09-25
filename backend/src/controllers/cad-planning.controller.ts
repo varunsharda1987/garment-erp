@@ -25,6 +25,7 @@ import {
 import { syncBomFabricId } from '../services/order-bom.service';
 import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
+import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
 import { applySearch } from '../utils/search-filter';
 
 /**
@@ -2629,6 +2630,9 @@ export async function addCADTableRow(req: Request, res: Response) {
       );
     }
 
+    // The lot must be this style's, on this fabric, with no Production CAD yet — Create CAD's rule
+    await resolveProductionLot(styleId, fabricStockId, { styleFabricId, componentId });
+
     // Use width from stock - this is the key business rule
     stockCutableWidth = Number(validatedStock.cutableWidth);
     logInfo(`PRODUCTION CAD: Using width ${stockCutableWidth}" from stock ${fabricStockId}`);
@@ -2921,6 +2925,11 @@ export async function addCombinedCADRow(req: Request, res: Response) {
       );
     }
 
+    // The lot must be this style's, on these fabrics, with no Production CAD yet — Create CAD's rule
+    await resolveProductionLot(styleId, fabricStockId, {
+      styleFabricId: Array.isArray(styleFabricIds) ? styleFabricIds[0] : null,
+    });
+
     // Use width from stock
     stockCutableWidth = Number(validatedStock.cutableWidth);
     logInfo(`PRODUCTION Combined CAD: Using width ${stockCutableWidth}" from stock ${fabricStockId}`);
@@ -3022,7 +3031,9 @@ export async function addCombinedCADRow(req: Request, res: Response) {
   const newCad = (await prisma.fabric_width_cad.create({
     data: {
       styleFabricId: firstFabric.id, // Link to first fabric for FK
-      costingStyleId: styleId, // Link to style for cost sheet discovery (matches single-row path)
+      // A Production row is a lot marker, never a costing option: no costingStyleId, as the single-row
+      // path — two lots of one width would otherwise collide on the costing unique key
+      costingStyleId: purpose === 'PRODUCTION' ? null : styleId,
       // For PRODUCTION: use fabric from stock; otherwise use style fabric's fabric
       fabricId:
         purpose === 'PRODUCTION' && validatedStock ? validatedStock.fabricId : firstFabric.fabric?.id || undefined,
@@ -3151,6 +3162,22 @@ export async function updateCADTableRow(req: Request, res: Response) {
 
   if (!existingCad) {
     throw new NotFoundError('CAD row', rowId);
+  }
+
+  // A Production CAD is the marker for one received lot, made by Create CAD on that lot. A purpose
+  // edit may not turn a planning row into one (it would carry no lot), nor a lot's marker into a
+  // planning row (the lot would read uncovered while the row still holds it).
+  const currentPurpose = existingCad.purposeEnum ?? existingCad.purpose;
+  if (
+    purpose !== undefined &&
+    purpose !== currentPurpose &&
+    (purpose === 'PRODUCTION' || currentPurpose === 'PRODUCTION')
+  ) {
+    throw new BusinessError(
+      purpose === 'PRODUCTION'
+        ? `A Production CAD is made for a received fabric lot, not by changing a row's purpose. ${CREATE_CAD_HINT}`
+        : 'This Production CAD belongs to a received fabric lot, so its purpose cannot be changed. Reject or delete it instead.'
+    );
   }
 
   // Fetch style_pattern_parts to get goesToEmbroidery values (per-style configuration)

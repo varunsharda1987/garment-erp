@@ -227,6 +227,9 @@ export function validateCutableWidth(
   return { valid: true };
 }
 
+/** Stock allocations that are finished with their Production CAD — they no longer hold it. */
+const SETTLED_ALLOCATION_STATUSES = ['RELEASED', 'RETURNED'] as const;
+
 /**
  * Validates if CAD row can be modified based on approval status
  * @param cadId - The CAD entry ID to validate
@@ -240,13 +243,17 @@ export async function validateCADModification(cadId: string, operation: 'update'
       id: true,
       approvalStatus: true, // allow-cad-approval: this IS the CAD-side lock
       costingApprovalStatus: true,
-      isLocked: true,
-      purpose: true,
-      totalCostPerMeter: true,
       approvedAt: true,
       approvedBy: true,
       _count: {
-        select: { costingFabricItems: true, orderBomItems: true, order_items: true, order_item_costings: true },
+        select: {
+          costingFabricItems: true,
+          orderBomItems: true,
+          order_items: true,
+          order_item_costings: true,
+          // A Production CAD's stock reservation (approve reserves the lot, cutting consumes it)
+          stockAllocations: { where: { allocationStatus: { notIn: [...SETTLED_ALLOCATION_STATUSES] } } },
+        },
       },
     },
   });
@@ -265,6 +272,7 @@ export async function validateCADModification(cadId: string, operation: 'update'
       [cad._count.orderBomItems, 'order BOM line'],
       [cad._count.order_items, 'order line'],
       [cad._count.order_item_costings, 'order costing'],
+      [cad._count.stockAllocations, 'fabric stock reservation'],
     ]
       .filter(([n]) => (n as number) > 0)
       .map(([n, label]) => `${n} ${label}${(n as number) > 1 ? 's' : ''}`);
@@ -295,14 +303,9 @@ export async function validateCADModification(cadId: string, operation: 'update'
     );
   }
 
-  // Landmine №11: the edit discipline is for REAL production costings — isLocked only
-  // records "created via the promote flow" and is never stamped on PRODUCTION CADs created
-  // from stock lots, so those escaped this rule. A PRODUCTION row is locked once it is
-  // promoted-locked OR carries a cost (an uncosted fresh stock CAD stays editable).
-  if (cad.purpose === 'PRODUCTION' && (cad.isLocked || cad.totalCostPerMeter !== null)) {
-    throw new BusinessError(
-      `Cannot ${operation} CAD entry: This is a costed PRODUCTION CAD. ` +
-        `Production CADs cannot be modified once costed, to maintain data integrity.`
-    );
-  }
+  // There is no "costed PRODUCTION CAD" lock any more (2026-09-25). A Production CAD is a lot's
+  // marker and is never costed; the price and `isLocked` only ever came from Fabric Costing →
+  // Promote to Production, which is retired. That rule outlived its purpose and left rejected,
+  // unused rows nobody could edit or delete (IP00138, LNG279). What protects a Production CAD
+  // is what protects every row above: its approval, and what still uses it.
 }

@@ -12,12 +12,18 @@
  *  - Push to Fabric Costing stamped the same price onto Production rows;
  *  - the banner counted a REJECTED Production CAD as covering the lot, hiding Create CAD.
  *
+ * 2026-09-25 (IP00138, LNG279): Fabric Costing → Promote to Production made priced, isLocked
+ * Production rows with no lot that nobody could edit or delete. Every writer now applies Create
+ * CAD's lot rule (production-cad-lot.helper); Copy to Production, a purpose edit into or out of
+ * PRODUCTION and Create Version on one are refused; only approval and real users protect it.
+ *
  * Owner decision: one Production CAD per lot, pre-filled from the approved planning marker.
  *
  * Runs against the real app + live DB; tagged fixtures, per-step teardown.
  */
 
 import request from 'supertest';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
@@ -279,16 +285,37 @@ describe('Create CAD on a received lot', () => {
   });
 });
 
+/**
+ * A lot-less Production row as the retired writers left them: Copy to Production, a purpose edit,
+ * and Fabric Costing → Promote, which also priced and isLocked it (IP00138 dcd56333, LNG279 018933e8).
+ */
+const legacyProductionRow = (data: Partial<Prisma.fabric_width_cadUncheckedCreateInput> = {}) =>
+  prisma.fabric_width_cad.create({
+    data: {
+      id: randomUUID(),
+      styleFabricId: slotId,
+      greigeId,
+      purpose: 'PRODUCTION',
+      purposeEnum: 'PRODUCTION',
+      cutableWidth: 52,
+      cadAverage: 0.7333,
+      approvalStatus: 'PENDING',
+      ...data,
+    },
+  });
+
 describe('a CAD row a cost sheet still uses cannot be deleted', () => {
   // Deleting it used to BLANK the sheet's link (ON DELETE SET NULL) with no error — how
   // ESSKY085LS's approved sheet and its order BOM lost their CAD in Aug 2026.
   it('refuses, naming what still uses it, and deletes once nothing does', async () => {
-    const res0 = await request(app)
-      .post(`/api/cad-planning/${styleId}/copy`)
-      .set(authHeader)
-      .send({ sourceCadId: rmcId, targetPurpose: 'PRODUCTION', styleFabricId: slotId })
-      .expect(200);
-    const cadId = res0.body.data.newRecordId as string;
+    const cad = await legacyProductionRow({
+      approvalStatus: 'REJECTED',
+      totalCostPerMeter: 77,
+      isLocked: true,
+      costingStyleId: styleId,
+      componentName: `${RUN} sheet`,
+    });
+    const cadId = cad.id;
     const sheetId = `${RUN}-CS`;
     await prisma.style_costing.create({
       data: { id: sheetId, styleId, createdById: userId, approvalStatus: 'PENDING', isApproved: false },
@@ -309,25 +336,201 @@ describe('a CAD row a cost sheet still uses cannot be deleted', () => {
   });
 });
 
-describe('Copy to Production copies the marker, not the price', () => {
-  it('the copy carries sizes but no cost, and can be deleted', async () => {
+describe('the stuck Production CAD (IP00138, LNG279, 2026-09-25)', () => {
+  // "Cannot update/delete CAD entry: This is a costed PRODUCTION CAD" — for a rejected row that
+  // nothing used. A Production CAD is never costed now; its approval and its users protect it.
+  it('a rejected, priced, isLocked Production row nothing uses can be edited and deleted', async () => {
+    const cad = await legacyProductionRow({
+      approvalStatus: 'REJECTED',
+      totalCostPerMeter: 77,
+      isLocked: true,
+      costingStyleId: styleId,
+      componentName: `${RUN} stuck`,
+    });
+    await request(app)
+      .put(`/api/cad-planning/${styleId}/row/${cad.id}`)
+      .set(authHeader)
+      .send({ piecesPerMarker: 5 })
+      .expect(200);
+    await request(app).delete(`/api/cad-planning/${styleId}/row/${cad.id}`).set(authHeader).expect(200);
+    expect(await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } })).toBeNull();
+  });
+});
+
+describe('a Production CAD needs a received lot — every writer, not only Create CAD', () => {
+  // Owner, 2026-09-25: "shouldn't have been possible without the bulk fabric inward".
+  let otherStyleId: string;
+  let otherGreigeId: string;
+  let otherFabricId: string;
+  let otherLotId: string;
+
+  beforeAll(async () => {
+    // Another style's lot: its own greige, its own dyed fabric, received for that style
+    otherStyleId = randomUUID();
+    await prisma.styles.create({
+      data: { id: otherStyleId, styleCode: `${RUN}-OTH`, styleName: `${RUN} Other`, createdById: userId },
+    });
+    otherGreigeId = (
+      await prisma.greige_master.create({
+        data: {
+          greigeCode: `${RUN}-G2`,
+          greigeName: `${RUN} Poplin 60"`,
+          genericGreigeName: `${RUN} Poplin`,
+          composition: '100% Cotton',
+          greigeWidth: 60,
+          createdById: userId,
+        },
+      })
+    ).id;
+    otherFabricId = (
+      await prisma.fabric_master.create({
+        data: {
+          fabricCode: `${RUN}-OTHDYED`,
+          fabricName: `${RUN} Poplin - Solid/Dyed - Navy - 56"`,
+          greigeId: otherGreigeId,
+          colorName: 'Navy',
+          finishType: 'DYED',
+          createdById: userId,
+        },
+      })
+    ).id;
+    otherLotId = (
+      await prisma.fabric_stock.create({
+        data: {
+          fabricId: otherFabricId,
+          finishedWidth: 54,
+          cutableWidth: 52,
+          quantityAvailable: 100,
+          weightedAvgCost: 60,
+          purchaseCost: 60,
+          receivedDate: new Date(),
+          originStyleId: otherStyleId,
+          status: 'AVAILABLE',
+          fabricFinishType: 'DYED',
+          createdById: userId,
+        },
+      })
+    ).id;
+  });
+
+  afterAll(async () => {
+    const steps: Array<[string, () => Promise<unknown>]> = [
+      ['fabric_width_cad', () => prisma.fabric_width_cad.deleteMany({ where: { fabricStockId: only(otherLotId) } })],
+      ['fabric_stock', () => prisma.fabric_stock.deleteMany({ where: { id: only(otherLotId) } })],
+      ['fabric_master', () => prisma.fabric_master.deleteMany({ where: { id: only(otherFabricId) } })],
+      ['greige_master', () => prisma.greige_master.deleteMany({ where: { id: only(otherGreigeId) } })],
+      ['styles', () => prisma.styles.deleteMany({ where: { id: only(otherStyleId) } })],
+    ];
+    for (const [label, run] of steps) {
+      try {
+        await run();
+      } catch (err) {
+        console.error(`[cad-production-from-stock teardown] could not clean ${label}:`, err);
+      }
+    }
+  });
+
+  it('Copy to Production is refused — Create CAD on the lot is the way', async () => {
+    const productionRowsOfSlot = () =>
+      prisma.fabric_width_cad.count({ where: { styleFabricId: slotId, purposeEnum: 'PRODUCTION' } });
+    const before = await productionRowsOfSlot();
     const res = await request(app)
       .post(`/api/cad-planning/${styleId}/copy`)
       .set(authHeader)
-      .send({ sourceCadId: rmcId, targetPurpose: 'PRODUCTION', styleFabricId: slotId })
-      .expect(200);
-    const copyId = res.body.data.newRecordId as string;
-    const copy = await prisma.fabric_width_cad.findUnique({ where: { id: copyId } });
-    expect(copy?.totalCostPerMeter).toBeNull();
-    expect(copy?.costingStyleId).toBeNull();
-    expect(copy?.piecesPerMarker).toBe(6);
-    expect(await prisma.cad_size_breakdown.count({ where: { cadId: copyId } })).toBe(6);
-
-    await request(app).delete(`/api/cad-planning/${styleId}/row/${copyId}`).set(authHeader).expect(200);
-    expect(await prisma.fabric_width_cad.findUnique({ where: { id: copyId } })).toBeNull();
+      .send({ sourceCadId: rmcId, targetPurpose: 'PRODUCTION', styleFabricId: slotId });
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/Create CAD on the lot/);
+    expect(await productionRowsOfSlot()).toBe(before);
   });
 
-  it('Push to Fabric Costing skips Production rows', async () => {
+  it("a purpose edit cannot make a planning row a Production CAD, nor turn a lot's marker back", async () => {
+    const planning = await prisma.fabric_width_cad.create({
+      data: {
+        id: randomUUID(),
+        styleFabricId: slotId,
+        greigeId,
+        purpose: 'COSTING',
+        purposeEnum: 'COSTING',
+        cutableWidth: 50,
+        approvalStatus: 'PENDING',
+        componentName: `${RUN} edit`,
+      },
+    });
+    const into = await request(app)
+      .put(`/api/cad-planning/${styleId}/row/${planning.id}`)
+      .set(authHeader)
+      .send({ purpose: 'PRODUCTION' });
+    expect(into.status).toBe(422);
+    expect(into.body.message).toMatch(/made for a received fabric lot/);
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: planning.id } }))?.purposeEnum).toBe('COSTING');
+
+    const [lotMarker] = await productionRowsOnLot(lot2Id);
+    const out = await request(app)
+      .put(`/api/cad-planning/${styleId}/row/${lotMarker.id}`)
+      .set(authHeader)
+      .send({ purpose: 'RAW_MATERIAL_CALCULATION' });
+    expect(out.status).toBe(422);
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: lotMarker.id } }))?.purposeEnum).toBe('PRODUCTION');
+  });
+
+  it("Add Row refuses another style's lot, and a lot that already has a Production CAD", async () => {
+    const foreign = await request(app)
+      .post(`/api/cad-planning/${styleId}/row`)
+      .set(authHeader)
+      .send({ styleFabricId: slotId, purpose: 'PRODUCTION', fabricStockId: otherLotId });
+    expect(foreign.status).toBe(422);
+    expect(foreign.body.message).toMatch(/is not a fabric of/);
+    expect(await productionRowsOnLot(otherLotId)).toHaveLength(0);
+
+    const taken = await request(app)
+      .post(`/api/cad-planning/${styleId}/row`)
+      .set(authHeader)
+      .send({ styleFabricId: slotId, purpose: 'PRODUCTION', fabricStockId: lot2Id });
+    expect(taken.status).toBe(422);
+    expect(taken.body.message).toMatch(/already has a Production CAD/);
+    expect(await productionRowsOnLot(lot2Id)).toHaveLength(1);
+  });
+
+  it("Link to Stock refuses another style's lot, and a Production CAD with no lot cannot be approved", async () => {
+    const orphan = await legacyProductionRow({ componentName: `${RUN} link` });
+
+    const link = await request(app)
+      .post(`/api/cad-planning/${styleId}/link-stock`)
+      .set(authHeader)
+      .send({ cadId: orphan.id, fabricStockId: otherLotId });
+    expect(link.status).toBe(422);
+    expect(link.body.message).toMatch(/is not a fabric of/);
+
+    const approve = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${orphan.id}/approve`)
+      .set(authHeader)
+      .send({});
+    expect(approve.status).toBe(422);
+    expect(approve.body.message).toMatch(/not on a received fabric lot/);
+    const after = await prisma.fabric_width_cad.findUnique({ where: { id: orphan.id } });
+    expect(after?.approvalStatus).toBe('PENDING');
+    expect(after?.fabricStockId).toBeNull();
+  });
+
+  it('Create Version is refused on a Production CAD (it would be a second row that lost the lot)', async () => {
+    const approved = await legacyProductionRow({
+      approvalStatus: 'APPROVED',
+      approvedAt: new Date(),
+      approvedBy: userId,
+      componentName: `${RUN} version`,
+    });
+    const res = await request(app)
+      .post(`/api/cad-planning/${styleId}/planning/${approved.id}/create-version`)
+      .set(authHeader)
+      .send({});
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/no versions/);
+    expect(await prisma.fabric_width_cad.count({ where: { supersededById: approved.id } })).toBe(0);
+  });
+});
+
+describe('Push to Fabric Costing', () => {
+  it('skips Production rows', async () => {
     const res = await request(app)
       .post('/api/fabric-costing/push-from-cad')
       .set(authHeader)

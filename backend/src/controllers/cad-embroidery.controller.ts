@@ -5,13 +5,13 @@
  */
 
 import { Request, Response } from 'express';
-import { Prisma, fabric_width_cad } from '@prisma/client';
+import { fabric_width_cad } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { ALL_PARTS_CODE, getDefaultLayerMargin } from './cad-planning.utils';
-import { resolveManualJobStyleFabricAnchor } from '../services/helpers/fabric-identity.helper';
+import { resolveProductionLot } from '../services/helpers/production-cad-lot.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
@@ -448,92 +448,14 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     throw new ValidationError('fabricStockId is required');
   }
 
-  const fabricStock = await prisma.fabric_stock.findUnique({
-    where: { id: fabricStockId },
-    include: {
-      fabricMaster: {
-        select: { fabricCode: true, greigeId: true, finishType: true, greige: { select: { genericGreigeName: true } } },
-      },
-      grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
-    },
-  });
-  if (!fabricStock) {
-    throw new NotFoundError('Fabric stock', fabricStockId);
-  }
-  const style = await prisma.styles.findUnique({ where: { id: styleId }, select: { styleCode: true } });
-  if (!style) {
-    throw new NotFoundError('Style', styleId);
-  }
-
-  const lotLabel = [fabricStock.fabricMaster?.fabricCode, fabricStock.grnItem?.goods_receiving_notes?.grnNumber]
-    .filter(Boolean)
-    .join(', ');
-  const finishType: 'DYED' | 'PRINTED' =
-    (fabricStock.fabricFinishType ?? fabricStock.fabricMaster?.finishType) === 'PRINTED' ? 'PRINTED' : 'DYED';
-  const lotGreigeId = fabricStock.fabricMaster?.greigeId ?? null;
-  const lotGeneric = fabricStock.fabricMaster?.greige?.genericGreigeName?.trim().toLowerCase() ?? null;
-
-  // 1. Which of the style's fabric slots this lot belongs to — resolved, or refused
-  const slotsOfStyle = (where: Prisma.style_fabricsWhereInput) =>
-    prisma.style_fabrics.findMany({
-      where: { AND: [where, { style_components: { styleId } }] },
-      select: { id: true, genericGreigeName: true, fabricFinishType: true },
-    });
-
-  let resolvedStyleFabricId: string | null = null;
-  if (styleFabricId) {
-    const [sf] = await slotsOfStyle({ id: styleFabricId });
-    if (!sf) {
-      throw new BusinessError('That fabric does not belong to this style.');
-    }
-    resolvedStyleFabricId = sf.id;
-  }
-  if (!resolvedStyleFabricId) {
-    // The slot already linked to this lot's fabric (ready fabric, or a dyed fabric the receipt linked)
-    const claimed = await slotsOfStyle({ fabricId: fabricStock.fabricId });
-    if (claimed.length === 1) resolvedStyleFabricId = claimed[0].id;
-  }
-  if (!resolvedStyleFabricId && componentId) {
-    const matching = (await slotsOfStyle({ componentId })).filter(
-      (s) =>
-        (!lotGeneric || !s.genericGreigeName || s.genericGreigeName.trim().toLowerCase() === lotGeneric) &&
-        (!s.fabricFinishType || s.fabricFinishType === finishType)
-    );
-    if (matching.length === 1) resolvedStyleFabricId = matching[0].id;
-  }
-  if (!resolvedStyleFabricId && lotGreigeId) {
-    // The greige the lot was dyed from, read off the style's CAD rows (the receipt's own fallback)
-    resolvedStyleFabricId = await resolveManualJobStyleFabricAnchor(styleId, lotGreigeId, finishType);
-  }
-  if (!resolvedStyleFabricId && lotGreigeId) {
-    const byGreige = await slotsOfStyle({ fabric: { greigeId: lotGreigeId } });
-    if (byGreige.length === 1) resolvedStyleFabricId = byGreige[0].id;
-  }
-  if (!resolvedStyleFabricId) {
-    throw new BusinessError(
-      `Cannot tell which fabric of ${style.styleCode} this lot belongs to (${lotLabel || fabricStockId}). ` +
-        `Check the style's fabrics (greige ${fabricStock.fabricMaster?.greige?.genericGreigeName ?? '—'}, ` +
-        `finish ${finishType}) and press Create CAD again.`
-    );
-  }
-
-  // 2. One Production CAD per lot — a rejected one may be replaced
-  const existing = await prisma.fabric_width_cad.findFirst({
-    where: {
-      fabricStockId,
-      AND: [
-        { OR: [{ purposeEnum: 'PRODUCTION' }, { purpose: 'PRODUCTION' }] },
-        { OR: [{ approvalStatus: null }, { approvalStatus: { not: 'REJECTED' } }] }, // allow-cad-approval
-      ],
-    },
-    select: { approvalStatus: true },
-  });
-  if (existing) {
-    throw new BusinessError(
-      `This lot (${lotLabel || fabricStockId}) already has a Production CAD (${(existing.approvalStatus ?? 'PENDING').toLowerCase()}). ` +
-        `Open it in the Production section of the table.`
-    );
-  }
+  // 1–2. The style slot this lot belongs to (or refused) and one Production CAD per lot — the
+  //      same rule Add Row, Add Combined Row and Link to Stock apply (production-cad-lot.helper)
+  const {
+    fabricStock,
+    styleFabricId: resolvedStyleFabricId,
+    lotLabel,
+    lotGreigeId,
+  } = await resolveProductionLot(styleId, fabricStockId, { styleFabricId, componentId });
 
   // 3. The marker to start from: the slot's approved planning row, RAW MAT first, same width first
   const stockWidth = Number(fabricStock.cutableWidth);

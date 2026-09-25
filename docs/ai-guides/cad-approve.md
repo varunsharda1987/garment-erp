@@ -84,6 +84,7 @@ When you approve a CAD plan:
 - **Linked fabric costing is not affected** - Rejecting a CAD plan does not delete any fabric costing records that were already created
 - **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
 - **A Production CAD with no average cannot be approved** - Fill in Layer (M) and the Size Breakdown, save, then Approve
+- **A Production CAD must be on a received lot** - Approve does not show on a Production row with no lot. Use **Link to Stock** on the row, or delete it and press **Create CAD** on the lot in the **Fabric Stock Available** box
 
 ## After approving
 

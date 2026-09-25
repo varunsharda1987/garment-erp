@@ -7,6 +7,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
+import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
 
 /**
  * Reserve fabric stock for a PRODUCTION CAD
@@ -132,10 +133,18 @@ export async function approveCADPurpose(req: Request, res: Response) {
     throw new BusinessError('CAD record is already approved');
   }
 
-  // An approved Production CAD is what unlocks cutting (2026-09-23), so it must carry an average:
-  // the stored one, or one computable from its layer length and size breakdown (then stored).
+  // An approved Production CAD is what unlocks cutting (2026-09-23), so it must be the marker of a
+  // received lot — rows made with no lot (Copy / Promote / a purpose edit, before 2026-09-25) never
+  // qualify — and it must carry an average: the stored one, or one computable from its layer length
+  // and size breakdown (then stored).
   let productionAverageToStore: number | null = null;
   if ((cadRecord.purposeEnum ?? cadRecord.purpose) === 'PRODUCTION') {
+    if (!cadRecord.fabricStockId) {
+      throw new BusinessError(
+        'This Production CAD is not on a received fabric lot, so it cannot be approved. Link it to the lot ' +
+          '(row menu → Link to Stock), or delete it and use Create CAD on the lot in the stock banner.'
+      );
+    }
     const pieces = cadRecord.piecesPerMarker ?? cadRecord.sizeBreakdowns.reduce((sum, s) => sum + (s.quantity || 0), 0);
     const average =
       cadRecord.cadAverage !== null
@@ -340,6 +349,15 @@ export async function createPlanningVersion(req: Request, res: Response) {
     throw new BusinessError('Can only create new version from APPROVED CAD');
   }
 
+  // A Production CAD is one lot's marker, one per lot. A version of it would be a second live row that
+  // (copying only the planning fields below) had lost the lot. It is changed in place instead.
+  if ((baseCad.purposeEnum ?? baseCad.purpose) === 'PRODUCTION') {
+    throw new BusinessError(
+      'A Production CAD has no versions — it is the marker of one fabric lot. To change it, Reject it, edit the ' +
+        'row and Approve it again (or delete it and use Create CAD on the lot in the stock banner).'
+    );
+  }
+
   // Create new version
   const newVersion = await prisma.fabric_width_cad.create({
     data: {
@@ -403,7 +421,11 @@ export async function createPlanningVersion(req: Request, res: Response) {
 }
 
 /**
- * Copy CAD Between Purposes (RAW_MATERIAL_CALCULATION->COSTING, COSTING->PRODUCTION)
+ * Copy CAD Between Purposes (COSTING -> RAW_MATERIAL_CALCULATION)
+ *
+ * No copy to PRODUCTION (2026-09-25): a Production CAD is the marker of one received lot and is made
+ * by Create CAD on that lot (production-from-stock), which pre-fills the approved planning marker.
+ * Copy made one with no lot at all.
  * POST /api/styles/:styleId/cad-table/copy
  */
 export async function copyCADPurpose(req: Request, res: Response) {
@@ -428,43 +450,41 @@ export async function copyCADPurpose(req: Request, res: Response) {
     );
   }
 
+  if (targetPurpose === 'PRODUCTION') {
+    throw new BusinessError(
+      `A Production CAD is made for a received fabric lot, not copied from a planning row. ${CREATE_CAD_HINT} ` +
+        'It starts from the approved planning marker.'
+    );
+  }
+
   // Validate copy direction
-  // Valid paths: COSTING -> RAW_MATERIAL_CALCULATION -> PRODUCTION
-  const validCopyPaths = [
-    { from: 'COSTING', to: 'RAW_MATERIAL_CALCULATION' },
-    { from: 'RAW_MATERIAL_CALCULATION', to: 'PRODUCTION' },
-  ];
+  const validCopyPaths = [{ from: 'COSTING', to: 'RAW_MATERIAL_CALCULATION' }];
 
   const isValidPath = validCopyPaths.some((path) => path.from === sourceCad.purpose && path.to === targetPurpose);
 
   if (!isValidPath) {
     throw new BusinessError(
-      `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→RAW_MATERIAL_CALCULATION, RAW_MATERIAL_CALCULATION→PRODUCTION`
+      `Invalid copy path: ${sourceCad.purpose} → ${targetPurpose}. Allowed: COSTING→RAW_MATERIAL_CALCULATION`
     );
   }
 
-  // The price travels only between planning purposes. A PRODUCTION row is costed through
-  // Fabric Costing → Promote; a copied price made it a "costed PRODUCTION CAD" that could never
-  // be edited or deleted (validateCADModification), which stranded ESSKY085LS's rejected copy.
-  const costing =
-    targetPurpose === 'PRODUCTION'
-      ? {}
-      : {
-          greigeCostPerMeter: sourceCad.greigeCostPerMeter,
-          transportCostPerMeter: sourceCad.transportCostPerMeter,
-          shrinkagePercent: sourceCad.shrinkagePercent,
-          shrinkageCostPerMeter: sourceCad.shrinkageCostPerMeter,
-          screenCostPerMeter: sourceCad.screenCostPerMeter,
-          screenType: sourceCad.screenType,
-          totalCostPerMeter: sourceCad.totalCostPerMeter,
-          processorId: sourceCad.processorId,
-          processingPricePerMeter: sourceCad.processingPricePerMeter,
-          numberOfColors: sourceCad.numberOfColors,
-          costInputMode: sourceCad.costInputMode,
-          costingStyleId: sourceCad.costingStyleId,
-          orderQuantityPcs: sourceCad.orderQuantityPcs,
-          processingBatchGroupColorId: sourceCad.processingBatchGroupColorId,
-        };
+  // The price travels between the planning purposes (a Production row is never costed)
+  const costing = {
+    greigeCostPerMeter: sourceCad.greigeCostPerMeter,
+    transportCostPerMeter: sourceCad.transportCostPerMeter,
+    shrinkagePercent: sourceCad.shrinkagePercent,
+    shrinkageCostPerMeter: sourceCad.shrinkageCostPerMeter,
+    screenCostPerMeter: sourceCad.screenCostPerMeter,
+    screenType: sourceCad.screenType,
+    totalCostPerMeter: sourceCad.totalCostPerMeter,
+    processorId: sourceCad.processorId,
+    processingPricePerMeter: sourceCad.processingPricePerMeter,
+    numberOfColors: sourceCad.numberOfColors,
+    costInputMode: sourceCad.costInputMode,
+    costingStyleId: sourceCad.costingStyleId,
+    orderQuantityPcs: sourceCad.orderQuantityPcs,
+    processingBatchGroupColorId: sourceCad.processingBatchGroupColorId,
+  };
 
   // Create new CAD with target purpose (Copy as Draft workflow)
   const newCad = await prisma.$transaction(async (tx) => {
@@ -493,9 +513,6 @@ export async function copyCADPurpose(req: Request, res: Response) {
         approvedAt: null,
         approvalNotes: null,
         isPreferred: false, // Reset preferred flag
-
-        // For PRODUCTION, track planning width for variance
-        planningCadWidth: targetPurpose === 'PRODUCTION' ? sourceCad.cutableWidth : null,
       },
     });
     await copyCadChildren(tx, sourceCad.id, created.id);
@@ -609,6 +626,14 @@ export async function linkCADToStock(req: Request, res: Response) {
   if (fabricStock.status !== 'AVAILABLE') {
     throw new BusinessError(`Stock is not available (current status: ${fabricStock.status})`);
   }
+
+  // The lot must be this style's, on this row's fabric, with no other Production CAD — Create CAD's rule
+  await resolveProductionLot(
+    styleId,
+    fabricStockId,
+    { styleFabricId: cadRecord.styleFabricId },
+    { excludeCadId: cadId }
+  );
 
   // Calculate variance if planning width provided
   let widthVariance = null;

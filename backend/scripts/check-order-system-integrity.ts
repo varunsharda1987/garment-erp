@@ -24,6 +24,8 @@
  * D14 stock production order totals / rollup inconsistent  (MTS rollup is never written)
  * D15 order items that never got a work order              (existence check keyed on styleId)
  * D16 job work orders sent out with no outward challan    (29-Aug to 25-Sep: fabric-roll / garment issues)
+ * D17 Production CADs with no received lot                 (Copy / Promote / purpose edit, before 25-Sep)
+ * D18 Production CADs carrying a price or the promote lock (the undeletable "costed PRODUCTION CAD")
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -292,6 +294,34 @@ async function main() {
              JOIN challans c ON c.id = ci."challanId"
             WHERE ci."jobWorkOrderId" = j.id AND c."challanType" = 'OUTWARD' AND c.status <> 'CANCELLED')
        ORDER BY j."sentDate"`
+  );
+
+  // ---- CAD Planning: Production CADs ------------------------------------------------------
+
+  // A Production CAD is the marker for one received lot, made by Create CAD on that lot. Until
+  // 2026-09-25 Copy to Production, Fabric Costing → Promote, a purpose edit and Create Version made
+  // them with no lot (IP00138, LNG279, LNG236, EMFK00262). Such a row can no longer be approved and
+  // is deletable from the row menu while nothing uses it.
+  const productionCadRows = (where: string) =>
+    prisma.$queryRawUnsafe(`
+      SELECT s."styleCode", s.buyer_style_ref AS buyer_ref, c.id, c.approval_status::text AS status,
+             c."cutableWidth"::float AS width, c."totalCostPerMeter"::float AS price, c.is_locked AS locked,
+             c."createdAt"::date AS created
+        FROM fabric_width_cad c
+        LEFT JOIN style_fabrics sf ON sf.id = c.style_fabric_id
+        LEFT JOIN style_components sc ON sc.id = sf."componentId"
+        LEFT JOIN styles s ON s.id = COALESCE(sc."styleId", c."costingStyleId")
+       WHERE COALESCE(c.purpose_enum::text, c.purpose) = 'PRODUCTION' AND (${where})
+       ORDER BY c."createdAt"`);
+
+  await run('D17', 'Production CADs with no received lot', productionCadRows('c.fabric_stock_id IS NULL'));
+
+  // Production CADs are never costed; the price and is_locked only came from the retired promote
+  // flow, and a priced row was the "costed PRODUCTION CAD" nobody could edit or delete.
+  await run(
+    'D18',
+    'Production CADs carrying a price or the old promote lock',
+    productionCadRows('c."totalCostPerMeter" IS NOT NULL OR c.is_locked')
   );
 
   // ---- Output ---------------------------------------------------------------------------

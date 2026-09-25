@@ -112,7 +112,7 @@ A style must exist with:
 Each row has these columns (left to right):
 
 **Pre-populated (gray background, auto-filled):**
-- **Purpose** - Costing / Raw Mat / Production
+- **Purpose** - Costing / Raw Mat / Production. A row cannot be switched into or out of Production: a Production CAD comes only from a received lot
 - **Component** - Auto-filled from style fabric
 - **Fabric Finish** - e.g., PLAIN, PRINTED, DYED
 - **Embroidery** - Shows if fabric has embroidery
@@ -204,6 +204,9 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
 - **"This lot already has a Production CAD"**: each lot gets one. Find it in the Production section of the table.
 - **"This Production CAD has no average yet"**: Approve is refused until the row has a Layer (M) and a Size Breakdown. Fill them in, save, then Approve.
 - **A lot shows a red Rejected chip**: its Production CAD was rejected. Press **Create CAD** again to make a new one.
+- **"This Production CAD is not on a received fabric lot"**: a Production row with no lot cannot be approved. Use **Link to Stock**, or delete the row and press **Create CAD** on the lot.
+- **"This lot (…) is not a fabric of …"**: the lot picked in **Select stock...** or **Link to Stock** was received for another style or fabric. Pick one of this style's own lots.
+- **"A Production CAD is made for a received fabric lot"**: Copy and a Purpose change cannot make a Production CAD. Press **Create CAD** on the lot in the **Fabric Stock Available** box.
 - **Deleting approved rows**: Approved CAD rows linked to fabric costing or orders cannot be deleted.
 - **Combining different colours**: A White Poplin top and a Burgundy Poplin shirt are two different fabrics, even on the same greige — they cannot share one marker. Click **Add 2 … Rows** to plan them separately.
 
@@ -222,12 +225,12 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
 ## Row actions
 
 Click the row menu (three dots) for:
-- **Approve** - Approve this CAD entry (pending or rejected rows)
+- **Approve** - Approve this CAD entry (pending or rejected rows). On a Production row it shows only once the row is on a received lot
 - **Reject** - Enter a **Rejection Reason** and confirm. The row becomes REJECTED and shows a red **Rejected** badge under its purpose; hover it to see who rejected it, when and why
-- **Create Version** - New version of an approved entry
-- **Copy to Raw Mat** (on Costing rows) / **Copy to Production** (on Raw Mat rows) - Copies the marker and size breakdown. The price is not copied to a Production row
-- **Link to Stock** - Attach a received lot to a pending Production row
-- **Edit** / **Delete** - Not available on approved rows
+- **Create Version** - New version of an approved Costing or Raw Mat entry. A Production CAD has no versions: **Reject** it, edit the row, then **Approve** it again
+- **Copy to Raw Mat** (on Costing rows) - Copies the marker and size breakdown. There is no Copy to Production: a Production CAD is made with **Create CAD** on the received lot (section 10)
+- **Link to Stock** - Attach one of the style's own received lots to a pending Production row
+- **Edit** / **Delete** - Not available on approved rows. A pending or rejected row can be deleted while nothing uses it (a cost sheet line, an order BOM line, an order, or a fabric stock reservation)
 
 ## Reject CAD plan
 

@@ -796,15 +796,9 @@ export function CADSpreadsheetTable({
       });
       setEditingRow(null);
       notify.success('CAD row updated successfully');
-    } catch (error: unknown) {
-      // BUG-CAD11 fix: use error utility instead of inline extraction
-      // Handle approval/locked errors with detailed message
-      const message = getErrorMessage(error);
-      if (message.includes('approved') || message.includes('locked')) {
-        notify.error(message, { duration: 6000 });
-      } else {
-        notify.error('Failed to update CAD row');
-      }
+    } catch {
+      // allow-silent-catch: the page's handler has already shown the server's reason (it names the next
+      // click); a second, vaguer toast here only buried it
     } finally {
       setSavingRow(null);
     }
@@ -814,17 +808,10 @@ export function CADSpreadsheetTable({
   const handleDeleteRow = async (rowId: string) => {
     setDeletingRow(rowId);
     try {
-      await onDeleteRow(rowId);
-      notify.success('CAD row deleted');
-    } catch (error: unknown) {
-      // BUG-CAD11 fix: use error utility instead of inline extraction
-      // Handle approval/locked errors with detailed message
-      const message = getErrorMessage(error);
-      if (message.includes('approved') || message.includes('locked')) {
-        notify.error(message, { duration: 6000 });
-      } else {
-        notify.error('Failed to delete CAD row');
-      }
+      await onDeleteRow(rowId); // the page confirms it
+    } catch {
+      // allow-silent-catch: the page's handler has already shown the server's reason (it names the next
+      // click); a second, vaguer toast here only buried it
     } finally {
       setDeletingRow(null);
     }
@@ -1411,20 +1398,24 @@ export function CADSpreadsheetTable({
                         {/* Purpose - Editable */}
                         <TableCell className={cn('px-1 py-1.5', getFieldClass('editable', isEditing))}>
                           {isEditing ? (
+                            // A Production CAD belongs to a received lot (Create CAD): a row can't be edited into
+                            // one, and a lot's marker can't be edited out of it
                             <Select
-                              value={getDisplayValue(row, 'purpose', 'PRODUCTION') || 'PRODUCTION'}
+                              value={getDisplayValue(row, 'purpose', 'COSTING') || 'COSTING'}
                               onValueChange={(v) => handleFieldChange(row.id, 'purpose', v as CADPurpose)}
-                              disabled={isSaving}
+                              disabled={isSaving || row.purpose === 'PRODUCTION'}
                             >
                               <SelectTrigger className="h-7 text-xs w-20">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {Object.entries(CAD_PURPOSE_LABELS).map(([value, label]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {label}
-                                  </SelectItem>
-                                ))}
+                                {Object.entries(CAD_PURPOSE_LABELS)
+                                  .filter(([value]) => row.purpose === 'PRODUCTION' || value !== 'PRODUCTION')
+                                  .map(([value, label]) => (
+                                    <SelectItem key={value} value={value}>
+                                      {label}
+                                    </SelectItem>
+                                  ))}
                               </SelectContent>
                             </Select>
                           ) : (
@@ -1960,24 +1951,25 @@ export function CADSpreadsheetTable({
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-48">
-                                  {/* Approve - for PENDING or REJECTED rows */}
+                                  {/* Approve - for PENDING or REJECTED rows; a Production CAD only on a lot */}
                                   {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
                                     (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
-                                    (row as CADSpreadsheetRowExtended).approvalStatus ===
-                                      CADApprovalStatus.REJECTED) && (
-                                    <DropdownMenuItem
-                                      onClick={() => handleApproveCAD(row.id)}
-                                      disabled={approvingRow === row.id}
-                                      className="text-success focus:text-success"
-                                    >
-                                      {approvingRow === row.id ? (
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      ) : (
-                                        <Check className="h-4 w-4 mr-2" />
-                                      )}
-                                      Approve
-                                    </DropdownMenuItem>
-                                  )}
+                                    (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.REJECTED) &&
+                                    (row.purpose !== 'PRODUCTION' ||
+                                      !!(row as CADSpreadsheetRowExtended).fabricStockId) && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleApproveCAD(row.id)}
+                                        disabled={approvingRow === row.id}
+                                        className="text-success focus:text-success"
+                                      >
+                                        {approvingRow === row.id ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <Check className="h-4 w-4 mr-2" />
+                                        )}
+                                        Approve
+                                      </DropdownMenuItem>
+                                    )}
                                   {/* Reject - for PENDING/APPROVED rows with data */}
                                   {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
                                     (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
@@ -1996,32 +1988,26 @@ export function CADSpreadsheetTable({
                                         Reject
                                       </DropdownMenuItem>
                                     )}
-                                  {/* Create Version - for APPROVED rows */}
-                                  {(row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED && (
+                                  {/* Create Version - for APPROVED planning rows (a Production CAD is one lot's marker: Reject → edit → Approve) */}
+                                  {(row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED &&
+                                    row.purpose !== 'PRODUCTION' && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleCreateVersion(row.id)}
+                                        disabled={creatingVersion === row.id}
+                                      >
+                                        {creatingVersion === row.id ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <GitBranch className="h-4 w-4 mr-2" />
+                                        )}
+                                        Create Version
+                                      </DropdownMenuItem>
+                                    )}
+                                  {/* Copy to Raw Mat - for COSTING rows. There is no Copy to Production: a Production
+                                      CAD is made for a received lot with Create CAD in the stock banner. */}
+                                  {row.purpose === 'COSTING' && (
                                     <DropdownMenuItem
-                                      onClick={() => handleCreateVersion(row.id)}
-                                      disabled={creatingVersion === row.id}
-                                    >
-                                      {creatingVersion === row.id ? (
-                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      ) : (
-                                        <GitBranch className="h-4 w-4 mr-2" />
-                                      )}
-                                      Create Version
-                                    </DropdownMenuItem>
-                                  )}
-                                  {/* Copy - for non-PRODUCTION rows */}
-                                  {row.purpose !== 'PRODUCTION' && (
-                                    <DropdownMenuItem
-                                      onClick={() => {
-                                        const targetPurpose =
-                                          row.purpose === 'COSTING'
-                                            ? 'RAW_MATERIAL_CALCULATION'
-                                            : row.purpose === 'RAW_MATERIAL_CALCULATION'
-                                              ? 'PRODUCTION'
-                                              : null;
-                                        if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
-                                      }}
+                                      onClick={() => handleCopyCAD(row.id, 'RAW_MATERIAL_CALCULATION')}
                                       disabled={copyingRow === row.id}
                                     >
                                       {copyingRow === row.id ? (
@@ -2029,7 +2015,7 @@ export function CADSpreadsheetTable({
                                       ) : (
                                         <Copy className="h-4 w-4 mr-2" />
                                       )}
-                                      {row.purpose === 'COSTING' ? 'Copy to Raw Mat' : 'Copy to Production'}
+                                      Copy to Raw Mat
                                     </DropdownMenuItem>
                                   )}
                                   {/* Link to Stock - for PRODUCTION + PENDING rows */}
@@ -2042,17 +2028,14 @@ export function CADSpreadsheetTable({
                                     )}
                                   <DropdownMenuSeparator />
                                   {/* Edit */}
-                                  <DropdownMenuItem
-                                    onClick={() => setEditingRow(row.id)}
-                                    disabled={isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
-                                  >
+                                  <DropdownMenuItem onClick={() => setEditingRow(row.id)} disabled={isRowLocked}>
                                     <Pencil className="h-4 w-4 mr-2" />
                                     Edit
                                   </DropdownMenuItem>
                                   {/* Delete */}
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteRow(row.id)}
-                                    disabled={isDeleting || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
+                                    disabled={isDeleting || isRowLocked}
                                     className="text-destructive focus:text-destructive"
                                   >
                                     {isDeleting ? (

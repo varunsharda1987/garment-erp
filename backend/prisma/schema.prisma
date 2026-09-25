@@ -984,6 +984,10 @@ model grn_items {
   actualRatePerUnit     Decimal?              @db.Decimal(12, 2) // Actual rate received (may differ from PO rate)
   updateFutureSourcing  Boolean               @default(false) // true = permanent change, false = one-time exception
   actualQuantity        Decimal?              @db.Decimal(10, 3) // P2: Physical quantity after fold adjustment (stock uses this; docs use receivedQuantity)
+  /// The weaver whose cloth ACTUALLY arrived (pre-filled from the PO line, may differ). Written onto the lot.
+  weaverId              String?
+  /// The store declared the weaver unknown — the explicit alternative to naming one on a greige/fabric line.
+  weaverNotKnown        Boolean               @default(false)
   goods_receiving_notes goods_receiving_notes @relation(fields: [grnId], references: [id], onDelete: Cascade)
   materials             materials             @relation(fields: [materialId], references: [id])
   purchase_order_items  purchase_order_items? @relation(fields: [poItemId], references: [id], onDelete: Cascade)
@@ -991,9 +995,11 @@ model grn_items {
   greige_stock          greige_stock[]        @relation("GreigeStockGrnItem")
   fabric_stock          fabric_stock[]        @relation("FabricStockGrnItem")
   lace_stock            lace_stock[]          @relation("LaceStockGrnItem")
+  weaver                weavers?              @relation("GRNItemWeaver", fields: [weaverId], references: [id])
 
   @@index([grnId])
   @@index([poItemId])
+  @@index([weaverId])
 }
 
 model grn_item_details {
@@ -1528,17 +1534,22 @@ model purchase_order_items {
   igstRate                     Decimal?                       @db.Decimal(5, 2)
   igstAmount                   Decimal?                       @db.Decimal(12, 2)
   taxAmount                    Decimal?                       @db.Decimal(12, 2)
+  /// The weaver (mill) this line is bought from, when known at ordering. Optional — it is often known
+  /// only at dispatch; the GRN line records the one that actually came. Never on greige_master.
+  weaverId                     String?
   grn_items                    grn_items[]
   materials                    materials?                     @relation(fields: [materialId], references: [id])
   purchase_orders              purchase_orders                @relation(fields: [poId], references: [id], onDelete: Cascade)
   requirement_po_links         requirement_po_links[]
   service_requirement_po_links service_requirement_po_links[] @relation("ServiceRequirementPOLink")
   po_source_links              po_source_links[]
+  weaver                       weavers?                       @relation("POItemWeaver", fields: [weaverId], references: [id])
   threadRequirements           order_thread_requirements[]    @relation("thread_requirement_po_item")
 
   @@index([materialId])
   @@index([poId])
   @@index([serviceType])
+  @@index([weaverId])
 }
 
 model purchase_orders {
@@ -2905,6 +2916,7 @@ model suppliers {
   serviceRequirementsAsAssignedProcessor  work_order_service_requirements[] @relation("ServiceRequirementAssignedProcessor")
   greigeStock                             greige_stock[]                    @relation("GreigeStockSupplier")
   greigeStockAsProcessor                  greige_stock[]                    @relation("GreigeStockProcessor")
+  weavers                                 weavers[]                         @relation("WeaverSupplier")
   warehouses                              warehouses[]                      @relation("WarehouseSupplier")
   debit_notes                             debit_notes[]
   transfer_slips_issued_to                transfer_slips[]                  @relation("TransferIssuedTo")
@@ -4477,6 +4489,8 @@ model greige_master {
   composition              String
   weaveType                String?
   greigeQuality            GreigeQuality?
+  /// RETIRED 2026-09-25 — kept read-only for history. The weaver lives on the purchase (PO line, GRN
+  /// line) and the lot (greige_stock.weaverId), because the weaver we buy a greige from keeps changing.
   weaver                   String?
   greigeWidth              Decimal                        @db.Decimal(10, 2)
   expectedFinishedWidthMin Decimal?                       @db.Decimal(10, 2)
@@ -4525,6 +4539,32 @@ model greige_master {
   @@index([isActive])
 }
 
+/// A weaver (mill) that wove a greige or fabric we bought. The weaver we buy a greige from keeps
+/// changing, so it is recorded on the PURCHASE (PO line → GRN line → lot), never on the greige
+/// master — every weaver's lots stay under one greige (owner, 2026-09-24). Picked, or added on
+/// the spot, wherever a weaver is asked; no separate master screen.
+model weavers {
+  id          String   @id @default(uuid())
+  name        String
+  /// name lower-cased with single spaces — the uniqueness key, so "Kalai Mangal" and "kalai  mangal" are one weaver
+  nameKey     String   @unique
+  city        String?
+  /// Set when we buy straight from this weaver (the supplier IS the weaver)
+  supplierId  String?
+  isActive    Boolean  @default(true)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  supplier   suppliers?             @relation("WeaverSupplier", fields: [supplierId], references: [id])
+  poItems    purchase_order_items[] @relation("POItemWeaver")
+  grnItems   grn_items[]            @relation("GRNItemWeaver")
+  greigeLots greige_stock[]         @relation("GreigeStockWeaver")
+  fabricLots fabric_stock[]         @relation("FabricStockWeaver")
+
+  @@index([supplierId])
+}
+
 /// Greige Stock - Raw greige inventory tracking
 /// Stores raw/unfinished greige stock with direct link to greige_master
 model greige_stock {
@@ -4552,6 +4592,8 @@ model greige_stock {
   sourceChallanId String? @db.VarChar(50)
   grnItemId       String? @db.VarChar(50) // P2: Link to GRN item for identity-based reversal
   sourceType      String? @db.VarChar(20) // 'GRN', 'TRANSFER', 'ADJUSTMENT', 'MANUAL'
+  /// The weaver whose cloth this lot is (from the GRN line). Lots of every weaver stay under ONE greigeId.
+  weaverId        String?
 
   // Warehouse
   warehouseLocation String? @db.VarChar(100)
@@ -4593,6 +4635,7 @@ model greige_stock {
   warehouse          warehouses?                 @relation("GreigeStockWarehouse", fields: [warehouseId], references: [id])
   createdBy          users                       @relation("greige_stock_createdBy", fields: [createdById], references: [id])
   grnItem            grn_items?                  @relation("GreigeStockGrnItem", fields: [grnItemId], references: [id])
+  weaver             weavers?                    @relation("GreigeStockWeaver", fields: [weaverId], references: [id])
   challanItems       challan_items[]
   jobWorkOrders      job_work_orders[]
   jwoComponentsStock job_work_order_components[] @relation("JWOComponentGreigeStock")
@@ -4605,6 +4648,7 @@ model greige_stock {
   @@index([status])
   @@index([receivedDate])
   @@index([grnItemId])
+  @@index([weaverId])
 }
 
 /// Greige Stock Transaction - Audit trail for greige stock adjustments and consumption
@@ -5159,6 +5203,10 @@ model fabric_stock {
   patternPartId                String?                      @map("pattern_part_id")
   fabricFinishType             FabricFinishType?
   needsEmbroidery              Boolean                      @default(false)
+  /// The weaver whose cloth this is: from the GRN line for bought fabric, from the greige lot for processed fabric.
+  weaverId                     String?
+  /// Processed from greige of SEVERAL weavers: [{ weaverId, weaverName, metres, share }]. weaverId stays null then.
+  weaverMix                    Json?
   cutting_batches              cutting_batches[]
   cuttingBatchFabrics          cutting_batch_fabrics[]
   embroideryResultOf           embroidery_send_out?         @relation("EmbroideryResultStock")
@@ -5173,6 +5221,7 @@ model fabric_stock {
   procurement                  fabric_procurement?          @relation(fields: [procurementId], references: [id])
   warehouse                    warehouses?                  @relation("FabricStockWarehouse", fields: [warehouseId], references: [id])
   grnItem                      grn_items?                   @relation("FabricStockGrnItem", fields: [grnItemId], references: [id])
+  weaver                       weavers?                     @relation("FabricStockWeaver", fields: [weaverId], references: [id])
   stockAllocations             fabric_stock_allocation[]
   stockTransactions            fabric_stock_transaction[]
   cadProductionRecords         fabric_width_cad[]           @relation("cad_fabric_stock")
@@ -5196,6 +5245,7 @@ model fabric_stock {
   @@index([patternPartId])
   @@index([fabricFinishType])
   @@index([needsEmbroidery, status])
+  @@index([weaverId])
   @@index([grnItemId])
   // Performance: composite index for procurement queries
   @@index([procurementId, status])

@@ -10,8 +10,14 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
-import { applyShrinkageLoss, toNumber } from '../utils/currency';
+import { applyShrinkageLoss, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { companyProfileService } from './company-profile.service';
+import {
+  daysSince,
+  section143ClockStart,
+  section143Severity,
+  SECTION_143_YEAR_DAYS,
+} from './helpers/section143.helper';
 
 // ============================================
 // Section 143 Ageing Report
@@ -25,6 +31,11 @@ export interface Section143AgeingItem {
   processorGstin: string | null;
   processType: string;
   sentDate: Date;
+  /**
+   * The day the one-year period started: the sent date, or — for cloth the job took where it already
+   * lay at the processor — the day the processor received it (statutoryDueDate less a year).
+   */
+  clockFrom: Date;
   balanceQty: number;
   balanceValue: number;
   unit: string;
@@ -42,6 +53,35 @@ export interface Section143AgeingSummary {
   ordersCritical: number; // 300-365 days
   ordersBreached: number; // >365 days
   items: Section143AgeingItem[];
+  /**
+   * Our goods sitting at a processor on NO job yet — delivered straight there, parked by a Stock-Out,
+   * or left there by a cancelled job. The one-year period runs from the day the processor got them,
+   * job or no job, so they age here too. A lot with no challan covering it is flagged: goods at a job
+   * worker must travel under one (Rule 45).
+   */
+  held: {
+    items: HeldAtProcessorItem[];
+    totalQty: number;
+    totalValue: number;
+    withoutChallan: number;
+  };
+}
+
+export interface HeldAtProcessorItem {
+  greigeStockId: string;
+  greigeCode: string | null;
+  greigeName: string | null;
+  processorId: string | null;
+  processorName: string;
+  receivedDate: Date;
+  quantity: number;
+  value: number;
+  unit: string;
+  daysHeld: number;
+  daysRemaining: number;
+  severity: Section143AgeingItem['severity'];
+  /** The challan the goods are with the processor under, or null when none covers them */
+  coveringChallanNumber: string | null;
 }
 
 // ============================================
@@ -184,24 +224,16 @@ class JobWorkStatutoryService {
       // Skip if fully received
       if (balanceQty <= 0) continue;
 
-      const daysOutstanding = Math.floor((reportDate.getTime() - order.sentDate.getTime()) / (1000 * 60 * 60 * 24));
-      const daysRemaining = 365 - daysOutstanding;
+      // From the day the processor got the goods — for cloth drawn where it lay, that is before the job
+      const clockFrom = section143ClockStart(order) ?? order.sentDate;
+      const daysOutstanding = daysSince(clockFrom, reportDate);
+      const daysRemaining = SECTION_143_YEAR_DAYS - daysOutstanding;
 
-      // Calculate severity
-      let severity: Section143AgeingItem['severity'];
-      if (daysOutstanding > 365) {
-        severity = 'BREACHED';
-        ordersBreached++;
-      } else if (daysOutstanding >= 300) {
-        severity = 'CRITICAL';
-        ordersCritical++;
-      } else if (daysOutstanding >= 270) {
-        severity = 'WARNING';
-        ordersWarning++;
-      } else {
-        severity = 'OK';
-        ordersOK++;
-      }
+      const severity = section143Severity(daysOutstanding);
+      if (severity === 'BREACHED') ordersBreached++;
+      else if (severity === 'CRITICAL') ordersCritical++;
+      else if (severity === 'WARNING') ordersWarning++;
+      else ordersOK++;
 
       // Material value at risk with the processor — declaredValue (stamped at issue from
       // the lot purchase costs) per metre; job-work rate only as a legacy fallback so old
@@ -221,6 +253,7 @@ class JobWorkStatutoryService {
         processorGstin: order.processor.gst_numbers[0]?.gstNumber || null,
         processType: order.processType,
         sentDate: order.sentDate,
+        clockFrom,
         balanceQty,
         balanceValue,
         unit: order.uom,
@@ -229,6 +262,9 @@ class JobWorkStatutoryService {
         severity,
       });
     }
+
+    const held = await this.getHeldAtProcessors(reportDate);
+    items.sort((a, b) => a.clockFrom.getTime() - b.clockFrom.getTime());
 
     return {
       asOfDate: reportDate,
@@ -239,6 +275,64 @@ class JobWorkStatutoryService {
       ordersCritical,
       ordersBreached,
       items,
+      held,
+    };
+  }
+
+  /**
+   * Greige of ours at a processor and on no job: held there (processorId — delivered straight there,
+   * or parked by a Stock-Out) or sitting in the processor's unit before such deliveries were booked as
+   * held (the Aug-2026 lots, until scripts/backfill-direct-delivery.ts converts them).
+   */
+  private async getHeldAtProcessors(reportDate: Date): Promise<Section143AgeingSummary['held']> {
+    const lots = await prisma.greige_stock.findMany({
+      where: {
+        status: 'AVAILABLE',
+        quantityAvailable: { gt: 0 },
+        OR: [{ processorId: { not: null } }, { warehouse: { warehouseType: 'JOB_WORK' } }],
+      },
+      select: {
+        id: true,
+        quantityAvailable: true,
+        receivedDate: true,
+        purchaseCost: true,
+        weightedAvgCost: true,
+        processorId: true,
+        processor: { select: { name: true } },
+        warehouse: { select: { warehouseName: true, supplierId: true, supplier: { select: { name: true } } } },
+        greige: { select: { greigeCode: true, greigeName: true } },
+        sourceChallan: { select: { challanNumber: true, status: true } },
+      },
+      orderBy: { receivedDate: 'asc' },
+    });
+
+    const items: HeldAtProcessorItem[] = lots.map((lot) => {
+      const daysHeld = daysSince(lot.receivedDate, reportDate);
+      const rate = Number(lot.purchaseCost ?? lot.weightedAvgCost ?? 0);
+      const covering = lot.sourceChallan && lot.sourceChallan.status !== 'CANCELLED' ? lot.sourceChallan : null;
+      return {
+        greigeStockId: lot.id,
+        greigeCode: lot.greige?.greigeCode ?? null,
+        greigeName: lot.greige?.greigeName ?? null,
+        processorId: lot.processorId ?? lot.warehouse?.supplierId ?? null,
+        processorName:
+          lot.processor?.name ?? lot.warehouse?.supplier?.name ?? lot.warehouse?.warehouseName ?? 'Processor',
+        receivedDate: lot.receivedDate,
+        quantity: Number(lot.quantityAvailable),
+        value: toNumber(multiplyCurrency(Number(lot.quantityAvailable), rate)),
+        unit: 'METER',
+        daysHeld,
+        daysRemaining: SECTION_143_YEAR_DAYS - daysHeld,
+        severity: section143Severity(daysHeld),
+        coveringChallanNumber: covering?.challanNumber ?? null,
+      };
+    });
+
+    return {
+      items,
+      totalQty: items.reduce((sum, i) => sum + i.quantity, 0),
+      totalValue: items.reduce((sum, i) => sum + i.value, 0),
+      withoutChallan: items.filter((i) => !i.coveringChallanNumber).length,
     };
   }
 
@@ -262,8 +356,11 @@ class JobWorkStatutoryService {
           lte: periodEnd,
         },
         status: { not: 'CANCELLED' },
-        // Filter to job work only (toType = VENDOR/processor)
-        toType: 'VENDOR',
+        // Goods sent to a job worker: job-work challans (toType VENDOR — issues, dispatches, and the
+        // Rule 45 challans for goods a supplier delivered straight to the processor) AND Stock-Out
+        // challans that parked greige at a processor (toType SUPPLIER, recognisable by the TRANSFER
+        // lot they created there). A plain return to a supplier creates no such lot and stays out.
+        OR: [{ toType: 'VENDOR' }, { toType: 'SUPPLIER', greigeStockTransfers: { some: { sourceType: 'TRANSFER' } } }],
       },
       include: {
         items: {
@@ -273,6 +370,8 @@ class JobWorkStatutoryService {
                 processTypeMaster: true,
               },
             },
+            // A Stock-Out line carries no value of its own — the lot's purchase rate values it
+            greigeStock: { select: { purchaseCost: true, weightedAvgCost: true } },
           },
         },
       },
@@ -336,8 +435,11 @@ class JobWorkStatutoryService {
       for (const item of challan.items) {
         // taxableValue: use declaredValue if present, otherwise quantity × rate
         // BUG FIX: declaredValue is already a monetary value, don't multiply by rate again
+        const rate = Number(item.rate ?? item.greigeStock?.purchaseCost ?? item.greigeStock?.weightedAvgCost ?? 0);
         const taxableValue =
-          item.declaredValue !== null ? Number(item.declaredValue) : Number(item.quantity) * Number(item.rate || 0);
+          item.declaredValue !== null
+            ? Number(item.declaredValue)
+            : toNumber(roundToCent(multiplyCurrency(Number(item.quantity), rate)));
 
         tableAItems.push({
           challanId: challan.id,

@@ -14,6 +14,7 @@ import { CompanyProfileNotLoadedError } from '../services/company-profile.servic
 import { updateWosrReceivedQuantity } from '../services/work-order-service-requirement.service';
 import logger from '../utils/logger';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
+import { SECTION_143_WARNING_DAYS } from '../services/helpers/section143.helper';
 import { systemSettingsService } from '../services/system-settings.service';
 import {
   issueJobWorkOrder,
@@ -1958,14 +1959,21 @@ class JobWorkOrderController {
         },
       });
 
-      // Section 143 warnings (approaching 1 year)
+      // Section 143 warnings (270+ days into the one-year period). The period runs from the day the
+      // processor got the goods — statutoryDueDate less a year (section143.helper) — which for cloth
+      // taken where it lay is before the job was sent; the sent date only where no due date was stamped.
       const warningThreshold = new Date(today);
-      warningThreshold.setDate(warningThreshold.getDate() - 270); // 270+ days out
+      warningThreshold.setDate(warningThreshold.getDate() - SECTION_143_WARNING_DAYS);
+      const dueByThreshold = new Date(warningThreshold);
+      dueByThreshold.setFullYear(dueByThreshold.getFullYear() + 1);
       const warnings = await prisma.job_work_orders.count({
         where: {
           isActive: true,
-          sentDate: { lte: warningThreshold },
           receivedDate: null,
+          OR: [
+            { statutoryDueDate: { lte: dueByThreshold } },
+            { statutoryDueDate: null, sentDate: { lte: warningThreshold } },
+          ],
         },
       });
 

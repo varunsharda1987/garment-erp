@@ -10,6 +10,10 @@ keywords:
   - section 143
   - ITC-04
   - ageing
+  - held at processor
+  - no challan
+  - maal dyer ke paas kitne din se
+  - प्रोसेसर के पास माल
   - processing batches
   - lace dyeing
   - dyed lace
@@ -28,6 +32,9 @@ sources:
   - frontend/src/pages/JobWorkOrderList.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/pages/StockMovementDashboard.tsx
+  - frontend/src/lib/section143.ts
+  - backend/src/services/job-work-statutory.service.ts
+  - backend/templates/kf/report-job-work-ageing.hbs
 route: /job-work-orders
 ---
 
@@ -42,7 +49,7 @@ route: /job-work-orders
 2. Search by JWO number, challan number, processor, style, buyer style code or fabric, or use the **Process Type** dropdown to filter to Dyeing, Printing, Embroidery, Stitching and so on. Typing several words narrows the list — each word must match something, so a processor name and a style code together find exactly that job.
 3. The table shows **JWO Number**, **Process**, **Processor**, **Style**, **Greige**, **Fabric**, **Width**, **Qty Received**, **Sent Date**, **Need By**, **Status** and **Section 143**.
 4. **Need By** turns red when the date has passed and nothing has come back. Closed and cancelled orders never turn red.
-5. The **Section 143** column shows days out with a colour: green is OK, yellow is a warning past 270 days, red is critical past 300 days and breached past 365 days.
+5. The **Section 143** column shows days out with a colour: green is OK, yellow is a warning past 270 days, red is critical past 300 days and breached past 365 days. The days count from the day the processor received the goods. For cloth the supplier delivered straight to the processor and the job took where it lay, that is the delivery day, not the job's Sent Date.
 6. Click any row to open the order, or use the **⋯** menu for **View Details**, **Print JWO** and **Send via WhatsApp**.
 
 ## Inside one order
@@ -50,6 +57,8 @@ The detail page shows **Order Details**, **Quantities** (Greige, Fabric, Qty Rec
 
 ## Statutory reports
 On the Job Work Dashboard, click **Ageing PDF**, **ITC-04 PDF** or **Vendor PDF** to open the statutory report as a PDF. ITC-04 and Vendor cover the last three months.
+
+The **Ageing PDF** lists every order still out, with **Since** (the day the one-year period started; a * means the cloth was at the processor before the order was sent). A second table, **Held at processors — on no job yet**, lists our greige lying at a processor that no job has taken yet: delivered straight there, parked by a Stock-Out, or left after a cancelled job. It shows the days held and the challan the goods are there under. **No challan** means goods at a job worker with no challan covering them — raise one. The **ITC-04 PDF** includes the challans for goods a supplier delivered straight to a processor, and Stock-Out challans that sent greige to a processor.
 
 ## Also useful
 Open **Inventory → Movement Dashboard** for the **Pending Inward** and **Pending Outward** tabs. Pending Inward lists everything still lying at a processor with **Days Out**, and each row has a button that jumps straight to the screen where you act on it. Tick **Overdue only** to see just the late ones.

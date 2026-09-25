@@ -27,6 +27,7 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
+import { jobWorkStatutoryService } from '../../services/job-work-statutory.service';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -342,6 +343,25 @@ describe('greige delivered straight to a processor', () => {
       where: { stockId: lotId, referenceType: 'JOB_WORK_ORDER', referenceId: jwoA },
     });
     expect(draw).not.toBeNull();
+  });
+
+  it('§143 ages the drawn job from the day the dyer got the cloth; what is still held ages too, with its challan', async () => {
+    const report = await jobWorkStatutoryService.getSection143Ageing();
+    const job = report.items.find((i) => i.jobWorkOrderId === jwoA)!;
+    expect(job).toBeDefined();
+    expect(job.clockFrom.toDateString()).toBe(RECEIVED_ON.toDateString()); // not the day it was issued
+    expect(job.daysOutstanding).toBeGreaterThanOrEqual(19);
+    expect(job.balanceQty).toBe(1200);
+
+    const covering = await prisma.challans.findUniqueOrThrow({ where: { id: challanId } });
+    const held = report.held.items.find((i) => i.greigeStockId === lotId)!;
+    expect(held).toMatchObject({ quantity: 1800, processorName: `${RUN} Dyer A` });
+    expect(held.coveringChallanNumber).toBe(covering.challanNumber);
+    expect(held.daysHeld).toBeGreaterThanOrEqual(19);
+
+    // the Rule 45 challan is in ITC-04 Table A for the quarter the dyer received the goods
+    const itc = await jobWorkStatutoryService.getITC04Extract(new Date(RECEIVED_ON.getTime() - DAY), new Date());
+    expect(itc.tableA.items.some((i) => i.challanId === challanId)).toBe(true);
   });
 
   let storeLotId: string;

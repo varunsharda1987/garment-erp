@@ -82,6 +82,7 @@ import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { section143Days, SECTION_143_CRITICAL_DAYS } from '@/lib/section143';
 import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
 function formatCurrency(value?: number | null): string {
@@ -111,14 +112,6 @@ function getStatusBadge(status: string) {
     CANCELLED: 'destructive',
   };
   return <Badge variant={variants[status] || 'outline'}>{status.replace(/_/g, ' ')}</Badge>;
-}
-
-function getDaysOutstanding(sentDate?: string): number | null {
-  if (!sentDate) return null;
-  const sent = new Date(sentDate);
-  const today = new Date();
-  const diffTime = today.getTime() - sent.getTime();
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
 /**
@@ -662,12 +655,13 @@ export default function JobWorkOrderDetail() {
     );
   }
 
-  const daysOutstanding = getDaysOutstanding(jwo.sentDate);
+  // From the day the processor got the goods — before the send date for cloth taken where it lay
+  const daysOutstanding = section143Days(jwo);
   // Colour ladder, order-linked rungs first — mirrors the server's fabric-identity helper and
   // the challan. The last two only ever fire on a stock job, which has no requirement chain.
   const colourName =
     jwo.requirementLinks?.[0]?.materialRequirements?.colorName ?? jwo.colorMaster?.colorName ?? jwo.colorName ?? null;
-  const isOverdue = daysOutstanding !== null && daysOutstanding > 300 && !jwo.receivedDate;
+  const isOverdue = daysOutstanding !== null && daysOutstanding > SECTION_143_CRITICAL_DAYS && !jwo.receivedDate;
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
   const currentStatus = jwo.jwoStatus;
 

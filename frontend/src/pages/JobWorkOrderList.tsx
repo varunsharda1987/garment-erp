@@ -7,6 +7,7 @@ import { unitShort } from '@/lib/units';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { section143Days, section143Severity } from '@/lib/section143';
 
 import {
   Factory,
@@ -84,24 +85,19 @@ function getStatusBadge(status: string) {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
-function getDaysOutstanding(sentDate?: string): number | null {
-  if (!sentDate) return null;
-  const sent = new Date(sentDate);
-  const today = new Date();
-  const diffTime = today.getTime() - sent.getTime();
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-}
-
-function getSection143Status(sentDate?: string, receivedDate?: string) {
-  if (receivedDate) return null;
-  const days = getDaysOutstanding(sentDate);
+// Days with the processor count from the day it got the goods (@/lib/section143) — for cloth taken
+// where it already lay there, that is before the job was sent.
+function getSection143Status(jwo: { sentDate?: string; statutoryDueDate?: string; receivedDate?: string }) {
+  if (jwo.receivedDate) return null;
+  const days = section143Days(jwo);
   if (days === null) return null;
 
-  if (days > 365) {
+  const severity = section143Severity(days);
+  if (severity === 'BREACHED') {
     return { icon: XCircle, color: 'text-red-500', label: 'BREACHED' };
-  } else if (days > 300) {
+  } else if (severity === 'CRITICAL') {
     return { icon: AlertTriangle, color: 'text-red-500', label: 'CRITICAL' };
-  } else if (days > 270) {
+  } else if (severity === 'WARNING') {
     return { icon: Clock, color: 'text-yellow-500', label: 'WARNING' };
   }
   return { icon: CheckCircle2, color: 'text-green-500', label: 'OK' };
@@ -299,8 +295,8 @@ export default function JobWorkOrderList() {
                   </TableRow>
                 ) : (
                   data?.data.map((jwo) => {
-                    const section143 = getSection143Status(jwo.sentDate, jwo.receivedDate);
-                    const daysOut = getDaysOutstanding(jwo.sentDate);
+                    const section143 = getSection143Status(jwo);
+                    const daysOut = section143Days(jwo);
 
                     return (
                       <TableRow

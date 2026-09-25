@@ -62,7 +62,10 @@ export interface AgeingReportRow {
   jobWorkNumber: string;
   processorName: string;
   processType: string;
-  sentDate: string;
+  /** The day the one-year period started — the sent date, or the processor's receipt of cloth taken where it lay */
+  since: string;
+  /** True when the period started before the job was sent (cloth already at the processor) */
+  sinceBeforeSent: boolean;
   balance: string; // "210.00 m"
   value: string; // fmtMoney
   daysOutstanding: number;
@@ -85,8 +88,29 @@ export interface AgeingReportData {
   kpiCritical: number;
   kpiBreached: number;
   rows: AgeingReportRow[];
+  anySinceBeforeSent: boolean;
   totalValue: string;
+  /** Our goods at a processor on no job yet — they age from the day the processor got them */
+  heldRows: AgeingHeldRow[];
+  heldCount: number;
+  heldCountIsOne: boolean;
+  heldTotalValue: string;
+  heldWithoutChallan: number;
   generatedOn: string;
+}
+
+export interface AgeingHeldRow {
+  lot: string; // "GRG-0072 — Cotton Flex"
+  processorName: string;
+  since: string;
+  quantity: string; // "5,000.00 m"
+  value: string;
+  daysHeld: number;
+  daysRemaining: string;
+  challan: string | null; // null → template renders "No challan"
+  chipClass: string;
+  chipLabel: string;
+  rowClass: string | null;
 }
 
 const AGEING_CHIP: Record<
@@ -113,7 +137,8 @@ export async function buildAgeingReportData(asOfDate?: Date): Promise<AgeingRepo
       jobWorkNumber: item.jobWorkNumber,
       processorName: item.processorName,
       processType: titleCase(item.processType),
-      sentDate: fmtDate(item.sentDate),
+      since: fmtDate(item.clockFrom),
+      sinceBeforeSent: fmtDate(item.clockFrom) !== fmtDate(item.sentDate),
       balance: `${fmtQty(item.balanceQty, item.unit)} ${unitShort(item.unit)}`,
       value: fmtMoney(item.balanceValue),
       daysOutstanding: item.daysOutstanding,
@@ -137,7 +162,28 @@ export async function buildAgeingReportData(asOfDate?: Date): Promise<AgeingRepo
     kpiCritical: summary.ordersCritical,
     kpiBreached: summary.ordersBreached,
     rows,
+    anySinceBeforeSent: rows.some((r) => r.sinceBeforeSent),
     totalValue: fmtMoney(summary.totalValueAtProcessors),
+    heldRows: summary.held.items.map((item) => {
+      const chip = AGEING_CHIP[item.severity];
+      return {
+        lot: [item.greigeCode, item.greigeName].filter(Boolean).join(` ${EM_DASH} `) || 'Greige lot',
+        processorName: item.processorName,
+        since: fmtDate(item.receivedDate),
+        quantity: `${fmtQty(item.quantity, item.unit)} ${unitShort(item.unit)}`,
+        value: fmtMoney(item.value),
+        daysHeld: item.daysHeld,
+        daysRemaining: item.daysRemaining < 0 ? `${MINUS}${Math.abs(item.daysRemaining)}` : String(item.daysRemaining),
+        challan: item.coveringChallanNumber,
+        chipClass: chip.chipClass,
+        chipLabel: chip.chipLabel,
+        rowClass: item.coveringChallanNumber ? chip.rowClass : 'row-critical',
+      };
+    }),
+    heldCount: summary.held.items.length,
+    heldCountIsOne: summary.held.items.length === 1,
+    heldTotalValue: fmtMoney(summary.held.totalValue),
+    heldWithoutChallan: summary.held.withoutChallan,
     generatedOn: fmtDate(new Date()),
   };
 }

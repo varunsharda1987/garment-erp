@@ -11,6 +11,8 @@
      screen-first (1280px); the shared renderer prints fixed A4 portrait, so
      scale the sheet to the printable width instead of clipping columns. */
   @media print{ .report{zoom:.8;} }
+  .note{font-size:9px; color:var(--ink-2); margin:6px 0 0;}
+  .held-title{font-size:11px; letter-spacing:1px; text-transform:uppercase; margin:18px 0 6px;}
 </style>
 </head>
 <body>
@@ -52,7 +54,7 @@
     <thead>
       <tr>
         <th style="width:104px">Order</th><th>Processor</th><th style="width:82px">Process</th>
-        <th style="width:74px">Sent</th><th class="num" style="width:76px">Balance</th>
+        <th style="width:74px">Since</th><th class="num" style="width:76px">Balance</th>
         <th class="num" style="width:82px">Value ₹</th><th class="num" style="width:58px">Days</th>
         <th class="num" style="width:70px">Remaining</th><th style="width:86px">Status</th>
       </tr>
@@ -61,7 +63,7 @@
       {{#each rows}}
       <tr{{#if this.rowClass}} class="{{this.rowClass}}"{{/if}}>
         <td>{{this.jobWorkNumber}}</td><td>{{this.processorName}}</td><td>{{this.processType}}</td>
-        <td>{{this.sentDate}}</td><td class="num">{{this.balance}}</td><td class="num">{{this.value}}</td>
+        <td>{{this.since}}{{#if this.sinceBeforeSent}}*{{/if}}</td><td class="num">{{this.balance}}</td><td class="num">{{this.value}}</td>
         <td class="num">{{this.daysOutstanding}}</td><td class="num">{{this.daysRemaining}}</td>
         <td><span class="chip {{this.chipClass}}">{{this.chipLabel}}</span></td>
       </tr>
@@ -69,6 +71,35 @@
       <tr class="grp"><td colspan="4">{{kpiOrders}} order{{#unless kpiOrdersIsOne}}s{{/unless}} outstanding</td><td class="num">&mdash;</td><td class="num">{{totalValue}}</td><td colspan="3"></td></tr>
     </tbody>
   </table>
+  {{#if anySinceBeforeSent}}
+  <p class="note">* The cloth was already at the processor before the order was sent (delivered straight there), so the year runs from the day the processor received it.</p>
+  {{/if}}
+
+  {{#if heldCount}}
+  <h2 class="held-title">Held at processors &mdash; on no job yet</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Lot</th><th>Processor</th><th style="width:74px">Since</th>
+        <th class="num" style="width:86px">Quantity</th><th class="num" style="width:82px">Value ₹</th>
+        <th class="num" style="width:58px">Days</th><th class="num" style="width:70px">Remaining</th>
+        <th style="width:96px">Challan</th><th style="width:86px">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each heldRows}}
+      <tr{{#if this.rowClass}} class="{{this.rowClass}}"{{/if}}>
+        <td>{{this.lot}}</td><td>{{this.processorName}}</td><td>{{this.since}}</td>
+        <td class="num">{{this.quantity}}</td><td class="num">{{this.value}}</td>
+        <td class="num">{{this.daysHeld}}</td><td class="num">{{this.daysRemaining}}</td>
+        <td>{{#if this.challan}}{{this.challan}}{{else}}<b>No challan</b>{{/if}}</td>
+        <td><span class="chip {{this.chipClass}}">{{this.chipLabel}}</span></td>
+      </tr>
+      {{/each}}
+      <tr class="grp"><td colspan="4">{{heldCount}} lot{{#unless heldCountIsOne}}s{{/unless}}{{#if heldWithoutChallan}} &middot; {{heldWithoutChallan}} with no challan{{/if}}</td><td class="num">{{heldTotalValue}}</td><td colspan="4"></td></tr>
+    </tbody>
+  </table>
+  {{/if}}
 
   <div class="callout">
     <b>Why 300 days is the escalation point</b>

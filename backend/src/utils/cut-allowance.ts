@@ -18,6 +18,28 @@ export function maxCutForSize(orderQty: number): number {
 }
 
 /**
+ * What the fabric alone can make, per size: its pieces shared across sizes in the order's own ratio
+ * (largest remainder, so they add up exactly) — NOT capped by the allowance. Shown beside the
+ * allowance so the cutter sees both limits (owner, 2026-09-25). null when the fabric limit is unknown.
+ */
+export function fabricCutBySize(orderQtys: number[], fabricMaxPcs: number | null): number[] | null {
+  if (fabricMaxPcs == null || !Number.isFinite(fabricMaxPcs)) return null;
+  const pool = Math.max(0, Math.floor(fabricMaxPcs));
+  const orderTotal = orderQtys.reduce((s, q) => s + (q > 0 ? q : 0), 0);
+  if (orderTotal === 0) return orderQtys.map(() => 0);
+  const exact = orderQtys.map((q) => ((q > 0 ? q : 0) * pool) / orderTotal);
+  const result = exact.map((e) => Math.floor(e));
+  let left = pool - result.reduce((s, v) => s + v, 0);
+  const byRemainder = exact.map((e, i) => ({ i, r: e - Math.floor(e) })).sort((a, b) => b.r - a.r);
+  for (const { i } of byRemainder) {
+    if (left <= 0) break;
+    result[i] += 1;
+    left -= 1;
+  }
+  return result;
+}
+
+/**
  * Max Cuttable per size: the LOWER of the fabric and the allowance, size by size.
  *
  * When the fabric covers every size's allowance, each size gets its allowance. When it does not,

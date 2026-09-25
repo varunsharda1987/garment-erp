@@ -40,7 +40,8 @@
         <div class="row"><span class="k">Work Order</span><span class="v">{{docNo}} &middot; <span class="muted">{{statusLabel}}</span></span></div>
         <div class="row"><span class="k">Planned Run</span><span class="v">{{plannedStart}} &rarr; {{plannedEnd}}{{#if deliveryDate}} <span class="muted">&middot; delivery {{deliveryDate}}</span>{{/if}}</span></div>
         <div class="row"><span class="k">Fabric</span><span class="v">{{#if lotsAvailable}}{{lotsAvailable}} m across {{lotCount}} lots{{else}}<span class="muted">No fabric in store or at cutting</span>{{/if}}</span></div>
-        <div class="row"><span class="k">Max Cuttable</span><span class="v">{{#if maxCuttableLabel}}{{maxCuttableLabel}} pcs{{#if bottleneckPart}} <span class="muted">&mdash; limited by {{bottleneckPart}}</span>{{/if}}{{else}}<span class="muted">Not computable &mdash; no CAD average against issued stock</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Max Allowed</span><span class="v">{{maxAllowedLabel}} pcs <span class="muted">&mdash; order + {{allowancePctLabel}}</span></span></div>
+        <div class="row"><span class="k">Max by Fabric</span><span class="v">{{#if maxFabricLabel}}{{maxFabricLabel}} pcs{{#if fabricLimitPart}} <span class="muted">&mdash; {{fabricLimitPart}}</span>{{/if}}{{else}}<span class="muted">Not computable &mdash; no CAD average against fabric in hand</span>{{/if}}</span></div>
       </div>
     </div>
   </div>
@@ -62,7 +63,9 @@
         <tr><td>Order qty</td>{{#each this.orderQty}}<td>{{this}}</td>{{/each}}<td>{{this.orderTotal}}</td></tr>
         <tr><td>Extra</td>{{#each this.extraQty}}<td>{{this}}</td>{{/each}}<td>{{this.extraTotal}}</td></tr>
         <tr class="sub"><td>To cut</td>{{#each this.toCut}}<td>{{this}}</td>{{/each}}<td>{{this.toCutTotal}}</td></tr>
-        <tr><td>Max cuttable</td>{{#each this.maxCut}}<td>{{this}}</td>{{/each}}<td>{{this.maxCutTotal}}</td></tr>
+        <!-- Both limits, always (owner 2026-09-25); "To cut" stays within the lower -->
+        <tr><td>Max allowed (+{{../allowancePctLabel}})</td>{{#each this.maxAllowed}}<td>{{this}}</td>{{/each}}<td>{{this.maxAllowedTotal}}</td></tr>
+        <tr><td>Max cuttable (fabric)</td>{{#if this.maxFabric}}{{#each this.maxFabric}}<td>{{this}}</td>{{/each}}<td>{{this.maxFabricTotal}}</td>{{else}}{{#each ../sizes}}<td class="muted">&mdash;</td>{{/each}}<td class="muted">&mdash;</td>{{/if}}</tr>
         <!-- Actual side: printed when cutting batches exist (base.css: never hatch a
              system-populated field), hatched for the cutter when nothing is laid yet.
              Either way exactly one hand-fill row stays open. -->

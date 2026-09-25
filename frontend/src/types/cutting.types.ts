@@ -366,6 +366,8 @@ export interface CuttingChartSize {
   /** What a NEW batch may still take: allowance / Max Cuttable less already planned */
   allowanceRemaining?: number;
   maxCutRemaining?: number;
+  /** What the fabric alone can make of this size (order ratio, not capped); null = unknown */
+  fabricCutQty?: number | null;
 }
 
 export interface CuttingChartFabricDetail {
@@ -461,6 +463,12 @@ export interface CuttingChartData {
   maxCuttablePcs: number;
   /** Max Cuttable left for a new batch after this run's batches */
   maxCuttableNewBatchPcs?: number;
+  /** Order + allowance (5 %), whole run */
+  maxAllowedPcs?: number;
+  /** What the fabric alone can make, whole run; null = no CAD average against fabric in hand */
+  maxFromFabricPcs?: number | null;
+  /** The part whose fabric limits most */
+  fabricBottleneck?: string | null;
   /** Which limit set Max Cuttable — the fabric in hand, or the order + allowance */
   maxCutLimitedBy?: 'FABRIC' | 'ALLOWANCE';
   maxExtraCutPercent?: number;

@@ -16,7 +16,7 @@ import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
-import { maxCutForSize, maxCutBySize, MAX_EXTRA_CUT_PERCENT } from '../utils/cut-allowance';
+import { maxCutForSize, maxCutBySize, fabricCutBySize, MAX_EXTRA_CUT_PERCENT } from '../utils/cut-allowance';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 // BUG-CUT5 fix: Import decimal.js utilities for precision calculations
@@ -1626,6 +1626,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     allowanceCutQty: maxCutForSize(s.orderQty),
     // Max Cuttable for this size — the lower of the fabric and the allowance; filled in below
     maxCutQty: maxCutForSize(s.orderQty),
+    // What the fabric alone can make of this size (null = no fabric limit known); filled in below
+    fabricCutQty: null as number | null,
   }));
 
   // 3. Fetch CAD rows for the style — search all 3 linking paths
@@ -2186,8 +2188,15 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     sizesWithRatio.map((s) => s.orderQty),
     maxFromFabric
   );
+  // Both limits are SHOWN side by side (owner, 2026-09-25): order + allowance, and what the fabric
+  // alone can make (its pieces in the order ratio, not capped) — "to cut" stays within the lower
+  const perSizeFabric = fabricCutBySize(
+    sizesWithRatio.map((s) => s.orderQty),
+    maxFromFabric
+  );
   sizesWithRatio.forEach((s, i) => {
     s.maxCutQty = perSizeMax[i];
+    s.fabricCutQty = perSizeFabric ? perSizeFabric[i] : null;
   });
   // What the run's batches already plan per size (completed: what was cut; open: what is to be cut),
   // so a NEW batch is offered only the rest — of the allowance and of Max Cuttable
@@ -2273,6 +2282,15 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     maxCuttableNewBatchPcs,
     maxCutLimitedBy,
     maxExtraCutPercent: MAX_EXTRA_CUT_PERCENT,
+    /** Order + allowance, whole run */
+    maxAllowedPcs: maxFromAllowance,
+    /** What the fabric alone can make, whole run (null = no fabric limit known) */
+    maxFromFabricPcs: maxFromFabric,
+    /** The part whose fabric limits it most — named even when the allowance is the lower limit */
+    fabricBottleneck:
+      fabricsWithCad.length > 0
+        ? fabricsWithCad.reduce((min, fa) => (fa.maxPcsFromStock! < min.maxPcsFromStock! ? fa : min)).part
+        : null,
     bottleneckFabric,
     pendingCutQty,
 

@@ -40,7 +40,13 @@ import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
 import { countsForPurposeAverage } from '../helpers/cad-status.helper';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtPct, fmtQty } from './format';
-import { maxCutBySize, maxCutForSize, plannedCutForSize } from '../../utils/cut-allowance';
+import {
+  fabricCutBySize,
+  maxCutBySize,
+  maxCutForSize,
+  plannedCutForSize,
+  MAX_EXTRA_CUT_PERCENT,
+} from '../../utils/cut-allowance';
 
 /**
  * House cutting allowance when nothing better is on record. Mirrors
@@ -164,6 +170,12 @@ export interface CuttingChartColourGrid {
   /** Max Cuttable per size — the lower of the fabric (shared in the order ratio) and order + 5 % */
   maxCut: string[];
   maxCutTotal: string;
+  /** Both limits, shown side by side (owner 2026-09-25): order + allowance … */
+  maxAllowed: string[];
+  maxAllowedTotal: string;
+  /** … and what the fabric alone can make, in the order ratio (null row = fabric limit unknown) */
+  maxFabric: string[] | null;
+  maxFabricTotal: string | null;
   /** Recorded cut for THIS colour. null → nothing laid in it yet, so the row is hatched. */
   actualCut: string[] | null;
   orderTotal: string;
@@ -253,6 +265,14 @@ export interface CuttingChartDocData {
   lotCount: number;
   lotsAvailable: string | null;
   maxCuttableLabel: string | null;
+  /** Order + allowance (5 %), whole run */
+  maxAllowedLabel: string;
+  /** What the fabric alone can make (null = no CAD average against fabric in hand) */
+  maxFabricLabel: string | null;
+  /** The part whose fabric limits most — named even when the allowance is lower */
+  fabricLimitPart: string | null;
+  /** The buyer's allowance, e.g. "5%" */
+  allowancePctLabel: string;
   bottleneckPart: string | null;
   layRows: CuttingChartLayRow[];
   alreadyCut: string | null;
@@ -456,6 +476,25 @@ export function transformCuttingChart(
 
   let plannedGrand = toCurrency(0);
   let toCutGrand = toCurrency(0);
+  // Max Cuttable per colour × size, known up front when the chart's fabric is given: "To cut" never
+  // goes above it, whatever Extra % was typed (owner, 2026-09-25)
+  const capByCell = new Map<string, number>();
+  if (opts.fabric) {
+    const capCells: Array<{ key: string; qty: number }> = [];
+    for (const [colourKey, group] of colourGroups) {
+      for (const sizeId of sizeIds) {
+        const planned = group.planned.get(sizeId);
+        if (planned !== undefined)
+          capCells.push({ key: `${colourKey}|${sizeId}`, qty: toCurrency(planned).toNumber() });
+      }
+    }
+    const caps = maxCutBySize(
+      capCells.map((c) => c.qty),
+      opts.fabric.maxPcsFromFabric
+    );
+    capCells.forEach((c, i) => capByCell.set(c.key, caps[i]));
+  }
+
   const grids: CuttingChartColourGrid[] = [...colourGroups.entries()].map(([colourId, group]) => {
     const groupTotal = sizeIds.reduce((acc, sizeId) => addCurrency(acc, group.planned.get(sizeId) ?? 0), toCurrency(0));
 
@@ -484,7 +523,10 @@ export function transformCuttingChart(
         // Booked on a batch → exactly that; otherwise the Extra % rounded up to whole garments,
         // never past the order + 5 % allowance (cut-allowance.ts)
         const booked = bookedToCutBySku.get(`${colourId}|${sizeId}`);
-        const cut = new Decimal(booked ?? plannedCutForSize(planned.toNumber(), toCurrency(extraPercent).toNumber()));
+        const cap = capByCell.get(`${colourId}|${sizeId}`) ?? Number.POSITIVE_INFINITY;
+        const cut = new Decimal(
+          booked ?? Math.min(plannedCutForSize(planned.toNumber(), toCurrency(extraPercent).toNumber()), cap)
+        );
         const extra = subtractCurrency(cut, planned);
         orderQty.push(fmtQty(planned.toNumber(), 'PCS'));
         extraQty.push(fmtQty(extra.toNumber(), 'PCS'));
@@ -517,6 +559,10 @@ export function transformCuttingChart(
       actualCut: anyRecordedInColour ? actualCut : null,
       maxCut: [] as string[], // filled once the fabric's limit is known (below)
       maxCutTotal: EM_DASH,
+      maxAllowed: [] as string[],
+      maxAllowedTotal: EM_DASH,
+      maxFabric: null as string[] | null,
+      maxFabricTotal: null as string | null,
       orderTotal: fmtQty(groupTotal.toNumber(), 'PCS'),
       extraTotal: fmtQty(extraTotal.toNumber(), 'PCS'),
       toCutTotal: fmtQty(toCutTotal.toNumber(), 'PCS'),
@@ -662,16 +708,37 @@ export function transformCuttingChart(
     cells.map((c) => c.qty),
     fabricMaxPcs
   );
+  const perCellFabric = fabricCutBySize(
+    cells.map((c) => c.qty),
+    fabricMaxPcs
+  );
   grids.forEach((grid, g) => {
     grid.maxCut = sizeIds.map(() => '');
+    grid.maxAllowed = sizeIds.map(() => '');
+    grid.maxFabric = perCellFabric ? sizeIds.map(() => '') : null;
     let total = 0;
+    let allowedTotal = 0;
+    let fabricTotal = 0;
     cells.forEach((c, i) => {
       if (c.grid !== g) return;
       grid.maxCut[c.sizeIdx] = fmtQty(perCellMax[i], 'PCS');
       total += perCellMax[i];
+      const allowed = maxCutForSize(c.qty);
+      grid.maxAllowed[c.sizeIdx] = fmtQty(allowed, 'PCS');
+      allowedTotal += allowed;
+      if (perCellFabric && grid.maxFabric) {
+        grid.maxFabric[c.sizeIdx] = fmtQty(perCellFabric[i], 'PCS');
+        fabricTotal += perCellFabric[i];
+      }
     });
     grid.maxCutTotal = fmtQty(total, 'PCS');
+    grid.maxAllowedTotal = fmtQty(allowedTotal, 'PCS');
+    grid.maxFabricTotal = perCellFabric ? fmtQty(fabricTotal, 'PCS') : null;
   });
+  // Header: both limits, then the one that governs
+  const maxAllowedLabel = fmtQty(allowanceMax, 'PCS');
+  const maxFabricLabel = fabricMaxPcs != null ? fmtQty(fabricMaxPcs, 'PCS') : null;
+  const fabricLimitPart = bottleneckPart;
   if (maxCuttable === null || maxCuttable.gt(allowanceMax)) {
     maxCuttable = new Decimal(allowanceMax);
     bottleneckPart = null;
@@ -740,6 +807,10 @@ export function transformCuttingChart(
     lotCount,
     lotsAvailable: lotCount > 0 ? fmtQty(lotsAvailable.toNumber(), 'MTR') : null,
     maxCuttableLabel: maxCuttable != null ? fmtQty(maxCuttable.toNumber(), 'PCS') : null,
+    maxAllowedLabel,
+    maxFabricLabel,
+    fabricLimitPart,
+    allowancePctLabel: `${MAX_EXTRA_CUT_PERCENT}%`,
     bottleneckPart,
     layRows,
     alreadyCut: layRows.length > 0 ? fmtQty(alreadyCutQty.toNumber(), 'PCS') : null,

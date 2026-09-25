@@ -111,7 +111,8 @@ export default function CuttingChart() {
           0,
           Math.min(
             Math.ceil((s.orderQty * Math.round((100 + extraPercent) * 100)) / 10000 - 1e-9),
-            s.allowanceCutQty ?? Number.POSITIVE_INFINITY
+            // Max Cuttable (the lower of the fabric and order + 5 %), whatever Extra % is typed
+            s.maxCutQty ?? s.allowanceCutQty ?? Number.POSITIVE_INFINITY
           ) - (s.alreadyPlanned ?? 0)
         ),
     }));
@@ -565,19 +566,42 @@ export default function CuttingChart() {
                           )}
                         </TableCell>
                       </TableRow>
-                      {sizesWithCutQty.some((s) => s.maxCutQty != null) && (
+                      {/* Both limits, always (owner 2026-09-25); Cut Qty stays within the lower */}
+                      {sizesWithCutQty.some((s) => s.allowanceCutQty != null) && (
                         <TableRow>
-                          <TableCell className="font-medium text-muted-foreground">Max Cuttable</TableCell>
+                          <TableCell className="font-medium text-muted-foreground">
+                            Max allowed (+{chartData.maxExtraCutPercent ?? 5}%)
+                          </TableCell>
                           {sizesWithCutQty.map((s) => (
                             <TableCell key={s.sizeId} className="text-center text-xs text-muted-foreground">
-                              {s.maxCutQty ?? '—'}
+                              {s.allowanceCutQty ?? '—'}
                             </TableCell>
                           ))}
                           <TableCell className="text-center text-xs text-muted-foreground">
-                            {sizesWithCutQty.reduce((sum, s) => sum + (s.maxCutQty ?? 0), 0).toLocaleString()}
+                            {(chartData.maxAllowedPcs ?? 0).toLocaleString()}
                           </TableCell>
                         </TableRow>
                       )}
+                      <TableRow>
+                        <TableCell className="font-medium text-muted-foreground">Max cuttable (fabric)</TableCell>
+                        {sizesWithCutQty.map((s) => (
+                          <TableCell
+                            key={s.sizeId}
+                            className={`text-center text-xs ${
+                              s.fabricCutQty != null &&
+                              s.allowanceCutQty != null &&
+                              Number(s.fabricCutQty) < Number(s.allowanceCutQty)
+                                ? 'text-warning font-medium'
+                                : 'text-muted-foreground'
+                            }`}
+                          >
+                            {s.fabricCutQty ?? '—'}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          {chartData.maxFromFabricPcs != null ? chartData.maxFromFabricPcs.toLocaleString() : '—'}
+                        </TableCell>
+                      </TableRow>
                       {sizesWithCutQty.some((s) => (s.alreadyPlanned ?? 0) > 0) && (
                         <TableRow>
                           <TableCell className="font-medium text-muted-foreground">Already planned</TableCell>
@@ -611,15 +635,23 @@ export default function CuttingChart() {
                     <span className="text-muted-foreground">
                       Pending: <strong className="text-foreground">{chartData.pendingCutQty} pcs</strong>
                     </span>
+                    <span className="text-muted-foreground">
+                      Max allowed: <strong>{chartData.maxAllowedPcs ?? chartData.maxCuttablePcs} pcs</strong>
+                      <span className="text-xs ml-1">(order + {chartData.maxExtraCutPercent ?? 5}%)</span>
+                    </span>
                     <span
-                      className={chartData.maxCuttablePcs >= chartData.pendingCutQty ? 'text-success' : 'text-warning'}
+                      className={
+                        chartData.maxFromFabricPcs != null &&
+                        chartData.maxFromFabricPcs < (chartData.maxAllowedPcs ?? chartData.maxCuttablePcs)
+                          ? 'text-warning'
+                          : 'text-success'
+                      }
                     >
-                      Max Cuttable: <strong>{chartData.maxCuttablePcs} pcs</strong>
-                      <span className="text-xs ml-1">
-                        {chartData.maxCutLimitedBy === 'FABRIC'
-                          ? `(limited by fabric${chartData.bottleneckFabric ? ` — ${chartData.bottleneckFabric}` : ''})`
-                          : `(order + ${chartData.maxExtraCutPercent ?? 5}% — the fabric allows more)`}
-                      </span>
+                      Max cuttable (fabric):{' '}
+                      <strong>{chartData.maxFromFabricPcs != null ? `${chartData.maxFromFabricPcs} pcs` : '—'}</strong>
+                      {chartData.fabricBottleneck && (
+                        <span className="text-xs ml-1">({chartData.fabricBottleneck})</span>
+                      )}
                     </span>
                   </div>
                 </CardTitle>

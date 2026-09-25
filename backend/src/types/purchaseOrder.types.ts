@@ -46,6 +46,7 @@ export interface PurchaseOrderItemDTO {
   unitPrice: number;
   remarks?: string | null;
   foldLengthCm?: number | null; // "L" - fold length in cm (for greige/fabric)
+  weaverId?: string | null; // Phase 1b: the weaver this line is bought from, when known at ordering
 }
 
 /**

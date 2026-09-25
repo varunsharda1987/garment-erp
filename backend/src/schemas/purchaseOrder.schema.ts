@@ -67,6 +67,9 @@ export const purchaseOrderItemSchema = z.object({
   unitPrice: z.number().positive('Unit price must be greater than 0'),
   remarks: z.string().max(500).nullish(),
   foldLengthCm: z.number().positive().max(999.99).nullish(), // "L" - fold length in cm
+  // The weaver this line is bought from, when known at ordering (Phase 1b) — the GRN line records the
+  // one that actually came. Never stored on the greige master.
+  weaverId: z.string().uuid('Invalid weaver').nullish(),
 });
 
 /**

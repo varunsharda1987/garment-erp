@@ -139,6 +139,40 @@ export const requirePermission = (key: PermissionKey) => {
 };
 
 /**
+ * Pass when the caller's role holds ANY of `keys` (ADMIN always passes). For an action two
+ * Permissions-page areas legitimately share — e.g. adding a weaver, named on a PO line
+ * ('purchaseOrders') or, when only the delivery says, on a GRN line ('grn').
+ */
+export const requireAnyPermission = (...keys: PermissionKey[]) => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (!req.user) {
+      denyUnauthenticated(res);
+      return;
+    }
+    if (req.user.role === UserRole.ADMIN) {
+      next();
+      return;
+    }
+    try {
+      for (const key of keys) {
+        if (await PermissionService.hasPermission(req.user.role as UserRole, key)) {
+          next();
+          return;
+        }
+      }
+      res.status(403).json({
+        error: 'Forbidden',
+        code: 'PERMISSION_DENIED',
+        permission: keys[0],
+        message: `Your role does not have access to ${keys.map(formatPermissionName).join(' or ')}. Ask an administrator to enable it on the Permissions page.`,
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+};
+
+/**
  * Router-level form of `requirePermission`: gates POST/PUT/PATCH/DELETE, lets reads through.
  *
  *   router.use(authenticateToken);

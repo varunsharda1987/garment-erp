@@ -7,6 +7,7 @@ import GreigeStockService from '../services/greige-stock.service';
 import prisma from '../config/database';
 import { BusinessError, ValidationError } from '../errors';
 import logger from '../utils/logger';
+import { addCurrency, toNumber } from '../utils/currency';
 
 // ============================================
 // Types for Style Stock Controller
@@ -214,7 +215,6 @@ class StyleStockController {
           greigeName: true,
           composition: true,
           greigeQuality: true,
-          weaver: true,
           greigeWidth: true,
           defaultCutableWidth: true,
         },
@@ -240,8 +240,26 @@ class StyleStockController {
           entryCount: number;
           totalBales: number;
           totalThans: number;
+          // Phase 1b: metres per weaver — every weaver's lots stay under this ONE greige
+          weavers: Map<string, { weaverId: string | null; name: string; metres: number; lots: number }>;
         }
       >();
+
+      const addWeaver = (
+        weavers: Map<string, { weaverId: string | null; name: string; metres: number; lots: number }>,
+        item: { weaverId?: string | null; weaver?: { name: string } | null; quantityAvailable: number }
+      ) => {
+        const key = item.weaverId ?? '∅';
+        const row = weavers.get(key) ?? {
+          weaverId: item.weaverId ?? null,
+          name: item.weaver?.name ?? 'Not recorded',
+          metres: 0,
+          lots: 0,
+        };
+        row.metres = toNumber(addCurrency(row.metres, item.quantityAvailable));
+        row.lots += 1;
+        weavers.set(key, row);
+      };
 
       for (const item of rawStock) {
         const existing = stockMap.get(item.greigeId);
@@ -261,6 +279,7 @@ class StyleStockController {
           existing.entryCount++;
           existing.totalBales += item.baleCount ?? 0;
           existing.totalThans += item.thanCount ?? 0;
+          addWeaver(existing.weavers, item);
         } else {
           const supplierMap = new Map<string, { id: string; name: string; code: string }>();
           if (item.supplier) supplierMap.set(item.supplier.id, item.supplier);
@@ -284,7 +303,9 @@ class StyleStockController {
             entryCount: 1,
             totalBales: item.baleCount ?? 0,
             totalThans: item.thanCount ?? 0,
+            weavers: new Map(),
           });
+          addWeaver(stockMap.get(item.greigeId)!.weavers, item);
         }
       }
 
@@ -297,7 +318,14 @@ class StyleStockController {
           greigeName: greige.greigeName,
           composition: greige.composition,
           greigeQuality: greige.greigeQuality || null,
-          weaver: greige.weaver || null,
+          // The lots' weavers, largest first — never the retired greige_master.weaver (Phase 1b)
+          weavers: stock ? [...stock.weavers.values()].sort((a, b) => b.metres - a.metres) : [],
+          weaver: stock
+            ? [...stock.weavers.values()]
+                .filter((w) => w.weaverId)
+                .map((w) => w.name)
+                .join(', ') || null
+            : null,
           totalStock: stock ? Math.round(stock.totalStock * 100) / 100 : 0,
           unit: 'meters',
           totalValue: stock ? Math.round(stock.totalValue * 100) / 100 : 0,

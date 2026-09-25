@@ -30,6 +30,7 @@ const poDocInclude = {
   purchase_order_items: {
     include: {
       materials: { select: { name: true, code: true, hsnCode: true } },
+      weaver: { select: { name: true } }, // Phase 1b: printed under the line when known
     },
   },
 } satisfies Prisma.purchase_ordersInclude;
@@ -41,6 +42,7 @@ export interface PurchaseOrderDocItem {
   sn: number;
   name: string;
   code: string | null; // muted material code next to the name
+  weaver: string | null; // "Weaver: …" under the line, when the PO names one
   hsn: string;
   uom: string;
   qty: string;
@@ -135,6 +137,7 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
       sn: idx + 1,
       name: itemName(item),
       code: item.materials?.code ?? null,
+      weaver: item.weaver?.name ?? null,
       hsn: item.hsnCode ?? item.materials?.hsnCode ?? EM_DASH,
       uom: unitHeader(item.unit),
       qty: fmtQty(Number(item.orderedQuantity), item.unit),

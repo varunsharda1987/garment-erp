@@ -23,7 +23,7 @@ const OPEN_FILES: Record<string, string> = {
 };
 
 const WRITE_VERBS = new Set(['post', 'put', 'patch', 'delete', 'all']);
-const GUARDS = new Set(['requirePermission', 'requirePermissionForWrites', 'requireAdmin']);
+const GUARDS = new Set(['requirePermission', 'requirePermissionForWrites', 'requireAnyPermission', 'requireAdmin']);
 
 interface Finding {
   file: string;

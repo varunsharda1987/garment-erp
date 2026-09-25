@@ -49,7 +49,7 @@
         <!-- Unlike a job work order, GST is PER LINE because the rate follows
              each item's HSN, not one process SAC. -->
         {{#each items}}
-        <tr><td class="num">{{this.sn}}</td><td>{{this.name}}{{#if this.code}} <span class="muted">{{this.code}}</span>{{/if}}</td><td>{{this.hsn}}</td><td>{{this.uom}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.gstPct}}</td>{{#if ../isIgst}}<td class="num">{{this.igst}}</td>{{else}}<td class="num">{{this.cgst}}</td><td class="num">{{this.sgst}}</td>{{/if}}</tr>
+        <tr><td class="num">{{this.sn}}</td><td>{{this.name}}{{#if this.code}} <span class="muted">{{this.code}}</span>{{/if}}{{#if this.weaver}}<br><span class="muted">Weaver: {{this.weaver}}</span>{{/if}}</td><td>{{this.hsn}}</td><td>{{this.uom}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.gstPct}}</td>{{#if ../isIgst}}<td class="num">{{this.igst}}</td>{{else}}<td class="num">{{this.cgst}}</td><td class="num">{{this.sgst}}</td>{{/if}}</tr>
         {{/each}}
         {{#if isIgst}}
         <tr class="sub"><td colspan="6">Taxable value</td><td class="num">{{subtotal}}</td><td></td><td class="num">{{igstTotal}}</td></tr>

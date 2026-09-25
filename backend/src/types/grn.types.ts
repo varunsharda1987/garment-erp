@@ -65,6 +65,8 @@ export interface GRNItemDTO {
   receivedAsReadyFabric?: boolean; // Override: treat greige PO item as ready fabric
   actualRatePerUnit?: number | null; // Actual rate received (may differ from PO rate)
   updateFutureSourcing?: boolean; // true = permanent change, false = one-time exception
+  weaverId?: string | null; // the weaver whose cloth actually arrived (pre-filled from the PO line)
+  weaverNotKnown?: boolean; // the explicit "not known" answer on a greige / fabric line
 }
 
 /**
@@ -309,6 +311,9 @@ export interface PendingPOItem {
   /** The PO line's fold length — pre-fills the GRN line's L. PO quantities are actual metres. */
   foldLengthCm?: number | null;
   receivedByWarehouse?: WarehouseReceiptSummary[];
+  weaverId: string | null; // the PO line's weaver, pre-filled on the receipt (Phase 1b)
+  weaverName: string | null;
+  needsWeaver: boolean; // greige / ready fabric: the receipt must name the weaver or say not known
 }
 
 /**

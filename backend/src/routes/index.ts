@@ -90,6 +90,7 @@ import mrpRoutes from './mrp.routes';
 import embroideryRoutes from './embroidery.routes';
 import embroideryStockRoutes from './embroidery-stock.routes';
 import externalProcessRoutes from './external-process.routes';
+import weaverRoutes from './weaver.routes';
 import colorRoutes from './color.routes';
 import seasonRoutes from './season.routes';
 import lookupRoutes from './lookup.routes';
@@ -333,6 +334,7 @@ export function createApiRouter(): Router {
 
   // External Process (Smocking, Handwork, Piece-Level Embroidery)
   router.use('/external-process', externalProcessRoutes);
+  router.use('/weavers', weaverRoutes); // Phase 1b: the weaver of a greige / fabric purchase
 
   // Lace Lab Dip (Approval workflow for greige lace processing)
   router.use('/lace-lab-dips', laceLabDipRoutes);

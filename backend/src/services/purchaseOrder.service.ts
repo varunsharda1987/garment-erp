@@ -179,6 +179,7 @@ class PurchaseOrderService {
           // bug-hunt procurement-18: create path silently dropped fold length that
           // update/add-item paths already persist
           foldLengthCm: item.foldLengthCm ?? null,
+          weaverId: item.weaverId ?? null, // Phase 1b: optional at ordering; the GRN line records what came
         };
       })
     );
@@ -546,6 +547,7 @@ class PurchaseOrderService {
               taxAmount: gst.taxAmount,
               remarks: item.remarks || null,
               foldLengthCm: item.foldLengthCm ?? null,
+              weaverId: item.weaverId ?? null,
             };
 
             if (existingId) {
@@ -727,6 +729,7 @@ class PurchaseOrderService {
           taxAmount: gst.taxAmount,
           remarks: item.remarks || null,
           foldLengthCm: item.foldLengthCm ?? null,
+          weaverId: item.weaverId ?? null,
         },
         include: {
           materials: {
@@ -1500,6 +1503,7 @@ class PurchaseOrderService {
       },
       purchase_order_items: {
         include: {
+          weaver: { select: { id: true, name: true } }, // Phase 1b
           materials: {
             select: {
               id: true,

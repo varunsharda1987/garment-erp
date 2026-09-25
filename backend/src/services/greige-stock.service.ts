@@ -45,6 +45,7 @@ export interface CreateGreigeStockDTO {
   tx?: TransactionClient; // Transaction client - use this instead of global prisma when provided
   // P2: Identity-based reversal
   grnItemId?: string; // Link to grn_items for identity-based reversal
+  weaverId?: string | null; // The weaver whose cloth this lot is (from the GRN line) — never the greige master
 }
 
 export interface GreigeStockItem {
@@ -84,6 +85,8 @@ export interface GreigeStockItem {
   supplier?: { id: string; name: string; code: string } | null;
   processorId?: string | null;
   processor?: { id: string; name: string; code: string } | null;
+  weaverId?: string | null; // Phase 1b: the weaver whose cloth this lot is
+  weaver?: { id: string; name: string } | null;
 }
 
 export interface UpdateGreigeStockDTO {
@@ -215,6 +218,7 @@ class GreigeStockService {
           calculatedActualMeters: new Prisma.Decimal(actualQty), // nominalQty × L/100
           // P2: Identity-based reversal
           grnItemId: data.grnItemId || null,
+          weaverId: data.weaverId ?? null,
           agingDays: 0,
           status: 'AVAILABLE',
           stockType: 'GENERIC',
@@ -340,6 +344,7 @@ class GreigeStockService {
               challanDate: true,
             },
           },
+          weaver: { select: { id: true, name: true } }, // Phase 1b: the lot's weaver
         },
         orderBy: { receivedDate: 'desc' },
       });
@@ -378,6 +383,8 @@ class GreigeStockService {
           sourceChallan: stock.sourceChallan,
           baleCount: stock.baleCount,
           thanCount: stock.thanCount,
+          weaverId: stock.weaverId,
+          weaver: stock.weaver,
         };
       });
     } catch (error: unknown) {

@@ -52,6 +52,7 @@ import {
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyExceeds } from '../utils/quantity';
+import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
@@ -74,6 +75,13 @@ import {
 import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
 import { applySearch } from '../utils/search-filter';
 
+/**
+ * Phase 1b rollout switch: a greige / fabric receipt line must name its weaver or say "not known".
+ * OFF until the GRN form asks for the weaver — turning it on first would refuse every greige receipt
+ * the store saves. Until then a weaver is recorded whenever one is given (or the PO line names one).
+ */
+const GRN_WEAVER_REQUIRED = false;
+
 class GRNService {
   /**
    * Generate unique GRN number - Format: GRN2511-0001
@@ -86,6 +94,42 @@ class GRNService {
   /**
    * Create a new GRN
    */
+  /**
+   * The weaver of every line of a new receipt (Phase 1b). Greige and ready fabric are woven cloth, and
+   * the weaver we buy from keeps changing, so the LOT carries it — never the greige master. A line
+   * names its weaver, else inherits the PO line's; a greige / fabric line with neither must say
+   * "Weaver not known" out loud, or the receipt is refused. Other categories carry none.
+   */
+  private async resolveGrnLineWeavers(
+    po: {
+      poCategory: string | null;
+      purchase_order_items: Array<{ id: string; weaverId: string | null; materials: { code: string } | null }>;
+    },
+    items: CreateGRNDTO['items']
+  ): Promise<Map<string, { weaverId: string | null; notKnown: boolean }>> {
+    const woven = po.poCategory === 'GREIGE' || po.poCategory === 'FABRIC';
+    const out = new Map<string, { weaverId: string | null; notKnown: boolean }>();
+    for (const item of items) {
+      const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
+      const notKnown = item.weaverNotKnown === true && !item.weaverId;
+      const weaverId = item.weaverId ?? (notKnown ? null : (poItem?.weaverId ?? null));
+      if (GRN_WEAVER_REQUIRED && woven && !weaverId && !notKnown && !isQtyZero(item.receivedQuantity)) {
+        throw new BusinessError(
+          `Name the weaver of ${poItem?.materials?.code ?? 'this line'} — or tick "Weaver not known". ` +
+            `Stock records which weaver every lot came from.`,
+          { reason: 'GRN_WEAVER_REQUIRED', poItemId: item.poItemId }
+        );
+      }
+      out.set(item.poItemId, { weaverId: woven ? weaverId : null, notKnown: woven ? notKnown : false });
+    }
+    const ids = [...new Set([...out.values()].map((v) => v.weaverId).filter((id): id is string => !!id))];
+    if (ids.length > 0) {
+      const found = await prisma.weavers.count({ where: { id: { in: ids } } });
+      if (found !== ids.length) throw new BusinessError('A weaver on this receipt no longer exists — pick it again.');
+    }
+    return out;
+  }
+
   async createGRN(data: CreateGRNDTO, userId: string) {
     // Validate PO exists and is in receivable status
     const po = await prisma.purchase_orders.findUnique({
@@ -114,6 +158,10 @@ class GRNService {
 
     // Fetch over-receipt tolerance from system settings
     const tolerancePercent = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
+
+    // Weaver per line (Phase 1b, 2026-09-25): the weaver whose cloth ACTUALLY arrived — named on the
+    // line, else the PO line's weaver. A greige / fabric line must name one or say "not known".
+    const weaverByPoItem = await this.resolveGrnLineWeavers(po, data.items);
 
     // Validate items
     for (const item of data.items) {
@@ -271,6 +319,8 @@ class GRNService {
                   receivedAsReadyFabric: item.receivedAsReadyFabric || false,
                   actualRatePerUnit: item.actualRatePerUnit || null,
                   updateFutureSourcing: item.updateFutureSourcing || false,
+                  weaverId: weaverByPoItem.get(item.poItemId)?.weaverId ?? null,
+                  weaverNotKnown: weaverByPoItem.get(item.poItemId)?.notKnown ?? false,
                 };
               }),
             },
@@ -756,6 +806,7 @@ class GRNService {
                 name: true,
               },
             },
+            weaver: { select: { id: true, name: true } },
           },
         },
       },
@@ -765,6 +816,8 @@ class GRNService {
       throw new Error('Purchase order not found');
     }
 
+    // Greige and ready fabric are woven: the receipt must say which weaver's cloth came (Phase 1b).
+    const needsWeaver = po.poCategory === 'GREIGE' || po.poCategory === 'FABRIC';
     return po.purchase_order_items
       .filter((item) => item.materialId !== null)
       .map((item) => ({
@@ -778,6 +831,9 @@ class GRNService {
         pendingQuantity: Number(item.orderedQuantity) - Number(item.receivedQuantity),
         unitPrice: Number(item.unitPrice),
         foldLengthCm: item.foldLengthCm != null ? Number(item.foldLengthCm) : null,
+        weaverId: item.weaverId,
+        weaverName: item.weaver?.name ?? null,
+        needsWeaver,
       }));
   }
 
@@ -1641,6 +1697,7 @@ class GRNService {
                 receivedDate: grn.receivingDate || new Date(),
                 warehouseId: warehouseId,
                 createdById: userId,
+                weaverId: item.weaverId ?? null, // the weaver whose cloth arrived (Phase 1b)
               },
             });
 
@@ -1737,6 +1794,7 @@ class GRNService {
               skipMaterialSync: true,
               // P2: Identity-based reversal
               grnItemId: item.id,
+              weaverId: item.weaverId ?? null,
             },
             userId
           );
@@ -1852,6 +1910,7 @@ class GRNService {
             receivedDate: grn.receivingDate || new Date(),
             warehouseId: warehouseId,
             createdById: userId,
+            weaverId: item.weaverId ?? null, // the weaver whose cloth arrived (Phase 1b)
           },
         });
 
@@ -3259,6 +3318,16 @@ class GRNService {
     // finds the lot by grnItemId; the date match is only the fallback for lots booked before
     // that column existed.
     const receivedAt = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
+    // Dyed / printed fabric is the same cloth: it keeps the weaver of the greige lot(s) the job drew.
+    const weaverLineage = await weaverOfJobSource(
+      tx,
+      {
+        id: jobWorkOrder.id,
+        greigeStockLotId: jobWorkOrder.greigeStockLotId ?? null,
+        fabricStockLotId: jobWorkOrder.fabricStockLotId ?? null,
+      },
+      isFabricLotJwo
+    );
 
     await tx.fabric_stock.create({
       data: {
@@ -3294,6 +3363,8 @@ class GRNService {
         warehouseId: targetWarehouseId,
         // The receipt line this lot came from: reversal takes back THIS lot, never a sibling part's.
         grnItemId: grnItem?.id ?? null,
+        weaverId: weaverLineage.weaverId,
+        weaverMix: (weaverLineage.weaverMix as unknown as Prisma.InputJsonValue) ?? Prisma.DbNull,
       },
     });
     // Ensure materials record exists for pre-existing fabrics before syncing stock_levels

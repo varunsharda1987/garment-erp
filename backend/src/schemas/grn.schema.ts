@@ -49,6 +49,10 @@ const grnItemSchema = z.object({
   actualRatePerUnit: z.coerce.number().nonnegative().optional().nullable(),
   updateFutureSourcing: z.boolean().optional(),
   details: z.array(grnItemDetailSchema).optional(),
+  // The weaver whose cloth actually arrived (pre-filled from the PO line). A greige or fabric line
+  // must name one or say weaverNotKnown — the lot carries it (Phase 1b, 2026-09-25).
+  weaverId: z.string().uuid('Invalid weaver').optional().nullable(),
+  weaverNotKnown: z.boolean().optional(),
 });
 
 /**

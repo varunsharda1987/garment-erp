@@ -58,24 +58,24 @@
   "cad-costing": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/FabricCostingPage.tsx": "2fca9368a683",
+      "frontend/src/pages/FabricCostingPage.tsx": "5e387efd060b",
       "frontend/src/pages/CADPlanningPage.tsx": "3c143bc81b4e",
-      "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": "d343f64e9fd2",
+      "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": "243289ebc165",
       "frontend/src/pages/ProcessorRateCardPage.tsx": "5e21d69ce863"
     },
-    "contentHash": "9cb3f4121a98",
-    "generatedAt": "2026-09-23T15:17:42.240Z"
+    "contentHash": "2f3d46231888",
+    "generatedAt": "2026-09-25T12:50:52.355Z"
   },
   "cad-planning-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/CADPlanningPage.tsx": "3c143bc81b4e",
-      "frontend/src/pages/CADPlanningList.tsx": "3c82acc0b698",
+      "frontend/src/pages/CADPlanningList.tsx": "3b3de982ce65",
       "frontend/src/components/cad/CADSpreadsheetTable.tsx": "35428becf8e1",
       "frontend/src/components/cad/StockSummaryBanner.tsx": "9585beb1e33a"
     },
-    "contentHash": "229e13377f67",
-    "generatedAt": "2026-09-23T15:16:55.177Z"
+    "contentHash": "c83ad56030ca",
+    "generatedAt": "2026-09-25T12:50:52.552Z"
   },
   "catalogue-generate": {
     "sources": {
@@ -163,20 +163,20 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/CostSheetList.tsx": "05f907a5822c",
-      "frontend/src/pages/CostSheetForm.tsx": "c8fa3f4283b2",
+      "frontend/src/pages/CostSheetList.tsx": "6798f26a5473",
+      "frontend/src/pages/CostSheetForm.tsx": "21b712edf2cf",
       "frontend/src/pages/CostSheetDetail.tsx": "8191a2c56646",
       "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "55edbaaaaba1",
       "frontend/src/components/cost-sheet/LaceCostingRow.tsx": "1032ac5b41f1",
       "backend/src/controllers/style-costing-calc.controller.ts": "dcb354b02642",
-      "backend/src/controllers/style-costing.utils.ts": "8bc57957ff43",
+      "backend/src/controllers/style-costing.utils.ts": "3726b391f930",
       "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
       "backend/src/controllers/lace.controller.ts": "6791c77f2d53",
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234"
     },
-    "contentHash": "cd276c637728",
-    "generatedAt": "2026-09-25T10:58:29.199Z"
+    "contentHash": "c4f76db974ec",
+    "generatedAt": "2026-09-25T12:50:52.566Z"
   },
   "credit-note-create": {
     "sources": {
@@ -366,30 +366,30 @@
   "fabric-costing-approve": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/FabricCostingPage.tsx": "2fca9368a683",
-      "frontend/src/pages/FabricCostingOptionsPage.tsx": "db91ce41e374"
+      "frontend/src/pages/FabricCostingPage.tsx": "5e387efd060b",
+      "frontend/src/pages/FabricCostingOptionsPage.tsx": "4de0599ac892"
     },
-    "contentHash": "7599f8809e1c",
-    "generatedAt": "2026-09-23T06:17:36.049Z"
+    "contentHash": "d46462abce9b",
+    "generatedAt": "2026-09-25T12:50:52.574Z"
   },
   "fabric-costing-options": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/FabricCostingOptionsPage.tsx": "db91ce41e374",
-      "frontend/src/services/fabricCosting.service.ts": "50b1d759dddb",
-      "frontend/src/types/fabricCosting.types.ts": "a93533704858"
+      "frontend/src/pages/FabricCostingOptionsPage.tsx": "4de0599ac892",
+      "frontend/src/services/fabricCosting.service.ts": "60305d01a837",
+      "frontend/src/types/fabricCosting.types.ts": "3726ae761f5b"
     },
-    "contentHash": "aeec01015f08",
-    "generatedAt": "2026-09-23T06:17:36.052Z"
+    "contentHash": "52bb4d90774a",
+    "generatedAt": "2026-09-25T12:50:52.582Z"
   },
   "fabric-costing-run": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/FabricCostingPage.tsx": "2fca9368a683",
+      "frontend/src/pages/FabricCostingPage.tsx": "5e387efd060b",
       "frontend/src/pages/ProcessorRateCardPage.tsx": "5e21d69ce863"
     },
-    "contentHash": "bfc442cc6402",
-    "generatedAt": "2026-09-23T06:17:36.055Z"
+    "contentHash": "6dd4d3fe60ff",
+    "generatedAt": "2026-09-25T12:50:52.588Z"
   },
   "fabric-create": {
     "sources": {

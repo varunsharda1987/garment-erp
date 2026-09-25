@@ -58,6 +58,7 @@ POST /api/sale-orders
   "customerId": "c4a5436d-0ae3-40ca-be18-2cfd553f89ea",
   "buyerPoNumber": "PO-0012",
   "expectedShipDate": "2026-08-15T00:00:00.000Z",
+  "orderDate": "2026-08-01T00:00:00.000Z",
   "remarks": "House of Kasya PO PO-0012 (KASYA) — …",
   "items": [
     { "styleId": "…", "colorId": null, "sizeId": "…", "quantity": 2, "unitPrice": 450 },
@@ -66,6 +67,14 @@ POST /api/sale-orders
 }
 ```
 
+- **`orderDate`** (sent from 2026-09-25, kasya-b2b `purchaseOrderErp.service.ts`) is the B2B PO's own
+  date → the ERP's **Buyer PO Date**, which dates the production order made from the sale order.
+  Until then it was never sent; the 29 existing House of Kasya sale orders were backfilled from their
+  B2B POs (empty Buyer PO Dates only). There is no delivery date in the push: the ERP's old
+  "Delivery Date" field was ERP-typed only and has left the sale order form.
+- **Date rule (2026-09-25):** a sale order's Expected Ship Date may not be after its Buyer Deadline —
+  a create/update that would make it so is refused 400. The B2B app sends no deadline, so a push is
+  refused only if an ERP user set an earlier deadline on a still-DRAFT order (a real contradiction).
 - One item per **style + colour + size** (aggregated B2B-side to respect
   `sale_order_items @@unique([saleOrderId, styleId, colorId, sizeId])`).
 - `unitPrice` is the **GST-exclusive net rate** from the B2B price agreement (owner rule).
@@ -250,6 +259,7 @@ For any pushed PO, these must line up:
 | PO size grid (qty per size per style/colour) | `sale_order_items` quantities, one row per style+colour+size |
 | PO line **net rate** (GST-exclusive) | `sale_order_items.unitPrice` (and `totalPrice = qty × unitPrice`) |
 | PO "expected date" | `sale_orders.expectedShipDate` |
+| PO date (`orderDate`) | `sale_orders.orderDate` (the Buyer PO Date) |
 | PO list factory badge (`erpSoStatus`, ≤15 min stale) | `sale_orders.status` |
 | Factory-status modal: Ordered/Allocated/Dispatched per line | `quantity` / `allocatedQty` / `dispatchedQty` |
 | Delivery-note / invoice counts in the modal | `_count` of `delivery_notes` / `invoices` on the SO |

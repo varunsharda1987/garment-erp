@@ -48,6 +48,8 @@ function b2bPushPayload(overrides: Record<string, any> = {}) {
     customerId,
     buyerPoNumber: `${RUN}-PO-0012`,
     expectedShipDate: '2026-09-15T00:00:00.000Z', // full ISO — the B2B side's format
+    // Our PO's date → the ERP's Buyer PO Date (sent from 2026-09-25); dates the production order
+    orderDate: '2026-09-01T00:00:00.000Z',
     remarks: `House of Kasya PO ${RUN}-PO-0012 (KASYA) — contract test`,
     items: [
       { styleId, colorId: null, sizeId: sizeSId, quantity: 2, unitPrice: 450 },
@@ -138,6 +140,15 @@ describe('§3 — the push payload the B2B app sends', () => {
 
     // clean up via the contract's own delete path later tests rely on
     await request(app).delete(`/api/sale-orders/${so.id}`).set(authHeader);
+  });
+
+  it("the B2B PO's date lands in the sale order's Buyer PO Date (orderDate)", async () => {
+    const res = await request(app).post('/api/sale-orders').set(authHeader).send(b2bPushPayload());
+    expect(res.status).toBe(201);
+    const id = (res.body?.data ?? res.body).id;
+    const back = await request(app).get(`/api/sale-orders/${id}`).set(authHeader).expect(200);
+    expect(String(back.body.orderDate).slice(0, 10)).toBe('2026-09-01');
+    await request(app).delete(`/api/sale-orders/${id}`).set(authHeader);
   });
 
   it("§5.2 — expectedShipDate also accepts this ERP's own bare YYYY-MM-DD", async () => {

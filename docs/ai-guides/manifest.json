@@ -164,19 +164,19 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/CostSheetList.tsx": "05f907a5822c",
-      "frontend/src/pages/CostSheetForm.tsx": "a2aeb7d6fc67",
+      "frontend/src/pages/CostSheetForm.tsx": "c8fa3f4283b2",
       "frontend/src/pages/CostSheetDetail.tsx": "8191a2c56646",
       "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "55edbaaaaba1",
       "frontend/src/components/cost-sheet/LaceCostingRow.tsx": "1032ac5b41f1",
       "backend/src/controllers/style-costing-calc.controller.ts": "dcb354b02642",
-      "backend/src/controllers/style-costing.utils.ts": "1a3ca8d88ecc",
+      "backend/src/controllers/style-costing.utils.ts": "8bc57957ff43",
       "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
       "backend/src/controllers/lace.controller.ts": "6791c77f2d53",
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234"
     },
-    "contentHash": "7fd265913f12",
-    "generatedAt": "2026-09-23T06:17:35.997Z"
+    "contentHash": "cd276c637728",
+    "generatedAt": "2026-09-25T10:58:29.199Z"
   },
   "credit-note-create": {
     "sources": {

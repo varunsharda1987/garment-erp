@@ -42,11 +42,13 @@ Use the right action for the situation:
 - **Cancel** — nothing arrived at all. Cancel is no longer offered once a PO is Partially Received, because it would claim the delivery never happened.
 - **Receive Goods** — the balance is still coming. Do nothing yet.
 
+A delivery that comes within the **Under-receipt tolerance** (a setting, 5% unless changed) of the ordered quantity already closes the PO as **Received** on its own — there is nothing to close short. Close Short is for a real shortfall, where the PO stays **Partially Received**.
+
 Closing short ends the *ordering* only. It moves no stock, and it does not write anything off. Material a processor short-returned is still settled through the job work order and a debit note.
 
 ## Steps
 1. Open **Procurement → Purchase Orders** in the sidebar.
-2. Find the order. Its status must read **Partially Received**. (From the row's ⋮ menu, **Close Short** takes you to the order page.)
+2. Find the order. The **Material** column shows what each PO is for, and the search box finds a PO by its material, PO number, supplier or style. Its status must read **Partially Received**. (From the row's ⋮ menu, **Close Short** takes you to the order page.)
 3. Click the PO number to open it, then click **Close Short** in the top bar.
 4. The dialog lists every line with **Ordered**, **Received** and **Balance** in its own unit. Check these are the real numbers before continuing.
 5. Type a **Reason** — for example "Supplier could not supply the balance this season". This is required.

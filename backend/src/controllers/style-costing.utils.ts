@@ -329,8 +329,9 @@ export const LaceDetailSchema = z
 export const CreateCostSheetSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
 
-  // Cost Sheet Purpose/Mode
-  purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).default('COSTING'),
+  // Cost Sheet Purpose/Mode. PRODUCTION (and PROCUREMENT_PRODUCTION) stay in the Prisma enum for
+  // old rows but are retired: a Raw Material Calculation sheet is what orders and production run on.
+  purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION']).default('COSTING'),
 
   // Basic Information
   numberOfComponents: z.number().int().positive().optional(),
@@ -357,7 +358,7 @@ export const CreateCostSheetSchema = z.object({
   closedCostNotes: z.string().optional().nullable(),
 
   // ==========================================
-  // Budget Fields (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+  // Budget Fields (for RAW_MATERIAL_CALCULATION direct procurement)
   // ==========================================
   enableBudgetTracking: z.boolean().optional().default(false),
   fabricBudget: z.number().nonnegative('Fabric budget must be non-negative').optional(),

@@ -84,7 +84,6 @@ export default function FabricCostingOptionsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [, setPromotingId] = useState<string | null>(null);
 
   // Collapsed/expanded state per style
   const [expandedStyles, setExpandedStyles] = useState<Set<string>>(new Set());
@@ -283,23 +282,6 @@ export default function FabricCostingOptionsPage() {
     }
   };
 
-  // Handle promote to next workflow stage (temporarily unused - can be re-enabled when needed)
-
-  const handlePromote = async (optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION') => {
-    setPromotingId(optionId);
-    try {
-      await fabricCostingService.promoteCostingOption(optionId, targetPurpose);
-      const displayLabel = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
-      notify.success(`Promoted to ${displayLabel} successfully`);
-      fetchCostingOptions(); // Refresh data
-    } catch {
-      notify.error('Failed to promote option');
-    } finally {
-      setPromotingId(null);
-    }
-  };
-  void handlePromote; // Suppress unused warning - will be used later
-
   // Toggle style expansion
   const toggleStyleExpanded = (styleId: string) => {
     setExpandedStyles((prev) => {
@@ -325,8 +307,6 @@ export default function FabricCostingOptionsPage() {
   // Get purpose badge variant
   const getPurposeBadgeVariant = (purpose: string | null) => {
     switch (purpose) {
-      case 'PRODUCTION':
-        return 'default';
       case 'RAW_MATERIAL_CALCULATION':
         return 'secondary';
       case 'COSTING':
@@ -388,11 +368,10 @@ export default function FabricCostingOptionsPage() {
         onValueChange={(val) => handleFilterChange('purpose', val)}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-4 max-w-xl">
+        <TabsList className="grid w-full grid-cols-3 max-w-md">
           <TabsTrigger value="ALL">All ({purposeCounts.all})</TabsTrigger>
           <TabsTrigger value="COSTING">Costing ({purposeCounts.costing})</TabsTrigger>
           <TabsTrigger value="RAW_MATERIAL_CALCULATION">Raw Mat ({purposeCounts.rawMaterialCalculation})</TabsTrigger>
-          <TabsTrigger value="PRODUCTION">Production ({purposeCounts.production})</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -713,14 +692,9 @@ export default function FabricCostingOptionsPage() {
                                           </TableCell>
                                           {/* 5. Mode */}
                                           <TableCell>
-                                            <Badge
-                                              variant={getPurposeBadgeVariant(option.purpose)}
-                                              className={option.purpose === 'PRODUCTION' ? 'bg-info' : ''}
-                                            >
+                                            <Badge variant={getPurposeBadgeVariant(option.purpose)}>
                                               {option.isLocked && <Lock className="h-3 w-3 mr-1" />}
-                                              {option.purpose === 'RAW_MATERIAL_CALCULATION'
-                                                ? 'Raw Mat'
-                                                : option.purpose || 'Costing'}
+                                              {option.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : 'Costing'}
                                             </Badge>
                                           </TableCell>
                                           {/* 6. Greige +Trp (₹/m) - Combined */}
@@ -811,16 +785,6 @@ export default function FabricCostingOptionsPage() {
                                           </TableCell>
                                           <TableCell>
                                             <div className="flex items-center gap-1">
-                                              {/* Lock indicator for Production (always visible inline) */}
-                                              {option.purpose === 'PRODUCTION' && (
-                                                <span
-                                                  className="text-muted-foreground text-xs"
-                                                  title="Production records are locked"
-                                                >
-                                                  <Lock className="h-3 w-3" />
-                                                </span>
-                                              )}
-
                                               {/* Actions dropdown */}
                                               <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
@@ -865,10 +829,9 @@ export default function FabricCostingOptionsPage() {
                                                       </DropdownMenuItem>
                                                     )}
 
-                                                  {/* Remove costing (not for locked Production records; the backend
-                                                      also refuses approved/alternate rows — unapprove first) */}
-                                                  {!(option.purpose === 'PRODUCTION' && option.isLocked) &&
-                                                    option.approvalStatus !== 'APPROVED' &&
+                                                  {/* Remove costing (the backend refuses approved/alternate rows —
+                                                      unapprove first) */}
+                                                  {option.approvalStatus !== 'APPROVED' &&
                                                     option.approvalStatus !== 'ALTERNATE_APPROVED' && (
                                                       <>
                                                         <DropdownMenuSeparator />

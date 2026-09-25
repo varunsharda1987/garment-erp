@@ -38,6 +38,7 @@ export const getAllCostSheets = async (filters?: CostSheetListFilters): Promise<
   if (filters?.limit) params.append('limit', filters.limit.toString());
   if (filters?.search) params.append('search', filters.search);
   if (filters?.approved) params.append('approved', filters.approved);
+  if (filters?.purpose) params.append('purpose', filters.purpose);
 
   const response = await api.get(`${BASE_URL}?${params.toString()}`);
   return response.data;

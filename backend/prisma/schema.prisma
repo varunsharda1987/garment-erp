@@ -9562,8 +9562,8 @@ enum CadApprovalStatus {
 enum CostSheetPurpose {
   COSTING // For buyer quotation only - CANNOT create orders
   RAW_MATERIAL_CALCULATION // For ordering raw materials (fabric, greige, trims) - CAN create orders
-  PRODUCTION // For manufacturing with in-house materials - CAN create orders
-  PROCUREMENT_PRODUCTION // DEPRECATED: Legacy value - use RAW_MATERIAL_CALCULATION or PRODUCTION instead
+  PRODUCTION // RETIRED 2026-09-25: no new sheets (API refuses it). PRODUCTION is a CAD-only purpose — the lot marker in CAD Planning
+  PROCUREMENT_PRODUCTION // DEPRECATED: Legacy value - use RAW_MATERIAL_CALCULATION instead
 }
 
 /// Cost Sheet Variance Status - Tracks budget vs actual cost variance workflow

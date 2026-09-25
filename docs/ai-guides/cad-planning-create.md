@@ -169,7 +169,9 @@ After approval:
 
 ### 9. Push to Fabric Costing (optional)
 
-Push creates costing records for Costing and Raw Mat rows only — Production rows are skipped.
+Push creates costing records for Costing and Raw Mat rows only — Production rows are skipped, because a Production CAD is the marker for a received lot and is never costed.
+
+The **Fabric Costing** button on the CAD Planning list opens Fabric Costing on the **Raw Mat Calculation** tab when the style has Raw Mat CAD, otherwise on the **Costing** tab.
 
 After approval, to create fabric costing records:
 

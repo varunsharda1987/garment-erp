@@ -24,8 +24,9 @@ export const createCostingRunSchema = z
     name: z.string().min(1, 'Name is required').max(200).optional(),
     fabricCadIds: z.array(z.string().uuid()).min(1, 'At least one fabric CAD ID is required'),
     processorId: z.string().uuid('Invalid processor ID').optional(),
-    purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'], {
-      message: 'Purpose must be COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION',
+    // No PRODUCTION: that purpose is CAD-only — a Production CAD is a lot marker, never costed
+    purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION'], {
+      message: 'Purpose must be COSTING or RAW_MATERIAL_CALCULATION',
     }),
     remarks: z.string().max(500).optional(),
   })

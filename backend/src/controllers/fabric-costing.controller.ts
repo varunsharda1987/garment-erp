@@ -976,20 +976,31 @@ export async function saveFabricCosting(req: Request, res: Response) {
     }
   }
 
-  // REPEAT ORDER DETECTION: Check if style has previous PRODUCTION costings
-  // If yes, this is a repeat order - auto-upgrade all new costings to PRODUCTION mode
-  // Landmine №11: "a real production costing" = PRODUCTION purpose WITH a cost — not
-  // isLocked, which only records "created via the promote flow" and is never stamped on
-  // PRODUCTION CADs created from stock lots (they were invisible to this shortcut).
-  const hasProductionCostings = await prisma.fabric_width_cad.findFirst({
-    where: {
-      costingStyleId: styleId,
-      purpose: 'PRODUCTION',
-      totalCostPerMeter: { not: null },
-    },
-  });
-
-  const isRepeatOrder = !!hasProductionCostings;
+  // PRODUCTION is a CAD-only purpose (2026-09-25): a Production CAD is the marker for one
+  // received fabric lot, made and approved in CAD Planning, and cutting never reads a price off
+  // it. Costing one stamped costingStyleId + a cost on the marker, which locked it against CAD
+  // edit/delete and made two lots at the same width collide on the table's unique key.
+  // Checked for every row BEFORE any write — the saves below run unguarded in parallel.
+  const targetCadIds = fabricCostings
+    .map((c: any) => c.fabricWidthCadId || c.cloneFromCadId)
+    .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+  const productionTargets = targetCadIds.length
+    ? await prisma.fabric_width_cad.findMany({
+        where: {
+          id: { in: targetCadIds },
+          OR: [{ purposeEnum: 'PRODUCTION' }, { purpose: 'PRODUCTION' }],
+        },
+        select: { componentName: true, cutableWidth: true },
+      })
+    : [];
+  if (productionTargets.length > 0) {
+    const first = productionTargets[0];
+    throw new ValidationError(
+      `${first.componentName ?? 'This row'} ${first.cutableWidth}" is a Production CAD — the marker for a received ` +
+        'fabric lot. It is made and approved in CAD Planning and is not costed. Cost the style on the Costing or ' +
+        'Raw Mat Calculation tab.'
+    );
+  }
 
   // Save each fabric costing to fabric_width_cad
   const updates = await Promise.all(
@@ -1103,7 +1114,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
       const costingData = {
         // Link to style for Options page (CRITICAL - without this, data won't appear on Options page)
         costingStyleId: styleId,
-        // Workflow purpose mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+        // Workflow purpose mode (COSTING or RAW_MATERIAL_CALCULATION — PRODUCTION is refused above)
         purpose: resolvedPurpose,
         purposeEnum: resolvedPurpose as any,
         // Fabric Costing ONLY updates these cost-related fields
@@ -1148,7 +1159,6 @@ export async function saveFabricCosting(req: Request, res: Response) {
       data: {
         message: 'Fabric costing updated successfully',
         updatedCount: updates.length,
-        isRepeatOrder: isRepeatOrder, // Include repeat order status for frontend
         // The CAD rows this save actually wrote. Clone mode creates NEW rows, so the
         // frontend cannot derive these ids from its pre-save state — without them a
         // costing run gets linked to superseded rows and shows "0 fabrics".
@@ -1867,19 +1877,21 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
 
 /**
  * POST /api/fabric-costing/option/:optionId/promote
- * Promote a costing option to the next workflow stage
- * PLANNING -> COSTING -> PRODUCTION
- * Creates a copy with the new purpose (original remains for audit)
+ * Promote a costing option to the next workflow stage: COSTING -> RAW_MATERIAL_CALCULATION.
+ * Creates a copy with the new purpose (original remains for audit).
+ * There is no PRODUCTION costing (2026-09-25): PRODUCTION is a CAD-only purpose — the lot
+ * marker made in CAD Planning, never costed.
  */
 export async function promoteCostingOption(req: Request, res: Response) {
   const { optionId } = req.params;
   const { targetPurpose } = req.body;
 
   // Validate target purpose
-  // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING), PRODUCTION (unchanged)
-  const validPurposes = ['RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
-  if (!targetPurpose || !validPurposes.includes(targetPurpose)) {
-    throw new ValidationError('Invalid target purpose. Must be RAW_MATERIAL_CALCULATION or PRODUCTION.');
+  // Mode names: COSTING (was PLANNING), RAW_MATERIAL_CALCULATION (was COSTING)
+  if (targetPurpose !== 'RAW_MATERIAL_CALCULATION') {
+    throw new ValidationError(
+      'Invalid target purpose. A costing can only be promoted to RAW_MATERIAL_CALCULATION — Production CADs are made in CAD Planning and are not costed.'
+    );
   }
 
   // Get the option
@@ -1897,17 +1909,16 @@ export async function promoteCostingOption(req: Request, res: Response) {
   }
 
   // A promotion clones the row into the next stage — promoting a costless row would
-  // create a locked PRODUCTION record with no price.
+  // create a record with no price.
   if (option.totalCostPerMeter == null) {
     throw new ValidationError('Option has no costing to promote. Save a fabric costing first.');
   }
 
   // Define valid transitions
-  // Mode names: COSTING (was PLANNING) -> RAW_MATERIAL_CALCULATION (was COSTING) -> PRODUCTION
+  // Mode names: COSTING (was PLANNING) -> RAW_MATERIAL_CALCULATION (was COSTING)
   const validPaths = [
     { from: 'COSTING', to: 'RAW_MATERIAL_CALCULATION' },
     { from: null, to: 'RAW_MATERIAL_CALCULATION' }, // Legacy records without purpose
-    { from: 'RAW_MATERIAL_CALCULATION', to: 'PRODUCTION' },
   ];
 
   const currentPurpose = option.purpose || 'COSTING';
@@ -1938,7 +1949,7 @@ export async function promoteCostingOption(req: Request, res: Response) {
       costingApprovedBy: null,
       costingApprovedAt: null,
       isPreferred: false, // Reset preference in new stage
-      isLocked: targetPurpose === 'PRODUCTION', // Lock PRODUCTION records
+      isLocked: false,
     },
     include: {
       processor: { select: { id: true, name: true, code: true } },
@@ -1958,7 +1969,7 @@ export async function promoteCostingOption(req: Request, res: Response) {
 /**
  * POST /api/fabric-costing/styles/costing-status
  * Get costing status for multiple styles at once
- * Returns: { styleId: { hasCosting, hasPending, hasApproved, hasProduction } }
+ * Returns: { styleId: { hasCosting, hasPending, hasApproved, costingCount, costedPurposes } }
  */
 export async function getStylesCostingStatus(req: Request, res: Response) {
   const { styleIds } = req.body;
@@ -1987,10 +1998,6 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
     const hasApproved = costings.some(
       (c) => c.costingApprovalStatus === 'APPROVED' || c.costingApprovalStatus === 'ALTERNATE_APPROVED'
     );
-    // Landmine №11: every row here already has a cost (the where filters on it), so
-    // PRODUCTION purpose alone means a real production costing — isLocked is provenance
-    // (promote flow) and is never set on stock-lot-created PRODUCTION rows.
-    const hasProduction = costings.some((c) => c.purpose === 'PRODUCTION');
     const hasPending = hasCosting && !hasApproved;
 
     return {
@@ -1999,7 +2006,6 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
         hasCosting,
         hasPending,
         hasApproved,
-        hasProduction,
         costingCount: costings.length,
         // Which purpose modes actually hold costing, so the Fabric Costing page can open
         // on the tab that has the data instead of always defaulting to COSTING.
@@ -2134,7 +2140,7 @@ export async function pushFromCAD(req: Request, res: Response) {
     if ((row.purposeEnum ?? row.purpose) === 'PRODUCTION') {
       skippedRows.push({
         id: row.id,
-        reason: 'Production rows are costed through Fabric Costing → Promote',
+        reason: 'Production CADs are lot markers — they are not costed',
       });
       continue;
     }

@@ -55,7 +55,7 @@ Two ways to find a style:
 **Quick Search (recommended):**
 - Type in the "Quick Search" box
 - Search by style code, buyer reference, or style name
-- Results show costing status (Costed/Approved/Pending) and option count
+- Results show costing status (Approved/Pending) and option count
 - Click a result to select
 
 **Or Customer > Style dropdown:**
@@ -64,13 +64,14 @@ Two ways to find a style:
 
 ### 3. Choose the Mode
 
-Three tabs for different purposes:
+Two tabs for different purposes:
 
 | Mode | Use When |
 |------|----------|
 | **Costing** | Creating quotations - initial pricing |
 | **Raw Mat Calculation** | MRP for confirmed orders |
-| **Production** | Final locked costings for production |
+
+There is no Production mode. A Production CAD (one per received fabric lot) is made and approved in **CAD Planning** and is never costed.
 
 ### 4. Set Order Quantity
 
@@ -173,4 +174,4 @@ The table shows:
 
 3. **Use in Cost Sheet** - Approved fabric costs feed into the Style Cost Sheet
 
-4. **MRP uses approved costings** - Material Requirement Planning uses approved Production-mode costings for procurement calculations
+4. **MRP uses the order BOM** - The order BOM is built from the style's approved Raw Material Calculation cost sheet, and MRP works from that BOM

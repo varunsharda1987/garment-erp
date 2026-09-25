@@ -460,7 +460,6 @@ export interface SaveFabricCostingRequest {
 export interface SaveFabricCostingResponse {
   message: string;
   updatedCount: number;
-  isRepeatOrder?: boolean;
   records?: Array<{ id: string; clonedFromCadId: string | null }>;
 }
 

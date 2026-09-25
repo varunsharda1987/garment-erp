@@ -172,19 +172,8 @@ export const fabricCostingService = {
   },
 
   /**
-   * Promote a costing option to next workflow stage
-   * PLANNING → COSTING → PRODUCTION
-   */
-  async promoteCostingOption(optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION'): Promise<CostingOption> {
-    const response = await api.post<ApiResponse<CostingOption>>(`${BASE_URL}/option/${optionId}/promote`, {
-      targetPurpose,
-    });
-    return response.data.data;
-  },
-
-  /**
    * Get costing status for multiple styles at once
-   * Returns map of styleId -> { hasCosting, hasPending, hasApproved, hasProduction }
+   * Returns map of styleId -> { hasCosting, hasPending, hasApproved, costingCount, costedPurposes }
    */
   async getStylesCostingStatus(styleIds: string[]): Promise<Record<string, StyleCostingStatus>> {
     const response = await api.post<ApiResponse<Record<string, StyleCostingStatus>>>(
@@ -274,7 +263,6 @@ export interface StyleCostingStatus {
   hasCosting: boolean;
   hasPending: boolean;
   hasApproved: boolean;
-  hasProduction: boolean;
   costingCount: number;
   /** Purpose modes that actually hold saved costing (used to pick the initial tab) */
   costedPurposes?: string[];

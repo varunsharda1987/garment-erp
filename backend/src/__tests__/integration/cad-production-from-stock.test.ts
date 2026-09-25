@@ -334,7 +334,7 @@ describe('Copy to Production copies the marker, not the price', () => {
       .send({ styleId, cadRowIds: [firstCadId] })
       .expect(200);
     expect(res.body.data.created).toBe(0);
-    expect(res.body.data.skippedRows[0].reason).toMatch(/Production rows/);
+    expect(res.body.data.skippedRows[0].reason).toMatch(/Production CADs are lot markers/);
     const row = await prisma.fabric_width_cad.findUnique({ where: { id: firstCadId } });
     expect(row?.totalCostPerMeter).toBeNull();
   });

@@ -105,6 +105,8 @@ afterAll(async () => {
   await prisma.orders.deleteMany({ where: { orderNumber: { startsWith: RUN } } });
   await prisma.customers.deleteMany({ where: { code: { startsWith: RUN } } });
   await prisma.fabric_width_cad.deleteMany({ where: { componentName: { startsWith: RUN } } });
+  // Only a failed PRODUCTION-run refusal would leave one; FK blocks the style delete otherwise
+  await prisma.fabric_costing_run.deleteMany({ where: { styleId: only(styleId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
   await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
@@ -406,12 +408,12 @@ describe('PATCH unapprove — downstream dependents guard (ESSKY091LS)', () => {
 
 describe('POST /api/fabric-costing/option/:optionId/promote', () => {
   it('refuses to promote an unapproved-costing option', async () => {
-    const cad = await createCostedCadRow({ componentName: `${RUN}-PROM1` });
+    const cad = await createCostedCadRow({ componentName: `${RUN}-PROM1`, purpose: 'COSTING', purposeEnum: 'COSTING' });
 
     const res = await request(app)
       .post(`/api/fabric-costing/option/${cad.id}/promote`)
       .set(authHeader)
-      .send({ targetPurpose: 'PRODUCTION' })
+      .send({ targetPurpose: 'RAW_MATERIAL_CALCULATION' })
       .expect(400);
     expect(res.body.message).toMatch(/approved costing/i);
   });
@@ -419,6 +421,8 @@ describe('POST /api/fabric-costing/option/:optionId/promote', () => {
   it('promoted copy is not born price-approved', async () => {
     const cad = await createCostedCadRow({
       componentName: `${RUN}-PROM2`,
+      purpose: 'COSTING',
+      purposeEnum: 'COSTING',
       costingApprovalStatus: 'APPROVED',
       costingApprovedBy: testUserId,
       costingApprovedAt: new Date(),
@@ -427,15 +431,128 @@ describe('POST /api/fabric-costing/option/:optionId/promote', () => {
     const res = await request(app)
       .post(`/api/fabric-costing/option/${cad.id}/promote`)
       .set(authHeader)
-      .send({ targetPurpose: 'PRODUCTION' })
+      .send({ targetPurpose: 'RAW_MATERIAL_CALCULATION' })
       .expect(200);
 
     const promoted = await prisma.fabric_width_cad.findUnique({ where: { id: res.body.data.id } });
-    expect(promoted!.purpose).toBe('PRODUCTION');
-    expect(promoted!.isLocked).toBe(true);
+    expect(promoted!.purpose).toBe('RAW_MATERIAL_CALCULATION');
+    expect(promoted!.isLocked).toBe(false);
     expect(promoted!.costingApprovalStatus).toBeNull();
     expect(promoted!.costingApprovedBy).toBeNull();
     expect(promoted!.approvalStatus).toBe('PENDING');
+  });
+
+  it('refuses to promote to PRODUCTION — there is no Production costing', async () => {
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-PROM3`,
+      costingApprovalStatus: 'APPROVED',
+      costingApprovedBy: testUserId,
+      costingApprovedAt: new Date(),
+    });
+
+    await request(app)
+      .post(`/api/fabric-costing/option/${cad.id}/promote`)
+      .set(authHeader)
+      .send({ targetPurpose: 'PRODUCTION' })
+      .expect(400);
+
+    const copies = await prisma.fabric_width_cad.count({
+      where: { componentName: `${RUN}-PROM3`, purpose: 'PRODUCTION' },
+    });
+    expect(copies).toBe(0);
+  });
+});
+
+// PRODUCTION is a CAD-only purpose (2026-09-25): a Production CAD is the marker for one received
+// fabric lot, made and approved in CAD Planning, and it is never costed. Costing one locked the
+// marker against CAD edit/delete and collided lots of the same width on the table's unique key.
+describe('PRODUCTION is CAD-only — every costing write refuses it', () => {
+  /** A lot marker as CAD Planning makes it: PRODUCTION purpose, CAD-approved, no costing. */
+  const createProductionCad = (name: string) =>
+    createCadRow({
+      componentName: `${RUN}-${name}`,
+      purpose: 'PRODUCTION',
+      purposeEnum: 'PRODUCTION',
+      approvalStatus: 'APPROVED',
+      approvedBy: testUserId,
+      approvedAt: new Date(),
+    });
+
+  it('refuses to save a costing onto a Production CAD, and writes nothing', async () => {
+    const marker = await createProductionCad('PRODMARK');
+    const other = await createCadRow({ componentName: `${RUN}-PRODMARK-SIBLING` });
+
+    const res = await request(app)
+      .post('/api/fabric-costing/save')
+      .set(authHeader)
+      .send({
+        styleId,
+        // The page sends no purpose for the marker row's own tab; the row's purpose decides.
+        // The sibling row proves the refusal comes before ANY write, not just the marker's.
+        fabricCostings: [
+          { fabricWidthCadId: other.id, totalCostPerMeter: 60, purpose: 'RAW_MATERIAL_CALCULATION' },
+          { fabricWidthCadId: marker.id, totalCostPerMeter: 60 },
+        ],
+      })
+      .expect(400);
+    expect(res.body.message).toMatch(/Production CAD/);
+
+    const [markerAfter, otherAfter] = await Promise.all([
+      prisma.fabric_width_cad.findUnique({ where: { id: marker.id } }),
+      prisma.fabric_width_cad.findUnique({ where: { id: other.id } }),
+    ]);
+    expect(markerAfter!.costingStyleId).toBeNull();
+    expect(markerAfter!.totalCostPerMeter).toBeNull();
+    expect(otherAfter!.totalCostPerMeter).toBeNull();
+  });
+
+  it('refuses a clone-mode save whose source is a Production CAD', async () => {
+    const marker = await createProductionCad('PRODCLONE');
+
+    await request(app)
+      .post('/api/fabric-costing/save')
+      .set(authHeader)
+      .send({ styleId, fabricCostings: [{ cloneFromCadId: marker.id, totalCostPerMeter: 60 }] })
+      .expect(400);
+
+    const clones = await prisma.fabric_width_cad.count({ where: { clonedFromCadId: marker.id } });
+    expect(clones).toBe(0);
+  });
+
+  it('refuses purpose PRODUCTION on a costing save', async () => {
+    const cad = await createCadRow({ componentName: `${RUN}-PRODPURPOSE` });
+
+    await request(app)
+      .post('/api/fabric-costing/save')
+      .set(authHeader)
+      .send({ styleId, fabricCostings: [{ fabricWidthCadId: cad.id, totalCostPerMeter: 60, purpose: 'PRODUCTION' }] })
+      .expect(400);
+
+    const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
+    expect(after!.purpose).toBe('RAW_MATERIAL_CALCULATION');
+    expect(after!.totalCostPerMeter).toBeNull();
+  });
+
+  it('refuses a PRODUCTION costing run', async () => {
+    const cad = await createCostedCadRow({ componentName: `${RUN}-PRODRUN` });
+
+    const res = await request(app)
+      .post(`/api/fabric-costing-runs/style/${styleId}`)
+      .set(authHeader)
+      .send({ fabricCadIds: [cad.id], purpose: 'PRODUCTION' })
+      .expect(400);
+    expect(JSON.stringify(res.body.details)).toContain('purpose');
+
+    expect(await prisma.fabric_costing_run.count({ where: { styleId } })).toBe(0);
+  });
+
+  it('refuses a PRODUCTION cost sheet', async () => {
+    const res = await request(app)
+      .post('/api/style-costing')
+      .set(authHeader)
+      .send({ styleId, purpose: 'PRODUCTION' })
+      .expect(400);
+    expect(JSON.stringify(res.body.details)).toContain('purpose');
   });
 });
 

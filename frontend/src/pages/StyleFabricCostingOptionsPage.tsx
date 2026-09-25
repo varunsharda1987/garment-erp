@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Loader2, X, ArrowRight, Lock, FileText, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Loader2, X, Lock, FileText, MoreHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -41,7 +41,6 @@ export default function StyleFabricCostingOptionsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [promotingId, setPromotingId] = useState<string | null>(null);
 
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -67,7 +66,7 @@ export default function StyleFabricCostingOptionsPage() {
     fetchStyle();
   }, [styleId]);
 
-  // Fetch costing options - all modes (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+  // Fetch costing options - all modes (COSTING, RAW_MATERIAL_CALCULATION)
   const fetchCostingOptions = useCallback(async () => {
     if (!styleId) return;
 
@@ -151,22 +150,6 @@ export default function StyleFabricCostingOptionsPage() {
     }
   };
 
-  // Handle promote
-  const handlePromote = async (optionId: string, targetPurpose: 'COSTING' | 'PRODUCTION') => {
-    setPromotingId(optionId);
-    try {
-      await fabricCostingService.promoteCostingOption(optionId, targetPurpose);
-      const label = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
-      notify.success(`Promoted to ${label}`);
-      fetchCostingOptions();
-    } catch (error) {
-      // Surface the server's reason (e.g. "needs an approved costing before promotion")
-      handleApiError(error, 'Failed to promote option');
-    } finally {
-      setPromotingId(null);
-    }
-  };
-
   // Format currency
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return '-';
@@ -176,8 +159,6 @@ export default function StyleFabricCostingOptionsPage() {
   // Get purpose badge variant
   const getPurposeBadgeVariant = (purpose: string | null) => {
     switch (purpose) {
-      case 'PRODUCTION':
-        return 'default';
       case 'RAW_MATERIAL_CALCULATION':
         return 'secondary';
       case 'COSTING':
@@ -345,14 +326,9 @@ export default function StyleFabricCostingOptionsPage() {
                                 <TableCell>{idx + 1}</TableCell>
                                 {/* Mode */}
                                 <TableCell className="text-center">
-                                  <Badge
-                                    variant={getPurposeBadgeVariant(option.purpose)}
-                                    className={option.purpose === 'PRODUCTION' ? 'bg-info' : ''}
-                                  >
+                                  <Badge variant={getPurposeBadgeVariant(option.purpose)}>
                                     {option.isLocked && <Lock className="h-3 w-3 mr-1" />}
-                                    {option.purpose === 'RAW_MATERIAL_CALCULATION'
-                                      ? 'Raw Mat'
-                                      : option.purpose || 'Costing'}
+                                    {option.purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Mat' : 'Costing'}
                                   </Badge>
                                 </TableCell>
                                 {/* Component */}
@@ -465,16 +441,6 @@ export default function StyleFabricCostingOptionsPage() {
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1">
-                                    {/* Lock indicator for Production (always visible inline) */}
-                                    {option.purpose === 'PRODUCTION' && (
-                                      <span
-                                        className="text-muted-foreground text-xs"
-                                        title="Production records are locked"
-                                      >
-                                        <Lock className="h-3 w-3" />
-                                      </span>
-                                    )}
-
                                     {/* Actions dropdown */}
                                     <DropdownMenu>
                                       <DropdownMenuTrigger asChild>
@@ -485,14 +451,12 @@ export default function StyleFabricCostingOptionsPage() {
                                           disabled={
                                             approvingId === option.id ||
                                             unapprovingId === option.id ||
-                                            deletingId === option.id ||
-                                            promotingId === option.id
+                                            deletingId === option.id
                                           }
                                         >
                                           {approvingId === option.id ||
                                           unapprovingId === option.id ||
-                                          deletingId === option.id ||
-                                          promotingId === option.id ? (
+                                          deletingId === option.id ? (
                                             <Loader2 className="h-4 w-4 animate-spin" />
                                           ) : (
                                             <MoreHorizontal className="h-4 w-4" />
@@ -521,23 +485,9 @@ export default function StyleFabricCostingOptionsPage() {
                                             </DropdownMenuItem>
                                           )}
 
-                                        {/* Promote to Production */}
-                                        {(option.purpose === 'COSTING' ||
-                                          option.purpose === 'RAW_MATERIAL_CALCULATION') &&
-                                          option.approvalStatus === 'APPROVED' && (
-                                            <DropdownMenuItem
-                                              onClick={() => handlePromote(option.id, 'PRODUCTION')}
-                                              className="text-success"
-                                            >
-                                              <ArrowRight className="mr-2 h-4 w-4" />
-                                              Promote to Production
-                                            </DropdownMenuItem>
-                                          )}
-
-                                        {/* Remove costing (not for locked Production records; the backend
-                                            also refuses approved/alternate rows — unapprove first) */}
-                                        {!(option.purpose === 'PRODUCTION' && option.isLocked) &&
-                                          option.approvalStatus !== 'APPROVED' &&
+                                        {/* Remove costing (the backend refuses approved/alternate rows —
+                                            unapprove first) */}
+                                        {option.approvalStatus !== 'APPROVED' &&
                                           option.approvalStatus !== 'ALTERNATE_APPROVED' && (
                                             <>
                                               <DropdownMenuSeparator />

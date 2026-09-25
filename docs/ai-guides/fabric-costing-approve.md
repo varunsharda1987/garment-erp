@@ -42,7 +42,7 @@ route: /fabric-costing
 3. Filter to find your style:
    - Select Customer from the dropdown
    - Select Style from the dropdown
-   - Or use the Purpose tabs (Costing / Raw Mat / Production) to filter
+   - Or use the Purpose tabs (All / Costing / Raw Mat) to filter
 4. Find the costing option you want to approve in the table
 5. Click the **three-dot menu** (More options) on the right side of the row
 6. Click **Approve**

@@ -61,6 +61,10 @@ import type { FabricCostCalculationResult } from '../types/fabricCosting.types';
 import { TrimMasterCombobox, type TrimMasterSelection } from '../components/TrimMasterCombobox';
 import { useDefaultSettings } from '../hooks/useDefaultSettings';
 
+// The two cost sheet modes. PRODUCTION is retired (2026-09-25): it is a CAD-only purpose — the lot
+// marker in CAD Planning — and a Raw Material Calculation sheet is what orders and production run on.
+type CostSheetMode = 'COSTING' | 'RAW_MATERIAL_CALCULATION';
+
 const CostSheetForm = () => {
   // Lace wastage comes from the system defaults registry, never a literal.
   const { laceWastagePercent } = useDefaultSettings();
@@ -81,14 +85,15 @@ const CostSheetForm = () => {
   const [fabricCostResults] = useState<FabricCostCalculationResult[]>([]);
   // Costing mode selector - determines which fabric costing data to pull
   // Auto-select from localStorage preference
-  const [costingMode, setCostingMode] = useState<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'>(() => {
+  const [costingMode, setCostingMode] = useState<CostSheetMode>(() => {
+    // A remembered 'PRODUCTION' from before the mode was retired falls back to COSTING
     const saved = localStorage.getItem('costSheet.fabricCostingMode');
-    if (saved === 'RAW_MATERIAL_CALCULATION' || saved === 'PRODUCTION') return saved;
+    if (saved === 'RAW_MATERIAL_CALCULATION') return saved;
     return 'COSTING';
   });
 
   // Save costing mode preference to localStorage
-  const handleCostingModeChange = (mode: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION') => {
+  const handleCostingModeChange = (mode: CostSheetMode) => {
     setCostingMode(mode);
     localStorage.setItem('costSheet.fabricCostingMode', mode);
   };
@@ -142,7 +147,7 @@ const CostSheetForm = () => {
   const [closedCost, setClosedCost] = useState<number | null>(null);
   const [closedCostNotes, setClosedCostNotes] = useState('');
 
-  // Budget Tracking (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+  // Budget Tracking (for RAW_MATERIAL_CALCULATION direct procurement)
   const [enableBudgetTracking, setEnableBudgetTracking] = useState(false);
   const [budgetSource, setBudgetSource] = useState<'manual' | 'auto'>('manual');
   const [fabricBudget, setFabricBudget] = useState<number>(0);
@@ -276,7 +281,7 @@ const CostSheetForm = () => {
 
         // Set costing mode from loaded cost sheet (default to COSTING if not set)
         if (costSheet.purpose) {
-          setCostingMode(costSheet.purpose as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION');
+          setCostingMode(costSheet.purpose as CostSheetMode);
         }
 
         // Set style ID and fetch full style details (including CAD status)
@@ -691,7 +696,7 @@ const CostSheetForm = () => {
   const isAutoModeChange = useRef(false);
 
   // Fetch costing runs when style is selected
-  // Auto-detect mode with priority: PRODUCTION > RAW_MATERIAL_CALCULATION > COSTING
+  // Auto-detect mode with priority: RAW_MATERIAL_CALCULATION > COSTING
   useEffect(() => {
     const fetchCostingRuns = async () => {
       if (!selectedStyleId) {
@@ -712,11 +717,7 @@ const CostSheetForm = () => {
         }
 
         // Check all modes for available runs with priority order
-        const modePriority: Array<'PRODUCTION' | 'RAW_MATERIAL_CALCULATION' | 'COSTING'> = [
-          'PRODUCTION',
-          'RAW_MATERIAL_CALCULATION',
-          'COSTING',
-        ];
+        const modePriority: CostSheetMode[] = ['RAW_MATERIAL_CALCULATION', 'COSTING'];
 
         let bestMode = costingMode;
         let bestRuns: CostingRun[] = [];
@@ -964,7 +965,7 @@ const CostSheetForm = () => {
                       fabricRate = fabric.unitPrice || 0;
                     }
                   }
-                  // For RAW_MATERIAL_CALCULATION and PRODUCTION modes with NO data:
+                  // For RAW_MATERIAL_CALCULATION mode with NO data:
                   // fabricRate and fabricAverage stay at 0 (don't use COSTING fallbacks)
 
                   // 3. Fallback to stock lookup - ONLY for COSTING mode (backward compatibility)
@@ -1868,7 +1869,7 @@ const CostSheetForm = () => {
           setFabricDetails(fabricDetailsFromRun);
 
           // Auto-enable budget tracking for non-COSTING modes
-          if (costingMode === 'RAW_MATERIAL_CALCULATION' || costingMode === 'PRODUCTION') {
+          if (costingMode === 'RAW_MATERIAL_CALCULATION') {
             setEnableBudgetTracking(true);
             setBudgetSource('auto');
             // Set fabric budget from run's total cost per garment
@@ -1972,7 +1973,7 @@ const CostSheetForm = () => {
 
       const data = {
         styleId: selectedStyleId,
-        purpose: costingMode, // Cost sheet purpose/mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+        purpose: costingMode, // Cost sheet purpose/mode (COSTING or RAW_MATERIAL_CALCULATION)
         numberOfComponents: numberOfComponents || undefined,
         category: category || undefined,
         subCategory: subCategory || undefined,
@@ -1988,7 +1989,7 @@ const CostSheetForm = () => {
         // Closed Cost - Final agreed price with customer
         closedCost: closedCost || undefined,
         closedCostNotes: closedCostNotes || undefined,
-        // Budget Tracking (for RAW_MATERIAL_CALCULATION/PRODUCTION direct procurement)
+        // Budget Tracking (for RAW_MATERIAL_CALCULATION direct procurement)
         ...(enableBudgetTracking && {
           enableBudgetTracking: true,
           fabricBudget,
@@ -2160,9 +2161,7 @@ const CostSheetForm = () => {
                 <label className="block text-sm font-medium mb-2">Fabric Costing Mode</label>
                 <Select
                   value={costingMode}
-                  onValueChange={(v) =>
-                    handleCostingModeChange(v as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION')
-                  }
+                  onValueChange={(v) => handleCostingModeChange(v as CostSheetMode)}
                   disabled={isEditMode || isApprovedCostSheet}
                 >
                   <SelectTrigger>
@@ -2171,7 +2170,6 @@ const CostSheetForm = () => {
                   <SelectContent>
                     <SelectItem value="COSTING">Costing (Buyer Quotation)</SelectItem>
                     <SelectItem value="RAW_MATERIAL_CALCULATION">Raw Material Calculation</SelectItem>
-                    <SelectItem value="PRODUCTION">Production</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -2248,8 +2246,8 @@ const CostSheetForm = () => {
             </div>
           )}
 
-          {/* Budget Tracking Section - Only for RAW_MATERIAL_CALCULATION or PRODUCTION modes */}
-          {selectedStyleId && (costingMode === 'RAW_MATERIAL_CALCULATION' || costingMode === 'PRODUCTION') && (
+          {/* Budget Tracking Section - Only for RAW_MATERIAL_CALCULATION mode */}
+          {selectedStyleId && costingMode === 'RAW_MATERIAL_CALCULATION' && (
             <div className="mt-4 p-4 border border-accent/20 bg-accent/10 rounded-lg">
               <div className="flex items-center gap-3 mb-4">
                 <Checkbox

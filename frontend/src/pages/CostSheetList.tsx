@@ -282,7 +282,6 @@ const CostSheetList = () => {
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="COSTING">Costing</SelectItem>
                   <SelectItem value="RAW_MATERIAL_CALCULATION">RM Calculation</SelectItem>
-                  <SelectItem value="PRODUCTION">Production</SelectItem>
                 </SelectContent>
               </Select>
             </div>

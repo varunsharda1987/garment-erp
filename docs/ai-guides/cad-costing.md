@@ -24,6 +24,9 @@ keywords:
   - discharge
   - why is the rate blank
   - costing not saving
+  - production costing
+  - production mode
+  - production tab missing
   # Hinglish
   - fabric costing karna
   - CAD ki costing
@@ -37,6 +40,8 @@ keywords:
   - rate card nahi hai
   - print type kya hai
   - costing save nahi ho rahi
+  - production ki costing kaise kare
+  - production tab kahan hai
   # Devanagari (MANDATORY)
   - फैब्रिक कॉस्टिंग
   - कैड कॉस्टिंग
@@ -52,6 +57,8 @@ keywords:
   - प्रिंट टाइप
   - पिगमेंट
   - कॉस्टिंग सेव नहीं हो रही
+  - प्रोडक्शन कॉस्टिंग
+  - प्रोडक्शन मोड
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
@@ -73,7 +80,7 @@ route: /fabric-costing
 1. Open the style in **Pre-Production > CAD Planning**
 2. Click **Actions** dropdown (top right)
 3. Select **View Fabric Costing** or **Push to Fabric Costing**
-   - **Push to Fabric Costing** creates costing records for Costing and Raw Mat rows only. Production CAD rows (one per received lot) are skipped — a Production costing is made with **Promote to Production** on **Pre-Production > Costing Options**.
+   - **Push to Fabric Costing** creates costing records for Costing and Raw Mat rows only. Production CAD rows (one per received lot) are skipped with the reason "Production CADs are lot markers — they are not costed".
 
 **Option 2: Direct navigation**
 1. Go to **Pre-Production > Fabric Costing**
@@ -89,7 +96,8 @@ route: /fabric-costing
 ### 2. Choose the costing mode (tabs)
 - **Costing** - For quotation pricing (default)
 - **Raw Mat Calculation** - For MRP after order confirmation
-- **Production** - Final locked costings for production
+
+There is no Production tab. A Production CAD is the marker for one received fabric lot: it is made and approved in **CAD Planning** and is never costed. Orders and production run on the approved **Raw Mat Calculation** costing.
 
 ### 3. Enter Order Quantity (pcs)
 - This quantity is used for rate slab lookup
@@ -187,6 +195,7 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
   the cost sheet and MRP. Add the missing rate, fetch it again, then save.
 - **Quantity matters**: Rate slabs depend on quantity - higher quantity = better rate
 - **Approved rows**: You cannot modify a row with approved costing - unapprove first on the Options page
+- **"... is a Production CAD — the marker for a received fabric lot"**: Save refuses a Production CAD row and saves nothing. Cost the style on the **Costing** or **Raw Mat Calculation** tab instead; the Production CAD itself is approved in CAD Planning.
 
 ## After saving
 

@@ -924,16 +924,21 @@ function FabricRowCells({
   );
 }
 
+// The two costing modes. PRODUCTION is a CAD-only purpose (2026-09-25): a Production CAD is the
+// marker for one received fabric lot, made and approved in CAD Planning, and it is never costed.
+type FabricCostingMode = Exclude<CostingPurpose, 'PRODUCTION'>;
+
 export default function FabricCostingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedStyleId = searchParams.get('styleId');
-  const preselectedPurpose = searchParams.get('purpose') as CostingPurpose | null;
+  const preselectedPurpose = searchParams.get('purpose') as FabricCostingMode | null;
 
-  // Validate and determine initial purpose from URL param
-  const validPurposes: CostingPurpose[] = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
+  // Validate and determine initial purpose from URL param (an old ?purpose=PRODUCTION link falls
+  // through to the costed-tab pick below)
+  const validPurposes: FabricCostingMode[] = ['COSTING', 'RAW_MATERIAL_CALCULATION'];
   const hasExplicitPurpose = !!preselectedPurpose && validPurposes.includes(preselectedPurpose);
-  const initialPurpose = hasExplicitPurpose ? (preselectedPurpose as CostingPurpose) : 'COSTING';
+  const initialPurpose: FabricCostingMode = hasExplicitPurpose ? (preselectedPurpose as FabricCostingMode) : 'COSTING';
 
   // Selection state
   const [styles, setStyles] = useState<Style[]>([]);
@@ -943,7 +948,7 @@ export default function FabricCostingPage() {
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [orderQuantity, setOrderQuantity] = useState<number>(0);
   const [previousQuantity, setPreviousQuantity] = useState<number | null>(null);
-  const [purpose, setPurpose] = useState<CostingPurpose>(initialPurpose);
+  const [purpose, setPurpose] = useState<FabricCostingMode>(initialPurpose);
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
@@ -962,7 +967,6 @@ export default function FabricCostingPage() {
   const [, setIsLoadingProcessors] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [, setApprovingRowId] = useState<string | null>(null);
-  const [isRepeatOrder, setIsRepeatOrder] = useState(false); // Track if style is repeat order
   const [showStyleOptionsButton, setShowStyleOptionsButton] = useState(false); // Show "View Style Options" button after save
   const [styleCostingStatus, setStyleCostingStatus] = useState<Record<string, StyleCostingStatus>>({}); // Costing status for search results
 
@@ -996,11 +1000,11 @@ export default function FabricCostingPage() {
   });
 
   // Pick the tab a style actually has costing on. Most entry points into this page don't
-  // pass ?purpose=, so without this a style costed under RAW_MATERIAL_CALCULATION or
-  // PRODUCTION opened on the empty COSTING tab and looked like it had default values.
+  // pass ?purpose=, so without this a style costed under RAW_MATERIAL_CALCULATION opened on
+  // the empty COSTING tab and looked like it had default values.
   // Most advanced stage first.
-  const pickCostedPurpose = useCallback((costedPurposes?: string[]): CostingPurpose | null => {
-    const priority: CostingPurpose[] = ['PRODUCTION', 'RAW_MATERIAL_CALCULATION', 'COSTING'];
+  const pickCostedPurpose = useCallback((costedPurposes?: string[]): FabricCostingMode | null => {
+    const priority: FabricCostingMode[] = ['RAW_MATERIAL_CALCULATION', 'COSTING'];
     return priority.find((p) => costedPurposes?.includes(p)) ?? null;
   }, []);
 
@@ -1141,7 +1145,6 @@ export default function FabricCostingPage() {
     );
     setShowSearchResults(false);
     setStyleSearchResults([]);
-    setIsRepeatOrder(false); // Reset repeat order status when selecting new style
     setPreviousQuantity(null); // Reset previous quantity indicator
     setOrderQuantity(0); // Reset order quantity for new style (will be loaded from saved data)
     // BUG-FC3 fix: Reset dirty tracking for new style
@@ -1159,7 +1162,6 @@ export default function FabricCostingPage() {
     setSelectedStyleId('');
     setSelectedCustomerId('');
     setFabricRows([]);
-    setIsRepeatOrder(false); // Reset repeat order status
     setPreviousQuantity(null); // Reset previous quantity indicator
     setOrderQuantity(0); // Reset order quantity
     // BUG-FC3 fix: Reset dirty tracking when clearing
@@ -2161,12 +2163,6 @@ export default function FabricCostingPage() {
         }),
       });
 
-      // Update repeat order status from backend response
-      if (response.isRepeatOrder) {
-        setIsRepeatOrder(true);
-        notify.info('Repeat Order: Costings saved directly to PRODUCTION mode');
-      }
-
       notify.success(`Saved costing for ${rowsToSave.length} fabric(s) to fabric_width_cad`);
       // BUG-FC3 fix: Mark as clean after successful save
       setInternalDirty(false);
@@ -2441,7 +2437,7 @@ export default function FabricCostingPage() {
       {/* Purpose Mode Tabs */}
       <div className="flex items-center gap-3 mb-4">
         <span className="text-sm font-medium text-foreground">Mode:</span>
-        <Tabs value={purpose} onValueChange={(val) => setPurpose(val as CostingPurpose)}>
+        <Tabs value={purpose} onValueChange={(val) => setPurpose(val as FabricCostingMode)}>
           <TabsList>
             <TabsTrigger value="COSTING" className="data-[state=active]:bg-info-muted data-[state=active]:text-info">
               Costing
@@ -2452,24 +2448,12 @@ export default function FabricCostingPage() {
             >
               Raw Mat Calculation
             </TabsTrigger>
-            <TabsTrigger
-              value="PRODUCTION"
-              className="data-[state=active]:bg-success-muted data-[state=active]:text-success"
-            >
-              Production
-            </TabsTrigger>
           </TabsList>
         </Tabs>
         <span className="text-xs text-muted-foreground">
           {purpose === 'COSTING' && 'Style costing for quotations'}
           {purpose === 'RAW_MATERIAL_CALCULATION' && 'MRP for confirmed orders'}
-          {purpose === 'PRODUCTION' && 'Final costings locked for production'}
         </span>
-        {isRepeatOrder && (
-          <Badge variant="outline" className="ml-2 bg-warning-muted text-warning border-warning/25">
-            Repeat Order
-          </Badge>
-        )}
       </div>
 
       {/* Selection Card */}
@@ -2522,15 +2506,7 @@ export default function FabricCostingPage() {
                         {/* Costing Status Badge */}
                         {status && (
                           <div className="flex items-center gap-1">
-                            {status.hasProduction && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px] px-1.5 py-0 bg-success-muted text-success border-success/25"
-                              >
-                                Costed
-                              </Badge>
-                            )}
-                            {!status.hasProduction && status.hasApproved && (
+                            {status.hasApproved && (
                               <Badge
                                 variant="outline"
                                 className="text-[10px] px-1.5 py-0 bg-info-muted text-info border-info/30"
@@ -2538,7 +2514,7 @@ export default function FabricCostingPage() {
                                 Approved
                               </Badge>
                             )}
-                            {!status.hasProduction && !status.hasApproved && status.hasPending && (
+                            {!status.hasApproved && status.hasPending && (
                               <Badge
                                 variant="outline"
                                 className="text-[10px] px-1.5 py-0 bg-warning-muted text-warning border-warning/25"
@@ -2754,7 +2730,7 @@ export default function FabricCostingPage() {
       ) : fabricRows.length === 0 ? (
         <Card className="p-8 text-center text-muted-foreground">
           {selectedStyleId
-            ? `No fabrics found for ${purpose === 'COSTING' ? 'Costing' : purpose === 'RAW_MATERIAL_CALCULATION' ? 'Raw Material Calculation' : 'Production'} mode.${purpose !== 'COSTING' ? ' Try switching to Costing mode to see available data.' : ''}`
+            ? `No fabrics found for ${purpose === 'COSTING' ? 'Costing' : 'Raw Material Calculation'} mode.${purpose !== 'COSTING' ? ' Try switching to Costing mode to see available data.' : ''}`
             : 'Select a customer and style to load fabrics'}
         </Card>
       ) : (
@@ -3123,14 +3099,7 @@ export default function FabricCostingPage() {
               </p>
               <ul className="mt-2 text-sm text-info list-disc list-inside">
                 <li>{savedCadIds.length} fabric entries</li>
-                <li>
-                  Purpose:{' '}
-                  {purpose === 'COSTING'
-                    ? 'Costing'
-                    : purpose === 'RAW_MATERIAL_CALCULATION'
-                      ? 'Raw Material Calculation'
-                      : 'Production'}
-                </li>
+                <li>Purpose: {purpose === 'COSTING' ? 'Costing' : 'Raw Material Calculation'}</li>
               </ul>
             </div>
           </div>

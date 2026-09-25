@@ -274,6 +274,7 @@ A row "is a costing option" when `costingStyleId` and `totalCostPerMeter` are bo
 2. **Never delete `style_fabrics`/`style_components` without unlinking first** — `styleFabricId` is `ON DELETE CASCADE` into `fabric_width_cad`. Pattern: `style.service.ts` lines ~1212-1219.
 3. **Fabric Costing must not create CAD rows or edit CAD-owned fields**; CAD Planning must not overwrite a row that already has `totalCostPerMeter`.
 4. **Costing-module code must never key on the bare `approvalStatus`** — use `costingApprovalStatus` (enforced by the *CAD/costing approval drift* smart-check; genuine CAD-side uses carry `// allow-cad-approval`).
+5. **PRODUCTION is a CAD-only purpose (2026-09-25).** A Production CAD is the marker for one received lot (CAD Planning → *Create CAD* on the lot), approved for cutting, and **never costed** — cutting reads its geometry, never a price. Fabric Costing, Costing Options, costing runs and cost sheets offer only `COSTING` / `RAW_MATERIAL_CALCULATION`; the API refuses PRODUCTION on every costing write (save, clone, promote, run, cost-sheet create), and `saveFabricCosting` refuses any row whose CAD is PRODUCTION before writing anything. `CostSheetPurpose.PRODUCTION` stays in the Prisma enum for history only. Tests: `fabric-costing-approval.test.ts` → *PRODUCTION is CAD-only*.
 
 Rules 1, 2 and 4 are enforced by smart-checks below.
 

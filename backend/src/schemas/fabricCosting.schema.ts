@@ -78,7 +78,8 @@ export const saveFabricCostingSchema = z.object({
           // total when batched) — the basis every downstream rate re-check compares against
           costedAtQuantityMeters: z.number().nonnegative().nullable().optional(),
           costedRateIsBatch: z.boolean().optional(),
-          purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).optional(),
+          // No PRODUCTION: that purpose is CAD-only — a Production CAD is a lot marker, never costed
+          purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION']).optional(),
           processingBatchGroupColorId: z
             .string()
             .refine(isValidIdFormat, { message: 'Invalid color ID' })
@@ -109,7 +110,7 @@ export const costingOptionsQuerySchema = z.object({
   customerId: z.string().uuid().optional(),
   processorId: z.string().uuid().optional(),
   status: z.enum(['APPROVED', 'PENDING']).optional(),
-  purpose: z.enum(['ALL', 'COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).optional(),
+  purpose: z.enum(['ALL', 'COSTING', 'RAW_MATERIAL_CALCULATION']).optional(),
   search: z.string().max(100).optional(),
 });
 
@@ -140,7 +141,8 @@ export const unapproveCostingOptionSchema = z.object({
  */
 export const promoteCostingOptionSchema = z
   .object({
-    targetPurpose: z.enum(['RAW_MATERIAL_CALCULATION', 'PRODUCTION']),
+    // Only COSTING -> RAW_MATERIAL_CALCULATION: there is no PRODUCTION costing (CAD-only purpose)
+    targetPurpose: z.enum(['RAW_MATERIAL_CALCULATION']),
   })
   .passthrough();
 

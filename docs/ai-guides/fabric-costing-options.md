@@ -67,9 +67,8 @@ Switch between different costing purposes using the tabs:
 - **All** - Shows all costing options
 - **Costing** - Options created for cost estimation
 - **Raw Mat** - Options for raw material calculation
-- **Production** - Locked production records (cannot be edited)
 
-The count next to each tab shows how many options exist.
+The count next to each tab shows how many options exist. There is no Production tab: a Production CAD (one per received fabric lot) is made and approved in **CAD Planning** and is never costed.
 
 ## Understanding the Comparison Table
 
@@ -80,7 +79,7 @@ Each style shows its fabric components. For each component, you see multiple cos
 | **Greige** | Base greige fabric name |
 | **CW** | Cutable width in inches |
 | **Qty (pcs)** | Order quantity in pieces |
-| **Mode** | Purpose - Costing, Raw Mat, or Production |
+| **Mode** | Purpose - Costing or Raw Mat |
 | **Greige +Trp** | Greige cost plus transport per meter |
 | **Processor** | Fabric processor name (or Direct) |
 | **Process** | Processing cost per meter with color count |
@@ -125,7 +124,7 @@ Only one option per fabric can be APPROVED (others become Alternate if approved)
 3. Confirm the deletion
 4. The CAD planning data is preserved; only costing details are removed
 
-**Note:** Cannot remove approved or production-locked options. Unapprove first.
+**Note:** Cannot remove approved options. Unapprove first.
 
 ## Create Cost Sheet
 
@@ -149,12 +148,10 @@ When ALL fabric options for a style are approved:
 | **Approved** (green) | This specific option is approved |
 | **Alternate** (yellow) | Approved as backup; another option is primary |
 | **Pending** (gray) | Not yet approved |
-| **Lock icon** | Production record, cannot be changed |
 
 ## Traps
 
 - **Cannot unapprove** if the costing is used by live orders or cost sheets. The system shows which documents block the change.
-- **Production records are locked** - They have a lock icon and cannot be edited or deleted. They represent actual production costs.
 - **Must select Customer first** before the Style dropdown becomes active.
 - **Quantity groups** - Options at different order quantities may have different rates due to rate slabs. Compare within the same quantity group.
 - **Total cost includes shrinkage** - The greige you buy shrinks during processing, so the effective cost per finished meter is higher.

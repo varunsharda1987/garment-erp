@@ -579,13 +579,12 @@ export default function CADPlanningList() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    // Navigate to most relevant purpose based on what CAD data exists
+                                    // Navigate to most relevant purpose based on what CAD data exists.
+                                    // Never PRODUCTION: a Production CAD is a lot marker and is not costed.
                                     const completedPurposes = getCompletedPurposes(style.cadDetails);
-                                    const targetPurpose = completedPurposes.has('PRODUCTION')
-                                      ? 'PRODUCTION'
-                                      : completedPurposes.has('RAW_MATERIAL_CALCULATION')
-                                        ? 'RAW_MATERIAL_CALCULATION'
-                                        : 'COSTING';
+                                    const targetPurpose = completedPurposes.has('RAW_MATERIAL_CALCULATION')
+                                      ? 'RAW_MATERIAL_CALCULATION'
+                                      : 'COSTING';
                                     navigate(`/fabric-costing?styleId=${style.id}&purpose=${targetPurpose}`);
                                   }}
                                 >

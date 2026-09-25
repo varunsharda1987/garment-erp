@@ -214,16 +214,16 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/routes/lazy-routes.tsx": "c1a31efdef59",
       "frontend/src/pages/CuttingList.tsx": "fe3e682c99ec",
-      "frontend/src/pages/CuttingChart.tsx": "35793c899b50",
-      "frontend/src/pages/CuttingDetail.tsx": "03d6b28d95df",
-      "frontend/src/pages/WorkOrderDetail.tsx": "0854dccf70c3",
-      "frontend/src/components/FabricIssuanceSection.tsx": "05177fc96a23",
-      "backend/src/schemas/production.schema.ts": "bb5ee5d062a1",
+      "frontend/src/pages/CuttingChart.tsx": "77aa32b5d84d",
+      "frontend/src/pages/CuttingDetail.tsx": "31bae7538d0e",
+      "frontend/src/pages/WorkOrderDetail.tsx": "0fd224e036cb",
+      "frontend/src/components/FabricIssuanceSection.tsx": "67993abb34a7",
+      "backend/src/schemas/production.schema.ts": "d185643c9c25",
       "backend/src/routes/cutting.routes.ts": "c8017d275eeb",
-      "backend/src/services/productionBlockingValidation.service.ts": "eb36dbf916d4"
+      "backend/src/services/productionBlockingValidation.service.ts": "77bed9420aa8"
     },
-    "contentHash": "ec796a499e08",
-    "generatedAt": "2026-09-23T15:16:55.189Z"
+    "contentHash": "c46406c797d2",
+    "generatedAt": "2026-09-25T07:25:19.763Z"
   },
   "debit-note-create": {
     "sources": {

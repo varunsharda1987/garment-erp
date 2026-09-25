@@ -27,6 +27,7 @@ import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
+import { challanOrigin } from './helpers/lot-location.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
@@ -165,7 +166,7 @@ export interface ValidateIssueResult {
     row: Prisma.lace_stockGetPayload<{ include: { laceMaster: { select: { laceCode: true; laceName: true } } } }>;
     qty: number;
   }>;
-  fabricLotRow: { id: string; quantityAvailable: Prisma.Decimal } | null;
+  fabricLotRow: { id: string; quantityAvailable: Prisma.Decimal; warehouseId: string | null } | null;
   expectedGreigeId: string | null;
   expectedGreige: { id: string; greigeCode: string; greigeName: string } | null;
   blockers: IssueBlocker[];
@@ -437,7 +438,7 @@ export async function validateIssue(
   if (fabricLotId) {
     const row = await prisma.fabric_stock.findUnique({
       where: { id: fabricLotId },
-      select: { id: true, quantityAvailable: true },
+      select: { id: true, quantityAvailable: true, warehouseId: true },
     });
     if (!row) {
       blockers.push({ code: ISSUE_ERROR_CODES.LOT_NOT_FOUND, message: 'Fabric stock lot not found.' });
@@ -838,8 +839,10 @@ async function issueOneWithinTx(
     return addCurrency(acc, multiplyCurrency(qty, cost));
   }, sumGreigeValue);
   const declaredValue = toNumber(roundToCent(sumLotValue));
-  // For virtual issuance (all lots at processor), use 'VIRTUAL-ALLOCATION' as challan number
-  const isVirtualIssuance = lots.every((l) => l.atProcessor);
+  // For virtual issuance (every greige lot already at the processor, nothing else sent), use
+  // 'VIRTUAL-ALLOCATION' as challan number. `lots.every` alone is true for an EMPTY list, which
+  // stamped fabric-roll and garment issues as virtual.
+  const isVirtualIssuance = lots.length > 0 && laceLots.length === 0 && lots.every((l) => l.atProcessor);
   await setJwoStatus(tx, jwoId, 'ISSUED', {
     challanNumber: opts.challanNumber || challan?.challanNumber || (isVirtualIssuance ? 'VIRTUAL-ALLOCATION' : ''),
     vehicleNumber: opts.vehicleNumber || null,
@@ -867,15 +870,19 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
   if (v.blockers.length > 0) {
     throw new JobWorkOrderError(v.blockers[0].code, v.blockers[0].message);
   }
-  const { jwo, lots, laceLots } = v;
+  const { jwo, lots, laceLots, fabricLotRow } = v;
   const issueDate = opts.sentDate ?? new Date();
 
   // Separate lots: mainWarehouseLots need challan + consumption, processorLots are virtual issuance
   const mainWarehouseLots = lots.filter((l) => !l.atProcessor);
   const processorLots = lots.filter((l) => l.atProcessor);
-  const isVirtualIssuance = mainWarehouseLots.length === 0 && processorLots.length > 0;
-  // Lace always travels: every lace lot is in our own warehouse, so a lace issue is never virtual.
-  const needsChallan = mainWarehouseLots.length > 0 || laceLots.length > 0;
+  // Virtual ONLY when there are greige lots and every one of them is already at this processor.
+  // Lace always travels (every lace lot is in our own store), and so does a fabric roll or a
+  // garment / service job. Until 2026-09-25 the challan was raised only for store greige or lace
+  // (4805cf8b, 29-Aug): fabric-roll embroidery and garment jobs went to the job worker with no
+  // challan at all. Before that commit every issue raised one — this restores that rule.
+  const isVirtualIssuance = processorLots.length > 0 && mainWarehouseLots.length === 0 && laceLots.length === 0;
+  const needsChallan = !isVirtualIssuance;
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -888,12 +895,17 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
       if (needsChallan) {
         // Build challan items only for main warehouse lots
         const challanV = { ...v, lots: mainWarehouseLots };
+        // The store(s) the goods actually leave — never a made-up "Main Warehouse".
+        const origin = await challanOrigin(tx, [
+          ...mainWarehouseLots.map((l) => l.row.warehouseId),
+          ...laceLots.map((l) => l.row.warehouseId),
+          fabricLotRow?.warehouseId,
+        ]);
         challan = await createChallan(
           {
             challanType: 'OUTWARD',
             challanDate: issueDate,
-            fromType: 'WAREHOUSE',
-            fromName: 'Main Warehouse',
+            ...origin,
             toType: 'VENDOR',
             toId: jwo.processorId,
             toName: jwo.processor?.name || 'Processor',
@@ -1152,12 +1164,20 @@ export async function dispatchJobWorkOrders(rawInput: DispatchInput): Promise<Di
 
       // 2. ONE challan for the vehicle. purchaseOrderId is omitted on purpose: the orders may
       //    sit under different POs, and a header can only name one truthfully.
+      // The store(s) the truck is loaded from — every order's lots, never "Main Warehouse".
+      const origin = await challanOrigin(
+        tx,
+        v.validations.flatMap((one) => [
+          ...one.lots.filter((l) => !l.atProcessor).map((l) => l.row.warehouseId),
+          ...one.laceLots.map((l) => l.row.warehouseId),
+          one.fabricLotRow?.warehouseId,
+        ])
+      );
       const challan = await createChallan(
         {
           challanType: 'OUTWARD',
           challanDate: issueDate,
-          fromType: 'WAREHOUSE',
-          fromName: 'Main Warehouse',
+          ...origin,
           toType: 'VENDOR',
           toId: input.processorId,
           toName: processorName,

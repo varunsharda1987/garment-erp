@@ -23,6 +23,7 @@
  * D13 one order item whose PENDING runs over-plan it       (size-breakup resync re-inflates splits)
  * D14 stock production order totals / rollup inconsistent  (MTS rollup is never written)
  * D15 order items that never got a work order              (existence check keyed on styleId)
+ * D16 job work orders sent out with no outward challan    (29-Aug to 25-Sep: fabric-roll / garment issues)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -265,6 +266,29 @@ async function main() {
        WHERE spo."totalQuantity" <> COALESCE(i.item_total, 0)
           OR COALESCE(w.wo_total, 0) > spo."totalQuantity"
           OR (COALESCE(w.wo_completed, 0) > 0 AND COALESCE(i.completed, 0) = 0)`
+  );
+
+  // ---- Job work paperwork ---------------------------------------------------------------
+
+  // Goods that left for a job worker with no outward challan (Rule 45 / Rule 55). From 29-Aug
+  // (4805cf8b) to 25-Sep-2026 an issue raised a challan only for store greige or lace, so a
+  // fabric-roll or garment job could go out with none. A job allocated where the cloth already lay
+  // (VIRTUAL-ALLOCATION) rightly has none.
+  await run(
+    'D16',
+    'Job work orders sent out with no outward challan',
+    prisma.$queryRaw`
+      SELECT j."jobWorkNumber", j."processType", j."jwoStatus" AS status, j."sentDate"::date AS sent,
+             j."qtySentMeters"::float AS qty, j.uom
+        FROM job_work_orders j
+       WHERE j."sentDate" IS NOT NULL
+         AND j."outwardChallanId" IS NULL
+         AND COALESCE(j."challanNumber", '') <> 'VIRTUAL-ALLOCATION'
+         AND NOT EXISTS (
+           SELECT 1 FROM challan_items ci
+             JOIN challans c ON c.id = ci."challanId"
+            WHERE ci."jobWorkOrderId" = j.id AND c."challanType" = 'OUTWARD' AND c.status <> 'CANCELLED')
+       ORDER BY j."sentDate"`
   );
 
   // ---- Output ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ import { addCurrency, roundToCent, toCurrency } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty, gstinState, inrWords } from './format';
 import { unitHeader } from '../../utils/units';
+import { resolvePoDeliverTo } from './po-deliver-to';
 
 const poDocInclude = {
   suppliers: {
@@ -24,7 +25,7 @@ const poDocInclude = {
     },
   },
   deliveryWarehouse: {
-    select: { warehouseName: true, address: true, city: true, pincode: true },
+    select: { warehouseName: true, warehouseType: true, address: true, city: true, pincode: true },
   },
   purchase_order_items: {
     include: {
@@ -110,12 +111,10 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
       ? `(${stateCode})`
       : null;
 
-  // Deliver To — delivery warehouse if set, else the company's own address
-  const wh = po.deliveryWarehouse;
-  const whBits = wh ? [wh.address, wh.city, wh.pincode].map((b) => (b ?? '').trim()).filter((b) => b.length > 0) : [];
-  const deliverTo = wh
-    ? `${wh.warehouseName}${whBits.length > 0 ? ` — ${whBits.join(', ')}` : ''}`
-    : `${company.name} — ${company.addressLine}`;
+  // Deliver To — the place, "to be advised" when none is set, our Company Profile address for an
+  // own store that has none of its own (po-deliver-to.ts).
+  const deliver = resolvePoDeliverTo(po.deliveryWarehouse, company.addressLine);
+  const deliverTo = deliver.oneLine;
 
   const paymentTerms = po.paymentTerms ?? s.paymentTerms ?? null;
 
@@ -170,7 +169,7 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
     poDate: fmtDate(po.poDate),
     requiredBy: fmtDate(po.expectedDeliveryDate),
     deliverTo,
-    deliveryPlaceName: wh?.warehouseName ?? 'our factory',
+    deliveryPlaceName: deliver.placeName,
     payment: paymentTerms ?? EM_DASH,
     paymentClause: paymentTerms ?? 'as agreed',
     items,

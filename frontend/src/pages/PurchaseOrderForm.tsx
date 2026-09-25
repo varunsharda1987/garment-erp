@@ -1610,12 +1610,18 @@ export default function PurchaseOrderForm() {
 
             {/* Delivery Location */}
             <div className="space-y-2">
-              <Label>Delivery Location (Optional)</Label>
+              <Label>Delivery Location</Label>
               <WarehouseCombobox
                 value={deliveryLocationId}
                 onValueChange={setDeliveryLocationId}
-                placeholder="Select delivery location..."
+                placeholder="Decide at dispatch (to be advised)"
               />
+              {!deliveryLocationId && (
+                <p className="text-xs text-muted-foreground">
+                  Leave it empty to decide at dispatch — the PO prints "to be advised before dispatch", and you can set
+                  it later from the PO page.
+                </p>
+              )}
             </div>
 
             {/* Process Type — only for Processing POs */}

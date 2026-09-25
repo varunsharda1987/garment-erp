@@ -197,6 +197,9 @@ describe('issuing greige fabric on a job work order', () => {
     expect(challan!.status).toBe('ISSUED');
     expect(challan!.items).toHaveLength(1);
     expect(challan!.items[0].greigeStockId).toBe(lotId);
+    // It names the store the lot really left — never the made-up "Main Warehouse" (2026-09-25).
+    expect(challan!.fromName).toBe(`${RUN} Warehouse`);
+    expect(challan!.fromId).toBe(warehouseId);
 
     // The central ledger moved with the lot.
     const level = await prisma.stock_levels.findFirst({ where: { materialId: greigeMaterialId, warehouseId } });

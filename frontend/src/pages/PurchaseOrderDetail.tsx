@@ -592,70 +592,84 @@ export default function PurchaseOrderDetail() {
         </Card>
       </div>
 
-      {/* Delivery Location */}
-      {purchaseOrder.deliveryWarehouse && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                Deliver To
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                {isDeliveryLocationAmended && (
-                  <Badge variant="outline" className="text-xs border-amber-300 bg-amber-100 text-amber-800">
-                    Amended
-                  </Badge>
-                )}
-                {canAmendLocation && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setAmendLocationId(purchaseOrder.deliveryLocationId || '');
-                      setAmendLocationDialogOpen(true);
-                    }}
-                  >
-                    <PenLine className="h-3.5 w-3.5 mr-1" />
-                    Change
-                  </Button>
-                )}
-              </div>
+      {/* Delivery Location — always shown: a PO with no location is "to be advised" and can be Set here */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Deliver To
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {isDeliveryLocationAmended && (
+                <Badge variant="outline" className="text-xs border-amber-300 bg-amber-100 text-amber-800">
+                  Amended
+                </Badge>
+              )}
+              {canAmendLocation && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setAmendLocationId(purchaseOrder.deliveryLocationId || '');
+                    setAmendLocationDialogOpen(true);
+                  }}
+                >
+                  <PenLine className="h-3.5 w-3.5 mr-1" />
+                  {purchaseOrder.deliveryWarehouse ? 'Change' : 'Set'}
+                </Button>
+              )}
             </div>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="font-semibold text-lg">{purchaseOrder.deliveryWarehouse.warehouseName}</div>
-            <div className="text-sm text-muted-foreground">{purchaseOrder.deliveryWarehouse.warehouseCode}</div>
-            <div className="text-sm text-muted-foreground">
-              {[
-                purchaseOrder.deliveryWarehouse.address,
-                purchaseOrder.deliveryWarehouse.city,
-                purchaseOrder.deliveryWarehouse.state,
-                purchaseOrder.deliveryWarehouse.pincode,
-              ]
-                .filter(Boolean)
-                .join(', ') || 'Address not available'}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {purchaseOrder.deliveryWarehouse ? (
+            <>
+              <div className="font-semibold text-lg">{purchaseOrder.deliveryWarehouse.warehouseName}</div>
+              <div className="text-sm text-muted-foreground">{purchaseOrder.deliveryWarehouse.warehouseCode}</div>
+              <div className="text-sm text-muted-foreground">
+                {[
+                  purchaseOrder.deliveryWarehouse.address,
+                  purchaseOrder.deliveryWarehouse.city,
+                  purchaseOrder.deliveryWarehouse.state,
+                  purchaseOrder.deliveryWarehouse.pincode,
+                ]
+                  .filter(Boolean)
+                  .join(', ') ||
+                  // Our own store keeps no address of its own — the PO prints the Company Profile's.
+                  // A processor's unit never borrows it.
+                  (purchaseOrder.deliveryWarehouse.warehouseType !== 'JOB_WORK'
+                    ? `${companyFullAddress} (company address)`
+                    : 'Address not on file — add it to the processor in Suppliers')}
+              </div>
+              {purchaseOrder.deliveryWarehouse.contactPerson && (
+                <div className="text-sm">
+                  <span className="font-medium">Contact:</span> {purchaseOrder.deliveryWarehouse.contactPerson}
+                  {purchaseOrder.deliveryWarehouse.contactPhone && ` (${purchaseOrder.deliveryWarehouse.contactPhone})`}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="font-semibold text-lg">To be advised</div>
+              <div className="text-sm text-muted-foreground">
+                The PO prints "to be advised before dispatch". Set the place before the supplier dispatches.
+              </div>
+            </>
+          )}
+          {isDeliveryLocationAmended && purchaseOrder.deliveryLocationAmendedAt && (
+            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+              Amended on {formatDate(new Date(purchaseOrder.deliveryLocationAmendedAt))}{' '}
+              {purchaseOrder.deliveryLocationAmendedBy && (
+                <>
+                  by {purchaseOrder.deliveryLocationAmendedBy.firstName}{' '}
+                  {purchaseOrder.deliveryLocationAmendedBy.lastName}
+                </>
+              )}
             </div>
-            {purchaseOrder.deliveryWarehouse.contactPerson && (
-              <div className="text-sm">
-                <span className="font-medium">Contact:</span> {purchaseOrder.deliveryWarehouse.contactPerson}
-                {purchaseOrder.deliveryWarehouse.contactPhone && ` (${purchaseOrder.deliveryWarehouse.contactPhone})`}
-              </div>
-            )}
-            {isDeliveryLocationAmended && purchaseOrder.deliveryLocationAmendedAt && (
-              <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-                Amended on {formatDate(new Date(purchaseOrder.deliveryLocationAmendedAt))}{' '}
-                {purchaseOrder.deliveryLocationAmendedBy && (
-                  <>
-                    by {purchaseOrder.deliveryLocationAmendedBy.firstName}{' '}
-                    {purchaseOrder.deliveryLocationAmendedBy.lastName}
-                  </>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Items */}
       <Card>
@@ -986,9 +1000,11 @@ export default function PurchaseOrderDetail() {
       <Dialog open={amendLocationDialogOpen} onOpenChange={setAmendLocationDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Change Delivery Location</DialogTitle>
+            <DialogTitle>{purchaseOrder.deliveryWarehouse ? 'Change' : 'Set'} Delivery Location</DialogTitle>
             <DialogDescription>
-              Update where this order should be delivered. The original location will be recorded for tracking.
+              {purchaseOrder.deliveryWarehouse
+                ? 'Update where this order should be delivered. The original location will be recorded for tracking.'
+                : 'Where should the supplier deliver this order? Share the PO again after setting it.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

@@ -26,6 +26,7 @@ import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { unitHeader } from '../utils/units';
 import { plannedCutForSize } from '../utils/cut-allowance';
 import { buildCostSheetDocData, formatPurpose, formatStatus } from './document-data/cost-sheet.doc-data';
+import { resolvePoDeliverTo } from './document-data/po-deliver-to';
 
 // Types
 export interface DocumentOptions {
@@ -2895,23 +2896,19 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
     y += 12;
 
-    // ── Deliver To Section ──
-    if (po.deliveryWarehouse) {
+    // ── Deliver To Section ── (same rule as the HTML print: po-deliver-to.ts)
+    {
+      const deliver = resolvePoDeliverTo(
+        po.deliveryWarehouse,
+        `${this.company.address}, ${this.company.city} - ${this.company.pincode}`
+      );
       doc.fontSize(10).font('Helvetica-Bold');
       doc.text('Deliver To:', marginLeft, y);
       y += 14;
 
       doc.fontSize(9).font('Helvetica');
-      const wh = po.deliveryWarehouse;
-      doc.text(wh.warehouseName || 'N/A', marginLeft, y, { width: pageWidth - 60 });
-      y += 12;
-      if (wh.address) {
-        doc.text(wh.address, marginLeft, y, { width: pageWidth - 60 });
-        y += 12;
-      }
-      const cityState = [wh.city, wh.state].filter(Boolean).join(', ');
-      if (cityState || wh.pincode) {
-        doc.text(`${cityState}${wh.pincode ? ' - ' + wh.pincode : ''}`, marginLeft, y, { width: pageWidth - 60 });
+      for (const line of deliver.toBeAdvised ? [deliver.oneLine] : [deliver.name ?? '', ...deliver.addressLines]) {
+        doc.text(line, marginLeft, y, { width: pageWidth - 60 });
         y += 12;
       }
       y += 6;

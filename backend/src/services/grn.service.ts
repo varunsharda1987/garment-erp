@@ -51,7 +51,7 @@ import {
 } from './helpers/jwo-arriving-material.helper';
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
-import { qtyExceeds } from '../utils/quantity';
+import { isQtyZero, qtyExceeds } from '../utils/quantity';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
@@ -986,10 +986,16 @@ class GRNService {
               await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, defectMetersNum, undefined, 'METER', tx);
             }
 
-            // Consume from processor's greige_stock (created when outward challan was issued)
+            // Consume from processor's greige_stock (created when outward challan was issued).
+            // Only a lot that challan PARKED at this processor (Stock-Out TRANSFER) — matching on the
+            // challan id alone could pick up any lot that happens to carry it.
             if (jobWorkOrder.outwardChallanId) {
               const processorGreigeStock = await tx.greige_stock.findFirst({
-                where: { sourceChallanId: jobWorkOrder.outwardChallanId },
+                where: {
+                  sourceChallanId: jobWorkOrder.outwardChallanId,
+                  processorId: jobWorkOrder.processorId,
+                  sourceType: 'TRANSFER',
+                },
               });
 
               if (processorGreigeStock) {
@@ -3682,22 +3688,32 @@ class GRNService {
         }
 
         if (greigeStock) {
+          // A lot some of which has already gone out (issued to a job, a challan, cutting) cannot be
+          // un-received: reversing only the remainder claimed the used metres were never bought.
+          if (greigeStock.grnItemId && !isQtyZero(greigeStock.quantityConsumed)) {
+            throw new BusinessError(
+              `Cannot reverse GRN ${grn.grnNumber}: ${Number(greigeStock.quantityConsumed)} m of its greige lot has ` +
+                `already been used. Take those metres back first (cancel or return the issue), then reverse.`,
+              { reason: 'GRN_LOT_ALREADY_USED', lotId: greigeStock.id, used: Number(greigeStock.quantityConsumed) }
+            );
+          }
           // P2: Reverse by ACTUAL quantity stored in the lot, not NOMINAL acceptedQty
           // For lots with grnItemId, we reverse the full quantityAvailable
           // For legacy lots, we use actualQuantity from grn_item if available, else acceptedQty
           const actualQty = item.actualQuantity ? Number(item.actualQuantity) : Number(greigeStock.quantityAvailable);
           const reverseQty = greigeStock.grnItemId ? Number(greigeStock.quantityAvailable) : actualQty;
 
-          const newAvailable = Number(greigeStock.quantityAvailable) - reverseQty;
-          if (newAvailable <= 0) {
-            // Delete the stock record if fully reversed
-            await tx.greige_stock.delete({ where: { id: greigeStock.id } });
-          } else {
-            await tx.greige_stock.update({
-              where: { id: greigeStock.id },
-              data: { quantityAvailable: newAvailable },
-            });
-          }
+          const newAvailable = Math.max(0, Number(greigeStock.quantityAvailable) - reverseQty);
+          // Zero the lot, never delete it: approval's STOCK_IN row and the reversal row below both
+          // point at it (greige_stock_transaction_stockId_fkey), so a delete failed EVERY greige GRN
+          // reversal (2026-09-25, grn-greige-reversal.test.ts).
+          await tx.greige_stock.update({
+            where: { id: greigeStock.id },
+            data: {
+              quantityAvailable: newAvailable,
+              ...(isQtyZero(newAvailable) ? { status: 'EXHAUSTED' as const } : {}),
+            },
+          });
 
           // Create reversal transaction
           await tx.greige_stock_transaction.create({
@@ -3705,7 +3721,7 @@ class GRNService {
               stockId: greigeStock.id,
               transactionType: 'ADJUSTMENT_OUT',
               quantity: -reverseQty,
-              balanceAfter: Math.max(0, newAvailable),
+              balanceAfter: newAvailable,
               referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
               referenceId: grn.id,
               notes: `GRN ${grn.grnNumber} reversed - ${reason}`,
@@ -4185,10 +4201,18 @@ class GRNService {
       }
     }
 
-    // 2. Restore processor's greige_stock (if it was consumed)
-    if (jobWorkOrder.outwardChallanId) {
+    // 2. Restore processor's greige_stock — ONLY on the PO-backed path, the one place a receipt
+    //    consumed it (approval, "Consume from processor's greige_stock"). The one-action
+    //    Receive from processor (PO-less, receiveJwoToStock) never takes metres off a processor lot,
+    //    so reversing it must never add any back — doing so minted greige out of nothing whenever a
+    //    TRANSFER lot sat on the job's outward challan (2026-09-25).
+    if (po && jobWorkOrder.outwardChallanId) {
       const processorGreigeStock = await tx.greige_stock.findFirst({
-        where: { sourceChallanId: jobWorkOrder.outwardChallanId },
+        where: {
+          sourceChallanId: jobWorkOrder.outwardChallanId,
+          processorId: jobWorkOrder.processorId,
+          sourceType: 'TRANSFER',
+        },
       });
 
       if (processorGreigeStock) {

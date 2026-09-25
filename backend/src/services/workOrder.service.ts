@@ -14,6 +14,8 @@ import {
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { validateTransition } from '../utils/stateMachine'; // BUG-WO7 fix
 import { applySearch } from '../utils/search-filter';
+import { formatDate, toDateInputValue } from '../utils/date';
+import { ValidationError } from '../errors';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -957,6 +959,16 @@ class WorkOrderService {
 
     if (!orderItem) {
       throw new Error(`Order item not found: ${orderItemId}`);
+    }
+
+    // A run must not be planned to end before it starts: an order whose delivery date has already
+    // passed is refused until the date is fixed (owner, 2026-09-25 — WO2609-0088 printed
+    // "24-Sep → 20-Sep"). Compared as IST calendar days.
+    if (orderData.plannedEndDate && toDateInputValue(orderData.plannedEndDate) < toDateInputValue(new Date())) {
+      throw new ValidationError(
+        `The order's delivery date (${formatDate(orderData.plannedEndDate)}) has already passed. ` +
+          `Update the order's Expected Delivery Date, then create the production run.`
+      );
     }
 
     // Map order item breakup to work order breakup format

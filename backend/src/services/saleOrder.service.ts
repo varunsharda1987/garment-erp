@@ -992,6 +992,7 @@ export class SaleOrderService {
         saleOrderNumber: true,
         status: true,
         customerId: true,
+        expectedShipDate: true,
         items: {
           select: {
             styleId: true,
@@ -1068,7 +1069,22 @@ export class SaleOrderService {
     }
 
     try {
-      await prisma.orders.update({ where: { id: orderId }, data: { saleOrderId } });
+      // Production must be finished by the buyer PO's Expected Ship Date (owner, 2026-09-25): the
+      // production order takes it, and so do its PENDING runs. Before this the link kept the date
+      // typed in August — ORD2026080026 carried 20-Sep, already past, and its run printed
+      // "24-Sep → 20-Sep".
+      await prisma.$transaction(async (tx) => {
+        await tx.orders.update({
+          where: { id: orderId },
+          data: { saleOrderId, ...(so.expectedShipDate ? { expectedDeliveryDate: so.expectedShipDate } : {}) },
+        });
+        if (so.expectedShipDate) {
+          await tx.work_orders.updateMany({
+            where: { orderId, status: 'PENDING' },
+            data: { plannedEndDate: so.expectedShipDate },
+          });
+        }
+      });
     } catch (err) {
       // The partial unique index orders_saleOrderId_active_key catches a simultaneous second link
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {

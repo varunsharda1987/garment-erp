@@ -29,6 +29,8 @@ const SIZES: Array<[string, number]> = [
   ['L', 26],
 ];
 const PO_TOTAL = SIZES.reduce((s, [, q]) => s + q, 0); // 101
+/** The buyer PO's Expected Ship Date — production must be finished by it (owner, 2026-09-25) */
+const SHIP_DATE = new Date(Date.UTC(new Date().getUTCFullYear() + 1, 0, 15));
 const PLANNED = 100;
 
 let authHeader: Record<string, string>;
@@ -84,14 +86,15 @@ beforeAll(async () => {
     ).id;
   }
 
-  // The production order as raised in August: total only, no sizes, no sale order
+  // The production order as raised in August: total only, no sizes, no sale order — and a delivery
+  // date that has since PASSED (ORD2026080026 carried 20-Sep when its run was made on 24-Sep)
   orderId = randomUUID();
   await prisma.orders.create({
     data: {
       id: orderId,
       orderNumber: `${RUN}ORD`,
       customerId,
-      expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+      expectedDeliveryDate: new Date(Date.now() - 5 * 86400000),
       totalQuantity: PLANNED,
       totalAmount: 1000,
       createdById: userId,
@@ -119,7 +122,10 @@ beforeAll(async () => {
     })
     .expect(201);
   soId = so.body.data.id;
-  await prisma.sale_orders.update({ where: { id: soId }, data: { status: 'CONFIRMED' } });
+  await prisma.sale_orders.update({
+    where: { id: soId },
+    data: { status: 'CONFIRMED', expectedShipDate: SHIP_DATE },
+  });
 });
 
 afterAll(async () => {
@@ -210,6 +216,8 @@ describe('a sale order meets the production order raised before it', () => {
     const order = await prisma.orders.findUniqueOrThrow({ where: { id: orderId } });
     expect(order.saleOrderId).toBe(soId);
     expect(order.totalQuantity).toBe(PO_TOTAL); // the PO exactly, not the planned 100
+    // The passed August date is replaced by the buyer PO's ship date — so the run CAN be created
+    expect(order.expectedDeliveryDate.toISOString()).toBe(SHIP_DATE.toISOString());
 
     const breakup = await prisma.order_item_breakup.findMany({ where: { orderItemId } });
     expect(breakup).toHaveLength(SIZES.length);
@@ -221,12 +229,49 @@ describe('a sale order meets the production order raised before it', () => {
     });
     expect(run.totalQuantity).toBe(PO_TOTAL);
     for (const b of run.work_order_breakup) expect(b.colorId).toBe(colourId);
+    expect(run.plannedEndDate?.toISOString()).toBe(SHIP_DATE.toISOString());
+    expect(run.plannedEndDate!.getTime()).toBeGreaterThan(run.plannedStartDate!.getTime());
 
     // Linked now: the SO shows its production order and Start Production is refused as before
     const read = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader).expect(200);
     expect(read.body.productionOrders.map((o: { orderNumber: string }) => o.orderNumber)).toContain(`${RUN}ORD`);
     const again = await request(app).post(`/api/sale-orders/${soId}/start-production`).set(authHeader).send({});
     expect(again.status).toBe(409);
+  });
+
+  it('refuses to create a production run whose delivery date has already passed', async () => {
+    const pastId = randomUUID();
+    const pastItemId = randomUUID();
+    await prisma.orders.create({
+      data: {
+        id: pastId,
+        orderNumber: `${RUN}ORDP`,
+        customerId,
+        expectedDeliveryDate: new Date(Date.now() - 5 * 86400000),
+        totalQuantity: 10,
+        totalAmount: 100,
+        createdById: userId,
+      },
+    });
+    await prisma.order_items.create({
+      data: { id: pastItemId, orderId: pastId, styleId, totalQuantity: 10, unitPrice: 10, totalPrice: 100 },
+    });
+    try {
+      const res = await request(app)
+        .put(`/api/orders/${pastId}/items/${pastItemId}/size-breakup`)
+        .set(authHeader)
+        .send({ breakup: [{ colorId: colourId, sizeId: sizeIds.S, quantity: 10 }] })
+        .expect(200);
+      // The sizes are saved; the run is refused, naming the date to fix
+      expect(res.body.data.workOrders.created).toHaveLength(0);
+      expect(res.body.data.workOrders.failed[0].reason).toMatch(/has already passed/);
+      expect(await prisma.work_orders.count({ where: { orderId: pastId } })).toBe(0);
+    } finally {
+      await prisma.order_item_breakup.deleteMany({ where: { orderItemId: pastItemId } });
+      await prisma.material_requirements.deleteMany({ where: { orderId: pastId } });
+      await prisma.order_items.deleteMany({ where: { id: pastItemId } });
+      await prisma.orders.deleteMany({ where: { id: pastId } });
+    }
   });
 
   it("a size breakdown with no colour takes the style's only colour", async () => {

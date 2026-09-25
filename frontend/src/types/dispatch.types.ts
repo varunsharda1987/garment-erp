@@ -8,18 +8,20 @@ import type { BuyerPoSummary } from '@/components/sale-order/BuyerPoCard';
 // Status Enums
 // ============================================
 
-export type DeliveryStatus = 'PENDING' | 'IN_TRANSIT' | 'DELIVERED';
+export type DeliveryStatus = 'PENDING' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED';
 
 export const DeliveryStatusLabels: Record<DeliveryStatus, string> = {
   PENDING: 'Pending',
   IN_TRANSIT: 'In Transit',
   DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
 };
 
 export const DeliveryStatusColors: Record<DeliveryStatus, string> = {
   PENDING: 'bg-muted text-foreground',
   IN_TRANSIT: 'bg-info-muted text-info',
   DELIVERED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
 export type ASNStatus = 'PENDING' | 'APPLIED' | 'APPROVED' | 'REJECTED' | 'RESCHEDULE';
@@ -122,6 +124,8 @@ export interface DeliveryNoteItem {
   colorId: string;
   sizeId: string;
   quantity: number;
+  /** What the buyer received, set by the proof of delivery; null until then */
+  receivedQty?: number | null;
   style?: {
     id: string;
     styleCode: string;
@@ -153,6 +157,13 @@ export interface DeliveryNote {
   remarks?: string;
   createdById: string;
   createdAt: string;
+  /** Set when the note was cancelled (a pending note undone; the record is kept) */
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  /** Why an admin let this note ship more than finished-goods stock showed */
+  stockOverrideReason?: string | null;
+  /** The invoice raised from this note (detail only) */
+  invoices?: Array<{ id: string; invoiceNumber: string; status: string }>;
 
   // Relations
   order?: {
@@ -160,8 +171,8 @@ export interface DeliveryNote {
     orderNumber: string;
   };
   /**
-   * Only set on notes raised through the SALE-ORDER dispatch path; the production path leaves
-   * `saleOrderId` NULL, so this is absent there. Hand-projected by `transformDeliveryNote`.
+   * Set on every note booked against a sale order: raised from the sale order, or for a production
+   * order linked to one. Hand-projected by `transformDeliveryNote`.
    */
   saleOrder?: {
     id: string;
@@ -173,6 +184,8 @@ export interface DeliveryNote {
     id: string;
     name: string;
     billingName?: string;
+    /** Pre-fills the invoice due date */
+    creditDays?: number | null;
   };
   createdBy?: {
     id: string;
@@ -322,6 +335,34 @@ export interface CreateDeliveryNoteRequest {
   items: CreateDeliveryNoteItemInput[];
   cartonIds?: string[];
   remarks?: string;
+  /** Short finished-goods stock is refused unless an ADMIN overrides with a reason (logged) */
+  adminOverride?: boolean;
+  overrideReason?: string;
+}
+
+/** GET /dispatch/asn/:id/reconciliation — what left against an ASN, per size */
+export interface ASNReconciliation {
+  asnId: string;
+  asnNumber: string;
+  orderNumber?: string;
+  status: ASNStatus;
+  summary: {
+    plannedQty: number;
+    approvedQty: number;
+    actualDispatched: number;
+    variance: number;
+    reconciliationStatus: 'NOT_DISPATCHED' | 'FULLY_RECONCILED' | 'OVER_DISPATCHED' | 'UNDER_DISPATCHED';
+  };
+  deliveryNotes: Array<{ id: string; deliveryNumber: string; status: DeliveryStatus; totalPieces: number }>;
+  skuBreakdown: Array<{
+    colorId: string;
+    colorName: string | null;
+    sizeId: string;
+    sizeName: string | null;
+    plannedQty: number;
+    actualQty: number;
+    variance: number;
+  }>;
 }
 
 export interface AssignTransportRequest {
@@ -349,6 +390,8 @@ export interface RecordPODRequest {
   podDocumentUrl?: string;
   deliveryStatus: DeliveryConfirmation;
   shortageQty?: number;
+  /** Required for PARTIAL: what each line received (the server works out the shortage) */
+  items?: Array<{ deliveryNoteItemId: string; receivedQty: number }>;
   rejectionReason?: string;
   customerGrnNumber?: string;
   customerGrnDate?: string;

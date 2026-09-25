@@ -9,6 +9,7 @@ import type {
   ASNQueryParams,
   CreateASNRequest,
   ApproveASNRequest,
+  ASNReconciliation,
   CreateDeliveryNoteRequest,
   AssignTransportRequest,
   RecordPODRequest,
@@ -78,6 +79,15 @@ export const deliveryNoteService = {
     await api.delete(`${BASE_URL}/delivery-notes/${id}`);
   },
 
+  // Cancel a PENDING note: stock and the sale order's dispatched quantity go back; the record is kept
+  cancel: async (id: string, reason: string): Promise<{ note: DeliveryNote; message?: string }> => {
+    const response = await api.post<{ data: DeliveryNote; message?: string }>(
+      `${BASE_URL}/delivery-notes/${id}/cancel`,
+      { reason }
+    );
+    return { note: response.data.data, message: response.data.message };
+  },
+
   // ========================================
   // Workflow Actions
   // ========================================
@@ -123,6 +133,12 @@ export const asnService = {
   // Get single ASN by ID
   getById: async (id: string): Promise<ASNApplication> => {
     const response = await api.get<{ data: ASNApplication }>(`${BASE_URL}/asn/${id}`);
+    return response.data.data;
+  },
+
+  // What left against this ASN, per size, from the delivery notes raised from it
+  getReconciliation: async (id: string): Promise<ASNReconciliation> => {
+    const response = await api.get<{ data: ASNReconciliation }>(`${BASE_URL}/asn/${id}/reconciliation`);
     return response.data.data;
   },
 

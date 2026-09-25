@@ -42,6 +42,21 @@ export const createInvoice = async (data: CreateInvoiceRequest): Promise<Invoice
 };
 
 /**
+ * Raise the tax invoice for a DELIVERED delivery note. It bills what the proof of delivery says the
+ * buyer received, at the sale order line's price (else the production order item's); one per note.
+ */
+export const createInvoiceFromDeliveryNote = async (
+  deliveryNoteId: string,
+  data: { invoiceDate?: string; dueDate: string; remarks?: string }
+): Promise<Invoice> => {
+  const response = await api.post<{ data: Invoice; message: string }>(`${INVOICE_API_PATH}/from-delivery-note`, {
+    deliveryNoteId,
+    ...data,
+  });
+  return response.data.data;
+};
+
+/**
  * Update invoice
  */
 export const updateInvoice = async (id: string, data: UpdateInvoiceRequest): Promise<Invoice> => {
@@ -88,6 +103,7 @@ export default {
   getInvoices,
   getInvoiceById,
   createInvoice,
+  createInvoiceFromDeliveryNote,
   updateInvoice,
   deleteInvoice,
   recordPayment,

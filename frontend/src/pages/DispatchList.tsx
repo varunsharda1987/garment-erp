@@ -363,10 +363,24 @@ export default function DispatchList() {
                                 <Send className="h-4 w-4 text-info" />
                               </Button>
                             )}
+                            {dn.status === 'PENDING' && (
+                              <Button variant="ghost" size="icon" title="Cancel" asChild>
+                                <Link to={`/manufacturing/dispatch/delivery/${dn.id}?cancel=1`}>
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Link>
+                              </Button>
+                            )}
                             {dn.status === 'IN_TRANSIT' && (
                               <Button variant="ghost" size="icon" title="Record POD" asChild>
                                 <Link to={`/manufacturing/dispatch/delivery/${dn.id}/pod`}>
                                   <CheckCircle className="h-4 w-4 text-success" />
+                                </Link>
+                              </Button>
+                            )}
+                            {dn.status === 'DELIVERED' && (
+                              <Button variant="ghost" size="icon" title="Invoice" asChild>
+                                <Link to={`/manufacturing/dispatch/delivery/${dn.id}?invoice=1`}>
+                                  <FileText className="h-4 w-4 text-primary" />
                                 </Link>
                               </Button>
                             )}

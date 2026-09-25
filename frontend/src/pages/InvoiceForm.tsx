@@ -86,7 +86,8 @@ export default function InvoiceForm() {
       const invoice = await getInvoiceById(invoiceId);
 
       setCustomerId(invoice.customerId);
-      setOrderId(invoice.orderId);
+      // Null on an invoice raised from a delivery note for a stock sale (no production order)
+      setOrderId(invoice.orderId ?? '');
       setInvoiceDate(invoice.invoiceDate.split('T')[0]);
       setDueDate(invoice.dueDate.split('T')[0]);
       setRemarks(invoice.remarks || '');
@@ -171,7 +172,9 @@ export default function InvoiceForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!customerId || !orderId || !dueDate) {
+    // Editing never changes the order (it is not sent), and an invoice raised from a delivery note for
+    // a stock sale has none — only a new invoice must pick one
+    if (!customerId || (!isEditMode && !orderId) || !dueDate) {
       handleApiError(new Error('Please fill in all required fields'), 'Validation Error');
       return;
     }

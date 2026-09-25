@@ -209,7 +209,9 @@ describe('a delivery note for a production order linked to a sale order', () => 
     otherLineId = other.lines[0].id;
     await reserve(otherLineId, lotB.id, 10);
 
-    const res = await request(app)
+    // 55 asked: its own 30 + lot B's free 20 = 50. The other order's 10 are never offered, so the
+    // note is refused (short stock, 2026-09-25) and nothing is written.
+    const short = await request(app)
       .post('/api/dispatch/delivery-notes')
       .set(authHeader)
       .send({
@@ -217,6 +219,22 @@ describe('a delivery note for a production order linked to a sale order', () => 
         customerId,
         deliveryDate: DELIVERY_DATE,
         items: [{ styleId, colorId, sizeId: sizeMId, quantity: 55 }],
+      })
+      .expect(422);
+    expect(short.body.details.code).toBe('FG_STOCK_SHORT');
+    expect(short.body.details.shortfalls).toEqual([expect.objectContaining({ requested: 55, deducted: 50 })]);
+    expect(await fgQty(lotA.id)).toBe(30);
+    expect(await fgQty(lotB.id)).toBe(30);
+    expect((await line(lineId)).dispatchedQty).toBe(0);
+
+    const res = await request(app)
+      .post('/api/dispatch/delivery-notes')
+      .set(authHeader)
+      .send({
+        orderId,
+        customerId,
+        deliveryDate: DELIVERY_DATE,
+        items: [{ styleId, colorId, sizeId: sizeMId, quantity: 50 }],
       })
       .expect(201);
     noteId = res.body.data.id;
@@ -232,10 +250,10 @@ describe('a delivery note for a production order linked to a sale order', () => 
     // 30 from its own reservation, 20 free from lot B — lot B's other 10 are the other order's
     expect(await fgQty(lotA.id)).toBe(0);
     expect(await fgQty(lotB.id)).toBe(10);
-    expect(res.body.fgShortfalls).toEqual([expect.objectContaining({ requested: 55, deducted: 50 })]);
+    expect(res.body.fgShortfalls).toBeUndefined();
 
     const booked = await line(lineId);
-    expect(booked.dispatchedQty).toBe(55);
+    expect(booked.dispatchedQty).toBe(50);
     expect(booked.allocatedQty).toBe(0);
     const reservation = await prisma.fg_stock_allocations.findFirstOrThrow({ where: { saleOrderItemId: lineId } });
     expect(reservation.status).toBe('CONSUMED');
@@ -352,6 +370,9 @@ describe("the buyer's over-shipment allowance", () => {
           customerId,
           deliveryDate: DELIVERY_DATE,
           items: [{ styleId, colorId, sizeId: sizeMId, quantity }],
+          // No finished goods in this fixture — these tests are about the caps, not stock
+          adminOverride: true,
+          overrideReason: 'Cap test: no finished goods recorded',
         });
 
     const refused = await send(101).expect(400);
@@ -389,6 +410,9 @@ describe("the buyer's over-shipment allowance", () => {
           customerId,
           deliveryDate: DELIVERY_DATE,
           items: [{ styleId, colorId, sizeId: sizeMId, quantity }],
+          // No finished goods in this fixture — these tests are about the caps, not stock
+          adminOverride: true,
+          overrideReason: 'Cap test: no finished goods recorded',
         });
 
     const over = await send(106).expect(400);

@@ -72,6 +72,7 @@ export const DeliveryStatus = {
   PENDING: 'PENDING',
   IN_TRANSIT: 'IN_TRANSIT',
   DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED',
 } as const;
 export type DeliveryStatus = (typeof DeliveryStatus)[keyof typeof DeliveryStatus];
 

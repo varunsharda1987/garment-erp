@@ -48,7 +48,7 @@ export type MarketType = z.infer<typeof MarketTypeEnum>;
 export const CustomerAddressTypeEnum = z.enum(['SHIP_TO', 'COURIER', 'OFFICE']);
 export type CustomerAddressType = z.infer<typeof CustomerAddressTypeEnum>;
 
-export const DeliveryStatusEnum = z.enum(['PENDING', 'IN_TRANSIT', 'DELIVERED']);
+export const DeliveryStatusEnum = z.enum(['PENDING', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED']);
 export type DeliveryStatus = z.infer<typeof DeliveryStatusEnum>;
 
 export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);

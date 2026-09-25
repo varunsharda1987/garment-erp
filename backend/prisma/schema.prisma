@@ -838,6 +838,9 @@ model delivery_note_items {
   sizeId           String
   variantId        String?
   quantity         Int
+  /// What the buyer actually received, set by the proof of delivery (DELIVERED = quantity, REJECTED =
+  /// 0, PARTIAL = entered per line). Null until then. The invoice from this note bills this.
+  receivedQty      Int?
   cartons          Int?
   remarks          String?
   color_options    color_options     @relation(fields: [colorId], references: [id])
@@ -868,6 +871,12 @@ model delivery_notes {
   createdById         String
   createdAt           DateTime                       @default(now())
   isActive            Boolean                        @default(true)
+  /// Set when the note is CANCELLED (a pending note undone; the record is kept)
+  cancelledAt         DateTime?
+  cancelledById       String?
+  cancelReason        String?
+  /// Why an admin let this note ship more than finished-goods stock showed (refused otherwise)
+  stockOverrideReason String?
   delivery_note_items delivery_note_items[]
   users               users                          @relation(fields: [createdById], references: [id])
   customers           customers                      @relation(fields: [customerId], references: [id])
@@ -9486,6 +9495,9 @@ enum DeliveryStatus {
   PENDING
   IN_TRANSIT
   DELIVERED
+  /// A pending note undone before the goods left: stock and the sale order's dispatched quantity were
+  /// handed back, the record and its number are kept (POST /dispatch/delivery-notes/:id/cancel)
+  CANCELLED
 }
 
 enum DeliveryLocationType {

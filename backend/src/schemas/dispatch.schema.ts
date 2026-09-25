@@ -22,7 +22,7 @@ const nullableDate = z.union([z.null(), z.coerce.date()]);
 // ============================================================================
 
 // Matches Prisma DeliveryStatus enum
-export const DeliveryNoteStatusEnum = z.enum(['PENDING', 'IN_TRANSIT', 'DELIVERED']);
+export const DeliveryNoteStatusEnum = z.enum(['PENDING', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED']);
 
 // Matches Prisma ASNStatus enum (note: RESCHEDULE not RESCHEDULED)
 export const ASNStatusEnum = z.enum(['PENDING', 'APPLIED', 'APPROVED', 'REJECTED', 'RESCHEDULE']);
@@ -78,12 +78,26 @@ export const createDeliveryNoteSchema = z
     // Packed cartons covered by this note — linked as dispatch_cartons rows so dispatching the note
     // can flip them to DISPATCHED (bug-hunt dispatch-9).
     cartonIds: z.array(z.string().uuid('Invalid carton ID')).optional(),
+    // The ASN this note ships against (the ASN page's "Create Delivery Note"); must be Approved and
+    // for the same production order
+    asnId: z.string().uuid('Invalid ASN ID').optional(),
+    // Short finished-goods stock is refused unless an ADMIN overrides with a reason (logged)
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
   })
   .passthrough()
   .refine((d) => Boolean(d.orderId || d.saleOrderId), {
     message: 'Choose the production order or the sale order this delivery is for',
     path: ['orderId'],
   });
+
+/**
+ * Cancel a pending Delivery Note — the record and its number are kept
+ * POST /api/dispatch/delivery-notes/:id/cancel
+ */
+export const cancelDeliveryNoteSchema = z.object({
+  reason: z.string().trim().min(3, 'Say why the delivery note is being cancelled').max(500),
+});
 
 /**
  * Update Delivery Note
@@ -295,13 +309,28 @@ export const recordPODSchema = z
     podDocumentUrl: z.string().max(500).optional(),
     // Use DeliveryConfirmationEnum from Prisma (not DeliveryStatus - this is for POD confirmation)
     deliveryStatus: DeliveryConfirmationEnum,
+    // Ignored for PARTIAL, where it is worked out from `items`; kept for older callers
     shortageQty: z.number().int().nonnegative().optional(),
+    // What each line actually received — required for PARTIAL (the header shortage alone cannot say
+    // which sizes were short, and the invoice bills the received quantity per line)
+    items: z
+      .array(
+        z.object({
+          deliveryNoteItemId: z.string().uuid('Invalid delivery note item ID'),
+          receivedQty: z.number().int('Received quantity must be whole pieces').nonnegative(),
+        })
+      )
+      .optional(),
     rejectionReason: z.string().max(500).optional(),
     customerGrnNumber: z.string().max(50).optional(),
     customerGrnDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
   })
-  .passthrough();
+  .passthrough()
+  .refine((d) => d.deliveryStatus !== 'PARTIAL' || (d.items?.length ?? 0) > 0, {
+    message: 'A partial delivery needs the quantity received on each line',
+    path: ['items'],
+  });
 
 /**
  * Approve ASN
@@ -368,6 +397,9 @@ export const createSaleOrderDispatchSchema = z
     deliveryDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
     items: z.array(saleOrderDispatchItemSchema).min(1, 'At least one item is required'),
+    // Short finished-goods stock is refused unless an ADMIN overrides with a reason (logged)
+    adminOverride: z.boolean().optional(),
+    overrideReason: z.string().max(500).optional(),
   })
   .passthrough();
 

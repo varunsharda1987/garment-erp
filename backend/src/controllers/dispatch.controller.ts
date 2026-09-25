@@ -14,15 +14,21 @@ import {
   matchSaleOrderLine,
   overShipAllowanceOf,
   recordSaleOrderDispatch,
+  refuseShortStock,
   shipCap,
   shippingColourFor,
 } from '../services/helpers/sale-order-dispatch.helper';
+import { resolveAdminOverride } from '../utils/admin-override';
+import { createAuditLog } from '../services/audit.service';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Helper Functions
 // ============================================
+
+/** Remark on the SHIPPED production_tracking rows a note writes — the only way back to them. */
+const shippedTrackingRemark = (deliveryNumber: string) => `Delivery note ${deliveryNumber}`;
 
 const transformDeliveryNote = ({ users, ...note }: any) => ({
   ...note,
@@ -37,6 +43,8 @@ const transformDeliveryNote = ({ users, ...note }: any) => ({
         id: note.customers.id,
         name: note.customers.name,
         billingName: note.customers.billingName,
+        // Pre-fills the invoice due date when the note is invoiced
+        creditDays: note.customers.creditDays ?? null,
       }
     : null,
   // Hand-projected rather than left to the serializer, which would rename `sale_orders` to the
@@ -92,6 +100,7 @@ const transformDeliveryNote = ({ users, ...note }: any) => ({
         pod: note.delivery_notes_ext.pod ?? null,
         transport: note.delivery_notes_ext.transport ?? null,
         cartons: note.delivery_notes_ext.cartons ?? [],
+        asn: note.delivery_notes_ext.asn ?? null,
       }
     : null,
 });
@@ -235,17 +244,21 @@ const deliveryNoteIncludeOptions = {
 // Extended include options with POD + transport + cartons for delivery note detail
 const deliveryNoteExtendedIncludeOptions = {
   ...deliveryNoteIncludeOptions,
+  // The invoice raised from this note, if any (Create Invoice on a delivered note)
+  invoices: { select: { id: true, invoiceNumber: true, status: true } },
   delivery_notes_ext: {
     include: {
       pod: true,
       transport: true,
       cartons: true,
+      // The ASN this note ships against (raised from the ASN page)
+      asn: { select: { id: true, asnNumber: true } },
     },
   },
   // The buyer's own POs, so dispatch can open the customer's PO paperwork from the note they are
   // packing against. Detail-only: the list include above stays lean.
-  // NOTE: only the SALE-ORDER dispatch path sets `saleOrderId`; a note raised from a production
-  // order leaves it NULL and will simply have nothing to show here.
+  // Set on every note booked against a sale order: raised from the sale order, or for a production
+  // order linked to one (2026-09-25). A production order linked to no sale order has nothing here.
   sale_orders: {
     select: {
       id: true,
@@ -376,6 +389,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
   const { orderId, customerId, deliveryDate, remarks, items, cartonIds } = req.body;
+  // Short finished-goods stock refuses the note unless an administrator overrides with a reason
+  const override = resolveAdminOverride(req.user, req.body);
 
   // The sale order this note ships against: the one the production order is linked to, or — for a
   // sale order sold from stock, with no production order — the one the page names. Until 2026-09-25
@@ -395,6 +410,25 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
       );
     }
     saleOrderId = order.saleOrderId;
+  }
+
+  // The ASN this note ships against (the ASN page's "Create Delivery Note" sends it). Until 2026-09-25
+  // it was accepted and ignored, so no note was ever linked and every ASN reconciled as NOT_DISPATCHED.
+  const asnId: string | null = req.body.asnId ?? null;
+  if (asnId) {
+    const asn = await prisma.asn_applications.findUnique({
+      where: { id: asnId },
+      select: { asnNumber: true, status: true, orderId: true },
+    });
+    if (!asn) {
+      throw new NotFoundError('ASN', asnId);
+    }
+    if (asn.status !== 'APPROVED') {
+      throw new ValidationError(`ASN ${asn.asnNumber} is ${asn.status} — only an approved ASN can be shipped against.`);
+    }
+    if (asn.orderId !== orderId) {
+      throw new ValidationError(`ASN ${asn.asnNumber} is for a different production order.`);
+    }
   }
 
   // Each item's sale order line, matched on style + colour + size before the transaction opens
@@ -481,8 +515,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
 
           if (order) {
             const existingDeliveryItems = await tx.delivery_note_items.findMany({
-              where: { delivery_notes: { orderId } },
-              select: { styleId: true, colorId: true, sizeId: true, quantity: true },
+              where: { delivery_notes: { orderId, status: { not: 'CANCELLED' } } },
+              select: { styleId: true, colorId: true, sizeId: true, quantity: true, receivedQty: true },
             });
 
             const skuKey = (styleId?: string | null, colorId?: string | null, sizeId?: string | null) =>
@@ -491,7 +525,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             const dispatchedMap = new Map<string, number>();
             for (const di of existingDeliveryItems) {
               const key = skuKey(di.styleId, di.colorId, di.sizeId);
-              dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + di.quantity);
+              // Once a proof of delivery is in, what the buyer kept: returned pieces may ship again
+              dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + (di.receivedQty ?? di.quantity));
             }
 
             // Ordered per SKU (style+color+size) from the order item breakups
@@ -522,37 +557,14 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
               }
             }
 
-            // Net out goods the customer did NOT keep (bug-hunt dispatch-12): REJECTED PODs return the
-            // whole note; PARTIAL PODs return shortageQty. Without this, returned goods permanently ate
-            // the order's dispatch allowance and the redelivery was blocked. Header-level shortage has no
-            // per-SKU detail, so netting applies to the order-total backstop only — the per-SKU caps above
-            // stay conservative (may block a redelivery of a heavily-shorted SKU early; safe direction).
-            const podNotes = await tx.delivery_notes.findMany({
-              where: { orderId },
-              select: {
-                delivery_notes_ext: { select: { pod: { select: { deliveryStatus: true, shortageQty: true } } } },
-                delivery_note_items: { select: { quantity: true } },
-              },
-            });
-            // BUG-POD5 fix: use decimal.js for safe quantity arithmetic
-            let returnedQtyDec = new Decimal(0);
-            for (const n of podNotes) {
-              const pod = n.delivery_notes_ext?.pod;
-              if (!pod) continue;
-              if (pod.deliveryStatus === 'REJECTED') {
-                const itemsTotal = n.delivery_note_items.reduce((s, i) => s + i.quantity, 0);
-                returnedQtyDec = returnedQtyDec.plus(itemsTotal);
-              } else {
-                returnedQtyDec = returnedQtyDec.plus(toCurrency(pod.shortageQty));
-              }
-            }
-            const returnedQty = toNumber(returnedQtyDec);
+            // Goods the customer did NOT keep are already netted per line (receivedQty, set by the proof
+            // of delivery: 0 for REJECTED, what arrived for PARTIAL), so returned pieces may ship again
+            // (bug-hunt dispatch-12). The header-shortage netting that stood here double-counted them.
 
             // Order-total backstop (also covers legacy orders without SKU breakups)
             const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
             const totalCap = shipCap(totalOrdered, allowance);
-            const totalAlreadyDispatched =
-              Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0) - returnedQty;
+            const totalAlreadyDispatched = Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0);
             const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
             if (totalAlreadyDispatched + totalNewDispatch > totalCap) {
               const withAllowance =
@@ -632,6 +644,18 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             await recordSaleOrderDispatch(tx, lineId, item.quantity, drawn.fromReservations);
           }
         }
+        if (fgShortfalls.length > 0) {
+          if (!override.adminOverride) {
+            await refuseShortStock(
+              tx,
+              fgShortfalls.map((f) => ({ ...f, colorId: f.colorId ?? '' }))
+            );
+          }
+          await tx.delivery_notes.update({
+            where: { id: created.id },
+            data: { stockOverrideReason: override.overrideReason },
+          });
+        }
 
         // Link the packed cartons this note covers (dispatch_cartons rows) so dispatching the note can
         // flip them to DISPATCHED — previously nothing ever linked or dispatched cartons, so they stayed
@@ -653,11 +677,13 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             );
           }
           const ext = await tx.delivery_notes_ext.create({
-            data: { deliveryNoteId: created.id, totalCartons: uniqueCartonIds.length },
+            data: { deliveryNoteId: created.id, asnId, totalCartons: uniqueCartonIds.length },
           });
           await tx.dispatch_cartons.createMany({
             data: uniqueCartonIds.map((cartonId) => ({ deliveryNoteExtId: ext.id, cartonId })),
           });
+        } else if (asnId) {
+          await tx.delivery_notes_ext.create({ data: { deliveryNoteId: created.id, asnId } });
         }
 
         // Persist the exact deductions so deleting this (PENDING) note can restore them precisely.
@@ -701,9 +727,18 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   const { note, deliveryNumber, fgShortfalls } = await createNoteWithFreshNumber();
 
   if (fgShortfalls.length > 0) {
-    logWarn(`Delivery note ${deliveryNumber} created with FG stock shortfalls (dispatched more than on-hand FG)`, {
+    logWarn(`Delivery note ${deliveryNumber} created past finished-goods stock on an admin override`, {
       deliveryNoteId: note.id,
       fgShortfalls,
+      overrideReason: override.overrideReason,
+    });
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entityType: 'DELIVERY_NOTE',
+      entityId: note.id,
+      newValues: { stockOverride: override.overrideReason, fgShortfalls },
+      ipAddress: req.ip ?? null,
     });
   }
 
@@ -721,6 +756,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             workOrderId: wo.id,
             productionStage: 'SHIPPED',
             quantityCompleted: items?.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0) || 0,
+            // The only link from this row to its note: cancelling the note removes rows with this remark
+            remarks: shippedTrackingRemark(deliveryNumber),
             updatedById: userId,
             updateDate: new Date(),
           },
@@ -738,7 +775,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     fgShortfalls: fgShortfalls.length > 0 ? fgShortfalls : undefined,
     message:
       fgShortfalls.length > 0
-        ? `Delivery note created — WARNING: ${fgShortfalls.length} item(s) exceeded finished-goods stock on hand`
+        ? `Delivery note created on an admin override — ${fgShortfalls.length} item(s) exceeded finished-goods stock on hand`
         : 'Delivery note created successfully',
   });
 };
@@ -808,6 +845,97 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
   res.json({ message: 'Delivery note deleted successfully (finished-goods stock restored)' });
 };
 
+/**
+ * Cancel a PENDING delivery note (POST /delivery-notes/:id/cancel). The record and its number stay —
+ * status CANCELLED with who, when and why — while everything its creation did is handed back, in one
+ * transaction: the finished-goods stock it deducted (from its own allocation records, then dropped),
+ * the sale order lines' dispatched quantity, its carton links (the cartons can go on another note)
+ * and the SHIPPED production-tracking rows it wrote. A note already on the road is refused: goods
+ * that have left come back through a REJECTED proof of delivery.
+ */
+export const cancelDeliveryNote = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+  const { reason } = req.body;
+
+  const note = await prisma.delivery_notes.findUnique({
+    where: { id },
+    select: { deliveryNumber: true, status: true, saleOrderId: true, orderId: true },
+  });
+  if (!note) {
+    throw new NotFoundError('Delivery note', id);
+  }
+  if (note.status !== 'PENDING') {
+    throw new ValidationError(
+      note.status === 'CANCELLED'
+        ? `${note.deliveryNumber} is already cancelled.`
+        : `${note.deliveryNumber} has left the factory — record its proof of delivery as Rejected instead of cancelling it.`
+    );
+  }
+
+  const restored = await prisma.$transaction(async (tx) => {
+    // Guarded flip: a dispatch or a second cancel racing this one finds the note no longer PENDING
+    const flipped = await tx.delivery_notes.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: userId, cancelReason: reason },
+    });
+    if (flipped.count === 0) {
+      throw new ValidationError(`${note.deliveryNumber} is no longer pending — reload and try again.`);
+    }
+
+    // Stock back, exactly as deducted; the allocation rows go so nothing can restore them twice
+    const allocations = await tx.delivery_note_fg_allocations.findMany({
+      where: { deliveryNoteId: id, quantity: { gt: 0 } },
+      select: { fgStockId: true, quantity: true },
+    });
+    for (const a of allocations) {
+      await tx.finished_goods_stock.update({
+        where: { id: a.fgStockId },
+        data: { quantity: { increment: a.quantity }, lastUpdated: new Date() },
+      });
+    }
+    await tx.delivery_note_fg_allocations.deleteMany({ where: { deliveryNoteId: id } });
+
+    // The sale order lines' dispatched quantity back (it moved when the note was created)
+    const noteItems = await tx.delivery_note_items.findMany({
+      where: { deliveryNoteId: id, saleOrderItemId: { not: null } },
+      select: { saleOrderItemId: true, quantity: true },
+    });
+    for (const item of noteItems) {
+      await tx.sale_order_items.update({
+        where: { id: item.saleOrderItemId! },
+        data: { dispatchedQty: { decrement: item.quantity } },
+      });
+    }
+
+    // Cartons free for another note; the note's SHIPPED tracking rows go
+    await tx.dispatch_cartons.deleteMany({ where: { deliveryNoteExt: { deliveryNoteId: id } } });
+    if (note.orderId) {
+      await tx.production_tracking.deleteMany({
+        where: {
+          work_orders: { orderId: note.orderId },
+          productionStage: 'SHIPPED',
+          remarks: shippedTrackingRemark(note.deliveryNumber),
+        },
+      });
+    }
+
+    if (note.saleOrderId) {
+      await recomputeSaleOrderStatus(tx, note.saleOrderId);
+    }
+    return allocations.reduce((sum, a) => sum + a.quantity, 0);
+  });
+
+  const full = await prisma.delivery_notes.findUnique({ where: { id }, include: deliveryNoteIncludeOptions });
+  res.json({
+    data: transformDeliveryNote(full),
+    message: `${note.deliveryNumber} cancelled${restored > 0 ? ` — ${restored} piece(s) back in finished-goods stock` : ''}`,
+  });
+};
+
 // ============================================
 // Delivery Note Workflow
 // ============================================
@@ -841,6 +969,9 @@ export const assignTransport = async (req: Request, res: Response) => {
 
   if (!note) {
     throw new NotFoundError('Delivery note', id);
+  }
+  if (note.status === 'CANCELLED') {
+    throw new ValidationError(`${note.deliveryNumber} is cancelled — transport cannot be assigned.`);
   }
 
   // ext create + transport upsert + note update in ONE transaction — a failure between the separate
@@ -1025,16 +1156,21 @@ export const recordPOD = async (req: Request, res: Response) => {
     customerSignOff,
     podDocumentUrl,
     deliveryStatus,
-    shortageQty,
     rejectionReason,
     customerGrnNumber,
     customerGrnDate,
     remarks,
   } = req.body;
+  const receivedLines: Array<{ deliveryNoteItemId: string; receivedQty: number }> = req.body.items ?? [];
 
   const note = await prisma.delivery_notes.findUnique({
     where: { id },
-    select: { status: true },
+    select: {
+      status: true,
+      delivery_note_items: {
+        select: { id: true, quantity: true, saleOrderItemId: true, styleId: true, colorId: true, sizeId: true },
+      },
+    },
   });
 
   if (!note) {
@@ -1044,6 +1180,38 @@ export const recordPOD = async (req: Request, res: Response) => {
   if (note.status !== 'IN_TRANSIT') {
     throw new ValidationError('Can only record POD for in-transit deliveries');
   }
+
+  // What each line actually received: all of it, none of it, or (PARTIAL) as entered per line.
+  // The per-line figure decides which sizes' stock comes back, how far each sale order line's
+  // dispatched quantity falls, and what the invoice from this note bills (2026-09-25; until then a
+  // PARTIAL carried one header shortage with no sizes, restored greedily across the note).
+  const received = new Map<string, number>();
+  if (deliveryStatus === 'PARTIAL') {
+    const given = new Map(receivedLines.map((l) => [l.deliveryNoteItemId, l.receivedQty]));
+    for (const item of note.delivery_note_items) {
+      const qty = given.get(item.id);
+      if (qty === undefined) {
+        throw new ValidationError('Enter the quantity received on every line of a partial delivery.');
+      }
+      if (qty > item.quantity) {
+        throw new ValidationError(`A line received ${qty} but only ${item.quantity} were sent.`);
+      }
+      received.set(item.id, qty);
+    }
+    if (given.size !== note.delivery_note_items.length) {
+      throw new ValidationError('One of the received lines is not on this delivery note.');
+    }
+    if (note.delivery_note_items.every((i) => received.get(i.id) === i.quantity)) {
+      throw new ValidationError('Every line was received in full. Record it as Delivered, not Partial.');
+    }
+  } else {
+    for (const item of note.delivery_note_items) {
+      received.set(item.id, deliveryStatus === 'REJECTED' ? 0 : item.quantity);
+    }
+  }
+  const shortOf = (item: { id: string; quantity: number }) => item.quantity - (received.get(item.id) ?? item.quantity);
+  const shortageQty =
+    deliveryStatus === 'PARTIAL' ? note.delivery_note_items.reduce((sum, i) => sum + shortOf(i), 0) : undefined;
 
   // POD + FG restore + note status in ONE transaction (bug-hunt dispatch-12: a PARTIAL/REJECTED POD
   // used to change nothing — rejected/short goods stayed deducted from finished-goods stock forever and
@@ -1066,7 +1234,7 @@ export const recordPOD = async (req: Request, res: Response) => {
       customerSignOff: customerSignOff || false,
       podDocumentUrl,
       deliveryStatus,
-      shortageQty,
+      shortageQty: shortageQty ?? null,
       rejectionReason,
       customerGrnNumber,
       customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
@@ -1082,42 +1250,35 @@ export const recordPOD = async (req: Request, res: Response) => {
       },
     });
 
-    // Restore finished-goods stock for goods that did NOT stay with the customer: everything for a
-    // REJECTED delivery, shortageQty for a PARTIAL one. Restored against this note's own allocation
-    // records (same rows the creation deducted), and the allocation quantities are reduced so a later
-    // note-delete cannot double-restore. Header-level shortage has no per-SKU detail, so restoration
-    // is greedy across allocations — exact in aggregate.
-    // BUG-POD5 fix: use decimal.js for safe quantity arithmetic
-    let restoredDec = new Decimal(0);
-    const wantRestoreDec =
-      deliveryStatus === 'REJECTED'
-        ? new Decimal(Number.MAX_SAFE_INTEGER)
-        : deliveryStatus === 'PARTIAL'
-          ? toCurrency(shortageQty)
-          : new Decimal(0);
-    if (wantRestoreDec.gt(0)) {
-      const allocations = await tx.delivery_note_fg_allocations.findMany({
-        where: { deliveryNoteId: id, quantity: { gt: 0 } },
-        orderBy: { createdAt: 'desc' },
-      });
-      let remainingDec = wantRestoreDec;
+    // Each line's received quantity, and finished-goods stock back for what did NOT stay with the
+    // customer: per size, against this note's own allocation rows of that size (the rows its creation
+    // deducted), whose quantities fall so nothing can be restored twice. Only what was deducted can come
+    // back: a line shipped on an admin stock override may have had less taken than it carried.
+    let restored = 0;
+    const allocations = await tx.delivery_note_fg_allocations.findMany({
+      where: { deliveryNoteId: id, quantity: { gt: 0 } },
+      orderBy: { createdAt: 'desc' },
+      include: { fgStock: { select: { styleId: true, colorId: true, sizeId: true } } },
+    });
+    for (const item of note.delivery_note_items) {
+      await tx.delivery_note_items.update({ where: { id: item.id }, data: { receivedQty: received.get(item.id) } });
+      let toRestore = shortOf(item);
       for (const a of allocations) {
-        if (remainingDec.lte(0)) break;
-        const restoreDec = Decimal.min(toCurrency(a.quantity), remainingDec);
-        const restoreNum = toNumber(restoreDec);
+        if (toRestore < 1) break;
+        const sameSku =
+          a.fgStock.styleId === item.styleId && a.fgStock.colorId === item.colorId && a.fgStock.sizeId === item.sizeId;
+        if (!sameSku || a.quantity < 1) continue;
+        const back = Math.min(a.quantity, toRestore);
         await tx.finished_goods_stock.update({
           where: { id: a.fgStockId },
-          data: { quantity: { increment: restoreNum }, lastUpdated: new Date() },
+          data: { quantity: { increment: back }, lastUpdated: new Date() },
         });
-        await tx.delivery_note_fg_allocations.update({
-          where: { id: a.id },
-          data: { quantity: { decrement: restoreNum } },
-        });
-        remainingDec = remainingDec.minus(restoreDec);
-        restoredDec = restoredDec.plus(restoreDec);
+        await tx.delivery_note_fg_allocations.update({ where: { id: a.id }, data: { quantity: { decrement: back } } });
+        a.quantity -= back;
+        toRestore -= back;
+        restored += back;
       }
     }
-    const restored = toNumber(restoredDec);
 
     // Note status: DELIVERED marks the end of the journey; the POD row carries the PARTIAL/REJECTED
     // truth, and the dispatch-cap computation nets it (see createDeliveryNote).
@@ -1129,23 +1290,18 @@ export const recordPOD = async (req: Request, res: Response) => {
 
     // P7.1: Handle sale order dispatch quantities and status
     if (updatedNote.saleOrderId) {
-      // A REJECTED delivery came back in full: hand its dispatchedQty back on every linked line.
-      // Gated on the POD's verdict, not on `restored > 0` — a note whose FG allocation rows were
-      // already at zero (or never written) kept its dispatchedQty and left the order DISPATCHED for
-      // ever (order-system T3-A, 2026-09-17). PARTIAL carries only a header-level shortage, so
-      // dispatchedQty stays and the POD row is the truth.
-      if (deliveryStatus === 'REJECTED') {
-        const dnItems = await tx.delivery_note_items.findMany({
-          where: { deliveryNoteId: id, saleOrderItemId: { not: null } },
-          select: { saleOrderItemId: true, quantity: true },
-        });
-        for (const item of dnItems) {
-          if (item.saleOrderItemId) {
-            await tx.sale_order_items.update({
-              where: { id: item.saleOrderItemId },
-              data: { dispatchedQty: { decrement: item.quantity } },
-            });
-          }
+      // What the customer did not keep goes back on each sale order line: all of it for a REJECTED
+      // delivery, each line's shortage for a PARTIAL one. Gated on the verdict, not on `restored > 0`:
+      // a note whose allocation rows were already at zero kept its dispatchedQty and left the order
+      // DISPATCHED for ever (order-system T3-A, 2026-09-17). Until 2026-09-25 a PARTIAL handed nothing
+      // back, because its shortage had no line to attach to.
+      for (const item of note.delivery_note_items) {
+        const short = shortOf(item);
+        if (item.saleOrderItemId && short > 0) {
+          await tx.sale_order_items.update({
+            where: { id: item.saleOrderItemId },
+            data: { dispatchedQty: { decrement: short } },
+          });
         }
       }
 
@@ -1517,6 +1673,7 @@ export const getSummary = async (req: Request, res: Response) => {
       _count: { id: true },
     }),
     prisma.delivery_note_items.aggregate({
+      where: { delivery_notes: { status: { not: 'CANCELLED' } } },
       _sum: {
         quantity: true,
       },
@@ -1662,6 +1819,8 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
   const { saleOrderId, deliveryDate, remarks, items } = req.body;
+  // Short finished-goods stock refuses the note unless an administrator overrides with a reason
+  const override = resolveAdminOverride(req.user, req.body);
 
   // Validate sale order exists and is in a dispatchable state
   const saleOrder = await prisma.sale_orders.findUnique({
@@ -1774,6 +1933,13 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
 
         // Stock out (the line's reservations first, then free stock) and book the line — the same
         // helper POST /delivery-notes uses, so both routes move dispatchedQty identically.
+        const skuShortfalls: Array<{
+          styleId: string;
+          colorId: string;
+          sizeId: string;
+          requested: number;
+          deducted: number;
+        }> = [];
         for (const { item, soItem, colorId } of lines) {
           const drawn = await drawFinishedGoods(
             tx,
@@ -1785,6 +1951,13 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
           if (drawn.notFound > 0) {
             fgShortfalls.push({
               saleOrderItemId: item.saleOrderItemId,
+              requested: item.quantity,
+              deducted: item.quantity - drawn.notFound,
+            });
+            skuShortfalls.push({
+              styleId: soItem.styleId,
+              colorId,
+              sizeId: soItem.sizeId!,
               requested: item.quantity,
               deducted: item.quantity - drawn.notFound,
             });
@@ -1801,6 +1974,16 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
             },
           });
           await recordSaleOrderDispatch(tx, soItem.id, item.quantity, drawn.fromReservations);
+        }
+
+        if (skuShortfalls.length > 0) {
+          if (!override.adminOverride) {
+            await refuseShortStock(tx, skuShortfalls);
+          }
+          await tx.delivery_notes.update({
+            where: { id: note.id },
+            data: { stockOverrideReason: override.overrideReason },
+          });
         }
 
         // Persist FG allocations for potential reversal
@@ -1842,10 +2025,19 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
   const { note, deliveryNumber, fgShortfalls } = await createWithFreshNumber();
 
   if (fgShortfalls.length > 0) {
-    logWarn(`Sale order dispatch ${deliveryNumber} created with FG stock shortfalls`, {
+    logWarn(`Sale order dispatch ${deliveryNumber} created past finished-goods stock on an admin override`, {
       deliveryNoteId: note.id,
       saleOrderId,
       fgShortfalls,
+      overrideReason: override.overrideReason,
+    });
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entityType: 'DELIVERY_NOTE',
+      entityId: note.id,
+      newValues: { stockOverride: override.overrideReason, fgShortfalls },
+      ipAddress: req.ip ?? null,
     });
   }
 
@@ -1930,8 +2122,8 @@ export const getASNReconciliation = async (req: Request, res: Response) => {
   let totalActualDispatched = 0;
 
   for (const dnExt of asn.deliveryNotes) {
-    // Only count DELIVERED or IN_TRANSIT notes
-    if (dnExt.deliveryNote.status === 'PENDING') continue;
+    // Only count DELIVERED or IN_TRANSIT notes — a pending note has not left, a cancelled one never will
+    if (dnExt.deliveryNote.status === 'PENDING' || dnExt.deliveryNote.status === 'CANCELLED') continue;
 
     for (const item of dnExt.deliveryNote.delivery_note_items) {
       const key = `${item.colorId || 'null'}-${item.sizeId}`;

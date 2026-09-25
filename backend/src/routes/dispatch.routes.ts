@@ -15,6 +15,7 @@ import {
   rejectASNSchema,
   rescheduleASNSchema,
   createSaleOrderDispatchSchema,
+  cancelDeliveryNoteSchema,
 } from '../schemas/dispatch.schema';
 import { idParamSchema } from '../schemas/common.schema';
 import {
@@ -29,6 +30,7 @@ import {
   recordPOD,
   // Sale Order Dispatch (P7.1 - B2B integration)
   createSaleOrderDispatch,
+  cancelDeliveryNote,
   // ASN endpoints
   getAllASN,
   getASNById,
@@ -80,6 +82,13 @@ router.post(
   validateParams(idParamSchema),
   validateBody(deliveryNoteActionSchema),
   asyncHandler(dispatchDeliveryNote)
+);
+// Undo a PENDING note: stock and the sale order's dispatched quantity go back; the record is kept
+router.post(
+  '/delivery-notes/:id/cancel',
+  validateParams(idParamSchema),
+  validateBody(cancelDeliveryNoteSchema),
+  asyncHandler(cancelDeliveryNote)
 );
 router.post(
   '/delivery-notes/:id/record-pod',

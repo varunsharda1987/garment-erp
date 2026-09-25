@@ -32,7 +32,9 @@ export default function DispatchPODForm() {
   const [designation, setDesignation] = useState('');
   const [customerSignOff, setCustomerSignOff] = useState(false);
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryConfirmation>('DELIVERED');
-  const [shortageQty, setShortageQty] = useState('');
+  // Partial delivery: what each line actually received (item id -> typed pieces). The shortage is
+  // worked out from these; it decides which sizes go back to stock and what the invoice bills.
+  const [received, setReceived] = useState<Record<string, string>>({});
   const [rejectionReason, setRejectionReason] = useState('');
 
   // Customer GRN details
@@ -53,6 +55,7 @@ export default function DispatchPODForm() {
       setIsLoading(true);
       const data = await deliveryNoteService.getById(noteId);
       setDeliveryNote(data);
+      setReceived(Object.fromEntries((data.items ?? []).map((item) => [item.id, String(item.quantity)])));
 
       // Check if already delivered
       if (data.status === 'DELIVERED') {
@@ -74,6 +77,11 @@ export default function DispatchPODForm() {
     }
   };
 
+  const shortageTotal = (deliveryNote?.items ?? []).reduce(
+    (sum, item) => sum + Math.max(0, item.quantity - (Number(received[item.id]) || 0)),
+    0
+  );
+
   const validateForm = (): boolean => {
     if (!deliveryDate) {
       handleApiError(new Error('Please enter delivery date'), 'Validation Error');
@@ -87,9 +95,23 @@ export default function DispatchPODForm() {
       handleApiError(new Error('Please select delivery status'), 'Validation Error');
       return false;
     }
-    if (deliveryStatus === 'PARTIAL' && !shortageQty) {
-      handleApiError(new Error('Please enter shortage quantity for partial delivery'), 'Validation Error');
-      return false;
+    if (deliveryStatus === 'PARTIAL') {
+      for (const item of deliveryNote?.items ?? []) {
+        const value = Number(received[item.id]);
+        if (received[item.id] === '' || !Number.isInteger(value) || value < 0 || value > item.quantity) {
+          handleApiError(
+            new Error(
+              `Received on ${item.style?.styleCode ?? 'a line'} ${item.size?.sizeName ?? ''} must be 0 to ${item.quantity}`
+            ),
+            'Validation Error'
+          );
+          return false;
+        }
+      }
+      if (shortageTotal < 1) {
+        handleApiError(new Error('Every line was received in full — choose Delivered instead'), 'Validation Error');
+        return false;
+      }
     }
     if (deliveryStatus === 'REJECTED' && !rejectionReason.trim()) {
       handleApiError(new Error('Please enter rejection reason'), 'Validation Error');
@@ -113,7 +135,13 @@ export default function DispatchPODForm() {
         designation: designation.trim() || undefined,
         customerSignOff,
         deliveryStatus,
-        shortageQty: shortageQty ? parseInt(shortageQty) : undefined,
+        items:
+          deliveryStatus === 'PARTIAL'
+            ? (deliveryNote?.items ?? []).map((item) => ({
+                deliveryNoteItemId: item.id,
+                receivedQty: Number(received[item.id]),
+              }))
+            : undefined,
         rejectionReason: rejectionReason.trim() || undefined,
         customerGrnNumber: customerGrnNumber.trim() || undefined,
         customerGrnDate: customerGrnDate || undefined,
@@ -333,16 +361,44 @@ export default function DispatchPODForm() {
               </div>
 
               {deliveryStatus === 'PARTIAL' && (
-                <div className="space-y-2">
-                  <Label htmlFor="shortageQty">Shortage Quantity *</Label>
-                  <Input
-                    id="shortageQty"
-                    type="number"
-                    min="0"
-                    value={shortageQty}
-                    onChange={(e) => setShortageQty(e.target.value)}
-                    placeholder="Enter shortage qty"
-                  />
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Received on each line *</Label>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Style</TableHead>
+                        <TableHead>Colour</TableHead>
+                        <TableHead>Size</TableHead>
+                        <TableHead className="text-right">Sent</TableHead>
+                        <TableHead className="text-right w-[120px]">Received</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(deliveryNote?.items ?? []).map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.style?.styleCode || '-'}</TableCell>
+                          <TableCell>{item.color?.colorName || '-'}</TableCell>
+                          <TableCell>{item.size?.sizeName || '-'}</TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={item.quantity}
+                              step={1}
+                              className="text-right"
+                              value={received[item.id] ?? ''}
+                              onChange={(e) => setReceived((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <p className="text-sm text-muted-foreground">
+                    Short: <b>{shortageTotal}</b> pcs — goes back to finished-goods stock and off the sale order&apos;s
+                    Dispatched quantity. The invoice bills what was received.
+                  </p>
                 </div>
               )}
 

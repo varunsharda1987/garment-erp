@@ -529,6 +529,18 @@ export default function InvoiceDetail() {
                 <p className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</p>
               )}
             </div>
+            {invoice.deliveryNote && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Delivery Note</p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/manufacturing/dispatch/delivery/${invoice.deliveryNote!.id}`)}
+                  className="text-sm text-info hover:underline"
+                >
+                  {invoice.deliveryNote.deliveryNumber}
+                </button>
+              </div>
+            )}
             {/* The customer's own PO, so accounts can check the invoice against the paper the
                 buyer actually sent. Absent on invoices with no sale-order link. */}
             {invoice.saleOrder?.buyerPos && invoice.saleOrder.buyerPos.length > 0 && (

@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { Prisma, SaleOrderStatus } from '@prisma/client';
+import { Prisma, SaleOrderStatus, DeliveryStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { multiplyCurrency, divideCurrency, roundToCent, Decimal } from '../utils/currency';
@@ -435,7 +435,12 @@ export class SaleOrderService {
             orderBy: { isPrimary: 'desc' },
           },
           _count: {
-            select: { items: true, delivery_notes: true, invoices: true },
+            // A cancelled delivery note is kept on record but shipped nothing — the B2B app shows this count
+            select: {
+              items: true,
+              delivery_notes: { where: { status: { not: DeliveryStatus.CANCELLED } } },
+              invoices: true,
+            },
           },
         },
       }),
@@ -1373,7 +1378,7 @@ export class SaleOrderService {
     });
     if (liveNotes > 0) {
       throw new BusinessError(
-        `Cannot cancel — ${liveNotes} delivery note(s) are still open for this order. Delete them first.`
+        `Cannot cancel — ${liveNotes} delivery note(s) are still open for this order. Cancel them first.`
       );
     }
 
@@ -1885,7 +1890,12 @@ export class SaleOrderService {
         },
       },
       _count: {
-        select: { items: true, delivery_notes: true, invoices: true },
+        // A cancelled delivery note is kept on record but shipped nothing — the B2B app shows this count
+        select: {
+          items: true,
+          delivery_notes: { where: { status: { not: DeliveryStatus.CANCELLED } } },
+          invoices: true,
+        },
       },
     };
   }

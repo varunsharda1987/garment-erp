@@ -98,7 +98,12 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  orderId: string;
+  /** Null on an invoice raised from a delivery note for a sale order sold from stock */
+  orderId: string | null;
+  saleOrderId?: string | null;
+  /** Set when raised from a delivery note (Create Invoice on a delivered note) */
+  deliveryNoteId?: string | null;
+  deliveryNote?: { id: string; deliveryNumber: string } | null;
   customerId: string;
 
   invoiceDate: string;

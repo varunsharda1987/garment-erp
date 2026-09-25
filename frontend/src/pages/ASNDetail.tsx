@@ -75,6 +75,20 @@ export default function ASNDetail() {
     enabled: !!id,
   });
 
+  // What left against this ASN, per size — from the delivery notes raised from it (pending and
+  // cancelled notes are not counted)
+  const { data: reconciliation } = useQuery({
+    queryKey: ['asn-reconciliation', id],
+    queryFn: () => asnService.getReconciliation(id!),
+    enabled: !!id,
+  });
+  const reconciliationLabel: Record<string, string> = {
+    NOT_DISPATCHED: 'Not dispatched',
+    FULLY_RECONCILED: 'Fully reconciled',
+    OVER_DISPATCHED: 'Over',
+    UNDER_DISPATCHED: 'Under',
+  };
+
   // Initialize approve form when ASN loads
   const initApproveForm = () => {
     if (asn) {
@@ -384,6 +398,67 @@ export default function ASNDetail() {
           </CardHeader>
           <CardContent>
             <p className="text-muted-foreground">{asn.remarks}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dispatched against this ASN */}
+      {reconciliation && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center justify-between gap-2">
+              <span>Dispatched against this ASN</span>
+              <Badge variant="secondary">
+                {reconciliationLabel[reconciliation.summary.reconciliationStatus] ??
+                  reconciliation.summary.reconciliationStatus}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Approved {reconciliation.summary.approvedQty} · Dispatched {reconciliation.summary.actualDispatched} ·
+              Variance {reconciliation.summary.variance > 0 ? '+' : ''}
+              {reconciliation.summary.variance}
+            </p>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Colour</TableHead>
+                  <TableHead>Size</TableHead>
+                  <TableHead className="text-right">Planned</TableHead>
+                  <TableHead className="text-right">Dispatched</TableHead>
+                  <TableHead className="text-right">Variance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {reconciliation.skuBreakdown.map((row) => (
+                  <TableRow key={`${row.colorId}-${row.sizeId}`}>
+                    <TableCell>{row.colorName || '-'}</TableCell>
+                    <TableCell>{row.sizeName || '-'}</TableCell>
+                    <TableCell className="text-right">{row.plannedQty}</TableCell>
+                    <TableCell className="text-right">{row.actualQty}</TableCell>
+                    <TableCell className="text-right">
+                      {row.variance > 0 ? '+' : ''}
+                      {row.variance}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {reconciliation.deliveryNotes.length > 0 && (
+              <div className="text-sm">
+                <span className="text-muted-foreground">Delivery notes: </span>
+                {reconciliation.deliveryNotes.map((dn, i) => (
+                  <span key={dn.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/manufacturing/dispatch/delivery/${dn.id}`} className="text-info hover:underline">
+                      {dn.deliveryNumber}
+                    </Link>{' '}
+                    ({dn.totalPieces} pcs, {dn.status.replace('_', ' ').toLowerCase()})
+                  </span>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

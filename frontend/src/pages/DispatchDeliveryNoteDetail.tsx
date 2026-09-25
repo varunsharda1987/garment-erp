@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { deliveryNoteService } from '@/services/dispatch.service';
+import { createInvoiceFromDeliveryNote } from '@/services/invoice.service';
 import type { DeliveryNote } from '@/types/dispatch.types';
 import { DeliveryStatusLabels, DeliveryStatusColors, DeliveryConfirmationLabels } from '@/types/dispatch.types';
-import { handleApiError } from '@/lib/api-error-handler';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { usePermissions } from '@/hooks/usePermissions';
 import { BuyerPoCard } from '@/components/sale-order';
-import { ArrowLeft, Loader2, Truck, Package, ClipboardCheck, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Truck, Package, ClipboardCheck, CheckCircle, FileText, XCircle } from 'lucide-react';
 
-import { formatDate } from '@/lib/date';
+import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
 
 /**
  * Read-only Delivery Note detail (finding B10-02, BUG-DASH10 fix: corrected route path).
@@ -24,6 +31,21 @@ export default function DispatchDeliveryNoteDetail() {
   const navigate = useNavigate();
   const [note, setNote] = useState<DeliveryNote | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { can } = usePermissions();
+  // The Dispatch list's Cancel / Invoice row icons open this page with ?cancel=1 / ?invoice=1
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Cancel (a pending note; the record is kept)
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
+  // Create Invoice (a delivered note; bills what was received)
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [invoiceDate, setInvoiceDate] = useState(toDateInputValue(new Date()));
+  const [dueDate, setDueDate] = useState('');
+  const [invoiceRemarks, setInvoiceRemarks] = useState('');
+  const [invoicing, setInvoicing] = useState(false);
 
   useEffect(() => {
     if (id) loadNote(id);
@@ -35,12 +57,69 @@ export default function DispatchDeliveryNoteDetail() {
       setIsLoading(true);
       const data = await deliveryNoteService.getById(noteId);
       setNote(data);
+      if (searchParams.get('cancel') === '1' && data.status === 'PENDING') {
+        setCancelReason('');
+        setCancelOpen(true);
+      }
+      if (searchParams.get('invoice') === '1' && data.status === 'DELIVERED' && !data.invoices?.length) {
+        const due = new Date();
+        due.setDate(due.getDate() + (data.customer?.creditDays ?? 30));
+        setInvoiceDate(toDateInputValue(new Date()));
+        setDueDate(toDateInputValue(due));
+        setInvoiceRemarks('');
+        setInvoiceOpen(true);
+      }
+      if (searchParams.has('cancel') || searchParams.has('invoice')) setSearchParams({}, { replace: true });
     } catch (error) {
       handleApiError(error, 'Failed to load delivery note');
     } finally {
       setIsLoading(false);
     }
   }
+
+  const openInvoiceDialog = () => {
+    if (!note) return;
+    // Due date: the customer's credit days after today, else 30
+    const due = new Date();
+    due.setDate(due.getDate() + (note.customer?.creditDays ?? 30));
+    setInvoiceDate(toDateInputValue(new Date()));
+    setDueDate(toDateInputValue(due));
+    setInvoiceRemarks('');
+    setInvoiceOpen(true);
+  };
+
+  const submitCancel = async () => {
+    if (!note) return;
+    try {
+      setCancelling(true);
+      const { message } = await deliveryNoteService.cancel(note.id, cancelReason.trim());
+      handleApiSuccess(message || `${note.deliveryNumber} cancelled`);
+      setCancelOpen(false);
+      await loadNote(note.id);
+    } catch (error) {
+      handleApiError(error, 'Failed to cancel the delivery note');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const submitInvoice = async () => {
+    if (!note) return;
+    try {
+      setInvoicing(true);
+      const invoice = await createInvoiceFromDeliveryNote(note.id, {
+        invoiceDate,
+        dueDate,
+        remarks: invoiceRemarks.trim() || undefined,
+      });
+      handleApiSuccess(`Invoice ${invoice.invoiceNumber} created`);
+      navigate(`/invoices/${invoice.id}`);
+    } catch (error) {
+      handleApiError(error, 'Failed to create the invoice');
+    } finally {
+      setInvoicing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -58,6 +137,12 @@ export default function DispatchDeliveryNoteDetail() {
   const pod = note.ext?.pod;
   const cartonCount = note.ext?.cartons?.length || 0;
   const totalPieces = note.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const invoice = note.invoices?.[0];
+  const canInvoice = note.status === 'DELIVERED' && !invoice && pod?.deliveryStatus !== 'REJECTED' && can('invoices');
+  // What the invoice will bill: the received quantity per line (the full quantity before per-line receipt)
+  const billable = (note.items ?? [])
+    .map((item) => ({ item, qty: item.receivedQty ?? item.quantity }))
+    .filter((l) => l.qty > 0);
 
   // Prefer the dedicated transport record, fall back to the note-level fields.
   const transporterName = transport?.transporterName;
@@ -82,15 +167,61 @@ export default function DispatchDeliveryNoteDetail() {
             </div>
           </div>
         </div>
-        {note.status === 'IN_TRANSIT' && (
-          <Button asChild>
-            <Link to={`/manufacturing/dispatch/delivery/${note.id}/pod`}>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Record POD
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {note.status === 'PENDING' && (
+            <Button
+              variant="outline"
+              className="text-destructive"
+              onClick={() => {
+                setCancelReason('');
+                setCancelOpen(true);
+              }}
+            >
+              <XCircle className="h-4 w-4 mr-2" />
+              Cancel Delivery Note
+            </Button>
+          )}
+          {note.status === 'IN_TRANSIT' && (
+            <Button asChild>
+              <Link to={`/manufacturing/dispatch/delivery/${note.id}/pod`}>
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Record POD
+              </Link>
+            </Button>
+          )}
+          {invoice && (
+            <Button variant="outline" asChild>
+              <Link to={`/invoices/${invoice.id}`}>
+                <FileText className="h-4 w-4 mr-2" />
+                Invoice {invoice.invoiceNumber}
+              </Link>
+            </Button>
+          )}
+          {canInvoice && (
+            <Button onClick={openInvoiceDialog}>
+              <FileText className="h-4 w-4 mr-2" />
+              Create Invoice
+            </Button>
+          )}
+        </div>
       </div>
+
+      {note.status === 'CANCELLED' && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Cancelled{note.cancelledAt ? ` on ${formatDateTime(new Date(note.cancelledAt))}` : ''}
+            {note.cancelReason ? ` — ${note.cancelReason}` : ''}. The stock and the sale order&apos;s dispatched
+            quantity were handed back; this record is kept.
+          </AlertDescription>
+        </Alert>
+      )}
+      {note.stockOverrideReason && (
+        <Alert>
+          <AlertDescription>
+            Shipped past finished-goods stock on an administrator&apos;s override: {note.stockOverrideReason}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -238,6 +369,7 @@ export default function DispatchDeliveryNoteDetail() {
                 <TableHead>Color</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
+                {pod && <TableHead className="text-right">Received</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -252,11 +384,12 @@ export default function DispatchDeliveryNoteDetail() {
                     <TableCell>{item.color?.colorName || '-'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>
+                    {pod && <TableCell className="text-right">{item.receivedQty ?? '—'}</TableCell>}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={pod ? 6 : 5} className="text-center text-muted-foreground py-6">
                     No items
                   </TableCell>
                 </TableRow>
@@ -265,6 +398,113 @@ export default function DispatchDeliveryNoteDetail() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Cancel — the record stays, marked Cancelled */}
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel {note.deliveryNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              The pieces go back into finished-goods stock and come off the sale order&apos;s Dispatched quantity. The
+              note stays in the list, marked Cancelled, with its number.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="cancelReason">Reason *</Label>
+              <Textarea
+                id="cancelReason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+                placeholder="Why is this delivery note being cancelled?"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelOpen(false)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={cancelling || cancelReason.trim().length < 3}
+              onClick={submitCancel}
+            >
+              {cancelling ? 'Cancelling...' : 'Cancel Delivery Note'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Invoice — bills what the buyer received */}
+      <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Invoice for {note.deliveryNumber}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="invoiceDate">Invoice Date *</Label>
+                <Input
+                  id="invoiceDate"
+                  type="date"
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Due Date *</Label>
+                <Input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Billed (what the buyer received)</p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Style</TableHead>
+                    <TableHead>Colour</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {billable.map(({ item, qty }) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.style?.styleCode || '-'}</TableCell>
+                      <TableCell>{item.color?.colorName || '-'}</TableCell>
+                      <TableCell>{item.size?.sizeName || '-'}</TableCell>
+                      <TableCell className="text-right">{qty}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="text-xs text-muted-foreground">
+                Priced from the sale order (or the production order when there is no sale order); GST is worked out from
+                the customer&apos;s billing state.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="invoiceRemarks">Remarks</Label>
+              <Textarea
+                id="invoiceRemarks"
+                value={invoiceRemarks}
+                onChange={(e) => setInvoiceRemarks(e.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={invoicing || !invoiceDate || !dueDate} onClick={submitInvoice}>
+              {invoicing ? 'Creating...' : 'Create Invoice'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

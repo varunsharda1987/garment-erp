@@ -124,6 +124,8 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
   protected getDefaultIncludes(): IncludeConfig {
     return {
+      // The delivery note this invoice was raised from (Create Invoice on a delivered note)
+      delivery_note: { select: { id: true, deliveryNumber: true } },
       customers: {
         select: {
           id: true,
@@ -500,6 +502,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         },
         customers: { select: { id: true, billingStateId: true } },
         sale_orders: { select: { id: true } },
+        delivery_notes_ext: { select: { pod: { select: { deliveryStatus: true } } } },
       },
     });
 
@@ -508,23 +511,35 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     }
 
     if (dn.status !== 'DELIVERED') {
-      throw new ValidationError('Can only create invoice from DELIVERED delivery notes');
+      throw new ValidationError(
+        `${dn.deliveryNumber} is ${dn.status} — an invoice is raised once its proof of delivery is recorded.`
+      );
+    }
+    // The invoice bills what the buyer received (owner, 2026-09-25), so a rejected delivery bills nothing
+    if (dn.delivery_notes_ext?.pod?.deliveryStatus === 'REJECTED') {
+      throw new ValidationError(`Nothing was received on ${dn.deliveryNumber} — the delivery was rejected.`);
     }
 
-    // Check if invoice already exists for this DN
-    // Note: deliveryNoteId added in migration 20260805100000 — cast until prisma generate runs
-    const existingInvoice = await this.prisma.invoices.findFirst({
-      where: { deliveryNoteId } as any,
-    });
-    if (existingInvoice) {
-      throw new ConflictError(`Invoice ${existingInvoice.invoiceNumber} already exists for this delivery note`);
+    // A line not raised against a sale order line (a production order linked to no sale order) is
+    // priced from its production order item. Until 2026-09-25 every such line was invoiced at ₹0.
+    const orderPrices = new Map<string, number>();
+    if (dn.orderId) {
+      const orderItems = await this.prisma.order_items.findMany({
+        where: { orderId: dn.orderId },
+        select: { styleId: true, unitPrice: true },
+      });
+      for (const oi of orderItems) orderPrices.set(oi.styleId, parseFloat(oi.unitPrice.toString()));
     }
 
-    // Build items from DN items (price comes from sale order item or style default)
+    // Build items from DN items: the quantity the buyer received, at the sale order line's price
     const items: InvoiceItemDTO[] = [];
+    const unpriced: string[] = [];
     for (const dnItem of dn.delivery_note_items) {
+      // What the proof of delivery says arrived (null only on notes recorded before per-line receipt)
+      const billedQty = dnItem.receivedQty ?? dnItem.quantity;
+      if (billedQty < 1) continue;
       // Try to get unit price from sale order item
-      let unitPrice = 0;
+      let unitPrice = dnItem.saleOrderItemId ? 0 : (orderPrices.get(dnItem.styleId) ?? 0);
       // The buyer's code AS ORDERED, not as the style master reads today — this is the hop that
       // keeps a reprinted invoice showing what the buyer actually placed the order under.
       let buyerStyleRef: string | null = null;
@@ -549,14 +564,23 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         .filter(Boolean)
         .join(' ');
 
+      if (!(unitPrice > 0)) unpriced.push(dnItem.styles?.styleCode ?? dnItem.styleId);
       items.push({
         styleId: dnItem.styleId,
         description,
         hsnCode: dnItem.styles?.hsnCode ?? undefined,
-        quantity: dnItem.quantity,
+        quantity: billedQty,
         unitPrice,
         buyerStyleRef,
       });
+    }
+    if (items.length === 0) {
+      throw new ValidationError(`Nothing was received on ${dn.deliveryNumber} — there is nothing to invoice.`);
+    }
+    if (unpriced.length > 0) {
+      throw new ValidationError(
+        `No selling price for ${[...new Set(unpriced)].join(', ')} — set it on the sale order or production order before invoicing.`
+      );
     }
 
     // Create invoice via the existing create method, adding deliveryNoteId + saleOrderId
@@ -569,7 +593,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
     const isInterstate = await gstService.isInterstateByStateId(placeOfSupplyId);
     const invoiceDate = data.invoiceDate || new Date();
-    const status = new Date() > data.dueDate ? 'OVERDUE' : 'PENDING';
+    const status = new Date() > data.dueDate ? ('OVERDUE' as const) : ('PENDING' as const);
 
     // Build line items with GST
     const itemsToCreate: Array<{
@@ -644,7 +668,6 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
     const balanceAmount = totalAmount;
 
-    // Note: deliveryNoteId added in migration 20260805100000 — cast until prisma generate runs
     const invoiceData = {
       id: randomUUID(),
       invoiceNumber,
@@ -692,9 +715,21 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         })),
       },
     };
-    const invoice = await this.prisma.invoices.create({
-      data: invoiceData as any,
-      include: this.getDefaultIncludes(),
+    // One invoice per delivery note: the note row is locked, then checked, then invoiced — two clicks
+    // (or two people) at once used to pass the same unlocked check and invoice the goods twice.
+    const invoice = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM delivery_notes WHERE id = ${deliveryNoteId} FOR UPDATE`;
+      const existingInvoice = await tx.invoices.findFirst({
+        where: { deliveryNoteId },
+        select: { invoiceNumber: true },
+      });
+      if (existingInvoice) {
+        throw new ConflictError(`Invoice ${existingInvoice.invoiceNumber} already exists for this delivery note`);
+      }
+      return tx.invoices.create({
+        data: invoiceData,
+        include: this.getDefaultIncludes(),
+      });
     });
 
     logInfo(`Invoice created from delivery note: ${invoiceNumber}`, {

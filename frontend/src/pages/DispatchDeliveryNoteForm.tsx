@@ -31,6 +31,18 @@ import { notify } from '@/lib/notify';
 import { logError } from '@/lib/logger';
 import { ArrowLeft, Package, Plus, Save, Trash2, Truck } from 'lucide-react';
 import { toDateInputValue } from '@/lib/date';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import AdminOverrideModal from '@/components/AdminOverrideModal';
+import { useAuthStore } from '@/stores/auth.store';
+
+/** One size the finished-goods stock could not cover (server details, code FG_STOCK_SHORT) */
+interface StockShortLine {
+  styleCode: string;
+  colorName: string;
+  sizeName: string;
+  requested: number;
+  deducted: number;
+}
 
 interface ColorOption {
   id: string;
@@ -103,6 +115,12 @@ export default function DispatchDeliveryNoteForm() {
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<ItemRow[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  // Short finished-goods stock refuses the note; an admin may ship anyway with a written reason
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'ADMIN';
+  const [stockShort, setStockShort] = useState<StockShortLine[] | null>(null);
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<CreateDeliveryNoteRequest | null>(null);
 
   const orderSearchRef = useRef('');
 
@@ -400,8 +418,13 @@ export default function DispatchDeliveryNoteForm() {
         })),
     };
 
+    await submitNote(payload);
+  };
+
+  const submitNote = async (payload: CreateDeliveryNoteRequest) => {
     try {
       setIsSaving(true);
+      setStockShort(null);
       const { note, fgShortfalls } = await deliveryNoteService.create(payload);
 
       if (fgShortfalls && fgShortfalls.length > 0) {
@@ -412,7 +435,7 @@ export default function DispatchDeliveryNoteForm() {
           const sizeName = opts?.sizes.find((sz) => sz.id === s.sizeId)?.sizeName || s.sizeId;
           return `${styleLabel(s.styleId)} / ${colorName} / ${sizeName}: requested ${s.requested}, deducted ${s.deducted}`;
         });
-        notify.warning(`Delivery note ${note.deliveryNumber} created with finished-goods shortfalls`, {
+        notify.warning(`Delivery note ${note.deliveryNumber} created past finished-goods stock (admin override)`, {
           description: lines.join('\n'),
           duration: 10000,
         });
@@ -421,6 +444,15 @@ export default function DispatchDeliveryNoteForm() {
       }
       navigate('/manufacturing/dispatch');
     } catch (err) {
+      const details = (err as { response?: { data?: { details?: { code?: string; shortfalls?: StockShortLine[] } } } })
+        ?.response?.data?.details;
+      if (details?.code === 'FG_STOCK_SHORT') {
+        // Nothing was written. Show which sizes are short; an admin may ship anyway with a reason.
+        setStockShort(details.shortfalls ?? []);
+        setPendingPayload(payload);
+        if (isAdmin) setOverrideOpen(true);
+        return;
+      }
       handleApiError(err, 'Failed to create delivery note');
     } finally {
       setIsSaving(false);
@@ -657,6 +689,37 @@ export default function DispatchDeliveryNoteForm() {
           </CardContent>
         </Card>
 
+        {stockShort && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              <p className="font-medium">Not enough finished-goods stock — the delivery note was not created.</p>
+              <ul className="list-disc pl-5 mt-1">
+                {stockShort.map((l, i) => (
+                  <li key={i}>
+                    {l.styleCode} {l.colorName} {l.sizeName}: need {l.requested}, in stock {l.deducted}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1">
+                {isAdmin
+                  ? 'Record finishing (Generate Transfer Slip) first, or create it anyway with an admin override.'
+                  : 'Record finishing (Generate Transfer Slip) first, or ask an administrator to create it.'}
+              </p>
+              {isAdmin && pendingPayload && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setOverrideOpen(true)}
+                >
+                  Create anyway (admin override)
+                </Button>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Remarks */}
         <Card>
           <CardHeader>
@@ -683,6 +746,21 @@ export default function DispatchDeliveryNoteForm() {
           </Button>
         </div>
       </form>
+
+      <AdminOverrideModal
+        isOpen={overrideOpen}
+        onClose={() => setOverrideOpen(false)}
+        onConfirm={(reason) => {
+          setOverrideOpen(false);
+          if (pendingPayload) void submitNote({ ...pendingPayload, adminOverride: true, overrideReason: reason });
+        }}
+        action="Create the delivery note past finished-goods stock"
+        blockers={(stockShort ?? []).map((l) => ({
+          type: 'FG_STOCK_SHORT',
+          message: `${l.styleCode} ${l.colorName} ${l.sizeName}: need ${l.requested}, in stock ${l.deducted}`,
+          severity: 'HIGH' as const,
+        }))}
+      />
     </div>
   );
 }

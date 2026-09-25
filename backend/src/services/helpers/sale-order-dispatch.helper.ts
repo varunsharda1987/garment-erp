@@ -12,7 +12,7 @@
  * REJECTED proof of delivery hand exactly the note's quantities back (dispatch.controller.ts).
  */
 import { Prisma } from '@prisma/client';
-import { ValidationError } from '../../errors';
+import { BusinessError, ValidationError } from '../../errors';
 
 type Tx = Prisma.TransactionClient;
 
@@ -257,4 +257,52 @@ export async function recordSaleOrderDispatch(
     SET "dispatchedQty" = "dispatchedQty" + CAST(${quantity} AS int),
         "allocatedQty" = GREATEST("allocatedQty" - CAST(${fromReservations} AS int), 0)
     WHERE id = ${saleOrderItemId}`;
+}
+
+export interface StockShortfall {
+  styleId: string;
+  colorId: string;
+  sizeId: string;
+  requested: number;
+  deducted: number;
+}
+
+/**
+ * Refuse a delivery note that asks for more than finished-goods stock holds (owner, 2026-09-25).
+ * Until then the note was created anyway and the whole quantity counted as dispatched, with only a
+ * warning toast. Throwing inside the note's transaction rolls every deduction back. An administrator
+ * may still ship it with a written reason (resolveAdminOverride) — the caller then skips this.
+ * `details.code` FG_STOCK_SHORT lets the page offer that override.
+ */
+export async function refuseShortStock(tx: Tx, shortfalls: StockShortfall[]): Promise<never> {
+  const [styles, colours, sizes] = await Promise.all([
+    tx.styles.findMany({
+      where: { id: { in: shortfalls.map((s) => s.styleId) } },
+      select: { id: true, styleCode: true },
+    }),
+    tx.color_options.findMany({
+      where: { id: { in: shortfalls.map((s) => s.colorId) } },
+      select: { id: true, colorName: true },
+    }),
+    tx.size_options.findMany({
+      where: { id: { in: shortfalls.map((s) => s.sizeId) } },
+      select: { id: true, sizeName: true },
+    }),
+  ]);
+  const name = <T extends { id: string }>(rows: T[], id: string, key: keyof T) =>
+    String(rows.find((r) => r.id === id)?.[key] ?? '');
+  const lines = shortfalls.map((s) => ({
+    ...s,
+    styleCode: name(styles, s.styleId, 'styleCode'),
+    colorName: name(colours, s.colorId, 'colorName'),
+    sizeName: name(sizes, s.sizeId, 'sizeName'),
+  }));
+  throw new BusinessError(
+    'Not enough finished-goods stock for this delivery note — ' +
+      lines
+        .map((l) => `${l.styleCode} ${l.colorName} ${l.sizeName}: need ${l.requested}, in stock ${l.deducted}`)
+        .join('; ') +
+      '. Record finishing (Generate Transfer Slip) first, or an administrator can override with a reason.',
+    { code: 'FG_STOCK_SHORT', shortfalls: lines }
+  );
 }

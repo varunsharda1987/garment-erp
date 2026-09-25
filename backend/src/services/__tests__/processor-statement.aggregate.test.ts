@@ -58,6 +58,8 @@ const sentLine = (over: Partial<SentLineSource> & Pick<SentLineSource, 'id' | 'c
   unit: 'METER',
   material: GREIGE,
   isTransfer: false,
+  isDirectSupply: false,
+  arrivedOn: null,
   ...over,
 });
 
@@ -303,6 +305,47 @@ describe('processor statement — event sourcing', () => {
     expect(jobs.find((j) => j.jwoId === 'jobV')!.virtual).toBe(true);
     // It is virtual, not missing — no "no issued challan line" warning.
     expect(warnings.some((w) => w.includes('DJ-V-001'))).toBe(false);
+  });
+
+  it('counts goods delivered straight to the processor as SENT on the day they arrived, and the job that takes them adds none', () => {
+    const sources = scenario();
+    // A Rule 45 challan issued late (01 Oct) for greige the dyer received on 12 Aug
+    sources.sentLines.push(
+      sentLine({
+        id: 'ds1',
+        challanNumber: 'CH-DS1',
+        challanDate: d('2026-10-01'),
+        quantity: 400,
+        isDirectSupply: true,
+        arrivedOn: d('2026-08-12'),
+      })
+    );
+    sources.jobs.push(
+      baseJob({
+        id: 'jobD',
+        jobWorkNumber: 'DJ-D-001',
+        qtySentMeters: 400,
+        sentDate: d('2026-10-02'),
+        lotAtThisProcessor: true,
+        jwoStatus: 'ISSUED',
+      })
+    );
+
+    const { events, jobs, warnings } = buildLedgerEvents(sources);
+    const sent = events.filter((e) => e.type === 'SENT' && e.ref === 'CH-DS1');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ refKind: 'DIRECT_SUPPLY', qty: 400, jwoId: null });
+    expect(sent[0].date.toISOString().slice(0, 10)).toBe('2026-08-12');
+    expect(events.filter((e) => e.jwoId === 'jobD' && e.type === 'SENT')).toHaveLength(0);
+    expect(jobs.find((j) => j.jwoId === 'jobD')!.virtual).toBe(true);
+    expect(warnings.some((w) => w.includes('DJ-D-001'))).toBe(false);
+
+    // October: the row carries the 400 m once (opening, from August); the job is listed holding it
+    const [section] = aggregateProcessorStatement(events, jobs, { start: d('2026-10-01'), end: d('2026-10-31') });
+    const row = section.rows.find((r) => r.material.id === GREIGE.id)!;
+    const job = row.jobs.find((j) => j.jwoId === 'jobD')!;
+    expect(job.balance).toBe(400);
+    expect(row.sent).toBe(0);
   });
 
   it('warns when a job says it was sent but no issued challan line backs it', () => {

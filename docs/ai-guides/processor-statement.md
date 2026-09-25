@@ -3,6 +3,9 @@ slug: processor-statement
 title: Reconcile what is lying with a processor, and get them to confirm it
 keywords:
   - processor statement
+  - delivered straight to dyer
+  - maal seedha dyer ke paas
+  - सीधा डायर को माल
   - reconciliation
   - reconcile with mill
   - statement to processor
@@ -51,7 +54,7 @@ route: /processing/processor-statement
 
 ## What the columns mean
 - **Opening** — what our records say was already lying with them on the From date.
-- **Sent** — what went out in this period, whether on a job work challan or a plain transfer challan.
+- **Sent** — what went out in this period, whether on a job work challan, a plain transfer challan, or the challan raised when a supplier delivered straight to the processor. That last one counts from the day the processor received the goods, even if the challan itself is dated later.
 - **Received** — what came back processed, one line per delivery. A job received in parts shows each part with its own GRN number and date.
 - **Returned** — greige that came back unprocessed.
 - **Agreed shrinkage** — the percentage quoted on that job, turned into metres. This is not a claim against the processor; it is what we accepted when we placed the work.
@@ -61,7 +64,7 @@ route: /processing/processor-statement
 Closing = opening + sent − received − returned − agreed shrinkage − short/over. A job that finished exactly on its agreed shrinkage leaves nothing behind, so its balance reads zero.
 
 ## Jobs under each material
-Every job line shows its number (click it to open the order), process, sent date, challan numbers, the agreed shrinkage and the quantity due back, then each delivery received. A job whose greige was already lying at the processor is marked **already at processor** — no challan moved because the cloth was already there, and its earlier transfer challan is the send. Where a job went past its agreed tolerance, the line also shows **Over the agreed tolerance** and the abnormal loss. That warning is on screen only and is deliberately left off the printed copy.
+Every job line shows its number (click it to open the order), process, sent date, challan numbers, the agreed shrinkage and the quantity due back, then each delivery received. A job whose greige was already lying at the processor is marked **already at processor** — no challan moved because the cloth was already there. Its earlier transfer challan, or the challan raised when the supplier delivered straight to the processor, is the send. The job is still listed from the day it took the cloth, and its balance shows what it holds. Where a job went past its agreed tolerance, the line also shows **Over the agreed tolerance** and the abnormal loss. That warning is on screen only and is deliberately left off the printed copy.
 
 ## Before you send it
 If anything was recorded loosely, a yellow **Worth checking before you send this** panel appears above the tables. It flags a job recorded as sent with no issued challan behind it, a job marked returned unprocessed whose inward challan is missing, a material it could not identify, and a job with no agreed shrinkage recorded — where the whole gap is shown as short, which will read as a complaint the processor did not sign up to. Fix those on the job first; the statement is only as good as the challans behind it.

@@ -28,6 +28,7 @@ import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 import { jobWorkStatutoryService } from '../../services/job-work-statutory.service';
+import { getProcessorStatement } from '../../services/processor-statement.service';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -362,6 +363,24 @@ describe('greige delivered straight to a processor', () => {
     // the Rule 45 challan is in ITC-04 Table A for the quarter the dyer received the goods
     const itc = await jobWorkStatutoryService.getITC04Extract(new Date(RECEIVED_ON.getTime() - DAY), new Date());
     expect(itc.tableA.items.some((i) => i.challanId === challanId)).toBe(true);
+  });
+
+  it("the dyer's statement shows the delivery as SENT from the day it arrived; the drawn job sends nothing twice", async () => {
+    const from = new Date(RECEIVED_ON.getTime() - DAY);
+    const statementA = await getProcessorStatement(dyerA, from, new Date());
+    const row = statementA.sections.flatMap((sec) => sec.rows).find((r) => r.material.id === greigeId)!;
+    expect(row).toBeDefined();
+    expect(row.sent).toBe(3500); // 3,000 m + 500 m delivered straight there
+    expect(row.received).toBe(0);
+    expect(row.closing).toBe(3500); // all of it still with the dyer, on the job or not
+    const job = row.jobs.find((j) => j.jwoId === jwoA)!;
+    expect(job.virtual).toBe(true);
+    expect(job.sentQty).toBe(1200);
+    expect(job.balance).toBe(1200); // the job holds what it took; the other 2,300 m is on no job
+    expect(statementA.warnings.some((w) => w.includes(job.jobWorkNumber))).toBe(false);
+
+    const statementB = await getProcessorStatement(dyerB, from, new Date());
+    expect(statementB.sections.flatMap((sec) => sec.rows).some((r) => r.material.id === greigeId)).toBe(false);
   });
 
   let storeLotId: string;

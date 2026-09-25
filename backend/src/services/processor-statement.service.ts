@@ -25,7 +25,10 @@
  * SOURCES (each event has exactly ONE authoritative source — no cross-source dedup guessing):
  *   SENT      ISSUED outward challan lines (job lines by `challan_items.jobWorkOrderId`, which
  *             survives a consolidated dispatch where the HEADER's job is null), plus transfer
- *             challans that parked a lot at this processor.
+ *             challans that parked a lot at this processor, plus the Rule 45 challans for goods a
+ *             supplier delivered STRAIGHT to it (`challans.directSupplyGrnId`) — dated the day the
+ *             processor received them. A job that later takes that cloth where it lies adds no
+ *             second SENT: its lot was already here (`virtual`).
  *   RECEIVED  ACCEPTED GRNs keyed on `goods_receiving_notes.jobWorkOrderId` — one per part.
  *             NEVER the job's own `grnId`: that names only the LATEST part.
  *   RETURNED  the INWARD challan GREIGE line, not the `greige_stock_transaction` RETURN row —
@@ -56,7 +59,7 @@ import { unitToJwoUom, type JwoUom } from '../utils/units';
 export type MaterialKind = 'GREIGE' | 'LACE' | 'FABRIC' | 'GARMENT';
 export type Uom = JwoUom;
 export type EventType = 'SENT' | 'RECEIVED' | 'RETURNED' | 'SHRINKAGE' | 'SHORTFALL';
-export type RefKind = 'CHALLAN' | 'TRANSFER' | 'GRN' | 'JOB' | 'SEND_OUT';
+export type RefKind = 'CHALLAN' | 'TRANSFER' | 'DIRECT_SUPPLY' | 'GRN' | 'JOB' | 'SEND_OUT';
 
 export interface MaterialKey {
   kind: MaterialKind;
@@ -199,6 +202,10 @@ export interface SentLineSource {
   /** Resolved from the line's stock lot; null when the line named no lot we can identify. */
   material: MaterialKey | null;
   isTransfer: boolean;
+  /** A Rule 45 challan for goods a supplier delivered straight to this processor (no job behind it) */
+  isDirectSupply: boolean;
+  /** The day the processor received the goods — for a direct-supply line, the SENT date (a late challan is dated later) */
+  arrivedOn: Date | null;
 }
 
 export interface ReturnLineSource {
@@ -370,7 +377,7 @@ export function buildLedgerEvents(sources: StatementSources): {
       const list = sentLinesByJob.get(line.jobWorkOrderId) ?? [];
       list.push(line);
       sentLinesByJob.set(line.jobWorkOrderId, list);
-    } else if (line.isTransfer && line.material) {
+    } else if ((line.isTransfer || line.isDirectSupply) && line.material) {
       transferLines.push(line);
     }
   }
@@ -382,17 +389,18 @@ export function buildLedgerEvents(sources: StatementSources): {
     returnsByJob.set(line.jobWorkOrderId, list);
   }
 
-  // --- cloth parked at the processor by a transfer challan, with no job behind it -----------
+  // --- cloth at the processor with no job behind it: parked by a transfer challan, or delivered
+  // straight there by the supplier (dated the day it arrived — the one-year clock's day too) -----
   for (const line of transferLines) {
     events.push({
       type: 'SENT',
-      date: line.challanDate,
+      date: line.isDirectSupply ? (line.arrivedOn ?? line.challanDate) : line.challanDate,
       qty: line.quantity,
       unit: normalizeUom(line.unit),
       material: line.material!,
       jwoId: null,
       ref: line.challanNumber,
-      refKind: 'TRANSFER',
+      refKind: line.isDirectSupply ? 'DIRECT_SUPPLY' : 'TRANSFER',
     });
   }
 
@@ -733,10 +741,17 @@ export function aggregateProcessorStatement(
     const rowJobs = (jobsByMaterial.get(key) ?? [])
       .map((job) => {
         const jobEvents = eventsByJob.get(job.jwoId) ?? [];
+        // A job that took cloth already lying here has no SENT of its own — the transfer or direct-
+        // supply challan carries those metres in the row. Its own balance still starts from what it
+        // took, so the processor sees which job holds how much. Row totals are untouched.
+        const takesHere = job.virtual && job.jwoStatus !== 'CANCELLED' && job.sentDate != null;
+        const takenQty = takesHere && job.sentDate! <= end ? job.sentQty : 0;
         const balance = jobEvents
           .filter((e) => e.date <= end)
-          .reduce((sum, e) => toNumber(addCurrency(sum, signedQty(e))), 0);
-        const touchedWindow = jobEvents.some((e) => e.date >= start && e.date <= end);
+          .reduce((sum, e) => toNumber(addCurrency(sum, signedQty(e))), takenQty);
+        const touchedWindow =
+          jobEvents.some((e) => e.date >= start && e.date <= end) ||
+          (takesHere && job.sentDate! >= start && job.sentDate! <= end);
         return { job: { ...job, balance }, touchedWindow };
       })
       .filter(({ job, touchedWindow }) => touchedWindow || Math.abs(job.balance) > 0.005)
@@ -926,6 +941,15 @@ export async function loadProcessorStatementSources(processorId: string): Promis
     .map((g) => g.sourceChallanId)
     .filter((id): id is string => id != null);
 
+  // Goods a supplier delivered straight to this processor: the Rule 45 challan the receipt raised
+  // (helpers/direct-supply-challan.helper.ts). A reversed receipt cancels it, so it drops out below.
+  const directSupplyChallanIds = (
+    await prisma.challans.findMany({
+      where: { directSupplyGrnId: { not: null }, toId: processorId },
+      select: { id: true },
+    })
+  ).map((c) => c.id);
+
   const sentLineRows = await prisma.challan_items.findMany({
     where: {
       challan: {
@@ -935,6 +959,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       OR: [
         ...(jobIds.length ? [{ jobWorkOrderId: { in: jobIds } }] : []),
         ...(transferChallanIds.length ? [{ challanId: { in: transferChallanIds } }] : []),
+        ...(directSupplyChallanIds.length ? [{ challanId: { in: directSupplyChallanIds } }] : []),
       ],
     },
     select: {
@@ -945,7 +970,9 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       jobWorkOrderId: true,
       fabricId: true,
       challan: { select: { challanNumber: true, challanDate: true, toType: true } },
-      greigeStock: { select: { greige: { select: { id: true, greigeCode: true, greigeName: true } } } },
+      greigeStock: {
+        select: { receivedDate: true, greige: { select: { id: true, greigeCode: true, greigeName: true } } },
+      },
       laceStock: { select: { laceMaster: { select: { id: true, laceCode: true, laceName: true } } } },
       fabricStock: { select: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } } },
     },
@@ -1046,6 +1073,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
   });
 
   const transferChallanIdSet = new Set(transferChallanIds);
+  const directSupplyChallanIdSet = new Set(directSupplyChallanIds);
   const sentLines: SentLineSource[] = sentLineRows.map((line) => {
     const greige = line.greigeStock?.greige;
     const lace = line.laceStock?.laceMaster;
@@ -1068,6 +1096,8 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       unit: line.unit,
       material,
       isTransfer: line.jobWorkOrderId == null && transferChallanIdSet.has(line.challanId),
+      isDirectSupply: line.jobWorkOrderId == null && directSupplyChallanIdSet.has(line.challanId),
+      arrivedOn: line.greigeStock?.receivedDate ?? null,
     };
   });
 

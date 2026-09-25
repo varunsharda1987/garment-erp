@@ -46,6 +46,7 @@ import {
   JWO_RECEIVED_STATUSES,
   JWO_GRN_UOMS,
 } from '../services/helpers/jwo-status.helper';
+import { recomputeCoveringChallansForJwo } from '../services/helpers/jwo-challan-lifecycle.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import { UnauthorizedError } from '../errors';
@@ -808,7 +809,10 @@ class JobWorkOrderController {
   async closeShort(req: Request, res: Response) {
     const { id } = req.params;
     const body = req.body as CloseShortInput;
-    const { jwo, lossSplit } = await jobWorkOrderService.closeShort(id, body);
+    const { jwo, lossSplit } = await jobWorkOrderService.closeShort(id, {
+      ...body,
+      userId: (req as { user?: { userId?: string } }).user?.userId,
+    });
     res.json({
       success: true,
       data: jwo,
@@ -1715,6 +1719,10 @@ class JobWorkOrderController {
             logger.info(`[JWO] Material returned to supplier for ${jwo.jobWorkNumber}: ${jwo.qtySentMeters}m`);
             break;
         }
+
+        // Cloth this job took where it lay is back on the held lot: the challan covering it follows
+        // (jwo-challan-lifecycle.helper rule 7) — it may no longer be "partly received".
+        await recomputeCoveringChallansForJwo(txClient, id);
 
         // Update the disposition status
         return txClient.job_work_orders.update({

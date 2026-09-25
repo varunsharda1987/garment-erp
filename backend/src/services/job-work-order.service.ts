@@ -20,6 +20,8 @@ import { lockJobWorkOrder, setJwoStatus } from './helpers/jwo-status.helper';
 import { companyProfileService } from './company-profile.service';
 import { formatDate } from '../utils/date';
 import { isQtyZero } from '../utils/quantity';
+import { logWarn } from '../utils/logger';
+import { closeOutwardChallanForJwo } from './helpers/jwo-challan-lifecycle.helper';
 import {
   toCurrency,
   multiplyCurrency,
@@ -360,7 +362,7 @@ class JobWorkOrderService {
    */
   async closeShort(
     jwoId: string,
-    input: { shortCloseConfirmed?: boolean; remarks?: string }
+    input: { shortCloseConfirmed?: boolean; remarks?: string; userId?: string }
   ): Promise<{ jwo: job_work_orders; lossSplit: LossSplitResult }> {
     return prisma.$transaction(async (tx) => {
       // FIRST: lock the job, then read it — a close racing a part receipt (or a second press) waits
@@ -439,6 +441,22 @@ class JobWorkOrderService {
         receivedDate,
         remarks: jwo.remarks ? `${jwo.remarks}\n${note}` : note,
       });
+      // Nothing more is coming, so the challan the goods went out on (or the one they were already
+      // at the processor under) is settled as far as this job goes — the same close a final receipt
+      // runs. Until 2026-09-25 a closed-short job left its outward challan ISSUED for ever.
+      // Best-effort, like every caller of the helper: a stale challan status must not undo the close.
+      try {
+        await closeOutwardChallanForJwo(tx, jwoId, {
+          isFinal: true,
+          receivedById: input.userId ?? null,
+          receivedAt: receivedDate,
+        });
+      } catch (challanError) {
+        logWarn('[JWO] Could not close the outward challan on close-short', {
+          jobWorkOrderId: jwoId,
+          error: challanError instanceof Error ? challanError.message : challanError,
+        });
+      }
       return { jwo: updated, lossSplit: split };
     });
   }

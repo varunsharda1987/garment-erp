@@ -32,6 +32,7 @@ import { getProcessorStatement } from '../../services/processor-statement.servic
 import { buildChallanDocData } from '../../services/document-data/challan.doc-data';
 import { buildJobWorkOrderDocData } from '../../services/document-data/job-work-order.doc-data';
 import { formatDate } from '../../utils/date';
+import { recomputeCoveringChallansForJwo } from '../../services/helpers/jwo-challan-lifecycle.helper';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -470,6 +471,33 @@ describe('greige delivered straight to a processor', () => {
     expect((await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jwo } })).sentDate).toBeNull();
   });
 
+  it('the covering challan follows the jobs that draw from it: issued, partly received, received', async () => {
+    const statusOf = async (id: string) => (await prisma.challans.findUniqueOrThrow({ where: { id } })).status;
+    expect(await statusOf(challanId)).toBe('ISSUED'); // a job drew from it, nothing has come back
+
+    await prisma.job_work_orders.update({ where: { id: jwoA }, data: { jwoStatus: 'PARTIALLY_RECEIVED' } });
+    await recomputeCoveringChallansForJwo(prisma, jwoA);
+    expect(await statusOf(challanId)).toBe('PARTIALLY_RECEIVED');
+    // recomputed from scratch, so undoing the receipt moves it back
+    await prisma.job_work_orders.update({ where: { id: jwoA }, data: { jwoStatus: 'ISSUED' } });
+    await recomputeCoveringChallansForJwo(prisma, jwoA);
+    expect(await statusOf(challanId)).toBe('ISSUED');
+
+    // The 500 m delivery: one job takes all of it and comes back — nothing of it is left at the dyer
+    const small = await prisma.greige_stock.findFirstOrThrow({
+      where: { greigeId, processorId: dyerA, sourceType: 'DIRECT', id: { not: lotId } },
+    });
+    const jwoAll = await createJwo(dyerA, 500);
+    const issued = await request(app)
+      .post(`/api/job-work-orders/${jwoAll}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: small.id, qty: 500 }] });
+    expect(issued.status).toBe(200);
+    await prisma.job_work_orders.update({ where: { id: jwoAll }, data: { jwoStatus: 'STOCK_UPDATED' } });
+    await recomputeCoveringChallansForJwo(prisma, jwoAll);
+    expect(await statusOf(small.sourceChallanId!)).toBe('RECEIVED');
+  });
+
   it('cannot allocate the same metres twice', async () => {
     const jwo2 = await createJwo(dyerA, 2500);
     const res = await request(app)
@@ -509,6 +537,8 @@ describe('greige delivered straight to a processor', () => {
     const lot = await prisma.greige_stock.findUniqueOrThrow({ where: { id: lotId } });
     expect(Number(lot.quantityAvailable)).toBe(3000);
     expect(lot.processorId).toBe(dyerA);
+    // nothing of it is on a job now, and nothing came back: the covering challan is plainly issued
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: challanId } })).status).toBe('ISSUED');
   });
 
   it('reversing an untouched receipt cancels its challan and empties the lot', async () => {

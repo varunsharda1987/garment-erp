@@ -25,6 +25,11 @@
  *    Stamping the return quantity onto the dispatch document corrupts a GST record.
  * 4. **Never resurrect a CANCELLED challan**, and never touch one a human received by hand.
  * 5. **Reversal is symmetric** — see `resyncOutwardChallanAfterReversal`.
+ * 7. **A job that took cloth already at the processor has no outward challan of its own.** The cloth
+ *    is there under a COVERING challan — the Rule 45 challan for goods a supplier delivered straight
+ *    to the processor, or a Stock-Out that parked it there (`greige_stock.sourceChallanId`). Those
+ *    challans follow the jobs that draw from their lots: see `recomputeCoveringChallan`. Both entry
+ *    points below recompute them, so every receipt, reversal and close-short keeps them true.
  * 6. **Best-effort, never fatal.** A job-work return books stock, an inward challan, the loss split
  *    and MRP in one transaction. A challan whose status could not be advanced is a reporting defect;
  *    failing the whole receipt over it would be worse. Callers log and continue.
@@ -35,6 +40,7 @@
 
 import { Prisma, PrismaClient, ChallanStatus } from '@prisma/client';
 import { JWO_RECEIVED_STATUSES } from './jwo-status.helper';
+import { isQtyZero } from '../../utils/quantity';
 
 type DbClient = Prisma.TransactionClient | PrismaClient;
 
@@ -55,8 +61,11 @@ const SETTLED_JWO_STATUSES = [...JWO_RECEIVED_STATUSES, 'CANCELLED', 'CLOSED'];
 export async function closeOutwardChallanForJwo(
   tx: DbClient,
   jobWorkOrderId: string,
-  opts: { isFinal: boolean; receivedById: string; receivedAt: Date }
+  opts: { isFinal: boolean; receivedById: string | null; receivedAt: Date }
 ): Promise<ChallanStatus | null> {
+  // Rule 7: the challan(s) covering cloth this job took where it lay follow it too.
+  await recomputeCoveringChallansForJwo(tx, jobWorkOrderId, opts.receivedAt);
+
   const jwo = await tx.job_work_orders.findUnique({
     where: { id: jobWorkOrderId },
     select: { outwardChallanId: true },
@@ -81,7 +90,9 @@ export async function closeOutwardChallanForJwo(
     data: {
       status: target,
       // Only a closed return has a return date and a receiver. Rule 3: no receivedQuantity.
-      ...(target === 'RECEIVED' ? { receivedDate: opts.receivedAt, receivedById: opts.receivedById } : {}),
+      ...(target === 'RECEIVED'
+        ? { receivedDate: opts.receivedAt, ...(opts.receivedById ? { receivedById: opts.receivedById } : {}) }
+        : {}),
     },
   });
 
@@ -108,6 +119,9 @@ export async function resyncOutwardChallanAfterReversal(
   jobWorkOrderId: string,
   opts: { remainingReceipts: number; stillFinal: boolean }
 ): Promise<ChallanStatus | null> {
+  // Rule 7: a covering challan moves back with the job's receipts.
+  await recomputeCoveringChallansForJwo(tx, jobWorkOrderId, new Date());
+
   const jwo = await tx.job_work_orders.findUnique({
     where: { id: jobWorkOrderId },
     select: { outwardChallanId: true },
@@ -126,4 +140,94 @@ export async function resyncOutwardChallanAfterReversal(
   });
 
   return moved.count > 0 ? target : null;
+}
+
+/** A covering challan's statuses this helper may move between (never CANCELLED or DRAFT). */
+const COVERING_MOVABLE_STATUSES: ChallanStatus[] = ['ISSUED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED', 'RECEIVED'];
+
+/** A drawing job that has brought something back, or never will. */
+const RETURNED_JWO_STATUSES: string[] = [...JWO_RECEIVED_STATUSES, 'CLOSED'];
+
+/**
+ * Put a COVERING challan (rule 7) where its goods actually are, recomputed from scratch so a
+ * reversal moves it back as surely as a receipt moves it on:
+ *
+ * | still lying at the processor (on no job) | jobs that drew from it | status |
+ * |---|---|---|
+ * | none | all returned (or none drew) | `RECEIVED` |
+ * | any, or a job still out | at least one has returned something | `PARTIALLY_RECEIVED` |
+ * | any, or a job still out | none has returned anything | `ISSUED` |
+ *
+ * A cancelled job put its metres back on the lot, so it counts as neither holding nor returning.
+ * Greige lots only — lace and fabric delivered straight to a processor carry no `sourceChallanId`
+ * (their challan is found through `challans.directSupplyGrnId`; they are drawn from Phase 4a on).
+ *
+ * @returns the status it was moved to, or null when nothing moved.
+ */
+export async function recomputeCoveringChallan(
+  tx: DbClient,
+  challanId: string,
+  at: Date = new Date()
+): Promise<ChallanStatus | null> {
+  const challan = await tx.challans.findUnique({
+    where: { id: challanId },
+    select: { status: true, challanType: true },
+  });
+  if (!challan || challan.challanType !== 'OUTWARD' || !COVERING_MOVABLE_STATUSES.includes(challan.status)) {
+    return null;
+  }
+
+  const lots = await tx.greige_stock.findMany({
+    where: { sourceChallanId: challanId },
+    select: { id: true, quantityAvailable: true },
+  });
+  if (lots.length === 0) return null;
+  const stillHeld = lots.some((lot) => !isQtyZero(Number(lot.quantityAvailable)));
+
+  const draws = await tx.greige_stock_transaction.findMany({
+    where: {
+      stockId: { in: lots.map((lot) => lot.id) },
+      transactionType: 'CONSUMPTION',
+      referenceType: 'JOB_WORK_ORDER',
+    },
+    select: { referenceId: true },
+  });
+  const jobIds = [...new Set(draws.map((d) => d.referenceId).filter((id): id is string => !!id))];
+  const jobs = jobIds.length
+    ? await tx.job_work_orders.findMany({ where: { id: { in: jobIds } }, select: { jwoStatus: true } })
+    : [];
+  const live = jobs.filter((job) => job.jwoStatus !== 'CANCELLED');
+  const returned = live.filter((job) => job.jwoStatus != null && RETURNED_JWO_STATUSES.includes(job.jwoStatus));
+  const partlyBack = live.some((job) => job.jwoStatus === 'PARTIALLY_RECEIVED');
+
+  const target: ChallanStatus =
+    !stillHeld && returned.length === live.length
+      ? 'RECEIVED'
+      : returned.length > 0 || partlyBack
+        ? 'PARTIALLY_RECEIVED'
+        : 'ISSUED';
+  if (target === challan.status) return null;
+
+  const moved = await tx.challans.updateMany({
+    where: { id: challanId, status: { in: COVERING_MOVABLE_STATUSES } },
+    // Rule 3 holds here too: no receivedQuantity — what came back is processed fabric.
+    data: target === 'RECEIVED' ? { status: target, receivedDate: at } : { status: target, receivedDate: null },
+  });
+  return moved.count > 0 ? target : null;
+}
+
+/** Recompute every covering challan whose lots this job drew from (rule 7). */
+export async function recomputeCoveringChallansForJwo(
+  tx: DbClient,
+  jobWorkOrderId: string,
+  at: Date = new Date()
+): Promise<void> {
+  const draws = await tx.greige_stock_transaction.findMany({
+    where: { referenceType: 'JOB_WORK_ORDER', referenceId: jobWorkOrderId, transactionType: 'CONSUMPTION' },
+    select: { stock: { select: { sourceChallanId: true } } },
+  });
+  const challanIds = [...new Set(draws.map((d) => d.stock?.sourceChallanId).filter((id): id is string => !!id))];
+  for (const challanId of challanIds) {
+    await recomputeCoveringChallan(tx, challanId, at);
+  }
 }

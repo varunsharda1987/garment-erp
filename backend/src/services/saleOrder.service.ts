@@ -241,6 +241,10 @@ const SALE_ORDER_SEARCH_FIELDS = [
   'items[].style.styleCode',
   'items[].style.buyerStyleRef',
   'items[].style.styleName',
+  // The style's season, as the list's Season column shows it (WT26, "Spring/Summer 2026")
+  'items[].style.season_master.code',
+  'items[].style.season_master.name',
+  'items[].style.season',
 ] as const;
 
 const SORTABLE_FIELDS = new Set([
@@ -258,6 +262,8 @@ interface SOQueryParams {
   search?: string;
   status?: SaleOrderStatus;
   customerId?: string;
+  /** season_master.id — orders with a line whose style carries this season */
+  seasonId?: string;
   isActive?: boolean;
   fromDate?: string;
   toDate?: string;
@@ -336,6 +342,7 @@ export class SaleOrderService {
       search,
       status,
       customerId,
+      seasonId,
       isActive,
       fromDate,
       toDate,
@@ -354,6 +361,28 @@ export class SaleOrderService {
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
     if (isActive !== undefined) where.isActive = isActive;
+
+    if (seasonId) {
+      // A sale order has no season of its own — it is its styles'. The Season column shows the
+      // style's Season master code, or on styles saved before the master their free-text season
+      // (10 still read "Spring/Summer 2026" with no link), so the filter matches both.
+      const season = await prisma.season_master.findUnique({
+        where: { id: seasonId },
+        select: { code: true, name: true },
+      });
+      const styleHasSeason: Prisma.stylesWhereInput[] = [{ seasonId }];
+      if (season) {
+        styleHasSeason.push(
+          { season: { equals: season.code, mode: 'insensitive' } },
+          { season: { equals: season.name, mode: 'insensitive' } }
+        );
+      }
+      const existing = where.AND;
+      where.AND = [
+        ...(Array.isArray(existing) ? existing : existing ? [existing] : []),
+        { items: { some: { style: { OR: styleHasSeason } } } },
+      ];
+    }
 
     if (fromDate || toDate) {
       where.saleDate = {};

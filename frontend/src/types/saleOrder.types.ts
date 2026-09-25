@@ -202,6 +202,8 @@ export interface SOQueryParams {
   search?: string;
   status?: SaleOrderStatus;
   customerId?: string;
+  /** season_master.id — orders with a line whose style carries this season */
+  seasonId?: string;
   /** yyyy-MM-dd — filters on saleDate, inclusive */
   fromDate?: string;
   /** yyyy-MM-dd — filters on saleDate, inclusive */

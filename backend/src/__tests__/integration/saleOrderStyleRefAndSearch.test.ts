@@ -8,6 +8,7 @@
  *   - an explicit value is honoured (so re-saving an order does NOT re-stamp it with today's code)
  *   - re-coding the style afterwards leaves existing orders alone, and new orders get the new code
  *   - search finds an order by style code, by the captured code, and by the buyer's CURRENT code
+ *   - the Season filter finds an order by its styles' season (master link, or older free text)
  *
  * Runs against the real app + live dev DB; every fixture is scoped to RUN and torn down.
  */
@@ -28,6 +29,7 @@ let customerId: string;
 let styleId: string;
 let plainStyleId: string;
 let sizeId: string;
+let seasonId: string | undefined;
 
 const createdSoIds: string[] = [];
 
@@ -86,6 +88,7 @@ afterAll(async () => {
     ['sale_orders', () => prisma.sale_orders.deleteMany({ where: { customerId: only(customerId) } })],
     ['size_options', () => prisma.size_options.deleteMany({ where: { id: only(sizeId) } })],
     ['styles', () => prisma.styles.deleteMany({ where: { id: { in: [styleId, plainStyleId] } } })],
+    ['season_master', () => prisma.season_master.deleteMany({ where: { id: only(seasonId) } })],
     ['customers', () => prisma.customers.deleteMany({ where: { id: only(customerId) } })],
     ['users', () => prisma.users.deleteMany({ where: { id: only(testUserId) } })],
   ];
@@ -211,5 +214,61 @@ describe('finding a sale order', () => {
 
   it('returns nothing for a term that matches no order', async () => {
     expect(await searchFor(`${RUN}-NOTHING-MATCHES-THIS`)).toHaveLength(0);
+  });
+});
+
+describe('the Season filter', () => {
+  // A sale order has no season of its own — it is its styles'. Style A carries the season through
+  // the Season master link; style B only as free text, the way styles saved before the master do.
+  let linkedSoId: string;
+  let textSoId: string;
+  const SEASON_CODE = `${RUN}S`;
+  const SEASON_NAME = `${RUN} Winter`;
+
+  const listIds = async (query: string) => {
+    const res = await request(app).get(`/api/sale-orders?${query}&limit=100`).set(authHeader).expect(200);
+    return res.body.data.map((so: { id: string }) => so.id);
+  };
+
+  beforeAll(async () => {
+    // Inactive, so the live Season dropdown never offers this fixture while the suite runs
+    const season = await prisma.season_master.create({
+      data: { code: SEASON_CODE, name: SEASON_NAME, year: 2099, seasonType: 'AW', isActive: false },
+    });
+    seasonId = season.id;
+    await prisma.styles.update({ where: { id: styleId }, data: { seasonId: season.id, season: season.name } });
+    await prisma.styles.update({ where: { id: plainStyleId }, data: { season: SEASON_NAME.toLowerCase() } });
+
+    linkedSoId = (await createOrder({ items: [{ styleId, sizeId, quantity: 2, unitPrice: 100 }] })).id;
+    textSoId = (await createOrder({ items: [{ styleId: plainStyleId, quantity: 3, unitPrice: 50 }] })).id;
+  });
+
+  it("finds orders by the style's Season master link AND by the free-text season older styles carry", async () => {
+    const ids = await listIds(`seasonId=${seasonId}`);
+    expect(ids).toEqual(expect.arrayContaining([linkedSoId, textSoId]));
+    for (const id of ids) expect(createdSoIds).toContain(id);
+  });
+
+  it('combines with the other filters (customer)', async () => {
+    const ids = await listIds(`seasonId=${seasonId}&customerId=${customerId}`);
+    expect(ids).toEqual(expect.arrayContaining([linkedSoId, textSoId]));
+  });
+
+  it('the search box finds an order by the season code shown in the Season column', async () => {
+    const res = await request(app)
+      .get(`/api/sale-orders?search=${encodeURIComponent(SEASON_CODE)}&limit=100`)
+      .set(authHeader)
+      .expect(200);
+    expect(res.body.data.map((so: { id: string }) => so.id)).toContain(linkedSoId);
+  });
+
+  it('a season no order carries returns nothing (never "all orders")', async () => {
+    expect(await listIds('seasonId=cnoseasonhasthisid00000000')).toHaveLength(0);
+  });
+
+  it('the list rows carry the style season the Season column renders', async () => {
+    const res = await request(app).get(`/api/sale-orders?seasonId=${seasonId}&limit=100`).set(authHeader).expect(200);
+    const row = res.body.data.find((so: { id: string }) => so.id === linkedSoId);
+    expect(row.items[0].style.seasonMaster).toEqual({ code: SEASON_CODE, name: SEASON_NAME });
   });
 });

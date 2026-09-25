@@ -199,6 +199,8 @@ export const saleOrderQuerySchema = z.object({
   search: z.string().max(100).optional(),
   customerId: z.string().uuid().optional(),
   status: SaleOrderStatusEnum.optional(),
+  // season_master.id (a cuid) — the list's Season filter; a sale order's season is its styles'
+  seasonId: z.string().min(1).max(50).optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
   // Whitelisted: sortBy lands in a Prisma `orderBy` key, so an arbitrary string reaches the

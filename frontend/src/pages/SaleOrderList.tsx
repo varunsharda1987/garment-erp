@@ -35,6 +35,7 @@ import DataTable from '@/components/DataTable';
 import { SaleOrderForm } from '@/components/sale-order';
 import { orderSeasonLabels } from '@/components/sale-order/sale-order-lines';
 import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/saleOrder.service';
+import { searchSeasons } from '@/services/season.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate } from '@/lib/date';
@@ -93,6 +94,7 @@ export default function SaleOrderList() {
   const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [seasonFilter, setSeasonFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [soToDelete, setSoToDelete] = useState<SaleOrder | null>(null);
@@ -101,7 +103,7 @@ export default function SaleOrderList() {
   // Reset to page 1 when any filter changes
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, customerFilter, dateRange]);
+  }, [search, statusFilter, customerFilter, seasonFilter, dateRange]);
 
   const fromDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
   const toDate = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
@@ -114,6 +116,7 @@ export default function SaleOrderList() {
       search,
       status: statusFilter,
       customerId: customerFilter,
+      seasonId: seasonFilter,
       fromDate,
       toDate,
     }),
@@ -124,9 +127,17 @@ export default function SaleOrderList() {
         search: search || undefined,
         status: statusFilter !== 'all' ? (statusFilter as SaleOrderStatus) : undefined,
         customerId: customerFilter !== 'all' ? customerFilter : undefined,
+        seasonId: seasonFilter !== 'all' ? seasonFilter : undefined,
         fromDate,
         toDate,
       }),
+  });
+
+  // The seasons the Style form offers (Season master). An order's season is its styles' season.
+  const { data: seasons } = useQuery({
+    queryKey: ['seasons', 'search', { limit: 100 }],
+    queryFn: () => searchSeasons({ limit: 100 }),
+    staleTime: 5 * 60 * 1000,
   });
 
   const createMutation = useMutation({
@@ -161,7 +172,9 @@ export default function SaleOrderList() {
     createMutation.mutate(data as CreateSORequest);
   };
 
-  const filtersActive = Boolean(search || statusFilter !== 'all' || customerFilter !== 'all' || dateRange);
+  const filtersActive = Boolean(
+    search || statusFilter !== 'all' || customerFilter !== 'all' || seasonFilter !== 'all' || dateRange
+  );
 
   const columns: Column<SaleOrder>[] = [
     {
@@ -378,12 +391,12 @@ export default function SaleOrderList() {
         <CardHeader>
           <div className="space-y-4">
             <SearchInput
-              placeholder="Search by SO number, buyer PO, customer or style code..."
+              placeholder="Search by SO number, buyer PO, customer, style code or season..."
               value={search}
               onChange={setSearch}
               className="max-w-md"
             />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <CustomerCombobox
                 value={customerFilter === 'all' ? '' : customerFilter}
                 onValueChange={(v) => setCustomerFilter(v || 'all')}
@@ -398,6 +411,19 @@ export default function SaleOrderList() {
                   {STATUS_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={seasonFilter} onValueChange={setSeasonFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Seasons" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Seasons</SelectItem>
+                  {(seasons ?? []).map((season) => (
+                    <SelectItem key={season.id} value={season.id}>
+                      {season.code} — {season.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

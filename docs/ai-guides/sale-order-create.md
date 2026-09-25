@@ -71,6 +71,26 @@ keywords:
   - रंग नहीं दिख रहा
   - रंग सेट करें
   - कलर
+  - season
+  - season column
+  - which season
+  - sale order season
+  - season kahan dikhega
+  - सीज़न
+  - सीजन
+  - मौसम
+  - size order
+  - size sequence
+  - sizes out of order
+  - XS to XXXL
+  - size missing
+  - size not showing
+  - size nahi dikh raha
+  - XXXL dikh raha hai
+  - sizes kahan se aate hain
+  - साइज़
+  - साइज़ क्रम
+  - साइज़ नहीं दिख रहा
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -81,6 +101,7 @@ sources:
   - frontend/src/components/sale-order/SaleOrderItemsTable.tsx
   - frontend/src/components/sale-order/SaleOrderItemDialog.tsx
   - frontend/src/components/sale-order/SizeBreakdownDialog.tsx
+  - frontend/src/components/sale-order/sale-order-lines.ts
   - frontend/src/services/saleOrder.service.ts
   - backend/src/schemas/saleOrder.schema.ts
   - backend/src/routes/saleOrder.routes.ts
@@ -91,13 +112,13 @@ route: /sale-orders
 A Sale Order sells finished goods that are already in stock, or triggers production for that quantity. It is different from a production order. The customer must exist in Customers and every line's style must exist in Styles. Sale orders can also arrive automatically from the House of Kasya B2B app with items already filled in — check the list before typing a new one.
 
 ## Steps
-1. Open **Orders & Sales → Sale Orders** in the sidebar. The list shows each order's styles, total quantity in pcs, amount and status. To find an order, type into the search box — it matches the sale order number, any buyer PO on the order, the customer name or code, the remarks, our style code, the style name, and the buyer's own style code (both the one saved on the order and the style's current one). Typing several words narrows the list — each word must match something, so a customer name and a style code together find exactly that order. You can also narrow with the **All Customers** picker, the **All Status** dropdown, or the **Sale date range** calendar.
+1. Open **Orders & Sales → Sale Orders** in the sidebar. The list shows each order's styles, buyer style codes, **Season**, total quantity in pcs, amount and status. The Season is the style's own season (set on the style's form, e.g. WT26) — a sale order has no season field of its own, so it shows **—** until the style has one. To find an order, type into the search box — it matches the sale order number, any buyer PO on the order, the customer name or code, the remarks, our style code, the style name, and the buyer's own style code (both the one saved on the order and the style's current one). Typing several words narrows the list — each word must match something, so a customer name and a style code together find exactly that order. You can also narrow with the **All Customers** picker, the **All Status** dropdown, or the **Sale date range** calendar.
 2. Click **New Sale Order**. A panel titled **New Sale Order** slides in from the right.
 3. In **Customer \***, search and pick the customer.
 4. Everything else in the header is optional: **Buyer PO Number** (the buyer's own PO reference), **Primary Style** (for single-style orders), **Expected Ship Date**, **Buyer Deadline**, **Order Date**, **Delivery Date**, **Payment Terms**, **Delivery Address**, **Remarks**.
-5. Under **Items**, click **Add Item**. In the dialog pick **Style \*** — the box lists published styles alphabetically by code, up to 200 at a time. If the bottom of the list says **Showing 200 of …**, type part of our style code, the style name, the customer, or the buyer's own code to narrow; several words together each have to match, so a customer name plus a code finds exactly that style, and "LNG 229" finds LNG229. **Buyer Style Ref** fills in with that style's current buyer code and can be overtyped for this line. **Color** fills in by itself from the style's own **Primary Color**. If the style has no colour yet, the Color field instead says **This style has no colour yet** and offers a colour box — pick the colour and click **Set as style colour**. That saves it as the style's Primary Color, so cutting, stock and dispatch all see it too, not just this order; a style has one colour, and an existing one is never replaced. Color and Size are both optional (leave Size as "Size to be decided" if unknown). Enter **Quantity \*** and **Unit Price \*** (the price auto-fills from the style's selling price when one is set, and you can clear it and type your own), then click **Add Single Item**.
-6. To split one quantity across sizes, fill Quantity and Unit Price first, then click **Size Breakdown** and enter per-size quantities — one line is added per size. Percentages are read against 100, so the sizes must add up to the full quantity before it will save.
-7. Add more lines the same way. Use the pencil and bin icons on a line to edit or remove it. The **Total Amount** box sums the order. Adding the same style, colour and size twice is safe — the two lines are merged into one with the quantities added together.
+5. Under **Items**, click **Add Item**. In the dialog pick **Style \*** — the box lists published styles alphabetically by code, up to 200 at a time. If the bottom of the list says **Showing 200 of …**, type part of our style code, the style name, the customer, or the buyer's own code to narrow; several words together each have to match, so a customer name plus a code finds exactly that style, and "LNG 229" finds LNG229. **Buyer Style Ref** fills in with that style's current buyer code and can be overtyped for this line. **Color** fills in by itself from the style's own **Primary Color**. If the style has no colour yet, the Color field instead says **This style has no colour yet** and offers a colour box — pick the colour and click **Set as style colour**. That saves it as the style's Primary Color, so cutting, stock and dispatch all see it too, not just this order; a style has one colour, and an existing one is never replaced. Color and Size are both optional (leave Size as "Size to be decided" if unknown). The **Size** list shows only the sizes ticked under **Size Variants & SKUs** on that style's form, smallest first (XS, S, M, L, XL, XXL, XXXL). If a size is missing, or one shows that should not, open the style in **Styles**, tick or untick it there and save the style — then reopen Add Item. Enter **Quantity \*** and **Unit Price \*** (the price auto-fills from the style's selling price when one is set, and you can clear it and type your own), then click **Add Single Item**.
+6. To split one quantity across sizes, fill Quantity and Unit Price first, then click **Size Breakdown** and enter per-size quantities — one line is added per size. The breakdown lists the same sizes as the Size box, smallest first. Percentages are read against 100, so the sizes must add up to the full quantity before it will save.
+7. Add more lines the same way. The Items table keeps them in order — by style, then colour, then size from XS upward — whatever order you add them in, and shows each line's **Season**. Use the pencil and bin icons on a line to edit or remove it. The **Total Amount** box sums the order. Adding the same style, colour and size twice is safe — the two lines are merged into one with the quantities added together.
 8. Click **Create Sale Order**. The sale order opens with status **Draft**. You may also save with no items at all and add them later — the hint under the Items table says so.
 9. While Draft, the **Edit** button on the order page changes details and items, including the **Buyer PO Number**.
 10. To record the customer's own purchase orders, use the **Buyer PO Numbers** card and click **Add PO**. Fill **PO Number \***, pick the **Delivery Location** from that customer's saved addresses, set the **PO Date** printed on their PO, and choose the **PO Document** (PDF, JPG or PNG, up to 10MB). The customer raises one PO per delivery location, and each location has its own PO number, so add one PO per location. If the Delivery Location list is empty, add the locations on that customer's page first and come back.
@@ -136,4 +157,4 @@ actually ordered under, while new orders pick up the new code. Search finds the 
 Editing a style's Buyer Style Ref in Styles therefore does not disturb orders already placed.
 
 ## After saving
-The status moves on its own: Draft → Confirmed → Partially/Fully Allocated → Partially Dispatched → Dispatched → Delivered. There is no way to type or edit the status by hand — it always follows from what actually happened to the items (confirm, allocation, dispatch, delivery). "Allocated" means stock is reserved but has not left; once a delivery note ships those pieces they stop counting as allocated and start counting as dispatched. Delivered is only stamped once every delivery note on the order has its proof of delivery recorded. Linked production orders appear in a **Production** card at the top.
+The status moves on its own: Draft → Confirmed → Partially/Fully Allocated → Partially Dispatched → Dispatched → Delivered. There is no way to type or edit the status by hand — it always follows from what actually happened to the items (confirm, allocation, dispatch, delivery). "Allocated" means stock is reserved but has not left; once a delivery note ships those pieces they stop counting as allocated and start counting as dispatched. Delivered is only stamped once every delivery note on the order has its proof of delivery recorded. Linked production orders appear in a **Production** card at the top. On the order page, in **Amend Quantities** and in the **Confirm** preview, lines are always listed style by style with sizes from XS upward, and the Items table has a **Season** column.

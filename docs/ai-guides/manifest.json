@@ -603,12 +603,15 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkDashboard.tsx": "ad52b5890a7c",
-      "frontend/src/pages/JobWorkOrderList.tsx": "17aaf4e7ff0c",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "6b48ac2dacc1",
-      "frontend/src/pages/StockMovementDashboard.tsx": "1849fb575e23"
+      "frontend/src/pages/JobWorkOrderList.tsx": "24f6d25002a0",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "08c34556d3fe",
+      "frontend/src/pages/StockMovementDashboard.tsx": "aff8e8faa05c",
+      "frontend/src/lib/section143.ts": "1a9c5178d0ce",
+      "backend/src/services/job-work-statutory.service.ts": "258a907c6665",
+      "backend/templates/kf/report-job-work-ageing.hbs": "bedf9dc646b4"
     },
-    "contentHash": "76e90a777007",
-    "generatedAt": "2026-09-23T06:17:36.117Z"
+    "contentHash": "447843f1e912",
+    "generatedAt": "2026-09-25T11:21:06.965Z"
   },
   "job-work-order-create": {
     "sources": {

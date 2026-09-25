@@ -463,18 +463,19 @@
   },
   "greige-create": {
     "sources": {
+      "frontend/src/pages/GreigeAvailableStock.tsx": "909f81f67a83",
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/GreigeForm.tsx": "5f5c0a49f5db",
-      "frontend/src/pages/GreigeList.tsx": "f059ff12a478",
+      "frontend/src/pages/GreigeForm.tsx": "a2356090e66e",
+      "frontend/src/pages/GreigeList.tsx": "c871be9eebf8",
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "frontend/src/components/filters/MultiSelectFilter.tsx": "cb13c4668576",
       "frontend/src/components/filters/NumberRangeFilter.tsx": "210b30c95ac6",
       "backend/src/schemas/fabricGreige.schema.ts": "02892fda2a2d",
-      "backend/src/services/greige.service.ts": "c8d20161a4f7"
+      "backend/src/services/greige.service.ts": "fee39ab218f7"
     },
-    "contentHash": "1a75d9283bef",
-    "generatedAt": "2026-09-23T06:17:36.078Z"
+    "contentHash": "387e4a638829",
+    "generatedAt": "2026-09-25T08:27:58.688Z"
   },
   "greige-receive-without-po": {
     "sources": {
@@ -1020,14 +1021,15 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderList.tsx": "1e2931d9b698",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "df31cea32d2a",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "50ba4deb0b08",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
-      "frontend/src/types/purchaseOrder.types.ts": "0d991c89a452",
-      "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a",
-      "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9"
+      "frontend/src/types/purchaseOrder.types.ts": "a4ad66332e5f",
+      "backend/src/schemas/purchaseOrder.schema.ts": "fed8bda1338c",
+      "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
+      "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a"
     },
-    "contentHash": "e055a98a2d23",
-    "generatedAt": "2026-09-25T07:20:03.212Z"
+    "contentHash": "5fdcae458423",
+    "generatedAt": "2026-09-25T08:27:58.854Z"
   },
   "quotation-convert": {
     "sources": {

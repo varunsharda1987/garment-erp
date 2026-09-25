@@ -4,6 +4,10 @@ title: Create a GRN (Goods Receipt)
 keywords:
   - weaver
   - weaver not known
+  - delivered straight to dyer
+  - direct to processor
+  - dyer ke yahan maal aaya
+  - सीधा डायर के पास माल
   - bunkar
   - बुनकर
   - grn
@@ -53,7 +57,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 2. Click **+ Create GRN**. The page title reads **Create Goods Receiving Note**. (Shortcut: from the PO page click **Receive Goods** and the PO is already selected.)
 3. Under **Purchase Order Selection**, search by PO number, supplier, material or style, or use the category chips, then pick the PO in **Purchase Order ***.
 4. If you came here to receive from a processor, stop: under the PO list the form says **Receiving from a processor? Open the job work order and click Receive from processor**. There is no job work box on this form any more.
-5. Choose **Warehouse *** and confirm **Receiving Date *** (defaults to today).
+5. Choose **Warehouse *** and confirm **Receiving Date *** (defaults to today). If the supplier delivered straight to a dyer, pick that dyer's **<Dyer> - Processing Unit** as the Warehouse and the day the dyer received it as the Receiving Date. On approval the greige is booked as ours, held at the dyer, with a job-work challan (see *Approve a GRN*).
 6. Fill **Invoice Number** and **Invoice Date** if the supplier sent an invoice. Both are optional.
 7. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
 8. If something is damaged, enter **Rejected** and a reason. Accepted plus Rejected must equal Received.

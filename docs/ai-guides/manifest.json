@@ -526,13 +526,13 @@
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
       "frontend/src/pages/GRNForm.tsx": "05976d097896",
       "frontend/src/pages/GRNDetail.tsx": "50aef869eb6a",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
       "backend/src/schemas/grn.schema.ts": "c8eeb3f32607",
-      "backend/src/services/grn.service.ts": "9ea520831778",
+      "backend/src/services/grn.service.ts": "a6c444ebb5ae",
       "backend/src/services/purchaseOrder.service.ts": "fca535d1858a"
     },
     "contentHash": "b2f36c20fe3f",
-    "generatedAt": "2026-09-25T06:45:11.041Z"
+    "generatedAt": "2026-09-25T07:20:03.036Z"
   },
   "gst-reports": {
     "sources": {
@@ -620,10 +620,10 @@
       "backend/src/schemas/jobWorkOrder.schema.ts": "cf4072364781",
       "backend/src/controllers/job-work-order.controller.ts": "57d71f76fb8d",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "0e8cef28f507"
+      "backend/src/services/job-work-issuance.service.ts": "197834c129d3"
     },
-    "contentHash": "3d222976d6fe",
-    "generatedAt": "2026-09-24T10:05:42.185Z"
+    "contentHash": "ad7ea7b4d5ef",
+    "generatedAt": "2026-09-25T07:20:03.191Z"
   },
   "job-work-receive": {
     "sources": {
@@ -1002,14 +1002,14 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
       "frontend/src/pages/PurchaseOrderList.tsx": "1e2931d9b698",
       "frontend/src/types/purchaseOrder.types.ts": "0d991c89a452",
       "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a",
       "backend/src/services/purchaseOrder.service.ts": "fca535d1858a"
     },
     "contentHash": "2a3f2d1d0298",
-    "generatedAt": "2026-09-25T06:45:11.182Z"
+    "generatedAt": "2026-09-25T07:20:03.207Z"
   },
   "purchase-order-create": {
     "sources": {
@@ -1017,13 +1017,14 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderList.tsx": "1e2931d9b698",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "aca28c91d285",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "df31cea32d2a",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
       "frontend/src/types/purchaseOrder.types.ts": "0d991c89a452",
-      "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a"
+      "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a",
+      "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9"
     },
-    "contentHash": "bbb1ef407239",
-    "generatedAt": "2026-09-25T06:45:11.193Z"
+    "contentHash": "e055a98a2d23",
+    "generatedAt": "2026-09-25T07:20:03.212Z"
   },
   "quotation-convert": {
     "sources": {

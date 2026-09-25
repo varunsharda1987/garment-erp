@@ -194,18 +194,18 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/CustomerList.tsx": "d8953761cbdc",
-      "frontend/src/pages/CustomerForm.tsx": "0a7ae13fd020",
+      "frontend/src/pages/CustomerForm.tsx": "80e87e9e31cc",
       "frontend/src/components/CustomerSampleRequirements.tsx": "a08eb1b5de95",
       "frontend/src/components/GSTNumberInput.tsx": "d5fe28d64e27",
       "frontend/src/lib/validators.ts": "efac7c741170",
-      "backend/src/schemas/customer.schema.ts": "76cc2b5b7ec7",
+      "backend/src/schemas/customer.schema.ts": "21f821943633",
       "backend/src/routes/customer.routes.ts": "0b477c930b26",
-      "backend/src/services/customer.service.ts": "f5c11bc6e306",
+      "backend/src/services/customer.service.ts": "793ee717e347",
       "backend/src/services/sample.service.ts": "31a79e5cf207",
-      "backend/src/services/productionBlockingValidation.service.ts": "37d07dd93e1d"
+      "backend/src/services/productionBlockingValidation.service.ts": "77bed9420aa8"
     },
-    "contentHash": "9ba3c542c067",
-    "generatedAt": "2026-09-23T06:17:36.005Z"
+    "contentHash": "70e8614e424f",
+    "generatedAt": "2026-09-25T08:22:17.528Z"
   },
   "cutting-entry": {
     "sources": {
@@ -236,21 +236,24 @@
   "delivery-note-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "4c74477f52ff",
-      "backend/src/schemas/dispatch.schema.ts": "174397452fc8"
+      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "3a174de49076",
+      "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
+      "backend/src/schemas/dispatch.schema.ts": "c316ffeba2a9",
+      "backend/src/controllers/dispatch.controller.ts": "64402cb54eac",
+      "backend/src/services/helpers/sale-order-dispatch.helper.ts": "96669789d66b"
     },
-    "contentHash": "c2e007b7d6a7",
-    "generatedAt": "2026-09-23T06:17:36.016Z"
+    "contentHash": "2f8c2d2a2038",
+    "generatedAt": "2026-09-25T08:22:17.869Z"
   },
   "delivery-note-pod": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/DispatchPODForm.tsx": "78974dfad71c",
       "frontend/src/pages/DispatchDeliveryNoteDetail.tsx": "3cb7e8c919d0",
-      "frontend/src/types/dispatch.types.ts": "797e03441ac1"
+      "frontend/src/types/dispatch.types.ts": "1af242868309"
     },
-    "contentHash": "8c4f9416bf94",
-    "generatedAt": "2026-09-23T06:17:36.019Z"
+    "contentHash": "87005db244e2",
+    "generatedAt": "2026-09-25T08:22:17.879Z"
   },
   "design-dashboard": {
     "sources": {
@@ -1070,18 +1073,20 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/SaleOrderList.tsx": "a98023c6f30f",
-      "frontend/src/pages/SaleOrderDetail.tsx": "ca16ac242b32",
+      "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
       "frontend/src/components/sale-order/SaleOrderForm.tsx": "8f087de771ba",
       "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "3a2d58ee87b9",
       "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "6b90c300f8e4",
       "frontend/src/components/sale-order/SizeBreakdownDialog.tsx": "aacb25829026",
       "frontend/src/components/sale-order/sale-order-lines.ts": "55db918c430a",
       "frontend/src/services/saleOrder.service.ts": "b145386ffbfc",
-      "backend/src/schemas/saleOrder.schema.ts": "d3e41c129196",
-      "backend/src/routes/saleOrder.routes.ts": "3e4372adda3f"
+      "backend/src/schemas/saleOrder.schema.ts": "3cbb2c1103bb",
+      "backend/src/routes/saleOrder.routes.ts": "3e4372adda3f",
+      "backend/src/services/saleOrder.service.ts": "135433d7084e",
+      "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "3a174de49076"
     },
-    "contentHash": "c19cb0deddda",
-    "generatedAt": "2026-09-25T06:45:37.859Z"
+    "contentHash": "bdf9c9022fe5",
+    "generatedAt": "2026-09-25T08:22:17.896Z"
   },
   "sample-approve": {
     "sources": {

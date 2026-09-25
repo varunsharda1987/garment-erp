@@ -140,6 +140,11 @@ export interface ReceiveToStockPayload {
   /** Than-/bale-wise rows; the server sums them for the quantity and counts them for thanCount. */
   details?: Array<{ detailType: 'THAN'; baleNumber: number | null; sequenceNo: number; meters: number }>;
   processingQC?: { qualityGrade?: 'A' | 'B' | 'Reject'; defectMeters?: number };
+  /**
+   * One key per opening of the dialog. The same submission arriving twice (a retry after a timeout,
+   * a double press) is answered with the receipt already filed — `replayed: true` — never a second one.
+   */
+  submissionKey?: string;
 }
 
 /** GET /api/job-work-orders/:id/receive-preview — the server's own loss split for a hypothetical quantity. */
@@ -310,8 +315,10 @@ export const jobWorkOrderService = {
    */
   async receiveToStock(
     payload: ReceiveToStockPayload
-  ): Promise<{ data: { id: string; grnNumber: string }; lossSplit: LossSplitResult }> {
-    const response = await api.post('/grn/jwo/receive', payload);
+  ): Promise<{ data: { id: string; grnNumber: string }; lossSplit: LossSplitResult; replayed?: boolean }> {
+    // 90 s, not the global 30: the receipt books lot, challan, loss split and MRP in one transaction and
+    // may legitimately outlast 30 s on a busy server. Giving up early is what made the user press again.
+    const response = await api.post('/grn/jwo/receive', payload, { timeout: 90_000 });
     return response.data;
   },
 

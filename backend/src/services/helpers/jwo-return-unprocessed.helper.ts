@@ -26,7 +26,7 @@ import prisma from '../../config/database';
 import { createChallan } from '../challan.service';
 import greigeStockService from '../greige-stock.service';
 import { restoreLaceStock } from '../laceStock.service';
-import { isJwoDead, jwoStockUnit, JWO_AT_PROCESSOR_STATUSES } from './jwo-status.helper';
+import { isJwoDead, jwoStockUnit, lockJobWorkOrder, JWO_AT_PROCESSOR_STATUSES } from './jwo-status.helper';
 import { BusinessError, NotFoundError, ValidationError } from '../../errors';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './material-sync.helper';
 import { toCurrency, toNumber } from '../../utils/currency';
@@ -73,52 +73,57 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
     throw new ValidationError('The returned quantity is required and must be greater than 0');
   }
 
-  const job = await prisma.job_work_orders.findUnique({
-    where: { id: jobWorkOrderId },
-    include: RETURN_INCLUDE,
-  });
-  if (!job) throw new NotFoundError('Job work order', jobWorkOrderId);
-
-  // A cancelled or closed job already had its material credited back; crediting again would
-  // invent stock (landmine No.1).
-  if (isJwoDead(job.jwoStatus)) {
-    throw new BusinessError(
-      `${job.jobWorkNumber} is ${job.jwoStatus.toLowerCase()} — its stock was already credited back. Re-open the job first if material physically arrived.`
-    );
-  }
-  if (!JWO_AT_PROCESSOR_STATUSES.includes(job.jwoStatus)) {
-    throw new BusinessError(
-      `${job.jobWorkNumber} is ${job.jwoStatus.toLowerCase().replace(/_/g, ' ')} — only material still with the processor can be returned unprocessed.`
-    );
-  }
-  // This path zeroes what was received and cancels the order. Run on a job that already had a
-  // delivery booked it would erase that receipt while its stock and inward challan stayed.
-  if (Number(job.qtyReceivedMeters ?? 0) > 0) {
-    throw new BusinessError(
-      `${job.jobWorkNumber} has already had ${Number(job.qtyReceivedMeters)} ${job.uom} received back. Close it short instead of returning it unprocessed.`
-    );
-  }
-  const sent = toNumber(toCurrency(job.qtySentMeters));
-  if (returnedQty - sent > 0.005) {
-    throw new BusinessError(
-      `${job.jobWorkNumber} only sent ${sent} ${job.uom}; ${returnedQty} cannot come back from it.`
-    );
-  }
-
-  const laceComponent = job.components.find((c) => c.materialType === 'LACE' && c.laceStockId);
-  const target: ReturnedTo = job.greigeStockLot
-    ? 'GREIGE'
-    : laceComponent
-      ? 'LACE'
-      : job.fabricStockLotId
-        ? 'FABRIC'
-        : 'NONE';
-
-  const note = `Unprocessed ${target.toLowerCase()} returned — ${job.jobWorkNumber}${remarks ? ` (${remarks})` : ''}`;
-  const styleLabel = job.style?.styleCode ? ` - ${job.style.styleCode}` : '';
-
   return prisma.$transaction(
     async (tx) => {
+      // FIRST: lock the job, then read it. A second press waits here until the first commits, then
+      // finds the job CANCELLED and is refused below. Read outside the transaction (as this was until
+      // 2026-09-25), two presses both saw "at processor" and credited the material twice — the FABRIC
+      // branch is a plain increment.
+      await lockJobWorkOrder(tx, jobWorkOrderId);
+      const job = await tx.job_work_orders.findUnique({
+        where: { id: jobWorkOrderId },
+        include: RETURN_INCLUDE,
+      });
+      if (!job) throw new NotFoundError('Job work order', jobWorkOrderId);
+
+      // A cancelled or closed job already had its material credited back; crediting again would
+      // invent stock (landmine No.1).
+      if (isJwoDead(job.jwoStatus)) {
+        throw new BusinessError(
+          `${job.jobWorkNumber} is ${job.jwoStatus.toLowerCase()} — its stock was already credited back. Re-open the job first if material physically arrived.`
+        );
+      }
+      if (!JWO_AT_PROCESSOR_STATUSES.includes(job.jwoStatus)) {
+        throw new BusinessError(
+          `${job.jobWorkNumber} is ${job.jwoStatus.toLowerCase().replace(/_/g, ' ')} — only material still with the processor can be returned unprocessed.`
+        );
+      }
+      // This path zeroes what was received and cancels the order. Run on a job that already had a
+      // delivery booked it would erase that receipt while its stock and inward challan stayed.
+      if (Number(job.qtyReceivedMeters ?? 0) > 0) {
+        throw new BusinessError(
+          `${job.jobWorkNumber} has already had ${Number(job.qtyReceivedMeters)} ${job.uom} received back. Close it short instead of returning it unprocessed.`
+        );
+      }
+      const sent = toNumber(toCurrency(job.qtySentMeters));
+      if (returnedQty - sent > 0.005) {
+        throw new BusinessError(
+          `${job.jobWorkNumber} only sent ${sent} ${job.uom}; ${returnedQty} cannot come back from it.`
+        );
+      }
+
+      const laceComponent = job.components.find((c) => c.materialType === 'LACE' && c.laceStockId);
+      const target: ReturnedTo = job.greigeStockLot
+        ? 'GREIGE'
+        : laceComponent
+          ? 'LACE'
+          : job.fabricStockLotId
+            ? 'FABRIC'
+            : 'NONE';
+
+      const note = `Unprocessed ${target.toLowerCase()} returned — ${job.jobWorkNumber}${remarks ? ` (${remarks})` : ''}`;
+      const styleLabel = job.style?.styleCode ? ` - ${job.style.styleCode}` : '';
+
       // --- put the material back where it came from ------------------------------------------
       if (target === 'GREIGE' && job.greigeStockLot) {
         await greigeStockService.returnGreigeStock(job.greigeStockLot.id, returnedQty, userId, tx, {

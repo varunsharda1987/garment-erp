@@ -22,6 +22,11 @@ keywords:
   - रन स्प्लिट
   - edit production run
   - production location
+  - location
+  - production kahan hoga
+  - location badalna
+  - प्रोडक्शन लोकेशन
+  - लोकेशन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -37,6 +42,7 @@ sources:
   - backend/src/schemas/workOrder.schema.ts
   - backend/src/routes/workOrder.routes.ts
   - backend/src/services/workOrder.service.ts
+  - backend/src/services/helpers/material-sync.helper.ts
   - backend/src/services/productionBlockingValidation.service.ts
 route: /production/work-orders/new
 ---
@@ -60,6 +66,8 @@ The style must already exist, be published (draft styles are not listed), and ha
 8. Click **Add Row** for each extra colour/size line. Use the bin icon to delete a row.
 9. Check the **Total** shown in the Quantity Breakup heading. This total is the work order quantity.
 10. Click **Create Work Order**. You land on the new production run page.
+
+There is no location field on this page. Every new production run, including one started from a sale order, gets the company's own unit (**Kashaya Fabs**) as its **Production Location** automatically. You can see it in the **Production Location** card on the run page and the **Location** column of the list. If a run is made somewhere else, change it with **Edit** (see below).
 
 ## Traps to avoid
 - The **Create Work Order** button stays greyed out until a style is picked and the total is more than zero.

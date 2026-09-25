@@ -28,6 +28,7 @@ import {
   setJwoStatus,
   setJwoStatusMany,
   isJwoDead,
+  lockJobWorkOrder,
   JWO_ACTIVE_FILTER,
   JWO_AT_PROCESSOR_STATUSES,
   JWO_GRN_UOMS,
@@ -76,11 +77,11 @@ import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
 import { applySearch } from '../utils/search-filter';
 
 /**
- * Phase 1b rollout switch: a greige / fabric receipt line must name its weaver or say "not known".
- * OFF until the GRN form asks for the weaver — turning it on first would refuse every greige receipt
- * the store saves. Until then a weaver is recorded whenever one is given (or the PO line names one).
+ * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
+ * which weaver every lot came from. ON since the GRN form asks for it (2026-09-25); it was shipped OFF
+ * one commit earlier so the backend could land before the form.
  */
-const GRN_WEAVER_REQUIRED = false;
+const GRN_WEAVER_REQUIRED = true;
 
 class GRNService {
   /**
@@ -2775,8 +2776,12 @@ class GRNService {
             await mrpService.updateReceivedQuantity(item.poItemId, -acceptedQty, tx);
           }
 
-          // 2c. Create reverse stock movement for audit trail
-          if (acceptedQty > 0) {
+          // 2c. Create reverse stock movement for audit trail. Not for a job-work return: it wrote no
+          // STOCK_IN — its lot row IS the receipt, and step 4 deletes that lot. An out-row here has no
+          // in-row to cancel, and the fabric Material Ledger folds it into the oldest surviving lot as a
+          // phantom "adjustment out" (found reversing DJ-ESSKY076LS-001's duplicates, 2026-09-25).
+          const isJobWorkReturn = !grn.poId && !!grn.jobWorkOrderId;
+          if (acceptedQty > 0 && !isJobWorkReturn) {
             const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
             const totalValue = roundToCent(multiplyCurrency(acceptedQty, unitPrice)).toNumber();
 
@@ -2892,9 +2897,14 @@ class GRNService {
     // birth — the one-action receipt never has a PENDING_QC moment a user could leave it in.
     opts?: { tx?: Prisma.TransactionClient; acceptedBy?: string }
   ) {
+    // Every read and write below goes through the caller's transaction. receiveJwoToStock row-locks
+    // the job first: a read on the global client would see figures the lock was taken to protect,
+    // and a write on it (the finished-fabric stamp) would wait on that lock until the transaction
+    // timed out.
+    const client = opts?.tx ?? prisma;
     // Same include as approval (JWO_GRN_INCLUDE) so creation can see every lineage rung approval
     // will — the two sites must never load different views of the job.
-    const jwo = await prisma.job_work_orders.findUnique({
+    const jwo = await client.job_work_orders.findUnique({
       where: { id: data.jobWorkOrderId },
       include: JWO_GRN_INCLUDE,
     });
@@ -3048,21 +3058,20 @@ class GRNService {
     // already left stock at issue). resolveOrMintJwoArrivingMaterial is the same authority approval
     // uses, so creation can no longer refuse a job approval would have received (2026-09-15, T0-A).
     // For a greige job whose mint was deferred (MRP does this when lineage is missing at creation)
-    // it mints here, outside any transaction — a harmless catalog row if the GRN create then fails,
-    // the same trade the Dyeing page already makes at issue — and stamps it on the job so approval
-    // and every later reader find the same master.
+    // it mints here and stamps it on the job so approval and every later reader find the same
+    // master — inside the caller's transaction, so a receipt that fails leaves no half-stamped job.
     const arriving = await resolveOrMintJwoArrivingMaterial(jwo, {
       userId,
       source: 'AUTO_FROM_MRP_GRN',
       receivedWidthInches: data.receivedWidthInches ?? null,
+      tx: opts?.tx,
     });
     if (arriving.minted) {
-      await stampJwoFinishedFabric(jwo.id, arriving.id);
+      await stampJwoFinishedFabric(jwo.id, arriving.id, opts?.tx);
     }
-    const materialId = await ensureMaterialRecord(arriving.id, arriving.kind);
+    const materialId = await ensureMaterialRecord(arriving.id, arriving.kind, opts?.tx);
 
     const grnNumber = await this.generateGRNNumber();
-    const client = opts?.tx ?? prisma;
     const grn = await client.goods_receiving_notes.create({
       data: {
         id: randomUUID(),
@@ -3144,6 +3153,12 @@ class GRNService {
    * createGRNFromJWO runs its own guards, quantity derivation, over-receipt cap and the
    * finished-fabric mint before the create: a refusal leaves no row, and a minted master is the
    * same harmless catalog row the two-step path already tolerated.
+   *
+   * Receipts for one job run one at a time (2026-09-25: a stalled server answered the first press
+   * "Response timeout" while still working, the user pressed again, and six receipts were filed for
+   * DJ-ESSKY076LS-001 — each had read "0 received so far"). The job row is locked first, so each
+   * receipt reads the totals the previous one committed: the over-receipt cap, the "already received"
+   * guard and the running total are never stale.
    */
   async receiveJwoToStock(
     data: Parameters<typeof grnService.createGRNFromJWO>[0] & {
@@ -3159,6 +3174,8 @@ class GRNService {
 
     const grn = await prisma.$transaction(
       async (tx) => {
+        // FIRST: a second submit for this job waits here until the first commits.
+        await lockJobWorkOrder(tx, data.jobWorkOrderId);
         const created = await this.createGRNFromJWO(data, userId, { tx, acceptedBy: userId });
         await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
           isFinal: data.isFinal ?? true,

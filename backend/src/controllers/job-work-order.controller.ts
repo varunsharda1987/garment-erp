@@ -35,6 +35,8 @@ import {
 } from '../services/helpers/material-sync.helper';
 import {
   setJwoStatus,
+  isJwoDead,
+  lockJobWorkOrder,
   JWO_ACTIVE_FILTER,
   JWO_PRE_ISSUE_STATUSES,
   JWO_AT_PROCESSOR_STATUSES,
@@ -1861,6 +1863,21 @@ class JobWorkOrderController {
 
       // One tx: loss split + status + service-requirement advance (Phase 5a single track)
       const updated = await prisma.$transaction(async (txClient) => {
+        // FIRST: lock the job and re-read it. This route had no "already received?" guard at all, so a
+        // second press re-received the job and advanced its service requirements twice (2026-09-25,
+        // found alongside DJ-ESSKY076LS-001's six receipts). A second press now waits for the first
+        // to commit and is refused here.
+        await lockJobWorkOrder(txClient, id);
+        const current = await txClient.job_work_orders.findUniqueOrThrow({
+          where: { id },
+          select: { jwoStatus: true, receivedDate: true },
+        });
+        if (isJwoDead(current.jwoStatus) || JWO_RECEIVED_STATUSES.includes(current.jwoStatus) || current.receivedDate) {
+          throw new JobWorkOrderError(
+            'ALREADY_RECEIVED',
+            `${existing.jobWorkNumber} has already been received (status ${current.jwoStatus}) — nothing was recorded again.`
+          );
+        }
         const lossSplit = await jobWorkOrderService.applyLossSplit(id, qtyReceived, txClient);
 
         await setJwoStatus(txClient, id, 'RECEIVED', {

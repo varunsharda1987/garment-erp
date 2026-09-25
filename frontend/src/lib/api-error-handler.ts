@@ -273,3 +273,20 @@ export function isNetworkError(error: unknown): boolean {
   }
   return false;
 }
+
+/**
+ * True when a failed WRITE may still have been applied: the browser gave up waiting (timeout), no
+ * response came back, or the gateway answered 502/503/504 — including the server's own
+ * "Response timeout", which it sends while the handler is still running. Never tell the user such a
+ * save "failed": on 2026-09-25 that message made them press Receive again, and a stalled server then
+ * filed every press (six receipts for one delivery).
+ */
+export function isOutcomeUnknown(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? (error as { code?: string }).code : undefined;
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || code === 'ERR_NETWORK') return true;
+  const axiosError = error as AxiosError;
+  if (axiosError.request && !axiosError.response) return true;
+  const status = axiosError.response?.status;
+  return status === 502 || status === 503 || status === 504;
+}

@@ -28,9 +28,11 @@ import ReceiptDetailRows, {
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { warehouseService } from '@/services/warehouse.service';
 import type { WarehouseType } from '@/types/inventory.types';
-import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { handleApiError, handleApiSuccess, isOutcomeUnknown } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 import { toDateInputValue } from '@/lib/date';
 import { foldActual, foldLabel } from '@/lib/fold-length';
+import { generateId } from '@/lib/utils';
 
 interface ReceiveFromProcessorDialogProps {
   open: boolean;
@@ -112,11 +114,22 @@ export default function ReceiveFromProcessorDialog({
     enabled: open,
   });
 
+  // One delivery, one receipt (2026-09-25: a stalled server answered the first press "Response timeout"
+  // while still saving, the user pressed again, and six receipts were filed for one delivery).
+  //   submissionKey — minted per opening and sent with every submit of it; the server answers a
+  //     repeat of the same key with the receipt it already filed instead of filing another.
+  //   inFlight — a synchronous guard: isPending only lands on the next render, so two presses in the
+  //     same frame both got through.
+  const submissionKey = useRef('');
+  const inFlight = useRef(false);
+
   // Reset on the open edge. (The previous handler reset inside Radix's onOpenChange(true), which never
   // fires here — the parent controls `open` — so a second opening showed the last receipt's figures.)
   const wasOpen = useRef(false);
   useEffect(() => {
     if (open && !wasOpen.current) {
+      submissionKey.current = generateId();
+      inFlight.current = false;
       setEntryMode('TOTAL_METERS');
       setQtyMeters(0);
       setThanCount(0);
@@ -207,10 +220,19 @@ export default function ReceiveFromProcessorDialog({
           qualityGrade || defectMeters > 0
             ? { qualityGrade: qualityGrade || undefined, defectMeters: defectMeters > 0 ? defectMeters : undefined }
             : undefined,
+        submissionKey: submissionKey.current || undefined,
       }),
+    onSettled: () => {
+      inFlight.current = false;
+    },
     onSuccess: (result) => {
       const abnormal = Number(result.lossSplit?.qtyAbnormalLoss ?? 0);
-      if (abnormal > 0) {
+      if (result.replayed) {
+        handleApiSuccess(
+          `${jwo?.jobWorkNumber ?? 'Job'} was already received`,
+          `Receipt ${result.data.grnNumber} was filed by the earlier press — no second receipt was made.`
+        );
+      } else if (abnormal > 0) {
         handleApiSuccess(
           `${jwo?.jobWorkNumber ?? 'Job'} received into stock`,
           `${abnormal.toFixed(2)} m abnormal loss — a debit note against the processor is needed before the job can close.`
@@ -255,6 +277,20 @@ export default function ReceiveFromProcessorDialog({
         setShortCloseOpen(true);
         return;
       }
+      // Timed out / no answer / 502-504: the server may still be saving — never call that a failure.
+      // Saying "failed" is what made the user press again on 2026-09-25. Refresh the job so a receipt
+      // that did land shows up under "Received so far" and in the job's Return receipts.
+      if (isOutcomeUnknown(err)) {
+        notify.warning('The server is slow — this receipt may still be saving', {
+          description:
+            `Do not press Receive again yet. Wait a minute, then check ${jwo?.jobWorkNumber ?? 'the job'}'s ` +
+            `Return receipts: if the receipt is there, it went in.`,
+          duration: 15000,
+        });
+        queryClient.invalidateQueries({ queryKey: ['job-work-order', jobWorkOrderId] });
+        queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+        return;
+      }
       handleApiError(err, 'Could not receive from processor');
     },
   });
@@ -285,13 +321,20 @@ export default function ReceiveFromProcessorDialog({
           debitNoteAmount: preview.debitNoteAmount,
         }
       : null);
+  // Every send goes through here: a press while one is already on its way is dropped.
+  const send = (shortCloseConfirmed: boolean) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    receiveMutation.mutate({ shortCloseConfirmed });
+  };
   const handleSubmit = () => {
+    if (inFlight.current) return;
     if (isFinal && preview?.isOverTolerance) {
       setServerShort(null);
       setShortCloseOpen(true);
       return;
     }
-    receiveMutation.mutate({ shortCloseConfirmed: false });
+    send(false);
   };
 
   return (
@@ -600,7 +643,7 @@ export default function ReceiveFromProcessorDialog({
           cancelText="Go back"
           variant="destructive"
           isLoading={receiveMutation.isPending}
-          onConfirm={() => receiveMutation.mutate({ shortCloseConfirmed: true })}
+          onConfirm={() => send(true)}
         />
       </DialogContent>
     </Dialog>

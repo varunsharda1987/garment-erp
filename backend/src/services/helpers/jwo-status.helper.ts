@@ -70,6 +70,21 @@ export function jwoStockUnit(uom: string | null | undefined): Unit {
 }
 
 /**
+ * Row-lock a job for the rest of the caller's transaction — call it FIRST, before any read the
+ * transaction decides on. Every write that adds to the job's running figures (receive a part, return
+ * unprocessed, close short, piece-work receive) takes it, so two submits of the same job serialise:
+ * the second waits for the first to commit, then reads its totals.
+ *
+ * Without it, six presses of "Receive from processor" queued behind a stalled server all read
+ * "0 received so far", sailed past the over-receipt cap and filed six receipts for one delivery
+ * (DJ-ESSKY076LS-001, 2026-09-25). Everything the locked transaction does to this row must go through
+ * the SAME `tx` — a write on the global client waits on this lock until the transaction times out.
+ */
+export async function lockJobWorkOrder(tx: Prisma.TransactionClient, jwoId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM job_work_orders WHERE id = ${jwoId} FOR UPDATE`;
+}
+
+/**
  * Set a JWO's status.
  * `extra` carries any other fields the same update must set (receivedDate, remarks, …).
  */

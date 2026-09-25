@@ -796,6 +796,116 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(Number(jwo!.qtyReceivedMeters)).toBe(300);
   });
 
+  // ---- Presses that arrive together (2026-09-25): a stalled server answered DJ-ESSKY076LS-001's first
+  //      press "Response timeout" while still working; the user pressed again and, when the stall cleared,
+  //      six receipts were filed for one delivery — every one had read "0 received so far", so the cap
+  //      never fired. The job row is now locked first: one job's receipts run one at a time. ---------------
+  const receiptTrail = async (jobId: string) => {
+    const receipts = await prisma.goods_receiving_notes.findMany({
+      where: { jobWorkOrderId: jobId },
+      select: { id: true, grn_items: { select: { id: true } } },
+    });
+    const itemIds = receipts.flatMap((r) => r.grn_items.map((i) => i.id));
+    const lots = await prisma.fabric_stock.findMany({ where: { grnItemId: { in: itemIds } } });
+    const challans = await prisma.challans.count({ where: { jobWorkOrderId: jobId, challanType: 'INWARD' } });
+    return { receipts: receipts.length, lots, challans };
+  };
+  it('files ONE receipt when the same final delivery arrives three times at once — the others find it already received', async () => {
+    const jobId = await raiseAtProcessorJob(); // 500 expected back
+    const press = () =>
+      request(app)
+        .post('/api/grn/jwo/receive')
+        .set(authHeader)
+        .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 490, thanCount: 5, isFinal: true, warehouseId });
+
+    const results = await Promise.all([press(), press(), press()]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([201, 422, 422]);
+    for (const r of results.filter((x) => x.status === 422)) {
+      expect(r.body.message).toMatch(/already been received/);
+    }
+    const trail = await receiptTrail(jobId);
+    expect(trail.receipts).toBe(1);
+    expect(trail.lots).toHaveLength(1);
+    expect(Number(trail.lots[0].quantityAvailable)).toBe(490);
+    expect(trail.challans).toBe(1);
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(490);
+    expect(jwo!.thanCount).toBe(5);
+    // Stock rose once — the refused presses rolled back with their transactions. stock_levels for the
+    // fabric that arrived equals its lots (three increments would read 1,470 here).
+    const { fabricId } = trail.lots[0];
+    const level = await prisma.stock_levels.findUnique({
+      where: { materialId_warehouseId: { materialId: fabricId, warehouseId } },
+    });
+    const lotsOfFabric = await prisma.fabric_stock.aggregate({
+      where: { fabricId, warehouseId },
+      _sum: { quantityAvailable: true },
+    });
+    expect(Number(level?.quantity)).toBeCloseTo(Number(lotsOfFabric._sum.quantityAvailable), 3);
+  });
+
+  it('runs two parts that arrive together one after the other — the second reads the first and the cap refuses it', async () => {
+    const jobId = await raiseAtProcessorJob(); // 500 expected; 300 + 300 is over the cap
+    const press = () =>
+      request(app)
+        .post('/api/grn/jwo/receive')
+        .set(authHeader)
+        .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 300, isFinal: false, warehouseId });
+
+    const results = await Promise.all([press(), press()]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([201, 422]);
+    expect(results.find((r) => r.status === 422)!.body.message).toMatch(/300\.00 MTR already received/);
+    const trail = await receiptTrail(jobId);
+    expect(trail.receipts).toBe(1);
+    expect(trail.lots).toHaveLength(1);
+    expect(trail.challans).toBe(1);
+    // The job's running total is the lots it booked — not the last writer's view of an empty job.
+    const jwo = await prisma.job_work_orders.findUnique({ where: { id: jobId } });
+    expect(Number(jwo!.qtyReceivedMeters)).toBe(300);
+    expect(jwo!.jwoStatus).toBe('PARTIALLY_RECEIVED');
+  });
+
+  it('reverses a job-work receipt without writing a stock movement — its lot was the receipt, and the lot is gone', async () => {
+    const jobId = await raiseAtProcessorJob();
+    const received = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 490, isFinal: true, warehouseId });
+    expect(received.status).toBe(201);
+    const grnId = received.body.data.id as string;
+
+    const reversed = await request(app)
+      .patch(`/api/grn/${grnId}/reverse`)
+      .set(authHeader)
+      .send({ reason: 'Pressed twice' });
+    expect(reversed.status).toBe(200);
+    // The receipt wrote no STOCK_IN, so an out-row here had nothing to cancel: the fabric Material
+    // Ledger showed it as a phantom "adjustment out" folded into the oldest surviving lot.
+    expect(await prisma.stock_movements.count({ where: { referenceId: grnId } })).toBe(0);
+    expect((await receiptTrail(jobId)).lots).toHaveLength(0);
+  });
+
+  it('returns a job unprocessed ONCE when the press arrives twice at once — the second finds it cancelled', async () => {
+    // Until 2026-09-25 the guards read the job outside the transaction, so both presses saw "at
+    // processor", both credited the material and both filed an inward challan.
+    const jobId = await raiseAtProcessorJob();
+    const press = () =>
+      request(app)
+        .post(`/api/job-work-orders/${jobId}/return-unprocessed`)
+        .set(authHeader)
+        .send({ returnedQty: 500, remarks: `${RUN} double press` });
+
+    const results = await Promise.all([press(), press()]);
+
+    expect(results.map((r) => r.status).sort()).toEqual([200, 422]);
+    expect(results.find((r) => r.status === 422)!.body.message).toMatch(/cancelled/);
+    expect(await prisma.challans.count({ where: { jobWorkOrderId: jobId, challanType: 'INWARD' } })).toBe(1);
+    expect((await prisma.job_work_orders.findUnique({ where: { id: jobId } }))!.jwoStatus).toBe('CANCELLED');
+  });
+
   // ---- Closing short needs saying so (2026-09-19): the first real receipt closed DJ-ESSKY085LS-002 at
   //      852.10 of 1,686.59 m by an unintended tick, and locked the second delivery out. ---------------
   const receive = (body: Record<string, unknown>) =>

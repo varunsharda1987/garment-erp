@@ -528,15 +528,16 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
-      "frontend/src/pages/GRNForm.tsx": "05976d097896",
+      "frontend/src/pages/GRNForm.tsx": "ce43d08b7229",
       "frontend/src/pages/GRNDetail.tsx": "50aef869eb6a",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
-      "backend/src/schemas/grn.schema.ts": "c8eeb3f32607",
-      "backend/src/services/grn.service.ts": "a6c444ebb5ae",
-      "backend/src/services/purchaseOrder.service.ts": "fca535d1858a"
+      "backend/src/schemas/grn.schema.ts": "54334c2077eb",
+      "backend/src/services/grn.service.ts": "7a872e700481",
+      "backend/src/services/purchaseOrder.service.ts": "7dda11500952",
+      "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a"
     },
-    "contentHash": "b2f36c20fe3f",
-    "generatedAt": "2026-09-25T07:20:03.036Z"
+    "contentHash": "447526a9bd07",
+    "generatedAt": "2026-09-25T08:49:42.741Z"
   },
   "gst-reports": {
     "sources": {

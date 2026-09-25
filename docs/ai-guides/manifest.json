@@ -529,10 +529,10 @@
       "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
       "backend/src/schemas/grn.schema.ts": "c8eeb3f32607",
       "backend/src/services/grn.service.ts": "9ea520831778",
-      "backend/src/services/purchaseOrder.service.ts": "caf9fc97aac1"
+      "backend/src/services/purchaseOrder.service.ts": "fca535d1858a"
     },
     "contentHash": "b2f36c20fe3f",
-    "generatedAt": "2026-09-24T08:54:35.753Z"
+    "generatedAt": "2026-09-25T06:45:11.041Z"
   },
   "gst-reports": {
     "sources": {
@@ -1002,28 +1002,28 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "bc448465af07",
-      "frontend/src/pages/PurchaseOrderList.tsx": "4f2201e2fb07",
-      "frontend/src/types/purchaseOrder.types.ts": "4f52d56711b2",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
+      "frontend/src/pages/PurchaseOrderList.tsx": "1e2931d9b698",
+      "frontend/src/types/purchaseOrder.types.ts": "0d991c89a452",
       "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a",
-      "backend/src/services/purchaseOrder.service.ts": "af54023fbf24"
+      "backend/src/services/purchaseOrder.service.ts": "fca535d1858a"
     },
-    "contentHash": "25fcb81c94bf",
-    "generatedAt": "2026-09-23T06:17:36.229Z"
+    "contentHash": "2a3f2d1d0298",
+    "generatedAt": "2026-09-25T06:45:11.182Z"
   },
   "purchase-order-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/PurchaseOrderList.tsx": "4f2201e2fb07",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "05b1afa140fe",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "bc448465af07",
-      "frontend/src/types/purchaseOrder.types.ts": "4f52d56711b2",
+      "frontend/src/pages/PurchaseOrderList.tsx": "1e2931d9b698",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "aca28c91d285",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "92f21c3e83f0",
+      "frontend/src/types/purchaseOrder.types.ts": "0d991c89a452",
       "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a"
     },
-    "contentHash": "094732f3bca0",
-    "generatedAt": "2026-09-23T06:17:36.233Z"
+    "contentHash": "bbb1ef407239",
+    "generatedAt": "2026-09-25T06:45:11.193Z"
   },
   "quotation-convert": {
     "sources": {

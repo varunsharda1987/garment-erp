@@ -145,7 +145,7 @@ export const amendSaleOrderQuantitiesSchema = z.object({
 });
 
 export const startProductionSchema = z.object({
-  // Optional override; falls back to buyerDeadline ?? expectedShipDate ?? deliveryDate server-side
+  // Optional override; falls back to expectedShipDate ?? buyerDeadline ?? deliveryDate server-side
   expectedDeliveryDate: z
     .string()
     .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')

@@ -768,10 +768,13 @@ export class SaleOrderService {
     }
 
     // Delivery date: explicit override, else the SO's own dates; required by the orders table.
+    // Production must be finished by the buyer PO's Expected Ship Date (owner, 2026-09-25) — the same
+    // date Link to Production Order writes. The Buyer Deadline is the buyer's LAST day, so it is only
+    // the fallback; until 2026-09-25 it came first and a fresh order aimed past the ship date.
     const deliveryDate =
       (input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null) ??
-      so.buyerDeadline ??
       so.expectedShipDate ??
+      so.buyerDeadline ??
       so.deliveryDate;
     if (!deliveryDate) {
       throw new ValidationError('expectedDeliveryDate is required — the sale order has no buyer deadline or ship date');

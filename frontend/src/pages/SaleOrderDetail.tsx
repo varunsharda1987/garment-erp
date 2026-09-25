@@ -625,7 +625,7 @@ export default function SaleOrderDetail() {
               {canStartProduction && (
                 <DropdownMenuItem
                   onSelect={() => {
-                    setProdDeliveryDate(toDateInputValue(so.buyerDeadline ?? so.expectedShipDate ?? so.deliveryDate));
+                    setProdDeliveryDate(toDateInputValue(so.expectedShipDate ?? so.buyerDeadline ?? so.deliveryDate));
                     setProdPriority('MEDIUM');
                     setProdRemarks('');
                     setStartProdDialogOpen(true);
@@ -1144,6 +1144,9 @@ export default function SaleOrderDetail() {
             <div className="space-y-2">
               <Label>Expected Delivery Date</Label>
               <Input type="date" value={prodDeliveryDate} onChange={(e) => setProdDeliveryDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                Production must finish by the buyer PO&apos;s Expected Ship Date.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Priority</Label>

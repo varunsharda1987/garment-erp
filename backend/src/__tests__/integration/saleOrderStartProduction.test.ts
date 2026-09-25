@@ -396,6 +396,23 @@ describe('Start Production makes only what stock does not already cover (order-s
     expect(Number(res.body.data.totalQuantity)).toBe(3); // L was not listed → not produced
     expect(await breakupOf(res.body.data.id)).toEqual({ [sizeMId]: 3 });
   });
+
+  it('with no date given, production aims at the Expected Ship Date — not the Buyer Deadline', async () => {
+    // Owner rule 2026-09-25: production must finish by the buyer PO's ship date, which Link to
+    // Production Order already wrote. Start Production put the Buyer Deadline first until then.
+    const so = await createConfirmedSo([{ styleId: styleAId, sizeId: sizeMId, quantity: 4, unitPrice: 100 }]);
+    const ship = new Date('2026-12-10T00:00:00.000Z');
+    const deadline = new Date('2026-12-20T00:00:00.000Z');
+    await prisma.sale_orders.update({ where: { id: so }, data: { expectedShipDate: ship, buyerDeadline: deadline } });
+
+    const res = await request(app).post(`/api/sale-orders/${so}/start-production`).set(authHeader).send({}).expect(201);
+
+    const order = await prisma.orders.findUniqueOrThrow({ where: { id: res.body.data.id } });
+    expect(order.expectedDeliveryDate.toISOString()).toBe(ship.toISOString());
+    const runs = await prisma.work_orders.findMany({ where: { orderId: order.id } });
+    expect(runs.length).toBeGreaterThan(0);
+    for (const run of runs) expect(run.plannedEndDate?.toISOString()).toBe(ship.toISOString());
+  });
 });
 
 describe('Sale Order guards that used to surface as generic 500s', () => {

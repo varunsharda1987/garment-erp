@@ -16,6 +16,7 @@ import { validateTransition } from '../utils/stateMachine'; // BUG-WO7 fix
 import { applySearch } from '../utils/search-filter';
 import { formatDate, toDateInputValue } from '../utils/date';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
+import { getDefaultWarehouseId } from './helpers/material-sync.helper';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -127,6 +128,9 @@ class WorkOrderService {
 
     const workOrderNumber = await this.generateWorkOrderNumber();
 
+    // Default to company's production location (Kashaya Fabs) when not specified
+    const warehouseId = data.warehouseId || (await getDefaultWarehouseId(prisma)) || null;
+
     const workOrder = await prisma.work_orders.create({
       data: {
         id: randomUUID(),
@@ -136,7 +140,7 @@ class WorkOrderService {
         stockProductionOrderId: data.stockProductionOrderId || null,
         stockProductionOrderItemId: data.stockProductionOrderItemId || null,
         styleId: data.styleId,
-        warehouseId: data.warehouseId || null, // Handle nullable warehouseId
+        warehouseId,
         plannedStartDate: data.plannedStartDate,
         plannedEndDate: data.plannedEndDate,
         totalQuantity: data.totalQuantity,
@@ -1006,7 +1010,7 @@ class WorkOrderService {
       orderId,
       orderItemId,
       styleId: orderItem.styleId,
-      warehouseId: null, // Warehouse to be assigned later
+      warehouseId: undefined, // Will default to company production location
       plannedStartDate: orderData.plannedStartDate,
       plannedEndDate: orderData.plannedEndDate,
       totalQuantity: orderItem.totalQuantity,

@@ -41,8 +41,8 @@ route: /invoices/new
 ## Before you start
 
 1. **Customer must exist** - The customer you want to invoice must already be in the system
-2. **Order must exist** - An invoice is linked to a production order; create the order first
-3. **Delivery completed** (recommended) - Best practice is to invoice after goods are delivered
+2. **Order must exist** - An invoice made on this page is linked to a production order; create the order first
+3. **Goods shipped on a delivery note?** Raise the invoice from the delivery note instead: once its proof of delivery is recorded, open the note and click **Create Invoice**. It bills exactly what the buyer received at the sale order price, and links the invoice to the note (see *Invoice from a delivery note*)
 
 ## Steps
 

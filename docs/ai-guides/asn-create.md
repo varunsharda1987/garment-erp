@@ -11,18 +11,22 @@ keywords:
   - dispatch notification
   - shipping plan
   - create ASN
+  - ASN reconciliation
+  - dispatched against ASN
   # Hinglish
   - ASN kaise banaye
   - shipping notice
   - shipment advance intimation
   - dispatch notice banana
   - shipment plan
+  - ASN ke against kitna gaya
   # Devanagari
   - एएसएन
   - एडवांस शिपिंग नोटिस
   - शिपमेंट सूचना
   - डिस्पैच नोटिस
   - शिपमेंट प्लान
+  - एएसएन मिलान
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ASNCreateForm.tsx
@@ -80,7 +84,9 @@ route: /manufacturing/dispatch/asn/new
   - **Approve** — Enter appointment date, time, buyer reference number, and approved quantity. Status changes to **Approved**.
   - **Reschedule** — Buyer requests a new date. Status changes to **Reschedule**.
   - **Reject** — Buyer declines with a reason. Status changes to **Rejected**.
-- After approval, click **Create Delivery Note** to proceed with actual dispatch.
+- After approval, click **Create Delivery Note** to proceed with actual dispatch. The delivery note is linked to this ASN.
+- The ASN page then shows **Dispatched against this ASN**: per colour and size, **Planned**, **Dispatched** and **Variance**, an overall badge (**Not dispatched**, **Fully reconciled**, **Over**, **Under**) and links to its delivery notes. A note counts once it is dispatched; a pending or cancelled note does not.
+- Shipping more or less than the buyer approved is not blocked — the variance shows it.
 
 ## Traps
 

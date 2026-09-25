@@ -74,7 +74,7 @@ The detail page shows:
 - **Tally Status** (if pushed): Shows when it was pushed and the voucher number.
 - **e-Invoice (IRN) Status** (if registered): Shows the IRN number, acknowledgment details, and a lock icon indicating the invoice is immutable.
 - **Invoice Information**: Invoice Date, Due Date, Subtotal, Tax Amount, and Remarks.
-- **Customer & Order Information**: Customer name, linked Order Number (click to navigate), Created By, and Created At.
+- **Customer & Order Information**: Customer name, linked Order Number (click to navigate), the **Delivery Note** it was raised from (click to open the note), Created By, and Created At.
 - **Invoice Items**: Table with Description, HSN, Qty, Unit Price, Amount, GST %, Tax, and Total.
 - **Tax Breakdown**: Subtotal, IGST (or CGST+SGST for intra-state), Total Tax, Grand Total.
 - **Payment History**: Shows all recorded payments with amount, date, method, and reference.

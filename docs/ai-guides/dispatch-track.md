@@ -14,6 +14,9 @@ keywords:
   - delivery tracking
   - proof of delivery
   - pod status
+  - cancel delivery note
+  - delivery note galti se bana
+  - cancelled delivery note
   # Hinglish
   - dispatch status dekhna
   - shipment kahan hai
@@ -22,6 +25,7 @@ keywords:
   - maal kahan pahuncha
   - truck kahan hai
   - delivery note dekhna
+  - delivery note cancel karna
   # Devanagari
   - डिस्पैच स्टेटस
   - शिपमेंट ट्रैकिंग
@@ -31,6 +35,7 @@ keywords:
   - इन ट्रांजिट
   - डिलीवरी नोट
   - प्रूफ ऑफ डिलीवरी
+  - डिलीवरी नोट रद्द करें
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/DispatchList.tsx
@@ -61,7 +66,7 @@ route: /manufacturing/dispatch
    - **Pending** - ready to dispatch
    - **In Transit** - shipped, awaiting delivery
    - **Delivered** - confirmed received
-   - **Cancelled** - voided deliveries
+   - **Cancelled** - pending notes that were cancelled (the record is kept)
 4. Click **Search** or press Enter.
 
 ## Understanding delivery note statuses
@@ -71,7 +76,7 @@ route: /manufacturing/dispatch
 | **Pending** | Delivery note created but not yet dispatched. Transport can be assigned. |
 | **In Transit** | Goods dispatched and on their way to customer. POD can be recorded. |
 | **Delivered** | Customer has received goods. Proof of Delivery recorded. |
-| **Cancelled** | Delivery note was cancelled. |
+| **Cancelled** | A pending note undone before the goods left. Its stock and the sale order's Dispatched quantity were handed back; the note keeps its number and shows who cancelled it, when and why. |
 
 ## Viewing delivery note details
 
@@ -81,7 +86,16 @@ route: /manufacturing/dispatch
    - **Delivery Details** card: Order number, Customer, Dispatch Date, Total Pieces, Cartons, ASN reference, Remarks
    - **Transport** card: Transporter name, Vehicle number and type, Driver name and phone, LR No, Expected Delivery date
    - **Proof of Delivery** card (if delivered): Delivery date, Received By, Delivery status, Customer GRN, Shortage qty, Rejection reason
-   - **Items** table: Style, Buyer Ref, Color, Size, Quantity
+   - **Items** table: Style, Buyer Ref, Color, Size, Quantity, and **Received** once the proof of delivery is recorded
+   - A red box on a **Cancelled** note (when, and the reason), and a note if an administrator let it ship past finished-goods stock
+4. Buttons at the top: **Cancel Delivery Note** (Pending), **Record POD** (In Transit), **Create Invoice** (Delivered, not yet invoiced), or **Invoice INV…** to open the invoice already raised.
+
+## Cancelling a delivery note made by mistake
+
+1. Only a **Pending** note can be cancelled — once it is dispatched, record its proof of delivery as **Rejected** instead.
+2. Click the **X icon** on its row (or **Cancel Delivery Note** on the note).
+3. Type a **Reason \*** and click **Cancel Delivery Note**.
+4. The pieces go back into finished-goods stock and come off the sale order's Dispatched quantity. The note stays in the list, marked **Cancelled**.
 
 ## Checking ASN application status
 
@@ -121,9 +135,13 @@ route: /manufacturing/dispatch
 ### For Pending delivery notes
 - **Truck icon** - Assign transport (vehicle, driver, transporter)
 - **Send icon** - Mark as dispatched (moves to In Transit)
+- **X icon** - Cancel the note (asks for a reason; the record is kept)
 
 ### For In Transit delivery notes
 - **Check icon** - Record Proof of Delivery
+
+### For Delivered delivery notes
+- **Document icon** - Invoice: opens the note with **Create Invoice** (or its invoice, if already raised)
 
 ### For Pending ASN applications
 - **Send icon** - Apply ASN (submit to customer)
@@ -143,4 +161,4 @@ route: /manufacturing/dispatch
 - ASN **Approved** status means the customer accepted the shipment window. You still need to create the actual Delivery Note.
 - Use the **Refresh** button (top right) to see the latest status if shipments were recently updated.
 
-- The **Buyer PO** card on a delivery note shows the customer's own purchase orders for that sale order — PO number, delivery location and PO date — with a **View PO** link that opens their PO document. It only appears on notes raised from a sale order; a note raised from a production order has no sale-order link and shows nothing. Opening the PO needs you to be signed in.
+- The **Buyer PO** card on a delivery note shows the customer's own purchase orders for that sale order — PO number, delivery location and PO date — with a **View PO** link that opens their PO document. It appears on every note booked against a sale order — raised from the sale order, or for a production order linked to one; a production order with no sale order shows nothing. Opening the PO needs you to be signed in.

@@ -54,6 +54,7 @@ Only **PENDING** invoices can be edited. You cannot edit an invoice if:
    - **Invoice Date** - Change the invoice date
    - **Due Date** - Update the payment due date (required)
    - **Remarks** - Add or edit notes
+   - The customer and order cannot be changed. An invoice raised from a delivery note for goods sold from stock has no production order — its Order box stays empty, and it can still be saved.
 
 6. Edit line items as needed:
    - Click **Add Item** to add a new line

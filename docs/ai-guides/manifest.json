@@ -1228,25 +1228,27 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/StyleList.tsx": "1402eb868a40",
-      "frontend/src/pages/StyleFormRedesigned.tsx": "af079d2d88d2",
+      "frontend/src/pages/StyleFormRedesigned.tsx": "5e31c04dfc85",
       "frontend/src/components/GenericGreigeSelector.tsx": "a84639c3f0af",
       "frontend/src/constants/fabric-finish-types.ts": "d6a0b04ab71c",
-      "backend/src/schemas/style.schema.ts": "3dedb648d5d2",
+      "backend/src/schemas/style.schema.ts": "84681afce917",
       "backend/src/routes/style.routes.ts": "986623411bc3",
-      "backend/src/services/style.service.ts": "58c8fc946099",
+      "backend/src/services/style.service.ts": "d7072b981a89",
       "backend/src/services/helpers/default-thread.helper.ts": "36c3ef3e76f8"
     },
-    "contentHash": "cb27a8a2e035",
-    "generatedAt": "2026-09-23T15:16:55.198Z"
+    "contentHash": "80d2870b457a",
+    "generatedAt": "2026-09-25T06:56:55.505Z"
   },
   "style-edit": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/StyleFormRedesigned.tsx": "af079d2d88d2",
-      "frontend/src/pages/StyleList.tsx": "1402eb868a40"
+      "frontend/src/pages/StyleFormRedesigned.tsx": "5e31c04dfc85",
+      "frontend/src/pages/StyleList.tsx": "1402eb868a40",
+      "backend/src/schemas/style.schema.ts": "84681afce917",
+      "backend/src/services/style.service.ts": "d7072b981a89"
     },
-    "contentHash": "0ea90c2fd0fe",
-    "generatedAt": "2026-09-23T15:16:55.203Z"
+    "contentHash": "5b646445896d",
+    "generatedAt": "2026-09-25T06:56:55.661Z"
   },
   "style-import": {
     "sources": {

@@ -177,3 +177,53 @@ describe('PUT /api/style-costing/:id — width combination label', () => {
     expect(after!.widthCombinationHash).toBe('52');
   });
 });
+
+// A saved sheet's purpose is its identity. The Cost Sheet page auto-switched its mode to whichever
+// mode had fabric costing runs — in edit mode too — so ESSKY082LS's Raw Material v1 was saved with
+// purpose COSTING and hit the (styleId, purpose, version) key (2026-09-25). With no clash, the same
+// save would have silently turned the Raw Material sheet into a quotation.
+describe('PUT /api/style-costing/:id — purpose is fixed once a sheet exists', () => {
+  it('refuses a save that would change the purpose, and leaves the sheet as it was', async () => {
+    await prisma.style_costing.create({
+      data: {
+        id: sheetId('qte'),
+        styleId,
+        createdById: testUserId,
+        purpose: 'COSTING',
+        version: 10,
+        isApproved: true,
+        approvalStatus: 'APPROVED',
+      },
+    });
+    const raw = await prisma.style_costing.create({
+      data: { id: sheetId('raw'), styleId, createdById: testUserId, purpose: 'RAW_MATERIAL_CALCULATION', version: 10 },
+    });
+
+    const res = await request(app)
+      .put(`/api/style-costing/${raw.id}`)
+      .set(authHeader)
+      .send({ purpose: 'COSTING', closedCost: 200 })
+      .expect(422);
+    expect(res.body.message).toMatch(/Raw Material Calculation cost sheet — its mode can't be changed/);
+
+    const after = await prisma.style_costing.findUnique({ where: { id: raw.id } });
+    expect(after!.purpose).toBe('RAW_MATERIAL_CALCULATION');
+    expect(after!.closedCost).toBeNull();
+  });
+
+  it('saves the closed cost when the page sends the sheet its own purpose', async () => {
+    const raw = await prisma.style_costing.create({
+      data: { id: sheetId('raw2'), styleId, createdById: testUserId, purpose: 'RAW_MATERIAL_CALCULATION', version: 11 },
+    });
+
+    await request(app)
+      .put(`/api/style-costing/${raw.id}`)
+      .set(authHeader)
+      .send({ purpose: 'RAW_MATERIAL_CALCULATION', closedCost: 200 })
+      .expect(200);
+
+    const after = await prisma.style_costing.findUnique({ where: { id: raw.id } });
+    expect(after!.purpose).toBe('RAW_MATERIAL_CALCULATION');
+    expect(Number(after!.closedCost)).toBe(200);
+  });
+});

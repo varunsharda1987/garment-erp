@@ -107,6 +107,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 - Components with CAD data but **no saved costing** produce no fabric row. Save a fabric costing for them first if they belong in the sheet.
 - If a fabric option was **costed more than once**, the most recent costing is the one used. Check the style's Fabric Costing Options if a rate looks unfamiliar.
 - An approved cost sheet is read-only. Opening its edit link shows "Approved cost sheets cannot be edited. Create a new version instead." and sends you to the details page. Create a new version from the list; a version reason is compulsory.
+- A cost sheet keeps the mode it was created in. **Fabric Costing Mode** is locked on the **Edit Cost Sheet** page, and **New Version** keeps the mode and the closed cost. For another mode, make a separate sheet with **+ New Cost Sheet**.
 - **Reload from Style** refreshes fabric and trim rows from the style. It overwrites what you typed in those tables.
 - If the style already has a cost sheet, check the list before making a duplicate.
 - **Enable Budget Tracking for Procurement** only appears in **Raw Material Calculation** and **Production** modes, and every budget must be zero or more.

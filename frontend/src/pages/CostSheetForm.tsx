@@ -703,6 +703,14 @@ const CostSheetForm = () => {
       try {
         setLoadingRuns(true);
 
+        // A saved sheet's purpose is its identity — switching the mode here would save it as a
+        // different kind of sheet (ESSKY082LS Raw Material v1 was sent as COSTING, 2026-09-25).
+        if (isEditMode) {
+          setCostingRuns(await getRunsByStyle(selectedStyleId, costingMode));
+          setSelectedRunId(null);
+          return;
+        }
+
         // Check all modes for available runs with priority order
         const modePriority: Array<'PRODUCTION' | 'RAW_MATERIAL_CALCULATION' | 'COSTING'> = [
           'PRODUCTION',

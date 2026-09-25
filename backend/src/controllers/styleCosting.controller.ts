@@ -854,6 +854,21 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     );
   }
 
+  // Purpose is part of the sheet's identity (unique with styleId + version); a save must never
+  // re-file it. With no clash the old code silently turned one kind of sheet into another.
+  if (validatedData.purpose !== undefined && validatedData.purpose !== existingCostSheet.purpose) {
+    const label: Record<CostSheetPurpose, string> = {
+      COSTING: 'Costing',
+      RAW_MATERIAL_CALCULATION: 'Raw Material Calculation',
+      PRODUCTION: 'Production',
+      PROCUREMENT_PRODUCTION: 'Procurement',
+    };
+    throw new BusinessError(
+      `This is a ${label[existingCostSheet.purpose]} cost sheet — its mode can't be changed. ` +
+        `Create a new cost sheet in ${label[validatedData.purpose]} mode instead.`
+    );
+  }
+
   // If rejected, reset the status to pending on update (allows resubmission)
   const shouldResetToPending = (existingCostSheet as any).approvalStatus === 'REJECTED';
 
@@ -974,8 +989,6 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       approvalStatus: 'PENDING',
       rejectionNotes: null,
     }),
-    // Update purpose/mode if provided
-    ...(validatedData.purpose !== undefined && { purpose: validatedData.purpose }),
     ...(validatedData.numberOfComponents !== undefined && { numberOfComponents: validatedData.numberOfComponents }),
     ...(validatedData.category !== undefined && { category: validatedData.category }),
     ...(validatedData.subCategory !== undefined && { subCategory: validatedData.subCategory }),

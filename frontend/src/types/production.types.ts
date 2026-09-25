@@ -166,7 +166,9 @@ export interface WorkOrder {
     description?: string;
     imageUrl?: string;
   };
-  warehouses?: {
+  // The serializer renames these relations (serializer.ts RELATION_MAPPINGS): warehouses → warehouse,
+  // users_work_orders_*ByIdTousers → createdBy/approvedBy, work_order_breakup → breakup.
+  warehouse?: {
     id: string;
     warehouseCode: string;
     warehouseName: string;
@@ -174,19 +176,19 @@ export interface WorkOrder {
     address?: string;
     city?: string;
   } | null;
-  usersWorkOrdersCreatedByIdTousers?: {
+  createdBy?: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
-  };
-  usersWorkOrdersApprovedByIdTousers?: {
+  } | null;
+  approvedBy?: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
-  };
-  workOrderBreakup?: WorkOrderBreakup[];
+  } | null;
+  breakup?: WorkOrderBreakup[];
   productionTracking?: ProductionTracking[];
 
   // Split support
@@ -241,7 +243,7 @@ export interface SplitWorkOrderDTO {
 }
 
 export interface UpdateWorkOrderDTO {
-  warehouseId?: string;
+  warehouseId?: string | null;
   plannedStartDate?: string | Date;
   plannedEndDate?: string | Date;
   actualStartDate?: string | Date;
@@ -250,7 +252,7 @@ export interface UpdateWorkOrderDTO {
   completedQuantity?: number;
   status?: OrderStatus;
   priority?: Priority;
-  remarks?: string;
+  remarks?: string | null;
 }
 
 export interface CreateProductionTrackingDTO {

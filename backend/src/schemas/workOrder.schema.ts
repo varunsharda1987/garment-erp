@@ -51,7 +51,7 @@ export const createWorkOrderSchema = z
  * PUT /api/work-orders/:id
  */
 export const updateWorkOrderSchema = z.object({
-  warehouseId: z.string().optional(),
+  warehouseId: z.string().optional().nullable(), // null clears the production location
   plannedStartDate: z.string().optional(),
   plannedEndDate: z.string().optional(),
   actualStartDate: z.string().optional().nullable(),

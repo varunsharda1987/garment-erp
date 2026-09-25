@@ -54,9 +54,9 @@ There are three screens for progress. Use the one that matches your question.
 
 ## B. One production run
 1. Open **Manufacturing → Production Runs**.
-2. Filter by **Status** (Pending, In Production, Completed, Dispatched, Cancelled) or **Priority**, or type in **Search**.
+2. Filter by **Status** (Pending, In Production, Completed, Dispatched, Cancelled, Split) or **Priority**, or type in **Search** (run number, order, customer, style or location). The **Dashboard** button at the top opens the Production Dashboard.
 3. The **Quantity** and **Progress** columns show completed versus total pieces and a percent bar.
-4. Click any row to open it. The **Status Overview** card repeats status, priority, quantity and progress.
+4. Click any row to open it. The **Status Overview** card repeats status, priority, quantity and progress. Further down, **Color × Size Breakup** lists the planned, completed and remaining pieces per colour and size, and **Production Location** and **Created By** show where the run is made and who raised it.
 5. Scroll to **Manufacturing Progress**. It shows pieces done at **Cutting**, **Stitching** and **Finishing**, each with its own bar. Use **View Batches** or **View Issues** to drill down.
 
 ## C. Size-wise cutting progress
@@ -64,5 +64,5 @@ Open **Manufacturing → Cutting** and click the **Size-wise Status** tab. Each 
 
 ## Notes
 - Completed quantity is calculated by the system from packing entries. It cannot be typed in by hand.
-- A run past its **Planned End Date** is flagged as overdue; open the list with the overdue filter from the dashboard drill-down to see only those.
+- A run is overdue once the day of its **Planned End Date** has passed and it is not Completed, Dispatched, Cancelled or Split. Open the list with the overdue filter from the dashboard drill-down to see only those; click the **x** on the **Overdue only** badge to see every run again.
 - A run marked **Split** is only a container. Production continues in the child runs listed on its page.

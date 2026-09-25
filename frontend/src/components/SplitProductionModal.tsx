@@ -39,9 +39,9 @@ export default function SplitProductionModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (workOrder?.workOrderBreakup) {
+    if (workOrder?.breakup) {
       // Initialize breakup entries from work order
-      const entries = workOrder.workOrderBreakup.map((b) => ({
+      const entries = workOrder.breakup.map((b) => ({
         colorId: b.colorId,
         colorName: b.colorOptions?.colorName || (b.colorId === null ? '-' : 'N/A'),
         sizeId: b.sizeId,

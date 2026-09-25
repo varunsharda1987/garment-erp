@@ -46,6 +46,8 @@ describe('workOrder.addProductionTracking cancel guard', () => {
       await prisma.production_tracking.deleteMany({
         where: { work_orders: { workOrderNumber: { startsWith: RUN } } },
       });
+      // track() passes the admin override, which always writes an audit row naming this user
+      await prisma.stage_transition_overrides.deleteMany({ where: { overriddenById: only(testUserId) } });
       await prisma.work_orders.deleteMany({ where: { workOrderNumber: { startsWith: RUN } } });
       await prisma.styles.deleteMany({ where: { id: only(styleId) } });
       await prisma.users.deleteMany({ where: { id: only(testUserId) } });

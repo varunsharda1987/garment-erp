@@ -8,19 +8,21 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Combobox } from '@/components/ui/combobox';
 import { PageHeader } from '@/components/PageHeader';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import { toast } from 'sonner';
 import api from '@/lib/api';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import workOrderService from '@/services/workOrder.service';
 import type { Priority } from '@/types/production.types';
+import type { Style } from '@/types/style.types';
 import { toDateInputValue } from '@/lib/date';
 
-interface Style {
-  id: string;
-  styleCode: string;
-  buyerStyleRef?: string;
-  styleName: string;
+// GET /styles/:id returns the style's SKU grid as `styleVariants` with flat colour/size fields
+interface StyleVariantRow {
+  colorId: string | null;
+  colorName: string | null;
+  sizeId: string | null;
+  sizeName: string | null;
 }
 
 interface ColorOption {
@@ -44,6 +46,7 @@ export default function WorkOrderCreate() {
 
   // Form state
   const [styleId, setStyleId] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState<Style | undefined>(undefined);
   const [plannedStartDate, setPlannedStartDate] = useState(toDateInputValue(new Date()));
   const [plannedEndDate, setPlannedEndDate] = useState(
     toDateInputValue(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
@@ -53,72 +56,48 @@ export default function WorkOrderCreate() {
   const [breakup, setBreakup] = useState<BreakupRow[]>([{ colorId: null, sizeId: '', quantity: 0 }]);
 
   // Lookup data
-  const [styles, setStyles] = useState<Style[]>([]);
   const [colors, setColors] = useState<ColorOption[]>([]);
   const [sizes, setSizes] = useState<SizeOption[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
 
   // UI state
-  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadInitialData();
-  }, []);
+    setColors([]);
+    setSizes([]);
+    setBreakup([{ colorId: null, sizeId: '', quantity: 0 }]);
+    if (!styleId) return;
 
-  useEffect(() => {
-    if (styleId) {
-      loadStyleOptions(styleId);
-    }
-  }, [styleId]);
-
-  const loadInitialData = async () => {
-    try {
-      setIsLoading(true);
-      const response = await api.get('/styles', { params: { limit: 200, isActive: true } });
-      setStyles(response.data?.data || []);
-    } catch (err) {
-      console.error('Failed to load styles:', err);
-      toast.error('Failed to load styles');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadStyleOptions = async (selectedStyleId: string) => {
-    try {
-      const response = await api.get(`/styles/${selectedStyleId}`);
-      const style = response.data?.data;
-
-      // Extract colors from style variants
-      const colorSet = new Map<string, ColorOption>();
-      const sizeSet = new Map<string, SizeOption>();
-
-      (style.variants || []).forEach((v: any) => {
-        if (v.colorOptions?.id) {
-          colorSet.set(v.colorOptions.id, {
-            id: v.colorOptions.id,
-            colorName: v.colorOptions.colorName,
-          });
+    // A slower response for a previously picked style must not overwrite this one's sizes
+    let cancelled = false;
+    setOptionsLoading(true);
+    api
+      .get<{ data: { styleVariants?: StyleVariantRow[] } }>(`/styles/${styleId}`)
+      .then((response) => {
+        if (cancelled) return;
+        const colorMap = new Map<string, ColorOption>();
+        const sizeMap = new Map<string, SizeOption>();
+        for (const v of response.data?.data?.styleVariants || []) {
+          if (v.colorId) colorMap.set(v.colorId, { id: v.colorId, colorName: v.colorName || v.colorId });
+          if (v.sizeId) sizeMap.set(v.sizeId, { id: v.sizeId, sizeName: v.sizeName || v.sizeId });
         }
-        if (v.sizeRange?.id) {
-          sizeSet.set(v.sizeRange.id, {
-            id: v.sizeRange.id,
-            sizeName: v.sizeRange.sizeName,
-          });
-        }
+        setColors(Array.from(colorMap.values()));
+        setSizes(Array.from(sizeMap.values()));
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to load style options:', err);
+        toast.error('Failed to load style color/size options');
+      })
+      .finally(() => {
+        if (!cancelled) setOptionsLoading(false);
       });
-
-      setColors(Array.from(colorSet.values()));
-      setSizes(Array.from(sizeSet.values()));
-
-      // Reset breakup when style changes
-      setBreakup([{ colorId: null, sizeId: '', quantity: 0 }]);
-    } catch (err) {
-      console.error('Failed to load style options:', err);
-      toast.error('Failed to load style color/size options');
-    }
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, [styleId]);
 
   const addBreakupRow = () => {
     setBreakup([...breakup, { colorId: null, sizeId: '', quantity: 0 }]);
@@ -148,20 +127,39 @@ export default function WorkOrderCreate() {
       return;
     }
 
+    if (plannedEndDate < plannedStartDate) {
+      setError('Planned end date cannot be before the planned start date');
+      return;
+    }
+
     const validBreakup = breakup.filter((row) => row.sizeId && row.quantity > 0);
     if (validBreakup.length === 0) {
       setError('Please add at least one valid size/quantity row');
       return;
     }
 
+    const seen = new Set<string>();
+    for (const row of validBreakup) {
+      const key = `${row.colorId ?? ''}|${row.sizeId}`;
+      if (seen.has(key)) {
+        const sizeName = sizes.find((s) => s.id === row.sizeId)?.sizeName || 'this size';
+        const colorName = colors.find((c) => c.id === row.colorId)?.colorName;
+        setError(
+          `${colorName ? `${colorName} / ` : ''}${sizeName} is entered twice — put its whole quantity on one row`
+        );
+        return;
+      }
+      seen.add(key);
+    }
+
     try {
       setIsSaving(true);
 
-      const payload = {
+      const created = await workOrderService.create({
         styleId,
         plannedStartDate,
         plannedEndDate,
-        totalQuantity,
+        totalQuantity: validBreakup.reduce((sum, row) => sum + row.quantity, 0),
         priority,
         remarks: remarks || undefined,
         colorSizeBreakup: validBreakup.map((row) => ({
@@ -169,18 +167,9 @@ export default function WorkOrderCreate() {
           sizeId: row.sizeId,
           quantity: row.quantity,
         })),
-      };
-
-      const response = await api.post('/work-orders', payload);
+      });
       toast.success('Work order created successfully');
-
-      // Navigate to the new work order
-      const newId = response.data?.data?.id;
-      if (newId) {
-        navigate(`/production/work-orders/${newId}`);
-      } else {
-        navigate('/production/work-orders');
-      }
+      navigate(`/production/work-orders/${created.id}`);
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'Failed to create work order';
       setError(message);
@@ -189,8 +178,6 @@ export default function WorkOrderCreate() {
       setIsSaving(false);
     }
   };
-
-  const selectedStyle = styles.find((s) => s.id === styleId);
 
   return (
     <>
@@ -219,22 +206,17 @@ export default function WorkOrderCreate() {
               <div className="grid gap-4">
                 <div>
                   <Label htmlFor="style">Style *</Label>
-                  <Combobox
-                    options={styles.map((s) => ({
-                      value: s.id,
-                      label: `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - ${s.styleName}`,
-                      searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName}`,
-                    }))}
+                  <StyleCombobox
                     value={styleId}
-                    onValueChange={setStyleId}
-                    placeholder={isLoading ? 'Loading styles...' : 'Select a style...'}
-                    searchPlaceholder="Search by code or name..."
-                    emptyText="No styles found"
-                    disabled={isLoading}
+                    onChange={(id, style) => {
+                      setStyleId(id);
+                      setSelectedStyle(style);
+                    }}
+                    placeholder="Select a style..."
                   />
                 </div>
 
-                {selectedStyle && (
+                {styleId && selectedStyle && (
                   <div className="p-3 bg-muted rounded-lg text-sm">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
@@ -386,7 +368,7 @@ export default function WorkOrderCreate() {
                 </Button>
               </div>
 
-              {sizes.length === 0 && styleId && (
+              {sizes.length === 0 && styleId && !optionsLoading && (
                 <p className="text-sm text-warning mt-3">
                   No sizes found for this style. Please check the style's variant configuration.
                 </p>

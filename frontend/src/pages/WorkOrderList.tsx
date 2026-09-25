@@ -14,7 +14,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
 import { ClipboardList } from 'lucide-react';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -27,7 +27,7 @@ type Column<T> = {
 
 export default function WorkOrderList() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,10 +102,17 @@ export default function WorkOrderList() {
     return Math.round((workOrder.completedQuantity / workOrder.totalQuantity) * 100);
   };
 
+  // Overdue once the planned end DAY (IST) has passed — not from 05:30 on the day itself
   const isOverdue = (wo: WorkOrder) =>
     !!wo.plannedEndDate &&
-    new Date(wo.plannedEndDate) < new Date() &&
-    !['COMPLETED', 'DISPATCHED', 'CANCELLED'].includes(wo.status);
+    toDateInputValue(wo.plannedEndDate) < toDateInputValue(new Date()) &&
+    !['COMPLETED', 'DISPATCHED', 'CANCELLED', 'SPLIT'].includes(wo.status);
+
+  const clearUrlFilter = (key: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(key);
+    setSearchParams(next, { replace: true });
+  };
 
   // Overdue is filtered client-side (no backend param); status/priority/search are server-side
   const displayedWorkOrders = overdueOnly ? workOrders.filter(isOverdue) : workOrders;
@@ -158,7 +165,7 @@ export default function WorkOrderList() {
       header: 'Location',
       render: (wo) => (
         <div className="text-sm text-foreground">
-          {wo.warehouses?.warehouseName || <span className="text-warning">Not Assigned</span>}
+          {wo.warehouse?.warehouseName || <span className="text-warning">Not Assigned</span>}
         </div>
       ),
     },
@@ -249,7 +256,7 @@ export default function WorkOrderList() {
     <>
       <PageHeader title="Production Runs">
         <div className="flex gap-2">
-          <Button onClick={() => navigate('/dashboard')} variant="outline">
+          <Button onClick={() => navigate('/dashboard/production')} variant="outline">
             <TrendingUp className="mr-2 h-4 w-4" />
             Dashboard
           </Button>
@@ -268,7 +275,10 @@ export default function WorkOrderList() {
               Overdue only
               <button
                 type="button"
-                onClick={() => setOverdueOnly(false)}
+                onClick={() => {
+                  setOverdueOnly(false);
+                  clearUrlFilter('overdue');
+                }}
                 className="ml-1 hover:opacity-80"
                 aria-label="Clear overdue filter"
               >
@@ -281,7 +291,10 @@ export default function WorkOrderList() {
               Order: {workOrders.find((wo) => wo.orders)?.orders?.orderNumber || orderIdFilter}
               <button
                 type="button"
-                onClick={() => setOrderIdFilter('')}
+                onClick={() => {
+                  setOrderIdFilter('');
+                  clearUrlFilter('orderId');
+                }}
                 className="ml-1 hover:opacity-80"
                 aria-label="Clear order filter"
               >
@@ -320,6 +333,7 @@ export default function WorkOrderList() {
                   <SelectItem value="COMPLETED">Completed</SelectItem>
                   <SelectItem value="DISPATCHED">Dispatched</SelectItem>
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                  <SelectItem value="SPLIT">Split</SelectItem>
                 </SelectContent>
               </Select>
             </div>

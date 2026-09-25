@@ -15,7 +15,7 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { validateTransition } from '../utils/stateMachine'; // BUG-WO7 fix
 import { applySearch } from '../utils/search-filter';
 import { formatDate, toDateInputValue } from '../utils/date';
-import { ValidationError } from '../errors';
+import { BusinessError, NotFoundError, ValidationError } from '../errors';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -53,7 +53,7 @@ export interface SplitWorkOrderDTO {
 }
 
 export interface UpdateWorkOrderDTO {
-  warehouseId?: string;
+  warehouseId?: string | null;
   plannedStartDate?: Date;
   plannedEndDate?: Date;
   actualStartDate?: Date;
@@ -63,7 +63,7 @@ export interface UpdateWorkOrderDTO {
   // tracking entries (recomputeWorkOrderCompletion) and must never be hand-set.
   status?: OrderStatus;
   priority?: Priority;
-  remarks?: string;
+  remarks?: string | null;
   approvedById?: string;
   // BUG-WO7 fix: userRole for status transition validation (ADMIN can override)
   userRole?: string;
@@ -79,6 +79,16 @@ export interface WorkOrderFilters {
   search?: string;
   startDate?: Date;
   endDate?: Date;
+}
+
+/** A run must not be planned to end before it starts — compared as IST calendar days. */
+function assertEndNotBeforeStart(start: Date | null, end: Date | null, endLabel = 'Planned end date') {
+  if (!start || !end) return;
+  if (toDateInputValue(end) < toDateInputValue(start)) {
+    throw new ValidationError(
+      `${endLabel} (${formatDate(end)}) cannot be before the planned start date (${formatDate(start)})`
+    );
+  }
 }
 
 export interface ProductionTrackingDTO {
@@ -109,10 +119,11 @@ class WorkOrderService {
     // schema: header total must equal the breakup sum (bug-hunt production-19).
     const breakupSum = data.colorSizeBreakup.reduce((sum, b) => sum + b.quantity, 0);
     if (breakupSum !== data.totalQuantity) {
-      throw new Error(
+      throw new ValidationError(
         `Work order totalQuantity (${data.totalQuantity}) does not match the color/size breakup sum (${breakupSum})`
       );
     }
+    assertEndNotBeforeStart(data.plannedStartDate, data.plannedEndDate);
 
     const workOrderNumber = await this.generateWorkOrderNumber();
 
@@ -486,7 +497,7 @@ class WorkOrderService {
     });
 
     if (!workOrder) {
-      throw new Error('Work order not found');
+      throw new NotFoundError('Work order');
     }
 
     return workOrder;
@@ -496,6 +507,18 @@ class WorkOrderService {
    * Update a work order
    */
   async updateWorkOrder(id: string, data: UpdateWorkOrderDTO) {
+    if (data.plannedStartDate || data.plannedEndDate) {
+      const stored = await prisma.work_orders.findUnique({
+        where: { id },
+        select: { plannedStartDate: true, plannedEndDate: true },
+      });
+      if (!stored) throw new NotFoundError('Work order');
+      assertEndNotBeforeStart(
+        data.plannedStartDate ?? stored.plannedStartDate,
+        data.plannedEndDate ?? stored.plannedEndDate
+      );
+    }
+
     // BUG-WO7 fix: Validate status transition if status change is requested
     if (data.status) {
       const currentWorkOrder = await prisma.work_orders.findUnique({
@@ -504,7 +527,7 @@ class WorkOrderService {
       });
 
       if (!currentWorkOrder) {
-        throw new Error('Work order not found');
+        throw new NotFoundError('Work order');
       }
 
       // Extract userRole from data (not persisted to DB)
@@ -514,7 +537,7 @@ class WorkOrderService {
       const transitionResult = validateTransition('order', currentWorkOrder.status, data.status, userRole);
 
       if (!transitionResult.valid) {
-        throw new Error(
+        throw new ValidationError(
           transitionResult.message || `Invalid status transition from ${currentWorkOrder.status} to ${data.status}`
         );
       }
@@ -636,7 +659,7 @@ class WorkOrderService {
     );
 
     if (validation.isBlocked) {
-      throw new Error(`Stage transition blocked: ${validation.blockers.map((b) => b.message).join('; ')}`);
+      throw new BusinessError(`Stage transition blocked: ${validation.blockers.map((b) => b.message).join('; ')}`);
     }
 
     // Tracking insert + work-order rollup update are ONE transaction, and completedQuantity is
@@ -653,10 +676,10 @@ class WorkOrderService {
         select: { status: true, workOrderNumber: true },
       });
       if (!targetWo) {
-        throw new Error('Work order not found');
+        throw new NotFoundError('Work order');
       }
       if (targetWo.status === OrderStatus.CANCELLED) {
-        throw new Error(
+        throw new BusinessError(
           `Work order ${targetWo.workOrderNumber} is CANCELLED — production cannot be recorded against it.`
         );
       }
@@ -1010,12 +1033,14 @@ class WorkOrderService {
     });
 
     if (!originalWorkOrder) {
-      throw new Error('Work order not found');
+      throw new NotFoundError('Work order');
     }
 
     if (originalWorkOrder.status !== OrderStatus.PENDING) {
-      throw new Error('Can only split work orders in PENDING status');
+      throw new BusinessError('Can only split work orders in PENDING status');
     }
+
+    assertEndNotBeforeStart(originalWorkOrder.plannedStartDate, data.plannedDispatchDate, 'Planned dispatch date');
 
     // Validate split quantities
     let totalSplitQty = 0;
@@ -1025,11 +1050,11 @@ class WorkOrderService {
       );
 
       if (!originalBreakup) {
-        throw new Error(`Color/Size combination not found in original work order`);
+        throw new ValidationError(`Color/Size combination not found in original work order`);
       }
 
       if (splitItem.quantity > originalBreakup.plannedQuantity) {
-        throw new Error(`Split quantity exceeds available quantity for color/size`);
+        throw new ValidationError(`Split quantity exceeds available quantity for color/size`);
       }
 
       if (splitItem.quantity <= 0) {
@@ -1040,11 +1065,11 @@ class WorkOrderService {
     }
 
     if (totalSplitQty <= 0) {
-      throw new Error('Must specify at least some quantity to split');
+      throw new ValidationError('Must specify at least some quantity to split');
     }
 
     if (totalSplitQty >= originalWorkOrder.totalQuantity) {
-      throw new Error('Cannot split entire quantity - some must remain in original');
+      throw new ValidationError('Cannot split entire quantity - some must remain in original');
     }
 
     // Use transaction to ensure consistency
@@ -1058,6 +1083,8 @@ class WorkOrderService {
           workOrderNumber: newWorkOrderNumber,
           orderId: originalWorkOrder.orderId,
           orderItemId: originalWorkOrder.orderItemId,
+          stockProductionOrderId: originalWorkOrder.stockProductionOrderId,
+          stockProductionOrderItemId: originalWorkOrder.stockProductionOrderItemId,
           styleId: originalWorkOrder.styleId,
           warehouseId: originalWorkOrder.warehouseId,
           plannedStartDate: originalWorkOrder.plannedStartDate,
@@ -1116,7 +1143,7 @@ class WorkOrderService {
         },
       });
       if (reduced.count === 0) {
-        throw new Error('Cannot split entire quantity - some must remain in original');
+        throw new ValidationError('Cannot split entire quantity - some must remain in original');
       }
 
       return newWorkOrder;

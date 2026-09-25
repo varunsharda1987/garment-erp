@@ -16,6 +16,7 @@ import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import workOrderService from '../services/workOrder.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { handleApiError } from '../lib/api-error-handler';
+import { toDateInputValue } from '@/lib/date';
 import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
 
 export default function WorkOrderForm() {
@@ -67,8 +68,8 @@ export default function WorkOrderForm() {
 
       // Populate form fields with defensive date parsing
       setWarehouseId(workOrderData.warehouseId || '');
-      setPlannedStartDate(workOrderData.plannedStartDate ? workOrderData.plannedStartDate.split('T')[0] : '');
-      setPlannedEndDate(workOrderData.plannedEndDate ? workOrderData.plannedEndDate.split('T')[0] : '');
+      setPlannedStartDate(toDateInputValue(workOrderData.plannedStartDate));
+      setPlannedEndDate(toDateInputValue(workOrderData.plannedEndDate));
       setPriority(workOrderData.priority);
       setRemarks(workOrderData.remarks || '');
     } catch (err: unknown) {
@@ -83,15 +84,20 @@ export default function WorkOrderForm() {
     setError(null);
     setSuccess(null);
 
+    if (plannedEndDate < plannedStartDate) {
+      setError('Planned end date cannot be before the planned start date');
+      return;
+    }
+
     try {
       setSaving(true);
 
       const updateData: UpdateWorkOrderDTO = {
-        warehouseId: warehouseId || undefined,
+        warehouseId: warehouseId || null,
         plannedStartDate: new Date(plannedStartDate),
         plannedEndDate: new Date(plannedEndDate),
         priority,
-        remarks: remarks || undefined,
+        remarks: remarks.trim() || null,
       };
 
       await workOrderService.update(id!, updateData);
@@ -278,7 +284,7 @@ export default function WorkOrderForm() {
           </Card>
 
           {/* Color x Size Breakup (Read-only) */}
-          {workOrder.workOrderBreakup && workOrder.workOrderBreakup.length > 0 && (
+          {workOrder.breakup && workOrder.breakup.length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle>Color × Size Breakup</CardTitle>
@@ -300,7 +306,7 @@ export default function WorkOrderForm() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {workOrder.workOrderBreakup.map((breakup) => (
+                      {workOrder.breakup.map((breakup) => (
                         <tr key={breakup.id}>
                           <td className="px-4 py-3 text-sm">{breakup.colorOptions?.colorName || '-'}</td>
                           <td className="px-4 py-3 text-sm">{breakup.sizeOptions?.sizeName || '-'}</td>

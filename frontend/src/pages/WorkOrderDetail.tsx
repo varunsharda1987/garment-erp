@@ -56,6 +56,7 @@ import ThreadIssuanceSection from '@/components/ThreadIssuanceSection';
 import PackagingIssuanceSection from '@/components/PackagingIssuanceSection';
 import WipSummarySection from '@/components/WipSummarySection';
 import { formatDate } from '@/lib/date';
+import { formatCurrency } from '@/lib/currency';
 import { qtyExceeds } from '@/lib/quantity';
 
 interface ManufacturingProgress {
@@ -410,7 +411,7 @@ export default function WorkOrderDetail() {
               Edit
             </Button>
           )}
-          {['PENDING', 'IN_PRODUCTION'].includes(workOrder.status) && !workOrder.parentRunId && (
+          {workOrder.status === 'PENDING' && !workOrder.parentRunId && (
             <Button variant="outline" onClick={() => setIsSplitModalOpen(true)}>
               <GitBranch className="mr-2 h-4 w-4" />
               Split Run
@@ -668,7 +669,7 @@ export default function WorkOrderDetail() {
                       <div className="flex items-center justify-center gap-2 mb-1">
                         <DollarSign className="h-4 w-4 text-accent" />
                         <div className="text-2xl font-bold text-accent">
-                          ₹{serviceRequirementsSummary.totalEstimatedCost.toFixed(0)}
+                          {formatCurrency(serviceRequirementsSummary.totalEstimatedCost, { decimals: 0 })}
                         </div>
                       </div>
                       <div className="text-xs text-accent">Est. Total Cost</div>
@@ -1000,12 +1001,12 @@ export default function WorkOrderDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {workOrder.warehouses ? (
+              {workOrder.warehouse ? (
                 <div className="space-y-2">
-                  <div className="font-medium text-lg">{workOrder.warehouses.warehouseName}</div>
-                  <div className="text-muted-foreground">{workOrder.warehouses.warehouseCode}</div>
-                  {workOrder.warehouses.address && (
-                    <div className="text-sm text-muted-foreground">{workOrder.warehouses.address}</div>
+                  <div className="font-medium text-lg">{workOrder.warehouse.warehouseName}</div>
+                  <div className="text-muted-foreground">{workOrder.warehouse.warehouseCode}</div>
+                  {workOrder.warehouse.address && (
+                    <div className="text-sm text-muted-foreground">{workOrder.warehouse.address}</div>
                   )}
                 </div>
               ) : (
@@ -1022,15 +1023,12 @@ export default function WorkOrderDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {workOrder.usersWorkOrdersCreatedByIdTousers ? (
+              {workOrder.createdBy ? (
                 <div className="space-y-2">
                   <div className="font-medium">
-                    {workOrder.usersWorkOrdersCreatedByIdTousers.firstName}{' '}
-                    {workOrder.usersWorkOrdersCreatedByIdTousers.lastName}
+                    {workOrder.createdBy.firstName} {workOrder.createdBy.lastName}
                   </div>
-                  <div className="text-muted-foreground text-sm">
-                    {workOrder.usersWorkOrdersCreatedByIdTousers.email}
-                  </div>
+                  <div className="text-muted-foreground text-sm">{workOrder.createdBy.email}</div>
                 </div>
               ) : (
                 <div className="text-muted-foreground">-</div>
@@ -1044,7 +1042,7 @@ export default function WorkOrderDetail() {
         </div>
 
         {/* Color/Size Breakup */}
-        {workOrder.workOrderBreakup && workOrder.workOrderBreakup.length > 0 && (
+        {workOrder.breakup && workOrder.breakup.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Color × Size Breakup</CardTitle>
@@ -1068,7 +1066,7 @@ export default function WorkOrderDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {workOrder.workOrderBreakup.map((breakup) => (
+                    {workOrder.breakup.map((breakup) => (
                       <tr key={breakup.id} className="hover:bg-muted">
                         <td className="px-4 py-3 text-sm">{breakup.colorOptions?.colorName || '-'}</td>
                         <td className="px-4 py-3 text-sm">{breakup.sizeOptions?.sizeName || '-'}</td>

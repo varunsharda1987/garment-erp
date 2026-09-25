@@ -1068,18 +1068,19 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/SaleOrderList.tsx": "205685af425a",
-      "frontend/src/pages/SaleOrderDetail.tsx": "37bc77fc873b",
-      "frontend/src/components/sale-order/SaleOrderForm.tsx": "f0bbc984a840",
-      "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "c8d17775d429",
-      "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "ec044d9df4c3",
-      "frontend/src/components/sale-order/SizeBreakdownDialog.tsx": "d8524f4a30c5",
+      "frontend/src/pages/SaleOrderList.tsx": "a98023c6f30f",
+      "frontend/src/pages/SaleOrderDetail.tsx": "ca16ac242b32",
+      "frontend/src/components/sale-order/SaleOrderForm.tsx": "8f087de771ba",
+      "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "3a2d58ee87b9",
+      "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "6b90c300f8e4",
+      "frontend/src/components/sale-order/SizeBreakdownDialog.tsx": "aacb25829026",
+      "frontend/src/components/sale-order/sale-order-lines.ts": "55db918c430a",
       "frontend/src/services/saleOrder.service.ts": "b145386ffbfc",
       "backend/src/schemas/saleOrder.schema.ts": "d3e41c129196",
       "backend/src/routes/saleOrder.routes.ts": "3e4372adda3f"
     },
-    "contentHash": "62e23f826dce",
-    "generatedAt": "2026-09-24T12:07:29.445Z"
+    "contentHash": "c19cb0deddda",
+    "generatedAt": "2026-09-25T06:45:37.859Z"
   },
   "sample-approve": {
     "sources": {
@@ -1254,12 +1255,12 @@
       "frontend/src/pages/StyleList.tsx": "1402eb868a40",
       "frontend/src/pages/StyleBulkImport.tsx": "22689e9f15f2",
       "backend/src/controllers/style-import.controller.ts": "99b1b82a94df",
-      "backend/src/services/style-import.service.ts": "92448b53c0ad",
+      "backend/src/services/style-import.service.ts": "0679dc712176",
       "backend/src/types/style-import.types.ts": "89da671c9730",
       "backend/src/schemas/styleImport.schema.ts": "d08ac04b591f"
     },
-    "contentHash": "df696be40d00",
-    "generatedAt": "2026-09-23T06:17:36.316Z"
+    "contentHash": "6b93cb2915d7",
+    "generatedAt": "2026-09-25T06:45:38.016Z"
   },
   "supplier-create": {
     "sources": {

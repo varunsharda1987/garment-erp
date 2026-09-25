@@ -367,6 +367,7 @@ export interface CreateStyleFormData {
   processes?: ProcessFormData[];
   materialBOM?: MaterialBOMFormData[];
   customerAccessoriesPresetId?: string | null;
+  customerSizePresetId?: string | null;
   skuVariants?: SKUVariantFormData[];
 }
 

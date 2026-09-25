@@ -339,8 +339,13 @@ export default function StyleFormRedesigned() {
 
   // Size Category Presets
   const [customerSizePresets, setCustomerSizePresets] = useState<CustomerSizePreset[]>([]);
-  const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
-  const [presetSizeIds, setPresetSizeIds] = useState<Set<string>>(new Set()); // Track which sizes came from preset
+  const [selectedSizePresetId, setSelectedSizePresetId] = useState(''); // saved as styles.customerSizePresetId
+  // Which sizes came from the preset (the * markers). Derived rather than stored, so they come back
+  // on edit load and draft restore, where only the preset id is known.
+  const presetSizeIds = useMemo(
+    () => new Set(customerSizePresets.find((p) => p.id === selectedSizePresetId)?.sizeCategory?.sizes ?? []),
+    [customerSizePresets, selectedSizePresetId]
+  );
 
   const [styleCode, setStyleCode] = useState('');
   const [buyerStyleRef, setBuyerStyleRef] = useState(''); // Buyer's own reference number
@@ -912,6 +917,9 @@ export default function StyleFormRedesigned() {
     setCategory('');
     setBrandCategoryId('');
     setAvailableCategories([]);
+    // A size preset belongs to one buyer. The sizes stay; the new buyer's default preset (if any)
+    // is applied by loadSizePresets in create mode.
+    setSelectedSizePresetId('');
   };
 
   // Load brand categories when brand is selected
@@ -1109,6 +1117,8 @@ export default function StyleFormRedesigned() {
         if (customerAccessoriesPresetId && presets) {
           setSelectedAccessoryPresetId(customerAccessoriesPresetId);
         }
+        // Restore the size preset CHOICE only — never re-apply it: the saved sizes and SKUs are the truth
+        setSelectedSizePresetId((styleData.customerSizePresetId as string | undefined) || '');
 
         // Populate available brands from customer's brandCategories
         if (
@@ -1678,22 +1688,27 @@ export default function StyleFormRedesigned() {
   };
 
   /**
+   * Replace the size list with `sizes`. A size already on the form keeps its SKU code and barcode —
+   * re-picking a preset on a saved style used to blank every one of them.
+   */
+  const setSizeRows = (sizes: string[]) => {
+    setSkuVariants((prev) => {
+      const existing = new Map(prev.map((v) => [v.size, v]));
+      return sizes.map((size) => {
+        const row = existing.get(size);
+        return row ? { ...row, isActive: true } : { size, sku: '', barcode: '', isActive: true };
+      });
+    });
+  };
+
+  /**
    * Apply size preset to SKU variants.
    * Replaces entire size list with preset sizes (no merge).
    */
   const applyPresetToSizes = (preset: CustomerSizePreset) => {
     if (!preset?.sizeCategory?.sizes || preset.sizeCategory.sizes.length === 0) return;
 
-    // Replace ALL sizes with preset sizes
-    const presetVariants: SKUVariant[] = preset.sizeCategory.sizes.map((size) => ({
-      size,
-      sku: '',
-      barcode: '',
-      isActive: true,
-    }));
-
-    setSkuVariants(presetVariants);
-    setPresetSizeIds(new Set(preset.sizeCategory.sizes));
+    setSizeRows(preset.sizeCategory.sizes);
     setSelectedSizePresetId(preset.id);
     notify.success(`Applied size preset: ${preset.presetName}`);
   };
@@ -1705,15 +1720,7 @@ export default function StyleFormRedesigned() {
     if (!presetId || presetId === 'none') {
       // Revert to default adult sizes
       setSelectedSizePresetId('');
-      setPresetSizeIds(new Set());
-      setSkuVariants(
-        DEFAULT_SIZES.map((size) => ({
-          size,
-          sku: '',
-          barcode: '',
-          isActive: true,
-        }))
-      );
+      setSizeRows(DEFAULT_SIZES);
       return;
     }
 
@@ -2193,6 +2200,8 @@ export default function StyleFormRedesigned() {
         // resurrecting the removed accessories on the next edit (bug-hunt BH-0143). The backend
         // service is built for this: it writes `value || null` whenever the key is present.
         customerAccessoriesPresetId: selectedAccessoryPresetId || null,
+        // Same null-not-undefined rule: picking "None (Manual Sizes)" must clear the saved preset
+        customerSizePresetId: selectedSizePresetId || null,
         // CAD status starts as PENDING
         cadStatus: 'PENDING' as CADStatus,
         // Status - DRAFT stays DRAFT until explicitly published, ACTIVE stays ACTIVE

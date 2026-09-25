@@ -179,7 +179,8 @@ export interface CreateStyleRequest {
   components?: StyleComponentInput[];
   processes?: StyleProcessInput[];
   materialBOM?: MaterialBOMInput[];
-  customerAccessoriesPresetId?: string;
+  customerAccessoriesPresetId?: string | null;
+  customerSizePresetId?: string | null;
   // Additional fields
   costPrice?: number | string | null;
   sellingPrice?: number | string | null;

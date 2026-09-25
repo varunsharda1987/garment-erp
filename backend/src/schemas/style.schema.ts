@@ -257,6 +257,7 @@ export const createStyleSchema = z.object({
   processes: z.array(styleProcessSchema).optional().default([]),
   materialBOM: z.array(materialBOMSchema).optional().default([]),
   customerAccessoriesPresetId: z.string().uuid().optional().nullable(),
+  customerSizePresetId: z.string().uuid().optional().nullable(),
 
   // Legacy arrays (deprecated but kept for backward compatibility)
   garmentTrims: z.array(garmentTrimSchema).optional().default([]),
@@ -326,6 +327,8 @@ export const updateStyleSchema = z.object({
   processes: z.array(styleProcessSchema).optional(),
   materialBOM: z.array(materialBOMSchema).optional(),
   customerAccessoriesPresetId: z.string().uuid().optional().nullable(),
+  // The Size Category Preset picked on the Style form. null = "None (Manual Sizes)".
+  customerSizePresetId: z.string().uuid().optional().nullable(),
 
   // SKU variants
   skuVariants: z.array(skuVariantSchema).optional(),

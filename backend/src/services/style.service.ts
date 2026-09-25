@@ -735,6 +735,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           accountingUnit: data.accountingUnit || null,
           bulletPoints: data.bulletPoints || null,
           imageUrl: data.imageUrl || null,
+          // Both presets the form picked. Create used to drop the accessories one — only the
+          // update path wrote it, so it was lost until the style's second save.
+          customerAccessoriesPresetId: data.customerAccessoriesPresetId || null,
+          customerSizePresetId: data.customerSizePresetId || null,
           // Nested creates
           ...(componentsCreate ? { style_components: componentsCreate } : {}),
           ...(processesCreate ? { style_processes: processesCreate } : {}),
@@ -2076,6 +2080,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           buyerStyleRef: data.buyerStyleRef !== undefined ? data.buyerStyleRef || null : undefined,
           customerAccessoriesPresetId:
             data.customerAccessoriesPresetId !== undefined ? data.customerAccessoriesPresetId || null : undefined,
+          customerSizePresetId: data.customerSizePresetId !== undefined ? data.customerSizePresetId || null : undefined,
           ...(expectedOrderQtyPatch as object),
         },
         include: {
@@ -2847,7 +2852,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   // Private Helper Methods
   // ============================================
 
-  private async loadPresetAccessories(presetId?: string): Promise<PresetAccessoryItem[]> {
+  private async loadPresetAccessories(presetId?: string | null): Promise<PresetAccessoryItem[]> {
     if (!presetId) return [];
 
     try {

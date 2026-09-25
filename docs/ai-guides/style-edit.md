@@ -12,22 +12,31 @@ keywords:
   - update fabric
   - change trims
   - edit components
+  - size preset
+  - size category preset
+  - size preset resets to none
   # Hinglish
   - style edit karna
   - style change karna
   - style modify karna
   - style update karna
   - style mein changes
+  - size preset save nahi hota
+  - size preset none ho jata hai
   # Devanagari
   - स्टाइल एडिट
   - स्टाइल बदलना
   - स्टाइल में बदलाव
   - स्टाइल अपडेट
   - स्टाइल संशोधन
+  - साइज़ प्रीसेट
+  - साइज प्रीसेट
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StyleFormRedesigned.tsx
   - frontend/src/pages/StyleList.tsx
+  - backend/src/schemas/style.schema.ts
+  - backend/src/services/style.service.ts
 route: /styles
 ---
 
@@ -89,20 +98,26 @@ route: /styles
 
 ### Editing Sizes & SKUs
 
-1. Select a **Size Preset** from customer presets or keep default adult sizes (XS-XXXL)
-2. Enable/disable specific sizes using the checkboxes
-3. SKU codes are auto-generated but can be customized
+1. On **1. Basic Info**, scroll to **Size Variants & SKUs**
+2. If the customer has size presets, **Size Category Preset (Optional)** shows the preset saved with the style (or **None (Manual Sizes)**)
+3. To change it, pick another preset, or **None (Manual Sizes)** for the standard XS-XXXL list. The size list is replaced, but a size that stays keeps its SKU code and barcode
+4. Sizes from the preset show a small **\*** and the line **size(s) from preset - you can add more sizes manually**
+5. Enable/disable specific sizes using the checkboxes
+6. Click **Auto-Generate SKUs** to fill SKU codes (empty SKUs are also filled when you save); codes can be typed over
 
 ### Saving Changes
 
 1. Changes auto-save to local browser storage every 3 seconds
-2. Click **Save Draft** to save without publishing
-3. Click **Save & Publish** to save and make the style active
+2. Click **Save as Draft** to save without publishing
+3. Click **Update Style** to save your changes
+4. A draft style also shows **Publish Style** — click it and confirm to make the style active
 
 ## Traps
 
 - **Style Code is immutable** - you cannot change it after creation
-- **Customer change resets brand/category** - selecting a different customer clears the brand and category selections
+- **Customer change resets brand/category** - selecting a different customer clears the brand and category selections, and the **Size Category Preset** choice (the sizes on screen stay)
+- **Styles saved before 25-Sep-2026 show None (Manual Sizes)** - the preset choice was not saved then, even though the sizes came from it. Pick the preset again and click **Update Style**; the SKU codes and barcodes of sizes already on the style are kept
+- **Unticked sizes are dropped from sale orders** - a size unticked here stops being offered in the sale order Size list
 - **Product category change in edit mode** - components are NOT auto-populated from category defaults (only happens in create mode)
 - **Draft styles** need to be "Published" before they appear in order dropdowns
 - **Published styles with orders** cannot be archived - check for active dependencies first

@@ -817,6 +817,7 @@ model customer_size_category_presets {
   updatedAt      DateTime        @updatedAt
   customer       customers       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   sizeCategory   size_categories @relation(fields: [sizeCategoryId], references: [id])
+  styles         styles[]
 
   @@unique([customerId, presetName])
   @@index([customerId])
@@ -2674,7 +2675,7 @@ model style_material_bom {
 }
 
 model styles {
-  id                          String                         @id
+  id                          String                          @id
   // Partial unique index (WHERE isActive) added via raw SQL in harden_code_uniqueness migration
   styleCode                   String
   styleName                   String
@@ -2685,15 +2686,15 @@ model styles {
   description                 String?
   specifications              String?
   image                       String?
-  isActive                    Boolean                        @default(true)
-  status                      StyleStatus                    @default(DRAFT)
-  cadStatus                   CADStatus                      @default(PENDING)
+  isActive                    Boolean                         @default(true)
+  status                      StyleStatus                     @default(DRAFT)
+  cadStatus                   CADStatus                       @default(PENDING)
   approvedCadDate             DateTime?
-  costPrice                   Decimal?                       @db.Decimal(10, 2)
-  sellingPrice                Decimal?                       @db.Decimal(10, 2)
+  costPrice                   Decimal?                        @db.Decimal(10, 2)
+  sellingPrice                Decimal?                        @db.Decimal(10, 2)
   createdById                 String
-  createdAt                   DateTime                       @default(now())
-  updatedAt                   DateTime                       @updatedAt
+  createdAt                   DateTime                        @default(now())
+  updatedAt                   DateTime                        @updatedAt
   brandName                   String?
   customerId                  String?
   customerName                String?
@@ -2707,22 +2708,26 @@ model styles {
   accountingUnit              String?
   hsnCode                     String?
   productTaxRule              String?
-  buyerStyleRef               String?                        @map("buyer_style_ref")
+  buyerStyleRef               String?                         @map("buyer_style_ref")
   internalCode                String?
   numberOfComponents          Int?
   expectedOrderQuantity       Int?
-  productCategoryId           String?                        @map("product_category_id")
+  productCategoryId           String?                         @map("product_category_id")
   customerAccessoriesPresetId String?
+  /// The buyer's size preset picked on the Style form. Records the choice only: the style's
+  /// sizes live in style_variants / size_options and are never re-derived from the preset.
+  customerSizePresetId        String?
+  customerSizePreset          customer_size_category_presets? @relation(fields: [customerSizePresetId], references: [id], onDelete: SetNull)
   button_style_associations   button_style_associations[]
   color_options               color_options[]
   delivery_note_items         delivery_note_items[]
-  embroiderySendOuts          embroidery_send_out[]          @relation("EmbroideryForStyle")
+  embroiderySendOuts          embroidery_send_out[]           @relation("EmbroideryForStyle")
   fabric_physical_tests       fabric_physical_tests[]
-  procurementOrigins          fabric_procurement[]           @relation("ProcurementOriginStyle")
-  stockOrigins                fabric_stock[]                 @relation("StockOriginStyle")
-  originalStyleAllocs         fabric_stock_allocation[]      @relation("OriginalStyle")
-  allocationStyles            fabric_stock_allocation[]      @relation("AllocationStyle")
-  fabricWidthCadCostings      fabric_width_cad[]             @relation("fabric_width_cad_costing_style")
+  procurementOrigins          fabric_procurement[]            @relation("ProcurementOriginStyle")
+  stockOrigins                fabric_stock[]                  @relation("StockOriginStyle")
+  originalStyleAllocs         fabric_stock_allocation[]       @relation("OriginalStyle")
+  allocationStyles            fabric_stock_allocation[]       @relation("AllocationStyle")
+  fabricWidthCadCostings      fabric_width_cad[]              @relation("fabric_width_cad_costing_style")
   fabricCostingRuns           fabric_costing_run[]
   finished_goods_stock        finished_goods_stock[]
   garment_physical_tests      garment_physical_tests[]
@@ -2744,34 +2749,34 @@ model styles {
   style_production_tracking   style_production_tracking[]
   style_value_additions       style_value_additions[]
   style_variants              style_variants[]
-  brand_categories            brand_categories?              @relation(fields: [brandCategoryId], references: [id])
-  customer                    customers?                     @relation(fields: [customerId], references: [id])
-  style_categories            style_categories?              @relation(fields: [categoryId], references: [id])
-  users                       users                          @relation(fields: [createdById], references: [id])
-  product_category            product_category_master?       @relation(fields: [productCategoryId], references: [id])
-  season_master               season_master?                 @relation(fields: [seasonId], references: [id])
-  color                       color_master?                  @relation("StyleColor", fields: [colorId], references: [id])
+  brand_categories            brand_categories?               @relation(fields: [brandCategoryId], references: [id])
+  customer                    customers?                      @relation(fields: [customerId], references: [id])
+  style_categories            style_categories?               @relation(fields: [categoryId], references: [id])
+  users                       users                           @relation(fields: [createdById], references: [id])
+  product_category            product_category_master?        @relation(fields: [productCategoryId], references: [id])
+  season_master               season_master?                  @relation(fields: [seasonId], references: [id])
+  color                       color_master?                   @relation("StyleColor", fields: [colorId], references: [id])
   thread_style_associations   thread_style_associations[]
   zipper_style_associations   zipper_style_associations[] // BUG-MM6 FIX
   work_orders                 work_orders[]
   stock_production_orders     stock_production_orders[]
   sale_order_items            sale_order_items[]
-  sale_orders                 sale_orders[]                  @relation("so_primaryStyle")
+  sale_orders                 sale_orders[]                   @relation("so_primaryStyle")
   // Lace processing relations
-  laceStockOrigins            lace_stock[]                   @relation("lace_stock_origin_style")
-  laceAllocations             lace_stock_allocation[]        @relation("lace_allocation_style")
-  laceOriginalStyleAllocs     lace_stock_allocation[]        @relation("lace_allocation_original_style")
-  laceLabDips                 lace_lab_dip[]                 @relation("lace_lab_dip_style")
-  laceIssueNotes              lace_issue_note[]              @relation("lace_issue_style")
-  lacesProcessedFor           lace_master[]                  @relation("lace_processed_for_style")
+  laceStockOrigins            lace_stock[]                    @relation("lace_stock_origin_style")
+  laceAllocations             lace_stock_allocation[]         @relation("lace_allocation_style")
+  laceOriginalStyleAllocs     lace_stock_allocation[]         @relation("lace_allocation_original_style")
+  laceLabDips                 lace_lab_dip[]                  @relation("lace_lab_dip_style")
+  laceIssueNotes              lace_issue_note[]               @relation("lace_issue_style")
+  lacesProcessedFor           lace_master[]                   @relation("lace_processed_for_style")
   // Design Hub relations
   styleImages                 style_images[]
   styleComments               style_comments[]
   techSpecs                   style_tech_specs?
   invoice_items               invoice_items[]
-  external_process_send_outs  external_process_send_outs[]   @relation("ExternalProcessStyle")
+  external_process_send_outs  external_process_send_outs[]    @relation("ExternalProcessStyle")
   // Purchase orders linked to this style (for Manual PO traceability)
-  purchaseOrders              purchase_orders[]              @relation("PO_Style")
+  purchaseOrders              purchase_orders[]               @relation("PO_Style")
   // Mini marker files for CAD planning
   cadPurposeFiles             cad_purpose_files[]
 
@@ -2794,6 +2799,7 @@ model styles {
   @@index([internalCode]) // Code generation with startsWith
   @@index([brandCategoryId]) // Style form relations
   @@index([createdById]) // Audit/creator queries
+  @@index([customerSizePresetId])
 }
 
 model suppliers {

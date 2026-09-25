@@ -57,6 +57,10 @@ keywords:
   - ट्रिम्स
   - एक्सेसरीज़
   - साइज़
+  - size preset
+  - size category preset
+  - size preset save nahi hota
+  - साइज़ प्रीसेट
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -89,7 +93,7 @@ The customer must already exist in the Customers master, and the customer needs 
 9. Set **Number of Components**. If the product category sets a minimum or maximum, staying outside that range shows a red warning.
 10. Under **Component Selection**, choose a component for each box (**Component 1**, **Component 2**, and so on) using **Search component...**. The list only shows components allowed for the chosen product category.
 11. Optional: expand **Additional Details (Optional)** for **HSN Code (6-8 digits)**, **Accounting Unit**, **Description**, **Bullet Points** and **Remarks**.
-12. Scroll to **Size Variants & SKUs**. If the customer has size presets, **Size Category Preset (Optional)** appears above it and the default preset is applied automatically. Untick sizes you do not need. Click **Auto-Generate SKUs** to fill SKU codes (empty SKUs are also filled when you save).
+12. Scroll to **Size Variants & SKUs**. If the customer has size presets, **Size Category Preset (Optional)** appears above it and the default preset is applied automatically. Pick another preset, or **None (Manual Sizes)** for the standard XS–XXXL list. Sizes that came from the preset show a small **\*** and the line **size(s) from preset - you can add more sizes manually**. Untick sizes you do not need. Click **Auto-Generate SKUs** to fill SKU codes (empty SKUs are also filled when you save).
 13. Click **Next: Fabrics & Trims**. Under **Fabrics by Component**, each component shows as a collapsible bar. Click **Add Fabric** (or **Add First Fabric**) on the component.
 14. For each fabric, pick **Source:** — **Greige / Process** (then fill **Generic Greige Name**) or **Ready Fabric** (then search the fabric master under **Ready Fabric**; **Create New Fabric** opens the fabric form in a new tab). Picking a ready fabric copies its finish type, design and colour into the row.
 15. Choose **Fabric Finish Type**: **Solid/Dyed**, **Printed**, **Yarn Dyed** or **Raw/Unfinished**. **Printed** and **Yarn Dyed** show **Design Name** (required) and **Color (Optional)**; **Solid/Dyed** shows **Color** (required).
@@ -111,6 +115,8 @@ The customer must already exist in the Customers master, and the customer needs 
 - Every non-draft save needs at least one fabric that has either a greige name or a ready fabric selected. **Printed** and **Yarn Dyed** fabrics must have a **Design Name**. **Solid/Dyed** fabrics must have a **Color**.
 - Not ready yet? Click **Save as Draft**. A draft only needs the Style Code on screen, so it saves with no fabrics, trims or accessories. The Style Code fills only after Brand Category and Product Category are picked (or, for in-house brands, once the Buyer Style Code is typed — and it must still be 2 to 50 characters).
 - Clicking a **Next: ...** button auto-saves in the background once a Style Code exists. On a new style this first background save already creates the draft record — the page address changes to the edit page and **Publish Style** appears. Clicking the tab headers directly does not auto-save.
+- The **Size Category Preset** you pick is saved with the style and shows again when you reopen it. Switching presets replaces the size list, but a size that stays keeps its SKU code and barcode. Changing the **Customer/Buyer** clears the preset choice (a preset belongs to one buyer); the sizes already on screen stay.
+- An unticked size is not saved as one of the style's sizes, so sale orders will not offer it.
 - If **2. Fabrics** shows **No components defined**, click **Go to Basic Info** and pick the components first.
 - Unsaved typing is also kept in the browser. Reopening the page offers **Restore Unsaved Changes?** with **Restore Changes** or **Discard**.
 - CAD planning is not part of this form. Do it after the style is created.

@@ -511,16 +511,17 @@
   },
   "grn-approve": {
     "sources": {
+      "backend/src/services/helpers/direct-supply-challan.helper.ts": "03b77d944dae",
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/GRNList.tsx": "07d28a84ca9c",
-      "frontend/src/pages/GRNDetail.tsx": "a78eba3e0ec9",
-      "backend/src/schemas/grn.schema.ts": "5ce1a535dc07",
-      "backend/src/services/grn.service.ts": "19a480046ede"
+      "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
+      "frontend/src/pages/GRNDetail.tsx": "6bde9d256ce3",
+      "backend/src/schemas/grn.schema.ts": "6a811896ac58",
+      "backend/src/services/grn.service.ts": "fce68042bb68"
     },
-    "contentHash": "9ff67d408b77",
-    "generatedAt": "2026-09-23T06:17:36.091Z"
+    "contentHash": "e73683fc645e",
+    "generatedAt": "2026-09-25T09:42:20.198Z"
   },
   "grn-create": {
     "sources": {
@@ -529,15 +530,15 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
       "frontend/src/pages/GRNForm.tsx": "ce43d08b7229",
-      "frontend/src/pages/GRNDetail.tsx": "50aef869eb6a",
+      "frontend/src/pages/GRNDetail.tsx": "6bde9d256ce3",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
-      "backend/src/schemas/grn.schema.ts": "54334c2077eb",
-      "backend/src/services/grn.service.ts": "7a872e700481",
+      "backend/src/schemas/grn.schema.ts": "6a811896ac58",
+      "backend/src/services/grn.service.ts": "fce68042bb68",
       "backend/src/services/purchaseOrder.service.ts": "7dda11500952",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a"
     },
-    "contentHash": "447526a9bd07",
-    "generatedAt": "2026-09-25T08:49:42.741Z"
+    "contentHash": "38b4b6eb4341",
+    "generatedAt": "2026-09-25T09:42:20.351Z"
   },
   "gst-reports": {
     "sources": {
@@ -623,12 +624,12 @@
       "frontend/src/components/GreigeCombobox.tsx": "40717b7be9d3",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
       "backend/src/schemas/jobWorkOrder.schema.ts": "cf4072364781",
-      "backend/src/controllers/job-work-order.controller.ts": "57d71f76fb8d",
+      "backend/src/controllers/job-work-order.controller.ts": "db72ba95244a",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "197834c129d3"
+      "backend/src/services/job-work-issuance.service.ts": "50be8c0016a0"
     },
-    "contentHash": "ad7ea7b4d5ef",
-    "generatedAt": "2026-09-25T07:20:03.191Z"
+    "contentHash": "a9e0c54278a3",
+    "generatedAt": "2026-09-25T09:42:20.367Z"
   },
   "job-work-receive": {
     "sources": {

@@ -27,6 +27,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { getErrorMessage } from '@/lib/api-error-handler';
 import type { SOItemInput } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
+import { compareSizes } from '@/utils/sku-generator';
+import { styleSeasonLabel } from './sale-order-lines';
 
 interface ColorOption {
   id: string;
@@ -62,6 +64,8 @@ export interface SOItemDraft extends SOItemInput {
   styleName?: string;
   colorName?: string;
   sizeName?: string;
+  /** The style's season (WT26) for the items table's Season column — a sale order has none of its own. */
+  seasonLabel?: string | null;
 }
 
 export interface SaleOrderItemDialogProps {
@@ -125,9 +129,13 @@ export function SaleOrderItemDialog({
     const style = styleData as StyleWithOptions;
     const colors = style.colorOptions?.filter((c) => c.isActive !== false) || [];
     setColorOptions(colors);
+    // The style's sizes are the ones its Style Form defines — a size unchecked there is inactive.
+    // Editing a line whose size the style has since dropped still offers that size, or the Select
+    // would show blank for a line that plainly has one.
+    const keepSizeId = mode === 'edit' ? editItem?.sizeId : undefined;
     setSizeOptions(
-      (style.sizeOptions?.filter((s) => s.isActive !== false) || []).sort(
-        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      (style.sizeOptions?.filter((s) => s.isActive !== false || s.id === keepSizeId) || []).sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || compareSizes(a.sizeName, b.sizeName)
       )
     );
 
@@ -157,7 +165,7 @@ export function SaleOrderItemDialog({
     if (mode === 'create' && style.buyerStyleRef) {
       setBuyerStyleRef((prev) => prev || style.buyerStyleRef || '');
     }
-  }, [styleData, mode]);
+  }, [styleData, mode, editItem?.sizeId]);
 
   // Populate form when editing
   useEffect(() => {
@@ -274,6 +282,7 @@ export function SaleOrderItemDialog({
       styleName: style?.styleName,
       colorName: colorOptions.find((c) => c.id === colorId)?.colorName,
       sizeName: sizeOptions.find((s) => s.id === sizeId)?.sizeName,
+      seasonLabel: styleSeasonLabel(style),
     };
 
     onSave(item);
@@ -300,6 +309,7 @@ export function SaleOrderItemDialog({
       styleName: style?.styleName,
       colorName: entry.colorName,
       sizeName: entry.sizeName,
+      seasonLabel: styleSeasonLabel(style),
     }));
 
     if (onSaveMultiple) {

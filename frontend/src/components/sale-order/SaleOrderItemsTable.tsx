@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { SaleOrderItemDialog, type SOItemDraft } from './SaleOrderItemDialog';
+import { sortSaleOrderLines } from './sale-order-lines';
 
 export interface DisplayItem extends SOItemDraft {
   id?: string;
@@ -46,12 +47,14 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
     return { totalQty, totalAmount };
   }, [items]);
 
+  // Every write keeps the lines sorted (style, colour, then XS → XXXL), so a row's index is its
+  // display position and edit/delete by index still hit the row the user clicked.
   const handleAddItem = (item: SOItemDraft) => {
     const newItem: DisplayItem = {
       ...item,
       totalPrice: item.quantity * item.unitPrice,
     };
-    onChange([...items, newItem]);
+    onChange(sortSaleOrderLines([...items, newItem]));
   };
 
   const handleAddMultipleItems = (newItems: SOItemDraft[]) => {
@@ -59,7 +62,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
       ...item,
       totalPrice: item.quantity * item.unitPrice,
     }));
-    onChange([...items, ...displayItems]);
+    onChange(sortSaleOrderLines([...items, ...displayItems]));
   };
 
   // `...item` carries the dialog's labels, including undefined ones, so changing a line's style or
@@ -72,7 +75,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
       ...item,
       totalPrice: item.quantity * item.unitPrice,
     };
-    onChange(updated);
+    onChange(sortSaleOrderLines(updated));
     setSelectedIndex(null);
   };
 
@@ -116,6 +119,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
           <TableHeader>
             <TableRow>
               <TableHead>Style</TableHead>
+              <TableHead>Season</TableHead>
               <TableHead>Color</TableHead>
               <TableHead>Size</TableHead>
               <TableHead className="text-right">Qty</TableHead>
@@ -127,7 +131,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
           <TableBody>
             {items.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={editable ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={editable ? 8 : 7} className="text-center py-8 text-muted-foreground">
                   No items added yet
                 </TableCell>
               </TableRow>
@@ -143,6 +147,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
                     </div>
                     {item.styleName && <div className="text-xs text-muted-foreground">{item.styleName}</div>}
                   </TableCell>
+                  <TableCell>{item.seasonLabel || '—'}</TableCell>
                   {/*
                     Show the label or the honest placeholder. These used to fall back to the first
                     eight characters of the id, which reads as a colour/size name but is a fragment

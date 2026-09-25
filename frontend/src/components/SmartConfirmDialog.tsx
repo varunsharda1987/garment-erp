@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { getStockPreview } from '@/services/saleOrder.service';
 import type { StockPreviewItem, StockStatus } from '@/types/saleOrder.types';
+import { sortSaleOrderLines } from '@/components/sale-order/sale-order-lines';
 
 interface SmartConfirmDialogProps {
   saleOrderId: string;
@@ -154,14 +155,15 @@ export function SmartConfirmDialog({
     }
   };
 
-  // Group items by status for display
-  const groupedItems = preview
-    ? {
-        full: preview.items.filter((i) => i.status === 'FULL'),
-        partial: preview.items.filter((i) => i.status === 'PARTIAL'),
-        none: preview.items.filter((i) => i.status === 'NONE'),
-      }
-    : { full: [], partial: [], none: [] };
+  // Group items by status for display; inside each group lines read style, colour, then XS → XXXL
+  const orderedItems = sortSaleOrderLines(
+    (preview?.items ?? []).map((i) => ({ ...i, styleId: i.style?.id ?? '', colorId: i.color?.id ?? null }))
+  );
+  const groupedItems = {
+    full: orderedItems.filter((i) => i.status === 'FULL'),
+    partial: orderedItems.filter((i) => i.status === 'PARTIAL'),
+    none: orderedItems.filter((i) => i.status === 'NONE'),
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

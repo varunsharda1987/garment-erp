@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { StyleVariantData } from '../types/style-variant.types';
+import { getSizeOrder } from '../utils/sku-generator';
 
 export class StyleVariantService {
   /**
@@ -25,7 +26,7 @@ export class StyleVariantService {
             colorId: variant.colorId,
             barcode: variant.barcode,
             isActive: variant.isActive ?? true,
-            sortOrder: variant.sortOrder ?? 0,
+            sortOrder: variant.sortOrder ?? getSizeOrder(variant.sizeName ?? ''),
           },
         });
       } else {
@@ -41,7 +42,7 @@ export class StyleVariantService {
             colorId: variant.colorId || null,
             barcode: variant.barcode || null,
             isActive: variant.isActive ?? true,
-            sortOrder: variant.sortOrder ?? 0,
+            sortOrder: variant.sortOrder ?? getSizeOrder(variant.sizeName ?? ''),
           },
         });
         createdCount++;
@@ -88,7 +89,15 @@ export class StyleVariantService {
       },
     });
 
-    if (existing) return existing.id;
+    // A size read back from the import IS one of the style's sizes: revive it if it was dropped, and
+    // give it its XS → XXXL rank (rows this used to create all carried 0, so they read in any order).
+    const sortOrder = getSizeOrder(sizeName);
+    if (existing) {
+      if (!existing.isActive || existing.sortOrder !== sortOrder) {
+        await prisma.size_options.update({ where: { id: existing.id }, data: { isActive: true, sortOrder } });
+      }
+      return existing.id;
+    }
 
     // BUG-MM8 fix: prevent race condition with P2002 handling
     try {
@@ -98,7 +107,7 @@ export class StyleVariantService {
           styleId,
           sizeName,
           sizeCode: sizeName.toUpperCase(),
-          sortOrder: 0,
+          sortOrder,
         },
       });
 

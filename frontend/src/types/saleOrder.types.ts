@@ -68,6 +68,9 @@ export interface SaleOrderItem {
     buyerStyleRef?: string | null;
     styleName: string;
     imageUrl?: string | null;
+    /** Free-text season, kept for styles saved before the Season master (`seasonMaster` wins). */
+    season?: string | null;
+    seasonMaster?: { code: string; name: string } | null;
   };
   color?: {
     id: string;

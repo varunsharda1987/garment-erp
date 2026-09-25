@@ -82,10 +82,16 @@ export function validateSKUFormat(sku: string): boolean {
   return /^[A-Z0-9]{5,30}$/i.test(sku);
 }
 
+// ── Size order: BEGIN — byte-identical in backend/src/utils/sku-generator.ts and
+// frontend/src/utils/sku-generator.ts (unit/size-order.test.ts asserts it) ──
+
 /**
- * Default size order mapping for sorting
+ * Size order — the ONE rule for how sizes read: XS → XXXL, never alphabetically.
+ * Every writer of `size_options.sortOrder` / `style_variants.sortOrder` stores `getSizeOrder()`,
+ * and a screen that only has size NAMES (a draft sale-order line) sorts with `compareSizes()`.
  */
 export const SIZE_ORDER: Record<string, number> = {
+  XXS: -1,
   XS: 0,
   S: 1,
   M: 2,
@@ -95,22 +101,58 @@ export const SIZE_ORDER: Record<string, number> = {
   XXXL: 6,
   '2XL': 5, // Alias for XXL
   '3XL': 6, // Alias for XXXL
+  '4XL': 7,
+  '5XL': 8,
+  // Kids sizes
+  '2Y': 10,
+  '3Y': 11,
+  '4Y': 12,
+  '5Y': 13,
+  '6Y': 14,
+  '7Y': 15,
+  '8Y': 16,
+  '9Y': 17,
+  '10Y': 18,
+  '11Y': 19,
+  '12Y': 20,
+  '14Y': 21,
+  '16Y': 22,
+  // Free size
+  FREE: 50,
+  'FREE SIZE': 50,
+  FREESIZE: 50,
 };
 
-/**
- * Default available sizes (all pre-selected)
- */
-export const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+/** Rank of a size SIZE_ORDER does not know and that is not a plain number: after every known one. */
+const UNKNOWN_SIZE_ORDER = 999;
 
 /**
  * Get sort order for a size
+ *
+ * A plain number (waist 28, 30, 32…) ranks 100 + n so numbers read numerically, not as text.
  *
  * @param sizeName - The size name
  * @returns Sort order number
  */
 export function getSizeOrder(sizeName: string): number {
-  return SIZE_ORDER[sizeName.toUpperCase()] ?? 999;
+  const key = sizeName.trim().toUpperCase();
+  const known = SIZE_ORDER[key];
+  if (known !== undefined) return known;
+  if (/^\d+$/.test(key)) return 100 + Number(key);
+  return UNKNOWN_SIZE_ORDER;
 }
+
+/** Comparator for size names: by `getSizeOrder`, then alphabetically between equal ranks. */
+export function compareSizes(a: string, b: string): number {
+  return getSizeOrder(a) - getSizeOrder(b) || a.localeCompare(b);
+}
+
+// ── Size order: END ──
+
+/**
+ * Default available sizes (all pre-selected)
+ */
+export const DEFAULT_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
 
 /**
  * Check for duplicate SKUs in a list

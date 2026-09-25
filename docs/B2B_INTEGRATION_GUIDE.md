@@ -126,6 +126,10 @@ factory clicks **Start Production**. B2B can use it for an "in production" badge
 exact production `orderNumber` for its PO. No `SaleOrderStatus` values were added — the §4 status
 list and terminal logic are untouched.
 
+**Additive fields (2026-09-25, backward-compatible):** `items[].style` also carries `season`
+(free text, nullable) and `seasonMaster{code,name}` (nullable) — the factory's Sale Order list and
+detail show the style's season. A sale order has no season of its own. B2B may ignore both.
+
 From `GET /production-status/by-order?styleId=`:
 `orderNumber, customerId, customerName, quantity, currentStage, piecesInStage, overallProgress,
 deliveryDate, isDelayed, stageBreakdown{inCutting,inStitching,inFinishing,readyToShip,shipped,completed}`.
@@ -157,7 +161,11 @@ deliveryDate, isDelayed, stageBreakdown{inCutting,inStitching,inFinishing,readyT
 8. **`upsertVariants` must stay ADDITIVE** (`style.service.ts` — transactional find-or-create of
    `size_options` by sizeName + variant upsert by SKU, no deleteMany). The B2B push adds ONLY its
    missing sizes; a destructive rewrite here would delete factory-added sizes/variants on every
-   B2B add. Its conflict error text ("SKUs already exist for other styles: …") and the create
+   B2B add. **Since 2026-09-25 a size the factory unchecks on the Style Form goes `isActive: false`**
+   in `sizeOptions` (never deleted — orders and stock keep resolving it). The B2B resolver already
+   skips inactive sizes and re-adds a missing one through this endpoint, so `upsertVariants` now
+   **revives** the existing row (same `size_options.id`, `isActive: true`) instead of leaving it
+   inactive — still additive, it never deactivates anything. Pinned in `b2b-contract.test.ts`. Its conflict error text ("SKUs already exist for other styles: …") and the create
    endpoint's "Style code already exists" are also sniffed by the B2B app — keep them stable.
 9. **`createStyleSchema`'s minimal required set** (`styleCode` + `styleName`, with
    `status:'DRAFT'` or `customerName` satisfying the service check) must not grow — the B2B

@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { StyleCombobox } from '@/components/StyleCombobox';
 import { SaleOrderItemsTable } from './SaleOrderItemsTable';
+import { sortSaleOrderLines, styleSeasonLabel } from './sale-order-lines';
 import type { DisplayItem } from './SaleOrderItemsTable';
 import type { SaleOrder, CreateSORequest, UpdateSORequest, SOItemInput } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
@@ -63,7 +64,7 @@ export function SaleOrderForm({
       setDeliveryAddress(saleOrder.deliveryAddress || '');
       setRemarks(saleOrder.remarks || '');
       setItems(
-        (saleOrder.items || []).map((item) => ({
+        sortSaleOrderLines(saleOrder.items || []).map((item) => ({
           id: item.id,
           styleId: item.styleId,
           colorId: item.colorId || null,
@@ -78,6 +79,7 @@ export function SaleOrderForm({
           styleName: item.style?.styleName,
           colorName: item.color?.colorName,
           sizeName: item.size?.sizeName,
+          seasonLabel: styleSeasonLabel(item.style),
         }))
       );
     } else if (open && mode === 'create') {

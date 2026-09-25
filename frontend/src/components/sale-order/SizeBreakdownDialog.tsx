@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { getStyleById } from '@/services/style.service';
+import { compareSizes } from '@/utils/sku-generator';
 
 interface SizeOption {
   id: string;
@@ -81,7 +82,10 @@ export function SizeBreakdownDialog({
     const opts = (styleData as { sizeOptions?: SizeOption[] }).sizeOptions || [];
     // Retired sizes must not appear here — the single-size dropdown already excludes them, so
     // without this filter a breakdown could put quantity onto a size the style no longer offers.
-    return opts.filter((s) => s.id && s.isActive !== false).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    // Rows read XS → XXXL.
+    return opts
+      .filter((s) => s.id && s.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || compareSizes(a.sizeName, b.sizeName));
   }, [styleData]);
 
   const colors = useMemo(() => {

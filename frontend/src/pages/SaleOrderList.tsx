@@ -33,6 +33,7 @@ import { CustomerCombobox } from '@/components/CustomerCombobox';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import { SaleOrderForm } from '@/components/sale-order';
+import { orderSeasonLabels } from '@/components/sale-order/sale-order-lines';
 import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/saleOrder.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
 import { formatCurrency } from '@/lib/currency';
@@ -242,6 +243,24 @@ export default function SaleOrderList() {
             {unique.map(({ code, ref }) => (
               <span key={code} className="text-xs text-foreground px-1.5 py-0.5">
                 {ref || '-'}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      // The style's season — a sale order has none of its own (styles.seasonId → Season master)
+      key: 'season',
+      header: 'Season',
+      render: (so) => {
+        const seasons = orderSeasonLabels(so.items);
+        if (seasons.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+        return (
+          <div className="flex flex-col items-start gap-1">
+            {seasons.map((season) => (
+              <span key={season} className="text-xs text-foreground px-1.5 py-0.5">
+                {season}
               </span>
             ))}
           </div>

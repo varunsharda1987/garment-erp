@@ -30,6 +30,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SmartConfirmDialog } from '@/components/SmartConfirmDialog';
 import { SaleOrderForm, CancelOrderDialog } from '@/components/sale-order';
+import { sortSaleOrderLines, styleSeasonLabel } from '@/components/sale-order/sale-order-lines';
 import {
   Dialog,
   DialogContent,
@@ -162,6 +163,8 @@ export default function SaleOrderDetail() {
     queryKey: queryKeys.saleOrders.detail(id || ''),
     queryFn: () => getSaleOrderById(id!),
     enabled: !!id,
+    // Every table and dialog on this page reads the lines in one order: style, colour, then XS → XXXL.
+    select: (order) => ({ ...order, items: order.items && sortSaleOrderLines(order.items) }),
   });
 
   // Production orders already planning these styles but linked to no sale order (raised early so
@@ -937,6 +940,7 @@ export default function SaleOrderDetail() {
             <TableHeader>
               <TableRow>
                 <TableHead>Style</TableHead>
+                <TableHead>Season</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
@@ -950,7 +954,7 @@ export default function SaleOrderDetail() {
             <TableBody>
               {!so.items?.length ? (
                 <TableRow>
-                  <TableCell colSpan={canAllocate ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={canAllocate ? 10 : 9} className="text-center py-8 text-muted-foreground">
                     No items yet
                   </TableCell>
                 </TableRow>
@@ -970,6 +974,7 @@ export default function SaleOrderDetail() {
                       </div>
                       <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
                     </TableCell>
+                    <TableCell>{styleSeasonLabel(item.style) ?? '—'}</TableCell>
                     <TableCell>{item.color?.colorName || 'N/A'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>

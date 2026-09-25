@@ -1108,7 +1108,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         style_production_tracking: true,
         style_value_additions: true,
         style_packaging: true,
-        style_variants: { orderBy: { sizeName: 'asc' } },
+        style_variants: { orderBy: [{ sortOrder: 'asc' }, { sizeName: 'asc' }] },
         style_material_bom: {
           include: {
             lace_master: true,
@@ -1714,10 +1714,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
       // Handle SKU variants replacement if provided
       if (data.skuVariants !== undefined) {
-        // Delete existing variants (but keep size_options for now)
+        // Delete existing variants. size_options rows are NEVER deleted (26 tables FK to them);
+        // a size the form no longer sends is deactivated below instead.
         await tx.style_variants.deleteMany({
           where: { styleId: id },
         });
+        const keptSizeIds: string[] = [];
 
         if (data.skuVariants.length > 0) {
           // Filter out variants with empty SKUs and deduplicate by SKU
@@ -1732,23 +1734,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             }, [] as SKUVariantInput[]);
 
           for (const variant of validVariants) {
-            // Get or create size option first
-            let sizeOption = await tx.size_options.findFirst({
-              where: { styleId: id, sizeName: variant.size },
-            });
-
-            if (!sizeOption) {
-              sizeOption = await tx.size_options.create({
-                data: {
-                  id: randomUUID(),
-                  styleId: id,
-                  sizeName: variant.size,
-                  sizeCode: variant.size,
-                  sortOrder: getSizeOrder(variant.size),
-                  isActive: true,
-                },
-              });
-            }
+            const sizeOption = await this.ensureSizeOption(tx, id, variant.size);
+            if (variant.isActive !== false) keptSizeIds.push(sizeOption.id);
 
             // Use upsert to handle any edge cases with existing SKUs
             await tx.style_variants.upsert({
@@ -1776,6 +1763,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             });
           }
         }
+
+        // The Style Form's size grid IS the style's size list. A size unchecked there used to stay
+        // active in size_options, so the sale-order Size dropdown still offered it (ESSKY093LS
+        // listed XXXL; its form has XS–XXL). Deactivate, never delete: orders, stock and breakups
+        // that already recorded the size keep resolving it.
+        await tx.size_options.updateMany({
+          where: { styleId: id, isActive: true, id: { notIn: keptSizeIds } },
+          data: { isActive: false },
+        });
       }
 
       // Handle trims and accessories replacement if provided
@@ -2264,6 +2260,26 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   // ============================================
 
   /**
+   * The style's `size_options` row for `size`: created when missing, and when found made active
+   * with its `getSizeOrder()` rank. A size the Style Form or the B2B push names IS one of the
+   * style's sizes, so a row an earlier save deactivated comes back, and rows the import wrote
+   * with sortOrder 0 stop reading in arbitrary order.
+   */
+  private async ensureSizeOption(tx: Prisma.TransactionClient, styleId: string, size: string) {
+    const sortOrder = getSizeOrder(size);
+    const existing = await tx.size_options.findFirst({ where: { styleId, sizeName: size } });
+    if (!existing) {
+      return tx.size_options.create({
+        data: { id: randomUUID(), styleId, sizeName: size, sizeCode: size, sortOrder, isActive: true },
+      });
+    }
+    if (!existing.isActive || existing.sortOrder !== sortOrder) {
+      return tx.size_options.update({ where: { id: existing.id }, data: { isActive: true, sortOrder } });
+    }
+    return existing;
+  }
+
+  /**
    * Create or update style variants
    */
   async upsertVariants(styleId: string, variants: SKUVariantInput[]): Promise<unknown[]> {
@@ -2323,23 +2339,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       const results = [];
 
       for (const variant of variants) {
-        // Get or create size option
-        let sizeOption = await tx.size_options.findFirst({
-          where: { styleId, sizeName: variant.size },
-        });
-
-        if (!sizeOption) {
-          sizeOption = await tx.size_options.create({
-            data: {
-              id: randomUUID(),
-              styleId,
-              sizeName: variant.size,
-              sizeCode: variant.size,
-              sortOrder: getSizeOrder(variant.size),
-              isActive: true,
-            },
-          });
-        }
+        // Additive: find-or-create (reviving a size the Style Form had dropped — the B2B app skips
+        // inactive sizes and re-adds a missing one through this endpoint), never deactivate others.
+        const sizeOption = await this.ensureSizeOption(tx, styleId, variant.size);
 
         // Upsert variant
         const styleVariant = await tx.style_variants.upsert({

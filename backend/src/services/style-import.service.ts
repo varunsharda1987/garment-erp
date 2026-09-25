@@ -27,39 +27,7 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { generateCode } from '../utils/code-generator';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
-
-// Size ordering for standard garment sizes
-const SIZE_ORDER: Record<string, number> = {
-  XS: 0,
-  S: 1,
-  M: 2,
-  L: 3,
-  XL: 4,
-  XXL: 5,
-  XXXL: 6,
-  '2XL': 5,
-  '3XL': 6,
-  '4XL': 7,
-  '5XL': 8,
-  // Kids numeric sizes
-  '2Y': 10,
-  '3Y': 11,
-  '4Y': 12,
-  '5Y': 13,
-  '6Y': 14,
-  '7Y': 15,
-  '8Y': 16,
-  '9Y': 17,
-  '10Y': 18,
-  '11Y': 19,
-  '12Y': 20,
-  '14Y': 21,
-  '16Y': 22,
-  // Free size
-  FREE: 50,
-  'FREE SIZE': 50,
-  FREESIZE: 50,
-};
+import { getSizeOrder } from '../utils/sku-generator';
 
 export class StyleImportService {
   /**
@@ -79,14 +47,6 @@ export class StyleImportService {
     const cleanStyleCode = styleCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     const cleanSize = size.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     return `${cleanStyleCode}${cleanSize}`;
-  }
-
-  /**
-   * Get size sort order
-   */
-  private getSizeOrder(size: string): number {
-    const upperSize = size.toUpperCase().trim();
-    return SIZE_ORDER[upperSize] ?? 100; // Default to 100 for unknown sizes
   }
 
   // =====================================================
@@ -1266,8 +1226,8 @@ export class StyleImportService {
 
     // Convert map to array and sort by size order
     const variants = Array.from(variantMap.values()).sort((a, b) => {
-      const orderA = this.getSizeOrder(a.sizeName || '');
-      const orderB = this.getSizeOrder(b.sizeName || '');
+      const orderA = getSizeOrder(a.sizeName || '');
+      const orderB = getSizeOrder(b.sizeName || '');
       return orderA - orderB;
     });
 

@@ -451,4 +451,35 @@ describe('§5.9 + §2 — the style auto-create path', () => {
     expect(skus).toContain(`${RUN}AS`);
     expect(skus).toContain(`${RUN}AM`);
   });
+
+  it('§5.8 — a size the Style Form drops is deactivated, and a B2B re-add revives the SAME size row', async () => {
+    // The Style Form saves its size grid without M (the owner unchecked it)
+    const save = await request(app)
+      .put(`/api/styles/${styleId}`)
+      .set(authHeader)
+      .send({ skuVariants: [{ size: 'S', sku: `${RUN}AS`, isActive: true }] });
+    expect(save.status).toBeLessThan(300);
+
+    // M leaves the style's size list (the sale-order Size dropdown and the B2B resolver both skip
+    // inactive sizes) but the row survives — 26 tables FK to size_options. S gets its XS → XXXL rank.
+    const afterSave = await prisma.size_options.findMany({ where: { styleId }, orderBy: { sizeName: 'asc' } });
+    expect(afterSave.map((o) => [o.sizeName, o.isActive, o.sortOrder])).toEqual([
+      ['M', false, 2],
+      ['S', true, 1],
+    ]);
+    const detail = await request(app).get(`/api/styles/${styleId}`).set(authHeader);
+    const sizeM = detail.body.data.sizeOptions.find((o: { id: string }) => o.id === sizeMId);
+    expect(sizeM.isActive).toBe(false);
+
+    // The B2B app sees M missing and re-adds it through the additive endpoint: the same row comes
+    // back active — without revival the resolver would keep reporting the size as missing.
+    const readd = await request(app)
+      .post(`/api/styles/${styleId}/variants`)
+      .set(authHeader)
+      .send({ variants: [{ size: 'M', sku: `${RUN}AM`, isActive: true }] });
+    expect(readd.status).toBeLessThan(300);
+    const revived = await prisma.size_options.findUniqueOrThrow({ where: { id: sizeMId } });
+    expect([revived.isActive, revived.sortOrder]).toEqual([true, 2]);
+    expect(await prisma.size_options.count({ where: { styleId } })).toBe(2);
+  });
 });

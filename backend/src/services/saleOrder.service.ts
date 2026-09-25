@@ -387,7 +387,17 @@ export class SaleOrderService {
               allocatedQty: true,
               dispatchedQty: true,
               buyerStyleRef: true,
-              style: { select: { id: true, styleCode: true, styleName: true, buyerStyleRef: true } },
+              // season: the list's Season column reads the style's (a sale order has no season of its own)
+              style: {
+                select: {
+                  id: true,
+                  styleCode: true,
+                  styleName: true,
+                  buyerStyleRef: true,
+                  season: true,
+                  season_master: { select: { code: true, name: true } },
+                },
+              },
             },
           },
           buyerPos: {
@@ -1569,6 +1579,7 @@ export class SaleOrderService {
           select: { allocatedQty: true },
         },
       },
+      orderBy: [{ size_options: { sortOrder: 'asc' } }, { receivedDate: 'asc' }],
     });
 
     return stocks
@@ -1775,7 +1786,15 @@ export class SaleOrderService {
       items: {
         include: {
           style: {
-            select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true, imageUrl: true },
+            select: {
+              id: true,
+              styleCode: true,
+              buyerStyleRef: true,
+              styleName: true,
+              imageUrl: true,
+              season: true,
+              season_master: { select: { code: true, name: true } },
+            },
           },
           color: {
             select: { id: true, colorName: true, colorCode: true },

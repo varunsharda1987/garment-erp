@@ -1428,14 +1428,15 @@
       "frontend/src/pages/WorkOrderDetail.tsx": "0fd224e036cb",
       "frontend/src/components/StyleCombobox.tsx": "abeb26e37650",
       "frontend/src/components/SplitProductionModal.tsx": "18f309870ea6",
-      "frontend/src/pages/SaleOrderDetail.tsx": "37bc77fc873b",
+      "frontend/src/pages/SaleOrderDetail.tsx": "8121dd3b2194",
       "backend/src/schemas/workOrder.schema.ts": "3b06f5653c89",
       "backend/src/routes/workOrder.routes.ts": "1542e89d0d56",
-      "backend/src/services/workOrder.service.ts": "98a040cce692",
+      "backend/src/services/workOrder.service.ts": "1533c85fdfce",
+      "backend/src/services/helpers/material-sync.helper.ts": "c125567b2af0",
       "backend/src/services/productionBlockingValidation.service.ts": "77bed9420aa8"
     },
-    "contentHash": "f1275f3dc623",
-    "generatedAt": "2026-09-25T05:20:23.692Z"
+    "contentHash": "fcc19dfc57cc",
+    "generatedAt": "2026-09-25T08:45:57.986Z"
   },
   "zipper-create": {
     "sources": {

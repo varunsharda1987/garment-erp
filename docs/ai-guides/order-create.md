@@ -28,6 +28,14 @@ keywords:
   - साइज़ ब्रेकडाउन
   - साइज़ बाद में
   - मात्रा
+  - order from sale order
+  - fill from sale order
+  - sale order quantity not coming
+  - sale order se order banana
+  - sale order ki quantity nahi aa rahi
+  - सेल ऑर्डर से ऑर्डर
+  - buyer deadline
+  - delivery date
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -39,6 +47,8 @@ sources:
   - frontend/src/types/order.types.ts
   - backend/src/schemas/order.schema.ts
   - backend/src/controllers/order.controller.ts
+  - frontend/src/services/saleOrder.service.ts
+  - backend/src/services/saleOrder.service.ts
 route: /orders/new
 ---
 
@@ -51,6 +61,7 @@ The style must be published (**Active** status) and must already have an **Appro
 3. Pick **Customer Name \*** from the dropdown.
 4. Pick **Style \***. Type two or more letters in the **Search styles...** box inside the dropdown to search the full catalogue.
 5. Watch the message that appears under the row. Green means approved cost sheets are available; a red **No Approved Cost Sheet** panel means you must click **Create Cost Sheet** and get it approved first.
+   - **If this customer has a confirmed sale order for the style** that no production order is made for yet, the form fills itself from it and a banner says **Filled from SO… · Buyer PO … · N pcs — this order will be linked to the sale order**: the size grid (a line ordered without a colour goes in the style's only colour), **Total Qty**, **Delivery** (the sale order's Expected Ship Date), **Order Date** (the buyer's PO date, else today) and **Unit Price** (the sale order's price). When several sale orders match, pick one in the banner's box. **Undo** puts the form back; the banner then turns amber, warning that the sale order stays unlinked (link it later from the sale order with **Link to Production Order**), with **Fill from sale order** to fill it again.
 6. Enter **Total Qty \*** (total pieces) and set **Delivery \*** (expected delivery date). **Order Date** defaults to today and can be changed, including to a past date.
 7. Optional: click **Use Cost Sheet** to pick an approved sheet. It fills **Unit Price** for you.
 8. Open **Quantity & Pricing** to split the quantity. Choose **Absolute**, **Percentage** or **Ratio**. In Absolute, type pieces into the colour × size grid or click **Smart Distribute**. In Percentage/Ratio, type the share per size and click **Recalculate**. You may also leave the grid empty and fill the sizes in later — see *Add the size breakdown later* below.
@@ -61,6 +72,7 @@ The style must be published (**Active** status) and must already have an **Appro
 - The bottom bar shows **x/5 required fields**. **Create Order** stays greyed out until all five pass: Customer, Style, Qty, Delivery date and an approved cost sheet.
 - Size breakup and Unit Price are optional. A quantity mismatch warning is only information — the order saves with the Total Qty you typed.
 - "This style has no size options" means you must add SKU variants in Style Master first.
+- With a linked sale order, **Delivery** after its ship date shows a warning; after its **Buyer Deadline** it shows an error and **Create Order** stays disabled — production has to finish by the buyer's last day. The same applies when you later change Delivery on the order.
 - There are no Payment Terms, Shipping Address or Remarks boxes on this screen. Payment terms fill in automatically from the customer's credit days.
 - When you reopen the order with **Edit Order** and it already has approved BOMs or active material requirements, a warning banner appears and **Style**, **Total Qty**, the size grid, the **Absolute** / **Percentage** / **Ratio** buttons, **Smart Distribute** and **Recalculate** are all disabled. The banner tells you to use **Add Size Breakdown** on the order page instead — that is the only way to enter the sizes at that stage.
 - An order started from a sale order can carry several styles. An amber notice on the edit page says the form edits the **first style only** — the other styles are kept unchanged when you save.

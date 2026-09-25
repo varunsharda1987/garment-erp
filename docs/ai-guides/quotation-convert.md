@@ -55,7 +55,7 @@ A production order covers one style at a time. When the quotation has multiple s
 ## Complete the order
 After conversion, you are on the new order form with the pre-filled data. You still need to:
 1. Select or validate the **Cost Sheet** for the style.
-2. Fill in sizes, colours and quantities.
+2. Fill in sizes, colours and quantities. If this customer already has a confirmed sale order for the style, the form fills them (and the delivery date and price) from that sale order and links the order to it — see *Create a Production Order*.
 3. Set optional fields like expected delivery date.
 4. Click **Create Order** to save.
 

@@ -11,6 +11,7 @@ import {
   getPendingCADStyles,
   getStylesForCADPlanning,
   getCADStatusCounts,
+  getCADFilterOptions,
   getStyleCADSummary,
   getEnhancedCADPlanning,
   getStyleCADHistory,
@@ -74,7 +75,7 @@ import {
 } from '../middleware/auth.middleware';
 import { uploadCadFile } from '../middleware/upload.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
   styleIdParamSchema,
   greigeIdParamSchema,
@@ -106,6 +107,8 @@ import {
   updatePatternPartAssignmentSchema,
   createOrUpdateEmbroideryCadSchema,
   syncBomFabricSchema,
+  cadPlanningStylesQuerySchema,
+  cadPlanningListFilterSchema,
 } from '../schemas/cadPlanning.schema';
 import {
   uploadCadFileSchema,
@@ -128,9 +131,10 @@ router.use(requirePermissionForWrites('cadPlanning'));
  * @route   GET /api/cad-planning/styles
  * @desc    Get styles for CAD planning list with filters
  * @access  All authenticated users
- * @query   status (PENDING|IN_PROGRESS|APPROVED), page, limit, search
+ * @query   status (PENDING|IN_PROGRESS|APPROVED), page, limit, search, searchAll,
+ *          customerId[], brandName[], productCategoryId[], orders (open|none), cadProgress
  */
-router.get('/styles', asyncHandler(getStylesForCADPlanning));
+router.get('/styles', validateQuery(cadPlanningStylesQuerySchema), asyncHandler(getStylesForCADPlanning));
 
 /**
  * @route   GET /api/cad-planning/pending
@@ -141,10 +145,18 @@ router.get('/pending', asyncHandler(getPendingCADStyles));
 
 /**
  * @route   GET /api/cad-planning/status-counts
- * @desc    Get CAD status counts for tabs
+ * @desc    Get CAD status counts for tabs (under the same filters as /styles)
+ * @access  All authenticated users
+ * @query   customerId[], brandName[], productCategoryId[], orders, cadProgress
+ */
+router.get('/status-counts', validateQuery(cadPlanningListFilterSchema), asyncHandler(getCADStatusCounts));
+
+/**
+ * @route   GET /api/cad-planning/filter-options
+ * @desc    Buyers, brands and product categories present on active styles, with counts
  * @access  All authenticated users
  */
-router.get('/status-counts', asyncHandler(getCADStatusCounts));
+router.get('/filter-options', asyncHandler(getCADFilterOptions));
 
 /**
  * @route   GET /api/cad-planning/greige-options

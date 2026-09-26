@@ -27,6 +27,11 @@ import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
 import { applySearch } from '../utils/search-filter';
+import {
+  applyCadListFilters,
+  buildCadListFilterClauses,
+  type CadListFilters,
+} from '../services/helpers/cad-list-filter.helper';
 
 /**
  * Get all styles pending CAD approval
@@ -3991,43 +3996,122 @@ export async function getCADOrderHistory(req: Request, res: Response) {
  * Used by CADPlanningList to show tab counts
  * Note: Shows all active styles regardless of DRAFT/ACTIVE status
  * since CAD planning happens during both phases
+ *
+ * Takes the list's filter bar (cadPlanningListFilterSchema) so the badges count what the table
+ * shows under the same filters.
  */
 export async function getCADStatusCounts(req: Request, res: Response) {
-  // Cache CAD status counts for 2 minutes (frequently accessed, changes rarely)
-  const result = await cachedQuery(
-    cacheKeys.cad.statusCounts,
-    async () => {
-      const counts = await prisma.styles.groupBy({
-        by: ['cadStatus'],
-        where: {
-          isActive: true,
-          // Note: Removed status: 'ACTIVE' filter - CAD planning works with DRAFT styles too
-        },
-        _count: {
-          id: true,
-        },
-      });
+  const filters = ((req as any).validatedQuery ?? {}) as CadListFilters;
+  const filterClauses = buildCadListFilterClauses(filters);
 
-      const statusCounts = {
-        PENDING: 0,
-        IN_PROGRESS: 0,
-        APPROVED: 0,
-      };
+  const computeCounts = async () => {
+    const counts = await prisma.styles.groupBy({
+      by: ['cadStatus'],
+      where: {
+        isActive: true,
+        // Note: Removed status: 'ACTIVE' filter - CAD planning works with DRAFT styles too
+        ...(filterClauses.length ? { AND: filterClauses } : {}),
+      },
+      _count: {
+        id: true,
+      },
+    });
 
-      counts.forEach((count) => {
-        if (count.cadStatus && count.cadStatus in statusCounts) {
-          statusCounts[count.cadStatus as keyof typeof statusCounts] = count._count.id;
-        }
-      });
+    const statusCounts = {
+      PENDING: 0,
+      IN_PROGRESS: 0,
+      APPROVED: 0,
+    };
 
-      return statusCounts;
-    },
-    cacheTTL.SHORT // 1 minute - short TTL since counts change with style updates
-  );
+    counts.forEach((count) => {
+      if (count.cadStatus && count.cadStatus in statusCounts) {
+        statusCounts[count.cadStatus as keyof typeof statusCounts] = count._count.id;
+      }
+    });
+
+    return statusCounts;
+  };
+
+  // Only the unfiltered counts are cached: that single key is what cad-status.helper invalidates,
+  // and a per-filter key would outlive a status change for up to the TTL.
+  const result =
+    filterClauses.length === 0
+      ? await cachedQuery(
+          cacheKeys.cad.statusCounts,
+          computeCounts,
+          cacheTTL.SHORT // 1 minute - short TTL since counts change with style updates
+        )
+      : await computeCounts();
 
   return res.json({
     success: true,
     data: result,
+  });
+}
+
+/**
+ * Options for the CAD Planning list's filter bar — only values that exist on active styles,
+ * each with its style count ("Nihsamah (227)"). Same `{ value, count }` envelope as
+ * /greige/filter-options; buyers and categories add a `label` because their value is an id.
+ * GET /api/cad-planning/filter-options
+ */
+export async function getCADFilterOptions(_req: Request, res: Response) {
+  const base: Prisma.stylesWhereInput = { isActive: true };
+
+  const [buyerGroups, brandGroups, categoryGroups] = await Promise.all([
+    prisma.styles.groupBy({
+      by: ['customerId'],
+      where: { ...base, customerId: { not: null } },
+      _count: { _all: true },
+    }),
+    prisma.styles.groupBy({ by: ['brandName'], where: { ...base, brandName: { not: null } }, _count: { _all: true } }),
+    prisma.styles.groupBy({
+      by: ['productCategoryId'],
+      where: { ...base, productCategoryId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const [customers, categories] = await Promise.all([
+    prisma.customers.findMany({
+      where: { id: { in: buyerGroups.map((g) => g.customerId).filter((id): id is string => !!id) } },
+      select: { id: true, name: true },
+    }),
+    prisma.product_category_master.findMany({
+      where: { id: { in: categoryGroups.map((g) => g.productCategoryId).filter((id): id is string => !!id) } },
+      select: { id: true, name: true, parent: { select: { name: true } } },
+    }),
+  ]);
+
+  const customerName = new Map(customers.map((c) => [c.id, c.name]));
+  // "Western Wear › Co-Ords": the same leaf name sits under two parents in live data.
+  const categoryName = new Map(categories.map((c) => [c.id, c.parent ? `${c.parent.name} › ${c.name}` : c.name]));
+  const byLabel = (a: { label: string }, b: { label: string }) => a.label.localeCompare(b.label);
+
+  res.json({
+    success: true,
+    data: {
+      buyers: buyerGroups
+        .filter((g) => g.customerId)
+        .map((g) => ({
+          value: g.customerId as string,
+          label: customerName.get(g.customerId as string) ?? 'Unknown buyer',
+          count: g._count._all,
+        }))
+        .sort(byLabel),
+      brands: brandGroups
+        .filter((g) => typeof g.brandName === 'string' && g.brandName.trim() !== '')
+        .map((g) => ({ value: g.brandName as string, count: g._count._all }))
+        .sort((a, b) => a.value.localeCompare(b.value)),
+      productCategories: categoryGroups
+        .filter((g) => g.productCategoryId)
+        .map((g) => ({
+          value: g.productCategoryId as string,
+          label: categoryName.get(g.productCategoryId as string) ?? 'Unknown category',
+          count: g._count._all,
+        }))
+        .sort(byLabel),
+    },
   });
 }
 
@@ -4041,13 +4125,14 @@ export async function getCADStatusCounts(req: Request, res: Response) {
  * - IN_PROGRESS merged into PENDING tab
  */
 export async function getStylesForCADPlanning(req: Request, res: Response) {
+  const query = ((req as any).validatedQuery ?? req.query) as Record<string, unknown>;
   const {
     status = 'PENDING',
     page = '1',
     limit = '20',
     search = '',
     searchAll = 'false', // When true, search across all statuses
-  } = req.query;
+  } = query;
 
   const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
   const limitNum = Math.max(1, parseInt(limit as string, 10) || 20);
@@ -4133,6 +4218,9 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
       'brand_categories.brandName',
     ]);
   }
+
+  // Filter bar — applies on both tabs and during search (the same clauses the tab badges count)
+  applyCadListFilters(where, query as CadListFilters);
 
   const [styles, total] = await Promise.all([
     prisma.styles.findMany({

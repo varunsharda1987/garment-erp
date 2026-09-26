@@ -7,18 +7,26 @@
  *
  * Features:
  * - Two tabs: Pending (includes IN_PROGRESS), Approved
+ * - Filter bar: Buyer, Brand, Category, Orders, CAD Progress — the tab badges count under the
+ *   same filters (backend cad-list-filter.helper.ts serves both)
+ * - Tab, search, filters and page live in the URL, so Open CAD -> Back restores the view
  * - Expandable rows showing CAD width details (greige, width, CAD avg, purpose)
  * - Unified search across all statuses
  * - "Go to Fabric Costing" button for navigation
  * - React Query for efficient caching and deduplication
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useListQuery, queryKeys } from '@/hooks/useQuery';
 import {
   cadPlanningService,
+  type CADFilterOption,
+  type CADListFilters,
+  type CADOrderFilter,
   type CADPlanningStyle,
+  type CADProgressFilter,
   type CADStatusCounts,
   type CADWidthDetail,
 } from '@/services/cad-planning.service';
@@ -26,34 +34,131 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import SearchInput from '@/components/SearchInput';
 import ExportButton from '@/components/ExportButton';
+import { FilterBar, MultiSelectFilter, SelectFilter } from '@/components/filters';
+import type { MultiSelectOption } from '@/components/ui/multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Ruler, Clock, CheckCircle2, Circle, Loader2, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
+import { applyUrlUpdates, getUrlList, getUrlPage, type FilterUpdate } from '@/lib/url-filters';
+
+const PAGE_SIZE = 15;
+const EMPTY_ROWS: ReadonlySet<string> = new Set();
+
+const ORDER_FILTER_OPTIONS: Array<{ value: 'all' | CADOrderFilter; label: string }> = [
+  { value: 'all', label: 'All styles' },
+  { value: 'open', label: 'On an open order' },
+  { value: 'none', label: 'No open order' },
+];
+
+const CAD_PROGRESS_OPTIONS: Array<{ value: 'all' | CADProgressFilter; label: string }> = [
+  { value: 'all', label: 'Any' },
+  // Short enough for SelectFilter's fixed 180px trigger
+  { value: 'NO_CAD', label: 'No CAD yet' },
+  { value: 'NO_COSTING', label: 'No Costing CAD' },
+  { value: 'NO_RAW_MATERIAL_CALCULATION', label: 'No Raw Mat CAD' },
+  { value: 'NO_PRODUCTION', label: 'No Production CAD' },
+  { value: 'HAS_COSTING', label: 'Has Costing CAD' },
+  { value: 'HAS_RAW_MATERIAL_CALCULATION', label: 'Has Raw Mat CAD' },
+  { value: 'HAS_PRODUCTION', label: 'Has Production CAD' },
+];
+
+const isOrderFilter = (v: string | null): v is CADOrderFilter => v === 'open' || v === 'none';
+const isProgressFilter = (v: string | null): v is CADProgressFilter =>
+  CAD_PROGRESS_OPTIONS.some((o) => o.value !== 'all' && o.value === v);
+
+const toOptions = (facet: CADFilterOption[] | undefined): MultiSelectOption[] =>
+  (facet ?? []).map((o) => ({ value: o.value, label: o.label ?? o.value, count: o.count }));
 
 export default function CADPlanningList() {
   const navigate = useNavigate();
 
-  // Tab state - Only PENDING and APPROVED now (IN_PROGRESS merged into PENDING)
-  const [statusTab, setStatusTab] = useState<'PENDING' | 'APPROVED'>('PENDING');
+  // Tab, search, filters and page live in the URL: Open CAD -> Back restores them, and a filtered
+  // view can be pasted to a colleague. `replace` so filter fiddling does not flood the history.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const updateURLParams = useCallback(
+    (updates: Record<string, FilterUpdate>) => {
+      setSearchParams((prev) => applyUrlUpdates(prev, updates), { replace: true });
+    },
+    [setSearchParams]
+  );
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(15);
+  // Only PENDING and APPROVED tabs (IN_PROGRESS merged into PENDING)
+  const statusTab: 'PENDING' | 'APPROVED' = searchParams.get('tab') === 'APPROVED' ? 'APPROVED' : 'PENDING';
+  const currentPage = getUrlPage(searchParams);
+  const pageSize = PAGE_SIZE;
+  const searchQuery = searchParams.get('search') ?? '';
 
-  // Search state
-  const [searchQuery, setSearchQuery] = useState('');
+  // The filter bar — sent to both the list and the tab badges
+  const listFilters = useMemo<CADListFilters>(() => {
+    const orders = searchParams.get('orders');
+    const cadProgress = searchParams.get('cadProgress');
+    return {
+      customerId: getUrlList(searchParams, 'customerId'),
+      brandName: getUrlList(searchParams, 'brandName'),
+      productCategoryId: getUrlList(searchParams, 'productCategoryId'),
+      orders: isOrderFilter(orders) ? orders : undefined,
+      cadProgress: isProgressFilter(cadProgress) ? cadProgress : undefined,
+    };
+  }, [searchParams]);
 
-  // Expandable rows state
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const activeFilterCount =
+    (searchQuery ? 1 : 0) +
+    (listFilters.customerId?.length ? 1 : 0) +
+    (listFilters.brandName?.length ? 1 : 0) +
+    (listFilters.productCategoryId?.length ? 1 : 0) +
+    (listFilters.orders ? 1 : 0) +
+    (listFilters.cadProgress ? 1 : 0);
+  const hasListFilters = activeFilterCount - (searchQuery ? 1 : 0) > 0;
 
-  // React Query: Fetch status counts (cached for 2 minutes)
+  // Clear keeps the tab: it is where the user is, not a filter they set
+  const clearFilters = useCallback(() => {
+    setSearchParams(statusTab === 'APPROVED' ? new URLSearchParams({ tab: 'APPROVED' }) : new URLSearchParams(), {
+      replace: true,
+    });
+  }, [setSearchParams, statusTab]);
+
+  // SearchInput fires onChange ~300ms after MOUNT with the current value. Without this guard that
+  // unchanged fire would strip `page` from the URL and bounce a deep-linked page 3 back to page 1.
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearchParams(
+        (prev) =>
+          (prev.get('search') ?? '') === value
+            ? prev
+            : applyUrlUpdates(prev, { search: value || undefined, page: undefined }),
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  const setCurrentPage = (page: number) => updateURLParams({ page: page > 1 ? page : undefined });
+
+  // Expandable rows state, tied to the view it was opened in: changing the tab, search or a filter
+  // collapses everything (derived during render — no reset effect). Page changes keep it.
+  const viewKey = JSON.stringify([statusTab, searchQuery, listFilters]);
+  const [expanded, setExpanded] = useState<{ viewKey: string; rows: Set<string> }>({ viewKey, rows: new Set() });
+  const expandedRows = expanded.viewKey === viewKey ? expanded.rows : EMPTY_ROWS;
+
+  // Option lists change only when styles are added — no need to refetch on every visit
+  const { data: filterOptions } = useQuery({
+    queryKey: queryKeys.cadPlanning.filterOptions(),
+    queryFn: () => cadPlanningService.getFilterOptions(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // React Query: Fetch status counts under the current filters (cached for 2 minutes)
   const { data: statusCounts = { PENDING: 0, IN_PROGRESS: 0, APPROVED: 0 } } = useListQuery<CADStatusCounts>(
-    queryKeys.cadPlanning.statusCounts(),
-    () => cadPlanningService.getCADStatusCounts(),
-    { staleTime: 2 * 60 * 1000 } // 2 minutes
+    queryKeys.cadPlanning.statusCounts(listFilters as Record<string, unknown>),
+    () => cadPlanningService.getCADStatusCounts(listFilters),
+    {
+      staleTime: 2 * 60 * 1000, // 2 minutes
+      placeholderData: (previousData) => previousData,
+    }
   );
 
   // Build filters for styles query
@@ -64,8 +169,9 @@ export default function CADPlanningList() {
       limit: pageSize,
       search: searchQuery || undefined,
       searchAll: !!searchQuery,
+      ...listFilters,
     }),
-    [statusTab, currentPage, pageSize, searchQuery]
+    [statusTab, currentPage, pageSize, searchQuery, listFilters]
   );
 
   // React Query: Fetch styles (cached, deduped, auto-refetch)
@@ -118,22 +224,16 @@ export default function CADPlanningList() {
 
   // Toggle row expansion
   const toggleRowExpand = (styleId: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
+    setExpanded((prev) => {
+      const next = new Set(prev.viewKey === viewKey ? prev.rows : []);
       if (next.has(styleId)) {
         next.delete(styleId);
       } else {
         next.add(styleId);
       }
-      return next;
+      return { viewKey, rows: next };
     });
   };
-
-  // Reset page when tab or search changes
-  useEffect(() => {
-    setCurrentPage(1);
-    setExpandedRows(new Set()); // Collapse all rows when changing tab/search
-  }, [statusTab, searchQuery]);
 
   // Get purpose badge color
   const getPurposeBadgeClass = (purpose: string | null) => {
@@ -194,7 +294,12 @@ export default function CADPlanningList() {
           <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
             «
           </Button>
-          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => p - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(currentPage - 1)}
+          >
             ‹
           </Button>
           <span className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm">{currentPage}</span>
@@ -202,7 +307,7 @@ export default function CADPlanningList() {
             variant="outline"
             size="sm"
             disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage((p) => p + 1)}
+            onClick={() => setCurrentPage(currentPage + 1)}
           >
             ›
           </Button>
@@ -312,7 +417,9 @@ export default function CADPlanningList() {
             <CardDescription>
               {searchQuery
                 ? `Search results: ${totalStyles} styles found`
-                : `Manage CAD planning for styles (${totalStyles} styles in ${statusTab.toLowerCase()} status)`}
+                : `Manage CAD planning for styles (${totalStyles} styles in ${statusTab.toLowerCase()} status${
+                    hasListFilters ? ', filtered' : ''
+                  })`}
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -321,8 +428,61 @@ export default function CADPlanningList() {
         </div>
       </CardHeader>
       <CardContent>
+        {/* Search + filters — apply to both tabs and to the tab counts */}
+        <FilterBar
+          className="mb-4"
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}`}
+        >
+          <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+            <Label className="text-sm font-medium">Search</Label>
+            <SearchInput value={searchQuery} onChange={handleSearchChange} placeholder="Code, name, buyer, brand…" />
+          </div>
+
+          <MultiSelectFilter
+            label="Buyer"
+            value={listFilters.customerId ?? []}
+            onChange={(value) => updateURLParams({ customerId: value, page: undefined })}
+            options={toOptions(filterOptions?.buyers)}
+          />
+
+          <MultiSelectFilter
+            label="Brand"
+            value={listFilters.brandName ?? []}
+            onChange={(value) => updateURLParams({ brandName: value, page: undefined })}
+            options={toOptions(filterOptions?.brands)}
+          />
+
+          <MultiSelectFilter
+            label="Category"
+            value={listFilters.productCategoryId ?? []}
+            onChange={(value) => updateURLParams({ productCategoryId: value, page: undefined })}
+            options={toOptions(filterOptions?.productCategories)}
+            className="w-[220px]"
+          />
+
+          <SelectFilter
+            label="Orders"
+            value={listFilters.orders ?? 'all'}
+            onChange={(value) => updateURLParams({ orders: value === 'all' ? undefined : value, page: undefined })}
+            options={ORDER_FILTER_OPTIONS}
+          />
+
+          <SelectFilter
+            label="CAD Progress"
+            value={listFilters.cadProgress ?? 'all'}
+            onChange={(value) => updateURLParams({ cadProgress: value === 'all' ? undefined : value, page: undefined })}
+            options={CAD_PROGRESS_OPTIONS}
+          />
+        </FilterBar>
+
         {/* Status Tabs - Only PENDING and APPROVED */}
-        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as 'PENDING' | 'APPROVED')} className="mb-6">
+        <Tabs
+          value={statusTab}
+          onValueChange={(v) => updateURLParams({ tab: v === 'APPROVED' ? 'APPROVED' : undefined, page: undefined })}
+          className="mb-6"
+        >
           <TabsList>
             <TabsTrigger value="PENDING" className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
@@ -347,20 +507,9 @@ export default function CADPlanningList() {
           {/* Content for both tabs */}
           {(['PENDING', 'APPROVED'] as const).map((status) => (
             <TabsContent key={status} value={status}>
-              {/* Search - Global across all statuses */}
-              <div className="mb-4">
-                <SearchInput
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  placeholder="Search across all statuses by style code, name, buyer, or brand..."
-                  className="max-w-lg"
-                />
-                {searchQuery && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Searching across both Pending and Approved styles
-                  </p>
-                )}
-              </div>
+              {searchQuery && (
+                <p className="text-xs text-muted-foreground mb-4">Searching across both Pending and Approved styles</p>
+              )}
 
               {/* Loading state */}
               {isLoading && (
@@ -385,8 +534,8 @@ export default function CADPlanningList() {
                   <Ruler className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-lg font-medium">No styles found</p>
                   <p className="text-sm mt-1">
-                    {searchQuery
-                      ? 'Try adjusting your search terms'
+                    {searchQuery || hasListFilters
+                      ? 'No styles match this search and these filters — try clearing some'
                       : status === 'PENDING'
                         ? 'All styles have CAD planning completed'
                         : 'No styles have completed CAD planning yet'}

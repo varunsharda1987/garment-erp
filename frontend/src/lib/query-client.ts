@@ -173,7 +173,12 @@ export const queryKeys = {
   // CAD Planning
   cadPlanning: {
     all: ['cad-planning'] as const,
-    statusCounts: () => [...queryKeys.cadPlanning.all, 'status-counts'] as const,
+    // Filters appended only when given, so invalidating statusCounts() still hits every filtered entry
+    statusCounts: (filters?: Record<string, unknown>) =>
+      filters
+        ? ([...queryKeys.cadPlanning.all, 'status-counts', filters] as const)
+        : ([...queryKeys.cadPlanning.all, 'status-counts'] as const),
+    filterOptions: () => [...queryKeys.cadPlanning.all, 'filter-options'] as const,
     lists: () => [...queryKeys.cadPlanning.all, 'list'] as const,
     list: (filters: Record<string, unknown>) => [...queryKeys.cadPlanning.lists(), filters] as const,
     detail: (styleId: string | number) => [...queryKeys.cadPlanning.all, 'detail', styleId] as const,

@@ -25,6 +25,12 @@ keywords:
   - GRN lot
   - rejected CAD
   - approve production CAD
+  - CAD filter
+  - filter by buyer
+  - filter by brand
+  - styles on order
+  - CAD pending styles
+  - missing CAD
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -37,6 +43,9 @@ keywords:
   - production CAD approve karna
   - CAD reject ho gaya
   - maal aa gaya CAD
+  - buyer se filter karna
+  - order wale style
+  - kiska CAD baaki hai
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -51,6 +60,11 @@ keywords:
   - लॉट
   - कैड रिजेक्ट
   - कैड अप्रूव
+  - फिल्टर
+  - बायर
+  - ब्रांड
+  - ऑर्डर वाले स्टाइल
+  - कैड बाकी
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -79,7 +93,16 @@ A style must exist with:
 
 ### 2. Find your style
 
-- Use the **Search** bar to search by style code, name, buyer, or brand (searches across all statuses).
+- Use the **Search** box to search by style code, name, buyer, or brand (searches across both tabs).
+- Narrow the list with the filters above the tabs. They work on both tabs, and the numbers on the **Pending** and **Approved** tabs change to count only the matching styles:
+  - **Buyer** - tick one or more buyers
+  - **Brand** - tick one or more brands
+  - **Category** - tick one or more product categories
+  - **Orders** - **On an open order** shows styles on a sale order or production order that is still running; **No open order** shows the rest
+  - **CAD Progress** - **No CAD yet**, **No Costing CAD**, **No Raw Mat CAD**, **No Production CAD**, **Has Costing CAD**, **Has Raw Mat CAD**, **Has Production CAD**. It matches the ticks in the **Progress** column
+- Click **Clear N filters** to remove them all. You stay on the same tab.
+- The filters stay when you click **Open CAD** and come back, and you can copy the page link to share a filtered view.
+- Tip: **Orders: On an open order** + **CAD Progress: No Production CAD** lists the ordered styles that still need a Production CAD.
 - Click the expand arrow on any row to see existing CAD width details grouped by purpose.
 - Check the **Progress** column to see which purposes are done:
   - **Costing** - for cost sheet generation

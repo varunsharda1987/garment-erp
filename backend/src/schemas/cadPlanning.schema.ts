@@ -6,6 +6,8 @@
  */
 
 import { z } from 'zod';
+import { multiValue } from './common.schema';
+import { CAD_PROGRESS_FILTERS, CAD_ORDER_FILTERS } from '../services/helpers/cad-list-filter.helper';
 
 // ============================================================================
 // Enums
@@ -23,6 +25,33 @@ export const VarianceApprovalStatusEnum = z.enum(['NOT_REQUIRED', 'PENDING_APPRO
 
 // BUG-CAD10 fix: added Zod enum for type safety
 export const GreigeRateSourceEnum = z.enum(['PROCUREMENT', 'STOCK_VALUATION', 'GREIGE_MASTER', 'MANUAL_OVERRIDE']);
+
+// ============================================================================
+// CAD PLANNING LIST (filters)
+// ============================================================================
+
+/**
+ * The CAD Planning list's filter bar. Shared by /styles and /status-counts so the tab badges
+ * count exactly the rows the table would show. Multi-selects arrive as repeated keys
+ * (`?brandName=Kasya&brandName=Nihsamah`). The controllers read req.validatedQuery, so a param
+ * missing here is a SILENT no-op, not an error.
+ */
+export const cadPlanningListFilterSchema = z.object({
+  customerId: multiValue(64),
+  brandName: multiValue(200),
+  productCategoryId: multiValue(64),
+  orders: z.enum(CAD_ORDER_FILTERS).optional(),
+  cadProgress: z.enum(CAD_PROGRESS_FILTERS).optional(),
+});
+
+/** GET /api/cad-planning/styles */
+export const cadPlanningStylesQuerySchema = cadPlanningListFilterSchema.extend({
+  status: z.enum(['PENDING', 'IN_PROGRESS', 'APPROVED']).optional(),
+  page: z.string().optional(),
+  limit: z.string().optional(),
+  search: z.string().max(100).optional(),
+  searchAll: z.enum(['true', 'false']).optional(),
+});
 
 // ============================================================================
 // CAD GENERATION & CALCULATION

@@ -51,6 +51,50 @@ export interface CADPlanningStyle {
   cadDetails?: CADWidthDetail[]; // CAD width details with greige info (optional)
 }
 
+/** `orders` filter — mirrors CAD_ORDER_FILTERS in backend cad-list-filter.helper.ts */
+export type CADOrderFilter = 'open' | 'none';
+
+/** `cadProgress` filter — mirrors CAD_PROGRESS_FILTERS in backend cad-list-filter.helper.ts */
+export type CADProgressFilter =
+  | 'NO_CAD'
+  | 'NO_COSTING'
+  | 'NO_RAW_MATERIAL_CALCULATION'
+  | 'NO_PRODUCTION'
+  | 'HAS_COSTING'
+  | 'HAS_RAW_MATERIAL_CALCULATION'
+  | 'HAS_PRODUCTION';
+
+/** The CAD Planning list's filter bar. Sent to /styles AND /status-counts so the badges match. */
+export interface CADListFilters {
+  customerId?: string[];
+  brandName?: string[];
+  productCategoryId?: string[];
+  orders?: CADOrderFilter;
+  cadProgress?: CADProgressFilter;
+}
+
+export interface CADFilterOption {
+  value: string;
+  /** Present when the value is an id (buyers, categories); a brand's value is its own label. */
+  label?: string;
+  count: number;
+}
+
+export interface CADFilterOptions {
+  buyers: CADFilterOption[];
+  brands: CADFilterOption[];
+  productCategories: CADFilterOption[];
+}
+
+/** Repeated keys (`?brandName=A&brandName=B`), never comma-joined — see lib/url-filters.ts */
+function appendListFilters(queryParams: URLSearchParams, filters: CADListFilters) {
+  filters.customerId?.forEach((v) => queryParams.append('customerId', v));
+  filters.brandName?.forEach((v) => queryParams.append('brandName', v));
+  filters.productCategoryId?.forEach((v) => queryParams.append('productCategoryId', v));
+  if (filters.orders) queryParams.append('orders', filters.orders);
+  if (filters.cadProgress) queryParams.append('cadProgress', filters.cadProgress);
+}
+
 export interface CADPlanningListResponse {
   success: boolean;
   data: {
@@ -153,29 +197,45 @@ export const cadPlanningService = {
    * @param params.status - Filter by status (PENDING includes IN_PROGRESS)
    * @param params.searchAll - When true, search across all statuses (unified search)
    */
-  async getStylesForCADPlanning(params: {
-    status?: 'PENDING' | 'APPROVED';
-    page?: number;
-    limit?: number;
-    search?: string;
-    searchAll?: boolean; // Search across all statuses
-  }): Promise<CADPlanningListResponse> {
+  async getStylesForCADPlanning(
+    params: {
+      status?: 'PENDING' | 'APPROVED';
+      page?: number;
+      limit?: number;
+      search?: string;
+      searchAll?: boolean; // Search across all statuses
+    } & CADListFilters
+  ): Promise<CADPlanningListResponse> {
     const queryParams = new URLSearchParams();
     if (params.status) queryParams.append('status', params.status);
     if (params.page) queryParams.append('page', String(params.page));
     if (params.limit) queryParams.append('limit', String(params.limit));
     if (params.search) queryParams.append('search', params.search);
     if (params.searchAll) queryParams.append('searchAll', 'true');
+    appendListFilters(queryParams, params);
 
     const response = await api.get<CADPlanningListResponse>(`/cad-planning/styles?${queryParams.toString()}`);
     return response.data;
   },
 
   /**
-   * Get CAD status counts for tabs
+   * Get CAD status counts for tabs, under the list's current filters
    */
-  async getCADStatusCounts(): Promise<CADStatusCounts> {
-    const response = await api.get<{ success: boolean; data: CADStatusCounts }>('/cad-planning/status-counts');
+  async getCADStatusCounts(filters: CADListFilters = {}): Promise<CADStatusCounts> {
+    const queryParams = new URLSearchParams();
+    appendListFilters(queryParams, filters);
+    const query = queryParams.toString();
+    const response = await api.get<{ success: boolean; data: CADStatusCounts }>(
+      `/cad-planning/status-counts${query ? `?${query}` : ''}`
+    );
+    return response.data.data;
+  },
+
+  /**
+   * Buyers, brands and product categories present on active styles, with counts
+   */
+  async getFilterOptions(): Promise<CADFilterOptions> {
+    const response = await api.get<{ success: boolean; data: CADFilterOptions }>('/cad-planning/filter-options');
     return response.data.data;
   },
 

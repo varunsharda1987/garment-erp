@@ -12,6 +12,7 @@ import prisma from '../config/database';
 import { SupplierCategory } from '@prisma/client';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { NotFoundError, BusinessError } from '../errors';
+import { loadMaterialMasterSuppliers, preferredMasterSupplierId } from './helpers/master-supplier.helper';
 
 // ============================================
 // MATERIAL TYPE INFERENCE HELPER
@@ -212,6 +213,33 @@ export async function suggestVendorForMaterial(materialId: string): Promise<Vend
 
   if (!material) {
     throw new NotFoundError('Material', materialId);
+  }
+
+  // Priority 1a: a label's / packaging's preferred supplier is on its OWN page (label_suppliers /
+  // packaging_suppliers) — material_suppliers holds it for at most one of a label's sizes
+  const masterLinks = (await loadMaterialMasterSuppliers([material.id])).get(material.id);
+  const masterSupplierId = preferredMasterSupplierId(masterLinks);
+  if (masterSupplierId && masterLinks) {
+    const linked = await prisma.suppliers.findMany({
+      where: { id: { in: masterLinks.map((l) => l.supplierId) }, isActive: true },
+      select: { id: true, name: true },
+    });
+    const preferred = linked.find((s) => s.id === masterSupplierId);
+    if (preferred) {
+      return {
+        materialId: material.id,
+        materialCode: material.code || undefined,
+        materialName: material.name || undefined,
+        materialType: getEffectiveMaterialType(material),
+        suggestedSupplierId: preferred.id,
+        suggestedSupplierName: preferred.name,
+        confidence: 'high',
+        reason: 'Preferred supplier',
+        alternatives: linked
+          .filter((s) => s.id !== preferred.id)
+          .map((s) => ({ supplierId: s.id, supplierName: s.name })),
+      };
+    }
   }
 
   // Priority 1: Check for preferred supplier

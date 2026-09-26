@@ -33,6 +33,7 @@ let orderBomId: string;
 let sizeIds: string[] = [];
 let labelId: string;
 let plainLabelId: string;
+let labelSupplierId: string;
 
 const ORDER_QTY = 600;
 const SIZES = ['S', 'M', 'L'];
@@ -100,6 +101,15 @@ beforeAll(async () => {
     },
   });
 
+  // Both labels are bought from a supplier recorded ONLY on their own Label page (label_suppliers) —
+  // no material_suppliers row, the copy that held at most one size of a label (2026-09-26)
+  labelSupplierId = (
+    await prisma.suppliers.create({ data: { code: `${RUN}SUP`, name: `${RUN} Label Supplier`, createdById: userId } })
+  ).id;
+  for (const id of [labelId, plainLabelId]) {
+    await prisma.label_suppliers.create({ data: { labelId: id, supplierId: labelSupplierId, isPreferred: true } });
+  }
+
   // Order created WITHOUT any size breakup — the whole point of this workflow
   const order = await prisma.orders.create({
     data: {
@@ -152,9 +162,11 @@ afterAll(async () => {
   await prisma.order_bom_items.deleteMany({ where: { orderBomId } });
   await prisma.order_bom.deleteMany({ where: { orderId } });
   await prisma.orders.deleteMany({ where: { id: only(orderId) } }); // cascades items + breakup
+  // By labelId: the base rows AND the size rows MRP created (their ids are the variants')
+  await prisma.materials.deleteMany({ where: { labelId: { in: [only(labelId), only(plainLabelId)] } } });
   await prisma.label_size_variants.deleteMany({ where: { labelId } });
-  await prisma.materials.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } });
-  await prisma.label_master.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } });
+  await prisma.label_master.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } }); // cascades label_suppliers
+  await prisma.suppliers.deleteMany({ where: { id: only(labelSupplierId) } });
   await prisma.size_options.deleteMany({ where: { styleId } });
   await prisma.color_options.deleteMany({ where: { styleId: only(styleId) } });
   await prisma.customers.deleteMany({ where: { id: only(customerId) } });
@@ -186,6 +198,8 @@ describe('sizes-later workflow', () => {
     const plain = reqs.filter((r) => r.materials.labelId === plainLabelId);
     expect(plain).toHaveLength(1);
     expect(plain[0].status).toBe('PO_REQUIRED');
+    // …bought from the supplier on its Label page
+    expect(plain[0].preferredSupplierId).toBe(labelSupplierId);
   });
 
   it('refuses to put a SIZE_PENDING requirement on a purchase order', async () => {
@@ -272,6 +286,8 @@ describe('sizes-later workflow', () => {
     const perSize = active.filter((r) => r.materials.labelId === labelId && r.materials.sizeVariantId);
     expect(perSize).toHaveLength(SIZES.length);
     expect(perSize.reduce((sum, r) => sum + Number(r.totalRequired), 0)).toBe(ORDER_QTY);
+    // Every size is bought from the label's supplier — not "Not Assigned" for all but one size
+    expect(perSize.map((r) => r.preferredSupplierId)).toEqual(SIZES.map(() => labelSupplierId));
   });
 
   it('is idempotent — recalculating again does not duplicate the per-size rows', async () => {

@@ -191,18 +191,21 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   // When both are present: show materials linked to this supplier OR matching these material types.
   // The search lives under AND (applySearch), so this OR can never collide with it — the earlier
   // hand-off between the two is gone.
+  //
+  // "Linked to this supplier" reads the label's and packaging's OWN supplier tables — the ones their
+  // master pages write — as well as material_suppliers. material_suppliers is a copy nothing keeps up
+  // for these two (a March sync linked one arbitrary size row per label), so a sized label offered
+  // only its XS row on the PO form (2026-09-26). The label_master path matches the base row AND every
+  // size row, since each carries labelId. Neither type is in the PO form's TRIMS type list.
+  const supplierLinked: Prisma.materialsWhereInput[] = [
+    { suppliers: { some: { supplierId, isActive: true } } },
+    { label_master: { labelSuppliers: { some: { supplierId, isActive: true } } } },
+    { packaging_master: { packaging_suppliers: { some: { supplierId, isActive: true } } } },
+  ];
   if (supplierId && materialTypes.length > 0) {
-    whereClause.OR = [
-      { suppliers: { some: { supplierId, isActive: true } } },
-      { materialType: { in: materialTypes as any[] } },
-    ];
+    whereClause.OR = [...supplierLinked, { materialType: { in: materialTypes as any[] } }];
   } else if (supplierId) {
-    whereClause.suppliers = {
-      some: {
-        supplierId: supplierId,
-        isActive: true,
-      },
-    };
+    whereClause.OR = supplierLinked;
   } else if (materialTypes.length > 0) {
     whereClause.materialType = { in: materialTypes as any[] };
   }
@@ -238,6 +241,8 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
             isPreferred: 'desc',
           },
         },
+        // A label's size row names its size — the PO form groups a sized label into one size grid
+        label_size_variant: { select: { size: true } },
         // Include master tables with customer info and price fields
         label_master: {
           select: {

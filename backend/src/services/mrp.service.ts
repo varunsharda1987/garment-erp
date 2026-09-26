@@ -61,6 +61,12 @@ import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
 import {
+  loadMasterSupplierLinks,
+  loadMaterialMasterSuppliers,
+  masterSupplierPrice,
+  preferredMasterSupplierId,
+} from './helpers/master-supplier.helper';
+import {
   greigeCountsForPlanning,
   greigeHolderId,
   laceCountsForPlanning,
@@ -1241,6 +1247,16 @@ export async function calculateRequirementsFromOrder(
     // A trim requirement's unit is its material's unit (material-unit.helper), whatever its BOM line says
     const bomLineUnits = await loadLineUnits(bom.items);
 
+    // A label's / packaging's supplier is on its OWN page (label_suppliers / packaging_suppliers);
+    // material_suppliers holds it for at most one of a label's sizes (master-supplier.helper)
+    const masterSuppliers = await loadMasterSupplierLinks({
+      labelIds: bom.items.flatMap((i: any) => [i.labelId, i.material?.labelId]),
+      packagingIds: bom.items.flatMap((i: any) => [i.packagingId, i.material?.packagingId]),
+    });
+    const masterLinksFor = (labelId?: string | null, packagingId?: string | null) =>
+      (labelId ? masterSuppliers.byLabel.get(labelId) : undefined) ??
+      (packagingId ? masterSuppliers.byPackaging.get(packagingId) : undefined);
+
     // Process each BOM item
     for (const bomItem of bom.items) {
       const material = bomItem.material;
@@ -1523,8 +1539,14 @@ export async function calculateRequirementsFromOrder(
         }
       }
 
-      // Get preferred supplier (only available if material relation exists)
+      // Get preferred supplier: a label's / packaging's from its own page, anything else from material_suppliers
       const preferredSupplier = material?.suppliers?.find((s: any) => s.isPreferred);
+      const preferredSupplierId =
+        preferredMasterSupplierId(
+          masterLinksFor(bomItem.labelId ?? material?.labelId, bomItem.packagingId ?? material?.packagingId)
+        ) ??
+        preferredSupplier?.supplierId ??
+        null;
 
       // Check available stock if requested
       let availableStock = 0;
@@ -1842,8 +1864,11 @@ export async function calculateRequirementsFromOrder(
               const wastageAmountForSize = baseRequiredDecimalForSize.times(toCurrency(wastagePercent).dividedBy(100));
               const sizeRequired = toNumber(baseRequiredDecimalForSize.plus(wastageAmountForSize));
 
-              // Get supplier from parent label
-              const labelSupplierId = variant.label?.supplierId || null;
+              // Every size is bought from the label's supplier (its Label page), the legacy column as a fallback
+              const labelSupplierId =
+                preferredMasterSupplierId(masterSuppliers.byLabel.get(bomItem.labelId)) ??
+                variant.label?.supplierId ??
+                null;
 
               calculatedRequirements.push({
                 orderId,
@@ -2073,7 +2098,7 @@ export async function calculateRequirementsFromOrder(
           availableStock,
           allocatedFromStock,
           shortfall,
-          preferredSupplierId: preferredSupplier?.supplierId || null,
+          preferredSupplierId,
           status,
           requirementType: 'MATERIAL', // Standard material procurement
           // Fabric width tracking for split PO scenarios
@@ -2157,7 +2182,7 @@ export async function calculateRequirementsFromOrder(
           availableStock,
           allocatedFromStock,
           shortfall,
-          preferredSupplierId: preferredSupplier?.supplierId || null,
+          preferredSupplierId,
           status,
           requirementType: 'MATERIAL', // Standard material procurement
           // Fabric width tracking for split PO scenarios
@@ -2341,6 +2366,10 @@ export async function calculateRequirementsFromOrder(
               unitPrice: req.unitPrice,
               rateSource: req.rateSource,
               orderBomItemId: req.orderBomItemId,
+              // A revived row kept a blank supplier forever; fill it, never replace one someone assigned
+              ...(existing.preferredSupplierId == null && req.preferredSupplierId
+                ? { preferredSupplierId: req.preferredSupplierId }
+                : {}),
             },
             include: getRequirementIncludes(),
           });
@@ -3516,6 +3545,12 @@ export async function generatePOFromRequirements(
       .filter((sp) => sp.supplierPrice && Number(sp.supplierPrice) > 0)
       .map((sp) => [sp.materialId, Number(sp.supplierPrice)])
   );
+  // Labels / packaging: the supplier's price is on the master's own supplier row, for every size
+  const masterLinksById = await loadMaterialMasterSuppliers(materialIds);
+  for (const id of materialIds) {
+    const price = masterSupplierPrice(masterLinksById.get(id), supplierId);
+    if (price) autoPriceMap.set(id, price);
+  }
 
   // Resolve cost-sheet rates for each material (FABRIC / GREIGE / PROCESSING)
   //
@@ -5636,6 +5671,12 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         .filter((sp) => sp.supplierPrice && Number(sp.supplierPrice) > 0)
         .map((sp) => [sp.materialId, Number(sp.supplierPrice)])
     );
+    // Labels / packaging: the supplier's price is on the master's own supplier row, for every size
+    const masterLinksById = await loadMaterialMasterSuppliers(materialIds);
+    for (const id of materialIds) {
+      const price = masterSupplierPrice(masterLinksById.get(id), supplierId);
+      if (price) priceMap.set(id, price);
+    }
 
     // Resolve cost-sheet rates for FABRIC / GREIGE / PROCESSING materials
     const costSheetRateMap = new Map<string, number>();

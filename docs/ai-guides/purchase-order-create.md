@@ -24,6 +24,15 @@ keywords:
   - delivery location
   - baad mein batayenge
   - डिलीवरी कहाँ
+  - size wise label
+  - label sizes
+  - main cum size label
+  - size label po
+  - har size ki quantity
+  - size wise quantity
+  - साइज़
+  - लेबल
+  - साइज़ वाइज़
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -35,6 +44,8 @@ sources:
   - backend/src/schemas/purchaseOrder.schema.ts
   - backend/src/services/document-data/po-deliver-to.ts
   - frontend/src/components/WeaverCombobox.tsx
+  - frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx
+  - backend/src/controllers/material.controller.ts
 route: /procurement/purchase-orders/new
 ---
 
@@ -50,6 +61,8 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 6. Set **Delivery Location** — the warehouse or processor's unit the goods should reach. If the place will be decided at dispatch, leave it empty (the box reads **Decide at dispatch (to be advised)**): the PO then prints "To be advised before dispatch", and you set the place later from the PO page. Choosing your own store prints your address from Company Profile.
 7. Set **Expected Delivery Date *** (required).
 8. In the **Order Items** card, use **Quick Add Material** to search and add a material, or click **Browse All Materials**. For a Greige PO with no style linked, use **Add Greige Fabric**.
+   **Labels that come in sizes** (for example a main-cum-size label) are listed ONCE, marked "· 7 sizes". Picking one opens a size box with one quantity per size (XS, S, M, L, XL, XXL, XXXL) and a **Total**. Type the quantity for each size you want and click **Add N lines** — each size becomes its own line on the PO. Sizes left at 0 are not added. To change the quantities later, pick the same label again (in Browse All Materials its button reads **Edit sizes**): the box opens with the current quantities, and **Update lines** saves them — setting a size to 0 removes that size's line.
+   Use the **Trims** or **General** category for labels and packaging. They are listed for a supplier when that supplier is added on the label's own page (**Materials & Masters → Labels**, then **Edit**).
 9. For each row fill **Quantity**, **Unit Price** and, for Greige/Fabric, **Fold L (cm)** if known. The quantity is in actual metres; with a Fold L under 100 the row shows the same quantity as the mill will count it, e.g. "actual · = 10,011 m counted @ L=98". **GST %** defaults on each row; **Amount**, **Tax** and **Total** calculate automatically. Use the bin icon to remove a row.
    On Greige and Fabric POs each row also has a **Weaver** box — the mill this cloth is woven by. It is optional here (you may only know it at dispatch). Pick a weaver, or type a new name and click **Add "…" as a new weaver**; the same name in any spelling is kept as one weaver. Do NOT make a new greige just because the weaver changed — the weaver is recorded on the PO line and the stock lot, and all weavers stay under the same greige. When set, the PO prints "Weaver: …" under the line.
 10. Add anything else in **Notes**.

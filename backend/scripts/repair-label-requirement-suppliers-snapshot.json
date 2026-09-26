@@ -1,0 +1,538 @@
+{
+  "runs": [
+    {
+      "takenAt": "2026-09-26T07:42:30.237Z",
+      "previousSupplierId": null,
+      "assignments": [
+        {
+          "requirementId": "9f1c9bee-014a-4cc1-acc3-6e186b32b06a",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0112",
+          "code": "LBL-0007"
+        },
+        {
+          "requirementId": "ca878621-fd98-488d-9fe1-55ee1357e8bf",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0113",
+          "code": "LBL-0006"
+        },
+        {
+          "requirementId": "a725571d-241b-47d5-ae83-c3c30f8b1ee8",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0114",
+          "code": "LBL-0005"
+        },
+        {
+          "requirementId": "59d31b9d-b566-45cd-92b8-334564c36e7b",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0115",
+          "code": "LBL-0004"
+        },
+        {
+          "requirementId": "70b8ed9c-672d-4ff0-8c86-677657500f00",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0127",
+          "code": "LBL-0007"
+        },
+        {
+          "requirementId": "838a39bc-8376-4fdb-aa8e-6f89d44a4821",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0128",
+          "code": "LBL-0006"
+        },
+        {
+          "requirementId": "a9934d17-40e7-4e58-baa2-64de98aaef07",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0129",
+          "code": "LBL-0005"
+        },
+        {
+          "requirementId": "67b610c9-f7ef-4791-aeee-be4689f4097f",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0130",
+          "code": "LBL-0004"
+        },
+        {
+          "requirementId": "27af3453-8b7e-4d2b-86d6-f783ba2ff25f",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0135",
+          "code": "LBL-0007"
+        },
+        {
+          "requirementId": "55d37744-1f76-413e-a5da-da6a6eff4eab",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0136",
+          "code": "LBL-0006"
+        },
+        {
+          "requirementId": "fb6a1119-8b43-436d-95d3-1b2c1a7ba7ce",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0137",
+          "code": "LBL-0005"
+        },
+        {
+          "requirementId": "be599f01-3854-4092-9e5b-50f74452469b",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0138",
+          "code": "LBL-0004"
+        },
+        {
+          "requirementId": "2d86fc88-1042-4055-988a-92025dbfea52",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0151",
+          "code": "LBL-0007"
+        },
+        {
+          "requirementId": "915ce2a6-1a2b-4886-8fbf-4c0ad9b707be",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0152",
+          "code": "LBL-0006"
+        },
+        {
+          "requirementId": "8744e756-bab1-404b-b61e-fae511583d10",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0153",
+          "code": "LBL-0005"
+        },
+        {
+          "requirementId": "b6c2ab51-d507-4f04-9e69-defd2fba8754",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2608-0154",
+          "code": "LBL-0004"
+        },
+        {
+          "requirementId": "f6a47696-4e18-4829-9f20-61f97c2af29f",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0136",
+          "code": "LBL-0007-XS"
+        },
+        {
+          "requirementId": "635f6cb9-2a85-4ffa-9b04-1d3b07cd37b1",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0137",
+          "code": "LBL-0007-S"
+        },
+        {
+          "requirementId": "7e47dc3b-2978-43bf-b965-4d7327bf4340",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0138",
+          "code": "LBL-0007-M"
+        },
+        {
+          "requirementId": "749c0f69-28f5-486c-9155-c0802de2ffa4",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0139",
+          "code": "LBL-0007-L"
+        },
+        {
+          "requirementId": "ec8eef80-0685-48df-95f8-8e29fe08d34b",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0140",
+          "code": "LBL-0007-XL"
+        },
+        {
+          "requirementId": "a6140a2e-7831-4002-b091-613a350b6263",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0141",
+          "code": "LBL-0007-XXL"
+        },
+        {
+          "requirementId": "6a5ff6ab-d235-4de1-923c-186de0057384",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0142",
+          "code": "LBL-0006-XS"
+        },
+        {
+          "requirementId": "48805c7c-02fd-4da3-8f89-68817477238b",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0143",
+          "code": "LBL-0006-S"
+        },
+        {
+          "requirementId": "53fb8f0d-b81c-437f-9127-aceec75aa11d",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0144",
+          "code": "LBL-0006-M"
+        },
+        {
+          "requirementId": "038cd692-aad3-47ea-b2fd-e8d9df8beb6e",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0145",
+          "code": "LBL-0006-L"
+        },
+        {
+          "requirementId": "ba849a29-4cc2-490f-bdc8-06baf0bffffa",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0146",
+          "code": "LBL-0006-XL"
+        },
+        {
+          "requirementId": "9813674f-8402-4141-806e-f6169c0f83e3",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0147",
+          "code": "LBL-0006-XXL"
+        },
+        {
+          "requirementId": "1ef71a31-b5d2-4250-b213-929d8d831a64",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0148",
+          "code": "LBL-0005-XS"
+        },
+        {
+          "requirementId": "b05e4c9c-2359-45f6-8127-eb26f84b2d82",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0149",
+          "code": "LBL-0005-S"
+        },
+        {
+          "requirementId": "516e1b00-618b-4994-9c7f-a8eb2c5ecf10",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0150",
+          "code": "LBL-0005-M"
+        },
+        {
+          "requirementId": "fcb5302e-383d-49a7-8b23-4ac94a5e06b4",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0151",
+          "code": "LBL-0005-L"
+        },
+        {
+          "requirementId": "66b1f833-506f-4854-8dc5-77a757ae4f03",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0152",
+          "code": "LBL-0005-XL"
+        },
+        {
+          "requirementId": "494bcc32-82d3-4fd0-82e8-7cf8fb491eac",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0153",
+          "code": "LBL-0005-XXL"
+        },
+        {
+          "requirementId": "4af97ec4-80a9-4c02-913c-6b7e72050f1a",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0154",
+          "code": "LBL-0004-XS"
+        },
+        {
+          "requirementId": "4dff3440-60da-4627-b216-1d8d17941370",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0155",
+          "code": "LBL-0004-S"
+        },
+        {
+          "requirementId": "0b745748-81a5-436d-ad0c-df2945a4fe86",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0156",
+          "code": "LBL-0004-M"
+        },
+        {
+          "requirementId": "6654252c-5e58-45c2-8323-ddda2a0cd438",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0157",
+          "code": "LBL-0004-L"
+        },
+        {
+          "requirementId": "25334907-e25a-4c97-85ac-07bc0136277d",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0158",
+          "code": "LBL-0004-XL"
+        },
+        {
+          "requirementId": "e608e226-177b-4839-b46c-7dc58534ab11",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0159",
+          "code": "LBL-0004-XXL"
+        },
+        {
+          "requirementId": "e1af02d8-9abf-4f65-8021-d0f8c82e7b25",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0160",
+          "code": "LBL-0007-XS"
+        },
+        {
+          "requirementId": "2d57b512-5f10-4102-b025-0d409a56bbe6",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0161",
+          "code": "LBL-0007-S"
+        },
+        {
+          "requirementId": "6b2a4528-30ce-477a-ac39-79138cb1d2b1",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0162",
+          "code": "LBL-0007-M"
+        },
+        {
+          "requirementId": "a39ff342-f84a-4884-8746-b388ecb6aa99",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0163",
+          "code": "LBL-0007-L"
+        },
+        {
+          "requirementId": "f747fd9c-c636-44e5-8f0e-b90a52bef3a3",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0164",
+          "code": "LBL-0007-XL"
+        },
+        {
+          "requirementId": "1ff6a793-5452-45d5-a505-87dad9fb3569",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0165",
+          "code": "LBL-0007-XXL"
+        },
+        {
+          "requirementId": "c2548570-65b1-4a3b-a3c7-d65cb744c7cb",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0166",
+          "code": "LBL-0006-XS"
+        },
+        {
+          "requirementId": "ba06c5e4-3c59-49ed-a380-b83edf31240f",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0167",
+          "code": "LBL-0006-S"
+        },
+        {
+          "requirementId": "89b70a87-14c8-4a57-a762-563d88cc24da",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0168",
+          "code": "LBL-0006-M"
+        },
+        {
+          "requirementId": "79e799de-476b-4c09-8438-c83f8ad24f46",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0169",
+          "code": "LBL-0006-L"
+        },
+        {
+          "requirementId": "4e93a091-706a-4afa-83d4-5ff14ce7ddfe",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0170",
+          "code": "LBL-0006-XL"
+        },
+        {
+          "requirementId": "d814f16a-3b1e-4b64-a5cf-614ac6b74ba1",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0171",
+          "code": "LBL-0006-XXL"
+        },
+        {
+          "requirementId": "57500f2a-18b1-4dcb-91ac-f4815113a137",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0172",
+          "code": "LBL-0005-XS"
+        },
+        {
+          "requirementId": "ac1e1a19-808d-4326-a8ba-1f516349cdfc",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0173",
+          "code": "LBL-0005-S"
+        },
+        {
+          "requirementId": "d1940d49-2428-4915-9e1d-4a5fdf85f4a0",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0174",
+          "code": "LBL-0005-M"
+        },
+        {
+          "requirementId": "fa5ccb03-1a84-40f0-a103-ffb3575bbefd",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0175",
+          "code": "LBL-0005-L"
+        },
+        {
+          "requirementId": "a5e68e4d-bd32-4d90-be20-4eecedaafbf7",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0176",
+          "code": "LBL-0005-XL"
+        },
+        {
+          "requirementId": "e8bc915a-238f-45a9-9b48-52fee65711e4",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0177",
+          "code": "LBL-0005-XXL"
+        },
+        {
+          "requirementId": "167aac95-a342-468c-a29b-092e473b594d",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0178",
+          "code": "LBL-0004-XS"
+        },
+        {
+          "requirementId": "10e90e5d-ef42-4816-96cb-a0a748b5bca3",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0179",
+          "code": "LBL-0004-S"
+        },
+        {
+          "requirementId": "df271eaf-f7cd-45ab-88c1-69c12ccb3895",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0180",
+          "code": "LBL-0004-M"
+        },
+        {
+          "requirementId": "51d10b4b-a404-4ac8-810c-5c490697c1fe",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0181",
+          "code": "LBL-0004-L"
+        },
+        {
+          "requirementId": "697daae4-c0bd-4c66-83a6-addad0f82bbc",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0182",
+          "code": "LBL-0004-XL"
+        },
+        {
+          "requirementId": "8096c2a1-37b3-493f-803e-679219f0db6d",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0183",
+          "code": "LBL-0004-XXL"
+        },
+        {
+          "requirementId": "3a29ae1a-26ed-4ad8-a32a-d1c41b3c3337",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0230",
+          "code": "LBL-0007-XS"
+        },
+        {
+          "requirementId": "a638ced7-8527-4d32-9f0d-c300518f7863",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0231",
+          "code": "LBL-0007-S"
+        },
+        {
+          "requirementId": "8102b25a-4c44-4d68-885e-5be937340176",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0232",
+          "code": "LBL-0007-M"
+        },
+        {
+          "requirementId": "393c7fc1-5aa4-48a3-81cb-f8c010bcc890",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0233",
+          "code": "LBL-0007-L"
+        },
+        {
+          "requirementId": "2aa8eb23-6a72-4ba4-86e0-ae20c6fc28bd",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0234",
+          "code": "LBL-0007-XL"
+        },
+        {
+          "requirementId": "c2139a9b-be0b-4e93-a158-21ffbc34d0ec",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0235",
+          "code": "LBL-0007-XXL"
+        },
+        {
+          "requirementId": "56704de9-d89a-4b99-83f6-c54c40553178",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0236",
+          "code": "LBL-0006-XS"
+        },
+        {
+          "requirementId": "83b97a76-4e3b-4940-89e7-4647e6f80976",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0237",
+          "code": "LBL-0006-S"
+        },
+        {
+          "requirementId": "239c71c4-49b6-4fda-a600-16370f2e43ea",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0238",
+          "code": "LBL-0006-M"
+        },
+        {
+          "requirementId": "776bd5fd-a21e-452a-b12c-5df3f3a4f1bf",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0239",
+          "code": "LBL-0006-L"
+        },
+        {
+          "requirementId": "49b54a0d-9ddd-4c8d-9c86-16270256921d",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0240",
+          "code": "LBL-0006-XL"
+        },
+        {
+          "requirementId": "c8656221-ab85-46db-9360-241247437360",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0241",
+          "code": "LBL-0006-XXL"
+        },
+        {
+          "requirementId": "2674490a-bd56-45af-91e5-b352dd24a643",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0242",
+          "code": "LBL-0005-XS"
+        },
+        {
+          "requirementId": "1e32d10d-cda0-4d14-bd13-e1038e968123",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0243",
+          "code": "LBL-0005-S"
+        },
+        {
+          "requirementId": "eeab2a6d-c43d-426a-ae1c-20f0f07d1c36",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0244",
+          "code": "LBL-0005-M"
+        },
+        {
+          "requirementId": "b58dc5c8-cc92-4563-a312-ceec57532531",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0245",
+          "code": "LBL-0005-L"
+        },
+        {
+          "requirementId": "c7ba03eb-d6aa-4d5d-9b04-772ad8cef377",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0246",
+          "code": "LBL-0005-XL"
+        },
+        {
+          "requirementId": "03fe82c0-04d5-44fb-b0ba-46963c45988c",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0247",
+          "code": "LBL-0005-XXL"
+        },
+        {
+          "requirementId": "6cee4fce-ce65-4c43-a180-99b49af23db0",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0248",
+          "code": "LBL-0004-XS"
+        },
+        {
+          "requirementId": "4cf39038-a4fe-4f2b-9216-179ce91472d0",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0249",
+          "code": "LBL-0004-S"
+        },
+        {
+          "requirementId": "b2314514-83b6-4a2c-9905-dadfa8c7881e",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0250",
+          "code": "LBL-0004-M"
+        },
+        {
+          "requirementId": "0df6091c-de9d-4647-9b30-22c6516f121e",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0251",
+          "code": "LBL-0004-L"
+        },
+        {
+          "requirementId": "ad0e41bf-8e0b-44c1-b9c0-4b852146c7ff",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0252",
+          "code": "LBL-0004-XL"
+        },
+        {
+          "requirementId": "a37ae062-1e7d-4cff-8cf5-a60f3bc7ac6b",
+          "supplierId": "eef05948-8ae0-4869-8256-6680448a7986",
+          "number": "MR2609-0253",
+          "code": "LBL-0004-XXL"
+        }
+      ]
+    }
+  ]
+}

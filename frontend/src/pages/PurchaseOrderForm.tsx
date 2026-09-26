@@ -66,6 +66,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type { Warehouse } from '@/types/inventory.types';
 import { formatQuantity } from '@/lib/formatters';
 import { foldCounted, hasFold } from '@/lib/fold-length';
+import { compareSizes } from '@/utils/sku-generator';
+import { generateId } from '@/lib/utils';
+import { LabelSizeQtyDialog } from '@/components/purchase-orders/LabelSizeQtyDialog';
 
 /**
  * Which GST heads apply: IGST for an out-of-state supplier, CGST+SGST for one in our own state.
@@ -173,6 +176,10 @@ interface Material {
   costPerUnit: number | null;
   hsnCode?: string | null;
   gstRate?: number | null;
+  // A label with sizes arrives as its base row (id === labelId) plus one row per size
+  labelId?: string | null;
+  sizeVariantId?: string | null;
+  labelSizeVariant?: { size: string } | null;
 }
 
 interface POItemForm {
@@ -339,6 +346,8 @@ export default function PurchaseOrderForm() {
   const [materialSearch, setMaterialSearch] = useState('');
   const [quickAddMaterialId, setQuickAddMaterialId] = useState('');
   const [materialDisplayLimit, setMaterialDisplayLimit] = useState(50);
+  // The sized label whose size grid is open (its labelId)
+  const [sizeGridLabelId, setSizeGridLabelId] = useState<string | null>(null);
 
   // AbortController for cancelling stale fetch requests
   const fetchAbortControllerRef = useRef<AbortController | null>(null);
@@ -757,32 +766,113 @@ export default function PurchaseOrderForm() {
   };
 
   // ============================================
+  // Sized labels: offered once, ordered per size
+  // ============================================
+
+  // Each size of a label is its own material (LBL-0004-XS …), so a PO buys a sized label as one line per
+  // size. The picker offers the label ONCE and opens a size grid instead of listing seven rows.
+  const sizeRowsByLabel = new Map<string, Material[]>();
+  for (const m of materials) {
+    if (m.labelId && m.sizeVariantId && m.labelSizeVariant?.size) {
+      sizeRowsByLabel.set(m.labelId, [...(sizeRowsByLabel.get(m.labelId) ?? []), m]);
+    }
+  }
+  for (const rows of sizeRowsByLabel.values()) {
+    rows.sort((a, b) => compareSizes(a.labelSizeVariant!.size, b.labelSizeVariant!.size));
+  }
+  const sizedRowsOf = (m: Material) => (m.labelId ? sizeRowsByLabel.get(m.labelId) : undefined);
+
+  // What the picker lists: every material, except a sized label's rows collapse into one entry — its
+  // base row when loaded, else its first size row.
+  const pickerMaterials: Material[] = [];
+  const offeredLabels = new Set<string>();
+  for (const m of materials) {
+    const sized = sizedRowsOf(m);
+    if (!sized) {
+      pickerMaterials.push(m);
+    } else if (!offeredLabels.has(m.labelId!)) {
+      offeredLabels.add(m.labelId!);
+      pickerMaterials.push(materials.find((x) => x.id === m.labelId) ?? sized[0]);
+    }
+  }
+
+  // A sized label's own code and name (a size row's are "LBL-0004-XS" / "… - Size XS" or "… (XS)")
+  const labelDisplay = (m: Material) => {
+    const size = m.sizeVariantId ? m.labelSizeVariant?.size : undefined;
+    if (!size) return { code: m.code, name: m.name };
+    return {
+      code: m.code.endsWith(`-${size}`) ? m.code.slice(0, -(size.length + 1)) : m.code,
+      name: m.name.replace(/ - Size .+$/, '').replace(/ \([^)]+\)$/, ''),
+    };
+  };
+
+  // ============================================
   // Material item management
   // ============================================
 
+  // generateId, not crypto.randomUUID: the team opens the ERP over plain-HTTP LAN, where randomUUID is absent
+  const materialLine = (material: Material, qty: number): POItemForm => ({
+    tempId: generateId(),
+    materialId: material.id,
+    materialCode: material.code,
+    materialName: material.name,
+    orderedQuantity: String(qty),
+    unit: (material.unit as Unit) || 'PIECE',
+    unitPrice: String(material.costPerUnit || 0),
+    totalPrice: qty * (material.costPerUnit || 0),
+    remarks: '',
+  });
+
   const addMaterialItem = (material: Material) => {
-    const newItem: POItemForm = {
-      tempId: Date.now().toString(),
-      materialId: material.id,
-      materialCode: material.code,
-      materialName: material.name,
-      orderedQuantity: '1',
-      unit: (material.unit as Unit) || 'PIECE',
-      unitPrice: String(material.costPerUnit || 0),
-      totalPrice: material.costPerUnit || 0,
-      remarks: '',
-    };
-    setItems([...items, newItem]);
+    setItems([...items, materialLine(material, 1)]);
     setShowMaterialPicker(false);
     setMaterialSearch('');
+  };
+
+  // A sized label opens its size grid; anything else is added as one line
+  const pickMaterial = (material: Material) => {
+    if (sizedRowsOf(material)) {
+      setShowMaterialPicker(false);
+      setMaterialSearch('');
+      setSizeGridLabelId(material.labelId!);
+    } else {
+      addMaterialItem(material);
+    }
   };
 
   const handleQuickAddMaterial = (materialId: string) => {
     const material = materials.find((m) => m.id === materialId);
     if (material) {
-      addMaterialItem(material);
+      pickMaterial(material);
       setQuickAddMaterialId('');
     }
+  };
+
+  // Apply the size grid: update the sizes already on the PO, add the new ones (in size order), and drop a
+  // size's line when its quantity is 0. A size never ends up on two lines.
+  const applySizeGrid = (sizeRows: Material[], qtyByMaterialId: Record<string, number>) => {
+    setItems((prev) => {
+      const next: POItemForm[] = [];
+      const kept = new Set<string>();
+      for (const item of prev) {
+        const row = sizeRows.find((r) => r.id === item.materialId);
+        if (!row) {
+          next.push(item);
+          continue;
+        }
+        const qty = qtyByMaterialId[row.id] ?? 0;
+        if (kept.has(row.id) || qty <= 0) continue;
+        kept.add(row.id);
+        next.push({ ...item, orderedQuantity: String(qty), totalPrice: qty * (parseFloat(item.unitPrice) || 0) });
+      }
+      for (const row of sizeRows) {
+        const qty = qtyByMaterialId[row.id] ?? 0;
+        if (kept.has(row.id) || qty <= 0) continue;
+        next.push(materialLine(row, qty));
+      }
+      return next;
+    });
+    setSizeGridLabelId(null);
   };
 
   // ============================================
@@ -1129,18 +1219,30 @@ export default function PurchaseOrderForm() {
     setDuplicateResult(null);
   };
 
-  const filteredMaterials = materials.filter(
-    (m) =>
-      m.code.toLowerCase().includes(materialSearch.toLowerCase()) ||
-      m.name.toLowerCase().includes(materialSearch.toLowerCase())
-  );
+  const filteredMaterials = pickerMaterials.filter((m) => {
+    const { code, name } = labelDisplay(m);
+    return (
+      code.toLowerCase().includes(materialSearch.toLowerCase()) ||
+      name.toLowerCase().includes(materialSearch.toLowerCase())
+    );
+  });
 
-  // Material options for Quick Add Combobox (derived from form's materials state)
-  const materialOptions: ComboboxOption[] = materials.map((m) => ({
-    value: m.id,
-    label: `${m.code} - ${m.name}`,
-    searchText: `${m.code} ${m.name} ${m.materialType || ''}`,
-  }));
+  // Material options for Quick Add Combobox (a sized label is one option, "· 7 sizes")
+  const materialOptions: ComboboxOption[] = pickerMaterials.map((m) => {
+    const { code, name } = labelDisplay(m);
+    const sized = sizedRowsOf(m);
+    return {
+      value: m.id,
+      label: `${code} - ${name}${sized ? ` · ${sized.length} sizes` : ''}`,
+      searchText: `${code} ${name} ${m.materialType || ''}`,
+    };
+  });
+
+  // The open size grid's label: its sizes in order, and what the PO already holds for each
+  const sizeGridRows = sizeGridLabelId ? (sizeRowsByLabel.get(sizeGridLabelId) ?? []) : [];
+  const sizeGridLabel = sizeGridRows.length
+    ? labelDisplay(materials.find((m) => m.id === sizeGridLabelId) ?? sizeGridRows[0])
+    : null;
 
   // Greige options for Processing PO Combobox
   const greigeOptions: ComboboxOption[] = greigeFabrics.map((g) => ({
@@ -1764,7 +1866,7 @@ export default function PurchaseOrderForm() {
                 </div>
                 {materials.length > 0 && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Showing {materials.length} materials matching supplier or{' '}
+                    Showing {pickerMaterials.length} materials matching supplier or{' '}
                     {PO_CATEGORY_LABELS[poCategory] || poCategory} category.
                   </p>
                 )}
@@ -2513,23 +2615,41 @@ export default function PurchaseOrderForm() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredMaterials.slice(0, materialDisplayLimit).map((material) => (
-                          <TableRow key={material.id}>
-                            <TableCell className="font-medium">{material.code}</TableCell>
-                            <TableCell>{material.name}</TableCell>
-                            <TableCell>{material.materialType}</TableCell>
-                            <TableCell>{unitShort(material.unit || '-')}</TableCell>
-                            <TableCell>
-                              <Button
-                                size="sm"
-                                onClick={() => addMaterialItem(material)}
-                                disabled={items.some((i) => i.materialId === material.id)}
-                              >
-                                {items.some((i) => i.materialId === material.id) ? 'Added' : 'Add'}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {filteredMaterials.slice(0, materialDisplayLimit).map((material) => {
+                          const { code, name } = labelDisplay(material);
+                          const sized = sizedRowsOf(material);
+                          const added = sized
+                            ? items.some((i) => sized.some((r) => r.id === i.materialId))
+                            : items.some((i) => i.materialId === material.id);
+                          return (
+                            <TableRow key={material.id}>
+                              <TableCell className="font-medium">{code}</TableCell>
+                              <TableCell>
+                                {name}
+                                {sized && (
+                                  <span className="ml-1 text-xs text-muted-foreground">· {sized.length} sizes</span>
+                                )}
+                              </TableCell>
+                              <TableCell>{material.materialType}</TableCell>
+                              <TableCell>{unitShort(material.unit || '-')}</TableCell>
+                              <TableCell>
+                                {sized ? (
+                                  <Button
+                                    size="sm"
+                                    variant={added ? 'outline' : 'default'}
+                                    onClick={() => pickMaterial(material)}
+                                  >
+                                    {added ? 'Edit sizes' : 'Sizes…'}
+                                  </Button>
+                                ) : (
+                                  <Button size="sm" onClick={() => addMaterialItem(material)} disabled={added}>
+                                    {added ? 'Added' : 'Add'}
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                     {filteredMaterials.length > materialDisplayLimit && (
@@ -2549,6 +2669,25 @@ export default function PurchaseOrderForm() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Size grid for a label with sizes — one PO line per size filled in */}
+      {sizeGridLabel && (
+        <LabelSizeQtyDialog
+          key={sizeGridLabelId}
+          open={!!sizeGridLabelId}
+          onOpenChange={(open) => !open && setSizeGridLabelId(null)}
+          code={sizeGridLabel.code}
+          name={sizeGridLabel.name}
+          unit={sizeGridRows[0].unit}
+          unitPrice={sizeGridRows[0].costPerUnit}
+          rows={sizeGridRows.map((r) => ({
+            materialId: r.id,
+            size: r.labelSizeVariant!.size,
+            qty: parseFloat(items.find((i) => i.materialId === r.id)?.orderedQuantity ?? '') || 0,
+          }))}
+          onSave={(qtyByMaterialId) => applySizeGrid(sizeGridRows, qtyByMaterialId)}
+        />
       )}
     </div>
   );

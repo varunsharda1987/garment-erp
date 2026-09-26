@@ -3,6 +3,10 @@ slug: stock-in-create
 title: Record Stock In (Opening/Transfer In)
 keywords:
   # English
+  - bring to store
+  - bring back from dyer
+  - dyer se maal wapas
+  - डायर से माल वापस
   - stock in
   - opening stock
   - transfer in
@@ -32,6 +36,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockInForm.tsx
   - frontend/src/pages/StockMovementList.tsx
+  - backend/src/services/helpers/held-stock-doors.helper.ts
 route: /inventory/movements/stock-in
 ---
 
@@ -54,7 +59,7 @@ route: /inventory/movements/stock-in
 Choose one of two modes:
 
 - **Fresh Stock** - New purchase or direct receipt from a supplier
-- **Processor Return** - Receiving greige back from a processor (only shows if processors have pending stock)
+- **Processor Return** - Bringing our goods back from a processor into our store (only shows if a processor holds something of ours)
 
 ---
 
@@ -96,28 +101,28 @@ Choose one of two modes:
 
 ---
 
-## Processor Return flow
+## Processor Return flow (Bring to store)
 
-Use this when receiving greige fabric back from a processor (dyeing/printing mill).
+Use this when goods of ours that a processor is holding come back to our store unprocessed — greige, lace or ready fabric that a supplier delivered straight to the dyer, or that was parked there by a Stock-Out. (Processed fabric coming back from a job is received on the job itself: **Receive from processor**.) You can also start from **Greige Stock**: expand a greige and click the store button on a lot held at a processor.
 
 ### Step 1: Select Processor
 
-1. Choose the **Processor** from the dropdown (only processors with pending stock appear).
-2. The dropdown shows available quantity at each processor.
+1. Choose the **Processor** from the dropdown (only processors holding something of ours appear, with how much).
 
-### Step 2: Select Greige to Receive
+### Step 2: Select what came back
 
-1. Select the specific **Greige stock entry** to receive.
-2. Details like code, name, composition, and width are displayed.
+1. Select the lot. Each shows its type (GREIGE, LACE or FABRIC), code, the metres free to bring back and the day it reached the processor. Metres reserved for a requirement are not offered.
+2. **Lot Details** shows the code, name, details and the challan the goods went out under (**Sent under**).
 
 ### Step 3: Receive Details
 
 1. View **Available at Processor** (read-only).
-2. Enter **Receiving Now** quantity (cannot exceed available).
+2. Enter **Receiving Now** quantity (cannot exceed what is free).
 3. See **Balance at Processor After** calculated automatically.
-4. Select the **Receive to Warehouse**.
-5. Add any **Remarks**.
-6. Click **Receive from Processor** to complete.
+4. Select the **Receive to Warehouse** — one of our stores, never a processor's unit.
+5. Set **Date back in store** (today by default; it cannot be in the future or before the goods reached the processor).
+6. Add any **Remarks**.
+7. Click **Receive from Processor**. An inward challan from the processor is filed (the message names it), a new lot is booked in your store, and the processor's stock goes down. The challan the goods went out under shows as partly received, then received once nothing is left there.
 
 ---
 

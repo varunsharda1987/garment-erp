@@ -56,7 +56,7 @@ route: /processing/processor-statement
 - **Opening** — what our records say was already lying with them on the From date.
 - **Sent** — what went out in this period, whether on a job work challan, a plain transfer challan, or the challan raised when a supplier delivered straight to the processor. That last one counts from the day the processor received the goods, even if the challan itself is dated later.
 - **Received** — what came back processed, one line per delivery. A job received in parts shows each part with its own GRN number and date.
-- **Returned** — greige that came back unprocessed.
+- **Returned** — greige that came back unprocessed: on a job's **Returned unprocessed**, or brought back to our store from what the processor held (Stock In → **Processor Return**).
 - **Agreed shrinkage** — the percentage quoted on that job, turned into metres. This is not a claim against the processor; it is what we accepted when we placed the work.
 - **Short / Over** — what came back measured against what was due after that agreed shrinkage. "short" is ours to chase; "over" means they returned more than due.
 - **Closing** — still with them, unprocessed or in process. This is the figure you are asking them to confirm.

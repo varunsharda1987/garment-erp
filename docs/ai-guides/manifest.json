@@ -519,10 +519,10 @@
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
       "frontend/src/pages/GRNDetail.tsx": "6bde9d256ce3",
       "backend/src/schemas/grn.schema.ts": "6a811896ac58",
-      "backend/src/services/grn.service.ts": "fce68042bb68"
+      "backend/src/services/grn.service.ts": "dd204ed2df02"
     },
-    "contentHash": "e73683fc645e",
-    "generatedAt": "2026-09-25T09:42:20.198Z"
+    "contentHash": "65641e644a1d",
+    "generatedAt": "2026-09-26T05:47:05.985Z"
   },
   "grn-create": {
     "sources": {
@@ -618,9 +618,9 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/JobWorkOrderList.tsx": "ba5fc942f429",
+      "frontend/src/pages/JobWorkOrderList.tsx": "24f6d25002a0",
       "frontend/src/components/JobWorkOrderCreateDialog.tsx": "afdd83c7b4c8",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "20543997da92",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "08c34556d3fe",
       "frontend/src/components/job-work/GreigeLotRows.tsx": "bca6cfe38c76",
       "frontend/src/components/job-work/ThanPicker.tsx": "e75b65ca9851",
       "frontend/src/components/job-work/lot-rows.ts": "26dec46b2028",
@@ -628,12 +628,12 @@
       "frontend/src/components/GreigeCombobox.tsx": "40717b7be9d3",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
       "backend/src/schemas/jobWorkOrder.schema.ts": "cf4072364781",
-      "backend/src/controllers/job-work-order.controller.ts": "070e724c200d",
+      "backend/src/controllers/job-work-order.controller.ts": "78b03a601bca",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "864bc5f08c1f"
+      "backend/src/services/job-work-issuance.service.ts": "baf1aebfd391"
     },
-    "contentHash": "e372aa6db5ea",
-    "generatedAt": "2026-09-25T10:16:55.842Z"
+    "contentHash": "9b8555f54647",
+    "generatedAt": "2026-09-26T05:47:06.135Z"
   },
   "job-work-receive": {
     "sources": {

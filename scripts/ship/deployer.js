@@ -646,7 +646,9 @@ async function main() {
         fs.rmSync(S.RETRY_FILE, { force: true });
         if (st.state === 'failed' || st.state === 'blocked') {
           log(`retry requested for ${S.short(st.failedSha)}`);
-          save({ state: 'idle', failedSha: null, error: null, attempts: 0 });
+          // Keep state failed/blocked (so the success posts "flowing again"); clearing failedSha is
+          // what lets the loop deploy the same commit again.
+          save({ failedSha: null, attempts: 0 });
         }
         seenAt = 0; // skip the settle wait
       }

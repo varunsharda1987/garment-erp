@@ -137,6 +137,9 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 | The exact greige a style uses | `style_fabrics.selectedGreigeId` (**0/350 — written only by the legacy `select-greige` endpoint**) | `fabric_width_cad.greigeId` (**137/188 — what CAD Planning's Greige/Fabric column actually writes**) |
 | Which style a CAD row belongs to | `fabric_width_cad.costingStyleId` (legacy writer) | `fabric_width_cad.styleFabricId` (modern writer) — hence the 3-path `OR` in `cutting.controller.ts` |
 | "The result of processing" | `finishedFabricId` / `processedFabricId` / `createdFabricId` / `resultFabricStockId` — four names, one meaning | |
+| Where a PO delivers | `purchase_orders.deliveryLocationId` — ONE place, empty = "to be advised"; on a split PO it only MIRRORS point 1 | `po_delivery_points` + `po_delivery_point_lines` — the split plan. Read and write through `helpers/po-delivery-plan.helper.ts` (2026-09-26) |
+| Where a receipt went | `goods_receiving_notes.warehouseId` — the ACTUAL place, stock is booked there | `goods_receiving_notes.poDeliveryPointId` — the PLANNED place on a split PO. They differ when goods landed elsewhere (warned, allowed) |
+| Which processor holds a lot | `greige_stock.processorId` (DIRECT / TRANSFER lots) | the lot's warehouse when it is a JOB_WORK unit (`warehouses.supplierId`). Lace and fabric have ONLY the warehouse. Read via `lot-location.helper` (`greigeHolderId`, `resolveLotLocation`, `laceCountsForPlanning`) |
 
 `fabricId` on BOM lines and cost-sheet lines is **null by design** (0/82, 0/64): at design time the
 finished fabric does not exist yet; sourcing lives in `greigeId` + the CAD row. Lace documents its pair

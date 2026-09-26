@@ -1506,6 +1506,8 @@ export default function JobWorkOrderDetail() {
         processorName={jwo.processor?.name ?? 'The processor'}
         qtySent={Number(jwo.qtySentMeters ?? 0)}
         uom={jwo.uom}
+        // Took its cloth where it lay at the processor (no outward challan): the user names the store it came into
+        drewWhereItLay={!jwo.outwardChallanId && !!jwo.sentDate}
       />
 
       {/* Receive Dialog — piece work only */}

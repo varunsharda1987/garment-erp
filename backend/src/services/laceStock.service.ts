@@ -417,6 +417,103 @@ export async function getAvailableStockForLace(laceId: string, minQuantity: numb
   };
 }
 
+/**
+ * Bring lace held at a processor's unit back into one of OUR stores (direct-to-processor plan, Phase 4b).
+ * Call inside the transaction that files the INWARD challan (helpers/held-stock-doors.helper.ts). The unit
+ * lot gives up the metres and a NEW store lot takes them; the ledger moves unit → store. With
+ * `alreadyDrawnByJobId` (lace a job drew where it lay, back unprocessed) the unit lot is not touched.
+ */
+export async function bringHeldLaceLotToStore(
+  tx: Prisma.TransactionClient,
+  p: {
+    stockId: string;
+    quantity: number;
+    storeWarehouseId: string;
+    inwardChallanId: string;
+    inwardChallanNumber: string;
+    broughtOn: Date;
+    userId: string;
+    alreadyDrawnByJobId?: string;
+  }
+): Promise<{ storeLotId: string; remainingAtProcessor: number }> {
+  const lot = await tx.lace_stock.findUnique({
+    where: { id: p.stockId },
+    include: { laceMaster: { select: { laceCode: true } }, warehouse: { select: LOT_WAREHOUSE_SELECT } },
+  });
+  if (!lot) throw new Error('Lace stock not found');
+  const store = await tx.warehouses.findUnique({ where: { id: p.storeWarehouseId }, select: { warehouseName: true } });
+  const holder = lot.warehouse?.supplier?.name ?? lot.warehouse?.warehouseName ?? 'the processor';
+  const materialId = await ensureMaterialRecord(lot.laceId, 'LACE', tx);
+  const qty = p.quantity;
+  let remainingAtProcessor = Number(lot.quantityAvailable);
+
+  if (!p.alreadyDrawnByJobId) {
+    const moved = await tx.lace_stock.updateMany({
+      where: { id: p.stockId, quantityAvailable: { gte: qty } },
+      data: { quantityAvailable: { decrement: qty }, lastConsumedDate: p.broughtOn },
+    });
+    if (moved.count === 0)
+      throw new Error(`Only ${Number(lot.quantityAvailable)} m of ${lot.laceMaster.laceCode} is at ${holder}.`);
+    remainingAtProcessor = toNumber(toCurrency(Number(lot.quantityAvailable)).minus(qty));
+    if (isQtyZero(remainingAtProcessor)) {
+      await tx.lace_stock.update({ where: { id: p.stockId }, data: { status: 'ISSUED' } });
+    }
+    await tx.lace_stock_transaction.create({
+      data: {
+        stockId: p.stockId,
+        transactionType: 'TRANSFER_OUT',
+        quantity: -qty,
+        balanceAfter: remainingAtProcessor,
+        referenceType: 'CHALLAN',
+        referenceId: p.inwardChallanId,
+        notes: `Brought back from ${holder} to ${store?.warehouseName ?? 'our store'} — inward challan ${p.inwardChallanNumber}`,
+        performedById: p.userId,
+      },
+    });
+    if (lot.warehouseId) await syncStockLevelQuantity(materialId, -qty, lot.warehouseId, 'METER', tx);
+  }
+
+  const storeLot = await tx.lace_stock.create({
+    data: {
+      laceId: lot.laceId,
+      lotNumber: lot.lotNumber,
+      rollNumbers: lot.rollNumbers,
+      dyeLotNumber: lot.dyeLotNumber,
+      originStyleId: lot.originStyleId,
+      originOrderId: lot.originOrderId,
+      originStyleCode: lot.originStyleCode,
+      procurementId: lot.procurementId,
+      warehouseId: p.storeWarehouseId,
+      warehouseLocation: store?.warehouseName ?? null,
+      quantityAvailable: qty,
+      unit: lot.unit,
+      weightedAvgCost: lot.weightedAvgCost,
+      purchaseCost: lot.purchaseCost,
+      qualityGrade: lot.qualityGrade,
+      status: 'AVAILABLE',
+      stockType: lot.stockType,
+      receivedDate: p.broughtOn,
+      shadeNote: lot.shadeNote,
+      createdById: p.userId,
+    },
+    select: { id: true },
+  });
+  await tx.lace_stock_transaction.create({
+    data: {
+      stockId: storeLot.id,
+      transactionType: 'TRANSFER_IN',
+      quantity: qty,
+      balanceAfter: qty,
+      referenceType: 'CHALLAN',
+      referenceId: p.inwardChallanId,
+      notes: `Back from ${holder}${p.alreadyDrawnByJobId ? ' unprocessed' : ''} — inward challan ${p.inwardChallanNumber}`,
+      performedById: p.userId,
+    },
+  });
+  await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
+  return { storeLotId: storeLot.id, remainingAtProcessor };
+}
+
 // ============================================================================
 // ALLOCATION MANAGEMENT
 // ============================================================================

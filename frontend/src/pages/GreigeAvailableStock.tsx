@@ -769,6 +769,24 @@ export default function GreigeAvailableStock() {
                                               >
                                                 <AlertTriangle className="h-3 w-3" />
                                               </Button>
+                                              {/* Held at a processor: bring it back into our store (inward challan) */}
+                                              {entry.processor?.id && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-7 w-7 p-0"
+                                                  title={`Bring to store from ${entry.processor.name}`}
+                                                  aria-label="Bring to store"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate(
+                                                      `/inventory/movements/stock-in?source=PROCESSOR_RETURN&processorId=${entry.processor!.id}&lotId=${entry.id}`
+                                                    );
+                                                  }}
+                                                >
+                                                  <Warehouse className="h-3 w-3" />
+                                                </Button>
+                                              )}
                                             </div>
                                           </td>
                                         </tr>

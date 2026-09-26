@@ -12,6 +12,20 @@ import type {
   ApiResponse,
 } from '../types/inventory.types';
 
+/** A lot a processor holds for us (Bring to store) */
+export interface HeldLot {
+  lotType: 'GREIGE' | 'LACE' | 'FABRIC';
+  id: string;
+  code: string;
+  name: string;
+  detail: string | null;
+  quantityAvailable: number;
+  receivedDate: string | null;
+  coveringChallanNumber: string | null;
+  processorId: string;
+  processorName: string;
+}
+
 const BASE_URL = '/stock-movements';
 
 export const stockMovementService = {
@@ -166,20 +180,44 @@ export const stockMovementService = {
   },
 
   /**
-   * Create stock IN from processor return (partial receipt - consumes from processor's greige stock)
+   * Bring to store: goods we own that a processor holds come back into one of our stores, on one
+   * inward challan (greige, lace or ready fabric).
    */
   async createStockInFromProcessor(data: {
-    greigeStockId: string;
+    greigeStockId?: string;
+    laceStockId?: string;
+    fabricStockId?: string;
     receivedQuantity: number;
     warehouseId: string;
+    receivedDate?: string;
     remarks?: string;
-  }): Promise<{ receivedQuantity: number; remainingAtProcessor: number }> {
-    const response = await api.post<ApiResponse<{ receivedQuantity: number; remainingAtProcessor: number }>>(
-      `${BASE_URL}/processor-return`,
-      data
-    );
+  }): Promise<{ receivedQuantity: number; remainingAtProcessor: number; challanId: string; challanNumber: string }> {
+    const response = await api.post<
+      ApiResponse<{ receivedQuantity: number; remainingAtProcessor: number; challanId: string; challanNumber: string }>
+    >(`${BASE_URL}/processor-return`, data);
     if (!response.data.data) throw new Error('Failed to process processor return');
     return response.data.data;
+  },
+
+  /** The processors holding goods of ours, with how much (Bring to store). */
+  async getProcessorsHoldingStock(): Promise<
+    Array<{
+      processorId: string;
+      processorName: string;
+      processorCode: string;
+      warehouseName: string | null;
+      totalQuantity: number;
+      stockEntries: number;
+    }>
+  > {
+    const response = await api.get<ApiResponse<Array<never>>>(`${BASE_URL}/processor-held`);
+    return response.data.data ?? [];
+  },
+
+  /** The lots one processor holds for us — greige, lace or ready fabric — free to bring back. */
+  async getHeldLots(processorId: string): Promise<HeldLot[]> {
+    const response = await api.get<ApiResponse<HeldLot[]>>(`${BASE_URL}/processor-held/${processorId}`);
+    return response.data.data ?? [];
   },
 
   /**

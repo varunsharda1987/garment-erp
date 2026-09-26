@@ -996,12 +996,13 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       })
     : [];
 
-  // RETURNED with no job: a parked transfer lot handed back through the processor-return door.
+  // RETURNED with no job: greige the processor held (parked by a Stock-Out, or delivered straight there)
+  // brought back to our store — Bring to store (held-stock-doors.helper, Phase 4b).
   const noJobReturnRows = await prisma.greige_stock_transaction.findMany({
     where: {
       transactionType: 'RECEIPT',
       referenceType: 'PROCESSING_DELIVERY',
-      stock: { processorId, sourceType: 'TRANSFER' },
+      stock: { processorId, sourceType: { in: ['TRANSFER', 'DIRECT'] } },
     },
     select: {
       id: true,

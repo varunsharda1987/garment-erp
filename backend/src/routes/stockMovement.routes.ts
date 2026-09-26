@@ -17,6 +17,7 @@ import {
   materialIdParamSchema,
   warehouseIdParamSchema,
   materialWarehouseParamSchema,
+  processorHeldParamSchema,
 } from '../schemas/stockMovement.schema';
 
 const router = express.Router();
@@ -46,6 +47,13 @@ router.get(
   '/ledger/:materialId/:warehouseId',
   validateParams(materialWarehouseParamSchema),
   asyncHandler(stockMovementController.getStockLedger)
+);
+// Bring to store (Phase 4b): who holds our goods, and which lots — BEFORE '/:id'
+router.get('/processor-held', asyncHandler(stockMovementController.getProcessorsHoldingStock));
+router.get(
+  '/processor-held/:processorId',
+  validateParams(processorHeldParamSchema),
+  asyncHandler(stockMovementController.getHeldLots)
 );
 router.get('/:id', validateParams(stockMovementIdParamSchema), asyncHandler(stockMovementController.getMovementById));
 

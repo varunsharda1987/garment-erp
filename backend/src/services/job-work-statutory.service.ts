@@ -396,6 +396,9 @@ class JobWorkStatutoryService {
       include: {
         items: {
           include: {
+            // Goods brought back with no job (Bring to store): the line names the held lot, whose
+            // covering challan is the one they went out under
+            greigeStock: { select: { sourceChallan: { select: { challanNumber: true } } } },
             jobWorkOrder: {
               select: {
                 outwardChallan: { select: { challanNumber: true } },
@@ -415,6 +418,24 @@ class JobWorkStatutoryService {
       },
       orderBy: { challanDate: 'asc' },
     });
+
+    // Lace / fabric brought back with no job: the direct-supply challan naming the held lot
+    const heldLotIds = inwardChallans
+      .flatMap((c) => c.items)
+      .filter((i) => !i.jobWorkOrderId)
+      .map((i) => i.laceStockId ?? i.fabricStockId)
+      .filter((id): id is string => !!id);
+    const heldCovering = new Map<string, string>();
+    if (heldLotIds.length > 0) {
+      const coveringLines = await prisma.challan_items.findMany({
+        where: {
+          OR: [{ laceStockId: { in: heldLotIds } }, { fabricStockId: { in: heldLotIds } }],
+          challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } },
+        },
+        select: { laceStockId: true, fabricStockId: true, challan: { select: { challanNumber: true } } },
+      });
+      for (const l of coveringLines) heldCovering.set((l.laceStockId ?? l.fabricStockId)!, l.challan.challanNumber);
+    }
 
     // Get unique processors for GSTIN lookup
     const processorIds = new Set<string>();
@@ -505,6 +526,8 @@ class JobWorkStatutoryService {
             item.jobWorkOrder?.greigeStockLot?.sourceChallan?.challanNumber ??
             challan.jobWorkOrder?.outwardChallan?.challanNumber ??
             challan.jobWorkOrder?.greigeStockLot?.sourceChallan?.challanNumber ??
+            item.greigeStock?.sourceChallan?.challanNumber ??
+            heldCovering.get(item.laceStockId ?? item.fabricStockId ?? '') ??
             undefined,
         });
       }

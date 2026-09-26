@@ -209,7 +209,14 @@ afterAll(async () => {
   ).map((g) => g.id);
   const challanIds = (
     await prisma.challans.findMany({
-      where: { OR: [{ jobWorkOrderId: { in: jwoIds } }, { directSupplyGrnId: { in: grnIds } }] },
+      where: {
+        OR: [
+          { jobWorkOrderId: { in: jwoIds } },
+          { directSupplyGrnId: { in: grnIds } },
+          // Bring to store (Phase 4b): inward challans from the dyers, on no job
+          { challanType: 'INWARD', fromId: { in: [only(dyerA), only(dyerB)] } },
+        ],
+      },
       select: { id: true },
     })
   ).map((c) => c.id);
@@ -585,13 +592,13 @@ describe('greige delivered straight to a processor', () => {
     expect((await prisma.challans.findUniqueOrThrow({ where: { id: challanId } })).status).toBe('ISSUED');
   });
 
-  it('refuses "returned unprocessed" for cloth the job took where it lay — nothing came back to our store', async () => {
+  it('asks which store "returned unprocessed" cloth came into when the job took it where it lay (Phase 4b)', async () => {
     const res = await request(app)
       .post(`/api/job-work-orders/${jwoA}/return-unprocessed`)
       .set(authHeader)
       .send({ returnedQty: 1200 });
     expect(res.status).toBe(422);
-    expect(res.body.message).toMatch(/nothing travelled/);
+    expect(res.body.message).toMatch(/say which of our stores it came back into/);
     expect(Number((await prisma.greige_stock.findUniqueOrThrow({ where: { id: lotId } })).quantityAvailable)).toBe(
       1800
     );
@@ -621,5 +628,123 @@ describe('greige delivered straight to a processor', () => {
     const lot = await prisma.greige_stock.findUniqueOrThrow({ where: { id: lotId } });
     expect(Number(lot.quantityAvailable)).toBe(0);
     expect(lot.status).toBe('EXHAUSTED');
+  });
+});
+
+describe('bring to store — goods a processor holds come back into our store (Phase 4b)', () => {
+  let heldLotId: string;
+  let coveringId: string;
+  const bring = (body: Record<string, unknown>) =>
+    request(app).post('/api/stock-movements/processor-return').set(authHeader).send(body);
+
+  it('brings part of a DIRECT lot back on one inward challan: a store lot, the ledger moved, Table B linked', async () => {
+    const { grnId } = await receiveInto(unitB, 1000);
+    await grnService.approveGRN(grnId, userId, unitB, undefined, { directDeliveryConfirmed: true });
+    const held = await prisma.greige_stock.findFirstOrThrow({
+      where: { greigeId, processorId: dyerB, sourceType: 'DIRECT', quantityAvailable: 1000 },
+    });
+    heldLotId = held.id;
+    coveringId = held.sourceChallanId!;
+    const unitBefore = await onHandAt(unitB);
+    const storeBefore = await onHandAt(storeId);
+
+    let res = await bring({ greigeStockId: held.id, receivedQuantity: 100, warehouseId: unitA });
+    expect(res.status).toBe(422);
+    expect(res.body.details.code).toBe('NOT_A_STORE');
+    res = await bring({ greigeStockId: held.id, receivedQuantity: 5000, warehouseId: storeId });
+    expect(res.body.details.code).toBe('QTY_EXCEEDS_HELD');
+
+    res = await bring({
+      greigeStockId: held.id,
+      receivedQuantity: 400,
+      warehouseId: storeId,
+      remarks: 'Shade not needed',
+    });
+    expect(res.status).toBe(201);
+    const challan = await prisma.challans.findUniqueOrThrow({
+      where: { id: res.body.data.challanId },
+      include: { items: true },
+    });
+    expect(challan).toMatchObject({ challanType: 'INWARD', status: 'RECEIVED', fromId: dyerB, toId: storeId });
+    expect(challan.items[0]).toMatchObject({ greigeStockId: held.id });
+    expect(Number(challan.items[0].quantity)).toBe(400);
+
+    expect(Number((await prisma.greige_stock.findUniqueOrThrow({ where: { id: held.id } })).quantityAvailable)).toBe(
+      600
+    );
+    const storeLot = await prisma.greige_stock.findFirstOrThrow({ where: { sourceChallanId: challan.id } });
+    expect(storeLot).toMatchObject({ warehouseId: storeId, processorId: null, sourceType: 'PROCESSOR_RETURN' });
+    expect(Number(storeLot.quantityAvailable)).toBe(400);
+    expect(await onHandAt(unitB)).toBeCloseTo(unitBefore - 400, 2);
+    expect(await onHandAt(storeId)).toBeCloseTo(storeBefore + 400, 2);
+
+    // The covering challan: part of its goods are back
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: coveringId } })).status).toBe('PARTIALLY_RECEIVED');
+    // ITC-04 Table B lists the return against the challan the goods went out under
+    const covering = await prisma.challans.findUniqueOrThrow({ where: { id: coveringId } });
+    const itc = await jobWorkStatutoryService.getITC04Extract(
+      new Date(RECEIVED_ON.getTime() - DAY),
+      new Date(Date.now() + DAY)
+    );
+    const tableB = itc.tableB.items.find((i) => i.challanId === challan.id);
+    expect(tableB?.linkedChallanNumber).toBe(covering.challanNumber);
+    // The dyer's statement shows it returned
+    const statement = await getProcessorStatement(
+      dyerB,
+      new Date(RECEIVED_ON.getTime() - DAY),
+      new Date(Date.now() + DAY)
+    );
+    const row = statement.sections.flatMap((sec) => sec.rows).find((r) => r.material.id === greigeId)!;
+    expect(row.returned).toBe(400);
+  });
+
+  it('brings the rest back: the held lot is used up and its challan reads received', async () => {
+    const res = await bring({ greigeStockId: heldLotId, receivedQuantity: 600, warehouseId: storeId });
+    expect(res.status).toBe(201);
+    const held = await prisma.greige_stock.findUniqueOrThrow({ where: { id: heldLotId } });
+    expect(Number(held.quantityAvailable)).toBe(0);
+    expect(held.status).toBe('EXHAUSTED');
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: coveringId } })).status).toBe('RECEIVED');
+    // A store lot is not held anywhere
+    const storeLot = await prisma.greige_stock.findFirstOrThrow({
+      where: { sourceChallanId: res.body.data.challanId },
+    });
+    const again = await bring({ greigeStockId: storeLot.id, receivedQuantity: 10, warehouseId: storeId });
+    expect(again.body.details.code).toBe('LOT_NOT_HELD');
+  });
+
+  it('a job that took cloth where it lay can return it unprocessed — into the store the user names', async () => {
+    const { grnId } = await receiveInto(unitB, 300);
+    await grnService.approveGRN(grnId, userId, unitB, undefined, { directDeliveryConfirmed: true });
+    const held = await prisma.greige_stock.findFirstOrThrow({
+      where: { greigeId, processorId: dyerB, sourceType: 'DIRECT', quantityAvailable: 300 },
+    });
+    const jwo = await createJwo(dyerB, 300);
+    const issued = await request(app)
+      .post(`/api/job-work-orders/${jwo}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: held.id, qty: 300 }] });
+    expect(issued.status).toBe(200);
+    expect(issued.body.challanCreated).toBe(false);
+
+    let res = await request(app)
+      .post(`/api/job-work-orders/${jwo}/return-unprocessed`)
+      .set(authHeader)
+      .send({ returnedQty: 300 });
+    expect(res.status).toBe(422);
+    expect(JSON.stringify(res.body)).toMatch(/STORE_REQUIRED_FOR_HELD_RETURN/);
+
+    const storeBefore = await onHandAt(storeId);
+    res = await request(app)
+      .post(`/api/job-work-orders/${jwo}/return-unprocessed`)
+      .set(authHeader)
+      .send({ returnedQty: 300, storeWarehouseId: storeId });
+    expect(res.status).toBe(200);
+    const job = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jwo } });
+    expect(job.jwoStatus).toBe('CANCELLED');
+    const storeLot = await prisma.greige_stock.findFirstOrThrow({ where: { sourceChallanId: job.inwardChallanId! } });
+    expect(storeLot).toMatchObject({ warehouseId: storeId, sourceType: 'PROCESSOR_RETURN' });
+    expect(Number(storeLot.quantityAvailable)).toBe(300);
+    expect(await onHandAt(storeId)).toBeCloseTo(storeBefore + 300, 2);
   });
 });

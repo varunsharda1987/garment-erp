@@ -12,6 +12,13 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import greigeStockService from '../services/greige-stock.service';
+import {
+  bringHeldStockToStore,
+  listHeldLots,
+  listProcessorsHoldingStock,
+  type BringToStoreLine,
+} from '../services/helpers/held-stock-doors.helper';
+import type { CreateProcessorReturnInput } from '../schemas/stockMovement.schema';
 import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
 // Map polymorphic item types to their FK field in the materials table.
@@ -507,59 +514,65 @@ export const getUnifiedMovements = async (req: Request, res: Response) => {
 };
 
 /**
+ * @route GET /api/stock-movements/processor-held
+ * @desc The processors holding goods of ours (greige, lace, ready fabric), with how much — Bring to store
+ */
+export const getProcessorsHoldingStock = async (_req: Request, res: Response) => {
+  res.json({ success: true, data: await listProcessorsHoldingStock() });
+};
+
+/**
+ * @route GET /api/stock-movements/processor-held/:processorId
+ * @desc The lots one processor holds for us, free to bring back to our store
+ */
+export const getHeldLots = async (req: Request, res: Response) => {
+  res.json({ success: true, data: await listHeldLots(req.params.processorId) });
+};
+
+/**
  * @route POST /api/stock-movements/processor-return
- * @desc Receive partial goods from processor (consumes from processor's greige stock)
+ * @desc Bring to store: goods WE own that a processor holds come back into one of our stores, on ONE
+ *       inward challan from the processor (ITC-04 Table B), with a new store lot and the ledger moved
+ *       (helpers/held-stock-doors.helper.ts, direct-to-processor plan Phase 4b). One lot (the Stock In
+ *       form) or several lots of one processor (`lines`).
  * @access Private
- *
- * NOTE: This is a PARTIAL receipt - processor may return in multiple batches.
- * Shrinkage is NOT calculated here. It's a reconciliation exercise done separately
- * when all material is accounted for.
  */
 export const createProcessorReturn = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
-
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
+  const body = req.body as CreateProcessorReturnInput;
+  const lines: BringToStoreLine[] =
+    body.lines && body.lines.length > 0
+      ? body.lines.map((l) => ({ lotType: l.lotType, lotId: l.lotId, quantity: Number(l.quantity) }))
+      : [
+          {
+            lotType: body.greigeStockId ? 'GREIGE' : body.laceStockId ? 'LACE' : 'FABRIC',
+            lotId: (body.greigeStockId ?? body.laceStockId ?? body.fabricStockId)!,
+            quantity: Number(body.receivedQuantity),
+          },
+        ];
 
-  const { greigeStockId, receivedQuantity, warehouseId, remarks } = req.body;
-
-  // Validation
-  if (!greigeStockId || receivedQuantity === undefined || !warehouseId) {
-    throw new ValidationError('greigeStockId, receivedQuantity, and warehouseId are required');
-  }
-
-  if (Number(receivedQuantity) <= 0) {
-    throw new ValidationError('Received quantity must be greater than 0');
-  }
-
-  // Check available stock at processor
-  const stock = await greigeStockService.getGreigeStockById(greigeStockId);
-  if (!stock) {
-    throw new ValidationError('Greige stock not found');
-  }
-
-  if (qtyExceeds(receivedQuantity, stock.quantityAvailable)) {
-    throw new ValidationError(
-      `Received quantity (${receivedQuantity}) exceeds available at processor (${stock.quantityAvailable})`
-    );
-  }
-  // Quantity rule (utils/quantity): receiving everything at the processor within dust receives exactly
-  // that — the guarded consume below needs gte, and must not leave 0.002 m "at processor".
-  const receiveQty = snapToLimit(receivedQuantity, stock.quantityAvailable);
-
-  // Consume the received quantity from processor's stock (partial receipt)
-  const result = await greigeStockService.receiveFromProcessor(greigeStockId, receiveQty, userId, {
-    notes: remarks,
-    referenceType: 'PROCESSING_DELIVERY',
+  const result = await bringHeldStockToStore({
+    lines,
+    storeWarehouseId: body.warehouseId,
+    broughtOn: body.receivedDate,
+    userId,
+    remarks: body.remarks ?? null,
   });
 
+  const total = result.lines.reduce((sum, l) => sum + l.quantity, 0);
   res.status(201).json({
     success: true,
-    message: `Received ${result.receivedQuantity} MTR from processor. Remaining at processor: ${result.remainingAtProcessor} MTR`,
+    message: `Brought ${total} m back from ${result.processorName} — inward challan ${result.challanNumber}`,
     data: {
-      receivedQuantity: result.receivedQuantity,
-      remainingAtProcessor: result.remainingAtProcessor,
+      challanId: result.challanId,
+      challanNumber: result.challanNumber,
+      lines: result.lines,
+      // Kept for the Stock In form's single-lot call
+      receivedQuantity: total,
+      remainingAtProcessor: result.lines[0]?.remainingAtProcessor ?? 0,
     },
   });
 };

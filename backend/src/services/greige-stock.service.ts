@@ -1291,13 +1291,13 @@ class GreigeStockService {
     }>
   > {
     try {
-      // Find all greige stock at processor warehouses (sourceType = TRANSFER)
-      // BUG-INV2 fix: Group by warehouseId (FK) instead of warehouseLocation (text field)
+      // Every greige lot a processor holds for us — parked by a Stock-Out (TRANSFER) or delivered straight
+      // there (DIRECT, Phase 2). Until 2026-09-26 only TRANSFER lots were offered, so cloth delivered
+      // straight to a dyer could never be brought back. One row per processor.
       const processorStock = await prisma.greige_stock.groupBy({
-        by: ['processorId', 'warehouseId'],
+        by: ['processorId'],
         where: {
           processorId: { not: null },
-          sourceType: 'TRANSFER',
           status: 'AVAILABLE',
           quantityAvailable: { gt: 0 },
         },
@@ -1307,21 +1307,20 @@ class GreigeStockService {
 
       // Get processor details (processors are suppliers with processor categories)
       const processorIds = processorStock.map((s) => s.processorId).filter((id): id is string => id !== null);
-      const warehouseIds = processorStock.map((s) => s.warehouseId).filter((id): id is string => id !== null);
 
-      const [processors, warehouses] = await Promise.all([
+      const [processors, units] = await Promise.all([
         prisma.suppliers.findMany({
           where: { id: { in: processorIds } },
           select: { id: true, name: true, code: true },
         }),
         prisma.warehouses.findMany({
-          where: { id: { in: warehouseIds } },
-          select: { id: true, warehouseName: true },
+          where: { supplierId: { in: processorIds }, warehouseType: 'JOB_WORK' },
+          select: { supplierId: true, warehouseName: true },
         }),
       ]);
 
       const processorMap = new Map(processors.map((p) => [p.id, p]));
-      const warehouseMap = new Map(warehouses.map((w) => [w.id, w.warehouseName]));
+      const unitName = new Map(units.map((u) => [u.supplierId, u.warehouseName]));
 
       return processorStock
         .filter((s) => s.processorId && processorMap.has(s.processorId))
@@ -1331,7 +1330,7 @@ class GreigeStockService {
             processorId: s.processorId!,
             processorName: processor.name,
             processorCode: processor.code,
-            warehouseName: s.warehouseId ? warehouseMap.get(s.warehouseId) || null : null,
+            warehouseName: unitName.get(s.processorId!) ?? null,
             totalQuantity: Number(s._sum.quantityAvailable) || 0,
             stockEntries: s._count.id,
           };
@@ -1348,9 +1347,9 @@ class GreigeStockService {
    * Get greige stock at a specific processor (for processor return)
    */
   async getProcessorGreigeStock(processorId: string): Promise<GreigeStockItem[]> {
+    // Held there for us: parked by a Stock-Out (TRANSFER) or delivered straight there (DIRECT)
     return this.getGreigeStock({
       processorId: processorId,
-      sourceType: 'TRANSFER',
       status: 'AVAILABLE',
       minQuantity: 0.01,
     });
@@ -1474,115 +1473,137 @@ class GreigeStockService {
   }
 
   /**
-   * Receive partial quantity from processor's stock
-   * Used for partial returns - NO shrinkage calculation (shrinkage is a reconciliation exercise)
+   * Bring metres held at a processor back into one of OUR stores (direct-to-processor plan, Phase 4b).
+   * Call inside the transaction that files the INWARD challan (helpers/held-stock-doors.helper.ts).
    *
-   * @param stockId - The processor's greige stock entry ID
-   * @param receivedQuantity - Quantity being received now (partial)
-   * @param userId - User performing the action
-   * @param options - Additional options (notes, reference)
+   * The held lot (DIRECT — delivered straight there, or TRANSFER — parked by a Stock-Out) gives up the
+   * metres, and a NEW lot in the store takes them (sourceType PROCESSOR_RETURN, sourceChallanId = the
+   * inward challan). The ledger follows: a DIRECT lot was on hand at the processor's unit, so the unit
+   * gives the metres to the store; a TRANSFER lot is a shadow never put on the ledger, so only the store
+   * gains. Until 2026-09-26 this door only took the metres off a TRANSFER lot — and off a ledger it was
+   * never on — booking nothing into any store.
+   *
+   * `alreadyDrawnByJobId`: the metres were drawn by a job where they lay and come back unprocessed — the
+   * held lot is not touched (the draw already took them off it and off the unit's ledger).
    */
-  async receiveFromProcessor(
-    stockId: string,
-    receivedQuantity: number,
-    userId: string,
-    options?: {
-      notes?: string;
-      referenceType?: TransactionReferenceType;
-      referenceId?: string;
+  async bringHeldLotToStore(
+    tx: Prisma.TransactionClient,
+    p: {
+      stockId: string;
+      quantity: number;
+      storeWarehouseId: string;
+      inwardChallanId: string;
+      inwardChallanNumber: string;
+      broughtOn: Date;
+      userId: string;
+      alreadyDrawnByJobId?: string;
     }
-  ): Promise<{
-    receivedQuantity: number;
-    remainingAtProcessor: number;
-  }> {
-    const stock = await prisma.greige_stock.findUnique({
-      where: { id: stockId },
-      include: { greige: { select: { greigeCode: true, greigeName: true } } },
-    });
-
-    if (!stock) {
-      throw new Error(`Greige stock with ID ${stockId} not found`);
-    }
-
-    // Validate stock is at a processor
-    if (!stock.processorId || stock.sourceType !== 'TRANSFER') {
-      throw new Error('Stock is not at a processor warehouse. Cannot receive from processor.');
-    }
-
-    const available = Number(stock.quantityAvailable);
-
-    // Consume the received quantity from processor's stock.
-    // Guarded atomic decrement: the availability check and the write happen in ONE statement,
-    // so a concurrent receipt cannot pass a stale check and drive the balance negative.
-    const remainingAtProcessor = available - receivedQuantity;
-    const receiveResult = await prisma.greige_stock.updateMany({
-      where: { id: stockId, quantityAvailable: { gte: receivedQuantity } },
-      data: {
-        quantityAvailable: { decrement: receivedQuantity },
-        quantityConsumed: { increment: receivedQuantity },
-        lastConsumedDate: new Date(),
+  ): Promise<{ storeLotId: string; remainingAtProcessor: number }> {
+    const lot = await tx.greige_stock.findUnique({
+      where: { id: p.stockId },
+      include: {
+        greige: { select: { greigeCode: true } },
+        processor: { select: { name: true } },
+        warehouse: { select: { warehouseName: true } },
       },
     });
-    if (receiveResult.count === 0) {
-      throw new Error(`Cannot receive ${receivedQuantity}. Only ${available} meters available at processor.`);
-    }
-    // Mark exhausted based on the ACTUAL stored balance (not the pre-read snapshot)
-    await prisma.greige_stock.updateMany({
-      where: { id: stockId, quantityAvailable: { lte: 0 } },
-      data: { status: 'EXHAUSTED' },
+    if (!lot) throw new Error(`Greige stock with ID ${p.stockId} not found`);
+    const store = await tx.warehouses.findUnique({
+      where: { id: p.storeWarehouseId },
+      select: { warehouseName: true },
     });
+    const qty = p.quantity;
+    const cost = lot.purchaseCost ?? lot.weightedAvgCost ?? null;
+    const valueOf = (q: number) =>
+      cost != null ? new Prisma.Decimal(toNumber(roundToCent(toCurrency(q).times(toCurrency(Number(cost)))))) : null;
+    const materialId = await ensureMaterialRecord(lot.greigeId, 'GREIGE', tx);
+    const holder = lot.processor?.name ?? lot.warehouse?.warehouseName ?? 'the processor';
 
-    // Create audit trail
-    const costPerUnit = stock.purchaseCost
-      ? Number(stock.purchaseCost)
-      : stock.weightedAvgCost
-        ? Number(stock.weightedAvgCost)
-        : null;
-
-    await prisma.greige_stock_transaction.create({
-      data: {
-        stockId,
-        transactionType: 'RECEIPT', // Receiving greige back from processor
-        quantity: new Prisma.Decimal(-receivedQuantity),
-        balanceAfter: new Prisma.Decimal(remainingAtProcessor),
-        costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
-        // BUG-GRE5 fix: Use decimal.js for precise totalValue calculation
-        totalValue:
-          costPerUnit !== null
-            ? new Prisma.Decimal(toNumber(toCurrency(receivedQuantity).times(toCurrency(costPerUnit))))
-            : null,
-        referenceType: options?.referenceType || 'PROCESSING_DELIVERY',
-        referenceId: options?.referenceId,
-        notes:
-          `Partial receipt from processor: ${receivedQuantity}m received. ` +
-          `Remaining at processor: ${remainingAtProcessor.toFixed(2)}m. ` +
-          (options?.notes || ''),
-        performedById: userId,
-      },
-    });
-
-    // Keep the central ledger in sync — this stock left the processor's warehouse (bug-hunt BH-0305).
-    // Guarded by warehouseId so we decrement the specific warehouse, never all of them.
-    // BUG-INV3 fix: find materials.id instead of using greigeId directly
-    if (stock.warehouseId) {
-      const material = await prisma.materials.findFirst({
-        where: { greigeId: stock.greigeId },
-        select: { id: true },
+    let remainingAtProcessor = Number(lot.quantityAvailable);
+    if (!p.alreadyDrawnByJobId) {
+      // Guarded: the check and the write are one statement, so two returns cannot over-draw the lot
+      const moved = await tx.greige_stock.updateMany({
+        where: { id: p.stockId, quantityAvailable: { gte: qty } },
+        data: { quantityAvailable: { decrement: qty }, lastConsumedDate: p.broughtOn },
       });
-      if (material) {
-        await syncStockLevelQuantity(material.id, -receivedQuantity, stock.warehouseId);
+      if (moved.count === 0) {
+        throw new Error(`Only ${Number(lot.quantityAvailable)} m of ${lot.greige.greigeCode} is at ${holder}.`);
+      }
+      await tx.greige_stock.updateMany({
+        where: { id: p.stockId, quantityAvailable: { lte: 0 } },
+        data: { status: 'EXHAUSTED' },
+      });
+      remainingAtProcessor = toNumber(toCurrency(Number(lot.quantityAvailable)).minus(qty));
+      // RECEIPT / PROCESSING_DELIVERY is what the Processor Statement reads as "returned with no job"
+      await tx.greige_stock_transaction.create({
+        data: {
+          stockId: p.stockId,
+          transactionType: 'RECEIPT',
+          quantity: new Prisma.Decimal(-qty),
+          balanceAfter: new Prisma.Decimal(remainingAtProcessor),
+          costPerUnit: cost,
+          totalValue: valueOf(qty),
+          referenceType: 'PROCESSING_DELIVERY',
+          referenceId: p.inwardChallanId,
+          notes: `Brought back from ${holder} to ${store?.warehouseName ?? 'our store'} — inward challan ${p.inwardChallanNumber}`,
+          performedById: p.userId,
+        },
+      });
+      if (lotCountsOnHand(lot) && lot.warehouseId) {
+        await syncStockLevelQuantity(materialId, -qty, lot.warehouseId, 'METER', tx);
       }
     }
 
-    logInfo(
-      `Processor receipt: ${stock.greige.greigeCode} - Received ${receivedQuantity}m, ` +
-        `Remaining at processor: ${remainingAtProcessor.toFixed(2)}m`
-    );
+    const storeLot = await tx.greige_stock.create({
+      data: {
+        greigeId: lot.greigeId,
+        procurementId: lot.procurementId,
+        supplierId: lot.supplierId,
+        weaverId: lot.weaverId,
+        greigeWidth: lot.greigeWidth,
+        cutableWidth: lot.cutableWidth,
+        qualityGrade: lot.qualityGrade,
+        purchaseCost: lot.purchaseCost,
+        weightedAvgCost: lot.weightedAvgCost,
+        foldLengthCm: lot.foldLengthCm,
+        invoiceNumber: lot.invoiceNumber,
+        invoiceDate: lot.invoiceDate,
+        unit: lot.unit,
+        quantityAvailable: new Prisma.Decimal(qty),
+        receivedDate: p.broughtOn,
+        warehouseId: p.storeWarehouseId,
+        warehouseLocation: store?.warehouseName ?? null,
+        processorId: null,
+        sourceType: 'PROCESSOR_RETURN',
+        sourceChallanId: p.inwardChallanId,
+        status: 'AVAILABLE',
+        createdById: p.userId,
+      },
+      select: { id: true },
+    });
+    await tx.greige_stock_transaction.create({
+      data: {
+        stockId: storeLot.id,
+        transactionType: 'STOCK_IN',
+        quantity: new Prisma.Decimal(qty),
+        balanceAfter: new Prisma.Decimal(qty),
+        costPerUnit: cost,
+        totalValue: valueOf(qty),
+        referenceType: 'CHALLAN',
+        referenceId: p.inwardChallanId,
+        notes:
+          `Back from ${holder}` +
+          (p.alreadyDrawnByJobId ? ' unprocessed' : '') +
+          ` — inward challan ${p.inwardChallanNumber}`,
+        performedById: p.userId,
+      },
+    });
+    await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
 
-    return {
-      receivedQuantity,
-      remainingAtProcessor,
-    };
+    logInfo(
+      `Brought ${qty} m of ${lot.greige.greigeCode} from ${holder} to ${store?.warehouseName} (${p.inwardChallanNumber})`
+    );
+    return { storeLotId: storeLot.id, remainingAtProcessor };
   }
 }
 

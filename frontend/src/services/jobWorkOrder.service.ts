@@ -522,7 +522,7 @@ export const jobWorkOrderService = {
    */
   async returnUnprocessed(
     id: string,
-    payload: { returnedQty: number; returnDate?: string; remarks?: string }
+    payload: { returnedQty: number; returnDate?: string; remarks?: string; storeWarehouseId?: string | null }
   ): Promise<{
     jobWorkOrderId: string;
     jobWorkNumber: string;

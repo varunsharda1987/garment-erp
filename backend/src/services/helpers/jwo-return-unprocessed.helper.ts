@@ -32,6 +32,9 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './material-sync.he
 import { toCurrency, toNumber } from '../../utils/currency';
 import { toDateInputValue } from '../../utils/date';
 import { challanDestination } from './lot-location.helper';
+import { recomputeCoveringChallansForJwo } from './jwo-challan-lifecycle.helper';
+import fabricStockService from '../fabric-stock.service';
+import { bringHeldLaceLotToStore } from '../laceStock.service';
 
 export type ReturnedTo = 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
 
@@ -41,6 +44,11 @@ export interface ReturnUnprocessedInput {
   returnDate?: Date;
   remarks?: string;
   userId: string;
+  /**
+   * The store the goods came back into — required when the job took its cloth where it already lay at
+   * the processor (nothing travelled out, so there is no store to put it back into).
+   */
+  storeWarehouseId?: string | null;
 }
 
 export interface ReturnUnprocessedResult {
@@ -119,13 +127,27 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
             OR: [{ jobWorkOrderId: job.id }, { items: { some: { jobWorkOrderId: job.id } } }],
           },
         })) > 0;
-      if (!travelled && job.sentDate) {
-        throw new BusinessError(
-          `${job.jobWorkNumber} took cloth that was already lying at ${job.processor?.name ?? 'the processor'} — nothing ` +
-            `travelled, so nothing can come back to our store from it. Cancel the job and choose "At Processor" to put ` +
-            `the cloth back on the processor's stock.`,
-          { reason: 'RETURN_OF_HELD_CLOTH' }
-        );
+      // A job that took its cloth where it lay at the processor (no outward challan) moved nothing out of
+      // our store — so the goods come back into a store the user names, as a new lot, on this inward
+      // challan (Phase 4b; until 2026-09-26 this was refused as RETURN_OF_HELD_CLOTH).
+      const heldReturn = !travelled && !!job.sentDate;
+      let heldStore: { id: string; warehouseName: string } | null = null;
+      if (heldReturn) {
+        if (!input.storeWarehouseId) {
+          throw new BusinessError(
+            `${job.jobWorkNumber} took cloth already lying at ${job.processor?.name ?? 'the processor'} — say which of our ` +
+              `stores it came back into.`,
+            { reason: 'STORE_REQUIRED_FOR_HELD_RETURN' }
+          );
+        }
+        const store = await tx.warehouses.findUnique({
+          where: { id: input.storeWarehouseId },
+          select: { id: true, warehouseName: true, warehouseType: true, isActive: true },
+        });
+        if (!store || !store.isActive || store.warehouseType === 'JOB_WORK') {
+          throw new BusinessError('Pick an active store of ours — not a processor’s unit.', { reason: 'NOT_A_STORE' });
+        }
+        heldStore = store;
       }
       const sent = toNumber(toCurrency(job.qtySentMeters));
       if (returnedQty - sent > 0.005) {
@@ -148,8 +170,11 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
 
       // --- put the material back where it came from ------------------------------------------
       // …and name that store on the inward challan
-      let returnedIntoWarehouseId: string | null = null;
-      if (target === 'GREIGE' && job.greigeStockLot) {
+      let returnedIntoWarehouseId: string | null = heldStore?.id ?? null;
+      if (heldStore) {
+        // Held cloth: the draw already took it off the held lot and the unit's ledger — it comes back
+        // as a new store lot, after the inward challan below exists (the lot names it)
+      } else if (target === 'GREIGE' && job.greigeStockLot) {
         returnedIntoWarehouseId = job.greigeStockLot.warehouseId;
         await greigeStockService.returnGreigeStock(job.greigeStockLot.id, returnedQty, userId, tx, {
           referenceType: 'JOB_WORK_ORDER',
@@ -229,6 +254,29 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
         tx
       );
 
+      // Held cloth back in our store: a new lot on this challan (the services keep the ledger)
+      const heldLotId =
+        target === 'GREIGE'
+          ? job.greigeStockLot?.id
+          : target === 'LACE'
+            ? laceComponent?.laceStockId
+            : job.fabricStockLotId;
+      if (heldStore && heldLotId) {
+        const args = {
+          stockId: heldLotId,
+          quantity: returnedQty,
+          storeWarehouseId: heldStore.id,
+          inwardChallanId: challan.id,
+          inwardChallanNumber: challan.challanNumber,
+          broughtOn: returnDate,
+          userId,
+          alreadyDrawnByJobId: job.id,
+        };
+        if (target === 'GREIGE') await greigeStockService.bringHeldLotToStore(tx, args);
+        else if (target === 'LACE') await bringHeldLaceLotToStore(tx, args);
+        else if (target === 'FABRIC') await fabricStockService.bringHeldLotToStore(tx, args);
+      }
+
       // --- close the job ------------------------------------------------------------------------
       // CANCELLED, not RECEIVED: nothing was processed, and it must drop off every "at processor"
       // and receivable list. The remark is what the statement and the job page read back.
@@ -245,6 +293,9 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
             )}.${remarks ? ` ${remarks}` : ''}`.trim(),
         },
       });
+
+      // The covering challan of held cloth follows (rule 7): part of it is now back in our store
+      if (heldStore) await recomputeCoveringChallansForJwo(tx, job.id, returnDate);
 
       return {
         jobWorkOrderId: job.id,

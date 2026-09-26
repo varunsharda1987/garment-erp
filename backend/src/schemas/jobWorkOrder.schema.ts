@@ -184,6 +184,8 @@ export const returnUnprocessedSchema = z.object({
   returnedQty: formNumber(z.number().positive('Enter how much came back')),
   returnDate: z.preprocess((v) => (v === '' || v === null ? undefined : v), z.coerce.date().optional()),
   remarks: z.string().max(500).optional(),
+  // Required only for a job that took cloth where it lay at the processor: the store it came back into
+  storeWarehouseId: z.string().uuid('Pick the store').nullish(),
 });
 
 export type ReturnUnprocessedInput = z.infer<typeof returnUnprocessedSchema>;

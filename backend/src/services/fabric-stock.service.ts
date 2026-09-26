@@ -687,6 +687,121 @@ class FabricStockService {
       );
     }
   }
+
+  /**
+   * Bring ready fabric held at a processor's unit back into one of OUR stores (direct-to-processor plan,
+   * Phase 4b). Call inside the transaction that files the INWARD challan (helpers/held-stock-doors.helper).
+   * The unit lot gives up the metres and a NEW store lot takes them; the ledger moves unit → store. With
+   * `alreadyDrawnByJobId` (fabric a job drew where it lay, back unprocessed) the unit lot is not touched.
+   */
+  async bringHeldLotToStore(
+    tx: Prisma.TransactionClient,
+    p: {
+      stockId: string;
+      quantity: number;
+      storeWarehouseId: string;
+      inwardChallanId: string;
+      inwardChallanNumber: string;
+      broughtOn: Date;
+      userId: string;
+      alreadyDrawnByJobId?: string;
+    }
+  ): Promise<{ storeLotId: string; remainingAtProcessor: number }> {
+    const lot = await tx.fabric_stock.findUnique({
+      where: { id: p.stockId },
+      include: {
+        fabricMaster: { select: { fabricCode: true } },
+        warehouse: { select: { warehouseName: true, supplier: { select: { name: true } } } },
+      },
+    });
+    if (!lot) throw new Error('Fabric stock not found');
+    const store = await tx.warehouses.findUnique({
+      where: { id: p.storeWarehouseId },
+      select: { warehouseName: true },
+    });
+    const holder = lot.warehouse?.supplier?.name ?? lot.warehouse?.warehouseName ?? 'the processor';
+    const materialId = await ensureMaterialRecord(lot.fabricId, 'FABRIC', tx);
+    const qty = p.quantity;
+    const wac = Number(lot.weightedAvgCost);
+    const value = (q: number) => new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(q, wac))));
+    let remainingAtProcessor = Number(lot.quantityAvailable);
+
+    if (!p.alreadyDrawnByJobId) {
+      const moved = await tx.fabric_stock.updateMany({
+        where: { id: p.stockId, quantityAvailable: { gte: qty } },
+        data: { quantityAvailable: { decrement: qty }, lastConsumedDate: p.broughtOn },
+      });
+      if (moved.count === 0)
+        throw new Error(
+          `Only ${Number(lot.quantityAvailable)} m of ${lot.fabricMaster?.fabricCode ?? 'this fabric'} is at ${holder}.`
+        );
+      remainingAtProcessor = toNumber(toCurrency(Number(lot.quantityAvailable)).minus(qty));
+      await tx.fabric_stock_transaction.create({
+        data: {
+          stockId: p.stockId,
+          transactionType: 'TRANSFER_OUT',
+          quantity: new Prisma.Decimal(qty),
+          referenceType: 'CHALLAN',
+          referenceId: p.inwardChallanId,
+          costPerUnit: new Prisma.Decimal(wac),
+          weightedAvgCost: new Prisma.Decimal(wac),
+          totalValue: value(qty),
+          balanceAfter: new Prisma.Decimal(remainingAtProcessor),
+          valueAfter: value(remainingAtProcessor),
+          notes: `Brought back from ${holder} to ${store?.warehouseName ?? 'our store'} — inward challan ${p.inwardChallanNumber}`,
+          createdById: p.userId,
+        },
+      });
+      if (lot.warehouseId) await syncStockLevelQuantity(materialId, -qty, lot.warehouseId, 'METER', tx);
+    }
+
+    const storeLot = await tx.fabric_stock.create({
+      data: {
+        fabricId: lot.fabricId,
+        finishedWidth: lot.finishedWidth,
+        cutableWidth: lot.cutableWidth,
+        quantityAvailable: new Prisma.Decimal(qty),
+        unit: lot.unit,
+        procurementId: lot.procurementId,
+        originStyleId: lot.originStyleId,
+        originOrderId: lot.originOrderId,
+        status: 'AVAILABLE',
+        stockType: lot.stockType,
+        weightedAvgCost: lot.weightedAvgCost,
+        purchaseCost: lot.purchaseCost,
+        qualityGrade: lot.qualityGrade,
+        warehouseId: p.storeWarehouseId,
+        warehouseLocation: store?.warehouseName ?? null,
+        rollNumbers: lot.rollNumbers,
+        receivedDate: p.broughtOn,
+        patternPartId: lot.patternPartId,
+        fabricFinishType: lot.fabricFinishType,
+        needsEmbroidery: lot.needsEmbroidery,
+        weaverId: lot.weaverId,
+        weaverMix: lot.weaverMix ?? undefined,
+        createdById: p.userId,
+      },
+      select: { id: true },
+    });
+    await tx.fabric_stock_transaction.create({
+      data: {
+        stockId: storeLot.id,
+        transactionType: 'TRANSFER_IN',
+        quantity: new Prisma.Decimal(qty),
+        referenceType: 'CHALLAN',
+        referenceId: p.inwardChallanId,
+        costPerUnit: new Prisma.Decimal(wac),
+        weightedAvgCost: new Prisma.Decimal(wac),
+        totalValue: value(qty),
+        balanceAfter: new Prisma.Decimal(qty),
+        valueAfter: value(qty),
+        notes: `Back from ${holder}${p.alreadyDrawnByJobId ? ' unprocessed' : ''} — inward challan ${p.inwardChallanNumber}`,
+        createdById: p.userId,
+      },
+    });
+    await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
+    return { storeLotId: storeLot.id, remainingAtProcessor };
+  }
 }
 
 export default new FabricStockService();

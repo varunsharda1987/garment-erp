@@ -12,7 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
-import stockMovementService from '../services/stockMovement.service';
+import stockMovementService, { type HeldLot } from '../services/stockMovement.service';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { getAllMaterials } from '../services/material.service';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { greigeService, fabricService } from '../services/fabricGreigeService';
@@ -30,22 +31,8 @@ interface ProcessorWithStock {
   stockEntries: number;
 }
 
-// Processor greige stock item
-interface ProcessorGreigeStock {
-  id: string;
-  greigeId: string;
-  greige: {
-    id: string;
-    greigeCode: string;
-    greigeName: string;
-    composition: string;
-  };
-  quantityAvailable: number;
-  greigeWidth: number;
-  warehouseLocation: string | null;
-  qualityGrade: string;
-  receivedDate: string;
-}
+// A lot a processor holds for us — greige, lace or ready fabric (Bring to store)
+type ProcessorGreigeStock = HeldLot;
 import { getAllLace } from '../services/lace.service';
 import { getAllButtons } from '../services/button.service';
 import { getAllThreads } from '../services/thread.service';
@@ -224,6 +211,9 @@ export default function StockInForm() {
   const [processorGreigeStock, setProcessorGreigeStock] = useState<ProcessorGreigeStock[]>([]);
   const [selectedProcessorStock, setSelectedProcessorStock] = useState<ProcessorGreigeStock | null>(null);
   const [receivedQuantity, setReceivedQuantity] = useState<string>('');
+  // The day the goods reached our store (the inward challan's date)
+  const [returnDate, setReturnDate] = useState<string>(toDateInputValue(new Date()));
+  const [returnChallan, setReturnChallan] = useState<string | null>(null);
 
   const [unifiedMaterials, setUnifiedMaterials] = useState<ExtendedMaterialItem[]>([]);
 
@@ -316,7 +306,7 @@ export default function StockInForm() {
         getAllElastics({ limit: 100 }),
         getAllLabels({ limit: 100 }),
         getAllPackaging({ limit: 100 }),
-        greigeService.getProcessorsWithStock().catch(() => []),
+        stockMovementService.getProcessorsHoldingStock().catch(() => []),
       ]);
       setProcessorsWithStock(processorsData);
 
@@ -571,6 +561,16 @@ export default function StockInForm() {
   const validItemCount = lineItems.filter(isLineItemValid).length;
   const totalQuantity = lineItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
+  // "Bring to store" from a held lot opens here with ?source=PROCESSOR_RETURN&processorId=…&lotId=…
+  const deepLinkedProcessor =
+    searchParams.get('source') === 'PROCESSOR_RETURN' ? searchParams.get('processorId') : null;
+  useEffect(() => {
+    if (!deepLinkedProcessor || !processorsWithStock.some((p) => p.processorId === deepLinkedProcessor)) return;
+    setSourceType('PROCESSOR_RETURN');
+    void handleProcessorSelect(deepLinkedProcessor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkedProcessor, processorsWithStock]);
+
   // Load greige stock when processor is selected
   const handleProcessorSelect = async (processorId: string) => {
     setSelectedProcessorId(processorId);
@@ -579,8 +579,15 @@ export default function StockInForm() {
 
     if (processorId) {
       try {
-        const stock = await greigeService.getProcessorStock(processorId);
+        const stock = await stockMovementService.getHeldLots(processorId);
         setProcessorGreigeStock(stock);
+        // Deep link from a held lot ("Bring to store"): pick it
+        const lotId = searchParams.get('lotId');
+        const preset = lotId ? stock.find((s) => s.id === lotId) : undefined;
+        if (preset) {
+          setSelectedProcessorStock(preset);
+          setReceivedQuantity(String(preset.quantityAvailable));
+        }
       } catch (err) {
         logError('Failed to load processor stock:', err);
         setProcessorGreigeStock([]);
@@ -658,13 +665,21 @@ export default function StockInForm() {
 
       // Handle processor return (partial receipt - no shrinkage calculation)
       if (sourceType === 'PROCESSOR_RETURN' && selectedProcessorStock) {
-        await stockMovementService.createStockInFromProcessor({
-          greigeStockId: selectedProcessorStock.id,
+        const lotKey =
+          selectedProcessorStock.lotType === 'GREIGE'
+            ? 'greigeStockId'
+            : selectedProcessorStock.lotType === 'LACE'
+              ? 'laceStockId'
+              : 'fabricStockId';
+        const result = await stockMovementService.createStockInFromProcessor({
+          [lotKey]: selectedProcessorStock.id,
           // A full return typed at 2 decimals IS the full quantity at the processor (see @/lib/quantity)
           receivedQuantity: snapToLimit(receivedQuantity, selectedProcessorStock.quantityAvailable),
           warehouseId: formData.warehouseId,
+          receivedDate: returnDate,
           remarks: formData.remarks || undefined,
         });
+        setReturnChallan(result.challanNumber);
 
         setSuccess(true);
         navTimeoutRef.current = setTimeout(() => navigate('/inventory/movements'), 2000);
@@ -783,7 +798,11 @@ export default function StockInForm() {
 
       {success && (
         <Alert className="mb-4 bg-success-muted text-success border-success/20">
-          <AlertDescription>Stock IN created successfully! Redirecting...</AlertDescription>
+          <AlertDescription>
+            {returnChallan
+              ? `Brought back to our store on inward challan ${returnChallan}. Redirecting...`
+              : 'Stock IN created successfully! Redirecting...'}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -854,25 +873,27 @@ export default function StockInForm() {
             {selectedProcessorId && (
               <Card className="mb-4">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Step 2: Select Greige to Receive</CardTitle>
+                  <CardTitle className="text-lg">Step 2: Select what came back</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {processorGreigeStock.length === 0 ? (
                     <Alert>
-                      <AlertDescription>No greige stock found at this processor.</AlertDescription>
+                      <AlertDescription>Nothing of ours is held at this processor.</AlertDescription>
                     </Alert>
                   ) : (
                     <Select value={selectedProcessorStock?.id || ''} onValueChange={handleProcessorStockSelect}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select greige stock entry" />
+                        <SelectValue placeholder="Select the lot that came back" />
                       </SelectTrigger>
                       <SelectContent>
                         {processorGreigeStock.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
-                            <span className="font-medium">{s.greige.greigeCode}</span>
-                            <span className="text-muted-foreground"> - {s.greige.greigeName}</span>
+                            <span className="text-xs mr-2 text-muted-foreground">{s.lotType}</span>
+                            <span className="font-medium">{s.code}</span>
+                            <span className="text-muted-foreground"> - {s.name}</span>
                             <span className="text-xs ml-2 text-primary">
-                              ({s.quantityAvailable.toLocaleString()} MTR)
+                              ({s.quantityAvailable.toLocaleString('en-IN', { maximumFractionDigits: 3 })} m
+                              {s.receivedDate ? `, there since ${formatDate(s.receivedDate)}` : ''})
                             </span>
                           </SelectItem>
                         ))}
@@ -895,25 +916,27 @@ export default function StockInForm() {
                     <div className="col-span-full p-4 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Info className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium text-sm">Greige Details</span>
+                        <span className="font-medium text-sm">Lot Details</span>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>
-                          <span className="text-muted-foreground">Code:</span>{' '}
-                          {selectedProcessorStock.greige.greigeCode}
+                          <span className="text-muted-foreground">Code:</span> {selectedProcessorStock.code}
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Name:</span>{' '}
-                          {selectedProcessorStock.greige.greigeName}
+                          <span className="text-muted-foreground">Name:</span> {selectedProcessorStock.name}
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Composition:</span>{' '}
-                          {selectedProcessorStock.greige.composition}
+                          <span className="text-muted-foreground">Details:</span> {selectedProcessorStock.detail ?? '—'}
                         </div>
                         <div>
-                          <span className="text-muted-foreground">Width:</span> {selectedProcessorStock.greigeWidth}"
+                          <span className="text-muted-foreground">Sent under:</span>{' '}
+                          {selectedProcessorStock.coveringChallanNumber ?? '—'}
                         </div>
                       </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Saving files an inward challan from the processor (a job-work return) and books a new lot in the
+                        store you pick.
+                      </p>
                     </div>
 
                     {/* Available at Processor (read-only) */}
@@ -972,6 +995,25 @@ export default function StockInForm() {
                         value={formData.warehouseId}
                         onValueChange={(value) => handleChange('warehouseId', value)}
                         placeholder="Select warehouse..."
+                      />
+                    </div>
+
+                    {/* The day it reached our store */}
+                    <div className="space-y-2">
+                      <Label htmlFor="returnDate">
+                        Date back in store <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="returnDate"
+                        type="date"
+                        value={returnDate}
+                        max={toDateInputValue(new Date())}
+                        min={
+                          selectedProcessorStock.receivedDate
+                            ? toDateInputValue(selectedProcessorStock.receivedDate)
+                            : undefined
+                        }
+                        onChange={(e) => setReturnDate(e.target.value)}
                       />
                     </div>
 

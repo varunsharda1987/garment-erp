@@ -236,6 +236,16 @@ export async function recomputeCoveringChallan(
   ]);
   const draws = [...greigeDraws, ...laceDraws, ...fabricDraws];
   const jobIds = [...new Set(draws.map((d) => d.referenceId).filter((id): id is string => !!id))];
+  // Goods brought back to our store from these lots (Phase 4b "Bring to store"): an INWARD challan whose
+  // line names the held lot — a return like a job's, even with no job
+  const heldIds = [...lots.map((l) => l.id), ...laceLots.map((l) => l.id), ...fabricLots.map((l) => l.id)];
+  const broughtBack =
+    (await tx.challan_items.count({
+      where: {
+        OR: [{ greigeStockId: { in: heldIds } }, { laceStockId: { in: heldIds } }, { fabricStockId: { in: heldIds } }],
+        challan: { challanType: 'INWARD', status: { not: 'CANCELLED' } },
+      },
+    })) > 0;
   const jobs = jobIds.length
     ? await tx.job_work_orders.findMany({ where: { id: { in: jobIds } }, select: { jwoStatus: true } })
     : [];
@@ -246,7 +256,7 @@ export async function recomputeCoveringChallan(
   const target: ChallanStatus =
     !stillHeld && !untrackedLine && returned.length === live.length
       ? 'RECEIVED'
-      : returned.length > 0 || partlyBack
+      : returned.length > 0 || partlyBack || broughtBack
         ? 'PARTIALLY_RECEIVED'
         : 'ISSUED';
   if (target === challan.status) return null;
@@ -257,6 +267,41 @@ export async function recomputeCoveringChallan(
     data: target === 'RECEIVED' ? { status: target, receivedDate: at } : { status: target, receivedDate: null },
   });
   return moved.count > 0 ? target : null;
+}
+
+/**
+ * Recompute the covering challans of these held lots (rule 7) — after goods were brought back to our
+ * store, or moved to another processor, with no job involved (Phase 4b / 4c).
+ */
+export async function recomputeCoveringChallansForLots(
+  tx: DbClient,
+  lots: { greigeIds?: string[]; laceIds?: string[]; fabricIds?: string[] },
+  at: Date = new Date()
+): Promise<void> {
+  const greigeIds = lots.greigeIds ?? [];
+  const otherIds = [...(lots.laceIds ?? []), ...(lots.fabricIds ?? [])];
+  const [greige, lines] = await Promise.all([
+    greigeIds.length
+      ? tx.greige_stock.findMany({ where: { id: { in: greigeIds } }, select: { sourceChallanId: true } })
+      : [],
+    otherIds.length
+      ? tx.challan_items.findMany({
+          where: {
+            OR: [{ laceStockId: { in: otherIds } }, { fabricStockId: { in: otherIds } }],
+            challan: { directSupplyGrnId: { not: null } },
+          },
+          select: { challanId: true },
+        })
+      : [],
+  ]);
+  const challanIds = [
+    ...new Set(
+      [...greige.map((g) => g.sourceChallanId), ...lines.map((l) => l.challanId)].filter((id): id is string => !!id)
+    ),
+  ];
+  for (const challanId of challanIds) {
+    await recomputeCoveringChallan(tx, challanId, at);
+  }
 }
 
 /** Recompute every covering challan whose lots this job drew from (rule 7). */

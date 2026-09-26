@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { invalidateControlCenter } from '@/lib/control-center-keys';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -33,6 +34,11 @@ interface ReturnFromProcessorDialogProps {
   /** What went out — the return defaults to all of it, which is the ordinary case. */
   qtySent: number;
   uom: string;
+  /**
+   * The job took cloth that was already lying at the processor (nothing travelled out): it comes back
+   * into a store the user names, as a new lot (Phase 4b).
+   */
+  drewWhereItLay?: boolean;
   onSuccess?: () => void;
 }
 
@@ -46,6 +52,7 @@ export default function ReturnFromProcessorDialog({
   processorName,
   qtySent,
   uom,
+  drewWhereItLay = false,
   onSuccess,
 }: ReturnFromProcessorDialogProps) {
   const queryClient = useQueryClient();
@@ -53,6 +60,7 @@ export default function ReturnFromProcessorDialog({
   const [qty, setQty] = useState<number>(qtySent);
   const [returnDate, setReturnDate] = useState(today());
   const [remarks, setRemarks] = useState('');
+  const [storeWarehouseId, setStoreWarehouseId] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -69,6 +77,7 @@ export default function ReturnFromProcessorDialog({
         returnedQty: snapToLimit(qty, qtySent),
         returnDate,
         remarks: remarks || undefined,
+        ...(drewWhereItLay ? { storeWarehouseId } : {}),
       }),
     onSuccess: (result) => {
       handleApiSuccess(
@@ -118,6 +127,22 @@ export default function ReturnFromProcessorDialog({
             </div>
           </div>
 
+          {drewWhereItLay && (
+            <div>
+              <Label>Came back into *</Label>
+              <WarehouseCombobox
+                value={storeWarehouseId}
+                onValueChange={setStoreWarehouseId}
+                placeholder="Pick our store"
+                excludeTypes={['JOB_WORK']}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                This job took cloth already lying at {processorName}, so it comes back into the store you pick, as a new
+                lot on the inward challan.
+              </p>
+            </div>
+          )}
+
           <div>
             <Label htmlFor="ru-remarks">Why (optional)</Label>
             <Textarea
@@ -145,7 +170,10 @@ export default function ReturnFromProcessorDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
             Cancel
           </Button>
-          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending || !(qty > 0)}>
+          <Button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending || !(qty > 0) || (drewWhereItLay && !storeWarehouseId)}
+          >
             {mutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (

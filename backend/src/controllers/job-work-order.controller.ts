@@ -844,6 +844,7 @@ class JobWorkOrderController {
       returnedQty: Number(body.returnedQty),
       returnDate: body.returnDate,
       remarks: body.remarks,
+      storeWarehouseId: body.storeWarehouseId ?? null,
       userId,
     });
 

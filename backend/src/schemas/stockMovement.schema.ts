@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum, flexMaterialId } from './common.schema';
+import { UnitEnum, flexMaterialId, formNumber } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -200,12 +200,37 @@ export const createStockAdjustmentSchema = z.object({
  * Create Stock IN from Processor Return
  * POST /api/stock-movements/processor-return
  */
-export const createProcessorReturnSchema = z.object({
-  greigeStockId: z.string().uuid('Invalid greige stock ID'),
-  receivedQuantity: z.number().positive('Quantity must be positive'),
-  warehouseId: z.string().uuid('Invalid warehouse ID'),
-  remarks: z.string().max(500).optional(),
-});
+/**
+ * "Bring to store" (direct-to-processor plan, Phase 4b): goods WE own that a processor holds come back
+ * into one of our stores on one inward challan. Either one lot (greigeStockId / laceStockId /
+ * fabricStockId + receivedQuantity — the Stock In form) or several lots of one processor (`lines`).
+ */
+export const createProcessorReturnSchema = z
+  .object({
+    greigeStockId: z.string().uuid('Invalid greige stock ID').optional(),
+    laceStockId: z.string().uuid('Invalid lace stock ID').optional(),
+    fabricStockId: z.string().uuid('Invalid fabric stock ID').optional(),
+    receivedQuantity: formNumber(z.number().positive('Quantity must be positive')),
+    lines: z
+      .array(
+        z.object({
+          lotType: z.enum(['GREIGE', 'LACE', 'FABRIC']),
+          lotId: z.string().uuid('Invalid lot'),
+          quantity: formNumber(z.number().positive('Quantity must be positive')),
+        })
+      )
+      .max(50)
+      .optional(),
+    warehouseId: z.string().uuid('Invalid warehouse ID'),
+    receivedDate: z.coerce.date().optional(),
+    remarks: z.string().max(500).optional(),
+  })
+  .refine(
+    (b) =>
+      (b.lines && b.lines.length > 0) ||
+      ((b.greigeStockId || b.laceStockId || b.fabricStockId) && b.receivedQuantity != null),
+    { message: 'Pick the lot and the quantity coming back' }
+  );
 
 // ============================================================================
 // Query Schemas
@@ -271,5 +296,8 @@ export type CreateBulkStockInInput = z.infer<typeof createBulkStockInSchema>;
 export type CreateStockOutInput = z.infer<typeof createStockOutSchema>;
 export type CreateStockTransferInput = z.infer<typeof createStockTransferSchema>;
 export type CreateStockAdjustmentInput = z.infer<typeof createStockAdjustmentSchema>;
+/** GET /api/stock-movements/processor-held/:processorId */
+export const processorHeldParamSchema = z.object({ processorId: z.string().uuid('Invalid processor') });
+
 export type CreateProcessorReturnInput = z.infer<typeof createProcessorReturnSchema>;
 export type StockMovementQueryInput = z.infer<typeof stockMovementQuerySchema>;

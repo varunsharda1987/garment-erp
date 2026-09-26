@@ -71,6 +71,8 @@ export interface SaleOrderItem {
     /** Free-text season, kept for styles saved before the Season master (`seasonMaster` wins). */
     season?: string | null;
     seasonMaster?: { code: string; name: string } | null;
+    /** The style's primary colour — fallback when item.color is null on legacy lines. */
+    color?: { id: string; colorName: string; colorCode?: string | null } | null;
   };
   color?: {
     id: string;

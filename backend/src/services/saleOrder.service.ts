@@ -1982,6 +1982,7 @@ export class SaleOrderService {
               imageUrl: true,
               season: true,
               season_master: { select: { code: true, name: true } },
+              color: { select: { id: true, colorName: true, colorCode: true } },
             },
           },
           color: {

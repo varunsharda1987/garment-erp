@@ -1000,7 +1000,7 @@ export default function SaleOrderDetail() {
                       <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
                     </TableCell>
                     <TableCell>{styleSeasonLabel(item.style) ?? '—'}</TableCell>
-                    <TableCell>{item.color?.colorName || 'N/A'}</TableCell>
+                    <TableCell>{item.color?.colorName || item.style?.color?.colorName || 'N/A'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>
                     <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
@@ -1300,7 +1300,7 @@ export default function SaleOrderDetail() {
                     return (
                       <TableRow key={i.id}>
                         <TableCell className="font-medium">{i.style?.styleCode ?? '—'}</TableCell>
-                        <TableCell>{i.color?.colorName ?? '—'}</TableCell>
+                        <TableCell>{i.color?.colorName ?? i.style?.color?.colorName ?? '—'}</TableCell>
                         <TableCell>{i.size?.sizeName ?? '—'}</TableCell>
                         <TableCell className="text-right">
                           {i.allocatedQty} / {i.dispatchedQty}
@@ -1458,7 +1458,8 @@ export default function SaleOrderDetail() {
                   {selectedItem.style?.styleName}
                 </div>
                 <div>
-                  <strong>Color:</strong> {selectedItem.color?.colorName || 'N/A'}
+                  <strong>Color:</strong>{' '}
+                  {selectedItem.color?.colorName || selectedItem.style?.color?.colorName || 'N/A'}
                 </div>
                 <div>
                   <strong>Size:</strong> {selectedItem.size?.sizeName || '-'}

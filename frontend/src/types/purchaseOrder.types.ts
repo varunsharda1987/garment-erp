@@ -465,6 +465,8 @@ export interface CreatePurchaseOrderItemRequest {
   remarks?: string;
   foldLengthCm?: number; // "L" - fold length in cm (for greige/fabric)
   weaverId?: string | null; // Phase 1b: optional at ordering — the GRN line records what came
+  /** Split delivery: this line's share at each place (omit on every line = one place / to be advised) */
+  deliveries?: Array<{ warehouseId: string; quantity: number }>;
 }
 
 export interface CreatePurchaseOrderRequest {

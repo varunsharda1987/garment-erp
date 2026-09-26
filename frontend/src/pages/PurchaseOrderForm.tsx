@@ -1,7 +1,11 @@
 import { unitShort } from '@/lib/units';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { DeliverySplitEditor } from '@/components/purchase-orders/DeliverySplitEditor';
+import { emptyPoint, newPointKey, splitProblems, type SplitLine, type SplitPointDraft } from '@/lib/delivery-plan';
+import { isQtyZero, prefillQty, toQty } from '@/lib/quantity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -334,6 +338,23 @@ export default function PurchaseOrderForm() {
   // it we would stamp an amendment (and its audit trail) on every save.
   const [loadedDeliveryLocationId, setLoadedDeliveryLocationId] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
+  // Split delivery (2026-09-26): several places, each with its share of each line. Keyed on the line's
+  // tempId, so lines added in this session can be placed before they have a server id.
+  const [splitDelivery, setSplitDelivery] = useState(false);
+  const [splitPoints, setSplitPoints] = useState<SplitPointDraft[]>([]);
+  // The PO was already split when loaded — turning the switch off must then send one place explicitly
+  const [loadedSplit, setLoadedSplit] = useState(false);
+  const [splitPlaceNames, setSplitPlaceNames] = useState<Record<string, string>>({});
+  const splitLines: SplitLine[] = useMemo(
+    () =>
+      items.map((item) => ({
+        id: item.tempId,
+        label: item.materialCode || item.materialName || item.serviceDescription || 'Item',
+        ordered: toQty(item.orderedQuantity),
+        unit: item.unit,
+      })),
+    [items]
+  );
 
   // For material PO item adding
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
@@ -676,6 +697,26 @@ export default function PurchaseOrderForm() {
           weaverName: item.weaver?.name ?? '',
         }));
         setItems(loadedItems);
+        // A split PO opens with its places, each line's share keyed on the line's tempId
+        if (po.deliveryPoints && po.deliveryPoints.length > 0) {
+          const tempIdOf = new Map(loadedItems.map((li) => [li.id, li.tempId]));
+          setSplitPoints(
+            po.deliveryPoints.map((point) => ({
+              key: newPointKey(),
+              warehouseId: point.warehouseId,
+              qty: Object.fromEntries(
+                point.lines
+                  .filter((l) => tempIdOf.has(l.poItemId))
+                  .map((l) => [tempIdOf.get(l.poItemId)!, prefillQty(toQty(l.quantity))])
+              ),
+            }))
+          );
+          setSplitPlaceNames(
+            Object.fromEntries(po.deliveryPoints.map((pt) => [pt.warehouseId, pt.warehouse.warehouseName]))
+          );
+          setSplitDelivery(true);
+          setLoadedSplit(true);
+        }
       }
 
       // Fetch materials filtered by supplier for material POs
@@ -1085,9 +1126,17 @@ export default function PurchaseOrderForm() {
         return false;
       }
     }
+    // A split must place every line fully, across at least two places
+    if (splitDelivery) {
+      const problems = splitProblems(splitLines, splitPoints, (wid) => splitPlaceNames[wid] ?? 'That place');
+      if (problems.length > 0) {
+        handleApiError(new Error(problems[0]), 'Split delivery');
+        return false;
+      }
+    }
     // The amend endpoint takes a warehouse id, so "no location" is inexpressible — clearing the box
     // could only ever be silently dropped. Say so instead.
-    if (isEditMode && loadedDeliveryLocationId && !deliveryLocationId) {
+    if (!splitDelivery && isEditMode && loadedDeliveryLocationId && !deliveryLocationId) {
       handleApiError(
         new Error('Delivery location cannot be removed once set. Pick a different warehouse instead.'),
         'Validation Error'
@@ -1113,6 +1162,16 @@ export default function PurchaseOrderForm() {
         remarks: item.remarks || undefined,
         foldLengthCm: item.foldLengthCm ? parseFloat(item.foldLengthCm) : undefined,
         weaverId: item.weaverId || null,
+        // Split delivery: this line's share at each place. Un-splitting a split PO sends its one place.
+        ...(splitDelivery
+          ? {
+              deliveries: splitPoints
+                .map((pt) => ({ warehouseId: pt.warehouseId, quantity: toQty(pt.qty[item.tempId]) }))
+                .filter((d) => !isQtyZero(d.quantity)),
+            }
+          : loadedSplit && deliveryLocationId
+            ? { deliveries: [{ warehouseId: deliveryLocationId, quantity: parseFloat(item.orderedQuantity) }] }
+            : {}),
       }));
 
       const data: CreatePurchaseOrderRequest = {
@@ -1125,8 +1184,9 @@ export default function PurchaseOrderForm() {
         // Optional traceability links
         styleId: styleId || null,
         orderId: orderId || null,
-        // Delivery location (points to any warehouse, including processor locations)
-        deliveryLocationId: deliveryLocationId || null,
+        // Delivery location (points to any warehouse, including processor locations). A split names its
+        // places per line; the header then mirrors place 1.
+        deliveryLocationId: splitDelivery ? splitPoints[0]?.warehouseId || null : deliveryLocationId || null,
       };
 
       let savedPO;
@@ -1146,7 +1206,8 @@ export default function PurchaseOrderForm() {
         // update cannot derive deliveryLocationType and does not stamp originalDeliveryLocationId /
         // deliveryLocationAmendedBy/At. Ordering matters — the amend must land BEFORE any send,
         // because sending produces the supplier PDF whose "Deliver To" block reads the warehouse.
-        if (deliveryLocationId && deliveryLocationId !== loadedDeliveryLocationId) {
+        // A split (or un-split) travels with the lines above — the single-place door refuses a split PO
+        if (!splitDelivery && !loadedSplit && deliveryLocationId && deliveryLocationId !== loadedDeliveryLocationId) {
           try {
             await amendDeliveryLocation(id, { deliveryLocationId });
             setLoadedDeliveryLocationId(deliveryLocationId);
@@ -1725,11 +1786,33 @@ export default function PurchaseOrderForm() {
                 onValueChange={setDeliveryLocationId}
                 placeholder="Decide at dispatch (to be advised)"
               />
-              {!deliveryLocationId && (
+              {!deliveryLocationId && !splitDelivery && (
                 <p className="text-xs text-muted-foreground">
                   Leave it empty to decide at dispatch — the PO prints "to be advised before dispatch", and you can set
                   it later from the PO page.
                 </p>
+              )}
+              {!isProcessing && !isService && (
+                <label className="flex items-center gap-2 text-sm pt-1">
+                  <Switch
+                    checked={splitDelivery}
+                    onCheckedChange={(on) => {
+                      setSplitDelivery(on);
+                      if (on && splitPoints.length === 0) {
+                        // Place 1 = the chosen location with everything; the user moves part to place 2
+                        setSplitPoints([
+                          {
+                            ...emptyPoint(),
+                            warehouseId: deliveryLocationId,
+                            qty: Object.fromEntries(splitLines.map((l) => [l.id, prefillQty(l.ordered)])),
+                          },
+                          emptyPoint(),
+                        ]);
+                      }
+                    }}
+                  />
+                  Split delivery across locations
+                </label>
               )}
             </div>
 
@@ -2160,6 +2243,31 @@ export default function PurchaseOrderForm() {
                   })()}
                 </div>
               </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Split delivery — how much of each line goes to each place (one invoice + e-way bill per delivery) */}
+      {splitDelivery && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>Split delivery</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Pick each place and how much of each item goes there. Every item must be fully placed. The supplier sends
+              one tax invoice and one e-way bill per delivery; the PO prints every place under Delivery Points.
+            </p>
+            {splitLines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Add items first.</p>
+            ) : (
+              <DeliverySplitEditor
+                lines={splitLines}
+                points={splitPoints}
+                onChange={setSplitPoints}
+                disabled={isSaving}
+              />
             )}
           </CardContent>
         </Card>

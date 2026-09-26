@@ -38,11 +38,14 @@ import BulkPOGenerationDialog from '@/components/BulkPOGenerationDialog';
 import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
 import OrderThreadRequirementForm from '@/components/thread/OrderThreadRequirementForm';
+import { OrderStyleLabelView } from '@/components/requirements/OrderStyleLabelView';
+import { groupRequirementsByOrderStyle } from '@/components/requirements/order-style-groups';
 import { Combobox } from '@/components/ui/combobox';
 
 // Services
 import {
   getRequirements,
+  getAllRequirements,
   generatePOFromRequirements,
   cancelRequirement,
   calculateRequirements,
@@ -408,7 +411,8 @@ export default function UnifiedRequirementsPage() {
 // Material Requirements Tab (only MATERIAL type)
 // ─────────────────────────────────────────────────────────────
 
-type ViewMode = 'flat' | 'byMaterial' | 'byParty' | 'byStyle';
+type ViewMode = 'flat' | 'byMaterial' | 'byParty' | 'byStyle' | 'byOrderStyle';
+const VIEW_MODES: readonly ViewMode[] = ['flat', 'byMaterial', 'byParty', 'byStyle', 'byOrderStyle'];
 
 function MaterialRequirementsTab({
   searchParams,
@@ -453,8 +457,16 @@ function MaterialRequirementsTab({
   const [processingCostInput, setProcessingCostInput] = useState('');
   const [isConverting, setIsConverting] = useState(false);
 
-  // View mode for grouping
-  const [viewMode, setViewMode] = useState<ViewMode>('flat');
+  // View mode for grouping — kept in the URL (?view=), so a link can open a view (the PO form's label-set
+  // warning opens "By Order & Style" on its order + style). Label sets start on Labels only.
+  const viewParam = searchParams.get('view') as ViewMode | null;
+  const viewMode: ViewMode = viewParam && VIEW_MODES.includes(viewParam) ? viewParam : 'flat';
+  const setViewMode = (v: ViewMode) =>
+    updateURLParams({
+      view: v === 'flat' ? undefined : v,
+      page: undefined,
+      ...(v === 'byOrderStyle' && viewMode !== 'byOrderStyle' ? { materialType: 'LABEL' } : {}),
+    });
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
@@ -467,20 +479,27 @@ function MaterialRequirementsTab({
       status: searchParams.get('status')?.split(',') as MaterialRequirementStatus[] | undefined,
       supplierId: searchParams.get('supplierId') || undefined,
       styleId: searchParams.get('styleId') || undefined,
+      materialType: searchParams.get('materialType') || undefined,
       requirementType: 'MATERIAL',
       search: searchParams.get('search') || undefined,
       page: viewMode === 'flat' ? parseInt(searchParams.get('page') || '1') : 1,
       limit: viewMode === 'flat' ? 20 : 100, // Backend caps at 100
-      sortBy: 'createdAt',
-      sortOrder: 'desc',
+      sortBy: viewMode === 'byOrderStyle' ? 'requirementNumber' : 'createdAt',
+      sortOrder: viewMode === 'byOrderStyle' ? 'asc' : 'desc',
     }),
     [searchParams, viewMode]
   );
 
   // Queries
   const { data: requirementsResponse, isLoading } = useListQuery(
-    queryKeys.mrp.list({ ...filters } as Record<string, unknown>),
-    () => getRequirements(filters),
+    queryKeys.mrp.list({ ...filters, view: viewMode } as Record<string, unknown>),
+    () =>
+      viewMode === 'byOrderStyle'
+        ? getAllRequirements(filters).then(({ data, total }) => ({
+            data,
+            pagination: { page: 1, limit: data.length, total, totalPages: 1 },
+          }))
+        : getRequirements(filters),
     { staleTime: 30 * 1000 }
   );
 
@@ -514,7 +533,7 @@ function MaterialRequirementsTab({
   }
 
   const groupedRequirements = useMemo((): RequirementGroup[] | null => {
-    if (viewMode === 'flat') return null;
+    if (viewMode === 'flat' || viewMode === 'byOrderStyle') return null;
 
     const grouped = new Map<string, RequirementGroup>();
 
@@ -571,6 +590,15 @@ function MaterialRequirementsTab({
       return next;
     });
   };
+
+  // "By Order & Style": Order → Style → Label → Size
+  const orderStyleGroups = useMemo(
+    () => (viewMode === 'byOrderStyle' ? groupRequirementsByOrderStyle(requirements) : null),
+    [requirements, viewMode]
+  );
+
+  const handleSelectMany = (ids: string[], checked: boolean) =>
+    setSelectedIds((prev) => (checked ? [...new Set([...prev, ...ids])] : prev.filter((id) => !ids.includes(id))));
 
   const handleSelectGroup = (group: RequirementGroup, checked: boolean) => {
     const groupSelectableIds = group.requirements.filter(canOrderFromHere).map((r) => r.id);
@@ -655,6 +683,12 @@ function MaterialRequirementsTab({
     staleTime: 30 * 1000,
   });
   const manualPOGroup = manualPOPreview?.[0];
+
+  const openManualPO = () => {
+    const vendors = new Set(selectedRequirementRows.map((r) => r.preferredSupplierId ?? ''));
+    if (!poSupplierId && vendors.size === 1 && !vendors.has('')) setPOSupplierId([...vendors][0]);
+    setShowGeneratePO(true);
+  };
 
   // Manual PO generation
   const handleGeneratePO = async () => {
@@ -895,7 +929,7 @@ function MaterialRequirementsTab({
               >
                 Bulk Generate POs ({selectedIds.length})
               </Button>
-              <Button size="sm" variant="outline" onClick={() => setShowGeneratePO(true)}>
+              <Button size="sm" variant="outline" onClick={openManualPO}>
                 Manual PO
               </Button>
             </>
@@ -969,9 +1003,22 @@ function MaterialRequirementsTab({
               </SelectContent>
             </Select>
 
+            <Select
+              value={searchParams.get('materialType') || 'all'}
+              onValueChange={(v) => updateURLParams({ materialType: v === 'all' ? undefined : v, page: undefined })}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="All Materials" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Materials</SelectItem>
+                <SelectItem value="LABEL">Labels</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* View Mode Selector */}
             <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-[210px]">
                 <SelectValue placeholder="View Mode" />
               </SelectTrigger>
               <SelectContent>
@@ -979,6 +1026,7 @@ function MaterialRequirementsTab({
                 <SelectItem value="byMaterial">By Material</SelectItem>
                 <SelectItem value="byParty">By Party</SelectItem>
                 <SelectItem value="byStyle">By Style</SelectItem>
+                <SelectItem value="byOrderStyle">By Order &amp; Style (label sets)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -993,7 +1041,10 @@ function MaterialRequirementsTab({
           </>
         ) : (
           <>
-            {groupedRequirements?.length || 0} groups · {requirements.length} requirements
+            {viewMode === 'byOrderStyle'
+              ? `${orderStyleGroups?.length || 0} order · style sets`
+              : `${groupedRequirements?.length || 0} groups`}{' '}
+            · {requirements.length} requirements
             {pagination.total > requirements.length && (
               <span className="ml-1 text-warning">
                 (showing first {requirements.length} of {pagination.total})
@@ -1002,6 +1053,33 @@ function MaterialRequirementsTab({
           </>
         )}
       </div>
+
+      {/* By Order & Style — label sets */}
+      {viewMode === 'byOrderStyle' &&
+        (isLoading ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">Loading requirements...</CardContent>
+          </Card>
+        ) : !orderStyleGroups || orderStyleGroups.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              No material requirements found
+            </CardContent>
+          </Card>
+        ) : (
+          <OrderStyleLabelView
+            groups={orderStyleGroups}
+            selectedIds={selectedIds}
+            onSelect={handleSelectMany}
+            isSelectable={canOrderFromHere}
+            notSelectableHint={(r) => (!canOrderFromHere(r) && needsPO(r) ? THREAD_PO_HINT : null)}
+            onUseStock={openAllocateStockDialog}
+            onCancel={(r) => {
+              setRequirementToCancel(r.id);
+              setCancelDialogOpen(true);
+            }}
+          />
+        ))}
 
       {/* Grouped View */}
       {viewMode !== 'flat' && groupedRequirements && (

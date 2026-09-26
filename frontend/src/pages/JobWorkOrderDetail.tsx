@@ -723,7 +723,10 @@ export default function JobWorkOrderDetail() {
 
   // Where the chosen cloth is: drawn where it lies at the processor, travelling on a challan, or both
   const issueMove = issueMovement(issueRows, issueAvailableLots);
-  const issueNothingTravels = !issueMove.travels && issueMove.drawsHere;
+  // A fabric-roll job has no lot rows: its lot already at the processor means nothing travels (Phase 4a)
+  const issueNothingTravels = issuesFromFabricRoll
+    ? !!issuePreview?.fabricLot?.heldHere
+    : !issueMove.travels && issueMove.drawsHere;
   // Where the offered lots are — one badge per place
   const issueLotGroups = groupLotsForIssue(issueAvailableLots, issueProcessorName);
   // The same cloth at OTHER processors: shown so nobody hunts for it, never offered on this job

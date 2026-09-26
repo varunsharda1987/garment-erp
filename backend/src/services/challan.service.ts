@@ -14,6 +14,7 @@ import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
 import { normalizeUnit, unitLabel } from '../utils/units';
 import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
+import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit } from './helpers/lot-location.helper';
 
 /**
  * challan_items.unit is free text (schema default 'PCS'); a stock movement takes the Unit enum.
@@ -386,8 +387,17 @@ export async function issueChallan(id: string, userId?: string) {
         if (item.fabricStockId) {
           const fabricStock = await tx.fabric_stock.findUnique({
             where: { id: item.fabricStockId },
+            include: { warehouse: { select: LOT_WAREHOUSE_SELECT } },
           });
           if (!fabricStock) throw new Error(`Fabric stock ${item.fabricStockId} not found`);
+          // Fabric lying at a processor's unit is not in our store: it cannot leave on this challan. A job
+          // at that processor draws it where it lies (direct-to-processor plan, Phase 4a).
+          if (lotInProcessorUnit(fabricStock)) {
+            throw new Error(
+              `This fabric lot is at ${fabricStock.warehouse?.supplier?.name ?? fabricStock.warehouse?.warehouseName ?? 'a processor'}, ` +
+                `not in our store — it cannot go out on this challan. Use it on a job at that processor instead.`
+            );
+          }
           // Quantity rule (utils/quantity): the challan line is 3-decimal, the lot 2 — a line within dust
           // of the lot takes the whole lot, and the lot is left at exactly 0 (closed), not 0.002.
           if (qtyExceeds(qty, fabricStock.quantityAvailable))
@@ -413,15 +423,25 @@ export async function issueChallan(id: string, userId?: string) {
             where: { fabricId: fabricStock.fabricId },
             select: { id: true },
           });
-          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -lotQty, undefined, 'METER', tx);
+          // At the lot's own store — it used to hit the default store whatever the lot's warehouse
+          if (fabMaterial)
+            await syncStockLevelQuantity(fabMaterial.id, -lotQty, fabricStock.warehouseId ?? undefined, 'METER', tx);
         }
 
         // 3. Lace stock deduction
         if (item.laceStockId) {
           const laceStock = await tx.lace_stock.findUnique({
             where: { id: item.laceStockId },
+            include: { warehouse: { select: LOT_WAREHOUSE_SELECT } },
           });
           if (!laceStock) throw new Error(`Lace stock ${item.laceStockId} not found`);
+          // Lace lying at a processor's unit is not in our store (a job there draws it where it lies)
+          if (lotInProcessorUnit(laceStock)) {
+            throw new Error(
+              `This lace lot is at ${laceStock.warehouse?.supplier?.name ?? laceStock.warehouse?.warehouseName ?? 'a processor'}, ` +
+                `not in our store — it cannot go out on this challan. Use it on a job at that processor instead.`
+            );
+          }
           // Quantity rule (utils/quantity): the challan line is 3-decimal, the lot 2 — a line within dust
           // of the lot takes the whole lot, and the lot is left at exactly 0 (closed), not 0.002.
           if (qtyExceeds(qty, laceStock.quantityAvailable))

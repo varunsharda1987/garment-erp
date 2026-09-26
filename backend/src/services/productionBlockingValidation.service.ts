@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import { latestSampleRoundForStyle } from './helpers/lab-round.helper';
+import { notInProcessorUnitWhere } from './helpers/lot-location.helper';
 
 // Shortfall tolerance: ignore shortfalls below 0.5% of required quantity
 // (handles BOM wastage rounding — e.g. need 1670.29m, have 1670.00m → 0.017% short → pass)
@@ -138,8 +139,10 @@ async function availableFabricForBomLine(bom: BomFabricLine, run: RunIdentity): 
   } else {
     return 0;
   }
+  // Fabric lying at a processor's unit (delivered straight there, Phase 4a) is not ours to cut here —
+  // only that processor's job draws it where it lies
   const agg = await prisma.fabric_stock.aggregate({
-    where: { AND: [lineage, { status: 'AVAILABLE' }] },
+    where: { AND: [lineage, { status: 'AVAILABLE' }, notInProcessorUnitWhere()] },
     _sum: { quantityAvailable: true },
   });
   const inStore = Number(agg._sum.quantityAvailable || 0);

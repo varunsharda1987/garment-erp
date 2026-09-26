@@ -159,8 +159,9 @@ const RETURNED_JWO_STATUSES: string[] = [...JWO_RECEIVED_STATUSES, 'CLOSED'];
  * | any, or a job still out | none has returned anything | `ISSUED` |
  *
  * A cancelled job put its metres back on the lot, so it counts as neither holding nor returning.
- * Greige lots only — lace and fabric delivered straight to a processor carry no `sourceChallanId`
- * (their challan is found through `challans.directSupplyGrnId`; they are drawn from Phase 4a on).
+ * The lots a challan covers: greige lots naming it (`sourceChallanId`), and the lace and fabric lots
+ * its lines name (`challan_items.laceStockId` / `fabricStockId` — a direct-supply challan). A line
+ * with no lot (trims) can never be shown back, so such a challan stops at `PARTIALLY_RECEIVED`.
  *
  * @returns the status it was moved to, or null when nothing moved.
  */
@@ -171,27 +172,69 @@ export async function recomputeCoveringChallan(
 ): Promise<ChallanStatus | null> {
   const challan = await tx.challans.findUnique({
     where: { id: challanId },
-    select: { status: true, challanType: true },
+    select: { status: true, challanType: true, directSupplyGrnId: true },
   });
   if (!challan || challan.challanType !== 'OUTWARD' || !COVERING_MOVABLE_STATUSES.includes(challan.status)) {
     return null;
   }
 
-  const lots = await tx.greige_stock.findMany({
-    where: { sourceChallanId: challanId },
-    select: { id: true, quantityAvailable: true },
-  });
-  if (lots.length === 0) return null;
-  const stillHeld = lots.some((lot) => !isQtyZero(Number(lot.quantityAvailable)));
+  const [lots, lines] = await Promise.all([
+    tx.greige_stock.findMany({
+      where: { sourceChallanId: challanId },
+      select: { id: true, quantityAvailable: true },
+    }),
+    tx.challan_items.findMany({
+      where: { challanId },
+      select: { greigeStockId: true, laceStockId: true, fabricStockId: true },
+    }),
+  ]);
+  // Only a direct-supply challan COVERS the lace / fabric its lines name — an ordinary job challan's
+  // lines name the store lots that travelled on it, and those are not held anywhere
+  const covers = challan.directSupplyGrnId != null;
+  const laceIds = covers ? lines.map((l) => l.laceStockId).filter((id): id is string => !!id) : [];
+  const fabricIds = covers ? lines.map((l) => l.fabricStockId).filter((id): id is string => !!id) : [];
+  const [laceLots, fabricLots] = await Promise.all([
+    laceIds.length
+      ? tx.lace_stock.findMany({ where: { id: { in: laceIds } }, select: { id: true, quantityAvailable: true } })
+      : [],
+    fabricIds.length
+      ? tx.fabric_stock.findMany({ where: { id: { in: fabricIds } }, select: { id: true, quantityAvailable: true } })
+      : [],
+  ]);
+  if (lots.length + laceLots.length + fabricLots.length === 0) return null;
+  const stillHeld = [...lots, ...laceLots, ...fabricLots].some((lot) => !isQtyZero(Number(lot.quantityAvailable)));
+  // A line naming no lot (trims under a direct-supply challan) is never shown as back
+  const untrackedLine = covers && lines.some((l) => !l.greigeStockId && !l.laceStockId && !l.fabricStockId);
 
-  const draws = await tx.greige_stock_transaction.findMany({
-    where: {
-      stockId: { in: lots.map((lot) => lot.id) },
-      transactionType: 'CONSUMPTION',
-      referenceType: 'JOB_WORK_ORDER',
-    },
-    select: { referenceId: true },
-  });
+  const [greigeDraws, laceDraws, fabricDraws] = await Promise.all([
+    lots.length
+      ? tx.greige_stock_transaction.findMany({
+          where: {
+            stockId: { in: lots.map((lot) => lot.id) },
+            transactionType: 'CONSUMPTION',
+            referenceType: 'JOB_WORK_ORDER',
+          },
+          select: { referenceId: true },
+        })
+      : [],
+    laceLots.length
+      ? tx.lace_stock_transaction.findMany({
+          where: {
+            stockId: { in: laceLots.map((l) => l.id) },
+            transactionType: 'CONSUMPTION',
+            referenceType: 'JOB_WORK_ORDER',
+          },
+          select: { referenceId: true },
+        })
+      : [],
+    fabricLots.length
+      ? tx.fabric_stock_transaction.findMany({
+          where: { stockId: { in: fabricLots.map((l) => l.id) }, referenceType: 'JOB_WORK_ORDER' },
+          select: { referenceId: true },
+        })
+      : [],
+  ]);
+  const draws = [...greigeDraws, ...laceDraws, ...fabricDraws];
   const jobIds = [...new Set(draws.map((d) => d.referenceId).filter((id): id is string => !!id))];
   const jobs = jobIds.length
     ? await tx.job_work_orders.findMany({ where: { id: { in: jobIds } }, select: { jwoStatus: true } })
@@ -201,7 +244,7 @@ export async function recomputeCoveringChallan(
   const partlyBack = live.some((job) => job.jwoStatus === 'PARTIALLY_RECEIVED');
 
   const target: ChallanStatus =
-    !stillHeld && returned.length === live.length
+    !stillHeld && !untrackedLine && returned.length === live.length
       ? 'RECEIVED'
       : returned.length > 0 || partlyBack
         ? 'PARTIALLY_RECEIVED'
@@ -222,11 +265,38 @@ export async function recomputeCoveringChallansForJwo(
   jobWorkOrderId: string,
   at: Date = new Date()
 ): Promise<void> {
-  const draws = await tx.greige_stock_transaction.findMany({
-    where: { referenceType: 'JOB_WORK_ORDER', referenceId: jobWorkOrderId, transactionType: 'CONSUMPTION' },
-    select: { stock: { select: { sourceChallanId: true } } },
-  });
-  const challanIds = [...new Set(draws.map((d) => d.stock?.sourceChallanId).filter((id): id is string => !!id))];
+  const [greigeDraws, laceDraws, fabricDraws] = await Promise.all([
+    tx.greige_stock_transaction.findMany({
+      where: { referenceType: 'JOB_WORK_ORDER', referenceId: jobWorkOrderId, transactionType: 'CONSUMPTION' },
+      select: { stock: { select: { sourceChallanId: true } } },
+    }),
+    tx.lace_stock_transaction.findMany({
+      where: { referenceType: 'JOB_WORK_ORDER', referenceId: jobWorkOrderId, transactionType: 'CONSUMPTION' },
+      select: { stockId: true },
+    }),
+    tx.fabric_stock_transaction.findMany({
+      where: { referenceType: 'JOB_WORK_ORDER', referenceId: jobWorkOrderId },
+      select: { stockId: true },
+    }),
+  ]);
+  // Lace and fabric lots are covered by the direct-supply challan whose lines name them
+  const heldLotIds = [...new Set([...laceDraws, ...fabricDraws].map((d) => d.stockId))];
+  const lineChallans = heldLotIds.length
+    ? await tx.challan_items.findMany({
+        where: {
+          OR: [{ laceStockId: { in: heldLotIds } }, { fabricStockId: { in: heldLotIds } }],
+          challan: { directSupplyGrnId: { not: null } },
+        },
+        select: { challanId: true },
+      })
+    : [];
+  const challanIds = [
+    ...new Set(
+      [...greigeDraws.map((d) => d.stock?.sourceChallanId), ...lineChallans.map((c) => c.challanId)].filter(
+        (id): id is string => !!id
+      )
+    ),
+  ];
   for (const challanId of challanIds) {
     await recomputeCoveringChallan(tx, challanId, at);
   }

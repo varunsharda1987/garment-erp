@@ -25,6 +25,7 @@ import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils
 import { batchFabricAtCutting, batchIssuedFabric, getRunFabricPosition } from '../services/helpers/run-fabric.helper';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
+import { notInProcessorUnitWhere } from '../services/helpers/lot-location.helper';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -1495,6 +1496,8 @@ export const getAvailableFabricStock = async (req: Request, res: Response) => {
     where: {
       fabricId,
       quantityAvailable: { gt: 0 },
+      // Not fabric lying at a processor's unit — it cannot be cut here (Phase 4a)
+      ...notInProcessorUnitWhere(),
     },
     select: {
       id: true,
@@ -2088,7 +2091,13 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
   const fabricStockRecords = await prisma.fabric_stock.findMany({
     where: {
       OR: [
-        { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 }, status: 'AVAILABLE' },
+        // Store lots — never fabric lying at a processor's unit (Phase 4a: only that processor's job draws it)
+        {
+          fabricId: { in: uniqueFabricIds },
+          quantityAvailable: { gt: 0 },
+          status: 'AVAILABLE',
+          ...notInProcessorUnitWhere(),
+        },
         ...(runLots.length > 0 ? [{ id: { in: runLots.map((l) => l.fabricStockId) } }] : []),
       ],
     },

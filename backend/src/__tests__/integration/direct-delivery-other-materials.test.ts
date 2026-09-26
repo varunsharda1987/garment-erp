@@ -7,8 +7,8 @@
  *  - LACE: the lot sits in the unit (lace has no holder column — its warehouse says where it is); a
  *    lace dyeing job at that dyer DRAWS it where it lies, with no new challan; another dyer cannot
  *    take it; the receipt cannot be reversed once some of it was drawn.
- *  - READY FABRIC: recorded there with its challan; a job cannot take it where it lies until Phase 4a,
- *    so the issue refuses it rather than putting it on a dispatch challan.
+ *  - READY FABRIC: recorded there with its challan; a job at that dyer DRAWS it where it lies (Phase 4a),
+ *    another dyer cannot, a truck does not carry it, and cutting / a Stock-Out challan cannot take it.
  *  - TRIMS: named on the challan by material.
  *  - MRP (2026-09-26): lace in A's unit plans only for requirements at A (or with no processor yet),
  *    and our production floor cannot allocate or issue it from where it lies.
@@ -23,6 +23,7 @@ import { ensureMaterialRecord } from '../../services/helpers/material-sync.helpe
 import { getRequirements } from '../../services/mrp.service';
 import { getAvailableStockForLace } from '../../services/laceStock.service';
 import { createLaceIssueNote } from '../../services/laceIssueNote.service';
+import { recomputeCoveringChallansForJwo } from '../../services/helpers/jwo-challan-lifecycle.helper';
 
 const RUN = `DDM${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -398,26 +399,85 @@ describe('lace, fabric and trims delivered straight to a processor', () => {
     await expect(grnService.reverseGRN(laceGrnId, userId, `${RUN} test`)).rejects.toThrow(/already been used/);
   });
 
-  it('books ready fabric at the dyer with its challan, but a job cannot take it there yet', async () => {
+  it('books ready fabric at the dyer with its challan; a job there draws it where it lies (Phase 4a)', async () => {
     const { challan } = await receiveInto('FABRIC', materialIds[1], 500, 90, 'METER');
     const lot = await prisma.fabric_stock.findFirstOrThrow({ where: { fabricId } });
     expect(lot.warehouseId).toBe(unitA);
     expect(challan.items[0]).toMatchObject({ itemType: 'FABRIC', fabricStockId: lot.id });
+    const onHandAtUnit = async () =>
+      Number(
+        (await prisma.stock_levels.findFirst({ where: { materialId: materialIds[1], warehouseId: unitA } }))
+          ?.quantity ?? 0
+      );
+    expect(await onHandAtUnit()).toBe(500);
 
-    const job = await request(app).post('/api/job-work-orders').set(authHeader).send({
-      processType: 'EMBROIDERY',
-      processorId: dyerA,
-      fabricStockLotId: lot.id,
-      quantity: 100,
-      agreedRate: 5,
-    });
+    const createFabricJob = (processorId: string) =>
+      request(app).post('/api/job-work-orders').set(authHeader).send({
+        processType: 'EMBROIDERY',
+        processorId,
+        fabricStockLotId: lot.id,
+        quantity: 100,
+        agreedRate: 5,
+      });
+
+    // Another dyer cannot take it
+    const jobB = await createFabricJob(dyerB);
+    expect(jobB.status).toBe(201);
+    const refused = await request(app).post(`/api/job-work-orders/${jobB.body.data.id}/issue`).set(authHeader).send({});
+    expect(refused.status).toBe(422);
+    expect(refused.body.code).toBe('LOT_AT_WRONG_PROCESSOR');
+
+    // Dyer A's job: the preview says nothing travels, the issue raises no challan, the lot and the unit's
+    // on-hand go down, and the job is ledgered against the job under the covering challan
+    const job = await createFabricJob(dyerA);
     expect(job.status).toBe(201);
-    const res = await request(app).post(`/api/job-work-orders/${job.body.data.id}/issue`).set(authHeader).send({});
-    expect(res.status).toBe(422);
-    expect(res.body.code).toBe('FABRIC_AT_PROCESSOR_NOT_YET');
+    const jobId = job.body.data.id as string;
+    const preview = (await request(app).get(`/api/job-work-orders/${jobId}/issue-preview`).set(authHeader)).body.data;
+    expect(preview.fabricLot).toMatchObject({
+      id: lot.id,
+      heldHere: true,
+      coveringChallanNumber: challan.challanNumber,
+    });
+
+    // It never goes on a truck
+    const truck = await request(app)
+      .post('/api/job-work-orders/dispatch')
+      .set(authHeader)
+      .send({ processorId: dyerA, orders: [{ jwoId: jobId }] });
+    expect(truck.status).toBe(422);
+    expect(JSON.stringify(truck.body)).toMatch(/LOT_NOT_ON_TRUCK/);
+
+    const res = await request(app).post(`/api/job-work-orders/${jobId}/issue`).set(authHeader).send({});
+    expect(res.status).toBe(200);
+    expect(res.body.challanCreated).toBe(false);
+    expect(await prisma.challans.count({ where: { jobWorkOrderId: jobId } })).toBe(0);
     expect(Number((await prisma.fabric_stock.findUniqueOrThrow({ where: { id: lot.id } })).quantityAvailable)).toBe(
-      500
+      400
     );
+    expect(await onHandAtUnit()).toBe(400);
+    const draw = await prisma.fabric_stock_transaction.findFirst({
+      where: { stockId: lot.id, referenceType: 'JOB_WORK_ORDER', referenceId: jobId },
+    });
+    expect(draw?.notes).toMatch(new RegExp(`under ${challan.challanNumber}`));
+    const issued = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jobId } });
+    expect(issued.challanNumber).toBe(challan.challanNumber);
+    expect(issued.outwardChallanId).toBeNull();
+
+    // Rule 7 follows fabric too: a job back while 400 m still lie there → partly received
+    await prisma.job_work_orders.update({ where: { id: jobId }, data: { jwoStatus: 'STOCK_UPDATED' } });
+    await recomputeCoveringChallansForJwo(prisma, jobId);
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: challan.id } })).status).toBe('PARTIALLY_RECEIVED');
+    await prisma.job_work_orders.update({ where: { id: jobId }, data: { jwoStatus: 'ISSUED' } });
+    await recomputeCoveringChallansForJwo(prisma, jobId);
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: challan.id } })).status).toBe('ISSUED');
+  });
+
+  it('keeps fabric at a unit away from cutting', async () => {
+    const lot = await prisma.fabric_stock.findFirstOrThrow({ where: { fabricId } });
+    const list = await request(app).get(`/api/cutting/available-fabric-stock/${fabricId}`).set(authHeader);
+    expect(list.status).toBe(200);
+    const rows = Array.isArray(list.body.data) ? list.body.data : (list.body.data?.stock ?? []);
+    expect(rows.map((r: { id: string }) => r.id)).not.toContain(lot.id);
   });
 
   it('names trims on the challan by material', async () => {

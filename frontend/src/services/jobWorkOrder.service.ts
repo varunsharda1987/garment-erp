@@ -270,6 +270,8 @@ export interface JwoIssuePreview {
   elsewhere?: JwoIssuePreviewLot[];
   /** Everything this job may draw: at the processor first, then our stores */
   availableLots: JwoIssuePreviewLot[];
+  /** A fabric-roll job's lot: already at this processor (drawn where it lies, nothing travels) or in our store */
+  fabricLot?: { id: string; heldHere: boolean; coveringChallanNumber: string | null } | null;
 }
 
 /** One order waiting to go on a truck to a given processor, with the lots that could serve it. */

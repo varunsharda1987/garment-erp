@@ -125,7 +125,6 @@ export const ISSUE_ERROR_CODES = {
   /** Dispatch only: a lot already held at the processor never goes on a truck challan. */
   LOT_NOT_ON_TRUCK: 'LOT_NOT_ON_TRUCK',
   /** Ready fabric lying at a processor cannot be taken where it lies yet (Phase 4a). */
-  FABRIC_AT_PROCESSOR_NOT_YET: 'FABRIC_AT_PROCESSOR_NOT_YET',
   /** The sent date is after today. */
   SENT_DATE_IN_FUTURE: 'SENT_DATE_IN_FUTURE',
   /** A store lot cannot leave before the day it was received. */
@@ -213,7 +212,19 @@ export interface ValidateIssueResult {
     /** The direct-supply challan the held lace is at the processor under */
     coveringChallanNumber?: string | null;
   }>;
-  fabricLotRow: { id: string; quantityAvailable: Prisma.Decimal; warehouseId: string | null } | null;
+  fabricLotRow: {
+    id: string;
+    quantityAvailable: Prisma.Decimal;
+    warehouseId: string | null;
+    receivedDate?: Date | null;
+    /**
+     * Ready fabric in this job's processor's unit — delivered straight there under a Rule 45 challan
+     * (Phase 4a): the job draws it where it lies, with no new challan.
+     */
+    heldHere?: boolean;
+    /** The direct-supply challan the held fabric is at the processor under */
+    coveringChallanNumber?: string | null;
+  } | null;
   expectedGreigeId: string | null;
   expectedGreige: { id: string; greigeCode: string; greigeName: string } | null;
   blockers: IssueBlocker[];
@@ -576,32 +587,65 @@ export async function validateIssue(
   if (fabricLotId) {
     const row = await prisma.fabric_stock.findUnique({
       where: { id: fabricLotId },
-      select: { id: true, quantityAvailable: true, warehouseId: true, warehouse: { select: LOT_WAREHOUSE_SELECT } },
+      select: {
+        id: true,
+        quantityAvailable: true,
+        warehouseId: true,
+        receivedDate: true,
+        warehouse: { select: LOT_WAREHOUSE_SELECT },
+      },
     });
     const fabricLocation = row ? resolveLotLocation({ warehouse: row.warehouse }, jwo.processorId) : null;
+    // Ready fabric delivered straight to a processor (Phase 2) is DRAWN where it lies by that processor's
+    // job (Phase 4a), under the Rule 45 challan that already covers it — never put on a dispatch challan
+    // as if it left our store. Another processor's fabric cannot go on this job.
+    let coveringChallanNumber: string | null = null;
+    if (row && fabricLocation?.category === 'AT_THIS_PROCESSOR') {
+      const covering = await prisma.challan_items.findFirst({
+        where: { fabricStockId: row.id, challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } } },
+        select: { challan: { select: { challanNumber: true } } },
+      });
+      coveringChallanNumber = covering?.challan.challanNumber ?? null;
+    }
+    const sentOnFabric = toDateInputValue(opts.sentDate ?? new Date());
     if (!row) {
       blockers.push({ code: ISSUE_ERROR_CODES.LOT_NOT_FOUND, message: 'Fabric stock lot not found.' });
-    } else if (fabricLocation && fabricLocation.category !== 'OUR_STORE') {
-      // Ready fabric delivered straight to a processor is recorded there (with its challan), but a job
-      // taking it where it lies comes with Phase 4a. Until then refuse it — never put cloth that is
-      // already at a processor on a dispatch challan as if it left our store.
+    } else if (fabricLocation?.category === 'AT_OTHER_PROCESSOR') {
       blockers.push({
-        code:
-          fabricLocation.category === 'AT_THIS_PROCESSOR'
-            ? ISSUE_ERROR_CODES.FABRIC_AT_PROCESSOR_NOT_YET
-            : ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR,
-        message:
-          fabricLocation.category === 'AT_THIS_PROCESSOR'
-            ? `This fabric lot is already at ${fabricLocation.holderName ?? 'the processor'}. A job cannot take fabric where it lies yet — ask the office before issuing it.`
-            : `This fabric lot is at ${fabricLocation.holderName ?? 'another processor'}, not at ${jwo.processor?.name ?? 'this processor'}.`,
+        code: ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR,
+        message: `This fabric lot is at ${fabricLocation.holderName ?? 'another processor'}, not at ${jwo.processor?.name ?? 'this processor'}.`,
       });
-    } else if (Number(row.quantityAvailable) < Number(jwo.qtySentMeters)) {
+    } else if (fabricLocation?.category === 'AT_THIS_PROCESSOR' && !coveringChallanNumber) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_HELD_WITHOUT_CHALLAN,
+        message: `This fabric lot is at ${fabricLocation.holderName ?? 'the processor'} but no challan covers it — it cannot be allocated undocumented.`,
+      });
+    } else if (qtyExceeds(jwo.qtySentMeters, row.quantityAvailable)) {
       blockers.push({
         code: ISSUE_ERROR_CODES.INSUFFICIENT_FABRIC_STOCK,
         message: `Insufficient fabric stock in the selected lot for ${Number(jwo.qtySentMeters)}m.`,
       });
+    } else if (row.receivedDate && sentOnFabric < toDateInputValue(row.receivedDate)) {
+      blockers.push(
+        fabricLocation?.category === 'AT_THIS_PROCESSOR'
+          ? {
+              code: ISSUE_ERROR_CODES.SENT_BEFORE_ARRIVAL,
+              message: `This fabric reached ${fabricLocation.holderName ?? 'the processor'} on ${formatDate(row.receivedDate)} — ${jwo.jobWorkNumber} cannot draw it earlier.`,
+            }
+          : {
+              code: ISSUE_ERROR_CODES.SENT_DATE_BEFORE_RECEIPT,
+              message: `This fabric lot was received on ${formatDate(row.receivedDate)} — it cannot have left before that.`,
+            }
+      );
     } else {
-      fabricLotRow = row;
+      fabricLotRow = {
+        id: row.id,
+        quantityAvailable: row.quantityAvailable,
+        warehouseId: row.warehouseId,
+        receivedDate: row.receivedDate,
+        heldHere: fabricLocation?.category === 'AT_THIS_PROCESSOR',
+        coveringChallanNumber,
+      };
     }
   }
 
@@ -976,7 +1020,11 @@ async function issueOneWithinTx(
         totalValue: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(qty, wac)))),
         balanceAfter: new Prisma.Decimal(balanceAfter),
         valueAfter: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(balanceAfter, wac)))),
-        notes: `Issued for ${jwo.processType} — ${jwo.jobWorkNumber}`,
+        notes: fabricLotRow.heldHere
+          ? `Allocated at ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber}` +
+            (fabricLotRow.coveringChallanNumber ? ` under ${fabricLotRow.coveringChallanNumber}` : '') +
+            ' (no dispatch)'
+          : `Issued for ${jwo.processType} — ${jwo.jobWorkNumber}`,
         createdById: opts.userId,
       },
     });
@@ -1115,6 +1163,9 @@ async function issueOneWithinTx(
     const arrivals = [
       ...lots.filter((l) => l.location?.category === 'AT_THIS_PROCESSOR' && l.row.receivedDate),
       ...laceLots.filter((l) => l.heldHere && l.row.receivedDate),
+      ...(lots.length === 0 && fabricLotRow?.heldHere && fabricLotRow.receivedDate
+        ? [{ row: { receivedDate: fabricLotRow.receivedDate } }]
+        : []),
     ].map((l) => new Date(l.row.receivedDate));
     const clockFrom = arrivals.length > 0 ? new Date(Math.min(...arrivals.map((d) => d.getTime()))) : null;
     await jobWorkOrderService.setStatutoryDueDate(jwoId, issueDate, tx, clockFrom);
@@ -1150,14 +1201,21 @@ async function issueOneWithinTx(
   // For virtual issuance (every greige lot already at the processor, nothing else sent), use
   // 'VIRTUAL-ALLOCATION' as challan number. `lots.every` alone is true for an EMPTY list, which
   // stamped fabric-roll and garment issues as virtual.
+  // Ready fabric already at this processor (Phase 4a) is the job's source only when it has no greige lots
+  const fabricHeld = lots.length === 0 && !!fabricLotRow?.heldHere;
+  const fabricTravels = lots.length === 0 && !!fabricLotRow && !fabricLotRow.heldHere;
   const isVirtualIssuance =
-    lots.length + laceLots.length > 0 && lots.every((l) => l.atProcessor) && laceLots.every((l) => l.heldHere);
+    (lots.length + laceLots.length > 0 || fabricHeld) &&
+    lots.every((l) => l.atProcessor) &&
+    laceLots.every((l) => l.heldHere) &&
+    !fabricTravels;
   // A job drawn where the cloth lies names the challan(s) that already cover it.
   const coveringChallans = [
     ...new Set(
       [
         ...lots.filter((l) => l.atProcessor).map((l) => l.row.sourceChallan?.challanNumber),
         ...laceLots.filter((l) => l.heldHere).map((l) => l.coveringChallanNumber),
+        fabricHeld ? fabricLotRow?.coveringChallanNumber : null,
       ].filter(Boolean)
     ),
   ].join(', ');
@@ -1204,8 +1262,15 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
   // garment / service job. Until 2026-09-25 the challan was raised only for store greige or lace
   // (4805cf8b, 29-Aug): fabric-roll embroidery and garment jobs went to the job worker with no
   // challan at all. Before that commit every issue raised one — this restores that rule.
+  // Ready fabric already at this processor (Phase 4a) is drawn where it lies too; a store fabric roll
+  // travels. The fabric roll is the job's source only when it has no greige lots.
+  const heldFabric = lots.length === 0 && !!fabricLotRow?.heldHere;
+  const storeFabric = lots.length === 0 && !!fabricLotRow && !fabricLotRow.heldHere;
   const isVirtualIssuance =
-    processorLots.length + heldLaceLots.length > 0 && mainWarehouseLots.length === 0 && storeLaceLots.length === 0;
+    processorLots.length + heldLaceLots.length + (heldFabric ? 1 : 0) > 0 &&
+    mainWarehouseLots.length === 0 &&
+    storeLaceLots.length === 0 &&
+    !storeFabric;
   const needsChallan = !isVirtualIssuance;
 
   const result = await prisma.$transaction(
@@ -1260,12 +1325,16 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
         jwoId,
         challanId: challan?.id ?? null,
         challanNumber: challan?.challanNumber ?? (isVirtualIssuance ? 'VIRTUAL-ALLOCATION' : ''),
-        drawnAt: processorLots.length + heldLaceLots.length > 0 ? (jwo.processor?.name ?? 'the processor') : null,
+        drawnAt:
+          processorLots.length + heldLaceLots.length > 0 || heldFabric
+            ? (jwo.processor?.name ?? 'the processor')
+            : null,
         coveringChallans: [
           ...new Set(
             [
               ...processorLots.map((l) => l.row.sourceChallan?.challanNumber),
               ...heldLaceLots.map((l) => l.coveringChallanNumber),
+              heldFabric ? fabricLotRow?.coveringChallanNumber : null,
             ].filter((n): n is string => !!n)
           ),
         ].join(', '),
@@ -1403,6 +1472,12 @@ export async function validateDispatch(rawInput: DispatchInput): Promise<Validat
         message:
           `Lace lot ${heldLace.row.laceMaster?.laceCode ?? heldLace.row.id.slice(0, 8)} is already at ` +
           `${heldLace.location?.holderName ?? 'the processor'} — it does not go on this truck. Issue ${v.jwo.jobWorkNumber} from its own page.`,
+      });
+    }
+    if (v.lots.length === 0 && v.fabricLotRow?.heldHere) {
+      v.blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_NOT_ON_TRUCK,
+        message: `The fabric lot is already at ${v.jwo.processor?.name ?? 'the processor'} — it does not go on this truck. Issue ${v.jwo.jobWorkNumber} from its own page.`,
       });
     }
     const held = v.lots.filter((l) => l.location?.category === 'AT_THIS_PROCESSOR');

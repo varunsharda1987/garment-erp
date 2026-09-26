@@ -1369,6 +1369,15 @@ class JobWorkOrderController {
           elsewhere: elsewhereRows,
           // Everything this job may draw, in the order Auto-fill takes it
           availableLots: [...processorRows, ...mainWarehouseRows],
+          // A fabric-roll job's lot (picked at creation): already at this processor (drawn where it
+          // lies under its challan — nothing travels, Phase 4a) or in our store (travels on a challan)
+          fabricLot: v.fabricLotRow
+            ? {
+                id: v.fabricLotRow.id,
+                heldHere: !!v.fabricLotRow.heldHere,
+                coveringChallanNumber: v.fabricLotRow.coveringChallanNumber ?? null,
+              }
+            : null,
         },
       });
     } catch (error) {

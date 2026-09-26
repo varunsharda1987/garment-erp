@@ -53,6 +53,7 @@ import {
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyExceeds } from '../utils/quantity';
+import { normalizeUnit } from '../utils/units';
 import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
 import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
@@ -1683,8 +1684,10 @@ class GRNService {
     warehouseId: string,
     direct: DirectDelivery | null = null
   ): Promise<void> {
-    // Greige delivered straight to a processor: the lots this receipt books there, for its Rule 45 challan
-    const directGreigeLines: DirectSupplyLine[] = [];
+    // Goods delivered straight to a processor: every lot this receipt books there — greige, fabric, lace
+    // or trims (owner, 2026-09-25: all materials to a dyer travel under a challan) — for its ONE Rule 45
+    // challan, raised at the end of this method in the same transaction.
+    const directLines: DirectSupplyLine[] = [];
     const postCommit = (grn.__postCommit = grn.__postCommit || {
       updateProcessingPOStatus: false,
       sourcingUpdates: [] as Array<{ poId: string; fabricId: string; actualRate: number }>,
@@ -1770,7 +1773,7 @@ class GRNService {
             await ensureMaterialRecord(fabric.id, 'FABRIC', tx);
 
             // Create fabric_stock instead of greige_stock
-            await tx.fabric_stock.create({
+            const overrideFabricLot = await tx.fabric_stock.create({
               data: {
                 fabricId: fabric.id,
                 finishedWidth: finishedWidth,
@@ -1793,6 +1796,16 @@ class GRNService {
 
             // Sync stock_levels for the fabric
             await syncStockLevelQuantity(fabric.id, acceptedQty, warehouseId, undefined, tx);
+            if (direct) {
+              directLines.push({
+                itemType: 'FABRIC',
+                fabricStockId: overrideFabricLot.id,
+                quantity: acceptedQty,
+                unit: Unit.METER,
+                rate: actualRate,
+                description: `${fabric.fabricCode ?? 'Fabric'} — received as ready fabric against ${greige.greigeCode}`,
+              });
+            }
 
             // Create fabric_procurement record for audit trail
             await tx.fabric_procurement.create({
@@ -1891,7 +1904,7 @@ class GRNService {
             userId
           );
           if (direct) {
-            directGreigeLines.push({
+            directLines.push({
               itemType: 'GREIGE',
               greigeStockId: createdGreige.id,
               quantity: Number(createdGreige.quantityAvailable),
@@ -1965,34 +1978,6 @@ class GRNService {
       }
     }
 
-    // Rule 45: the challan for greige the supplier delivered straight to the processor — same tx, dated
-    // the day the processor got it (the receipt date).
-    if (direct && directGreigeLines.length > 0) {
-      const receivedOn = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
-      const challan = await createDirectSupplyChallanInTx(tx, {
-        grnId: grn.id,
-        grnNumber: grn.grnNumber,
-        supplierId: grn.supplierId ?? null,
-        supplierName: direct.supplierName,
-        processorId: direct.processorId,
-        processorName: direct.processorName,
-        invoiceNumber: grn.invoiceNumber ?? null,
-        invoiceDate: grn.invoiceDate ? new Date(grn.invoiceDate) : null,
-        receivedOn,
-        challanDate: receivedOn,
-        lines: directGreigeLines,
-        userId,
-      });
-      logInfo(
-        `GRN ${grn.grnNumber}: greige delivered straight to ${direct.processorName} — challan ${challan.challanNumber}`,
-        {
-          grnId: grn.id,
-          challanId: challan.id,
-          lots: directGreigeLines.length,
-        }
-      );
-    }
-
     // ===== FABRIC =====
     if (po.poCategory === 'FABRIC') {
       for (const item of grn.grn_items) {
@@ -2024,7 +2009,7 @@ class GRNService {
           : Number(fabric.actualWidth || 0);
         const cutableWidth = Number(fabric.cutableWidth || (actualWidth > 2 ? actualWidth - 2 : actualWidth));
 
-        await tx.fabric_stock.create({
+        const fabricLot = await tx.fabric_stock.create({
           data: {
             fabricId: fabric.id,
             finishedWidth: actualWidth,
@@ -2048,6 +2033,16 @@ class GRNService {
         // Ensure materials record + sync stock_levels
         await ensureMaterialRecord(fabric.id, 'FABRIC', tx);
         await syncStockLevelQuantity(fabric.id, acceptedQty, warehouseId, undefined, tx);
+        if (direct) {
+          directLines.push({
+            itemType: 'FABRIC',
+            fabricStockId: fabricLot.id,
+            quantity: acceptedQty,
+            unit: Unit.METER,
+            rate: unitPrice,
+            description: `${item.materials?.name ?? 'Fabric'}`,
+          });
+        }
 
         logInfo(
           `Auto-created fabric_stock from FABRIC GRN ${grn.grnNumber}: ${acceptedQty}m of fabricId=${fabric.id}`,
@@ -2083,7 +2078,7 @@ class GRNService {
 
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
-        await tx.lace_stock.create({
+        const laceLot = await tx.lace_stock.create({
           data: {
             laceId: material.lace_master.id,
             quantityAvailable: acceptedQty,
@@ -2098,6 +2093,8 @@ class GRNService {
             receivedDate: grn.receivingDate || new Date(),
             warehouseId: warehouseId,
             procurementId: grn.poId || undefined,
+            // The receipt line that booked this lot — reversal finds it exactly (never by quantity)
+            grnItemId: item.id,
             createdById: userId,
           },
         });
@@ -2105,6 +2102,16 @@ class GRNService {
         // Ensure materials record + sync stock_levels
         await ensureMaterialRecord(material.lace_master.id, 'LACE', tx);
         await syncStockLevelQuantity(material.lace_master.id, acceptedQty, warehouseId, undefined, tx);
+        if (direct) {
+          directLines.push({
+            itemType: 'LACE',
+            laceStockId: laceLot.id,
+            quantity: acceptedQty,
+            unit: Unit.METER,
+            rate: unitPrice,
+            description: `${material.lace_master.laceCode} — lace`,
+          });
+        }
 
         logInfo(
           `Auto-created lace_stock from LACE GRN ${grn.grnNumber}: ${acceptedQty}m of laceId=${material.lace_master.id}`,
@@ -2565,6 +2572,54 @@ class GRNService {
           `Auto-created other_material_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${otherMaterial.materialCode}`
         );
       }
+    }
+
+    if (!direct) return;
+
+    // Trims (thread, buttons, zippers, elastic, labels, packaging, parts, other): each has its own stock
+    // table above; the challan names them by material, one line per receipt line.
+    const LOT_CATEGORIES = new Set(['GREIGE', 'FABRIC', 'LACE', 'GREIGE_LACE']);
+    if (!LOT_CATEGORIES.has(po.poCategory ?? '')) {
+      for (const item of grn.grn_items) {
+        const acceptedQty = Number(item.acceptedQuantity);
+        if (!(acceptedQty > 0)) continue;
+        directLines.push({
+          itemType: 'TRIM',
+          materialId: item.materialId,
+          quantity: acceptedQty,
+          unit: normalizeUnit(item.unit) ?? Unit.PIECE,
+          rate: item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0,
+          description: item.materials?.name ?? 'Trim',
+        });
+      }
+    }
+
+    // Rule 45: ONE challan for everything the supplier delivered straight to the processor — same tx,
+    // dated the day the processor got it (the receipt date).
+    if (directLines.length > 0) {
+      const receivedOn = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
+      const challan = await createDirectSupplyChallanInTx(tx, {
+        grnId: grn.id,
+        grnNumber: grn.grnNumber,
+        supplierId: grn.supplierId ?? null,
+        supplierName: direct.supplierName,
+        processorId: direct.processorId,
+        processorName: direct.processorName,
+        invoiceNumber: grn.invoiceNumber ?? null,
+        invoiceDate: grn.invoiceDate ? new Date(grn.invoiceDate) : null,
+        receivedOn,
+        challanDate: receivedOn,
+        lines: directLines,
+        userId,
+      });
+      logInfo(
+        `GRN ${grn.grnNumber}: goods delivered straight to ${direct.processorName} — challan ${challan.challanNumber}`,
+        {
+          grnId: grn.id,
+          challanId: challan.id,
+          lines: directLines.length,
+        }
+      );
     }
   }
 
@@ -4047,28 +4102,46 @@ class GRNService {
       // LACE / GREIGE_LACE - reverse lace_stock
       if ((poCategory === 'LACE' || poCategory === 'GREIGE_LACE') && material?.lace_master) {
         const laceId = material.lace_master.id;
-        const laceStock = await tx.lace_stock.findFirst({
-          where: {
-            laceId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
+        // The lot this receipt line booked (grnItemId, since 2026-09-26); older lots by the heuristic
+        const linkedLace = await tx.lace_stock.findFirst({ where: { grnItemId: item.id } });
+        const laceStock =
+          linkedLace ??
+          (await tx.lace_stock.findFirst({
+            where: {
+              laceId,
+              warehouseId,
+              procurementId: grn.poId,
+              quantityAvailable: { gte: acceptedQty },
+            },
+            orderBy: { receivedDate: 'desc' },
+          }));
 
         if (laceStock) {
-          const newAvailable = Number(laceStock.quantityAvailable) - acceptedQty;
-          if (newAvailable <= 0) {
+          // Lace some of which has already gone out (to a job, or drawn at the dyer) cannot be un-received
+          if (linkedLace && !isQtyZero(Number(linkedLace.quantityConsumed))) {
+            throw new BusinessError(
+              `Cannot reverse GRN ${grn.grnNumber}: ${Number(linkedLace.quantityConsumed)} m of its lace lot has ` +
+                `already been used. Take those metres back first (cancel or return the issue), then reverse.`,
+              { reason: 'GRN_LOT_ALREADY_USED', lotId: linkedLace.id, used: Number(linkedLace.quantityConsumed) }
+            );
+          }
+          const reverseQty = linkedLace ? Number(linkedLace.quantityAvailable) : acceptedQty;
+          const newAvailable = Math.max(0, Number(laceStock.quantityAvailable) - reverseQty);
+          // A lot a challan names (lace delivered straight to a processor) cannot be deleted — zero it
+          const namedOnChallan = await tx.challan_items.count({ where: { laceStockId: laceStock.id } });
+          if (isQtyZero(newAvailable) && namedOnChallan === 0) {
             await tx.lace_stock.delete({ where: { id: laceStock.id } });
           } else {
             await tx.lace_stock.update({
               where: { id: laceStock.id },
-              data: { quantityAvailable: newAvailable },
+              data: {
+                quantityAvailable: newAvailable,
+                ...(isQtyZero(newAvailable) ? { status: 'EXHAUSTED' as const } : {}),
+              },
             });
           }
 
-          await syncStockLevelQuantity(laceId, -acceptedQty, warehouseId, undefined, tx);
+          await syncStockLevelQuantity(laceId, -reverseQty, warehouseId, undefined, tx);
 
           logInfo(`Reversed lace_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
             grnId: grn.id,

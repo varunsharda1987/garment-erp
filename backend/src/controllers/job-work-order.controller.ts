@@ -47,6 +47,8 @@ import {
   JWO_GRN_UOMS,
 } from '../services/helpers/jwo-status.helper';
 import { recomputeCoveringChallansForJwo } from '../services/helpers/jwo-challan-lifecycle.helper';
+import { LOT_WAREHOUSE_SELECT, resolveLotLocation } from '../services/helpers/lot-location.helper';
+import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
 import { UnauthorizedError } from '../errors';
@@ -1268,8 +1270,9 @@ class JobWorkOrderController {
         ? await listIssueCandidates(v.jwo.processorId, greigeFilter)
         : { atProcessor: [], inStore: [], elsewhere: [] };
 
-      // Lace jobs draw from lace_stock instead. There are no at-processor lace lots (lace_stock
-      // has no processorId), so every lace lot is a main-warehouse lot and travels on a challan.
+      // Lace jobs draw from lace_stock instead. Lace has no processorId: its warehouse says where it
+      // is — our store, this processor's unit (delivered straight there: drawn where it lies, under
+      // its direct-supply challan), or another processor's unit (shown only).
       const laceLots =
         v.jwo.fabricType === 'LACE' && v.jwo.greigeLaceId
           ? await prisma.lace_stock.findMany({
@@ -1279,27 +1282,63 @@ class JobWorkOrderController {
                 laceId: true,
                 quantityAvailable: true,
                 lotNumber: true,
+                receivedDate: true,
                 laceMaster: { select: { laceCode: true, laceName: true } },
+                warehouse: { select: LOT_WAREHOUSE_SELECT },
               },
               orderBy: { quantityAvailable: 'desc' },
             })
           : [];
+      const laceCovering = laceLots.length
+        ? await prisma.challan_items.findMany({
+            where: {
+              laceStockId: { in: laceLots.map((l) => l.id) },
+              challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } },
+            },
+            select: { laceStockId: true, challan: { select: { challanNumber: true } } },
+          })
+        : [];
       // Same DTO shape as a greige lot, so the issue dialog's lot rows render either kind: the
       // page only has to send back laceStockLotId instead of greigeStockLotId.
-      const mapLaceLot = (l: (typeof laceLots)[0]) => ({
-        id: l.id,
-        greigeId: l.laceId,
-        greigeCode: l.laceMaster?.laceCode ?? null,
-        greigeName: l.lotNumber
-          ? `${l.laceMaster?.laceName ?? ''} (lot ${l.lotNumber})`
-          : (l.laceMaster?.laceName ?? null),
-        greigeWidth: null,
-        quantityAvailable: Number(l.quantityAvailable),
-      });
+      const mapLaceLot = (l: (typeof laceLots)[0]): IssueCandidateLot => {
+        const location = resolveLotLocation({ warehouse: l.warehouse }, v.jwo.processorId);
+        const here = location.category === 'AT_THIS_PROCESSOR';
+        return {
+          id: l.id,
+          greigeId: l.laceId,
+          greigeCode: l.laceMaster?.laceCode ?? null,
+          greigeName: l.lotNumber
+            ? `${l.laceMaster?.laceName ?? ''} (lot ${l.lotNumber})`
+            : (l.laceMaster?.laceName ?? null),
+          greigeWidth: null,
+          quantityAvailable: Number(l.quantityAvailable),
+          receivedDate: l.receivedDate ? toDateInputValue(l.receivedDate) : null,
+          weaverName: null,
+          location: {
+            category: location.category,
+            holderName: location.holderName,
+            warehouseName: location.warehouseName,
+            drawnWhereItLies: here,
+            legacyUnitLot: false,
+            coveringChallanNumber: here
+              ? (laceCovering.find((c) => c.laceStockId === l.id)?.challan.challanNumber ?? null)
+              : null,
+          },
+        };
+      };
+      const laceRows = laceLots.map(mapLaceLot);
 
       const sumQty = (lots: Array<{ quantityAvailable: number }>) =>
         lots.reduce((sum, l) => sum + l.quantityAvailable, 0);
-      const mainWarehouseRows = [...candidates.inStore, ...laceLots.map(mapLaceLot)];
+      const processorRows = [
+        ...candidates.atProcessor,
+        ...laceRows.filter((l) => l.location.category === 'AT_THIS_PROCESSOR'),
+      ];
+      const mainWarehouseRows = [...candidates.inStore, ...laceRows.filter((l) => l.location.category === 'OUR_STORE')];
+      const elsewhereRows = [
+        ...candidates.elsewhere,
+        ...laceRows.filter((l) => l.location.category === 'AT_OTHER_PROCESSOR'),
+      ];
 
       return res.json({
         success: true,
@@ -1323,13 +1362,13 @@ class JobWorkOrderController {
           processorName: v.jwo.processor?.name ?? null,
           // Where the lots are: at this processor (oldest first), in our stores (largest first), and
           // at other processors — listed so the dialog can say so, never offered on this job.
-          atProcessor: candidates.atProcessor,
-          atProcessorTotal: sumQty(candidates.atProcessor),
+          atProcessor: processorRows,
+          atProcessorTotal: sumQty(processorRows),
           atMainWarehouse: mainWarehouseRows,
           atMainWarehouseTotal: sumQty(mainWarehouseRows),
-          elsewhere: candidates.elsewhere,
+          elsewhere: elsewhereRows,
           // Everything this job may draw, in the order Auto-fill takes it
-          availableLots: [...candidates.atProcessor, ...mainWarehouseRows],
+          availableLots: [...processorRows, ...mainWarehouseRows],
         },
       });
     } catch (error) {

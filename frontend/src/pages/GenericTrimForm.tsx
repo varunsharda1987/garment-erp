@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { genericTrimService } from '@/services/genericTrim.service';
 import { TRIM_TYPE_CONFIGS } from '@/types/genericTrim.types';
 import type { FieldConfig } from '@/types/genericTrim.types';
+import { TRIM_TYPE_REGISTRY } from '@/config/trimTypeRegistry';
+import { unitLabel } from '@/lib/units';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
@@ -27,6 +29,9 @@ export default function GenericTrimForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
   const [error, setError] = useState<string | null>(null);
+  // The unit this item is counted in: its materials record's (edit), else its type's default (new)
+  const [materialUnit, setMaterialUnit] = useState<string | null>(null);
+  const countedIn = materialUnit ?? (config ? TRIM_TYPE_REGISTRY[config.type.toUpperCase()]?.defaultUnit : null);
 
   // Load existing item for edit mode
   useEffect(() => {
@@ -48,6 +53,7 @@ export default function GenericTrimForm() {
           data.description = item.description || '';
           data.isActive = item.isActive;
           setFormData(data);
+          setMaterialUnit(item.materialUnit ?? null);
         } catch (err) {
           handleApiError(err, `Failed to load ${config?.label || 'item'}`);
           navigate(`/materials/${trimType}`);
@@ -283,6 +289,13 @@ export default function GenericTrimForm() {
                 Bead")
               </p>
             </div>
+
+            {countedIn && (
+              <p className="text-sm text-muted-foreground">
+                Counted in: <span className="font-medium text-foreground">{unitLabel(countedIn)}</span> — every BOM,
+                cost sheet and requirement line for this item uses this unit.
+              </p>
+            )}
 
             {/* Dynamic fields from config */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

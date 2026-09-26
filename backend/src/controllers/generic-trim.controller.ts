@@ -15,7 +15,19 @@ import { applySearch } from '../utils/search-filter';
  * for documentation on the intentional generic-backend/typed-frontend architecture.
  */
 
-// Configuration for each trim type
+/**
+ * The unit an item is counted in lives on its materials record (same id). Flattened to
+ * `materialUnit` so the master form and list can show it; the nested array is dropped.
+ */
+function withMaterialUnit<T extends { materials?: Array<{ unit: string }> }>(
+  item: T
+): Omit<T, 'materials'> & { materialUnit: string | null } {
+  const { materials, ...rest } = item;
+  return { ...rest, materialUnit: materials?.[0]?.unit ?? null };
+}
+
+// Configuration for each trim type. No unit here: a material's unit lives only on its materials
+// record (set from MASTER_CONFIG[type].unit) — this file's copy of the list was never read.
 interface TrimConfig {
   model: string;
   codeField: string;
@@ -23,7 +35,6 @@ interface TrimConfig {
   codePrefix: string;
   displayName: string;
   materialType: string;
-  defaultUnit: string;
   categoryName: string;
 }
 
@@ -35,7 +46,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'HE',
     displayName: 'Hook & Eye',
     materialType: 'HOOK_EYE',
-    defaultUnit: 'PAIR',
     categoryName: 'Accessories',
   },
   snap_button: {
@@ -45,7 +55,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'SB',
     displayName: 'Snap Button',
     materialType: 'SNAP_BUTTON',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
   buckle: {
@@ -55,7 +64,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'BK',
     displayName: 'Buckle',
     materialType: 'BUCKLE',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
   belt: {
@@ -65,7 +73,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'BT',
     displayName: 'Belt',
     materialType: 'BELT',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
   velcro: {
@@ -75,7 +82,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'VL',
     displayName: 'Velcro',
     materialType: 'VELCRO',
-    defaultUnit: 'METER',
     categoryName: 'Accessories',
   },
   drawstring: {
@@ -85,7 +91,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'DS',
     displayName: 'Drawstring',
     materialType: 'DRAWSTRING',
-    defaultUnit: 'METER',
     categoryName: 'Accessories',
   },
   ribbon: {
@@ -95,7 +100,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'RB',
     displayName: 'Ribbon',
     materialType: 'RIBBON',
-    defaultUnit: 'METER',
     categoryName: 'Accessories',
   },
   sequin: {
@@ -105,7 +109,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'SQ',
     displayName: 'Sequin',
     materialType: 'SEQUIN',
-    defaultUnit: 'METER',
     categoryName: 'Accessories',
   },
   bead: {
@@ -115,7 +118,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'BD',
     displayName: 'Bead',
     materialType: 'BEAD',
-    defaultUnit: 'PACK',
     categoryName: 'Accessories',
   },
   motif: {
@@ -125,7 +127,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'MT',
     displayName: 'Motif',
     materialType: 'MOTIF',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
   interlining: {
@@ -135,7 +136,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'IL',
     displayName: 'Interlining',
     materialType: 'INTERLINING',
-    defaultUnit: 'METER',
     categoryName: 'Accessories',
   },
   padding: {
@@ -145,7 +145,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'PD',
     displayName: 'Padding',
     materialType: 'PADDING',
-    defaultUnit: 'PAIR',
     categoryName: 'Accessories',
   },
   // "Others" categories - for miscellaneous items in each category
@@ -156,7 +155,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'OF',
     displayName: 'Other Fastener',
     materialType: 'OTHER_FASTENER',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
   other_tape: {
@@ -166,7 +164,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'OT',
     displayName: 'Other Tape/Thread',
     materialType: 'OTHER_TAPE',
-    defaultUnit: 'METER',
     categoryName: 'Accessories',
   },
   other_decorative: {
@@ -176,7 +173,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'OD',
     displayName: 'Other Decorative',
     materialType: 'OTHER_DECORATIVE',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
   other_functional: {
@@ -186,7 +182,6 @@ const TRIM_CONFIGS: Record<string, TrimConfig> = {
     codePrefix: 'OX',
     displayName: 'Other Functional',
     materialType: 'OTHER_FUNCTIONAL',
-    defaultUnit: 'PIECE',
     categoryName: 'Accessories',
   },
 };
@@ -259,6 +254,7 @@ export const getAll = async (req: Request, res: Response) => {
             name: true,
           },
         },
+        materials: { select: { unit: true }, take: 1 },
       },
       orderBy: { createdAt: 'desc' },
       skip: offset,
@@ -267,7 +263,7 @@ export const getAll = async (req: Request, res: Response) => {
   ]);
 
   res.json({
-    data: items,
+    data: items.map(withMaterialUnit),
     pagination: {
       page: pageNum,
       limit: limitNum,
@@ -303,6 +299,7 @@ export const getById = async (req: Request, res: Response) => {
           phone: true,
         },
       },
+      materials: { select: { unit: true }, take: 1 },
     },
   });
 
@@ -310,7 +307,7 @@ export const getById = async (req: Request, res: Response) => {
     throw new NotFoundError(config.displayName, id);
   }
 
-  res.json(item);
+  res.json(withMaterialUnit(item));
 };
 
 /**
@@ -490,7 +487,6 @@ export const getConfigs = async (_req: Request, res: Response) => {
     type: key,
     displayName: config.displayName,
     codePrefix: config.codePrefix,
-    defaultUnit: config.defaultUnit,
     materialType: config.materialType,
   }));
 

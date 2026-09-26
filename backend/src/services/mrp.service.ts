@@ -2583,6 +2583,18 @@ export async function createManualRequirement(
   data: CreateManualRequirementRequest,
   userId: string
 ): Promise<MaterialRequirementResponse> {
+  // The quantity is typed in `data.unit`: refuse a unit its material is not counted in, rather than
+  // store "2,300 PIECE" of a metre fusing. THREAD is exempt — thread units are not designed yet.
+  const material = await prisma.materials.findUnique({
+    where: { id: data.materialId },
+    select: { unit: true, materialType: true, name: true },
+  });
+  if (material && material.materialType !== 'THREAD' && normalizeUnit(data.unit) !== material.unit) {
+    throw new BusinessError(
+      `${material.name} is counted in ${unitLabel(material.unit)} — enter the quantity in ${unitLabel(material.unit)}, not ${unitLabel(data.unit)}.`
+    );
+  }
+
   const requirementNumber = await generateRequirementNumber();
 
   const requirement = await prisma.material_requirements.create({

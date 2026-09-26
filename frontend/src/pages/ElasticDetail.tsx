@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTime } from '@/lib/date';
+import { unitLabel } from '@/lib/units';
 
 export default function ElasticDetail() {
   const navigate = useNavigate();
@@ -127,6 +128,9 @@ export default function ElasticDetail() {
                 <p className="text-muted-foreground">Elastic Code: {elastic.elasticCode}</p>
                 {elastic.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {elastic.materialCode}</p>
+                )}
+                {elastic.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(elastic.materialUnit)}</p>
                 )}
               </div>
               {elastic.image && (

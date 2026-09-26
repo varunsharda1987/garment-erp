@@ -144,6 +144,8 @@ export interface Material {
   description?: string | null;
   specifications?: string | null;
   unit: Unit;
+  /** GET /materials/:id only — where it is used ("36 style BOM lines"); the unit is locked when non-empty */
+  unitInUse?: string[];
   reorderLevel?: number | null;
   image?: string | null;
   categoryData?: CategoryData;

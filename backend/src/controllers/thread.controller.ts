@@ -223,7 +223,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       threadSuppliers: {
         include: {
@@ -259,6 +259,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
+    materialUnit: item.materials[0]?.unit ?? null,
     styleCodes: item.thread_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: item.thread_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,
@@ -288,7 +289,7 @@ export const getThreadById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       threadSuppliers: {
         include: {
@@ -326,6 +327,7 @@ export const getThreadById = async (req: Request, res: Response) => {
     ...thread,
     materialId: thread.materials[0]?.id || null,
     materialCode: thread.materials[0]?.code || null,
+    materialUnit: thread.materials[0]?.unit ?? null,
     styleCodes: thread.thread_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: thread.thread_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,
@@ -482,7 +484,7 @@ export const updateThread = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       threadSuppliers: {
         include: {
@@ -521,6 +523,7 @@ export const updateThread = async (req: Request, res: Response) => {
     ...updated,
     materialId: updated.materials[0]?.id || null,
     materialCode: updated.materials[0]?.code || null,
+    materialUnit: updated.materials[0]?.unit ?? null,
     styleCodes: updated.thread_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: updated.thread_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,

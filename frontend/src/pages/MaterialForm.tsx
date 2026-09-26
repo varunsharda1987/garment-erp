@@ -35,6 +35,8 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [parentCategories, setParentCategories] = useState<MaterialCategory[]>([]);
   const [childCategories, setChildCategories] = useState<MaterialCategory[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<Unit | ''>('');
+  // Where this material is already used — its unit is locked then (the API refuses a change too)
+  const [unitInUse, setUnitInUse] = useState<string[]>([]);
   const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<string>('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [materialSuppliers, setMaterialSuppliers] = useState<SupplierRelationship[]>([]);
@@ -159,6 +161,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           setValue('specifications', material.specifications || '');
           setValue('unit', material.unit);
           setSelectedUnit(material.unit);
+          setUnitInUse(material.unitInUse ?? []);
           setValue('reorderLevel', material.reorderLevel?.toString() || '');
           setValue('hsnCode', material.hsnCode || '');
           setHsnSearch(material.hsnCode || '');
@@ -361,7 +364,11 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
                 <div>
                   <Label htmlFor="unit">Unit *</Label>
-                  <Select value={selectedUnit} onValueChange={(value) => setSelectedUnit(value as Unit)}>
+                  <Select
+                    value={selectedUnit}
+                    onValueChange={(value) => setSelectedUnit(value as Unit)}
+                    disabled={unitInUse.length > 0}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
@@ -373,6 +380,12 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                       ))}
                     </SelectContent>
                   </Select>
+                  {unitInUse.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Locked — already used on {unitInUse.join(', ')}. Every quantity there is in this unit. If the item
+                      is bought or used in another unit, create a separate item.
+                    </p>
+                  )}
                 </div>
 
                 <div>

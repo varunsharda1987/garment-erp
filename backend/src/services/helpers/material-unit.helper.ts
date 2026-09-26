@@ -23,7 +23,7 @@
  * the caller's unit through the registry → PIECE.
  */
 
-import type { Prisma, Unit } from '@prisma/client';
+import { Prisma, type Unit } from '@prisma/client';
 import prisma from '../../config/database';
 import { normalizeUnit } from '../../utils/units';
 import { MASTER_CONFIG } from './master-config';
@@ -94,6 +94,38 @@ export function lineUnit(line: UnitLine & object, units: ReadonlyMap<string, Uni
   if (typeDefault) return typeDefault;
 
   return normalizeUnit(callerUnit) ?? 'PIECE';
+}
+
+/** Where a material is already in use — every quantity there is counted in its current unit. */
+const USAGE_TABLES: ReadonlyArray<[string, string]> = [
+  ['style_material_bom', 'style BOM line'],
+  ['style_costing_trim_items', 'cost-sheet line'],
+  ['order_bom_items', 'order BOM line'],
+  ['material_requirements', 'requirement'],
+  ['purchase_order_items', 'PO line'],
+  ['grn_items', 'goods-receipt line'],
+  ['stock_levels', 'stock record'],
+  ['stock_movements', 'stock movement'],
+];
+
+type CountDelegate = { count(args: { where: object }): Promise<number> };
+
+/**
+ * "36 style BOM lines, 1 requirement" — every place this material is used, or [] when it is unused.
+ * A used material's unit must not change: its lines and stock would silently mean something else.
+ * Each table is searched on whichever master-id columns it has (read from the Prisma schema).
+ */
+export async function materialUsage(id: string, tx?: Prisma.TransactionClient): Promise<string[]> {
+  const client = (tx ?? prisma) as unknown as Record<string, CountDelegate>;
+  const found: string[] = [];
+  for (const [table, label] of USAGE_TABLES) {
+    const fields = Prisma.dmmf.datamodel.models.find((m) => m.name === table)?.fields ?? [];
+    const cols = MASTER_ID_FIELDS.filter((f) => fields.some((x) => x.name === f));
+    if (cols.length === 0) continue;
+    const n = await client[table].count({ where: { OR: cols.map((c) => ({ [c]: id })) } });
+    if (n > 0) found.push(`${n} ${label}${n === 1 ? '' : 's'}`);
+  }
+  return found;
 }
 
 /** `lineUnit` for the `material_requirements.unit` enum column. */

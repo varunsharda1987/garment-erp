@@ -100,6 +100,7 @@ export interface Lace {
 
   // Relationships (from API response)
   materialCode?: string;
+  materialUnit?: string | null;
   materialId?: string;
 
   // Multi-supplier support. The serializer renames the lace_suppliers relation → `suppliers`,

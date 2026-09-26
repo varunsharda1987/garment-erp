@@ -2583,7 +2583,9 @@ const CostSheetForm = () => {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ALL_TRIM_TYPES.map((t) => (
+                      {/* Not Lace: lace is costed in its own Lace Details section — a lace trim row had
+                          no picker, and costing it here too would count it twice */}
+                      {ALL_TRIM_TYPES.filter((t) => t.value !== 'LACE').map((t) => (
                         <SelectItem key={t.value} value={t.value}>
                           {t.label}
                         </SelectItem>

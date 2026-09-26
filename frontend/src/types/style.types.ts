@@ -726,6 +726,12 @@ export interface StyleMaterialBom {
     packagingName: string;
     packagingType?: string | null;
   } | null;
+  /** The line's materials record — names a trim of any type, and its unit */
+  materials?: {
+    name: string;
+    code: string;
+    unit: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }

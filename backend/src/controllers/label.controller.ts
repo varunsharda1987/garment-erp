@@ -327,7 +327,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
         },
       },
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       labelSuppliers: {
         include: {
@@ -382,6 +382,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
+    materialUnit: item.materials[0]?.unit ?? null,
     materials: undefined,
     sizeVariants: (item.sizeVariants || []).map((v: any) =>
       v.material
@@ -434,7 +435,7 @@ export const getLabelById = async (req: Request, res: Response) => {
         },
       },
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       labelSuppliers: {
         include: {
@@ -505,6 +506,7 @@ export const getLabelById = async (req: Request, res: Response) => {
     ...label,
     materialId: labelWithMaterials.materials?.[0]?.id || null,
     materialCode: labelWithMaterials.materials?.[0]?.code || null,
+    materialUnit: labelWithMaterials.materials?.[0]?.unit ?? null,
     materials: undefined,
     sizeVariants: (labelWithMaterials.sizeVariants || []).map((v: any) =>
       v.material
@@ -674,7 +676,7 @@ export const updateLabel = async (req: Request, res: Response) => {
         },
       },
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       labelSuppliers: {
         include: {
@@ -761,6 +763,7 @@ export const updateLabel = async (req: Request, res: Response) => {
     ...updated,
     materialId: updated.materials[0]?.id || null,
     materialCode: updated.materials[0]?.code || null,
+    materialUnit: updated.materials[0]?.unit ?? null,
     materials: undefined,
     // Keep labelSuppliers - serializer will rename to 'suppliers'
   };

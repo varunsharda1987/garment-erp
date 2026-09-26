@@ -207,7 +207,7 @@ export const getAllZipper = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       zipperSuppliers: {
         include: {
@@ -236,6 +236,7 @@ export const getAllZipper = async (req: Request, res: Response) => {
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
+    materialUnit: item.materials[0]?.unit ?? null,
     materials: undefined,
     // Keep zipperSuppliers - serializer will rename to 'suppliers'
   }));
@@ -262,7 +263,7 @@ export const getZipperById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       zipperSuppliers: {
         include: {
@@ -304,6 +305,7 @@ export const getZipperById = async (req: Request, res: Response) => {
     ...zipper,
     materialId: zipper.materials[0]?.id || null,
     materialCode: zipper.materials[0]?.code || null,
+    materialUnit: zipper.materials[0]?.unit ?? null,
     materials: undefined,
     styleCodes, // BUG-MM6 FIX: Include styleCodes in response
     zipper_style_associations: undefined, // Hide raw associations
@@ -436,7 +438,7 @@ export const updateZipper = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       zipperSuppliers: {
         include: {
@@ -468,6 +470,7 @@ export const updateZipper = async (req: Request, res: Response) => {
     ...updated,
     materialId: updated.materials[0]?.id || null,
     materialCode: updated.materials[0]?.code || null,
+    materialUnit: updated.materials[0]?.unit ?? null,
     materials: undefined,
     // Keep zipperSuppliers - serializer will rename to 'suppliers'
   };

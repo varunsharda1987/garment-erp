@@ -28,6 +28,8 @@ import { NotFoundError, ValidationError, ConflictError } from '../errors';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import { applySearch } from '../utils/search-filter';
 import type { Unit } from '../schemas/generated/prisma-enums';
+import { materialUsage } from '../services/helpers/material-unit.helper';
+import { unitLabel } from '../utils/units';
 
 // ============================================
 // Types for Material Controller
@@ -456,6 +458,8 @@ export const getMaterialById = async (req: Request, res: Response): Promise<void
   const transformedMaterial = {
     ...material,
     reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
+    // Where it is used — the edit form locks the unit when this is not empty
+    unitInUse: await materialUsage(material.id),
   };
 
   res.json({ data: transformedMaterial });
@@ -497,6 +501,19 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
 
   if (!existingMaterial) {
     throw new NotFoundError('Material', id);
+  }
+
+  // The unit is what every quantity already on this material's lines and stock means. Once any exist,
+  // changing it would silently relabel them (2,300 PIECE of a metre fusing was exactly that, 2026-09-26).
+  // An unused material can still be corrected.
+  if (unit !== undefined && unit !== existingMaterial.unit) {
+    const usage = await materialUsage(id);
+    if (usage.length > 0) {
+      throw new ConflictError(
+        `${existingMaterial.name} is counted in ${unitLabel(existingMaterial.unit)} and is already used on ` +
+          `${usage.join(', ')} — its unit cannot change. If it is bought or used in another unit, create a separate item.`
+      );
+    }
   }
 
   // Check if code is being changed and if new code already exists

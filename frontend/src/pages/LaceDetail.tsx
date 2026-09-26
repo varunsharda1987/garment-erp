@@ -10,6 +10,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { ArrowLeft, Edit, Package, Palette, Ruler, DollarSign, Building2, FileText } from 'lucide-react';
 import { formatDateTime } from '@/lib/date';
+import { unitLabel } from '@/lib/units';
 
 export default function LaceDetail() {
   const navigate = useNavigate();
@@ -112,6 +113,9 @@ export default function LaceDetail() {
                 <p className="text-muted-foreground">Lace Code: {lace.laceCode}</p>
                 {lace.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {lace.materialCode}</p>
+                )}
+                {lace.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(lace.materialUnit)}</p>
                 )}
               </div>
               {lace.image && (

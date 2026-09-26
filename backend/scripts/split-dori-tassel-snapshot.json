@@ -1,0 +1,26 @@
+{
+  "takenAt": "2026-09-26T10:35:47.032Z",
+  "dori": {
+    "id": "a1e8bc4b-dea8-4d2b-80d8-ea4bbc37976f",
+    "drawstringName": "DORI WITH TASSEL",
+    "color": "Dark blue Dori with light blue tassel",
+    "description": null
+  },
+  "bomLines": [
+    {
+      "id": "5f64657f-9126-4192-ab65-d23c9004f7e4",
+      "styleCode": "COS164",
+      "componentName": "DORI WITH TASSEL"
+    },
+    {
+      "id": "63799ed9-4ebc-4a4c-9187-546b1db2ced0",
+      "styleCode": "STYSW-002",
+      "componentName": "DORI WITH TASSEL"
+    },
+    {
+      "id": "bfe2c64b-2e8d-4ecc-856b-03f269cd206a",
+      "styleCode": "STYFW-002",
+      "componentName": "DORI WITH TASSEL"
+    }
+  ]
+}

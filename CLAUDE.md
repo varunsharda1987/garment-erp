@@ -422,6 +422,12 @@ data fix alone came undone on the next save. Repaired by `backend/scripts/repair
   lines are NOT governed by this rule — purchase-unit conversion at PO time is not built yet.
 - **THREAD is the exception**: its lines keep `'lot'` (qty 1 per garment — the quantity counts
   garments, not cones). Thread costing is not designed yet; do not "fix" thread units unasked.
+- **A used material's unit is locked.** `PUT /api/materials/:id` refuses a unit change (409) once
+  `materialUsage(id)` finds any BOM / cost-sheet / order-BOM / requirement / PO / GRN / stock row —
+  lines are stamped when saved and never follow a later change, so every existing quantity would
+  silently mean something else. An item bought or used in another unit is a separate item (the
+  "DORI WITH TASSEL" drawstring was split into DORI, metres, and TASSEL, pieces —
+  `scripts/split-dori-tassel.ts`). Masters show the unit read-only ("Counted in").
 
 Enforced by the *material line unit literal* smart-check. Tests: `unit/material-unit.helper.test.ts`,
 `integration/material-line-units.test.ts`.

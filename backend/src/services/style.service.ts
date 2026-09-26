@@ -1144,6 +1144,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             other_tape_master: true,
             other_decorative_master: true,
             other_functional_master: true,
+            // Every master's name, code and unit in one place — the Style page names a trim of ANY
+            // type from this (it knew only the five legacy masters and showed the rest as "Unknown")
+            materials: { select: { name: true, code: true, unit: true } },
           },
           orderBy: { sortOrder: 'asc' },
         },

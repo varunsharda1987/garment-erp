@@ -244,7 +244,7 @@ export const getAllPackaging = async (req: Request, res: Response) => {
         },
       },
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       suppliers: {
         select: { id: true, code: true, name: true },
@@ -276,6 +276,7 @@ export const getAllPackaging = async (req: Request, res: Response) => {
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
+    materialUnit: item.materials[0]?.unit ?? null,
     supplierName: item.suppliers?.name || null,
     materials: undefined,
   }));
@@ -317,7 +318,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
         },
       },
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       suppliers: {
         select: { id: true, code: true, name: true },
@@ -350,6 +351,7 @@ export const getPackagingById = async (req: Request, res: Response) => {
     ...packaging,
     materialCode: packaging.materials?.[0]?.code,
     materialId: packaging.materials?.[0]?.id,
+    materialUnit: packaging.materials?.[0]?.unit ?? null,
     supplierName: packaging.suppliers?.name,
     supplierCodeRef: packaging.suppliers?.code,
     // Map packaging_suppliers to frontend format
@@ -497,7 +499,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
         },
       },
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       packaging_suppliers: {
         include: {
@@ -525,6 +527,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
     ...updated,
     materialCode: updated.materials?.[0]?.code,
     materialId: updated.materials?.[0]?.id,
+    materialUnit: updated.materials?.[0]?.unit ?? null,
     packagingSuppliers: updated.packaging_suppliers.map((ps) => ({
       id: ps.id,
       supplierId: ps.supplierId,

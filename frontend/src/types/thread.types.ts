@@ -221,6 +221,7 @@ export interface Thread {
 
   // API response relationships (from serializer)
   materialCode?: string;
+  materialUnit?: string | null;
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;

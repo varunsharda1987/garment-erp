@@ -26,6 +26,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
+import { unitLabel } from '@/lib/units';
 
 export default function LabelDetail() {
   const navigate = useNavigate();
@@ -130,6 +131,9 @@ export default function LabelDetail() {
                 </p>
                 {label.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {label.materialCode}</p>
+                )}
+                {label.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(label.materialUnit)}</p>
                 )}
               </div>
               {label.image && (

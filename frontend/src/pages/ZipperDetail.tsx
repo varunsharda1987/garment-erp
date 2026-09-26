@@ -24,6 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTime } from '@/lib/date';
+import { unitLabel } from '@/lib/units';
 
 export default function ZipperDetail() {
   const navigate = useNavigate();
@@ -128,6 +129,9 @@ export default function ZipperDetail() {
                 <p className="text-muted-foreground">Zipper Code: {zipper.zipperCode}</p>
                 {zipper.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {zipper.materialCode}</p>
+                )}
+                {zipper.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(zipper.materialUnit)}</p>
                 )}
               </div>
               {zipper.image && (

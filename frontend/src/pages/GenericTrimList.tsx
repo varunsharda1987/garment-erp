@@ -12,6 +12,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { unitLabel } from '@/lib/units';
 import { Package, ArrowLeft } from 'lucide-react';
 
 // Column type for DataTable
@@ -177,6 +178,15 @@ export default function GenericTrimList() {
       },
     });
   }
+
+  // The unit the item is counted in — from its materials record
+  columns.push({
+    key: 'materialUnit',
+    header: 'Unit',
+    render: (item) => (
+      <div className="text-sm text-foreground">{item.materialUnit ? unitLabel(item.materialUnit) : '-'}</div>
+    ),
+  });
 
   // Add supplier column
   columns.push({

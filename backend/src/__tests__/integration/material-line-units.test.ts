@@ -251,3 +251,33 @@ describe('a material line takes its material unit', () => {
     expect(rows.find((r) => r.materialType === 'THREAD')?.unit).toBe('lot');
   });
 });
+
+describe('a used material keeps its unit', () => {
+  it('the Materials edit page gets where it is used, and a unit change is refused', async () => {
+    const get = await request(app).get(`/api/materials/${interliningId}`).set(authHeader).expect(200);
+    expect(get.body.data.unitInUse.length).toBeGreaterThan(0); // style BOM, cost sheet, order BOM lines above
+
+    const res = await request(app)
+      .put(`/api/materials/${interliningId}`)
+      .set(authHeader)
+      .send({ code: `${RUN}-IL`, name: `${RUN} Microdot Fusing`, unit: 'PIECE' });
+    expect(res.status).toBe(409);
+    expect(res.body.message ?? res.body.error?.message ?? JSON.stringify(res.body)).toMatch(/cannot change/);
+    expect((await prisma.materials.findUnique({ where: { id: interliningId } }))?.unit).toBe('METER');
+  });
+
+  it('a manual requirement in a unit the material is not counted in is refused', async () => {
+    const res = await request(app)
+      .post('/api/mrp/requirements')
+      .set(authHeader)
+      .send({ materialId: interliningId, quantity: 2300, unit: 'PIECE', requiredDate: '2026-12-31' });
+    expect(res.status).toBe(422);
+    expect(await prisma.material_requirements.count({ where: { materialId: interliningId } })).toBe(0);
+  });
+
+  it('the Style page names a trim of any type from its materials record', async () => {
+    const res = await request(app).get(`/api/styles/${styleIds[0]}`).set(authHeader).expect(200);
+    const bom = (res.body.data.styleMaterialBom ?? []) as Array<{ materialType: string; materials?: { name: string } }>;
+    expect(bom.find((b) => b.materialType === 'INTERLINING')?.materials?.name).toBe(`${RUN} Microdot Fusing`);
+  });
+});

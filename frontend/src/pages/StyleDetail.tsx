@@ -615,7 +615,9 @@ export default function StyleDetail() {
                         return { name: bom.zipperMaster.zipperName, code: bom.zipperMaster.zipperCode };
                       if (bom.elasticMaster)
                         return { name: bom.elasticMaster.elasticName, code: bom.elasticMaster.elasticCode };
-                      return { name: 'Unknown', code: '' };
+                      // Every other type (interlining, drawstring, hook & eye …) through its materials record
+                      if (bom.materials) return { name: bom.materials.name, code: bom.materials.code };
+                      return { name: bom.componentName || 'Unknown', code: '' };
                     };
 
                     if (garmentTrims.length > 0) {

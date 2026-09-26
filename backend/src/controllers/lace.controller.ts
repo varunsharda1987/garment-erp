@@ -512,7 +512,7 @@ export const getAllLace = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       lace_suppliers: {
         include: {
@@ -617,6 +617,7 @@ export const getAllLace = async (req: Request, res: Response) => {
       ...item,
       materialId: item.materials[0]?.id || null,
       materialCode: item.materials[0]?.code || null,
+      materialUnit: item.materials[0]?.unit ?? null,
       styleCodes: item.lace_style_associations.map((sa: any) => sa.style.styleCode),
       styleNames: item.lace_style_associations.map((sa: any) => sa.style.styleName),
       // Cost sheet style associations (more authoritative)
@@ -653,7 +654,7 @@ export const getLaceById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       lace_suppliers: {
         include: {
@@ -715,6 +716,7 @@ export const getLaceById = async (req: Request, res: Response) => {
     ...lace,
     materialId: lace.materials[0]?.id || null,
     materialCode: lace.materials[0]?.code || null,
+    materialUnit: lace.materials[0]?.unit ?? null,
     styleCodes: lace.lace_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: lace.lace_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,
@@ -922,7 +924,7 @@ export const updateLace = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       lace_suppliers: {
         include: {
@@ -980,6 +982,7 @@ export const updateLace = async (req: Request, res: Response) => {
     ...updated,
     materialId: updated.materials[0]?.id || null,
     materialCode: updated.materials[0]?.code || null,
+    materialUnit: updated.materials[0]?.unit ?? null,
     styleCodes: updated.lace_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: updated.lace_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,

@@ -72,6 +72,7 @@ export interface Button {
 
   // Relationships (from API response)
   materialCode?: string;
+  materialUnit?: string | null;
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;

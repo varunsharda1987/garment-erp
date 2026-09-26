@@ -22,6 +22,7 @@ import {
   Users,
   Tag,
 } from 'lucide-react';
+import { unitLabel } from '@/lib/units';
 
 export default function PackagingDetail() {
   const navigate = useNavigate();
@@ -124,6 +125,9 @@ export default function PackagingDetail() {
                 <p className="text-muted-foreground">Packaging Code: {packaging.packagingCode}</p>
                 {packaging.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {packaging.materialCode}</p>
+                )}
+                {packaging.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(packaging.materialUnit)}</p>
                 )}
               </div>
               {packaging.image && (

@@ -210,7 +210,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       buttonSuppliers: {
         include: {
@@ -246,6 +246,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
+    materialUnit: item.materials[0]?.unit ?? null,
     styleCodes: item.button_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: item.button_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,
@@ -275,7 +276,7 @@ export const getButtonById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       buttonSuppliers: {
         include: {
@@ -313,6 +314,7 @@ export const getButtonById = async (req: Request, res: Response) => {
     ...button,
     materialId: button.materials[0]?.id || null,
     materialCode: button.materials[0]?.code || null,
+    materialUnit: button.materials[0]?.unit ?? null,
     styleCodes: button.button_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: button.button_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,
@@ -453,7 +455,7 @@ export const updateButton = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       buttonSuppliers: {
         include: {
@@ -492,6 +494,7 @@ export const updateButton = async (req: Request, res: Response) => {
     ...updated,
     materialId: updated.materials[0]?.id || null,
     materialCode: updated.materials[0]?.code || null,
+    materialUnit: updated.materials[0]?.unit ?? null,
     styleCodes: updated.button_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: updated.button_style_associations.map((sa: any) => sa.style.styleName),
     materials: undefined,

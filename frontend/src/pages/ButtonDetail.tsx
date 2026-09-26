@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
+import { unitLabel } from '@/lib/units';
 
 export default function ButtonDetail() {
   const navigate = useNavigate();
@@ -126,6 +127,9 @@ export default function ButtonDetail() {
                 <p className="text-muted-foreground">Button Code: {button.buttonCode}</p>
                 {button.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {button.materialCode}</p>
+                )}
+                {button.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(button.materialUnit)}</p>
                 )}
               </div>
               {button.image && (

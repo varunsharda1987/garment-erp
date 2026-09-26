@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDateTime } from '@/lib/date';
+import { unitLabel } from '@/lib/units';
 
 export default function ThreadDetail() {
   const navigate = useNavigate();
@@ -126,6 +127,9 @@ export default function ThreadDetail() {
                 <p className="text-muted-foreground">Thread Code: {thread.threadCode}</p>
                 {thread.materialCode && (
                   <p className="text-muted-foreground text-sm">Material Code: {thread.materialCode}</p>
+                )}
+                {thread.materialUnit && (
+                  <p className="text-muted-foreground text-sm">Counted in: {unitLabel(thread.materialUnit)}</p>
                 )}
               </div>
               {thread.image && (

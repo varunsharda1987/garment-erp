@@ -157,7 +157,7 @@ export const getAllElastic = async (req: Request, res: Response) => {
     where,
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       elasticSuppliers: {
         include: {
@@ -186,6 +186,7 @@ export const getAllElastic = async (req: Request, res: Response) => {
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
+    materialUnit: item.materials[0]?.unit ?? null,
     materials: undefined,
     // Keep elasticSuppliers - serializer will rename to 'suppliers'
   }));
@@ -212,7 +213,7 @@ export const getElasticById = async (req: Request, res: Response) => {
     where: { id },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       elasticSuppliers: {
         include: {
@@ -242,6 +243,7 @@ export const getElasticById = async (req: Request, res: Response) => {
     ...elastic,
     materialId: elastic.materials[0]?.id || null,
     materialCode: elastic.materials[0]?.code || null,
+    materialUnit: elastic.materials[0]?.unit ?? null,
     materials: undefined,
     // Keep elasticSuppliers - serializer will rename to 'suppliers'
   };
@@ -324,7 +326,7 @@ export const updateElastic = async (req: Request, res: Response) => {
     },
     include: {
       materials: {
-        select: { id: true, code: true },
+        select: { id: true, code: true, unit: true },
       },
       elasticSuppliers: {
         include: {
@@ -356,6 +358,7 @@ export const updateElastic = async (req: Request, res: Response) => {
     ...updated,
     materialId: updated.materials[0]?.id || null,
     materialCode: updated.materials[0]?.code || null,
+    materialUnit: updated.materials[0]?.unit ?? null,
     materials: undefined,
     // Keep elasticSuppliers - serializer will rename to 'suppliers'
   };

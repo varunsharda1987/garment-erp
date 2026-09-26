@@ -1,0 +1,1029 @@
+{
+  "takenAt": "2026-09-26T06:01:09.670Z",
+  "fixes": [
+    {
+      "table": "style_material_bom",
+      "id": "c7982e58-174b-4d0b-9a16-f42010f1dbaf",
+      "label": "EBWW-022 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "bfe2c64b-2e8d-4ecc-856b-03f269cd206a",
+      "label": "STYFW-002 · DORI WITH TASSEL",
+      "materialType": "DRAWSTRING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "d2dd1b29-999b-4ef5-963d-e8756e7dad33",
+      "label": "EBWW-013 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "9ab88792-1289-4cca-a05f-045b09c4df33",
+      "label": "STYEW-007 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "591fb759-8346-46e0-b251-d35a6e02424c",
+      "label": "STYEW-007 · Golden Samosa Gota Patti Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "6d4c92d3-4412-4b22-9b79-e7e7417e95c4",
+      "label": "STYEW-007 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "34d6e4b6-4ee3-478f-90f2-b0ab7a7a247b",
+      "label": "EBWW-023 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "da228f02-09b7-488a-9a8a-f54d9e9fe20c",
+      "label": "EBWW003 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "44061ddb-b9f7-42b5-ab74-7d3b3e7c7846",
+      "label": "EBWW-027 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "50b0e87b-b8fd-4214-b989-9b1a07651483",
+      "label": "STYSW-002 · LACE-0047 | Organza Lace | Nylon | 1\" | Off White",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "b4560ada-3252-433d-8de3-2fc660461ace",
+      "label": "STYSW-002 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "63799ed9-4ebc-4a4c-9187-546b1db2ced0",
+      "label": "STYSW-002 · DORI WITH TASSEL",
+      "materialType": "DRAWSTRING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "f949ae57-8675-49dc-9d99-855e5730b3cb",
+      "label": "STYEW-006 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "a3491a11-b99e-48fe-ab62-7be38b1da65c",
+      "label": "STYEW-006 · Golden Samosa Gota Patti Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "54241c9a-088a-40ae-bf90-ed2998441716",
+      "label": "STYEW-006 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "5af39892-bc4f-481d-b4b6-6fc7d41d78f2",
+      "label": "STYSW-008 · LACE-0045 | Organza Lace | Nylon | 3\" | Off White",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "f02662ca-373d-47a8-a678-44ddbba4656c",
+      "label": "NEl00154 · Black Polyester 3mm Drawstring",
+      "materialType": "DRAWSTRING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "1b50e062-c75d-4f0d-abbd-bc31e6c5db7d",
+      "label": "DRE215 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "f21145a4-1147-45eb-8e93-73108b8a322f",
+      "label": "EBWW-003 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "074c87d8-cf2d-4b50-a814-a832020c965f",
+      "label": "STYEW-005 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "50993961-c702-49f6-bb0c-7a7c09ffa695",
+      "label": "STYEW-005 · Golden Samosa Gota Patti Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "468fafa7-e3b6-4444-9d14-20bea9126e42",
+      "label": "STYEW-005 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "20ed586a-665c-4cc8-9ddf-9fa0c782a9c6",
+      "label": "EBWW-014 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "fb92edc8-74da-4723-b001-10b8d500e2ee",
+      "label": "EBWW-014 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ec6f3c9e-13bd-4962-a2e8-698c2fc1eb7a",
+      "label": "EBWW-005 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "cd80b923-96cb-4c98-ad97-f7de9fd66eeb",
+      "label": "STYEW-003 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "256453b0-f5f1-445a-8cb9-a42d584ab484",
+      "label": "STYEW-003 · Golden Zari Scallop Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ea5a6593-9d8e-42a7-9ca6-2880f0e566b3",
+      "label": "STYEW-003 · Golden Zari Mirror Work Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "c4b31295-f58b-471f-bfb0-e6ea0e44c47e",
+      "label": "STYSW-001 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "cc23d3cb-2c97-4573-aaf4-230146a39730",
+      "label": "STYSW-001 · LACE-0031 | Organza Lace | Nylon | 0.75\" | Off White",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "cd1a91d0-3f05-4e06-98d0-8be0a1dda8e4",
+      "label": "STYEW-010 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "bd2b29cb-885c-4218-864c-343825977ac6",
+      "label": "STYEW-010 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "36008728-c3c7-4d40-8e03-e2540f4a2a21",
+      "label": "STYEW-004 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "37ff3f01-0163-4c80-81f0-527f4b18ac45",
+      "label": "STYEW-004 · Golden Zari Scallop Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ade82b24-3b2f-4e67-92d8-93ecacb45bb6",
+      "label": "STYEW-004 · Golden Zari Mirror Work Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "75f0bf81-2b50-4a69-860a-9d722fd952fc",
+      "label": "EBWW-015 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "88c93209-604c-448a-ae48-2f0fe7bb37a7",
+      "label": "EBWW-015 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "35d44224-9f1e-4b9a-9f8d-a2a113060656",
+      "label": "STYEW-002 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ce965c67-521c-49c4-a884-9de83f123b4e",
+      "label": "DRE217 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "492afb1d-2aaf-49ee-b37a-a6cb71f1cb76",
+      "label": "STYEW-001 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "bf531592-40ae-408b-bbde-3241789d643e",
+      "label": "STYEW-001 · LACE-0014 | Sequence | Zari | 0.75\" | Silver",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "0d617b99-b00f-48ce-8f6d-2f60fba475d1",
+      "label": "STYEW-001 · LACE-0015 | Zari kingri lace | zari dori lace | 0.75\" | Silver",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "0922cd00-f81e-4c1a-a206-e2d75c8622ad",
+      "label": "STYEW-002 · Golden Zari Scallop Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "94114282-664a-4e1f-a84c-e5e7c10daaec",
+      "label": "STYEW-002 · Golden Zari Mirror Work Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "c206addc-16f2-4cf6-87e9-7274b62055e6",
+      "label": "STYEW-001 · LACE-0017 | Silver gota lace | Gota lace | 0.5\" | silver",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "34a965e6-363e-4c1e-ab77-50ba7e9bb02a",
+      "label": "EBWW-016 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "2bbaad71-fb64-43ae-9f16-39c162edc50f",
+      "label": "EBWW-016 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ed60c118-4b13-462a-922b-f306d123996c",
+      "label": "STYEW-010 · LACE-0033 | Sequence Golden Zari Lace | Sequence Zari | 0.5\" | Golden ",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "e220ba0b-9f76-4536-b3c3-abe66c4376ce",
+      "label": "STYEW-010 · LACE-0034 Golden Zari Loop Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ed00448e-b9af-4326-991d-5575f36c168b",
+      "label": "EBWW-025 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "e11e5683-4a94-4326-8a1f-b6b7058597a9",
+      "label": "ESSKY083LS · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "fb32fb4a-3aee-4bb2-9e27-214284e1b57a",
+      "label": "ESSKY081LV · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "a6cd0f96-4b71-4118-82e3-1fbe5787e7de",
+      "label": "EBWW-007 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "93c402b3-ba21-4c28-9fe0-54cea7d9771e",
+      "label": "STYSW-003 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "5644d630-3da0-4f94-8b6d-54fce5d26e35",
+      "label": "STYSW-003 · Organza Lace lng281",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "a0e4089d-37b9-48ae-84a7-5a547aad2d3f",
+      "label": "DRE215 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "77ba9df2-07d7-4781-a966-160648b74d38",
+      "label": "COS164 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "5f64657f-9126-4192-ab65-d23c9004f7e4",
+      "label": "COS164 · DORI WITH TASSEL",
+      "materialType": "DRAWSTRING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "cb6e8c88-b7da-48a9-9a5e-5a6fa759b356",
+      "label": "COS164 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "1c26f368-6b94-46c2-8363-027b6386882b",
+      "label": "EBWW004 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "764902de-dab6-4414-b33b-128e32d2647a",
+      "label": "LNG198M · Cotton Goli Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "c8ed66da-1762-4f28-9071-e3f799e0a48a",
+      "label": "STYEW-001 · LACE-0018 | Silver frinze lace |  frinze lace | 1\" | Silver",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "d1907b2b-6abb-4be5-b857-a7e862126b97",
+      "label": "DRE216 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "001bb6da-e036-49db-97d9-5510e136fb5e",
+      "label": "STYEW-009 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "b085d229-c4c7-414e-8b90-391d370a5007",
+      "label": "STYEW-009 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "f2696303-ac05-485f-b853-c0d70667b030",
+      "label": "STYEW-009 · LACE-0033 | Sequence Golden Zari Lace | Sequence Zari | 0.5\" | Golden ",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "feef990c-0c0e-47b6-902a-55f76349f632",
+      "label": "STYEW-009 · LACE-0034 Golden Zari Loop Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "1b3a5a4d-4fe8-471f-9234-399ac16e3911",
+      "label": "COS148 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "2719ec4e-e40c-4ac6-89a0-3110ef1a4851",
+      "label": "EBWW-017 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "0de21ae2-e740-48d2-ba29-a13fab0ce9a3",
+      "label": "EBWW005 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "80279244-3e98-4fd4-a459-6df4503a58f2",
+      "label": "EBWW-002 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "eb125014-7141-4f24-bb81-94f686a789a4",
+      "label": "EBWW-002 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "544479c9-0d50-4360-b39f-1871ab3032ee",
+      "label": "COS148 · White Lace 0.25\"",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "cf7fba47-d300-481e-aff4-b86b26dfe4c7",
+      "label": "ESSKY094LS · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "18d68533-8558-4aba-9c37-ef7827ca9664",
+      "label": "EBWW-008 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "61471333-1df1-481a-b8ac-180e497c24eb",
+      "label": "COS148 · Big flower lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "2ffe580f-3665-481c-9ced-a29aaff7bcba",
+      "label": "STYEW-011 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "b19d430f-bcd6-4a65-90cb-3be121d27400",
+      "label": "STYEW-011 · Scalloped Zari Sequin Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "81fc9c4c-5245-48b2-b4c1-08711d8cf29b",
+      "label": "STYEW-011 · Zari Zig Zag Golden Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "af24ed01-ec60-44ce-9a25-7db312f5e2fd",
+      "label": "STYEW-011 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "d4189ed4-9be0-46b4-8192-5f62a54c5e8c",
+      "label": "STYEW-008 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "179612f1-bd02-42bb-bd28-92bde4a4b060",
+      "label": "STYEW-008 · LACE-0033 | Sequence Golden Zari Lace | Sequence Zari | 0.5\" | Golden ",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "a494fde5-c5df-4499-a106-27ed779f4ddc",
+      "label": "EBWW-029 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "928e1721-7ecf-49ad-bced-96f893602e4a",
+      "label": "STYEW-008 · LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "cf989bb6-90a1-406a-8560-101bf86d7863",
+      "label": "STYEW-008 · LACE-0034 Golden Zari Loop Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "3d4f4e17-6b0a-4bfc-9ff4-2e2f86805e03",
+      "label": "STYSW-004 · Organza Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "36ce8476-d77f-4ef5-9590-0ddce547c943",
+      "label": "EBWW002 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "699e4b6d-6d74-4981-a627-875b07556cc9",
+      "label": "ESSKY084LS · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "1705ae76-ed86-4109-995f-d7e8f72f16f6",
+      "label": "EBWW-009 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "530229c4-626c-4999-bdce-d151433a43bb",
+      "label": "EBWW-001 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "15625db4-78a7-4c8b-a349-cdbcd3d394da",
+      "label": "EBWW-001 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "0d487839-1d0f-4a36-a80c-a8ae5c8c2920",
+      "label": "EBWW-026 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "1a85df3c-3f7a-455e-9685-ddb63b018634",
+      "label": "ESSKY082LS · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "3c8d94d1-f214-40ee-a0f6-dc4b3120d77e",
+      "label": "EBWW-019 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "85a630cd-c64a-436d-806c-71a49adc217c",
+      "label": "EBWW001 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "9286d244-fe9f-4c6a-96c2-c9a634351f25",
+      "label": "EBWW-010 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "b977e86c-3a1f-4eca-8f0f-86192e43cdc4",
+      "label": "STYSW-005 · LACE-0045 | Organza Lace | Nylon | 3\" | Off White",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "3342dd43-a4fd-4055-aa8e-d3426df38fa5",
+      "label": "EBWW-004 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "5bd7ea62-1e5f-431e-a274-a353123a4773",
+      "label": "EBWW-028 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "0cc99325-31e1-4fb3-a3b5-6ab6b736a72a",
+      "label": "STYSW-005 · LACE-0046 | Kingree Lace | Cotton  | 0.25\" | Off White",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "7ea74b8a-7d68-46ca-9d96-1652bbe37cc2",
+      "label": "STYSW-005 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "ef1e49db-7eb5-42bb-a576-a03035297d41",
+      "label": "EBWW-011 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "8e89b9fb-a669-4623-97bc-5807c50c27dc",
+      "label": "EBWW-018 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "c7017d9b-670e-4469-9f54-39fa46e4eaf7",
+      "label": "EBWW-006 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "3c29198f-e998-407b-a3dd-5d5913258796",
+      "label": "STYSW-006 · Ladder Lace Cotton",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "826f7837-c782-4aee-b0c8-9fedb03ed930",
+      "label": "EBWW-020 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "8702220c-3bda-453b-a293-5f807a911b35",
+      "label": "EBWW-012 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "9d362274-9b9a-4bdc-8202-448319b449e4",
+      "label": "STYSW-007 · Organza Lace",
+      "materialType": "LACE",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "70d31bf8-f72f-4f83-a57a-940f23c1897e",
+      "label": "STYFW-005 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "85607493-bf63-4fc4-a41f-21090b4ce1eb",
+      "label": "EBWW-024 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_material_bom",
+      "id": "8eb03cd6-2eda-4ad2-86bd-e3e7b9f8bd12",
+      "label": "ESSKY087LS · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "b06aab12-9ebb-4fff-8f34-2ca26b926cb5",
+      "label": "sheet CS-17877 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "3dea6f63-d434-47b8-9bf0-3450e8abfd4b",
+      "label": "sheet CS-17876 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "873ebfed-7bb0-4c9b-84a2-50f971d13b97",
+      "label": "sheet CS-17872 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "f121be6c-49c9-4cc0-9ab6-fed7aaffa2be",
+      "label": "sheet CS-17878 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "4c42aa4b-002f-4abc-88e6-41aa55f07178",
+      "label": "sheet CS-17882 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "47ba579b-5838-4849-99d1-f5cee6962c8d",
+      "label": "sheet CS-17881 · White Woven Elastic 5mm",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "7ea52deb-fe7f-45be-bad8-40ab09fe93b9",
+      "label": "sheet CS-17881 · DORI WITH TASSEL",
+      "materialType": "DRAWSTRING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "2ca3665c-b73b-4442-ae8a-043c00f03dcc",
+      "label": "sheet CS-17878 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "633ec671-1770-4242-a528-eddbcd765900",
+      "label": "sheet CS-17878 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "0506559d-9cbe-425b-818b-5429a079d504",
+      "label": "sheet CS-17902 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "6173e2a0-9def-4382-95e8-f62b9dd6ad70",
+      "label": "sheet CS-17902 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "ba38a819-49d9-46ea-9339-944c4efb8d5d",
+      "label": "sheet CS-17902 · 3No Elastic",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "d83a0fc1-6d49-4316-bd63-29d984480082",
+      "label": "sheet CS-17903 · White Woven Elastic 1.5\"",
+      "materialType": "ELASTIC",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "style_costing_trim_items",
+      "id": "5ab5a00c-2822-46be-a0fc-4c7a0278b292",
+      "label": "sheet CS-17903 · DORI WITH TASSEL",
+      "materialType": "DRAWSTRING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "order_bom_items",
+      "id": "f722993e-1d67-4e8f-a8c3-d87a18142767",
+      "label": "order BOM 876b1ab7 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "order_bom_items",
+      "id": "a416fbea-39c3-4bd5-8d25-75f8c8efaefa",
+      "label": "order BOM ea63eb67 · Microdot Fusing",
+      "materialType": "INTERLINING",
+      "before": "pcs",
+      "after": "METER"
+    },
+    {
+      "table": "material_requirements",
+      "id": "c5e82f3c-afc7-4920-940a-634da908ef1c",
+      "label": "MR2608-0111",
+      "materialType": "INTERLINING",
+      "before": "PIECE",
+      "after": "METER"
+    }
+  ]
+}

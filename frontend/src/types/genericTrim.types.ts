@@ -33,6 +33,8 @@
 export interface BaseTrimItem {
   id: string;
   isActive: boolean;
+  /** The unit the item is counted in — from its materials record (read-only here) */
+  materialUnit?: string | null;
   supplierId?: string | null;
   description?: string | null;
   createdAt: string;
@@ -262,13 +264,13 @@ export interface FieldConfig {
   placeholder?: string;
 }
 
-// Trim type configuration
+// Trim type configuration. No unit: an item's unit comes from its materials record (the API returns
+// it as `materialUnit`); this file's own unit list was never read and could only drift.
 export interface TrimTypeConfig {
   type: string;
   label: string;
   codeField: string;
   nameField: string;
-  defaultUnit: string;
   category: TrimCategory;
   fields: FieldConfig[];
 }
@@ -291,7 +293,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Hook & Eye',
     codeField: 'hookEyeCode',
     nameField: 'hookEyeName',
-    defaultUnit: 'PAIR',
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['0', '1', '2', '3', 'Small', 'Medium', 'Large'] },
@@ -307,7 +308,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Snap Button',
     codeField: 'snapButtonCode',
     nameField: 'snapButtonName',
-    defaultUnit: 'PIECE',
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['10mm', '12mm', '15mm', '17mm', '20mm'] },
@@ -328,7 +328,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Buckle',
     codeField: 'buckleCode',
     nameField: 'buckleName',
-    defaultUnit: 'PIECE',
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'width', label: 'Width', type: 'select', options: ['20mm', '25mm', '30mm', '38mm', '50mm'] },
@@ -354,7 +353,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Belt',
     codeField: 'beltCode',
     nameField: 'beltName',
-    defaultUnit: 'PIECE',
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'width', label: 'Width', type: 'select', options: ['20mm', '25mm', '30mm', '38mm', '50mm'] },
@@ -385,7 +383,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Velcro',
     codeField: 'velcroCode',
     nameField: 'velcroName',
-    defaultUnit: 'METER',
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'width', label: 'Width', type: 'select', options: ['16mm', '20mm', '25mm', '38mm', '50mm', '100mm'] },
@@ -399,7 +396,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Drawstring',
     codeField: 'drawstringCode',
     nameField: 'drawstringName',
-    defaultUnit: 'METER',
     category: 'THREADS_TAPES',
     fields: [
       { name: 'width', label: 'Width/Diameter', type: 'select', options: ['3mm', '5mm', '8mm', '10mm'] },
@@ -419,7 +415,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Ribbon',
     codeField: 'ribbonCode',
     nameField: 'ribbonName',
-    defaultUnit: 'METER',
     category: 'THREADS_TAPES',
     fields: [
       { name: 'width', label: 'Width', type: 'select', options: ['6mm', '10mm', '15mm', '25mm', '38mm', '50mm'] },
@@ -434,7 +429,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Sequin',
     codeField: 'sequinCode',
     nameField: 'sequinName',
-    defaultUnit: 'METER',
     category: 'DECORATIVE',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['3mm', '4mm', '5mm', '6mm', '8mm', '10mm'] },
@@ -451,7 +445,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Bead',
     codeField: 'beadCode',
     nameField: 'beadName',
-    defaultUnit: 'PACK',
     category: 'DECORATIVE',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['2mm', '3mm', '4mm', '6mm', '8mm', '10mm'] },
@@ -472,7 +465,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Motif',
     codeField: 'motifCode',
     nameField: 'motifName',
-    defaultUnit: 'PIECE',
     category: 'DECORATIVE',
     fields: [
       { name: 'size', label: 'Size', type: 'select', options: ['Small', 'Medium', 'Large', 'Extra Large'] },
@@ -492,7 +484,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Interlining',
     codeField: 'interliningCode',
     nameField: 'interliningName',
-    defaultUnit: 'METER',
     category: 'FUNCTIONAL',
     fields: [
       {
@@ -513,7 +504,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Padding',
     codeField: 'paddingCode',
     nameField: 'paddingName',
-    defaultUnit: 'PAIR',
     category: 'FUNCTIONAL',
     fields: [
       {
@@ -536,7 +526,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Other Fastener',
     codeField: 'otherFastenerCode',
     nameField: 'otherFastenerName',
-    defaultUnit: 'PIECE',
     category: 'FASTENERS_CLOSURES',
     fields: [
       { name: 'type', label: 'Type', type: 'text', placeholder: 'Describe the type of fastener' },
@@ -551,7 +540,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Other Tape/Thread',
     codeField: 'otherTapeCode',
     nameField: 'otherTapeName',
-    defaultUnit: 'METER',
     category: 'THREADS_TAPES',
     fields: [
       { name: 'type', label: 'Type', type: 'text', placeholder: 'Describe the type of tape/thread' },
@@ -566,7 +554,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Other Decorative',
     codeField: 'otherDecorativeCode',
     nameField: 'otherDecorativeName',
-    defaultUnit: 'PIECE',
     category: 'DECORATIVE',
     fields: [
       { name: 'type', label: 'Type', type: 'text', placeholder: 'Describe the decorative item' },
@@ -581,7 +568,6 @@ export const TRIM_TYPE_CONFIGS: Record<string, TrimTypeConfig> = {
     label: 'Other Functional',
     codeField: 'otherFunctionalCode',
     nameField: 'otherFunctionalName',
-    defaultUnit: 'PIECE',
     category: 'FUNCTIONAL',
     fields: [
       { name: 'type', label: 'Type', type: 'text', placeholder: 'Describe the functional item' },
@@ -637,7 +623,6 @@ export interface TrimConfigResponse {
   type: string;
   displayName: string;
   codePrefix: string;
-  defaultUnit: string;
   materialType: string;
 }
 

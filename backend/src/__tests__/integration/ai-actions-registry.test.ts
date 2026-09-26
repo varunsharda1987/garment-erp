@@ -7,7 +7,7 @@
  * guards against everywhere else.
  *
  * This asserts the structural contract without creating any records:
- *  - the mounted path exists (not 404)
+ *  - the mounted path exists (not 404), probed with a body every create schema refuses
  *  - the tool definition and the two schemas are coherent
  *  - the permission key is a real Permissions-page switch
  */
@@ -72,10 +72,16 @@ describe('AI action registry', () => {
   it.each(actions.filter((a) => typeof a.path === 'string').map((a) => [a.actionType, a.path as string] as const))(
     '%s — target endpoint %s exists',
     async (_name, path) => {
-      // POST an empty body: we expect the endpoint to REJECT it (400/403/422) — what must never
-      // happen is 404, which means the registry points at a route that no longer exists.
-      const res = await request(app).post(path).set(authHeader).send({});
+      // POST a JSON ARRAY, never `{}`: every create schema is a z.object, so validateBody refuses an
+      // array with 400 before the controller runs. `{}` is a VALID payload for the six trim masters
+      // (name optional, auto-generated) — this probe saved a blank Lace/Button/Zipper/Elastic/Label/
+      // Packaging into the live database on every run (15 runs, 2026-08-20..09-23). An unauthenticated
+      // probe cannot replace it: a made-up /api/materials/* path answers 401, not 404.
+      // What must never happen is 404 (the registry points at a route that no longer exists) or 2xx
+      // (the probe wrote a record).
+      const res = await request(app).post(path).set(authHeader).send([]);
       expect(res.status).not.toBe(404);
+      expect(res.status).toBeGreaterThanOrEqual(400);
     }
   );
 

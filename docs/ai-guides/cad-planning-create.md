@@ -34,6 +34,8 @@ keywords:
   - CAD history
   - who changed the CAD
   - CAD in use
+  - correct CAD
+  - correction pending
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -51,6 +53,7 @@ keywords:
   - kiska CAD baaki hai
   - CAD kisne badla
   - CAD ki history
+  - CAD galat hai
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -72,6 +75,7 @@ keywords:
   - कैड बाकी
   - कैड हिस्ट्री
   - कैड किसने बदला
+  - कैड सुधारना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -80,6 +84,7 @@ sources:
   - frontend/src/components/cad/StockSummaryBanner.tsx
   - frontend/src/components/cad/CadInUseNotice.tsx
   - frontend/src/components/cad/CadHistoryDialog.tsx
+  - frontend/src/components/cad/CorrectCadDialog.tsx
 route: /cad-planning
 ---
 
@@ -197,7 +202,7 @@ Once all rows have CAD values:
 After approval:
 - Status changes to **APPROVED** (green badge)
 - You can now generate cost sheets
-- CAD values are locked for this style
+- CAD values are locked for this style. To fix an approved Costing or Raw Mat row later, use row menu > **Correct…** (see Row actions)
 
 ### 9. Push to Fabric Costing (optional)
 
@@ -259,19 +264,20 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
 Click the row menu (three dots) for:
 - **Approve** - Approve this CAD entry (pending or rejected rows). On a Production row it shows only once the row is on a received lot
 - **Reject** - Enter a **Rejection Reason** and click **Reject CAD**. The row becomes REJECTED and shows a red **Rejected** badge under its purpose; hover it to see who rejected it, when and why. Rejecting also clears the row's fabric price approval
-  - If a yellow box **This CAD is already in use** appears, an approved cost sheet or an order's BOM is built on this CAD. They will NOT update and stay on the old figures. Click **Reject anyway** only if you will redo them, otherwise **Cancel**
+  - If a yellow box **This CAD is already in use — it cannot be rejected** appears, an approved cost sheet or an order's BOM is built on this CAD, and the row is NOT rejected. Click **Correct instead** to fix it with **Correct…**
+- **Correct…** - Fix an approved Costing or Raw Mat row (layer length, size breakup, greige or width) and carry the fix to the cost sheets, order BOMs and requirements built on it. Enter the new values and a **Reason**, click **Check impact**, then **Submit correction** (or **Send for approval** when an approved cost sheet or order uses it — an admin then approves the new cost sheet version). While it waits, the row shows a **Correction pending** badge and **Correct…** is hidden. Not shown on Production rows. See the guide "Correct an approved CAD"
 - **Create Version** - New version of an approved Costing or Raw Mat entry. A Production CAD has no versions: **Reject** it, edit the row, then **Approve** it again
 - **Copy to Raw Mat** (on Costing rows) - Copies the marker and size breakdown. There is no Copy to Production: a Production CAD is made with **Create CAD** on the received lot (section 10)
 - **Link to Stock** - Attach one of the style's own received lots to a pending Production row
-- **History** - Opens **CAD history**: who created, edited, approved or rejected the row, with date and time, the old and new values (CAD average, layer length, pieces, width, greige, sizes) and the reason. Changes are recorded from 26-Sep-2026; the row's creator and creation date are shown at the top
-- **Edit** / **Delete** - Not available on approved rows (the Size Breakup button is greyed out too). A pending or rejected row can be deleted while nothing uses it (a cost sheet line, an order BOM line, an order, or a fabric stock reservation)
+- **History** - Opens **CAD history**: who created, edited, approved, rejected or corrected the row, with date and time, the old and new values (CAD average, layer length, pieces, width, greige, sizes) and the reason. A correction also shows where it stands (waiting for the admin, approved, or rejected). Changes are recorded from 26-Sep-2026; the row's creator and creation date are shown at the top
+- **Edit** / **Delete** - Not available on approved rows (the Size Breakup button is greyed out too) — use **Correct…** on an approved Costing or Raw Mat row. A pending or rejected row can be deleted while nothing uses it (a cost sheet line, an order BOM line, an order, or a fabric stock reservation)
 
 ## Reject CAD plan
 
-If the approved plan needs changes:
+If the approved plan needs changes and nothing approved is built on it yet:
 
 1. Click **Actions** dropdown > **Reject CAD Plan**.
 2. Enter **Reason for rejection** * (required).
 3. Click **Reject & Unlock**.
-4. If a yellow box **This CAD is already in use** appears, it lists the approved cost sheets and orders built on the CAD. They keep the old figures after the reject. Click **Reject anyway** to go ahead, or **Cancel**.
-5. The Costing and Raw Mat rows reset to PENDING and you can edit them again. Their fabric price approval is cleared (the cost figures are kept). Production CADs stay approved, because cutting uses them.
+4. If a yellow box **This CAD is already in use — it cannot be rejected** appears, it lists the approved cost sheets and orders built on the CAD. The plan is NOT rejected and **Reject & Unlock** stays greyed out. Click **Cancel**, then fix the row with row menu (three dots) > **Correct…**.
+5. Otherwise the Costing and Raw Mat rows reset to PENDING and you can edit them again. Their fabric price approval is cleared (the cost figures are kept). Production CADs stay approved, because cutting uses them.

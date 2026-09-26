@@ -31,6 +31,7 @@ keywords:
   - production costing
   - production mode
   - production tab missing
+  - price approval cleared
   # Hinglish
   - fabric costing karna
   - CAD ki costing
@@ -74,6 +75,8 @@ sources:
   - frontend/src/pages/FabricCostingPage.tsx
   - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/CADPlanningPage.tsx
+  - frontend/src/components/cad/CADSpreadsheetTable.tsx
+  - frontend/src/components/cad/CorrectCadDialog.tsx
   - frontend/src/pages/StyleFabricCostingOptionsPage.tsx
   - frontend/src/pages/ProcessorRateCardPage.tsx
 route: /fabric-costing
@@ -126,7 +129,7 @@ Each row represents one fabric from CAD Planning. You have two costing modes:
 Fill in these fields:
 1. **Greige** (per meter) - The raw greige fabric cost
    - Filled with the **live rate**: the newest greige PO or purchase for that greige (the label under the box says **from PO**, **from purchase** or **from stock**), else the Greige Master default
-   - When the box differs from today's rate, a line under it reads **Use ₹67 · PO2609-0004** (the live rate and the PO it came from). Click it, or the refresh icon, to take that rate
+   - When the box differs from today's rate, a line under it reads **Use ₹… · PO…** (the live rate and the PO it came from). Click it, or the refresh icon, to take that rate
    - If you type a different rate, the box turns amber and a **Reason** box appears under it. Write why (for example "supplier quote for the new quality"). **Save Costing** is refused until a reason is filled in, and the rate is saved as **manual** with that reason
    
 2. **Transport** (per meter) - Transport cost to bring greige
@@ -184,7 +187,7 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
 ### Shrinkage calculation
 - If shrinkage is 10%, you need more greige to get the same finished fabric
 - Shrinkage cost = Greige price adjusted for the shrinkage percentage
-- Example: Greige at 100 per meter, 10% shrinkage = 111.11 per meter effective
+- Example: with 10% shrinkage, one finished metre needs 1 ÷ 0.9 = about 1.11 metres of greige, so the greige cost per finished metre is about 11% higher
 
 ### Batch rate advantage
 - Fabrics with the same greige + processor + color are batched together
@@ -210,7 +213,9 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
   the cost sheet and MRP. Add the missing rate, fetch it again, then save.
 - **Quantity matters**: Rate slabs depend on quantity - higher quantity = better rate
 - **Approved rows**: You cannot modify a row with approved costing - unapprove first on the Options page
-- **Price approval disappeared**: rejecting the CAD in CAD Planning (row **Reject** or **Reject CAD Plan**) clears the fabric price approval of those rows. The cost figures stay; approve the option again on the Costing Options page after the CAD is re-approved
+- **The CAD itself is wrong (layer, sizes, greige or width) and a cost sheet or order already uses it**: do not re-cost here. In **CAD Planning**, open the row menu (three dots) > **Correct…**. It works out the new price per metre for you and carries the change to the cost sheets, order BOMs and requirements (see the guide "Correct an approved CAD")
+- **Price approval disappeared**: rejecting the CAD in CAD Planning (row **Reject** or **Reject CAD Plan**) clears the fabric price approval of those rows. The cost figures stay; approve the option again on the Costing Options page after the CAD is re-approved. A **Correct…** that is applied straight away (nothing approved uses the CAD) also clears it when the price per metre changes. When the correction goes to an admin, approving the new cost sheet version gives the price approval back by itself
+- **Reject is refused**: once an approved cost sheet or an order's BOM is built on a CAD row, CAD Planning will not reject it — use **Correct…** instead
 - **"... is a Production CAD — the marker for a received fabric lot"**: Save refuses a Production CAD row and saves nothing. Cost the style on the **Costing** or **Raw Mat Calculation** tab instead; the Production CAD itself is approved in CAD Planning.
 
 ## After saving

@@ -57,6 +57,9 @@ keywords:
   - पीडीएफ
   - एक्सेल
   - प्रिंट
+  - CAD correction version
+  - made by a CAD correction
+  - कैड करेक्शन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -65,6 +68,7 @@ sources:
   - frontend/src/pages/CostSheetForm.tsx
   - frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx
   - frontend/src/pages/CostSheetDetail.tsx
+  - frontend/src/components/cost-sheet/CadCorrectionBanner.tsx
   - frontend/src/components/cost-sheet/LaceCostingSection.tsx
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
   - frontend/src/components/cost-sheet/LaceCostingRow.tsx
@@ -114,6 +118,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 - Components with CAD data but **no saved costing** produce no fabric row. Save a fabric costing for them first if they belong in the sheet.
 - If a fabric option was **costed more than once**, the most recent costing is the one used. Check the style's Fabric Costing Options if a rate looks unfamiliar.
 - An approved cost sheet is read-only. Opening its edit link shows "Approved cost sheets cannot be edited. Create a new version instead." and sends you to the details page. Create a new version from the list; a version reason is compulsory.
+- A pending version with a box **Made by a CAD correction** (on the **Cost Sheet Details** page) was made by **Correct…** in CAD Planning, not by hand. The box shows the old and new CAD average, who corrected it, when and why. An admin decides it with **Approve** or **Reject**: approving it also updates the CAD row, its fabric price approval, and every order built on the previous version (a new BOM version and its requirements); rejecting it drops the correction and keeps the previous version. Do not **Delete** such a version — **Reject** it. If the box says some orders could not be updated, fix the reason it gives (for example unlock the order BOM) and click **Retry** in the box.
 - A cost sheet keeps the mode it was created in. **Fabric Costing Mode** is locked on the **Edit Cost Sheet** page, and **New Version** keeps the mode and the closed cost. For another mode, make a separate sheet with **+ New Cost Sheet**.
 - **Reload from Style** refreshes fabric and trim rows from the style. It overwrites what you typed in those tables.
 - If the style already has a cost sheet, check the list before making a duplicate.

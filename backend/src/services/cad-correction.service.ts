@@ -187,7 +187,7 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
   const deps = await getCadCostingDependents(cad.id);
   const sheetLines = await prisma.style_costing_fabric_items.findMany({
     where: { fabricCADId: cad.id, costingId: { in: deps.costSheets.map((s) => s.costSheetId) } },
-    select: { costingId: true, cadMeters: true },
+    select: { costingId: true, cadMeters: true, costPerMeter: true },
   });
   const sheetAverage = new Map(sheetLines.map((l) => [l.costingId, num(l.cadMeters)]));
 
@@ -196,6 +196,7 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
     select: {
       id: true,
       orderQuantity: true,
+      quantityPerGarment: true,
       wastagePercent: true,
       orderBom: { select: { id: true, version: true, status: true, order: { select: { orderNumber: true } } } },
       snapshotRequirements: {
@@ -223,7 +224,8 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
       bomVersion: line.orderBom.version,
       bomStatus: String(line.orderBom.status),
       locked: line.orderBom.status === 'LOCKED',
-      metresBefore: greigeMetres(num(cad.cadAverage), line.orderQuantity, wastage),
+      // What the order carries today — its BOM line, which may still be on an older average than the CAD
+      metresBefore: greigeMetres(num(line.quantityPerGarment) ?? num(cad.cadAverage), line.orderQuantity, wastage),
       metresAfter: greigeMetres(after.cadAverage, line.orderQuantity, wastage),
       requirements: line.snapshotRequirements.map((r) => {
         const linked = r._count.requirement_po_links + r._count.requirement_jwo_links > 0;
@@ -240,6 +242,13 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
 
   const approvedSheets = deps.costSheets.filter((s) => s.costSheetApprovalStatus === 'APPROVED');
   const oldRate = num(cad.totalCostPerMeter);
+  // "Before" per piece is what the approved cost sheet prices today (it may lag the CAD), else the CAD's
+  const sheetLine = sheetLines.find((l) => approvedSheets.some((s) => s.costSheetId === l.costingId));
+  const perPieceBefore = sheetLine
+    ? round2(Number(sheetLine.costPerMeter) * Number(sheetLine.cadMeters))
+    : oldRate !== null && cad.cadAverage !== null
+      ? round2(oldRate * Number(cad.cadAverage))
+      : null;
   const newRate = recost.costing.totalCostPerMeter;
   return {
     before: {
@@ -261,7 +270,7 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
       notes: recost.notes,
     },
     fabricCostPerPiece: {
-      before: oldRate !== null && cad.cadAverage !== null ? round2(oldRate * Number(cad.cadAverage)) : null,
+      before: perPieceBefore,
       after: newRate !== null && after.cadAverage !== null ? round2(newRate * after.cadAverage) : null,
     },
     costSheets: deps.costSheets.map((s) => ({

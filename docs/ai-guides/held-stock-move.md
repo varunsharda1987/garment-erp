@@ -17,6 +17,9 @@ keywords:
   - दूसरे प्रोसेसर को भेजें
   - डायर से माल वापस
   - प्रोसेसर के पास माल
+  - processed goods at next processor
+  - finished fabric at printer
+  - तैयार कपड़ा दूसरे प्रोसेसर के पास
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -25,13 +28,14 @@ sources:
   - frontend/src/pages/StockInForm.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/components/job-work/MoveHeldStockDialog.tsx
+  - frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx
   - backend/src/services/helpers/held-stock-doors.helper.ts
   - backend/src/schemas/stockMovement.schema.ts
 route: /greige-stock
 ---
 
 ## When to use this
-Goods we own can lie at a dyer or other processor without being on a job: a supplier delivered them straight there, a Stock-Out parked them there, or a job was cancelled and the cloth stayed. Two doors move such goods, and both file the challan for you:
+Goods we own can lie at a dyer or other processor without being on a job: a supplier delivered them straight there, a Stock-Out parked them there, a job was cancelled and the cloth stayed, or a processor sent a finished job straight on to the next processor (recorded with **Receive from processor → Delivered straight to another processor** on the first job). Two doors move such goods, and both file the challan for you:
 - **Bring to store** — the goods come back into one of our stores.
 - **Move to another processor** — the goods go from one processor straight on to another.
 

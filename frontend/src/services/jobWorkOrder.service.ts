@@ -125,7 +125,11 @@ export interface ReceiveToStockPayload {
   receivedChallan?: string;
   /** The day the goods came back — becomes the receipt date, the job's receivedDate and the inward challan date. */
   receivedDate: string;
+  /** Our store — or, with deliveredToProcessor, the next processor's "… - Processing Unit" */
   warehouseId: string;
+  /** The processor delivered the finished goods straight to another processor (Phase 4d) */
+  deliveredToProcessor?: boolean;
+  vehicleNumber?: string;
   /**
    * false = one delivery of several — the job goes Partially Received and stays receivable.
    * true (default on the server) = the last delivery — the job closes on the cumulative total.
@@ -372,9 +376,13 @@ export const jobWorkOrderService = {
    * in the same transaction. The route lives under /grn because that is the permission store
    * staff hold — the URL is invisible to the user.
    */
-  async receiveToStock(
-    payload: ReceiveToStockPayload
-  ): Promise<{ data: { id: string; grnNumber: string }; lossSplit: LossSplitResult; replayed?: boolean }> {
+  async receiveToStock(payload: ReceiveToStockPayload): Promise<{
+    data: { id: string; grnNumber: string };
+    lossSplit: LossSplitResult;
+    replayed?: boolean;
+    /** Delivered straight to the next processor: the challan from this job's processor to it */
+    onwardChallan?: { challanNumber: string; toName: string } | null;
+  }> {
     // 90 s, not the global 30: the receipt books lot, challan, loss split and MRP in one transaction and
     // may legitimately outlast 30 s on a busy server. Giving up early is what made the user press again.
     const response = await api.post('/grn/jwo/receive', payload, { timeout: 90_000 });

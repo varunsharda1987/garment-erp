@@ -88,6 +88,9 @@ export default function ReceiveFromProcessorDialog({
   const [widthInches, setWidthInches] = useState<number>(0);
   const [challanRef, setChallanRef] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
+  // Delivered straight to another processor (Phase 4d): `warehouseId` is then that processor's unit
+  const [toProcessor, setToProcessor] = useState(false);
+  const [vehicle, setVehicle] = useState('');
   const [receivedDate, setReceivedDate] = useState(today);
   const [qualityGrade, setQualityGrade] = useState<'' | 'A' | 'B' | 'Reject'>('');
   const [defectMeters, setDefectMeters] = useState<number>(0);
@@ -138,6 +141,8 @@ export default function ReceiveFromProcessorDialog({
       setWidthInches(0);
       setChallanRef('');
       setWarehouseId('');
+      setToProcessor(false);
+      setVehicle('');
       setReceivedDate(today);
       setQualityGrade('');
       setDefectMeters(0);
@@ -150,8 +155,8 @@ export default function ReceiveFromProcessorDialog({
 
   // Exactly one physical store → pre-select it; never overwrite a choice.
   useEffect(() => {
-    if (open && !warehouseId && stores?.length === 1) setWarehouseId(stores[0].id);
-  }, [open, warehouseId, stores]);
+    if (open && !toProcessor && !warehouseId && stores?.length === 1) setWarehouseId(stores[0].id);
+  }, [open, toProcessor, warehouseId, stores]);
 
   // The quantity the receipt will book.
   //   Counted: the metres typed, or the sum of the than/bale rows (the server derives the than count
@@ -213,6 +218,7 @@ export default function ReceiveFromProcessorDialog({
         receivedChallan: challanRef.trim() || undefined,
         receivedDate,
         warehouseId,
+        ...(toProcessor ? { deliveredToProcessor: true, vehicleNumber: vehicle.trim() || undefined } : {}),
         isFinal,
         // Only ever true after the user has answered "Close … short?" — never sent by default.
         shortCloseConfirmed: shortCloseConfirmed || undefined,
@@ -231,6 +237,15 @@ export default function ReceiveFromProcessorDialog({
         handleApiSuccess(
           `${jwo?.jobWorkNumber ?? 'Job'} was already received`,
           `Receipt ${result.data.grnNumber} was filed by the earlier press — no second receipt was made.`
+        );
+      } else if (result.onwardChallan) {
+        handleApiSuccess(
+          `${jwo?.jobWorkNumber ?? 'Job'} received — now held at ${result.onwardChallan.toName}`,
+          `Receipt ${result.data.grnNumber} filed, and challan ${result.onwardChallan.challanNumber} from ` +
+            `${jwo?.processor?.name ?? 'the processor'} to ${result.onwardChallan.toName}.` +
+            (abnormal > 0
+              ? ` ${abnormal.toFixed(2)} m abnormal loss — a debit note is needed before the job can close.`
+              : '')
         );
       } else if (abnormal > 0) {
         handleApiSuccess(
@@ -530,15 +545,47 @@ export default function ReceiveFromProcessorDialog({
             </div>
           </div>
 
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <Checkbox
+              id="rfp-to-processor"
+              checked={toProcessor}
+              onCheckedChange={(v) => {
+                setToProcessor(v === true);
+                setWarehouseId('');
+              }}
+              className="mt-0.5"
+            />
+            <div className="space-y-1">
+              <Label htmlFor="rfp-to-processor" className="font-normal">
+                Delivered straight to another processor
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {processorName} sent the {isLace ? 'dyed lace' : 'fabric'} on to the next processor instead of to our
+                store. It is booked there, held by them, and a challan from {processorName} to them is filed.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Into warehouse *</Label>
-              <WarehouseCombobox
-                value={warehouseId}
-                onValueChange={setWarehouseId}
-                placeholder="Select warehouse"
-                excludeTypes={NOT_A_STORE}
-              />
+              <Label>{toProcessor ? "Next processor's unit *" : 'Into warehouse *'}</Label>
+              {toProcessor ? (
+                <WarehouseCombobox
+                  key="to-processor"
+                  value={warehouseId}
+                  onValueChange={setWarehouseId}
+                  placeholder="Pick the processor's unit"
+                  warehouseTypeFilter="JOB_WORK"
+                />
+              ) : (
+                <WarehouseCombobox
+                  key="to-store"
+                  value={warehouseId}
+                  onValueChange={setWarehouseId}
+                  placeholder="Select warehouse"
+                  excludeTypes={NOT_A_STORE}
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="rfp-date">Date received *</Label>
@@ -556,6 +603,12 @@ export default function ReceiveFromProcessorDialog({
               )}
             </div>
           </div>
+          {toProcessor && (
+            <div className="space-y-2">
+              <Label htmlFor="rfp-vehicle">Vehicle (for the challan)</Label>
+              <Input id="rfp-vehicle" value={vehicle} onChange={(e) => setVehicle(e.target.value)} />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

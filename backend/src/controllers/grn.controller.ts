@@ -168,7 +168,7 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { grn, jwo, replayed } = await grnService.receiveJwoToStock(req.body, userId);
+  const { grn, jwo, replayed, onwardChallan } = await grnService.receiveJwoToStock(req.body, userId);
 
   if (!replayed) logInfo(`Job-work receipt booked to stock: ${grn.grnNumber} (${jwo.jobWorkNumber})`);
 
@@ -178,6 +178,8 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
     success: true,
     data: grn,
     replayed,
+    // Delivered straight to the next processor (Phase 4d): the challan from this job's processor to it
+    onwardChallan: onwardChallan ? { challanNumber: onwardChallan.challanNumber, toName: onwardChallan.toName } : null,
     lossSplit: {
       qtyNormalLoss: jwo.qtyNormalLoss,
       qtyAbnormalLoss: jwo.qtyAbnormalLoss,
@@ -186,7 +188,9 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
     },
     message: replayed
       ? `${jwo.jobWorkNumber} was already received — ${grn.grnNumber} (no second receipt filed)`
-      : `${jwo.jobWorkNumber} received into stock`,
+      : onwardChallan
+        ? `${jwo.jobWorkNumber} received — delivered straight to ${onwardChallan.toName} (${onwardChallan.challanNumber})`
+        : `${jwo.jobWorkNumber} received into stock`,
   });
 };
 

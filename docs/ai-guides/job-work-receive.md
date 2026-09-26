@@ -81,6 +81,16 @@ keywords:
   - दो बार जीआरएन
   - डुप्लीकेट जीआरएन
   - डबल एंट्री
+  - delivered straight to another processor
+  - sent to next processor
+  - dyer sent to printer
+  - dyer sent to embroidery
+  - next processor
+  - seedha dusre processor ko
+  - dyer ne seedha bheja
+  - सीधे दूसरे प्रोसेसर को
+  - डायर ने सीधे भेजा
+  - अगला प्रोसेसर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -105,6 +115,8 @@ sources:
   - backend/src/services/grn.service.ts
   - backend/src/services/helpers/jwo-arriving-material.helper.ts
   - backend/src/services/helpers/jwo-status.helper.ts
+  - backend/src/services/helpers/held-stock-doors.helper.ts
+  - backend/src/controllers/grn.controller.ts
 route: /job-work-orders
 ---
 
@@ -127,7 +139,7 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. In both, the than count is the number of rows.
 5. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
 6. **Their challan no.** — the processor's challan number.
-7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent.
+7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent. If the processor sent the goods straight on to another processor instead of to us, tick **Delivered straight to another processor** first — see below.
 8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
 9. **This is the final delivery — nothing more is expected from …** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. If you tick it while the total is short, the line under it turns red: **Short by … Only tick this if nothing more is coming from …**.
 10. If the total is short beyond the job's tolerance and the box is ticked, a warning names the metres beyond the allowance and the debit note that will be needed against the processor before the job can close.
@@ -139,6 +151,18 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 - Raises the **Inward** challan from the processor — the GST document for goods back from a job worker. **Print Inward Challan** appears on the job.
 - Writes the than count, fold length, width and quality onto the job. On the final delivery it also writes the actual shrinkage % and moves the job to **Stock Updated**; a part leaves it at **Partial Receipt**.
 - On the final delivery, splits the loss into normal and abnormal on the total of all parts. Every receipt advances any material requirement the job was covering by its own metres.
+
+### Delivered straight to another processor
+Sometimes the dyer sends the finished fabric (or dyed lace) straight on to the next processor — a printer, an embroiderer — instead of to our store.
+1. In the same dialog, tick **Delivered straight to another processor**.
+2. The box above the date becomes **Next processor's unit \***: pick the next processor's **… - Processing Unit**. A **Vehicle (for the challan)** box appears; fill it in if you know it.
+3. Fill in everything else as usual and click **Receive & add to stock**.
+
+The one click does everything above, and also:
+- Books the finished lot at the next processor, held by them for us — not in our store. It shows on their **Processor Statement** and under **Stock In → Processor Return**, and a job at that processor can take it where it lies, without a truck.
+- Files one challan from the first processor to the next — give it to them for their records. The one-year return period for the next processor runs from the date received.
+- The first processor's inward challan notes where the goods went.
+From there the goods move like any goods a processor holds: **Bring to store**, or **Move to another processor**.
 
 ### If the server is slow
 One opening of the dialog files at most one receipt, however many times the button is pressed.
@@ -196,6 +220,9 @@ A job that has already been received cannot be received again: a second click is
 - In Than-wise or Bale-wise mode every row needs metres greater than zero before the button enables; an empty row blocks it.
 - **Receive Material** never appears on a metre-based fabric or lace job — those show **Receive from processor**, because only that action creates the stock lot. A piece-based (PCS) job is the mirror image. If an older screen or link still posts a metre job to **Receive Material**, it is refused and the job is left untouched, so you can still receive it properly.
 - A job linked to a purchase order is refused — receive it against that purchase order on the GRN form.
+- Picking a processor's unit without ticking **Delivered straight to another processor** is refused, and so is the tick with one of our stores. Picking the job's own processor is refused too ("… is this job's own processor — the goods did not go on anywhere"): receive the goods into our store instead.
+- A processor with no **… - Processing Unit** is not in the list. Open the processor in **Suppliers** and save it once — the unit is created.
+- If a receipt delivered to the next processor is reversed, its lot there is taken back and both challans are cancelled — refused once the next processor's job has used any of it.
 - A job whose finished fabric cannot be identified is refused with a message asking you to link the job to its greige lot or requirement, or set its finished fabric, then receive again. A lace job with no dyed variant is refused the same way.
 - A dyed lace receipt lands on the **dyed variant**, not on the greige — the greige left stock when it was issued. Its cost per metre is all the greige money plus all the dyeing money, spread over the metres that actually came back.
 - A cancelled job blocks receiving. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.

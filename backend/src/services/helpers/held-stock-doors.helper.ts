@@ -619,3 +619,173 @@ export async function moveHeldStockToProcessor(input: MoveHeldStockInput): Promi
     { timeout: 20000, maxWait: 5000 }
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// 4d — Processed goods delivered straight to the next processor (A → B, at the receipt)
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+export interface NextProcessorUnit {
+  /** B's "… - Processing Unit" — where the finished lot is booked */
+  warehouseId: string;
+  processorId: string;
+  name: string;
+}
+
+/**
+ * A job-work receipt booked into a processor's unit means processor A delivered the finished goods
+ * straight to processor B (Phase 4d). Returns B, or null for a receipt into one of our stores. Refuses —
+ * before anything is written — what cannot be booked truthfully: a unit with no "delivered straight to
+ * another processor" tick, the tick with one of our stores, a unit linked to no processor, and A's own
+ * unit (the goods never left A: receive them into our store).
+ */
+export function resolveNextProcessorUnit(
+  warehouse: {
+    id: string;
+    warehouseType: string;
+    warehouseName: string;
+    supplierId: string | null;
+    supplier?: { name: string } | null;
+  },
+  job: { processorId: string | null; processorName: string },
+  deliveredToProcessor: boolean
+): NextProcessorUnit | null {
+  if (warehouse.warehouseType !== 'JOB_WORK') {
+    if (!deliveredToProcessor) return null;
+    throw new BusinessError(
+      `${warehouse.warehouseName} is one of our stores. Pick the next processor's unit (an active "… - Processing Unit").`,
+      { code: 'NOT_A_PROCESSOR_UNIT', reason: 'NOT_A_PROCESSOR_UNIT' }
+    );
+  }
+  if (!deliveredToProcessor) {
+    throw new BusinessError(
+      `${warehouse.warehouseName} is a processor's unit. If ${job.processorName} delivered the goods straight there, ` +
+        `tick "Delivered straight to another processor"; otherwise pick our store.`,
+      { code: 'NEXT_PROCESSOR_UNCONFIRMED', reason: 'NEXT_PROCESSOR_UNCONFIRMED' }
+    );
+  }
+  if (!warehouse.supplierId) {
+    throw new BusinessError(
+      `${warehouse.warehouseName} is not linked to a processor, so goods cannot be booked there. Link the unit to its processor first.`,
+      { code: 'NOT_A_PROCESSOR_UNIT', reason: 'DIRECT_DELIVERY_UNIT_UNLINKED' }
+    );
+  }
+  const name = warehouse.supplier?.name ?? warehouse.warehouseName;
+  if (warehouse.supplierId === job.processorId) {
+    throw new BusinessError(
+      `${name} is this job's own processor — the goods did not go on anywhere. Receive them into our store.`,
+      { code: 'SAME_PROCESSOR', reason: 'SAME_PROCESSOR' }
+    );
+  }
+  return { warehouseId: warehouse.id, processorId: warehouse.supplierId, name };
+}
+
+export interface SendReceiptOnInput {
+  /** The receipt (job-work GRN) that booked the finished lot at B's unit */
+  grnId: string;
+  grnNumber: string;
+  grnItemId: string;
+  lotType: 'FABRIC' | 'LACE';
+  fromProcessorId: string;
+  fromName: string;
+  jobWorkNumber: string;
+  to: NextProcessorUnit;
+  /** The day the goods reached B — the receipt date; B's one-year period runs from it */
+  receivedAt: Date;
+  userId: string;
+  vehicleNumber?: string | null;
+}
+
+export interface SendReceiptOnResult {
+  challanId: string;
+  challanNumber: string;
+  toName: string;
+  lotId: string;
+}
+
+/**
+ * The second half of a receipt delivered straight to the next processor, inside the receipt's own
+ * transaction: the finished lot is already booked at B's unit (held by B — fabric and lace are placed by
+ * their warehouse) and A's inward challan closes A's job as usual. This files the OUTWARD challan from A
+ * to B (Rule 45: inputs sent from one job worker to another on our account) naming that lot, so it is
+ * B's covering challan — B's jobs can draw the lot where it lies, rule 7 follows it, and ITC-04 lists it.
+ * Linked to the receipt by `grnId`: reversing the receipt cancels it with the inward challan.
+ */
+export async function sendReceiptOnToProcessor(tx: Tx, input: SendReceiptOnInput): Promise<SendReceiptOnResult> {
+  const lot =
+    input.lotType === 'LACE'
+      ? await tx.lace_stock.findFirst({
+          where: { grnItemId: input.grnItemId },
+          include: { laceMaster: { select: { laceCode: true } } },
+        })
+      : await tx.fabric_stock.findFirst({
+          where: { grnItemId: input.grnItemId },
+          include: { fabricMaster: { select: { fabricCode: true } } },
+        });
+  if (!lot) {
+    throw new Error(`${input.grnNumber}: the finished lot to send on to ${input.to.name} was not booked`);
+  }
+  const code =
+    'laceMaster' in lot
+      ? lot.laceMaster.laceCode
+      : ((lot as { fabricMaster?: { fabricCode: string } | null }).fabricMaster?.fabricCode ?? 'Fabric');
+  const qty = Number(lot.quantityAvailable);
+  const rate = lot.purchaseCost != null ? Number(lot.purchaseCost) : Number(lot.weightedAvgCost);
+  const declaredValue = Number.isFinite(rate) ? toNumber(roundToCent(multiplyCurrency(qty, rate))) : undefined;
+  const returnBy = new Date(input.receivedAt);
+  returnBy.setFullYear(returnBy.getFullYear() + 1);
+
+  const challan = await createChallan(
+    {
+      challanType: 'OUTWARD',
+      challanDate: input.receivedAt,
+      fromType: 'VENDOR',
+      fromId: input.fromProcessorId,
+      fromName: input.fromName,
+      toType: 'VENDOR',
+      toId: input.to.processorId,
+      toName: input.to.name,
+      issuedById: input.userId,
+      status: 'ISSUED',
+      issuedDate: input.receivedAt,
+      // B holds the finished goods from the day they arrived — its one-year period runs from then
+      expectedDate: returnBy,
+      reasonForTransport: MOVE_BETWEEN_JOB_WORKERS_REASON,
+      vehicleNumber: input.vehicleNumber ?? undefined,
+      totalDeclaredValue: declaredValue,
+      unit: Unit.METER,
+      grnId: input.grnId,
+      remarks:
+        `Processed by ${input.fromName} on ${input.jobWorkNumber} (receipt ${input.grnNumber}) and delivered ` +
+        `straight to ${input.to.name} on ${formatDate(input.receivedAt)}`,
+      items: [
+        {
+          itemType: input.lotType,
+          fabricId: 'fabricId' in lot ? lot.fabricId : undefined,
+          fabricStockId: input.lotType === 'FABRIC' ? lot.id : undefined,
+          laceStockId: input.lotType === 'LACE' ? lot.id : undefined,
+          description: `${code} processed by ${input.fromName} (${input.jobWorkNumber}), delivered straight to ${input.to.name}`,
+          quantity: qty,
+          unit: Unit.METER,
+          rate: Number.isFinite(rate) ? rate : undefined,
+          declaredValue,
+        },
+      ],
+    },
+    tx
+  );
+
+  // A's inward challan for this receipt says where the goods went
+  const inward = await tx.challans.findFirst({
+    where: { grnId: input.grnId, challanType: 'INWARD' },
+    select: { id: true, remarks: true },
+  });
+  if (inward) {
+    const note = `Delivered straight to ${input.to.name} — sent on under ${challan.challanNumber}`;
+    await tx.challans.update({
+      where: { id: inward.id },
+      data: { remarks: inward.remarks ? `${inward.remarks}. ${note}` : note },
+    });
+  }
+
+  return { challanId: challan.id, challanNumber: challan.challanNumber, toName: input.to.name, lotId: lot.id };
+}

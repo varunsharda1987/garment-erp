@@ -34,6 +34,8 @@ import { buildJobWorkOrderDocData } from '../../services/document-data/job-work-
 import { formatDate } from '../../utils/date';
 import { recomputeCoveringChallansForJwo } from '../../services/helpers/jwo-challan-lifecycle.helper';
 import { getRequirements } from '../../services/mrp.service';
+import { listHeldLots } from '../../services/helpers/held-stock-doors.helper';
+import { toDateInputValue } from '../../utils/date';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -220,6 +222,29 @@ afterAll(async () => {
       select: { id: true },
     })
   ).map((c) => c.id);
+  // Receipts from the jobs (Phase 4d): the job's links first, then the finished lots and the receipts
+  await prisma.job_work_orders.updateMany({
+    where: { id: { in: jwoIds } },
+    data: { grnId: null, inwardChallanId: null, outwardChallanId: null },
+  });
+  const mintedFabricIds = (
+    await prisma.fabric_master.findMany({ where: { greigeId: only(greigeId) }, select: { id: true } })
+  ).map((f) => f.id);
+  const fabricLotIds = (
+    await prisma.fabric_stock.findMany({ where: { fabricId: { in: mintedFabricIds } }, select: { id: true } })
+  ).map((l) => l.id);
+  await prisma.challan_items.updateMany({
+    where: { fabricStockId: { in: fabricLotIds } },
+    data: { fabricStockId: null },
+  });
+  await prisma.fabric_stock_transaction.deleteMany({ where: { stockId: { in: fabricLotIds } } });
+  await prisma.fabric_stock.deleteMany({ where: { id: { in: fabricLotIds } } });
+  await prisma.stock_movements.deleteMany({ where: { materialId: { in: mintedFabricIds } } });
+  await prisma.stock_transactions.deleteMany({ where: { materialId: { in: mintedFabricIds } } });
+  await prisma.stock_levels.deleteMany({ where: { materialId: { in: mintedFabricIds } } });
+  const jobGrnIds = (
+    await prisma.goods_receiving_notes.findMany({ where: { jobWorkOrderId: { in: jwoIds } }, select: { id: true } })
+  ).map((g) => g.id);
   const lotIds = (
     await prisma.greige_stock.findMany({ where: { greigeId: only(greigeId) }, select: { id: true } })
   ).map((l) => l.id);
@@ -228,6 +253,8 @@ afterAll(async () => {
   await prisma.greige_stock_transaction.deleteMany({ where: { stockId: { in: lotIds } } });
   await prisma.challan_items.deleteMany({ where: { challanId: { in: challanIds } } });
   await prisma.challans.deleteMany({ where: { id: { in: challanIds } } });
+  await prisma.grn_items.deleteMany({ where: { grnId: { in: jobGrnIds } } });
+  await prisma.goods_receiving_notes.deleteMany({ where: { id: { in: jobGrnIds } } });
   await prisma.job_work_order_components.deleteMany({ where: { jobWorkOrderId: { in: jwoIds } } });
   await prisma.job_work_orders.deleteMany({ where: { id: { in: jwoIds } } });
   await prisma.greige_stock.deleteMany({ where: { id: { in: lotIds } } });
@@ -826,5 +853,124 @@ describe('move to another processor — A to B on one challan, the clock kept (P
       .send({ lots: [{ greigeStockLotId: atA.id, qty: 100 }] });
     expect(refused.body.code).toBe('LOT_AT_WRONG_PROCESSOR');
     expect(refused.body.message).toMatch(/Move to another processor/);
+  });
+});
+
+describe('processed goods delivered straight to the next processor (Phase 4d)', () => {
+  const today = toDateInputValue(new Date());
+  let jwo: string;
+  let grnId: string;
+  const receive = (body: Record<string, unknown>) =>
+    request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jwo, qtyReceivedMeters: 376, receivedDate: today, isFinal: true, ...body });
+
+  beforeAll(async () => {
+    // Greige held at dyer A, drawn where it lies by A's dyeing job
+    const { grnId: supplyGrn } = await receiveInto(unitA, 400);
+    await grnService.approveGRN(supplyGrn, userId, unitA, undefined, { directDeliveryConfirmed: true });
+    const lot = await prisma.greige_stock.findFirstOrThrow({
+      where: { greigeId, processorId: dyerA, sourceType: 'DIRECT', quantityAvailable: 400 },
+      orderBy: { createdAt: 'desc' },
+    });
+    jwo = await createJwo(dyerA, 400);
+    const issued = await request(app)
+      .post(`/api/job-work-orders/${jwo}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: lot.id, qty: 400 }] });
+    expect(issued.status).toBe(200);
+  });
+
+  it('refuses what cannot be booked truthfully — nothing is filed', async () => {
+    let res = await receive({ warehouseId: unitB });
+    expect(res.status).toBe(422);
+    expect(res.body.details.code).toBe('NEXT_PROCESSOR_UNCONFIRMED');
+    res = await receive({ warehouseId: storeId, deliveredToProcessor: true });
+    expect(res.body.details.code).toBe('NOT_A_PROCESSOR_UNIT');
+    res = await receive({ warehouseId: unitA, deliveredToProcessor: true });
+    expect(res.body.details.code).toBe('SAME_PROCESSOR');
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: jwo } })).toBe(0);
+  });
+
+  it("closes A's job, books the fabric at B's unit held by B, and files the A → B challan with B's clock from the receipt", async () => {
+    const key = `${RUN}-4D-KEY`;
+    const res = await receive({
+      warehouseId: unitB,
+      deliveredToProcessor: true,
+      vehicleNumber: 'RJ14 CB 4321',
+      submissionKey: key,
+    });
+    expect(res.status).toBe(201);
+    grnId = res.body.data.id;
+    expect(res.body.onwardChallan.toName).toBe(`${RUN} Dyer B`);
+
+    // A's side: the job is received, and its inward challan says where the goods went
+    const job = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jwo } });
+    expect(job.jwoStatus).toBe('STOCK_UPDATED');
+    const inward = await prisma.challans.findFirstOrThrow({ where: { grnId, challanType: 'INWARD' } });
+    expect(inward).toMatchObject({ fromType: 'VENDOR', fromId: dyerA, status: 'RECEIVED' });
+    expect(inward.remarks).toContain(res.body.onwardChallan.challanNumber);
+
+    // B's side: the finished lot is in B's unit, held by B
+    const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId } });
+    const lot = await prisma.fabric_stock.findFirstOrThrow({ where: { grnItemId: item.id } });
+    expect(lot.warehouseId).toBe(unitB);
+    expect(Number(lot.quantityAvailable)).toBe(376);
+    expect(
+      Number(
+        (await prisma.stock_levels.findFirst({ where: { materialId: lot.fabricId, warehouseId: unitB } }))?.quantity
+      )
+    ).toBe(376);
+    const heldAtB = (await listHeldLots(dyerB)).find((l) => l.id === lot.id);
+    expect(heldAtB).toMatchObject({ lotType: 'FABRIC', coveringChallanNumber: res.body.onwardChallan.challanNumber });
+
+    // The onward challan: A → B, Rule 45, naming the lot, on no job, clock from the receipt day
+    const onward = await prisma.challans.findFirstOrThrow({
+      where: { grnId, challanType: 'OUTWARD' },
+      include: { items: true },
+    });
+    expect(onward).toMatchObject({
+      challanNumber: res.body.onwardChallan.challanNumber,
+      fromType: 'VENDOR',
+      fromId: dyerA,
+      toType: 'VENDOR',
+      toId: dyerB,
+      status: 'ISSUED',
+      jobWorkOrderId: null,
+      vehicleNumber: 'RJ14 CB 4321',
+    });
+    const oneYearOn = new Date(onward.challanDate);
+    oneYearOn.setFullYear(oneYearOn.getFullYear() + 1);
+    expect(toDateInputValue(onward.challanDate)).toBe(today);
+    expect(toDateInputValue(onward.expectedDate!)).toBe(toDateInputValue(oneYearOn));
+    expect(onward.items).toHaveLength(1);
+    expect(onward.items[0]).toMatchObject({ itemType: 'FABRIC', fabricStockId: lot.id });
+    expect(Number(onward.items[0].quantity)).toBe(376);
+
+    // ITC-04: returned by A (Table B) and sent to B (Table A)
+    const itc = await jobWorkStatutoryService.getITC04Extract(
+      new Date(Date.now() - 2 * DAY),
+      new Date(Date.now() + DAY)
+    );
+    expect(itc.tableA.items.some((i) => i.challanId === onward.id)).toBe(true);
+    expect(itc.tableB.items.some((i) => i.challanId === inward.id)).toBe(true);
+
+    // The same submission again: the receipt already filed, and still ONE onward challan
+    const again = await receive({ warehouseId: unitB, deliveredToProcessor: true, submissionKey: key });
+    expect(again.status).toBe(200);
+    expect(again.body.replayed).toBe(true);
+    expect(again.body.onwardChallan.challanNumber).toBe(onward.challanNumber);
+    expect(await prisma.challans.count({ where: { grnId, challanType: 'OUTWARD' } })).toBe(1);
+  });
+
+  it('reversing the receipt takes the lot back from B and cancels both challans', async () => {
+    await grnService.reverseGRN(grnId, userId, `${RUN} wrong processor`);
+    const challans = await prisma.challans.findMany({ where: { grnId }, select: { challanType: true, status: true } });
+    expect(challans).toHaveLength(2);
+    expect(challans.every((c) => c.status === 'CANCELLED')).toBe(true);
+    const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId } });
+    expect(await prisma.fabric_stock.count({ where: { grnItemId: item.id } })).toBe(0);
+    expect((await listHeldLots(dyerB)).some((l) => l.lotType === 'FABRIC')).toBe(false);
   });
 });

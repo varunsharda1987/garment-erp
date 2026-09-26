@@ -58,6 +58,7 @@ import { normalizeUnit } from '../utils/units';
 import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
 import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
 import { challanDestination } from './helpers/lot-location.helper';
+import { resolveNextProcessorUnit, sendReceiptOnToProcessor } from './helpers/held-stock-doors.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
@@ -121,7 +122,8 @@ class GRNService {
    * our own stores. Refuses — before anything is written — what cannot be booked truthfully:
    *  - a unit linked to no processor;
    *  - a supplier who IS the processor (bought from and kept by the same party: Phase 4g);
-   *  - a job-work return into a unit (processed goods going on to the next processor: Phase 4d);
+   *  - a job-work return into a unit on this two-step path (processed goods going on to the next processor
+   *    are received with the job's Receive from processor → "Delivered straight to another processor", 4d);
    *  - an unconfirmed delivery: implicit when the PO's Deliver To is this unit, else the approval must
    *    say so ("Delivered straight to …" → directDeliveryConfirmed).
    */
@@ -139,7 +141,8 @@ class GRNService {
     }
     if (!grn.poId) {
       throw new BusinessError(
-        `Processed goods going straight on to ${warehouse.warehouseName} are not supported yet — receive them into our store.`,
+        `Processed goods going straight on to ${warehouse.warehouseName} are received from the job itself: ` +
+          `Receive from processor → tick "Delivered straight to another processor". Here, approve into our store.`,
         { reason: 'DIRECT_DELIVERY_JOB_RETURN', warehouseId: warehouse.id }
       );
     }
@@ -3387,13 +3390,39 @@ class GRNService {
     data: Parameters<typeof grnService.createGRNFromJWO>[0] & {
       warehouseId: string;
       processingQC?: ProcessingQCData;
+      /** Phase 4d: the processor delivered the finished goods straight to the processor whose unit this is */
+      deliveredToProcessor?: boolean;
+      vehicleNumber?: string | null;
     },
     userId: string
   ) {
-    const warehouse = await prisma.warehouses.findUnique({ where: { id: data.warehouseId } });
+    const warehouse = await prisma.warehouses.findUnique({
+      where: { id: data.warehouseId },
+      select: {
+        id: true,
+        isActive: true,
+        warehouseType: true,
+        warehouseName: true,
+        supplierId: true,
+        supplier: { select: { name: true } },
+      },
+    });
     if (!warehouse || !warehouse.isActive) {
       throw new BusinessError('Invalid or inactive warehouse');
     }
+    // Delivered straight to the next processor (Phase 4d): the lot is booked at B's unit and A → B is
+    // challaned below, in the same transaction. Refused before anything is written when it cannot be.
+    const job = await prisma.job_work_orders.findUnique({
+      where: { id: data.jobWorkOrderId },
+      select: { processorId: true, jobWorkNumber: true, fabricType: true, processor: { select: { name: true } } },
+    });
+    const nextProcessor = job
+      ? resolveNextProcessorUnit(
+          warehouse,
+          { processorId: job.processorId, processorName: job.processor?.name ?? 'the processor' },
+          data.deliveredToProcessor === true
+        )
+      : null;
 
     const submissionKey = data.submissionKey || null;
     const alreadyFiled = async (client: Prisma.TransactionClient | typeof prisma) => {
@@ -3425,6 +3454,21 @@ class GRNService {
           await this.approvePolessJwoGrnInTx(tx, created, data.processingQC, data.warehouseId, userId, created.id, {
             isFinal: data.isFinal ?? true,
           });
+          if (nextProcessor && job?.processorId && created.grn_items?.[0]?.id) {
+            await sendReceiptOnToProcessor(tx, {
+              grnId: created.id,
+              grnNumber: created.grnNumber,
+              grnItemId: created.grn_items[0].id,
+              lotType: job.fabricType === 'LACE' ? 'LACE' : 'FABRIC',
+              fromProcessorId: job.processorId,
+              fromName: job.processor?.name ?? 'the processor',
+              jobWorkNumber: job.jobWorkNumber,
+              to: nextProcessor,
+              receivedAt: created.receivingDate ? new Date(created.receivingDate) : new Date(),
+              userId,
+              vehicleNumber: data.vehicleNumber ?? null,
+            });
+          }
           return { grn: created, replayed: false };
         },
         { timeout: 30000, maxWait: 10000 }
@@ -3452,13 +3496,27 @@ class GRNService {
       },
     });
 
+    // Delivered straight to the next processor: the A → B challan filed with this receipt (a replay
+    // answers with the one the first submission filed)
+    const onwardChallan = await prisma.challans.findFirst({
+      where: { grnId: grn.id, challanType: 'OUTWARD', status: { not: 'CANCELLED' } },
+      select: { id: true, challanNumber: true, toName: true },
+    });
+
     logInfo(
       replayed
         ? 'Job-work receipt submitted again — answered with the receipt already filed, nothing booked'
-        : 'Job-work receipt booked to stock in one action',
-      { grnId: grn.id, grnNumber: grn.grnNumber, jobWorkNumber: jwo.jobWorkNumber }
+        : onwardChallan
+          ? 'Job-work receipt delivered straight to the next processor — booked there and challaned in one action'
+          : 'Job-work receipt booked to stock in one action',
+      {
+        grnId: grn.id,
+        grnNumber: grn.grnNumber,
+        jobWorkNumber: jwo.jobWorkNumber,
+        ...(onwardChallan ? { onwardChallan: onwardChallan.challanNumber } : {}),
+      }
     );
-    return { grn, jwo, replayed };
+    return { grn, jwo, replayed, onwardChallan };
   }
 
   /**
@@ -4633,6 +4691,15 @@ class GRNService {
         grnId: grn.id,
         challanId: inwardChallan.id,
       });
+    }
+    // Delivered straight to the next processor (Phase 4d): the A → B challan filed with this receipt
+    // goes with it — the lot it named was taken back in step 1
+    const onward = await tx.challans.updateMany({
+      where: { grnId: grn.id, challanType: 'OUTWARD', status: { not: 'CANCELLED' } },
+      data: { status: 'CANCELLED', remarks: `Cancelled due to GRN ${grn.grnNumber} reversal - ${reason}` },
+    });
+    if (onward.count > 0) {
+      logInfo('Cancelled the onward challan to the next processor for GRN reversal', { grnId: grn.id });
     }
 
     // 4. Recompute the job from the receipts that remain ACCEPTED (the caller has already flipped

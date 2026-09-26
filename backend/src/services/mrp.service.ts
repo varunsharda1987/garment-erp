@@ -70,6 +70,7 @@ import {
   greigeCountsForPlanning,
   greigeHolderId,
   laceCountsForPlanning,
+  notInProcessorUnitWhere,
   PLANNING_LACE_LOT_SELECT,
   PLANNING_LOT_SELECT,
   unitLotHolderId,
@@ -942,6 +943,8 @@ async function batchGetCurrentStock(
       where: {
         fabricId: { in: [...fabricIds] },
         status: 'AVAILABLE',
+        // Fabric lying at a processor's unit is not ours to cut or plan with (Phase 4a)
+        ...notInProcessorUnitWhere(),
       },
       _sum: { quantityAvailable: true, quantityReserved: true },
     });
@@ -1591,6 +1594,7 @@ export async function calculateRequirementsFromOrder(
               fabricId: bomItem.fabricId,
               cutableWidth: { gte: bomWidth - 0.5, lte: bomWidth + 0.5 },
               status: 'AVAILABLE',
+              ...notInProcessorUnitWhere(),
             },
             _sum: { quantityAvailable: true, quantityReserved: true },
           });
@@ -1601,6 +1605,7 @@ export async function calculateRequirementsFromOrder(
             where: {
               fabricId: bomItem.fabricId,
               status: 'AVAILABLE',
+              ...notInProcessorUnitWhere(),
             },
             _sum: { quantityAvailable: true, quantityReserved: true },
           });
@@ -1639,6 +1644,7 @@ export async function calculateRequirementsFromOrder(
             where: {
               fabricId: bomItem.fabricId,
               status: 'AVAILABLE',
+              ...notInProcessorUnitWhere(),
             },
             _sum: { quantityAvailable: true, quantityReserved: true },
           });
@@ -3055,7 +3061,12 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
 
       if (matType === 'FABRIC' && reqWithMaterial.materials.fabricId) {
         const lots = await tx.fabric_stock.findMany({
-          where: { fabricId: reqWithMaterial.materials.fabricId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+          where: {
+            fabricId: reqWithMaterial.materials.fabricId,
+            status: 'AVAILABLE',
+            quantityAvailable: { gt: 0 },
+            ...notInProcessorUnitWhere(),
+          },
           orderBy: { receivedDate: 'asc' },
         });
         let remaining = reserveQty;
@@ -3382,6 +3393,54 @@ export async function findProcessingRequirementMatches(params: {
 /**
  * Generate a Purchase Order from requirements
  */
+/**
+ * The processor each greige (or greige-lace) MATERIAL requirement will be processed at. The MATERIAL
+ * row does not store it: it lives on its PROCESSING child — the dyer of a live job already drawing for
+ * that child wins (the two can differ), else the child's processorId. null = no processing requirement
+ * names one (bought ready, or not decided).
+ */
+export async function greigeRequirementProcessors(requirementIds: string[]): Promise<Map<string, string | null>> {
+  const rows = await prisma.material_requirements.findMany({
+    where: { id: { in: requirementIds } },
+    select: {
+      id: true,
+      childRequirements: {
+        where: { requirementType: 'PROCESSING' },
+        select: {
+          processorId: true,
+          requirement_jwo_links: { select: { job_work_orders: { select: { processorId: true, jwoStatus: true } } } },
+        },
+      },
+    },
+  });
+  const out = new Map<string, string | null>();
+  for (const r of rows) {
+    const jobProcessor = r.childRequirements
+      .flatMap((c) => c.requirement_jwo_links.map((l) => l.job_work_orders))
+      .find((j) => j.jwoStatus !== 'CANCELLED')?.processorId;
+    const childProcessor = r.childRequirements.find((c) => c.processorId)?.processorId;
+    out.set(r.id, jobProcessor ?? childProcessor ?? null);
+  }
+  return out;
+}
+
+/**
+ * Where an MRP-raised greige / greige-lace PO delivers by default (direct-to-processor plan, Phase 3):
+ * straight to the dyer's "… - Processing Unit" when every requirement on it is processed at that ONE
+ * dyer; otherwise null — "to be advised" (several dyers: 4f splits it; none decided: set at dispatch).
+ */
+async function defaultGreigeDeliveryUnit(requirementIds: string[]): Promise<string | null> {
+  const processors = new Set((await greigeRequirementProcessors(requirementIds)).values());
+  if (processors.size !== 1) return null;
+  const [processorId] = [...processors];
+  if (!processorId) return null;
+  const unit = await prisma.warehouses.findFirst({
+    where: { supplierId: processorId, warehouseType: 'JOB_WORK', isActive: true },
+    select: { id: true },
+  });
+  return unit?.id ?? null;
+}
+
 export async function generatePOFromRequirements(
   data: GeneratePOFromRequirementsRequest,
   userId: string
@@ -3822,6 +3881,12 @@ export async function generatePOFromRequirements(
     materialType: req.materials?.materialType || null,
   }));
   const poCategory = determinePOCategoryFromMaterials(materialTypes);
+  // Greige (or greige lace — a LACE PO) bought for one dyer is delivered straight there by default: every
+  // requirement's processing requirement names the same dyer. The PO page can change it.
+  const defaultDeliveryUnitId =
+    poCategory === POCategory.GREIGE || poCategory === POCategory.GREIGE_LACE || poCategory === POCategory.LACE
+      ? await defaultGreigeDeliveryUnit(requirements.filter((r) => r.requirementType !== 'PROCESSING').map((r) => r.id))
+      : null;
 
   // Check if these are PROCESSING requirements
   const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
@@ -4274,6 +4339,14 @@ export async function generatePOFromRequirements(
         isInterstate,
         remarks,
         createdById: userId,
+        // One dyer for every requirement → straight to its unit; else "to be advised"
+        ...(defaultDeliveryUnitId
+          ? {
+              deliveryLocationId: defaultDeliveryUnitId,
+              deliveryLocationType: 'PROCESSOR' as const,
+              originalDeliveryLocationId: defaultDeliveryUnitId,
+            }
+          : {}),
       },
     });
 

@@ -27,6 +27,8 @@ let dyedLaceId: string;
 let dyerId: string;
 let weaverId: string;
 let laceBomItemId: string;
+let unitId: string | undefined;
+const poIds: string[] = [];
 
 const only = (id: string | undefined) => id ?? '__unset__';
 
@@ -163,6 +165,10 @@ afterAll(async () => {
     await prisma.job_work_orders.findMany({ where: { processorId: only(dyerId) }, select: { id: true } })
   ).map((j) => j.id);
   await prisma.requirement_jwo_links.deleteMany({ where: { jobWorkOrderId: { in: jwoIds } } });
+  await prisma.requirement_po_links.deleteMany({ where: { purchaseOrderId: { in: poIds } } });
+  await prisma.po_source_links.deleteMany({ where: { purchaseOrderId: { in: poIds } } });
+  await prisma.purchase_order_items.deleteMany({ where: { poId: { in: poIds } } });
+  await prisma.purchase_orders.deleteMany({ where: { id: { in: poIds } } });
   await prisma.job_work_orders.deleteMany({ where: { id: { in: jwoIds } } });
   await prisma.material_requirements.deleteMany({ where: { orderId: only(orderId) } });
   await prisma.order_bom_items.deleteMany({ where: { orderBomId: only(orderBomId) } });
@@ -176,6 +182,7 @@ afterAll(async () => {
   await prisma.lace_master.deleteMany({ where: { id: only(greigeLaceId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
   await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+  await prisma.warehouses.deleteMany({ where: { id: only(unitId) } });
   await prisma.suppliers.deleteMany({ where: { id: { in: [only(dyerId), only(weaverId)] } } });
   await prisma.users.deleteMany({ where: { id: only(userId) } });
   await prisma.$disconnect();
@@ -353,5 +360,37 @@ describe('one job work order per rate (2026-09-24)', () => {
     expect(result.jobWorkOrders ?? [result.jobWorkOrder]).toHaveLength(1);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: result.jobWorkOrder!.id } });
     expect(Number(jwo!.agreedRatePerMeter)).toBe(5);
+  });
+
+  it('a greige-lace PO bought for one dyer delivers straight to that dyer by default (Phase 3)', async () => {
+    unitId = (
+      await prisma.warehouses.create({
+        data: {
+          warehouseCode: `${RUN}-JW`,
+          warehouseName: `${RUN} Dyer - Processing Unit`,
+          warehouseType: 'JOB_WORK',
+          supplierId: dyerId,
+          isActive: true,
+          createdById: userId,
+        },
+      })
+    ).id;
+    const greige = await prisma.material_requirements.findMany({
+      where: { orderId, requirementType: 'MATERIAL', status: { in: ['PO_REQUIRED', 'PARTIAL_STOCK'] } },
+      select: { id: true },
+    });
+    expect(greige.length).toBeGreaterThan(0);
+    const result = await generatePOFromRequirements(
+      {
+        requirementIds: greige.map((r) => r.id),
+        supplierId: weaverId,
+        expectedDeliveryDate: new Date(Date.now() + 20 * 86400000).toISOString(),
+      } as never,
+      userId
+    );
+    expect(result.purchaseOrder).toBeTruthy();
+    poIds.push(result.purchaseOrder!.id);
+    const po = await prisma.purchase_orders.findUniqueOrThrow({ where: { id: result.purchaseOrder!.id } });
+    expect(po).toMatchObject({ deliveryLocationId: unitId, deliveryLocationType: 'PROCESSOR' });
   });
 });

@@ -57,6 +57,8 @@ export function usePickerOptions<T extends { id: string }>({
 
   // Fast typing fires several fetches; only the latest may update the list.
   const requestSeq = useRef(0);
+  // The search the list answers, so a filter change reloads for the typed text rather than for ''
+  const lastSearch = useRef('');
   const toOptionRef = useRef(toOption);
   toOptionRef.current = toOption;
   const onErrorRef = useRef(onError);
@@ -64,6 +66,7 @@ export function usePickerOptions<T extends { id: string }>({
 
   const load = useCallback(
     async (search: string) => {
+      lastSearch.current = search;
       const seq = ++requestSeq.current;
       setIsLoading(true);
       try {
@@ -85,9 +88,11 @@ export function usePickerOptions<T extends { id: string }>({
     [fetch]
   );
 
-  // Initial load, and a reload whenever the picker's filters (baked into `fetch`) change.
+  // Initial load, and a reload whenever the picker's filters (baked into `fetch`) change — the ONLY
+  // unprompted load: the combobox sends typed changes alone (2026-09-27, it used to repeat '' after
+  // mount and re-send its text on every new `load`, so each mount and filter change fetched twice).
   useEffect(() => {
-    load('');
+    load(lastSearch.current);
   }, [load]);
 
   /** Put a record the list does not hold (a preselected value) in front of it. */

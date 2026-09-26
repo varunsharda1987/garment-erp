@@ -12,6 +12,19 @@ import { QueryClient } from '@tanstack/react-query';
 import { notify } from './notify';
 
 /**
+ * Retry a failed query up to 2 times — but never a 4xx. That is the server refusing this exact request
+ * (bad filter, not found, no permission): asking again gets the same answer and only holds the page's
+ * error back for ~3 s. A network error or a 5xx (an API mid-restart) is worth another try.
+ */
+export function shouldRetryQuery(failureCount: number, error: unknown): boolean {
+  const status = (error as { response?: { status?: unknown } } | null)?.response?.status;
+  if (typeof status === 'number' && status >= 400 && status < 500) return false;
+  // api.ts turns a 401 it could not refresh into this plain Error (auth is cleared by then)
+  if (error instanceof Error && error.message === 'SESSION_EXPIRED') return false;
+  return failureCount < 2;
+}
+
+/**
  * Create and configure the QueryClient
  */
 export function createQueryClient(): QueryClient {
@@ -22,9 +35,8 @@ export function createQueryClient(): QueryClient {
         staleTime: 5 * 60 * 1000,
         // Cache data for 30 minutes
         gcTime: 30 * 60 * 1000,
-        // Retry failed queries 2 times
-        retry: 2,
-        // Don't retry on 4xx errors (client errors)
+        // Retry failed queries 2 times — not on 4xx errors (client errors)
+        retry: shouldRetryQuery,
         retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
         // Refetch on window focus in production
         refetchOnWindowFocus: import.meta.env.PROD,

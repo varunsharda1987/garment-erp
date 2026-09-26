@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@/test/test-utils';
+import { render, screen, fireEvent, act } from '@/test/test-utils';
 import SearchInput from './SearchInput';
 
 describe('SearchInput', () => {
@@ -27,7 +27,7 @@ describe('SearchInput', () => {
     expect(input).toHaveValue('test query');
   });
 
-  it('debounces onChange calls', async () => {
+  it('debounces onChange calls', () => {
     render(<SearchInput value="" onChange={mockOnChange} debounceMs={300} />);
 
     const input = screen.getByRole('textbox');
@@ -41,14 +41,14 @@ describe('SearchInput', () => {
     // onChange should not be called yet
     expect(mockOnChange).not.toHaveBeenCalled();
 
-    // Fast forward time
-    vi.advanceTimersByTime(300);
+    // Fast forward time (waitFor polls on a timer the fake clock never runs)
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
 
     // Now onChange should be called once with the final value
-    await waitFor(() => {
-      expect(mockOnChange).toHaveBeenCalledTimes(1);
-      expect(mockOnChange).toHaveBeenCalledWith('test');
-    });
+    expect(mockOnChange).toHaveBeenCalledTimes(1);
+    expect(mockOnChange).toHaveBeenCalledWith('test');
   });
 
   it('shows clear button when input has value', () => {

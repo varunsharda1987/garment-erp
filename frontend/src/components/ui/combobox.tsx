@@ -57,28 +57,40 @@ export function Combobox({
     }
   }, []);
 
-  // Debounced server-side search
+  // Debounced server-side search — sent only when the typed text differs from the last one sent. The
+  // owner loads its unfiltered list itself, so the old unconditional send of '' after mount fetched
+  // every picker's list twice (2026-09-27), and a new handler identity re-sent the same text.
+  const sentSearch = React.useRef('');
+  const sendSearch = React.useEffectEvent((search: string) => {
+    if (!onSearchChange || search === sentSearch.current) return;
+    sentSearch.current = search;
+    onSearchChange(search);
+  });
   React.useEffect(() => {
-    if (!onSearchChange) return;
-
-    const timer = setTimeout(() => {
-      onSearchChange(searchValue);
-    }, 300);
-
+    if (searchValue === sentSearch.current) return;
+    const timer = setTimeout(() => sendSearch(searchValue), 300);
     return () => clearTimeout(timer);
-  }, [searchValue, onSearchChange]);
+  }, [searchValue]);
 
-  const selectedOption = options.find((option) => option.value === value);
+  // The trigger names the selected value even when a server search has narrowed `options` to rows
+  // without it. Before 2026-09-27: pick supplier "Hardik", reopen, type "VSM", Escape — the trigger read
+  // "All Suppliers" while the list was still filtered to Hardik. So remember the option last seen for it.
+  const listedOption = options.find((option) => option.value === value);
+  const [knownOption, setKnownOption] = React.useState(listedOption);
+  if (listedOption && (listedOption.value !== knownOption?.value || listedOption.label !== knownOption?.label)) {
+    setKnownOption(listedOption);
+  }
+  const selectedOption = listedOption ?? (knownOption?.value === value ? knownOption : undefined);
+
+  const changeOpen = (next: boolean) => {
+    setOpen(next);
+    // A closed list keeps no typed text: reopening starts from the full list (the cleared search is sent)
+    if (!next) setSearchValue('');
+    onOpenChange?.(next);
+  };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        onOpenChange?.(next);
-      }}
-      modal={true}
-    >
+    <Popover open={open} onOpenChange={changeOpen} modal={true}>
       <PopoverTrigger asChild>
         <Button
           ref={buttonRef}
@@ -107,8 +119,10 @@ export function Combobox({
                   key={option.value}
                   value={option.searchText || option.label}
                   onSelect={() => {
-                    onValueChange(option.value === value ? '' : option.value);
-                    setOpen(false);
+                    const next = option.value === value ? '' : option.value;
+                    if (next) setKnownOption(option);
+                    onValueChange(next);
+                    changeOpen(false);
                   }}
                 >
                   <Check className={cn('mr-2 h-4 w-4', value === option.value ? 'opacity-100' : 'opacity-0')} />

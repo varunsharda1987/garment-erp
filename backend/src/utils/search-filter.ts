@@ -20,10 +20,43 @@
  * Every search in this codebase is a sequential scan — Postgres cannot use a B-tree index for
  * `ILIKE '%x%'`, and there are no trigram indexes — so adding fields costs nothing measurable at
  * the sizes here (largest table ~2k rows). Breadth is free; correctness is the point.
+ *
+ * Two more, from the 2026-09-26 Purchase Orders audit:
+ *
+ * 3. **A construction is written four ways.** Greige masters say "68×64", their materials mirror
+ *    "68X64", people type "30x30" or "30*30" — and "30x30" found 0 of the 7 POs for a 30×30
+ *    greige. A word holding a digit-by-digit dimension now matches every spelling (`spellings`).
+ *
+ * 4. **`%` and `_` were wildcards.** Prisma's `contains` sends `ILIKE $1` with `$1 = '%' + term +
+ *    '%'` and escapes nothing (Prisma 6.19, verified in its query log and live: `search=%` returned
+ *    all 13 POs, `PO2609_000` found 7). Every term is now escaped (`escapeLike`) so it matches itself.
  */
 
 /** A Prisma `where` fragment. Deliberately loose: the shapes are nested and vary by model. */
 type WhereFragment = Record<string, unknown>;
+
+/** The spellings of the "by" in a construction or count: 30x30, 30X30, 30×30, 30*30. */
+const DIMENSION_SEPARATORS = ['x', 'X', '×', '*'] as const;
+/** A separator between two digits. The second digit is a lookahead, so "30x30x2" swaps both. */
+const DIMENSION_SEPARATOR = /(\d)[xX×*](?=\d)/g;
+const HAS_DIMENSION = /\d[xX×*]\d/;
+
+/**
+ * Every spelling of one search word: the word itself, or — when it holds a digit-by-digit
+ * dimension — one per separator, each swapping every separator in the word.
+ */
+function spellings(term: string): string[] {
+  if (!HAS_DIMENSION.test(term)) return [term];
+  return DIMENSION_SEPARATORS.map((separator) => term.replace(DIMENSION_SEPARATOR, `$1${separator}`));
+}
+
+/**
+ * A term that matches itself under LIKE / ILIKE: `\` is Postgres's default LIKE escape, `%` and
+ * `_` its wildcards. Prisma's `contains` passes all three through untouched.
+ */
+function escapeLike(term: string): string {
+  return term.replace(/[\\%_]/g, '\\$&');
+}
 
 /** Wrap `matcher` in the nesting described by a dotted field path. */
 function nestByPath(path: string, matcher: WhereFragment): WhereFragment {
@@ -41,7 +74,8 @@ function nestByPath(path: string, matcher: WhereFragment): WhereFragment {
 
 /**
  * A `where` fragment matching every word of `search` somewhere in `fields`, or undefined when
- * there is nothing to search for.
+ * there is nothing to search for. A word with several spellings (a dimension) matches when ANY
+ * spelling is found in ANY field; the words are still ANDed.
  */
 export function buildSearchWhere(
   search: string | null | undefined,
@@ -52,7 +86,9 @@ export function buildSearchWhere(
 
   return {
     AND: terms.map((term) => ({
-      OR: fields.map((field) => nestByPath(field, { contains: term, mode: 'insensitive' })),
+      OR: spellings(term).flatMap((spelling) =>
+        fields.map((field) => nestByPath(field, { contains: escapeLike(spelling), mode: 'insensitive' }))
+      ),
     })),
   };
 }

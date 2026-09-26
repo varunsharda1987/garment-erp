@@ -12,6 +12,7 @@ import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { companyProfileService } from './company-profile.service';
+import { JWO_RECEIVED_STATUSES } from './helpers/jwo-status.helper';
 import {
   daysSince,
   section143ClockStart,
@@ -175,9 +176,12 @@ class JobWorkStatutoryService {
       where: {
         sentDate: { not: null },
         isActive: true,
-        // Cancelled orders had their stock credited back and their challan cancelled —
-        // they must not age toward the 365-day breach.
-        jwoStatus: { not: 'CANCELLED' },
+        // Cancelled orders had their stock credited back and their challan cancelled — they must not
+        // age toward the 365-day breach. Nor must a settled order (received in full, or closed short):
+        // the gap between what was sent and what came back is processing loss, split and settled on
+        // the job, not inputs still lying with the processor. Until 2026-09-26 a finished dyeing job
+        // stayed "outstanding" for ever on its normal shrinkage (DJ-ESSKY085LS-002: 129.25 m).
+        jwoStatus: { notIn: ['CANCELLED', 'CLOSED', ...JWO_RECEIVED_STATUSES] },
         // Not fully received: either no receivedDate or qty mismatch
         OR: [
           { receivedDate: null },

@@ -469,7 +469,7 @@
   },
   "greige-create": {
     "sources": {
-      "frontend/src/pages/GreigeAvailableStock.tsx": "28e98c344e49",
+      "frontend/src/pages/GreigeAvailableStock.tsx": "63dfc49e8de4",
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GreigeForm.tsx": "a2356090e66e",
@@ -481,7 +481,7 @@
       "backend/src/services/greige.service.ts": "fee39ab218f7"
     },
     "contentHash": "387e4a638829",
-    "generatedAt": "2026-09-26T09:55:02.320Z"
+    "generatedAt": "2026-09-26T10:27:49.000Z"
   },
   "greige-receive-without-po": {
     "sources": {
@@ -510,10 +510,10 @@
       "frontend/src/pages/GreigeStockEntry.tsx": "9c6f3f112ef2",
       "frontend/src/pages/StockInForm.tsx": "0336128415da",
       "frontend/src/pages/StockMovementList.tsx": "494ff50f1e07",
-      "backend/src/schemas/stockMovement.schema.ts": "1228422153ae"
+      "backend/src/schemas/stockMovement.schema.ts": "c25341352d67"
     },
     "contentHash": "f9cc9bd422b7",
-    "generatedAt": "2026-09-26T09:55:02.466Z"
+    "generatedAt": "2026-09-26T10:27:49.137Z"
   },
   "grn-approve": {
     "sources": {
@@ -611,14 +611,14 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkDashboard.tsx": "ad52b5890a7c",
       "frontend/src/pages/JobWorkOrderList.tsx": "24f6d25002a0",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "e44bcd1d3b87",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "97453fc95e1a",
       "frontend/src/pages/StockMovementDashboard.tsx": "aff8e8faa05c",
       "frontend/src/lib/section143.ts": "1a9c5178d0ce",
-      "backend/src/services/job-work-statutory.service.ts": "9b2d6d341613",
+      "backend/src/services/job-work-statutory.service.ts": "4611960694ff",
       "backend/templates/kf/report-job-work-ageing.hbs": "bedf9dc646b4"
     },
     "contentHash": "bf42078406a8",
-    "generatedAt": "2026-09-26T09:55:02.478Z"
+    "generatedAt": "2026-09-26T10:27:49.153Z"
   },
   "job-work-order-create": {
     "sources": {
@@ -627,7 +627,7 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkOrderList.tsx": "24f6d25002a0",
       "frontend/src/components/JobWorkOrderCreateDialog.tsx": "afdd83c7b4c8",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "e44bcd1d3b87",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "97453fc95e1a",
       "frontend/src/components/job-work/GreigeLotRows.tsx": "bca6cfe38c76",
       "frontend/src/components/job-work/ThanPicker.tsx": "e75b65ca9851",
       "frontend/src/components/job-work/lot-rows.ts": "26dec46b2028",
@@ -635,12 +635,12 @@
       "frontend/src/components/GreigeCombobox.tsx": "40717b7be9d3",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
       "backend/src/schemas/jobWorkOrder.schema.ts": "62b84c3a0193",
-      "backend/src/controllers/job-work-order.controller.ts": "cee39f64a4ca",
+      "backend/src/controllers/job-work-order.controller.ts": "b9ad40be48d7",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "bcd6074969da"
+      "backend/src/services/job-work-issuance.service.ts": "0a77071841fe"
     },
-    "contentHash": "065c1ddc3d45",
-    "generatedAt": "2026-09-26T09:55:02.488Z"
+    "contentHash": "d0087dadd924",
+    "generatedAt": "2026-09-26T10:27:49.161Z"
   },
   "job-work-receive": {
     "sources": {
@@ -650,7 +650,7 @@
       "frontend/src/pages/ProcessingList.tsx": "1ff6c7e95056",
       "frontend/src/pages/DyeingList.tsx": "2bbde6b22d76",
       "frontend/src/pages/PrintingList.tsx": "36643ecc9d08",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "e44bcd1d3b87",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "97453fc95e1a",
       "frontend/src/pages/JobWorkOrderList.tsx": "24f6d25002a0",
       "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "0fc339db89dd",
       "frontend/src/components/job-work/ReturnFromProcessorDialog.tsx": "562ae8e9f4cf",
@@ -663,13 +663,13 @@
       "backend/src/schemas/jobWorkOrder.schema.ts": "62b84c3a0193",
       "backend/src/schemas/grn.schema.ts": "de0aa8c7bee1",
       "backend/src/routes/grn.routes.ts": "ffecf209c4c8",
-      "backend/src/controllers/job-work-order.controller.ts": "cee39f64a4ca",
+      "backend/src/controllers/job-work-order.controller.ts": "b9ad40be48d7",
       "backend/src/services/grn.service.ts": "1b94c01bdae5",
       "backend/src/services/helpers/jwo-arriving-material.helper.ts": "622bf8d344ab",
       "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c"
     },
     "contentHash": "6c01d13c239d",
-    "generatedAt": "2026-09-26T09:55:02.502Z"
+    "generatedAt": "2026-09-26T10:27:49.180Z"
   },
   "lab-dip-approve": {
     "sources": {
@@ -988,10 +988,10 @@
       "frontend/src/components/SupplierCombobox.tsx": "7113afec968b",
       "backend/src/routes/job-work-statutory.routes.ts": "b7b8d7cd4f4b",
       "backend/src/controllers/job-work-statutory.controller.ts": "a255ab32d849",
-      "backend/src/services/processor-statement.service.ts": "f328429a01ea"
+      "backend/src/services/processor-statement.service.ts": "6876409fe180"
     },
-    "contentHash": "1506d28678b8",
-    "generatedAt": "2026-09-26T09:55:02.511Z"
+    "contentHash": "fd643ee3ccf2",
+    "generatedAt": "2026-09-26T10:27:49.185Z"
   },
   "product-category-create": {
     "sources": {
@@ -1214,10 +1214,10 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/StockInForm.tsx": "0336128415da",
       "frontend/src/pages/StockMovementList.tsx": "494ff50f1e07",
-      "backend/src/services/helpers/held-stock-doors.helper.ts": "d3064556eded"
+      "backend/src/services/helpers/held-stock-doors.helper.ts": "a885c3e8b8d3"
     },
-    "contentHash": "ac46dddcded4",
-    "generatedAt": "2026-09-26T09:55:02.518Z"
+    "contentHash": "42796624941d",
+    "generatedAt": "2026-09-26T10:27:49.189Z"
   },
   "stock-levels-view": {
     "sources": {
@@ -1517,5 +1517,20 @@
     },
     "contentHash": "cfaeda9e94b2",
     "generatedAt": "2026-09-26T08:33:45.984Z"
+  },
+  "held-stock-move": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "e20d92cdd59b",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/App.tsx": "0a8b3e8b7696",
+      "frontend/src/pages/GreigeAvailableStock.tsx": "63dfc49e8de4",
+      "frontend/src/pages/StockInForm.tsx": "0336128415da",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "97453fc95e1a",
+      "frontend/src/components/job-work/MoveHeldStockDialog.tsx": "c87e39dee0d9",
+      "backend/src/services/helpers/held-stock-doors.helper.ts": "a885c3e8b8d3",
+      "backend/src/schemas/stockMovement.schema.ts": "c25341352d67"
+    },
+    "contentHash": "3e949d974b09",
+    "generatedAt": "2026-09-26T10:27:49.142Z"
   }
 }

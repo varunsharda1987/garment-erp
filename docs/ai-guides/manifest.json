@@ -164,7 +164,7 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/CostSheetList.tsx": "6798f26a5473",
-      "frontend/src/pages/CostSheetForm.tsx": "21b712edf2cf",
+      "frontend/src/pages/CostSheetForm.tsx": "ebeb32d4dc9f",
       "frontend/src/pages/CostSheetDetail.tsx": "8191a2c56646",
       "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "55edbaaaaba1",
@@ -173,10 +173,11 @@
       "backend/src/controllers/style-costing.utils.ts": "3726b391f930",
       "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
       "backend/src/controllers/lace.controller.ts": "6791c77f2d53",
-      "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234"
+      "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234",
+      "backend/src/services/helpers/material-unit.helper.ts": "e6b9a665919d"
     },
-    "contentHash": "c4f76db974ec",
-    "generatedAt": "2026-09-25T12:50:52.566Z"
+    "contentHash": "3e7b7e1aaf9b",
+    "generatedAt": "2026-09-26T06:02:04.354Z"
   },
   "credit-note-create": {
     "sources": {
@@ -1244,27 +1245,29 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/StyleList.tsx": "1402eb868a40",
-      "frontend/src/pages/StyleFormRedesigned.tsx": "5e31c04dfc85",
+      "frontend/src/pages/StyleFormRedesigned.tsx": "8ce1f826a7b0",
       "frontend/src/components/GenericGreigeSelector.tsx": "a84639c3f0af",
       "frontend/src/constants/fabric-finish-types.ts": "d6a0b04ab71c",
-      "backend/src/schemas/style.schema.ts": "84681afce917",
+      "backend/src/schemas/style.schema.ts": "b635d03cea67",
       "backend/src/routes/style.routes.ts": "986623411bc3",
-      "backend/src/services/style.service.ts": "d7072b981a89",
-      "backend/src/services/helpers/default-thread.helper.ts": "36c3ef3e76f8"
+      "backend/src/services/style.service.ts": "39fda3beab5a",
+      "backend/src/services/helpers/default-thread.helper.ts": "36c3ef3e76f8",
+      "backend/src/services/helpers/material-unit.helper.ts": "e6b9a665919d"
     },
-    "contentHash": "80d2870b457a",
-    "generatedAt": "2026-09-25T06:56:55.505Z"
+    "contentHash": "467cd3e8eedc",
+    "generatedAt": "2026-09-26T06:02:04.522Z"
   },
   "style-edit": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/StyleFormRedesigned.tsx": "5e31c04dfc85",
+      "frontend/src/pages/StyleFormRedesigned.tsx": "8ce1f826a7b0",
       "frontend/src/pages/StyleList.tsx": "1402eb868a40",
-      "backend/src/schemas/style.schema.ts": "84681afce917",
-      "backend/src/services/style.service.ts": "d7072b981a89"
+      "backend/src/schemas/style.schema.ts": "b635d03cea67",
+      "backend/src/services/style.service.ts": "39fda3beab5a",
+      "backend/src/services/helpers/material-unit.helper.ts": "e6b9a665919d"
     },
-    "contentHash": "5b646445896d",
-    "generatedAt": "2026-09-25T06:56:55.661Z"
+    "contentHash": "b60070467874",
+    "generatedAt": "2026-09-26T06:02:04.533Z"
   },
   "style-import": {
     "sources": {

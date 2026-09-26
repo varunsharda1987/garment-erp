@@ -53,7 +53,7 @@ route: /materials/drawstring/new
 2. Click **Add Trim** at the top right. Under the **Threads & Tapes** section, click **New Drawstring**.
    (Alternative: expand the **Threads & Tapes** category on the dashboard, click the **Drawstring** card, then click **Add New Drawstring** on the list page.)
 3. The form opens with heading **Add New Drawstring**.
-4. **Drawstring Name** is optional. Leave it empty to auto-generate the name from attributes (e.g., "Red Cotton 5mm Drawstring"). Fill it only if you want to override.
+4. **Drawstring Name** is optional. Leave it empty to auto-generate the name from attributes (e.g., "Red Cotton 5mm Drawstring"). Fill it only if you want to override. Below it, **Counted in: Meter** shows how a drawstring is counted on every BOM, cost sheet and requirement — it is not something you choose.
 5. Fill the fields you know:
    - **Width/Diameter** — select from 3mm, 5mm, 8mm, or 10mm
    - **Material** — select from Cotton, Polyester, Nylon, Leather, or Waxed
@@ -75,3 +75,5 @@ route: /materials/drawstring/new
 - **Supplier not showing** — the supplier must exist first and be marked active. If missing, create the supplier before the drawstring.
 - **Name auto-generate** — if all attribute fields are empty and no name is typed, the name defaults to "Drawstring" plus the code. Fill at least one attribute for a meaningful auto-name.
 - **Price is optional** — leaving it empty is allowed; the drawstring saves without a price.
+- **Dori with a tassel is two items** — the dori is a drawstring (metres); the tassel is created separately under **Other Decorative** (pieces). Add both to the style's trims.
+- **Unit locked once used** — a drawstring already on a BOM, cost sheet, PO or stock cannot change its unit on the Materials page; create a separate item instead.

@@ -39,6 +39,8 @@ async function buildData(
       return { data: await lazyAdapter('tax-invoice.doc-data', 'buildTaxInvoiceDocData')(id) };
     case 'purchase-order':
       return { data: await lazyAdapter('purchase-order.doc-data', 'buildPurchaseOrderDocData')(id) };
+    case 'po-delivery-instruction':
+      return { data: await lazyAdapter('po-delivery-instruction.doc-data', 'buildPoDeliveryInstructionDocData')(id) };
     case 'report-job-work-ageing':
       return { data: await lazyAdapter('reports.doc-data', 'buildAgeingReportData')() };
     case 'report-itc-04':

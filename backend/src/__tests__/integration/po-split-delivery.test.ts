@@ -13,6 +13,12 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
+import { buildPurchaseOrderDocData } from '../../services/document-data/purchase-order.doc-data';
+import { buildPoDeliveryInstructionDocData } from '../../services/document-data/po-delivery-instruction.doc-data';
+import { documentFacadeService } from '../../services/document-facade.service';
+import { companyProfileService } from '../../services/company-profile.service';
+import { writeFileSync } from 'fs';
+import { join } from 'path';
 
 const RUN = `PSD${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -350,6 +356,34 @@ describe('a PO split between a dyer and our store', () => {
     });
     expect(revisions[0].before.points).toHaveLength(2);
     expect(revisions[0].after.points).toHaveLength(3);
+  });
+
+  it('prints every place with its quantities, the job-work note, and the amendment', async () => {
+    await companyProfileService.getDefault();
+    const doc = await buildPurchaseOrderDocData(poId);
+    expect(doc.isSplit).toBe(true);
+    expect(doc.deliverTo).toBe('Split across 3 places — see 03 Delivery Points');
+    expect(doc.termsSectionNo).toBe('04');
+    expect(doc.amendmentLine).toMatch(/^Amendment 1 · .* — supersedes earlier copies$/);
+    expect(doc.shipTos.map((t) => [t.seq, t.isProcessor, t.lines[0].qty])).toEqual([
+      [1, true, '3,000.00'],
+      [2, false, '5,000.00'],
+      [3, false, '2,000.00'],
+    ]);
+    const instruction = await buildPoDeliveryInstructionDocData(poId);
+    expect(instruction.docNo).toMatch(/-DI-A1$/);
+    expect(instruction.shipTos).toHaveLength(3);
+    // KF_PREVIEW_DIR=<folder> writes both PDFs for a look
+    if (process.env.KF_PREVIEW_DIR) {
+      writeFileSync(
+        join(process.env.KF_PREVIEW_DIR, 'po-split.pdf'),
+        await documentFacadeService.generatePurchaseOrderPDF(poId)
+      );
+      writeFileSync(
+        join(process.env.KF_PREVIEW_DIR, 'po-delivery-instruction.pdf'),
+        await documentFacadeService.generatePoDeliveryInstructionPDF(poId)
+      );
+    }
   });
 
   it("books the dyer's delivery as held there without asking — the plan says it goes there", async () => {

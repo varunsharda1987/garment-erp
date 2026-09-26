@@ -726,6 +726,30 @@ class DocumentController {
   }
 
   /**
+   * Delivery Instruction PDF — where the supplier delivers a PO (Phase 3 split delivery)
+   * GET /api/documents/purchase-orders/:id/delivery-instruction/pdf
+   */
+  async generatePoDeliveryInstructionPDF(req: Request, res: Response) {
+    const { id } = req.params;
+
+    try {
+      const pdfBuffer = await documentFacadeService.generatePoDeliveryInstructionPDF(id);
+      const po = await prisma.purchase_orders.findUnique({ where: { id }, select: { poNumber: true } });
+      const filename = `DeliveryInstruction_${po?.poNumber || id}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof RendererUnavailableError) {
+        res.status(503).json({ success: false, message: error.message });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Generate Cost Sheet PDF
    * GET /api/documents/cost-sheets/:id/pdf
    */

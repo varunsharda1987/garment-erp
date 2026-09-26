@@ -15,6 +15,7 @@ import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty, gstinState, inrWords } from './format';
 import { unitHeader } from '../../utils/units';
 import { resolvePoDeliverTo } from './po-deliver-to';
+import { JOB_WORK_SHIP_TO_NOTE, loadPoShipToPlan, ONE_INVOICE_PER_DELIVERY, PoShipTo } from './po-ship-to';
 
 const poDocInclude = {
   suppliers: {
@@ -80,6 +81,16 @@ export interface PurchaseOrderDocData {
   sgstTotal: string;
   grandTotal: string;
   amountWords: string;
+  // 03 — delivery points (split delivery, or a processor's unit): bill to us, ship to each place
+  showDeliveryPoints: boolean;
+  isSplit: boolean;
+  shipTos: PoShipTo[];
+  jobWorkNote: string;
+  oneInvoiceNote: string;
+  termsSectionNo: string; // "03", or "04" when the delivery points take 03
+  deliveryTerm: string; // term 2
+  /** "Amendment 2 · 26-Sep-2026 — supersedes earlier copies", or null for the original. */
+  amendmentLine: string | null;
 }
 
 function itemName(item: PoItem): string {
@@ -114,9 +125,15 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
       : null;
 
   // Deliver To — the place, "to be advised" when none is set, our Company Profile address for an
-  // own store that has none of its own (po-deliver-to.ts).
+  // own store that has none of its own (po-deliver-to.ts). A split lists every place in 03.
   const deliver = resolvePoDeliverTo(po.deliveryWarehouse, company.addressLine);
-  const deliverTo = deliver.oneLine;
+  const plan = await loadPoShipToPlan(poId, { addressLine: company.addressLine, gstin: company.gstin ?? null });
+  const isSplit = plan.mode === 'SPLIT';
+  const showDeliveryPoints = isSplit || plan.shipTos.some((t) => t.isProcessor);
+  const deliverTo = isSplit ? `Split across ${plan.shipTos.length} places — see 03 Delivery Points` : deliver.oneLine;
+  const deliveryTerm = isSplit
+    ? 'Delivery to each place in 03 in the quantities shown, during working hours, each against its own tax invoice and e-way bill.'
+    : `Delivery to ${deliver.placeName} during working hours, against a valid tax invoice and e-way bill.`;
 
   const paymentTerms = po.paymentTerms ?? s.paymentTerms ?? null;
 
@@ -182,5 +199,14 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
     sgstTotal: fmtMoney(roundToCent(sgstSum).toNumber()),
     grandTotal: fmtMoney(grandNum),
     amountWords: inrWords(grandNum),
+    showDeliveryPoints,
+    isSplit,
+    shipTos: plan.shipTos,
+    jobWorkNote: JOB_WORK_SHIP_TO_NOTE,
+    oneInvoiceNote: ONE_INVOICE_PER_DELIVERY,
+    termsSectionNo: showDeliveryPoints ? '04' : '03',
+    deliveryTerm,
+    amendmentLine:
+      plan.amendmentNo > 0 ? `Amendment ${plan.amendmentNo} · ${plan.amendmentDate} — supersedes earlier copies` : null,
   };
 }

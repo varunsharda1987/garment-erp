@@ -2763,6 +2763,11 @@ From ${c?.name ?? COMPANY_CONFIG.name}
             materials: true,
           },
         },
+        // Split delivery (Phase 3): every place with its share of each line
+        deliveryPoints: {
+          orderBy: { sequence: 'asc' },
+          include: { warehouse: true, lines: true },
+        },
       },
     });
   }
@@ -2907,7 +2912,20 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       y += 14;
 
       doc.fontSize(9).font('Helvetica');
-      for (const line of deliver.toBeAdvised ? [deliver.oneLine] : [deliver.name ?? '', ...deliver.addressLines]) {
+      // A split PO lists each place with its quantities; the HTML print's 03 Delivery Points has addresses
+      const lines =
+        po.deliveryPoints.length > 0
+          ? po.deliveryPoints.map((p) => {
+              const qtys = p.lines.map((l) => {
+                const item = po.purchase_order_items.find((i) => i.id === l.poItemId);
+                return `${Number(l.quantity)} ${item ? unitHeader(item.unit) : ''} ${item?.materials?.code ?? ''}`.trim();
+              });
+              return `${p.sequence}. ${p.warehouse.warehouseName} — ${qtys.join(', ')}`;
+            })
+          : deliver.toBeAdvised
+            ? [deliver.oneLine]
+            : [deliver.name ?? '', ...deliver.addressLines];
+      for (const line of lines) {
         doc.text(line, marginLeft, y, { width: pageWidth - 60 });
         y += 12;
       }

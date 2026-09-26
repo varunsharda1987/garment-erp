@@ -308,6 +308,17 @@ router.get(
 );
 
 /**
+ * @route   GET /api/documents/purchase-orders/:id/delivery-instruction/pdf
+ * @desc    One-page Delivery Instruction: where the supplier delivers this PO (split delivery)
+ * @access  Private
+ */
+router.get(
+  '/purchase-orders/:id/delivery-instruction/pdf',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generatePoDeliveryInstructionPDF.bind(documentController))
+);
+
+/**
  * @route   GET /api/documents/grns/:id/pdf
  * @desc    Generate Goods Receipt Note PDF (kf design system)
  * @access  Private

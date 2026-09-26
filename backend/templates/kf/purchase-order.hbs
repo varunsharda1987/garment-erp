@@ -5,11 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Purchase Order — {{docNo}}</title>
 <link rel="stylesheet" href="assets/base.css">
+<style>
+  /* 03 Delivery Points: one block per ship-to — place, address, GSTIN, its quantities */
+  .amend{margin:0 0 8px; padding:5px 8px; border:1px solid #b45309; color:#b45309; font-weight:600; font-size:10.5px;}
+  .ship td{vertical-align:top;}
+  .ship .place b{display:block;}
+  .ship .qtys{margin:0; padding:0; list-style:none;}
+  .ship .note{display:block; margin-top:3px; font-style:italic;}
+</style>
 </head>
 <body>
 <div class="sheet">
 
   {{> mast company=company docTitle="Purchase Order" docNo=docNo docPill=docPill}}
+
+  {{#if amendmentLine}}<div class="amend">{{amendmentLine}}</div>{{/if}}
 
   <div class="sec">
     <div class="sec-h"><span>01 &mdash; Supplier &amp; Delivery</span><b>{{taxRegimeLabel}}</b></div>
@@ -71,11 +81,38 @@
     </div>
   </div>
 
+  {{#if showDeliveryPoints}}
   <div class="sec">
-    <div class="sec-h"><span>03 &mdash; Terms</span><b>Standard</b></div>
+    <div class="sec-h"><span>03 &mdash; Delivery Points</span><b>{{#if isSplit}}Split delivery{{else}}Ship to{{/if}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Bill to</span><span class="v">{{company.name}} &middot; GSTIN {{company.gstin}}<br><span class="muted">{{company.addressLine}}</span></span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Invoicing</span><span class="v">{{oneInvoiceNote}}</span></div>
+      </div>
+    </div>
+    <table class="ship">
+      <thead><tr><th style="width:28px">#</th><th>Ship to</th><th style="width:110px">GSTIN</th><th style="width:210px">Quantity</th></tr></thead>
+      <tbody>
+        {{#each shipTos}}
+        <tr>
+          <td class="num">{{this.seq}}</td>
+          <td class="place"><b>{{this.name}}</b>{{#if this.address}}<span class="muted">{{this.address}}</span>{{else}}<span class="muted">Address to follow</span>{{/if}}{{#if this.isProcessor}}<span class="muted note">{{../jobWorkNote}}</span>{{/if}}</td>
+          <td>{{dash this.gstin}}</td>
+          <td><ul class="qtys">{{#each this.lines}}<li>{{this.qty}} {{this.uom}} &middot; {{this.name}}{{#if this.code}} <span class="muted">{{this.code}}</span>{{/if}}</li>{{/each}}</ul></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+  {{/if}}
+
+  <div class="sec">
+    <div class="sec-h"><span>{{termsSectionNo}} &mdash; Terms</span><b>Standard</b></div>
     <ol class="terms">
       <li>Goods to be supplied strictly to approved sample and specification. Quantity variance beyond &plusmn;2% requires prior written approval.</li>
-      <li>Delivery to {{deliveryPlaceName}} during working hours, against a valid tax invoice and e-way bill.</li>
+      <li>{{deliveryTerm}}</li>
       <li>Rejected material will be returned at supplier&rsquo;s cost and debited in full.</li>
       <li>Payment {{paymentClause}} and correct invoice. Invoice must quote this PO number or it will be returned.</li>
       <li>Supplier&rsquo;s GSTIN must be active and returns current; input credit disallowed for supplier default is recoverable.</li>

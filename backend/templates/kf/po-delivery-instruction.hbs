@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery Instruction — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  .ship td{vertical-align:top;}
+  .ship .place b{display:block;}
+  .ship .qtys{margin:0; padding:0; list-style:none;}
+  .ship .note{display:block; margin-top:3px; font-style:italic;}
+  .rev{margin:0 0 8px; padding:5px 8px; border:1px solid #b45309; color:#b45309; font-weight:600; font-size:10.5px;}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Delivery Instruction" docNo=docNo docPill=docPill}}
+
+  <div class="rev">{{revisionLine}}</div>
+
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Order</span><b>{{placesLabel}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">To</span><span class="v">{{supplierName}}</span></div>
+        <div class="row"><span class="k">Our PO</span><span class="v">{{poNumber}} &middot; <span class="muted">{{poDate}}</span></span></div>
+        <div class="row"><span class="k">Required By</span><span class="v">{{requiredBy}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Bill to</span><span class="v">{{company.name}}<br><span class="muted">GSTIN {{company.gstin}} &middot; {{company.addressLine}}</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Deliver To</span><b>Ship to</b></div>
+    {{#if toBeAdvised}}
+    <div class="callout"><b>Not decided yet</b>{{toBeAdvisedLine}}.</div>
+    {{else}}
+    <table class="ship">
+      <thead><tr><th style="width:28px">#</th><th>Ship to</th><th style="width:110px">GSTIN</th><th style="width:210px">Quantity</th></tr></thead>
+      <tbody>
+        {{#each shipTos}}
+        <tr>
+          <td class="num">{{this.seq}}</td>
+          <td class="place"><b>{{this.name}}</b>{{#if this.address}}<span class="muted">{{this.address}}</span>{{else}}<span class="muted">Address to follow</span>{{/if}}{{#if this.isProcessor}}<span class="muted note">{{../jobWorkNote}}</span>{{/if}}</td>
+          <td>{{dash this.gstin}}</td>
+          <td><ul class="qtys">{{#each this.lines}}<li>{{this.qty}} {{this.uom}} &middot; {{this.name}}{{#if this.code}} <span class="muted">{{this.code}}</span>{{/if}}</li>{{/each}}</ul></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{/if}}
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Please Note</span><b>Standard</b></div>
+    <ol class="terms">
+      <li>{{oneInvoiceNote}}</li>
+      <li>Quote our PO number {{poNumber}} on every invoice, e-way bill and delivery challan.</li>
+      <li>Everything else in the purchase order is unchanged; this instruction replaces only where it is delivered.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Prepared by / Purchase</div>
+    <div>Approved &mdash; Authorised Signatory</div>
+    <div>Supplier &mdash; Instruction received</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; Page 1 of 1</span>
+    <span>Copy: Supplier &middot; Purchase &middot; Store</span>
+  </div>
+</div>
+</body>
+</html>

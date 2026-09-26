@@ -20,6 +20,7 @@ export type KfTemplateName =
   | 'challan'
   | 'grn'
   | 'purchase-order'
+  | 'po-delivery-instruction'
   | 'tax-invoice'
   | 'report-job-work-ageing'
   | 'report-itc-04'

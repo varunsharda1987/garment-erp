@@ -35,6 +35,7 @@ import { buildLineSheetDocData } from './document-data/line-sheet.doc-data';
 import { buildCatalogueDocData } from './document-data/catalogue.doc-data';
 import { buildCostSheetDocData } from './document-data/cost-sheet.doc-data';
 import { buildBuyerTrfDocData } from './document-data/buyer-trf.doc-data';
+import { buildPoDeliveryInstructionDocData } from './document-data/po-delivery-instruction.doc-data';
 import logger from '../utils/logger';
 import { AppError } from '../errors';
 
@@ -125,6 +126,12 @@ export const documentFacadeService = {
     const copies =
       variant === 'processor' ? [processorCopy] : variant === 'office' ? [officeCopy] : [processorCopy, officeCopy];
     return renderDocument('job-work-order', data as unknown as Record<string, unknown>, { copies });
+  },
+
+  /** Net-new (Phase 3 split delivery) — where a PO delivers, on one page for the supplier. */
+  async generatePoDeliveryInstructionPDF(poId: string): Promise<Buffer> {
+    const data = await buildPoDeliveryInstructionDocData(poId);
+    return renderDocument('po-delivery-instruction', data as unknown as Record<string, unknown>);
   },
 
   /** Net-new — no legacy generator exists. */

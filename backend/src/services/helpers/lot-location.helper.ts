@@ -195,6 +195,34 @@ export function notInProcessorUnitWhere() {
   };
 }
 
+/**
+ * The challan that COVERS goods we own lying at a processor — the Rule 45 document they are there under:
+ * a direct-supply challan (a supplier delivered them straight there, Phase 2), or a challan from one
+ * processor to another (moved there, Phase 4c: OUTWARD, from VENDOR to VENDOR). Greige lots also carry it
+ * as `sourceChallanId`; lace and fabric lots are found through its lines. One definition for every reader.
+ */
+export function coveringChallanWhere() {
+  return {
+    status: { not: 'CANCELLED' as const },
+    OR: [
+      { directSupplyGrnId: { not: null } },
+      { challanType: 'OUTWARD' as const, fromType: 'VENDOR', toType: 'VENDOR' },
+    ],
+  };
+}
+
+/** Is this challan a covering one (see coveringChallanWhere)? */
+export function isCoveringChallan(c: {
+  directSupplyGrnId?: string | null;
+  challanType?: string | null;
+  fromType?: string | null;
+  toType?: string | null;
+}): boolean {
+  return (
+    c.directSupplyGrnId != null || (c.challanType === 'OUTWARD' && c.fromType === 'VENDOR' && c.toType === 'VENDOR')
+  );
+}
+
 /** What a planning reader (MRP) selects on a lace lot, so `laceCountsForPlanning` can place it. */
 export const PLANNING_LACE_LOT_SELECT = {
   id: true,

@@ -28,6 +28,7 @@ import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-w
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
 import {
+  coveringChallanWhere,
   challanOrigin,
   LOT_WAREHOUSE_SELECT,
   lotCountsOnHand,
@@ -360,11 +361,12 @@ export async function validateIssue(
           code: ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR,
           message:
             `Lace lot ${laceCode} is at ${location.holderName ?? 'another processor'}, but ${jwo.jobWorkNumber} is for ` +
-            `${jwo.processor?.name ?? 'a different processor'}. Pick lace in our store or already at ${jwo.processor?.name ?? 'this processor'}.`,
+            `${jwo.processor?.name ?? 'a different processor'}. Move it to ${jwo.processor?.name ?? 'this processor'} first ` +
+            `(Move to another processor), or pick lace in our store or already there.`,
         });
       } else if (location.category === 'AT_THIS_PROCESSOR') {
         const covering = await prisma.challan_items.findFirst({
-          where: { laceStockId: row.id, challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } } },
+          where: { laceStockId: row.id, challan: coveringChallanWhere() },
           select: { challan: { select: { challanNumber: true } } },
         });
         coveringChallanNumber = covering?.challan.challanNumber ?? null;
@@ -480,7 +482,8 @@ export async function validateIssue(
             `Lot ${lotCode} is at ${location.holderName ?? 'another processor'}` +
             `${row.receivedDate ? ` (since ${formatDate(row.receivedDate)})` : ''}, but ${jwo.jobWorkNumber} is for ` +
             `${jwo.processor?.name ?? 'a different processor'}. Cloth at one processor cannot go on another processor's job — ` +
-            `pick a lot in our store or one already at ${jwo.processor?.name ?? 'this processor'}.`,
+            `move it to ${jwo.processor?.name ?? 'this processor'} first (Move to another processor, with a challan), or pick a ` +
+            `lot in our store or one already there.`,
         });
       }
       const heldHere = location.category === 'AT_THIS_PROCESSOR' && !location.legacyUnitLot;
@@ -602,7 +605,7 @@ export async function validateIssue(
     let coveringChallanNumber: string | null = null;
     if (row && fabricLocation?.category === 'AT_THIS_PROCESSOR') {
       const covering = await prisma.challan_items.findFirst({
-        where: { fabricStockId: row.id, challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } } },
+        where: { fabricStockId: row.id, challan: coveringChallanWhere() },
         select: { challan: { select: { challanNumber: true } } },
       });
       coveringChallanNumber = covering?.challan.challanNumber ?? null;
@@ -613,7 +616,9 @@ export async function validateIssue(
     } else if (fabricLocation?.category === 'AT_OTHER_PROCESSOR') {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR,
-        message: `This fabric lot is at ${fabricLocation.holderName ?? 'another processor'}, not at ${jwo.processor?.name ?? 'this processor'}.`,
+        message:
+          `This fabric lot is at ${fabricLocation.holderName ?? 'another processor'}, not at ${jwo.processor?.name ?? 'this processor'} — ` +
+          `move it there first (Move to another processor).`,
       });
     } else if (fabricLocation?.category === 'AT_THIS_PROCESSOR' && !coveringChallanNumber) {
       blockers.push({

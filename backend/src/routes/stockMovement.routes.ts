@@ -18,6 +18,7 @@ import {
   warehouseIdParamSchema,
   materialWarehouseParamSchema,
   processorHeldParamSchema,
+  moveHeldStockSchema,
 } from '../schemas/stockMovement.schema';
 
 const router = express.Router();
@@ -75,6 +76,7 @@ router.post(
   validateBody(createStockAdjustmentSchema),
   asyncHandler(stockMovementController.createStockAdjustment)
 );
+router.post('/processor-move', validateBody(moveHeldStockSchema), asyncHandler(stockMovementController.moveHeldStock));
 router.post(
   '/processor-return',
   validateBody(createProcessorReturnSchema),

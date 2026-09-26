@@ -26,7 +26,9 @@ import {
   AlertTriangle,
   Layers,
   Warehouse,
+  ArrowRightLeft,
 } from 'lucide-react';
+import MoveHeldStockDialog, { type MoveLot } from '@/components/job-work/MoveHeldStockDialog';
 import { logError } from '../lib/logger';
 import { toast } from 'sonner';
 import { getSystemSettingByKey } from '../services/system-settings.service';
@@ -84,6 +86,8 @@ export default function GreigeAvailableStock() {
 
   // Adjust dialog
   const [adjustingEntry, setAdjustingEntry] = useState<GreigeStockDetail | null>(null);
+  // Move to another processor (Phase 4c): a lot held at one processor goes on to another, on a challan
+  const [moveTarget, setMoveTarget] = useState<{ greigeId: string; lot: MoveLot; fromName: string } | null>(null);
   const [adjustForm, setAdjustForm] = useState({
     type: 'DECREASE' as 'INCREASE' | 'DECREASE',
     quantity: '',
@@ -787,6 +791,31 @@ export default function GreigeAvailableStock() {
                                                   <Warehouse className="h-3 w-3" />
                                                 </Button>
                                               )}
+                                              {entry.processor?.id && (
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="h-7 w-7 p-0"
+                                                  title={`Move from ${entry.processor.name} to another processor`}
+                                                  aria-label="Move to another processor"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMoveTarget({
+                                                      greigeId: stock.greigeId,
+                                                      fromName: entry.processor!.name,
+                                                      lot: {
+                                                        lotType: 'GREIGE',
+                                                        id: entry.id,
+                                                        code: stock.greigeCode,
+                                                        quantityAvailable: Number(entry.quantityAvailable),
+                                                        receivedDate: entry.receivedDate ?? null,
+                                                      },
+                                                    });
+                                                  }}
+                                                >
+                                                  <ArrowRightLeft className="h-3 w-3" />
+                                                </Button>
+                                              )}
                                             </div>
                                           </td>
                                         </tr>
@@ -989,6 +1018,15 @@ export default function GreigeAvailableStock() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {moveTarget && (
+        <MoveHeldStockDialog
+          open={!!moveTarget}
+          onOpenChange={(open) => !open && setMoveTarget(null)}
+          lots={[moveTarget.lot]}
+          fromName={moveTarget.fromName}
+          onMoved={() => void refreshExpandedRow(moveTarget.greigeId)}
+        />
+      )}
     </div>
   );
 }

@@ -41,6 +41,7 @@
 import { Prisma, PrismaClient, ChallanStatus } from '@prisma/client';
 import { JWO_RECEIVED_STATUSES } from './jwo-status.helper';
 import { isQtyZero } from '../../utils/quantity';
+import { coveringChallanWhere, isCoveringChallan } from './lot-location.helper';
 
 type DbClient = Prisma.TransactionClient | PrismaClient;
 
@@ -172,7 +173,7 @@ export async function recomputeCoveringChallan(
 ): Promise<ChallanStatus | null> {
   const challan = await tx.challans.findUnique({
     where: { id: challanId },
-    select: { status: true, challanType: true, directSupplyGrnId: true },
+    select: { status: true, challanType: true, directSupplyGrnId: true, fromType: true, toType: true },
   });
   if (!challan || challan.challanType !== 'OUTWARD' || !COVERING_MOVABLE_STATUSES.includes(challan.status)) {
     return null;
@@ -190,7 +191,7 @@ export async function recomputeCoveringChallan(
   ]);
   // Only a direct-supply challan COVERS the lace / fabric its lines name — an ordinary job challan's
   // lines name the store lots that travelled on it, and those are not held anywhere
-  const covers = challan.directSupplyGrnId != null;
+  const covers = isCoveringChallan(challan);
   const laceIds = covers ? lines.map((l) => l.laceStockId).filter((id): id is string => !!id) : [];
   const fabricIds = covers ? lines.map((l) => l.fabricStockId).filter((id): id is string => !!id) : [];
   const [laceLots, fabricLots] = await Promise.all([
@@ -239,13 +240,43 @@ export async function recomputeCoveringChallan(
   // Goods brought back to our store from these lots (Phase 4b "Bring to store"): an INWARD challan whose
   // line names the held lot — a return like a job's, even with no job
   const heldIds = [...lots.map((l) => l.id), ...laceLots.map((l) => l.id), ...fabricLots.map((l) => l.id)];
-  const broughtBack =
-    (await tx.challan_items.count({
+  const [inwardLines, greigeOut, laceOut, fabricOut] = await Promise.all([
+    tx.challan_items.count({
       where: {
         OR: [{ greigeStockId: { in: heldIds } }, { laceStockId: { in: heldIds } }, { fabricStockId: { in: heldIds } }],
         challan: { challanType: 'INWARD', status: { not: 'CANCELLED' } },
       },
-    })) > 0;
+    }),
+    // Metres that left the held lot with no job — brought to our store or moved to another processor
+    lots.length
+      ? tx.greige_stock_transaction.count({
+          where: {
+            stockId: { in: lots.map((l) => l.id) },
+            transactionType: 'RECEIPT',
+            referenceType: 'PROCESSING_DELIVERY',
+          },
+        })
+      : 0,
+    laceLots.length
+      ? tx.lace_stock_transaction.count({
+          where: {
+            stockId: { in: laceLots.map((l) => l.id) },
+            transactionType: 'TRANSFER_OUT',
+            referenceType: 'CHALLAN',
+          },
+        })
+      : 0,
+    fabricLots.length
+      ? tx.fabric_stock_transaction.count({
+          where: {
+            stockId: { in: fabricLots.map((l) => l.id) },
+            transactionType: 'TRANSFER_OUT',
+            referenceType: 'CHALLAN',
+          },
+        })
+      : 0,
+  ]);
+  const broughtBack = inwardLines + greigeOut + laceOut + fabricOut > 0;
   const jobs = jobIds.length
     ? await tx.job_work_orders.findMany({ where: { id: { in: jobIds } }, select: { jwoStatus: true } })
     : [];
@@ -288,7 +319,7 @@ export async function recomputeCoveringChallansForLots(
       ? tx.challan_items.findMany({
           where: {
             OR: [{ laceStockId: { in: otherIds } }, { fabricStockId: { in: otherIds } }],
-            challan: { directSupplyGrnId: { not: null } },
+            challan: coveringChallanWhere(),
           },
           select: { challanId: true },
         })
@@ -330,7 +361,7 @@ export async function recomputeCoveringChallansForJwo(
     ? await tx.challan_items.findMany({
         where: {
           OR: [{ laceStockId: { in: heldLotIds } }, { fabricStockId: { in: heldLotIds } }],
-          challan: { directSupplyGrnId: { not: null } },
+          challan: coveringChallanWhere(),
         },
         select: { challanId: true },
       })

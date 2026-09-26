@@ -47,7 +47,11 @@ import {
   JWO_GRN_UOMS,
 } from '../services/helpers/jwo-status.helper';
 import { recomputeCoveringChallansForJwo } from '../services/helpers/jwo-challan-lifecycle.helper';
-import { LOT_WAREHOUSE_SELECT, resolveLotLocation } from '../services/helpers/lot-location.helper';
+import {
+  LOT_WAREHOUSE_SELECT,
+  resolveLotLocation,
+  coveringChallanWhere,
+} from '../services/helpers/lot-location.helper';
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
@@ -1294,7 +1298,7 @@ class JobWorkOrderController {
         ? await prisma.challan_items.findMany({
             where: {
               laceStockId: { in: laceLots.map((l) => l.id) },
-              challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } },
+              challan: coveringChallanWhere(),
             },
             select: { laceStockId: true, challan: { select: { challanNumber: true } } },
           })

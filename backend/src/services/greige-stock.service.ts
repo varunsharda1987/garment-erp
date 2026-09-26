@@ -1497,6 +1497,11 @@ class GreigeStockService {
       broughtOn: Date;
       userId: string;
       alreadyDrawnByJobId?: string;
+      /**
+       * Moving to ANOTHER processor (Phase 4c): `storeWarehouseId` is that processor's unit, and the new
+       * lot keeps the original arrival date — the one-year clock does not restart on a move.
+       */
+      toProcessorId?: string | null;
     }
   ): Promise<{ storeLotId: string; remainingAtProcessor: number }> {
     const lot = await tx.greige_stock.findUnique({
@@ -1545,7 +1550,9 @@ class GreigeStockService {
           totalValue: valueOf(qty),
           referenceType: 'PROCESSING_DELIVERY',
           referenceId: p.inwardChallanId,
-          notes: `Brought back from ${holder} to ${store?.warehouseName ?? 'our store'} — inward challan ${p.inwardChallanNumber}`,
+          notes: p.toProcessorId
+            ? `Moved from ${holder} to ${store?.warehouseName ?? 'another processor'} — challan ${p.inwardChallanNumber}`
+            : `Brought back from ${holder} to ${store?.warehouseName ?? 'our store'} — inward challan ${p.inwardChallanNumber}`,
           performedById: p.userId,
         },
       });
@@ -1570,11 +1577,13 @@ class GreigeStockService {
         invoiceDate: lot.invoiceDate,
         unit: lot.unit,
         quantityAvailable: new Prisma.Decimal(qty),
-        receivedDate: p.broughtOn,
+        // A move keeps the day the goods first reached a processor: the one-year clock runs from it
+        receivedDate: p.toProcessorId ? lot.receivedDate : p.broughtOn,
         warehouseId: p.storeWarehouseId,
         warehouseLocation: store?.warehouseName ?? null,
-        processorId: null,
-        sourceType: 'PROCESSOR_RETURN',
+        processorId: p.toProcessorId ?? null,
+        // Moved: held at the new processor as before (on hand like DIRECT, or a Stock-Out shadow)
+        sourceType: p.toProcessorId ? (lotCountsOnHand(lot) ? 'DIRECT' : 'TRANSFER') : 'PROCESSOR_RETURN',
         sourceChallanId: p.inwardChallanId,
         status: 'AVAILABLE',
         createdById: p.userId,
@@ -1591,14 +1600,18 @@ class GreigeStockService {
         totalValue: valueOf(qty),
         referenceType: 'CHALLAN',
         referenceId: p.inwardChallanId,
-        notes:
-          `Back from ${holder}` +
-          (p.alreadyDrawnByJobId ? ' unprocessed' : '') +
-          ` — inward challan ${p.inwardChallanNumber}`,
+        notes: p.toProcessorId
+          ? `Moved here from ${holder} — challan ${p.inwardChallanNumber}`
+          : `Back from ${holder}` +
+            (p.alreadyDrawnByJobId ? ' unprocessed' : '') +
+            ` — inward challan ${p.inwardChallanNumber}`,
         performedById: p.userId,
       },
     });
-    await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
+    // A Stock-Out shadow moved on stays a shadow — never put on the ledger
+    if (!p.toProcessorId || lotCountsOnHand(lot)) {
+      await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
+    }
 
     logInfo(
       `Brought ${qty} m of ${lot.greige.greigeCode} from ${holder} to ${store?.warehouseName} (${p.inwardChallanNumber})`

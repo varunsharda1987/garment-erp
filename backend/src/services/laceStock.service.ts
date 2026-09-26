@@ -434,6 +434,8 @@ export async function bringHeldLaceLotToStore(
     broughtOn: Date;
     userId: string;
     alreadyDrawnByJobId?: string;
+    /** Moving to another processor (Phase 4c): the new lot keeps the original arrival date */
+    toProcessorId?: string | null;
   }
 ): Promise<{ storeLotId: string; remainingAtProcessor: number }> {
   const lot = await tx.lace_stock.findUnique({
@@ -492,7 +494,7 @@ export async function bringHeldLaceLotToStore(
       qualityGrade: lot.qualityGrade,
       status: 'AVAILABLE',
       stockType: lot.stockType,
-      receivedDate: p.broughtOn,
+      receivedDate: p.toProcessorId ? lot.receivedDate : p.broughtOn,
       shadeNote: lot.shadeNote,
       createdById: p.userId,
     },
@@ -664,12 +666,15 @@ export async function transferStock(input: TransferStockInput) {
       allocations: {
         where: { allocationStatus: 'RESERVED' },
       },
+      warehouse: { select: LOT_WAREHOUSE_SELECT },
     },
   });
 
   if (!stock) {
     throw new Error('Stock not found');
   }
+  // Lace at a processor moves only with a challan: Bring to store, or Move to another processor
+  assertLaceInOurStore(stock, 'transferred here');
 
   const available = Number(stock.quantityAvailable);
   if (qtyExceeds(input.quantityToTransfer, available)) {

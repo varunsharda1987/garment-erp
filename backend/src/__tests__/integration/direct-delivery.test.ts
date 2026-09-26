@@ -213,8 +213,8 @@ afterAll(async () => {
         OR: [
           { jobWorkOrderId: { in: jwoIds } },
           { directSupplyGrnId: { in: grnIds } },
-          // Bring to store (Phase 4b): inward challans from the dyers, on no job
-          { challanType: 'INWARD', fromId: { in: [only(dyerA), only(dyerB)] } },
+          // Bring to store (4b) and moves between dyers (4c): challans FROM a dyer, on no job
+          { fromId: { in: [only(dyerA), only(dyerB)] } },
         ],
       },
       select: { id: true },
@@ -746,5 +746,85 @@ describe('bring to store — goods a processor holds come back into our store (P
     expect(storeLot).toMatchObject({ warehouseId: storeId, sourceType: 'PROCESSOR_RETURN' });
     expect(Number(storeLot.quantityAvailable)).toBe(300);
     expect(await onHandAt(storeId)).toBeCloseTo(storeBefore + 300, 2);
+  });
+});
+
+describe('move to another processor — A to B on one challan, the clock kept (Phase 4c)', () => {
+  const move = (body: Record<string, unknown>) =>
+    request(app).post('/api/stock-movements/processor-move').set(authHeader).send(body);
+
+  it('moves part of a lot held at A to B: challan A → B, a lot at B dated the first arrival, the ledger moved', async () => {
+    const { grnId } = await receiveInto(unitA, 800);
+    await grnService.approveGRN(grnId, userId, unitA, undefined, { directDeliveryConfirmed: true });
+    const atA = await prisma.greige_stock.findFirstOrThrow({
+      where: { greigeId, processorId: dyerA, sourceType: 'DIRECT', quantityAvailable: 800 },
+    });
+    const line = { lotType: 'GREIGE', lotId: atA.id, quantity: 300 };
+
+    let res = await move({ lines: [line], toWarehouseId: storeId });
+    expect(res.body.details.code).toBe('NOT_A_PROCESSOR_UNIT');
+    res = await move({ lines: [line], toProcessorId: dyerA });
+    expect(res.body.details.code).toBe('SAME_PROCESSOR');
+
+    const aBefore = await onHandAt(unitA);
+    const bBefore = await onHandAt(unitB);
+    res = await move({ lines: [line], toProcessorId: dyerB, vehicleNumber: 'RJ14 GA 1234' });
+    expect(res.status).toBe(201);
+    const challan = await prisma.challans.findUniqueOrThrow({
+      where: { id: res.body.data.challanId },
+      include: { items: true },
+    });
+    expect(challan).toMatchObject({
+      challanType: 'OUTWARD',
+      status: 'ISSUED',
+      fromType: 'VENDOR',
+      fromId: dyerA,
+      toType: 'VENDOR',
+      toId: dyerB,
+    });
+    const oneYearOn = new Date(atA.receivedDate);
+    oneYearOn.setFullYear(oneYearOn.getFullYear() + 1);
+    expect(challan.expectedDate?.toISOString().slice(0, 10)).toBe(oneYearOn.toISOString().slice(0, 10));
+
+    const atB = await prisma.greige_stock.findFirstOrThrow({ where: { sourceChallanId: challan.id } });
+    expect(atB).toMatchObject({ processorId: dyerB, warehouseId: unitB, sourceType: 'DIRECT' });
+    expect(Number(atB.quantityAvailable)).toBe(300);
+    expect(atB.receivedDate.toISOString()).toBe(atA.receivedDate.toISOString()); // the clock is kept
+    expect(challan.items[0].greigeStockId).toBe(atB.id); // B's covering challan names B's lot
+    expect(Number((await prisma.greige_stock.findUniqueOrThrow({ where: { id: atA.id } })).quantityAvailable)).toBe(
+      500
+    );
+    expect(await onHandAt(unitA)).toBeCloseTo(aBefore - 300, 2);
+    expect(await onHandAt(unitB)).toBeCloseTo(bBefore + 300, 2);
+    expect((await prisma.challans.findUniqueOrThrow({ where: { id: atA.sourceChallanId! } })).status).toBe(
+      'PARTIALLY_RECEIVED'
+    );
+    // ITC-04 Table A: goods sent to job worker B
+    const itc = await jobWorkStatutoryService.getITC04Extract(
+      new Date(RECEIVED_ON.getTime() - DAY),
+      new Date(Date.now() + DAY)
+    );
+    expect(itc.tableA.items.some((i) => i.challanId === challan.id)).toBe(true);
+
+    // B's job draws it where it lies, and its one-year period runs from the first arrival
+    const jwo = await createJwo(dyerB, 300);
+    const issued = await request(app)
+      .post(`/api/job-work-orders/${jwo}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: atB.id, qty: 300 }] });
+    expect(issued.status).toBe(200);
+    expect(issued.body.challanCreated).toBe(false);
+    const job = await prisma.job_work_orders.findUniqueOrThrow({ where: { id: jwo } });
+    expect(job.challanNumber).toBe(challan.challanNumber);
+    expect(job.statutoryDueDate?.toISOString().slice(0, 10)).toBe(oneYearOn.toISOString().slice(0, 10));
+
+    // A's remaining lot still cannot go on B's job — the message points to the move
+    const jwo2 = await createJwo(dyerB, 100);
+    const refused = await request(app)
+      .post(`/api/job-work-orders/${jwo2}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: atA.id, qty: 100 }] });
+    expect(refused.body.code).toBe('LOT_AT_WRONG_PROCESSOR');
+    expect(refused.body.message).toMatch(/Move to another processor/);
   });
 });

@@ -55,6 +55,7 @@ import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrd
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
+import MoveHeldStockDialog, { type MoveLot } from '@/components/job-work/MoveHeldStockDialog';
 import {
   bestFitThansForJobs,
   checkSentDate,
@@ -289,10 +290,13 @@ export default function JobWorkOrderDetail() {
 
   // Phase 4c: the server's read-only dry run — blockers, the anchored greige, and the lots that
   // could serve this order. staleTime 0 because stock moves under us: every open re-reads.
+  // "Move here" from another processor in the Issue dialog (Phase 4c): the holder whose lots to move
+  const [moveFrom, setMoveFrom] = useState<string | null>(null);
   const {
     data: issuePreview,
     isLoading: issuePreviewLoading,
     isError: issuePreviewFailed,
+    refetch: refetchIssuePreview,
   } = useQuery({
     queryKey: ['jwo-issue-preview', id],
     queryFn: () => jobWorkOrderService.getIssuePreview(id!),
@@ -737,6 +741,21 @@ export default function JobWorkOrderDetail() {
       return acc;
     }, {})
   );
+  // The same cloth's lots at each OTHER processor — "Move here" sends them on to this job's processor
+  // with a challan (Phase 4c), after which they are offered above
+  const issueElsewhereLots = (issuePreview?.greigeAnchored ? (issuePreview?.elsewhere ?? []) : []).reduce<
+    Record<string, MoveLot[]>
+  >((acc, lot) => {
+    const holder = lot.location?.holderName ?? 'another processor';
+    (acc[holder] ??= []).push({
+      lotType: issuesLace ? 'LACE' : 'GREIGE',
+      id: lot.id,
+      code: lot.greigeCode ?? lot.greigeName ?? 'Lot',
+      quantityAvailable: lot.quantityAvailable,
+      receivedDate: lot.receivedDate ?? null,
+    });
+    return acc;
+  }, {});
   const issueChosenLots = issueRows
     .map((row) => issueAvailableLots.find((lot) => lot.id === row.lotId))
     .filter((lot): lot is (typeof issueAvailableLots)[number] => !!lot);
@@ -1668,9 +1687,28 @@ export default function JobWorkOrderDetail() {
                 {issueElsewhere.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Elsewhere:{' '}
-                    {issueElsewhere.map(([holder, qty]) => `${formatQuantity(qty, issueUom)} at ${holder}`).join(', ')}{' '}
-                    — cloth at another processor cannot go on this job.
+                    {issueElsewhere.map(([holder, qty], i) => (
+                      <span key={holder}>
+                        {i > 0 ? ', ' : ''}
+                        {formatQuantity(qty, issueUom)} at {holder}{' '}
+                        <button type="button" className="text-info hover:underline" onClick={() => setMoveFrom(holder)}>
+                          Move here
+                        </button>
+                      </span>
+                    ))}{' '}
+                    — cloth at another processor goes on this job only after it is moved here, with a challan.
                   </p>
+                )}
+                {moveFrom && (
+                  <MoveHeldStockDialog
+                    open={!!moveFrom}
+                    onOpenChange={(open) => !open && setMoveFrom(null)}
+                    lots={issueElsewhereLots[moveFrom] ?? []}
+                    fromName={moveFrom}
+                    toProcessorId={jwo.processorId}
+                    toName={issueProcessorName}
+                    onMoved={() => void refetchIssuePreview()}
+                  />
                 )}
 
                 <GreigeLotRows

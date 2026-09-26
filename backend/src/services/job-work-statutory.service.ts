@@ -19,6 +19,7 @@ import {
   section143Severity,
   SECTION_143_YEAR_DAYS,
 } from './helpers/section143.helper';
+import { coveringChallanWhere } from './helpers/lot-location.helper';
 
 // ============================================
 // Section 143 Ageing Report
@@ -430,7 +431,7 @@ class JobWorkStatutoryService {
       const coveringLines = await prisma.challan_items.findMany({
         where: {
           OR: [{ laceStockId: { in: heldLotIds } }, { fabricStockId: { in: heldLotIds } }],
-          challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } },
+          challan: coveringChallanWhere(),
         },
         select: { laceStockId: true, fabricStockId: true, challan: { select: { challanNumber: true } } },
       });

@@ -705,6 +705,11 @@ class FabricStockService {
       broughtOn: Date;
       userId: string;
       alreadyDrawnByJobId?: string;
+      /**
+       * Moving to ANOTHER processor (Phase 4c): `storeWarehouseId` is that processor's unit, and the new
+       * lot keeps the original arrival date — the one-year clock does not restart on a move.
+       */
+      toProcessorId?: string | null;
     }
   ): Promise<{ storeLotId: string; remainingAtProcessor: number }> {
     const lot = await tx.fabric_stock.findUnique({
@@ -773,7 +778,7 @@ class FabricStockService {
         warehouseId: p.storeWarehouseId,
         warehouseLocation: store?.warehouseName ?? null,
         rollNumbers: lot.rollNumbers,
-        receivedDate: p.broughtOn,
+        receivedDate: p.toProcessorId ? lot.receivedDate : p.broughtOn,
         patternPartId: lot.patternPartId,
         fabricFinishType: lot.fabricFinishType,
         needsEmbroidery: lot.needsEmbroidery,

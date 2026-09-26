@@ -199,6 +199,24 @@ export const stockMovementService = {
     return response.data.data;
   },
 
+  /**
+   * Move to another processor: goods one processor holds go on to another, on one challan A → B.
+   */
+  async moveHeldStock(data: {
+    lines: Array<{ lotType: 'GREIGE' | 'LACE' | 'FABRIC'; lotId: string; quantity: number }>;
+    toWarehouseId?: string;
+    toProcessorId?: string;
+    movedOn?: string;
+    vehicleNumber?: string;
+    remarks?: string;
+  }): Promise<{ challanId: string; challanNumber: string; fromName: string; toName: string }> {
+    const response = await api.post<
+      ApiResponse<{ challanId: string; challanNumber: string; fromName: string; toName: string }>
+    >(`${BASE_URL}/processor-move`, data);
+    if (!response.data.data) throw new Error('Failed to move the goods');
+    return response.data.data;
+  },
+
   /** The processors holding goods of ours, with how much (Bring to store). */
   async getProcessorsHoldingStock(): Promise<
     Array<{

@@ -950,6 +950,22 @@ export async function loadProcessorStatementSources(processorId: string): Promis
     })
   ).map((c) => c.id);
 
+  // Goods moved here from another processor (Phase 4c, OUTWARD VENDOR → VENDOR): SENT to this processor,
+  // dated the move — counted like a transfer line
+  const movedInChallanIds = (
+    await prisma.challans.findMany({
+      where: {
+        challanType: 'OUTWARD',
+        fromType: 'VENDOR',
+        toType: 'VENDOR',
+        toId: processorId,
+        status: { not: 'CANCELLED' },
+      },
+      select: { id: true },
+    })
+  ).map((c) => c.id);
+  transferChallanIds.push(...movedInChallanIds);
+
   const sentLineRows = await prisma.challan_items.findMany({
     where: {
       challan: {

@@ -19,7 +19,13 @@ import { createChallan, type CreateChallanItemInput } from '../challan.service';
 import greigeStockService from '../greige-stock.service';
 import fabricStockService from '../fabric-stock.service';
 import { bringHeldLaceLotToStore } from '../laceStock.service';
-import { challanDestination, greigeHolderId, LOT_WAREHOUSE_SELECT, unitLotHolderId } from './lot-location.helper';
+import {
+  challanDestination,
+  greigeHolderId,
+  LOT_WAREHOUSE_SELECT,
+  unitLotHolderId,
+  coveringChallanWhere,
+} from './lot-location.helper';
 import { recomputeCoveringChallansForLots } from './jwo-challan-lifecycle.helper';
 import { multiplyCurrency, roundToCent, toNumber } from '../../utils/currency';
 import { formatDate, toDateInputValue } from '../../utils/date';
@@ -137,7 +143,7 @@ async function placeHeldLot(tx: Tx, line: BringToStoreLine): Promise<PlacedLot> 
   const covering = await tx.challan_items.findFirst({
     where: {
       ...(line.lotType === 'LACE' ? { laceStockId: lot.id } : { fabricStockId: lot.id }),
-      challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } },
+      challan: coveringChallanWhere(),
     },
     select: { challan: { select: { challanNumber: true } } },
   });
@@ -337,7 +343,7 @@ export async function listHeldLots(processorId?: string): Promise<HeldLotRow[]> 
     ? await prisma.challan_items.findMany({
         where: {
           OR: [{ laceStockId: { in: otherIds } }, { fabricStockId: { in: otherIds } }],
-          challan: { directSupplyGrnId: { not: null }, status: { not: 'CANCELLED' } },
+          challan: coveringChallanWhere(),
         },
         select: { laceStockId: true, fabricStockId: true, challan: { select: { challanNumber: true } } },
       })
@@ -425,4 +431,191 @@ export async function listProcessorsHoldingStock() {
     totalQuantity: byProcessor.get(id)!.totalQuantity,
     stockEntries: byProcessor.get(id)!.stockEntries,
   }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// 4c — Move to another processor (A → B)
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+export const MOVE_BETWEEN_JOB_WORKERS_REASON =
+  'Inputs sent from one job worker to another on our account (CGST Rule 45) — not a supply';
+
+export interface MoveHeldStockInput {
+  lines: BringToStoreLine[];
+  /** The receiving processor's "… - Processing Unit" */
+  toUnitWarehouseId: string;
+  /** The day the goods left A for B; defaults to today */
+  movedOn?: Date;
+  userId: string;
+  vehicleNumber?: string | null;
+  remarks?: string | null;
+}
+
+export interface MoveHeldStockResult {
+  challanId: string;
+  challanNumber: string;
+  fromName: string;
+  toName: string;
+  lines: Array<BringToStoreLine & { newLotId: string; remainingAtProcessor: number }>;
+}
+
+/**
+ * Move goods we own from the processor holding them (A) to another processor (B), on ONE outward
+ * challan from A to B (Rule 45 allows a job worker to send inputs on to another). The goods become held
+ * at B — a new lot in B's unit that keeps the day they first reached a processor, so the one-year clock
+ * does not restart — and the challan is B's covering challan. A's covering challan follows (rule 7).
+ * Issuing A's lot on B's job is still refused: move it first.
+ */
+export async function moveHeldStockToProcessor(input: MoveHeldStockInput): Promise<MoveHeldStockResult> {
+  if (input.lines.length === 0) throw new BusinessError('Pick at least one lot to move.', { code: 'NO_LINES' });
+  const movedOn = input.movedOn ?? new Date();
+  if (toDateInputValue(movedOn) > toDateInputValue(new Date())) {
+    throw new BusinessError('The move date cannot be in the future.', { code: 'DATE_IN_FUTURE' });
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      const unit = await tx.warehouses.findUnique({
+        where: { id: input.toUnitWarehouseId },
+        select: {
+          id: true,
+          warehouseName: true,
+          warehouseType: true,
+          isActive: true,
+          supplierId: true,
+          supplier: { select: { name: true } },
+        },
+      });
+      if (!unit || !unit.isActive || unit.warehouseType !== 'JOB_WORK' || !unit.supplierId) {
+        throw new BusinessError('Pick the receiving processor\'s unit (an active "… - Processing Unit").', {
+          code: 'NOT_A_PROCESSOR_UNIT',
+        });
+      }
+      const toProcessorId = unit.supplierId;
+      const toName = unit.supplier?.name ?? unit.warehouseName;
+
+      const placed: PlacedLot[] = [];
+      for (const line of input.lines) placed.push(await placeHeldLot(tx, line));
+      if (new Set(placed.map((p) => p.holderId)).size > 1) {
+        throw new BusinessError("One challan comes from one processor — move each processor's goods separately.", {
+          code: 'MIXED_PROCESSORS',
+        });
+      }
+      const { holderId: fromProcessorId, holderName: fromName } = placed[0];
+      if (fromProcessorId === toProcessorId) {
+        throw new BusinessError(`These goods are already at ${toName}.`, { code: 'SAME_PROCESSOR' });
+      }
+      for (const p of placed) {
+        if (p.receivedDate && toDateInputValue(movedOn) < toDateInputValue(p.receivedDate)) {
+          throw new BusinessError(
+            `${p.code} reached ${fromName} on ${formatDate(p.receivedDate)} — it cannot have left before that.`,
+            { code: 'DATE_BEFORE_ARRIVAL' }
+          );
+        }
+      }
+      const arrivals = placed.map((p) => p.receivedDate).filter((d): d is Date => !!d);
+      const firstArrival = arrivals.length ? new Date(Math.min(...arrivals.map((d) => d.getTime()))) : movedOn;
+      const returnBy = new Date(firstArrival);
+      returnBy.setFullYear(returnBy.getFullYear() + 1);
+      const covering = [...new Set(placed.map((p) => p.coveringChallanNumber).filter((n): n is string => !!n))];
+
+      const items: CreateChallanItemInput[] = placed.map((p) => ({
+        itemType: p.line.lotType,
+        greigeStockId: p.line.lotType === 'GREIGE' ? p.line.lotId : undefined,
+        laceStockId: p.line.lotType === 'LACE' ? p.line.lotId : undefined,
+        fabricStockId: p.line.lotType === 'FABRIC' ? p.line.lotId : undefined,
+        description: `${p.code} moved from ${fromName} to ${toName}`,
+        quantity: p.qty,
+        unit: Unit.METER,
+        rate: p.rate ?? undefined,
+        declaredValue: p.rate != null ? toNumber(roundToCent(multiplyCurrency(p.qty, p.rate))) : undefined,
+      }));
+      const challan = await createChallan(
+        {
+          challanType: 'OUTWARD',
+          challanDate: movedOn,
+          fromType: 'VENDOR',
+          fromId: fromProcessorId,
+          fromName,
+          toType: 'VENDOR',
+          toId: toProcessorId,
+          toName,
+          issuedById: input.userId,
+          status: 'ISSUED',
+          issuedDate: movedOn,
+          // The return period runs from the day the goods first reached a processor, not from the move
+          expectedDate: returnBy,
+          reasonForTransport: MOVE_BETWEEN_JOB_WORKERS_REASON,
+          vehicleNumber: input.vehicleNumber ?? undefined,
+          totalDeclaredValue: toNumber(roundToCent(items.reduce((sum, i) => sum + (i.declaredValue ?? 0), 0))),
+          unit: Unit.METER,
+          remarks:
+            `Moved from ${fromName} to ${toName}; first received by ${fromName} on ${formatDate(firstArrival)}` +
+            (covering.length ? ` (sent under ${covering.join(', ')})` : '') +
+            (input.remarks ? `. ${input.remarks}` : ''),
+          items,
+        },
+        tx
+      );
+
+      const challanLines = await tx.challan_items.findMany({
+        where: { challanId: challan.id },
+        select: { id: true, greigeStockId: true, laceStockId: true, fabricStockId: true },
+      });
+      const moved: MoveHeldStockResult['lines'] = [];
+      for (const p of placed) {
+        const args = {
+          stockId: p.line.lotId,
+          quantity: p.qty,
+          storeWarehouseId: unit.id,
+          inwardChallanId: challan.id,
+          inwardChallanNumber: challan.challanNumber,
+          broughtOn: movedOn,
+          userId: input.userId,
+          toProcessorId,
+        };
+        const result =
+          p.line.lotType === 'GREIGE'
+            ? await greigeStockService.bringHeldLotToStore(tx, args)
+            : p.line.lotType === 'LACE'
+              ? await bringHeldLaceLotToStore(tx, args)
+              : await fabricStockService.bringHeldLotToStore(tx, args);
+        // The challan's line names the lot now at B — B's covering challan is found through it
+        const line = challanLines.find(
+          (l) => l.greigeStockId === p.line.lotId || l.laceStockId === p.line.lotId || l.fabricStockId === p.line.lotId
+        );
+        if (line) {
+          await tx.challan_items.update({
+            where: { id: line.id },
+            data:
+              p.line.lotType === 'GREIGE'
+                ? { greigeStockId: result.storeLotId }
+                : p.line.lotType === 'LACE'
+                  ? { laceStockId: result.storeLotId }
+                  : { fabricStockId: result.storeLotId },
+          });
+        }
+        moved.push({
+          ...p.line,
+          quantity: p.qty,
+          newLotId: result.storeLotId,
+          remainingAtProcessor: result.remainingAtProcessor,
+        });
+      }
+
+      // A's covering challan(s): part (or all) of what they covered has left A
+      await recomputeCoveringChallansForLots(
+        tx,
+        {
+          greigeIds: placed.filter((p) => p.line.lotType === 'GREIGE').map((p) => p.line.lotId),
+          laceIds: placed.filter((p) => p.line.lotType === 'LACE').map((p) => p.line.lotId),
+          fabricIds: placed.filter((p) => p.line.lotType === 'FABRIC').map((p) => p.line.lotId),
+        },
+        movedOn
+      );
+
+      return { challanId: challan.id, challanNumber: challan.challanNumber, fromName, toName, lines: moved };
+    },
+    { timeout: 20000, maxWait: 5000 }
+  );
 }

@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum, flexMaterialId, formNumber } from './common.schema';
+import { UnitEnum, flexMaterialId, formNumber, formNumberRequired } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -296,6 +296,33 @@ export type CreateBulkStockInInput = z.infer<typeof createBulkStockInSchema>;
 export type CreateStockOutInput = z.infer<typeof createStockOutSchema>;
 export type CreateStockTransferInput = z.infer<typeof createStockTransferSchema>;
 export type CreateStockAdjustmentInput = z.infer<typeof createStockAdjustmentSchema>;
+/**
+ * Move to another processor (direct-to-processor plan, Phase 4c): goods we own that processor A holds go
+ * on to processor B on one outward challan A → B. B is named by its unit or by the processor itself.
+ * POST /api/stock-movements/processor-move
+ */
+export const moveHeldStockSchema = z
+  .object({
+    lines: z
+      .array(
+        z.object({
+          lotType: z.enum(['GREIGE', 'LACE', 'FABRIC']),
+          lotId: z.string().uuid('Invalid lot'),
+          quantity: formNumberRequired(z.number().positive('Quantity must be positive')),
+        })
+      )
+      .min(1, 'Pick at least one lot')
+      .max(50),
+    toWarehouseId: z.string().uuid('Pick the receiving processor').optional(),
+    toProcessorId: z.string().uuid('Pick the receiving processor').optional(),
+    movedOn: z.coerce.date().optional(),
+    vehicleNumber: z.string().max(50).trim().optional(),
+    remarks: z.string().max(500).optional(),
+  })
+  .refine((b) => !!b.toWarehouseId || !!b.toProcessorId, { message: 'Pick the receiving processor' });
+
+export type MoveHeldStockInput = z.infer<typeof moveHeldStockSchema>;
+
 /** GET /api/stock-movements/processor-held/:processorId */
 export const processorHeldParamSchema = z.object({ processorId: z.string().uuid('Invalid processor') });
 

@@ -16,9 +16,10 @@ import {
   bringHeldStockToStore,
   listHeldLots,
   listProcessorsHoldingStock,
+  moveHeldStockToProcessor,
   type BringToStoreLine,
 } from '../services/helpers/held-stock-doors.helper';
-import type { CreateProcessorReturnInput } from '../schemas/stockMovement.schema';
+import type { CreateProcessorReturnInput, MoveHeldStockInput } from '../schemas/stockMovement.schema';
 import { qtyExceeds, snapToLimit } from '../utils/quantity';
 
 // Map polymorphic item types to their FK field in the materials table.
@@ -510,6 +511,48 @@ export const getUnifiedMovements = async (req: Request, res: Response) => {
     success: true,
     data: result.data,
     pagination: result.pagination,
+  });
+};
+
+/**
+ * @route POST /api/stock-movements/processor-move
+ * @desc Move to another processor: goods we own that processor A holds go on to processor B, on one
+ *       outward challan A → B; they become held at B, keeping the day they first reached a processor
+ *       (helpers/held-stock-doors.helper.ts, direct-to-processor plan Phase 4c)
+ * @access Private
+ */
+export const moveHeldStock = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+  const body = req.body as MoveHeldStockInput;
+  let toUnitWarehouseId = body.toWarehouseId;
+  if (!toUnitWarehouseId && body.toProcessorId) {
+    const unit = await prisma.warehouses.findFirst({
+      where: { supplierId: body.toProcessorId, warehouseType: 'JOB_WORK', isActive: true },
+      select: { id: true },
+    });
+    if (!unit) {
+      throw new ValidationError(
+        'That processor has no active processing unit — open it in Suppliers and save it once.'
+      );
+    }
+    toUnitWarehouseId = unit.id;
+  }
+  const result = await moveHeldStockToProcessor({
+    lines: body.lines.map((l) => ({ lotType: l.lotType, lotId: l.lotId, quantity: Number(l.quantity) })),
+    toUnitWarehouseId: toUnitWarehouseId!,
+    movedOn: body.movedOn,
+    userId,
+    vehicleNumber: body.vehicleNumber ?? null,
+    remarks: body.remarks ?? null,
+  });
+  const total = result.lines.reduce((sum, l) => sum + l.quantity, 0);
+  res.status(201).json({
+    success: true,
+    message: `Moved ${total} m from ${result.fromName} to ${result.toName} — challan ${result.challanNumber}`,
+    data: result,
   });
 };
 

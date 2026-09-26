@@ -968,10 +968,20 @@ export const transferStock = async (req: Request, res: Response) => {
   // Get stock record
   const stock = await prisma.fabric_stock.findUnique({
     where: { id: data.stockId },
+    include: {
+      warehouse: { select: { warehouseType: true, warehouseName: true, supplier: { select: { name: true } } } },
+    },
   });
 
   if (!stock) {
     throw new NotFoundError('Stock', data.stockId);
+  }
+  // Fabric at a processor's unit moves only with a challan (direct-to-processor plan, Phase 4b / 4c)
+  if (stock.warehouse?.warehouseType === 'JOB_WORK') {
+    throw new ValidationError(
+      `This fabric is at ${stock.warehouse.supplier?.name ?? stock.warehouse.warehouseName}. Use Stock In → Processor Return ` +
+        `to bring it to our store, or Move to another processor — both file the challan.`
+    );
   }
 
   const available = Number(stock.quantityAvailable);

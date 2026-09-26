@@ -161,6 +161,8 @@ afterAll(async () => {
     await prisma.requirement_po_links.deleteMany({ where: { requirementId: { in: reqIds } } });
     await prisma.material_requirements.deleteMany({ where: { id: { in: reqIds } } });
   }
+  // The forced cancel writes an audit row for the PO
+  await prisma.audit_logs.deleteMany({ where: { entityType: 'purchase_order', entityId: only(poId) } });
   await prisma.purchase_order_items.deleteMany({ where: { poId: only(poId) } });
   await prisma.purchase_orders.deleteMany({ where: { id: only(poId) } });
   await prisma.materials.deleteMany({ where: { id: only(materialId) } });
@@ -171,10 +173,12 @@ afterAll(async () => {
 
 describe('Cancelling a purchase order leaves its unfulfilled material orderable', () => {
   it('cancels and does not strand any requirement', async () => {
+    // A part-received PO is cancelled only by an explicit ADMIN force since 2026-09-27 (Close Short
+    // is the normal exit — po-cancel-guards.test.ts pins the refusal); the repair below is unchanged.
     const res = await request(app)
       .patch(`/api/purchase-orders/${poId}/cancel`)
       .set(authHeader)
-      .send({ reason: 'Supplier defaulted on the balance' });
+      .send({ reason: 'Supplier defaulted on the balance', force: true });
 
     expect([200, 201]).toContain(res.status);
 

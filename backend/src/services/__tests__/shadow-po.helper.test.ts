@@ -125,7 +125,8 @@ describe('shadow-po.helper', () => {
   });
 
   it('the live cancelPurchaseOrder stamps the actor too (previously nobody was recorded)', async () => {
-    const po = await createPo('DRAFT');
+    // SENT, not DRAFT: a draft is deleted, never cancelled (PO_DRAFT_DELETE_INSTEAD, 2026-09-27)
+    const po = await createPo('SENT');
     await purchaseOrderService.cancelPurchaseOrder(po.id, 'audit test', 'ADMIN', testUserId);
     const after = await prisma.purchase_orders.findUnique({ where: { id: po.id } });
     expect(after!.status).toBe('CANCELLED');

@@ -11,11 +11,13 @@ import {
   POCategory,
   DeliveryLocationType,
   MaterialRequirementStatus,
+  UserRole,
+  material_requirements,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
-import { logWarn } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import { gstService } from './gst.service';
 import {
   CreatePurchaseOrderDTO,
@@ -23,13 +25,14 @@ import {
   PurchaseOrderItemDTO,
   UpdatePurchaseOrderItemDTO,
   PurchaseOrderFilters,
+  isPoDateAfterToday,
 } from '../types/purchaseOrder.types';
 import { generateAtomicPONumber, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { addCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
 import { systemSettingsService } from './system-settings.service';
 import { isReceiptComplete } from './helpers/receipt-split.helper';
-import { BusinessError, NotFoundError } from '../errors';
+import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from '../errors';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
 import { resolvePoLineUnits } from './helpers/purchase-unit.helper';
@@ -37,11 +40,151 @@ import { applySearch } from '../utils/search-filter';
 import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER } from './helpers/label-line.helper';
 import {
   applyDeliveryPlan,
+  FINISHED_STATUSES,
   loadDeliveryProgress,
   planFromItemDeliveries,
+  PRE_SEND_STATUSES,
   rebalanceSplitToFirstPoint,
   type DeliveryPlanInput,
 } from './helpers/po-delivery-plan.helper';
+import { createAuditLog } from './audit.service';
+
+type Tx = Prisma.TransactionClient;
+
+/** Refuse a PO date after today (IST) — the schema checks it too; this guards every other writer. */
+function assertPoDateNotFuture(poDate: Date | string | undefined | null): void {
+  if (poDate && isPoDateAfterToday(poDate)) {
+    throw new BusinessError('The PO date cannot be after today.', { code: 'PO_DATE_IN_FUTURE' });
+  }
+}
+
+/**
+ * A GRN still awaiting QC means the delivered quantity is NOT settled: the PO counters are incremented
+ * gross at GRN creation, and the verdict can land days later. Short-closing over it would freeze
+ * shortQuantity from provisional numbers; cancelling over it would hand the demand back to the plan
+ * while the goods are still on their way into stock (approveGRN now refuses a cancelled PO, so the
+ * receipt could never be booked either). One check, both verbs.
+ */
+async function assertNoGrnAwaitingQc(poId: string, poNumber: string, verb: 'short-close' | 'cancel'): Promise<void> {
+  const pendingGrn = await prisma.goods_receiving_notes.findFirst({
+    where: { poId, status: 'PENDING_QC' },
+    select: { grnNumber: true },
+  });
+  if (pendingGrn) {
+    throw new BusinessError(
+      `Cannot ${verb} ${poNumber}: GRN ${pendingGrn.grnNumber} is still awaiting QC. ` +
+        `Complete or reject it first so the delivered quantity is final.`,
+      { code: 'PO_GRN_PENDING_QC', grnNumber: pendingGrn.grnNumber }
+    );
+  }
+}
+
+/** One requirement's share of a PO: all of its links to that PO, summed. */
+interface RequirementShare {
+  requirementId: string;
+  allocated: number;
+  received: number;
+}
+
+/**
+ * A requirement can hold SEVERAL links to the same PO (one per PO line it was allocated across).
+ * Aggregate them first — handling each link separately let the last one overwrite the earlier ones'
+ * shortfall, silently losing part of the delivery (cd710041, short-close; cancel repeated the per-link
+ * loop until 2026-09-27). A negative receivedQuantity (an over-shot reversal) is floored at zero so a
+ * requirement can never fall between the "nothing delivered" and "part delivered" branches.
+ */
+async function loadRequirementShares(tx: Tx, poId: string): Promise<RequirementShare[]> {
+  const rawLinks = await tx.requirement_po_links.findMany({
+    where: { purchaseOrderId: poId },
+    select: { requirementId: true, allocatedQuantity: true, receivedQuantity: true },
+  });
+  const byRequirement = new Map<string, { allocated: number; received: number }>();
+  for (const l of rawLinks) {
+    const agg = byRequirement.get(l.requirementId) ?? { allocated: 0, received: 0 };
+    agg.allocated += Number(l.allocatedQuantity);
+    agg.received += Math.max(0, Number(l.receivedQuantity));
+    byRequirement.set(l.requirementId, agg);
+  }
+  return [...byRequirement.entries()].map(([requirementId, agg]) => ({ requirementId, ...agg }));
+}
+
+/**
+ * Nothing delivered against these requirements — the material is still genuinely needed, so revert
+ * them to PO_REQUIRED AND drop their links to this PO (MRP's duplicate guard skips a requirement that
+ * still holds a link, so a reverted requirement with a stale link would stay unbuyable).
+ */
+async function freeUndeliveredRequirements(
+  tx: Tx,
+  poId: string,
+  poNumber: string,
+  verb: 'cancel' | 'short-close',
+  shares: RequirementShare[]
+): Promise<void> {
+  if (shares.length === 0) return;
+  const ids = shares.map((s) => s.requirementId);
+  const reverted = await tx.material_requirements.updateMany({
+    where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] } },
+    data: { status: 'PO_REQUIRED' },
+  });
+  // A silent count:0 is exactly how the original cancel bug hid. Say so rather than assume success.
+  if (reverted.count !== ids.length) {
+    logWarn(
+      `[PO ${poNumber}] ${verb} reverted ${reverted.count} of ${ids.length} undelivered ` +
+        `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+    );
+  }
+  await tx.requirement_po_links.deleteMany({ where: { purchaseOrderId: poId, requirementId: { in: ids } } });
+}
+
+/**
+ * The undelivered balance of a part-delivered requirement, carried forward as its own orderable
+ * requirement (the MRP-12 split-remainder shape). Returns the new requirement number.
+ */
+async function mintBalanceRequirement(
+  tx: Tx,
+  requirement: material_requirements,
+  balance: number,
+  createdById: string | undefined
+): Promise<string> {
+  const childNumber = await generateAtomicDocNumber('MR', tx);
+  await tx.material_requirements.create({
+    data: {
+      requirementNumber: childNumber,
+      source: requirement.source,
+      orderId: requirement.orderId,
+      orderItemId: requirement.orderItemId,
+      materialId: requirement.materialId,
+      orderBomId: requirement.orderBomId,
+      orderBomItemId: requirement.orderBomItemId,
+      orderQuantity: requirement.orderQuantity,
+      quantityPerUnit: requirement.quantityPerUnit,
+      wastagePercent: requirement.wastagePercent,
+      totalRequired: balance,
+      unit: requirement.unit,
+      availableStock: 0,
+      allocatedFromStock: 0,
+      shortfall: balance,
+      preferredSupplierId: requirement.preferredSupplierId,
+      status: MaterialRequirementStatus.PO_REQUIRED,
+      requirementType: requirement.requirementType,
+      processorId: requirement.processorId,
+      processingCost: requirement.processingCost,
+      printingType: requirement.printingType,
+      linkedRequirementId: requirement.linkedRequirementId,
+      // Shrinkage provenance must survive the split or the child silently re-derives 0%.
+      shrinkagePercentUsed: requirement.shrinkagePercentUsed,
+      shrinkageSource: requirement.shrinkageSource,
+      colorName: requirement.colorName,
+      componentName: requirement.componentName,
+      requiredDate: requirement.requiredDate,
+      createdById: createdById ?? requirement.createdById,
+      unitPrice: requirement.unitPrice,
+      rateSource: requirement.rateSource,
+      splitFromId: requirement.id,
+    },
+  });
+  return childNumber;
+}
 
 class PurchaseOrderService {
   /**
@@ -105,6 +248,9 @@ class PurchaseOrderService {
    * Create a new purchase order with items
    */
   async createPurchaseOrder(data: CreatePurchaseOrderDTO, userId: string) {
+    assertPoDateNotFuture(data.poDate);
+    // The number is still today's series (PO2609-…) whatever PO date is typed — the date is the
+    // document's, the number is the order it was entered in.
     const poNumber = await this.generatePONumber();
 
     // Validate supplier exists
@@ -113,13 +259,13 @@ class PurchaseOrderService {
     });
 
     if (!supplier) {
-      throw new Error('Supplier not found');
+      throw new BusinessError('Supplier not found');
     }
 
     // Validate items: each must have either materialId OR serviceType
     for (const item of data.items) {
       if (!item.materialId && !item.serviceType) {
-        throw new Error('Each item must have either a materialId or a serviceType');
+        throw new ValidationError('Each item must have either a materialId or a serviceType');
       }
     }
 
@@ -133,7 +279,7 @@ class PurchaseOrderService {
       const existingMaterialIds = new Set(existingMaterials.map((m) => m.id));
       for (const materialId of materialIds) {
         if (!existingMaterialIds.has(materialId)) {
-          throw new Error(`Material with ID ${materialId} not found`);
+          throw new BusinessError(`Material with ID ${materialId} not found`);
         }
       }
     }
@@ -227,6 +373,8 @@ class PurchaseOrderService {
           id: poId,
           poNumber,
           supplierId: data.supplierId,
+          // Omitted = the column default, now()
+          poDate: data.poDate ? new Date(data.poDate) : undefined,
           expectedDeliveryDate: new Date(data.expectedDeliveryDate),
           status: PurchaseOrderStatus.DRAFT,
           poSource: POSource.MANUAL,
@@ -270,6 +418,9 @@ class PurchaseOrderService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.purchase_ordersWhereInput = {};
+    // Conditions that must narrow ALONGSIDE the plain column filters (they share a key with one, or
+    // carry their own OR). applySearch appends to the same AND below.
+    const and: Prisma.purchase_ordersWhereInput[] = [];
 
     if (filters?.status) {
       where.status = filters.status;
@@ -279,8 +430,16 @@ class PurchaseOrderService {
       where.supplierId = filters.supplierId;
     }
 
+    // A PO buys for an order in one of two homes: its own orderId (a manual PO's traceability link)
+    // or — for every MRP-generated PO, which never sets orderId — a requirement link back to that
+    // order. Filtering on the column alone found none of the MRP POs.
     if (filters?.orderId) {
-      where.orderId = filters.orderId;
+      and.push({
+        OR: [
+          { orderId: filters.orderId },
+          { requirement_po_links: { some: { material_requirements: { orderId: filters.orderId } } } },
+        ],
+      });
     }
 
     if (filters?.serviceWorkOrderId) {
@@ -291,17 +450,26 @@ class PurchaseOrderService {
       where.poSource = filters.source;
     }
 
-    // No place decided yet — a split PO's header mirrors point 1, so an empty header IS "to be advised"
+    // No place decided yet — a split PO's header mirrors point 1, so an empty header IS "to be advised".
+    // Only a PO still waiting for goods can need a place: a finished one (received, closed short,
+    // cancelled) with an empty header is a legacy row, not something to advise (5 RECEIVED POs matched).
+    // ANDed, so an explicit status filter still narrows rather than being overwritten.
     if (filters?.delivery === 'TO_BE_ADVISED') {
       where.deliveryLocationId = null;
+      and.push({ status: { notIn: [...FINISHED_STATUSES] } });
     }
 
     if (filters?.poCategories && filters.poCategories.length > 0) {
       where.poCategory = { in: filters.poCategories as POCategory[] };
     }
 
+    if (and.length > 0) {
+      where.AND = and;
+    }
+
     // What is actually ON the PO — the material and the style it is being bought for — was not
-    // searchable, so finding "the PO for that elastic" meant paging through the list.
+    // searchable, so finding "the PO for that elastic" meant paging through the list. The style has
+    // two homes like the order does: the PO's own styleId (manual) and the requirement links (MRP).
     applySearch(where as Record<string, unknown>, filters?.search, [
       'poNumber',
       'suppliers.name',
@@ -309,6 +477,9 @@ class PurchaseOrderService {
       'style.styleCode',
       'style.buyerStyleRef',
       'style.styleName',
+      'requirement_po_links[].material_requirements.order_items.styles.styleCode',
+      'requirement_po_links[].material_requirements.order_items.styles.buyerStyleRef',
+      'requirement_po_links[].material_requirements.order_items.styles.styleName',
       'purchase_order_items[].materials.name',
       'purchase_order_items[].materials.code',
       'remarks',
@@ -332,7 +503,8 @@ class PurchaseOrderService {
         where,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        // id breaks ties (several POs share a PO date now that it is typed) so pages never overlap
+        orderBy: [{ [sortBy]: sortOrder }, { id: 'asc' }],
         include: {
           suppliers: {
             select: {
@@ -345,10 +517,21 @@ class PurchaseOrderService {
               paymentTerms: true,
             },
           },
-          // The list shows WHAT is on each PO, not only its category
+          // The list shows WHAT is on each PO, not only its category — in the PO page's line order,
+          // with the label + size of a label size row so the list can show "Label · N sizes"
           purchase_order_items: {
+            orderBy: PO_LINE_ORDER,
             include: {
-              materials: { select: { id: true, code: true, name: true, materialType: true, unit: true } },
+              materials: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  materialType: true,
+                  unit: true,
+                  ...LABEL_LINE_MATERIAL_SELECT,
+                },
+              },
             },
           },
         },
@@ -380,7 +563,7 @@ class PurchaseOrderService {
     });
 
     if (!purchaseOrder) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     return purchaseOrder;
@@ -398,23 +581,24 @@ class PurchaseOrderService {
    * If items are provided, replaces all existing items
    */
   async updatePurchaseOrder(id: string, data: UpdatePurchaseOrderDTO) {
-    const editableStatuses: string[] = [
-      PurchaseOrderStatus.DRAFT,
-      PurchaseOrderStatus.PENDING_GREIGE,
-      PurchaseOrderStatus.READY_FOR_PROCESSING,
-    ];
-
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id },
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
-    if (!editableStatuses.includes(existingPO.status)) {
-      throw new Error('Can only update purchase orders in Draft, Pending Greige, or Ready for Processing status');
+    // Editable while it is still being composed — the same "not yet sent" set the delivery plan uses
+    if (!PRE_SEND_STATUSES.includes(existingPO.status)) {
+      throw new BusinessError(
+        `${existingPO.poNumber} is ${existingPO.status} — a purchase order can only be edited before it is sent ` +
+          `(Draft, Pending Greige or Ready for Processing).`,
+        { code: 'PO_NOT_EDITABLE', status: existingPO.status }
+      );
     }
+
+    assertPoDateNotFuture(data.poDate);
 
     // Validate supplier if being changed
     if (data.supplierId && data.supplierId !== existingPO.supplierId) {
@@ -422,7 +606,7 @@ class PurchaseOrderService {
         where: { id: data.supplierId },
       });
       if (!supplier) {
-        throw new Error('Supplier not found');
+        throw new BusinessError('Supplier not found');
       }
     }
 
@@ -431,7 +615,7 @@ class PurchaseOrderService {
       // Validate items: each must have either materialId OR serviceType
       for (const item of data.items) {
         if (!item.materialId && !item.serviceType) {
-          throw new Error('Each item must have either a materialId or a serviceType');
+          throw new ValidationError('Each item must have either a materialId or a serviceType');
         }
       }
 
@@ -445,7 +629,7 @@ class PurchaseOrderService {
         const existingMaterialIds = new Set(existingMaterials.map((m) => m.id));
         for (const materialId of materialIds) {
           if (!existingMaterialIds.has(materialId)) {
-            throw new Error(`Material with ID ${materialId} not found`);
+            throw new BusinessError(`Material with ID ${materialId} not found`);
           }
         }
       }
@@ -463,6 +647,7 @@ class PurchaseOrderService {
         data: {
           supplierId: data.supplierId,
           expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : undefined,
+          poDate: data.poDate ? new Date(data.poDate) : undefined,
           paymentTerms: data.paymentTerms,
           remarks: data.remarks,
           // Optional traceability links (for Manual POs)
@@ -689,11 +874,15 @@ class PurchaseOrderService {
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     if (existingPO.status !== PurchaseOrderStatus.DRAFT) {
-      throw new Error('Can only delete purchase orders in DRAFT status');
+      throw new BusinessError(
+        `${existingPO.poNumber} is ${existingPO.status} — only a draft purchase order can be deleted. ` +
+          `Cancel it instead (or close it short if goods have arrived).`,
+        { code: 'PO_NOT_DRAFT', status: existingPO.status }
+      );
     }
 
     // Use transaction to handle linked records
@@ -754,16 +943,19 @@ class PurchaseOrderService {
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     if (existingPO.status !== PurchaseOrderStatus.DRAFT) {
-      throw new Error('Can only add items to purchase orders in DRAFT status');
+      throw new BusinessError(`${existingPO.poNumber} is ${existingPO.status} — lines can only be added to a draft.`, {
+        code: 'PO_NOT_DRAFT',
+        status: existingPO.status,
+      });
     }
 
     // Validate: either materialId OR serviceType is required
     if (!item.materialId && !item.serviceType) {
-      throw new Error('Either material ID or service type is required');
+      throw new ValidationError('Either material ID or service type is required');
     }
 
     // Validate material exists if materialId is provided
@@ -773,7 +965,7 @@ class PurchaseOrderService {
       });
 
       if (!material) {
-        throw new Error('Material not found');
+        throw new BusinessError('Material not found');
       }
     }
 
@@ -847,23 +1039,19 @@ class PurchaseOrderService {
    * Update a purchase order item
    */
   async updatePurchaseOrderItem(poId: string, itemId: string, data: UpdatePurchaseOrderItemDTO) {
-    const editableStatuses: string[] = [
-      PurchaseOrderStatus.DRAFT,
-      PurchaseOrderStatus.PENDING_GREIGE,
-      PurchaseOrderStatus.READY_FOR_PROCESSING,
-    ];
-
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id: poId },
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
-    if (!editableStatuses.includes(existingPO.status)) {
-      throw new Error(
-        'Can only update items on purchase orders in Draft, Pending Greige, or Ready for Processing status'
+    if (!PRE_SEND_STATUSES.includes(existingPO.status)) {
+      throw new BusinessError(
+        `${existingPO.poNumber} is ${existingPO.status} — its lines can only be changed before it is sent ` +
+          `(Draft, Pending Greige or Ready for Processing).`,
+        { code: 'PO_NOT_EDITABLE', status: existingPO.status }
       );
     }
 
@@ -872,7 +1060,7 @@ class PurchaseOrderService {
     });
 
     if (!existingItem) {
-      throw new Error('Purchase order item not found');
+      throw new NotFoundError('Purchase order item');
     }
 
     const orderedQuantity = data.orderedQuantity ?? Number(existingItem.orderedQuantity);
@@ -952,11 +1140,14 @@ class PurchaseOrderService {
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     if (existingPO.status !== PurchaseOrderStatus.DRAFT) {
-      throw new Error('Can only remove items from purchase orders in DRAFT status');
+      throw new BusinessError(
+        `${existingPO.poNumber} is ${existingPO.status} — lines can only be removed from a draft.`,
+        { code: 'PO_NOT_DRAFT', status: existingPO.status }
+      );
     }
 
     const existingItem = await prisma.purchase_order_items.findFirst({
@@ -964,7 +1155,7 @@ class PurchaseOrderService {
     });
 
     if (!existingItem) {
-      throw new Error('Purchase order item not found');
+      throw new NotFoundError('Purchase order item');
     }
 
     // Item delete + header recompute atomically (bug-hunt procurement-19)
@@ -1002,7 +1193,7 @@ class PurchaseOrderService {
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     // Allow sending from DRAFT or READY_FOR_PROCESSING status
@@ -1010,11 +1201,16 @@ class PurchaseOrderService {
       existingPO.status !== PurchaseOrderStatus.DRAFT &&
       existingPO.status !== PurchaseOrderStatus.READY_FOR_PROCESSING
     ) {
-      throw new Error('Can only send purchase orders in DRAFT or READY_FOR_PROCESSING status');
+      throw new BusinessError(
+        `${existingPO.poNumber} is ${existingPO.status} — only a draft (or a processing PO ready for processing) can be sent.`,
+        { code: 'PO_CANNOT_SEND', status: existingPO.status }
+      );
     }
 
     if (existingPO.purchase_order_items.length === 0) {
-      throw new Error('Cannot send purchase order with no items');
+      throw new BusinessError(`${existingPO.poNumber} has no lines — add at least one before sending it.`, {
+        code: 'PO_NO_ITEMS',
+      });
     }
 
     const purchaseOrder = await prisma.purchase_orders.update({
@@ -1041,11 +1237,14 @@ class PurchaseOrderService {
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     if (existingPO.status !== PurchaseOrderStatus.SENT) {
-      throw new Error('Can only acknowledge purchase orders in SENT status');
+      throw new BusinessError(
+        `${existingPO.poNumber} is ${existingPO.status} — only a sent purchase order can be acknowledged.`,
+        { code: 'PO_CANNOT_ACKNOWLEDGE', status: existingPO.status }
+      );
     }
 
     const purchaseOrder = await prisma.purchase_orders.update({
@@ -1058,173 +1257,210 @@ class PurchaseOrderService {
   }
 
   /**
-   * Cancel purchase order
+   * Cancel a purchase order — the supplier will deliver nothing (more) against it.
+   *
+   * Refusals (422, details.code — the PO screens branch on them, contract in plan lucky-globe):
+   *   PO_ALREADY_CANCELLED    a second cancel used to overwrite who/when and append a second reason
+   *   PO_DRAFT_DELETE_INSTEAD a draft was never sent — delete it (owner decision 2026-09-27)
+   *   PO_SHORT_CLOSED         settled at what was delivered; the short is already on the books
+   *   PO_GOODS_RECEIVED       goods arrived — Close Short is the exit, unless an ADMIN passes force
+   *   PO_GRN_PENDING_QC       a receipt is still being checked (every cancel, forced or not)
+   *   PO_STATUS_CHANGED       the PO moved on between loading it and cancelling it
+   * `force` from anyone but an ADMIN is a 403. It used to be implicit: validateTransition hands every
+   * ADMIN (12 of 18 users) an override, so a stale row's Cancel cancelled a part-received PO, reset
+   * requirements whose goods were still in QC, and let those goods be booked against a CANCELLED
+   * PO while the material was re-ordered — a double purchase (RA-1).
    */
-  async cancelPurchaseOrder(id: string, reason: string, userRole?: string, cancelledById?: string) {
+  async cancelPurchaseOrder(
+    id: string,
+    reason: string,
+    userRole?: string,
+    cancelledById?: string,
+    opts: { force?: boolean } = {}
+  ) {
+    const force = opts.force === true;
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id },
     });
 
     if (!existingPO) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
+    }
+    const { poNumber, status } = existingPO;
+
+    // The same hardcoded floor requireAdmin() applies — NOT requirePermissionForWrites('admin'), whose
+    // key every role holds in this deployment's role_permissions.
+    if (force && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenError('Only an administrator can force-cancel a purchase order.');
     }
 
-    // Hard precondition, NOT subject to the ADMIN override: a short-closed PO has already been
-    // settled at the delivered quantity, and its requirements carry shortQuantity + shortCloseReason.
-    // Cancelling on top would claim nothing was delivered while that evidence is still on the books,
-    // and cancel's own repair logic is a no-op there (the zero-received links are already gone and
-    // the kept link has no remainder), so the contradiction would simply persist.
-    if (existingPO.status === PurchaseOrderStatus.SHORT_CLOSED) {
+    if (status === PurchaseOrderStatus.CANCELLED) {
+      throw new BusinessError(`${poNumber} is already cancelled.`, { code: 'PO_ALREADY_CANCELLED' });
+    }
+
+    if (status === PurchaseOrderStatus.DRAFT) {
+      throw new BusinessError(`${poNumber} is a draft that was never sent — delete it instead of cancelling it.`, {
+        code: 'PO_DRAFT_DELETE_INSTEAD',
+      });
+    }
+
+    // Hard precondition, NOT subject to force: a short-closed PO has already been settled at the
+    // delivered quantity, and its requirements carry shortQuantity + shortCloseReason. Cancelling on
+    // top would claim nothing was delivered while that evidence is still on the books, and cancel's
+    // own repair logic is a no-op there (the zero-received links are already gone and the kept link
+    // has no remainder), so the contradiction would simply persist.
+    if (status === PurchaseOrderStatus.SHORT_CLOSED) {
       throw new BusinessError(
-        `${existingPO.poNumber} is closed short — it cannot also be cancelled. Goods were delivered ` +
-          `against it and the shortfall is already recorded.`
+        `${poNumber} is closed short — it cannot also be cancelled. Goods were delivered ` +
+          `against it and the shortfall is already recorded.`,
+        { code: 'PO_SHORT_CLOSED' }
       );
     }
 
-    // State machine validation (strict + admin override)
-    const transition = validateTransition('purchaseOrder', existingPO.status, 'CANCELLED', userRole);
-    if (!transition.valid) {
-      throw new Error(transition.message || 'Cannot cancel this purchase order');
+    // Goods arrived: cancelling claims they did not (the supplier ledger, payments and GST all saw a
+    // real receipt). Close Short ends a part-delivered PO honestly; an ADMIN may still force a cancel
+    // to correct a genuine mistake, with a typed reason, and it is logged.
+    const goodsReceived = status === PurchaseOrderStatus.PARTIALLY_RECEIVED || status === PurchaseOrderStatus.RECEIVED;
+    if (goodsReceived && !force) {
+      throw new BusinessError(
+        status === PurchaseOrderStatus.PARTIALLY_RECEIVED
+          ? `Goods have been received against ${poNumber} — use Close Short to end it at what arrived.`
+          : `Goods have been received against ${poNumber} — it is fully received and cannot be cancelled.`,
+        { code: 'PO_GOODS_RECEIVED', status }
+      );
     }
 
+    // Strict for a plain cancel (no role → no implicit ADMIN override); the role goes in only for an
+    // explicit, already-admin-checked force.
+    const transition = validateTransition('purchaseOrder', status, 'CANCELLED', force ? userRole : undefined);
+    if (!transition.valid) {
+      throw new BusinessError(transition.message || `${poNumber} cannot be cancelled.`, {
+        code: 'PO_CANNOT_CANCEL',
+        status,
+      });
+    }
+
+    await assertNoGrnAwaitingQc(id, poNumber, 'cancel');
+
     const purchaseOrder = await prisma.$transaction(async (tx) => {
-      // 1. Update PO status (use minimal include to avoid relation validation issues)
-      const po = await tx.purchase_orders.update({
-        where: { id },
+      // 1. Claim the cancel with the status we checked IN the WHERE. The guards above ran outside
+      // this transaction: a GRN, a send, or a second cancel (double-click, two tabs) landing in
+      // between would otherwise be overwritten — a second cancel used to replace the first one's
+      // who/when and append a second reason. Whoever loses the race matches zero rows.
+      const claimed = await tx.purchase_orders.updateMany({
+        where: { id, status },
         data: {
           status: PurchaseOrderStatus.CANCELLED,
-          remarks: reason ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim() : existingPO.remarks,
+          remarks: `${existingPO.remarks || ''}\n\n${
+            transition.isAdminOverride
+              ? 'Cancellation reason (forced by admin after goods were received)'
+              : 'Cancellation reason'
+          }: ${reason}`.trim(),
           // Who cancelled, and when (owner-approved 2026-08-24) — previously nobody was recorded
           cancelledById: cancelledById ?? null,
           cancelledAt: new Date(),
         },
-        include: this.getMinimalInclude(),
       });
+      if (claimed.count === 0) {
+        throw new BusinessError(
+          `${poNumber} changed while it was being cancelled (it is no longer ${status}) — reload it and try again.`,
+          { code: 'PO_STATUS_CHANGED' }
+        );
+      }
+
+      // Minimal include to avoid relation validation issues
+      const po = await tx.purchase_orders.findUniqueOrThrow({ where: { id }, include: this.getMinimalInclude() });
 
       // 2. Free the linked MRP material requirements so the unfulfilled material can be re-ordered.
       //
       // This used to filter on `status: 'PO_GENERATED'` alone, which matched ZERO rows once the
       // PO had been sent (PO_SENT) or part-delivered (PARTIALLY_RECEIVED) — the two states a
       // cancellation actually happens in. Those requirements stayed pinned to the cancelled PO
-      // forever: PO generation only accepts PO_REQUIRED/PARTIAL_STOCK, the duplicate guard skips
-      // anything still linked, and the MRP "needing PO" tile counts neither — so the shortfall
-      // silently vanished from the plan and surfaced as a stock-out at production.
+      // forever, and the shortfall surfaced as a stock-out at production.
       //
-      // Split by what actually arrived, mirroring the job-work-order cancel path:
+      // Split by what actually arrived (per requirement — its links to this PO summed), mirroring
+      // short-close and the job-work-order cancel path:
       //   nothing received → revert the requirement outright and drop the link;
       //   part received    → leave the delivered part booked and carry the balance forward as its
       //                      own orderable requirement (the MRP-12 split-remainder shape).
-      const mrpLinks = await tx.requirement_po_links.findMany({
-        where: { purchaseOrderId: id },
-        select: { requirementId: true, allocatedQuantity: true, receivedQuantity: true },
-      });
+      const shares = await loadRequirementShares(tx, id);
+      await freeUndeliveredRequirements(
+        tx,
+        id,
+        poNumber,
+        'cancel',
+        shares.filter((s) => s.received === 0)
+      );
 
-      const untouched = mrpLinks.filter((l) => Number(l.receivedQuantity) === 0);
-      const partiallyReceived = mrpLinks.filter((l) => Number(l.receivedQuantity) > 0);
-
-      if (untouched.length > 0) {
-        const ids = untouched.map((l) => l.requirementId);
-        const reverted = await tx.material_requirements.updateMany({
-          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] } },
-          data: { status: 'PO_REQUIRED' },
-        });
-        // A silent count:0 is exactly how this bug hid. Say so rather than assume success.
-        if (reverted.count !== ids.length) {
-          logWarn(
-            `[PO ${existingPO.poNumber}] cancel reverted ${reverted.count} of ${ids.length} undelivered ` +
-              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
-          );
-        }
-        // Drop the links too: MRP's duplicate guard skips a requirement that still carries one,
-        // so leaving them would keep the requirement un-orderable even in PO_REQUIRED.
-        await tx.requirement_po_links.deleteMany({
-          where: { purchaseOrderId: id, requirementId: { in: ids } },
-        });
-      }
-
-      for (const link of partiallyReceived) {
-        const requirement = await tx.material_requirements.findUnique({ where: { id: link.requirementId } });
+      for (const share of shares.filter((s) => s.received > 0)) {
+        const requirement = await tx.material_requirements.findUnique({ where: { id: share.requirementId } });
         if (!requirement) continue;
 
-        const received = Number(link.receivedQuantity);
-        const remainder = toNumber(subtractCurrency(Number(requirement.shortfall), received));
+        // Link basis, not the requirement's shortfall: one consolidated PO line can serve several
+        // requirements, and a requirement can be allocated across several lines (summed above).
+        const balance = toNumber(subtractCurrency(share.allocated, share.received));
 
         // Below a paise of dust there is nothing worth re-ordering (same threshold and reasoning
-        // as the MRP split-remainder path).
-        if (remainder > 0.01) {
-          const childNumber = await generateAtomicDocNumber('MR', tx);
-          await tx.material_requirements.create({
-            data: {
-              requirementNumber: childNumber,
-              source: requirement.source,
-              orderId: requirement.orderId,
-              orderItemId: requirement.orderItemId,
-              materialId: requirement.materialId,
-              orderBomId: requirement.orderBomId,
-              orderBomItemId: requirement.orderBomItemId,
-              orderQuantity: requirement.orderQuantity,
-              quantityPerUnit: requirement.quantityPerUnit,
-              wastagePercent: requirement.wastagePercent,
-              totalRequired: remainder,
-              unit: requirement.unit,
-              availableStock: 0,
-              allocatedFromStock: 0,
-              shortfall: remainder,
-              preferredSupplierId: requirement.preferredSupplierId,
-              status: MaterialRequirementStatus.PO_REQUIRED,
-              requirementType: requirement.requirementType,
-              processorId: requirement.processorId,
-              processingCost: requirement.processingCost,
-              printingType: requirement.printingType,
-              linkedRequirementId: requirement.linkedRequirementId,
-              // Shrinkage provenance must survive the split or the child silently re-derives 0%.
-              shrinkagePercentUsed: requirement.shrinkagePercentUsed,
-              shrinkageSource: requirement.shrinkageSource,
-              colorName: requirement.colorName,
-              componentName: requirement.componentName,
-              requiredDate: requirement.requiredDate,
-              createdById: cancelledById ?? requirement.createdById,
-              unitPrice: requirement.unitPrice,
-              rateSource: requirement.rateSource,
-              splitFromId: requirement.id,
-            },
-          });
+        // as the MRP split-remainder path and short-close).
+        if (balance > 0.01) {
+          const childNumber = await mintBalanceRequirement(tx, requirement, balance, cancelledById);
           // The original now represents only what was actually delivered.
           await tx.material_requirements.update({
             where: { id: requirement.id },
-            data: { shortfall: received },
+            data: { shortfall: share.received },
           });
           logWarn(
-            `[PO ${existingPO.poNumber}] cancelled after ${received} of ${Number(requirement.shortfall)} received ` +
-              `for ${requirement.requirementNumber}; balance ${remainder} carried forward as ${childNumber}`
+            `[PO ${poNumber}] cancelled after ${share.received} of ${share.allocated} received ` +
+              `for ${requirement.requirementNumber}; balance ${balance} carried forward as ${childNumber}`
           );
         }
-        // The link is deliberately KEPT: it is the record of what this PO actually delivered.
+        // The links are deliberately KEPT: they are the record of what this PO actually delivered.
       }
 
-      // 3. Revert linked service requirements → PENDING.
-      // IN_PROGRESS included for the same reason as above: filtering on PO_GENERATED alone left
-      // an in-progress service pinned to a cancelled PO (job-work-order cancel already does this).
+      // 3. Revert linked service requirements → PENDING and drop their links (a kept link would keep
+      // the service looking ordered). IN_PROGRESS included for the same reason as above. Only a service
+      // requirement still held by THIS PO is reset — one already re-ordered on another PO is not
+      // this cancellation's to undo (a re-cancel of an old PO used to reset it, RA-3).
       const serviceLinks = await tx.service_requirement_po_links.findMany({
         where: { purchaseOrderItem: { poId: id } },
         select: { serviceRequirementId: true },
       });
       if (serviceLinks.length > 0) {
-        const ids = serviceLinks.map((l) => l.serviceRequirementId);
+        const ids = [...new Set(serviceLinks.map((l) => l.serviceRequirementId))];
         const revertedServices = await tx.work_order_service_requirements.updateMany({
-          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'IN_PROGRESS'] } },
+          where: {
+            id: { in: ids },
+            status: { in: ['PO_GENERATED', 'IN_PROGRESS'] },
+            OR: [{ purchaseOrderId: id }, { purchaseOrderId: null }],
+          },
           data: { status: 'PENDING', purchaseOrderId: null },
         });
         if (revertedServices.count !== ids.length) {
           logWarn(
-            `[PO ${existingPO.poNumber}] cancel reverted ${revertedServices.count} of ${ids.length} service ` +
-              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+            `[PO ${poNumber}] cancel reverted ${revertedServices.count} of ${ids.length} service ` +
+              `requirement(s) — the rest were in an unexpected status or held by another PO and may need manual re-planning`
           );
         }
+        await tx.service_requirement_po_links.deleteMany({ where: { purchaseOrderItem: { poId: id } } });
       }
 
       return po;
     });
+
+    // A forced cancel overrides the rule that a PO with goods received is closed short, never
+    // cancelled — record who did it and why (the order.service isAdminOverride pattern, plus a row
+    // in audit_logs so it survives log rotation).
+    if (transition.isAdminOverride) {
+      logInfo('Admin override: purchase order force-cancelled', { id, poNumber, from: status, reason });
+      await createAuditLog({
+        userId: cancelledById ?? 'SYSTEM',
+        action: 'UPDATE',
+        entityType: 'purchase_order',
+        entityId: id,
+        oldValues: { status },
+        newValues: { status: PurchaseOrderStatus.CANCELLED, forced: true, reason },
+      });
+    }
 
     return purchaseOrder;
   }
@@ -1251,7 +1487,7 @@ class PurchaseOrderService {
   ) {
     const existingPO = await prisma.purchase_orders.findUnique({ where: { id } });
     if (!existingPO) {
-      throw new NotFoundError('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     // Hard precondition, NOT subject to the ADMIN override that validateTransition applies. Every
@@ -1270,20 +1506,10 @@ class PurchaseOrderService {
       throw new BusinessError(transition.message || `${existingPO.poNumber} cannot be closed short.`);
     }
 
-    // A GRN still awaiting QC means the delivered quantity is NOT settled: counters are
-    // incremented gross at GRN creation, and the verdict can land days later. Closing over it
-    // would freeze shortQuantity from provisional numbers and let the later verdict mutate the
-    // requirements this close just finalised.
-    const pendingGrn = await prisma.goods_receiving_notes.findFirst({
-      where: { poId: id, status: 'PENDING_QC' },
-      select: { grnNumber: true },
-    });
-    if (pendingGrn) {
-      throw new BusinessError(
-        `Cannot short-close ${existingPO.poNumber}: GRN ${pendingGrn.grnNumber} is still awaiting QC. ` +
-          `Complete or reject it first so the delivered quantity is final.`
-      );
-    }
+    // A GRN still awaiting QC means the delivered quantity is NOT settled — closing over it would
+    // freeze shortQuantity from provisional numbers and let the later verdict mutate the requirements
+    // this close just finalised. The same check guards cancel.
+    await assertNoGrnAwaitingQc(id, existingPO.poNumber, 'short-close');
 
     // Short-close must never become a side door around the JWO debit-note gate: greige short-returned
     // by a processor is abnormal loss to be recovered, not demand to be closed.
@@ -1322,43 +1548,19 @@ class PurchaseOrderService {
         include: this.getMinimalInclude(),
       });
 
-      const rawLinks = await tx.requirement_po_links.findMany({
-        where: { purchaseOrderId: id },
-        select: { requirementId: true, allocatedQuantity: true, receivedQuantity: true },
-      });
-
-      // A requirement can hold SEVERAL links to the same PO (one per PO line it was allocated
-      // across). Aggregate them first — handling each link separately would let the last one
-      // overwrite the earlier ones' shortfall and shortQuantity, silently losing part of the
-      // delivery. A negative receivedQuantity (an over-shot reversal) is floored at zero so a link
-      // can never fall between the two branches below and strand its requirement on a closed PO.
-      const byRequirement = new Map<string, { allocated: number; received: number }>();
-      for (const l of rawLinks) {
-        const agg = byRequirement.get(l.requirementId) ?? { allocated: 0, received: 0 };
-        agg.allocated += Number(l.allocatedQuantity);
-        agg.received += Math.max(0, Number(l.receivedQuantity));
-        byRequirement.set(l.requirementId, agg);
-      }
-      const links = [...byRequirement.entries()].map(([requirementId, agg]) => ({ requirementId, ...agg }));
+      // Per requirement — its links to this PO summed (one per line it was allocated across)
+      const links = await loadRequirementShares(tx, id);
 
       // Nothing delivered on this line — the material is still genuinely needed, so free it
       // exactly as cancellation does (revert AND drop the link, or MRP's duplicate guard keeps
       // skipping it).
-      const untouched = links.filter((l) => l.received === 0);
-      if (untouched.length > 0) {
-        const ids = untouched.map((l) => l.requirementId);
-        const reverted = await tx.material_requirements.updateMany({
-          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] } },
-          data: { status: 'PO_REQUIRED' },
-        });
-        if (reverted.count !== ids.length) {
-          logWarn(
-            `[PO ${existingPO.poNumber}] short-close reverted ${reverted.count} of ${ids.length} undelivered ` +
-              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
-          );
-        }
-        await tx.requirement_po_links.deleteMany({ where: { purchaseOrderId: id, requirementId: { in: ids } } });
-      }
+      await freeUndeliveredRequirements(
+        tx,
+        id,
+        existingPO.poNumber,
+        'short-close',
+        links.filter((l) => l.received === 0)
+      );
 
       // Part-delivered — close at what actually arrived and RECORD the short rather than leaving
       // it to arithmetic. The link is kept: it is the record of what this PO did deliver.
@@ -1383,42 +1585,7 @@ class PurchaseOrderService {
         });
 
         if (reorderBalance && short > 0.01) {
-          const childNumber = await generateAtomicDocNumber('MR', tx);
-          await tx.material_requirements.create({
-            data: {
-              requirementNumber: childNumber,
-              source: requirement.source,
-              orderId: requirement.orderId,
-              orderItemId: requirement.orderItemId,
-              materialId: requirement.materialId,
-              orderBomId: requirement.orderBomId,
-              orderBomItemId: requirement.orderBomItemId,
-              orderQuantity: requirement.orderQuantity,
-              quantityPerUnit: requirement.quantityPerUnit,
-              wastagePercent: requirement.wastagePercent,
-              totalRequired: short,
-              unit: requirement.unit,
-              availableStock: 0,
-              allocatedFromStock: 0,
-              shortfall: short,
-              preferredSupplierId: requirement.preferredSupplierId,
-              status: MaterialRequirementStatus.PO_REQUIRED,
-              requirementType: requirement.requirementType,
-              processorId: requirement.processorId,
-              processingCost: requirement.processingCost,
-              printingType: requirement.printingType,
-              linkedRequirementId: requirement.linkedRequirementId,
-              shrinkagePercentUsed: requirement.shrinkagePercentUsed,
-              shrinkageSource: requirement.shrinkageSource,
-              colorName: requirement.colorName,
-              componentName: requirement.componentName,
-              requiredDate: requirement.requiredDate,
-              createdById: shortClosedById ?? requirement.createdById,
-              unitPrice: requirement.unitPrice,
-              rateSource: requirement.rateSource,
-              splitFromId: requirement.id,
-            },
-          });
+          const childNumber = await mintBalanceRequirement(tx, requirement, short, shortClosedById);
           logWarn(
             `[PO ${existingPO.poNumber}] short-closed ${short} short on ${requirement.requirementNumber}; ` +
               `re-order requested, carried forward as ${childNumber}`
@@ -1925,7 +2092,7 @@ class PurchaseOrderService {
     });
 
     if (!po) {
-      throw new Error('Purchase order not found');
+      throw new NotFoundError('Purchase order');
     }
 
     return po.purchase_order_items.map((item) => ({
@@ -1963,7 +2130,7 @@ class PurchaseOrderService {
    */
   async amendDeliveryPlan(poId: string, plan: DeliveryPlanInput, userId: string, reason?: string | null) {
     const exists = await prisma.purchase_orders.findUnique({ where: { id: poId }, select: { id: true } });
-    if (!exists) throw new NotFoundError('Purchase order not found');
+    if (!exists) throw new NotFoundError('Purchase order');
     return prisma.$transaction(async (tx) => {
       await applyDeliveryPlan(tx, poId, plan, { userId, reason, revision: true });
       return tx.purchase_orders.findUniqueOrThrow({ where: { id: poId }, include: this.getFullInclude() });

@@ -16,7 +16,11 @@ import {
 } from '../types/purchaseOrder.types';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError, UnauthorizedError } from '../errors';
-import type { AmendDeliveryPlanInput } from '../schemas/purchaseOrder.schema';
+import type {
+  AmendDeliveryPlanInput,
+  CancelPurchaseOrderInput,
+  PurchaseOrderQueryInput,
+} from '../schemas/purchaseOrder.schema';
 
 /**
  * @route GET /api/purchase-orders
@@ -24,38 +28,29 @@ import type { AmendDeliveryPlanInput } from '../schemas/purchaseOrder.schema';
  * @access Private
  */
 export const getAllPurchaseOrders = async (req: Request, res: Response) => {
-  const {
-    status,
-    source,
-    poCategories,
-    supplierId,
-    orderId,
-    serviceWorkOrderId,
-    delivery,
-    search,
-    startDate,
-    endDate,
-    page,
-    limit,
-    sortBy,
-    sortOrder,
-  } = req.query;
+  // The COERCED query (poCategories as a checked array, dates as Dates, page/limit as numbers) lives
+  // on req.validatedQuery — req.query stays raw strings under Express 5 (validation.middleware.ts).
+  const query = req.validatedQuery as PurchaseOrderQueryInput | undefined;
+  if (!query) {
+    // A wiring mistake, not a user error: the route must mount validateQuery(purchaseOrderQuerySchema)
+    throw new Error('GET /purchase-orders reached the controller without validateQuery');
+  }
 
   const filters: PurchaseOrderFilters = {
-    status: status as PurchaseOrderStatus | undefined,
-    source: source as POSource | undefined,
-    poCategories: poCategories ? (poCategories as string).split(',') : undefined,
-    supplierId: supplierId as string | undefined,
-    orderId: orderId as string | undefined,
-    serviceWorkOrderId: serviceWorkOrderId as string | undefined,
-    delivery: delivery === 'TO_BE_ADVISED' ? 'TO_BE_ADVISED' : undefined,
-    search: search as string | undefined,
-    startDate: startDate as string | undefined,
-    endDate: endDate as string | undefined,
-    page: page ? parseInt(page as string, 10) : undefined,
-    limit: limit ? parseInt(limit as string, 10) : undefined,
-    sortBy: sortBy as string | undefined,
-    sortOrder: sortOrder as 'asc' | 'desc' | undefined,
+    status: query.status as PurchaseOrderStatus | undefined,
+    source: query.source as POSource | undefined,
+    poCategories: query.poCategories,
+    supplierId: query.supplierId,
+    orderId: query.orderId,
+    serviceWorkOrderId: query.serviceWorkOrderId,
+    delivery: query.delivery,
+    search: query.search,
+    startDate: query.startDate,
+    endDate: query.endDate,
+    page: query.page,
+    limit: query.limit,
+    sortBy: query.sortBy,
+    sortOrder: query.sortOrder,
   };
 
   const result = await purchaseOrderService.getAllPurchaseOrders(filters);
@@ -351,14 +346,15 @@ export const acknowledgePurchaseOrder = async (req: Request, res: Response) => {
  */
 export const cancelPurchaseOrder = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { reason } = req.body;
+  const { reason, force } = req.body as CancelPurchaseOrderInput;
 
-  // Landmine №7: pass the role — without it the state machine's ADMIN override never
-  // engaged, so nobody (not even admin) could cancel a fully-received PO. The userId
-  // stamps cancelledBy/cancelledAt (audit: previously nobody was recorded on cancel).
-  const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(id, reason, req.user?.role, req.user?.userId);
+  // The role decides whether `force` is allowed (ADMIN only — a PO that already received goods);
+  // it no longer unlocks anything by itself. The userId stamps cancelledBy/cancelledAt.
+  const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(id, reason, req.user?.role, req.user?.userId, {
+    force,
+  });
 
-  logInfo(`Purchase order cancelled: ${purchaseOrder.poNumber}`);
+  logInfo(`Purchase order cancelled: ${purchaseOrder.poNumber}${force ? ' (forced by admin)' : ''}`);
 
   res.json({
     success: true,

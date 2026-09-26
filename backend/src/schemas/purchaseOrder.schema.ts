@@ -6,9 +6,11 @@
  */
 
 import { z } from 'zod';
+import { POCategory } from '@prisma/client';
 import { UnitEnum, flexMaterialId, formNumberRequired } from './common.schema';
-import { ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
+import { POCategoryEnum, ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
 import { isQtyZero } from '../utils/quantity';
+import { CREATABLE_PO_CATEGORIES, PO_SORT_FIELDS, isPoDateAfterToday } from '../types/purchaseOrder.types';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -34,22 +36,21 @@ export const POSourceEnum = z.enum(['MANUAL', 'COST_SHEET', 'MRP', 'SERVICE_REQU
 // Phase 5a: intentional MATERIAL-ONLY subset of the Prisma POCategory enum — purchase
 // orders can no longer be created for service/processing work (that is a Job Work Order).
 // Query filters elsewhere still accept the full Prisma enum for reading legacy rows.
-export const ManualPOCategoryEnum = z.enum([
-  'FABRIC',
-  'GREIGE',
-  'TRIMS',
-  'THREAD',
-  'LACE',
-  'GREIGE_LACE',
-  'GENERAL',
-  'BUTTON',
-  'ZIPPER',
-  'ELASTIC',
-  'LABEL',
-  'PACKAGING',
-  'MACHINE_PART',
-  'OTHER_MATERIAL',
-]);
+// The list itself is CREATABLE_PO_CATEGORIES (types/purchaseOrder.types.ts), shared with unified PO creation.
+export const ManualPOCategoryEnum = z.enum(CREATABLE_PO_CATEGORIES as [POCategory, ...POCategory[]]);
+
+/**
+ * The PO's own date (owner decision 2026-09-27): settable on the form, today by default, a past date
+ * allowed, never a future one (IST calendar days). Blank / null = not sent — create stamps now, update
+ * leaves it. A bare z.coerce.date() would turn null into 01-Jan-1970, hence the preprocess.
+ */
+const poDateSchema = z.preprocess(
+  (v) => (v === '' || v === null ? undefined : v),
+  z.coerce
+    .date()
+    .refine((d) => !isPoDateAfterToday(d), 'The PO date cannot be after today')
+    .optional()
+);
 
 export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);
 
@@ -130,6 +131,7 @@ export const updatePurchaseOrderItemSchema = z.object({
 export const createPurchaseOrderSchema = z.object({
   supplierId: z.string().uuid('Invalid supplier ID'),
   expectedDeliveryDate: z.string().or(z.date()),
+  poDate: poDateSchema,
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
   poCategory: ManualPOCategoryEnum.optional(),
@@ -149,6 +151,7 @@ export const createPurchaseOrderSchema = z.object({
 export const updatePurchaseOrderSchema = z.object({
   supplierId: z.string().uuid('Invalid supplier ID').optional(),
   expectedDeliveryDate: z.string().or(z.date()).optional(),
+  poDate: poDateSchema,
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
   // Items carry their OWN id on update so the server can update the line in place instead of
@@ -178,7 +181,10 @@ export const addPurchaseOrderItemSchema = purchaseOrderItemSchema;
  * PATCH /api/purchase-orders/:id/cancel
  */
 export const cancelPurchaseOrderSchema = z.object({
-  reason: z.string().min(1, 'Cancellation reason is required').max(500),
+  reason: z.string().trim().min(1, 'Cancellation reason is required').max(500),
+  // ADMIN only (403 otherwise): cancel a PO that has already received goods. Without it such a PO is
+  // refused with PO_GOODS_RECEIVED — Close Short is the normal exit (owner decision 2026-09-27).
+  force: z.boolean().optional(),
 });
 
 /**
@@ -223,21 +229,33 @@ export const sendPurchaseOrderSchema = z
  * Purchase Order Query Params
  * GET /api/purchase-orders
  */
+// poCategories, sortBy and the dates used to be any string: a bad value reached Prisma and came back
+// as 400 "Invalid data provided to database". Each is now checked here and named in the 400.
 export const purchaseOrderQuerySchema = z.object({
   status: PurchaseOrderStatusEnum.optional(),
   source: POSourceEnum.optional(),
-  poCategories: z.string().optional(), // Comma-separated list
+  // Comma-separated POCategory values → an array (the full Prisma enum: legacy rows stay readable)
+  poCategories: z
+    .string()
+    .transform((s) =>
+      s
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean)
+    )
+    .pipe(z.array(POCategoryEnum))
+    .optional(),
   supplierId: z.string().uuid().optional(),
   orderId: z.string().uuid().optional(), // Filter POs linked to a specific order
   serviceWorkOrderId: z.string().uuid().optional(), // Scope service-PO dropdowns to a work order
   // 'TO_BE_ADVISED' = no delivery place decided yet (the PO list's "Delivery: to be advised" filter)
   delivery: z.enum(['TO_BE_ADVISED']).optional(),
   search: z.string().max(100).optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
-  sortBy: z.string().optional(),
+  sortBy: z.enum(PO_SORT_FIELDS).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 

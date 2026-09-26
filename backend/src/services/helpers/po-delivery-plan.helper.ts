@@ -56,7 +56,8 @@ export interface DeliveryPlanSnapshot {
 
 /** POs not yet sent to the supplier — a change there is part of composing the PO, not an amendment. */
 export const PRE_SEND_STATUSES: readonly PurchaseOrderStatus[] = ['DRAFT', 'PENDING_GREIGE', 'READY_FOR_PROCESSING'];
-const FINISHED_STATUSES: readonly PurchaseOrderStatus[] = ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'];
+/** POs that will receive nothing more — no delivery place can still be decided for them (plan writer, TBA filter). */
+export const FINISHED_STATUSES: readonly PurchaseOrderStatus[] = ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'];
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 const sumQty = (values: number[]) => values.reduce((acc, v) => acc.plus(v), new Decimal(0)).toNumber();

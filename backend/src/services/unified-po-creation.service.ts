@@ -29,6 +29,7 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
 import { resolvePoLineUnits, toStockQty } from './helpers/purchase-unit.helper';
+import { CREATABLE_PO_CATEGORIES, isPoDateAfterToday } from '../types/purchaseOrder.types';
 
 // ============================================
 // Types & Interfaces
@@ -63,6 +64,9 @@ export interface UnifiedPOCreationInput {
   supplierId: string;
   expectedDeliveryDate: Date;
   createdById: string;
+
+  /** The PO's own date — omitted = now. Never after today (owner decision 2026-09-27). */
+  poDate?: Date;
 
   // Source tracking (required)
   source: POSource;
@@ -189,6 +193,10 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
     errors.push({ field: 'supplierId', message: `Supplier "${supplier.name}" is inactive` });
   }
 
+  if (input.poDate && isPoDateAfterToday(input.poDate)) {
+    errors.push({ field: 'poDate', message: 'The PO date cannot be after today' });
+  }
+
   // 2. Items validation
   if (!input.items || input.items.length === 0) {
     errors.push({ field: 'items', message: 'At least one item is required' });
@@ -292,26 +300,11 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
   // Phase 5a: purchase orders are MATERIAL-ONLY. Service/processing work is ordered as a
   // Job Work Order (generateServiceJWOs / MRP JWO path); the SERVICE_REQUIREMENT and
   // PRODUCTION_RUN sources are retired and every *_SERVICE / *PROCESSING category is blocked.
-  const MATERIAL_CATEGORIES: POCategory[] = [
-    'FABRIC',
-    'GREIGE',
-    'TRIMS',
-    'THREAD',
-    'LACE',
-    'GREIGE_LACE',
-    'GENERAL',
-    'BUTTON',
-    'ZIPPER',
-    'ELASTIC',
-    'LABEL',
-    'PACKAGING',
-    'MACHINE_PART',
-    'OTHER_MATERIAL',
-  ] as POCategory[];
+  // The same creatable list the manual PO schema (ManualPOCategoryEnum) reads.
   const categorySourceMap: Record<POSource, POCategory[]> = {
-    MANUAL: MATERIAL_CATEGORIES,
+    MANUAL: CREATABLE_PO_CATEGORIES,
     COST_SHEET: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE'] as POCategory[],
-    MRP: MATERIAL_CATEGORIES,
+    MRP: CREATABLE_PO_CATEGORIES,
     SERVICE_REQUIREMENT: [], // retired — service work is a Job Work Order
     PRODUCTION_RUN: [], // retired — service work is a Job Work Order
   };
@@ -527,6 +520,7 @@ export async function createUnifiedPO(
         id: randomUUID(),
         poNumber,
         supplierId: input.supplierId,
+        poDate: input.poDate, // undefined = the column default, now()
         expectedDeliveryDate: input.expectedDeliveryDate,
         status: initialStatus,
         poCategory: input.poCategory,

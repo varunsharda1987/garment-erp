@@ -1076,6 +1076,23 @@ class GRNService {
       throw new Error(`Cannot approve GRN in ${grn.status} status`);
     }
 
+    // Never book stock against a CANCELLED purchase order: the cancel handed the order's demand back
+    // to the plan, so approving would buy the same material twice (RA-1, 2026-09-27). Cancel now
+    // refuses while a GRN awaits QC; this catches receipts that were already waiting when it did not.
+    if (grn.poId) {
+      const grnPo = await prisma.purchase_orders.findUnique({
+        where: { id: grn.poId },
+        select: { poNumber: true, status: true },
+      });
+      if (grnPo?.status === PurchaseOrderStatus.CANCELLED) {
+        throw new BusinessError(
+          `${grn.grnNumber} cannot be approved: purchase order ${grnPo.poNumber} is cancelled, and its material ` +
+            `has been handed back for re-ordering. Reject this receipt instead.`,
+          { code: 'GRN_PO_CANCELLED' }
+        );
+      }
+    }
+
     // Determine target warehouse
     const targetWarehouseId = warehouseId || grn.warehouseId;
     if (!targetWarehouseId) {

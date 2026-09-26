@@ -12,24 +12,57 @@ import {
   ThreadPackagingType,
   ThreadPly,
 } from '@prisma/client';
+import { toDateInputValue } from '../utils/date';
 
 // Re-export Prisma types for use in controllers
 export { PurchaseOrderStatus, POSource };
 
 /**
- * Material PO categories — the only categories the Purchase Orders page shows/creates
- * per the Job Work Consolidation decision (2026-08-09). Processing/service work lives in
- * Job Work Orders. Mirror of PO_GROUP_CATEGORIES.material in
- * frontend/src/types/purchaseOrder.types.ts — keep the two lists in sync.
+ * Material PO categories — the only categories the Purchase Orders page shows (its Material tab,
+ * its category filter, the PO form's category picker) and counts (/stats), per the Job Work
+ * Consolidation decision (2026-08-09). Processing/service work lives in Job Work Orders.
+ *
+ * The frontend keeps its own copy (MATERIAL_PO_CATEGORIES in frontend/src/types/purchaseOrder.types.ts);
+ * `__tests__/unit/po-material-categories.test.ts` fails when the two differ. THREAD was missing here
+ * until 2026-09-27, so a thread PO would have been listed but never counted on the stat cards.
  */
 export const MATERIAL_PO_CATEGORIES: POCategory[] = [
   POCategory.FABRIC,
   POCategory.GREIGE,
   POCategory.TRIMS,
+  POCategory.THREAD,
   POCategory.LACE,
   POCategory.GREIGE_LACE,
   POCategory.GENERAL,
 ];
+
+/**
+ * Every category a purchase order may be CREATED with (manual form, API, MRP): the page's material
+ * categories plus the specific trim categories the schema still carries. Materials only — Phase 5a
+ * retired service/processing POs. ManualPOCategoryEnum and unified PO creation both read this list.
+ */
+export const CREATABLE_PO_CATEGORIES: POCategory[] = [
+  ...MATERIAL_PO_CATEGORIES,
+  POCategory.BUTTON,
+  POCategory.ZIPPER,
+  POCategory.ELASTIC,
+  POCategory.LABEL,
+  POCategory.PACKAGING,
+  POCategory.MACHINE_PART,
+  POCategory.OTHER_MATERIAL,
+];
+
+/** The columns GET /purchase-orders may sort by (anything else used to reach Prisma and 400). */
+export const PO_SORT_FIELDS = ['createdAt', 'poDate', 'poNumber', 'expectedDeliveryDate', 'totalAmount'] as const;
+export type PurchaseOrderSortField = (typeof PO_SORT_FIELDS)[number];
+
+/**
+ * The PO date is settable (owner decision 2026-09-27): today by default, a past date allowed (a PO
+ * typed in after the order was placed by phone), never a future one. Compared as IST calendar days.
+ */
+export function isPoDateAfterToday(poDate: Date | string): boolean {
+  return toDateInputValue(poDate) > toDateInputValue(new Date());
+}
 
 // ============================================
 // Purchase Order Item Types
@@ -103,6 +136,8 @@ export interface PurchaseOrderItemResponse {
 export interface CreatePurchaseOrderDTO {
   supplierId: string;
   expectedDeliveryDate: Date | string;
+  /** The PO's own date — omitted = now. Never after today (isPoDateAfterToday). */
+  poDate?: Date | string;
   paymentTerms?: string | null;
   remarks?: string | null;
   poCategory?: string; // POCategory enum value
@@ -122,6 +157,8 @@ export interface CreatePurchaseOrderDTO {
 export interface UpdatePurchaseOrderDTO {
   supplierId?: string;
   expectedDeliveryDate?: Date | string;
+  /** The PO's own date — omitted = unchanged. Never after today (isPoDateAfterToday). */
+  poDate?: Date | string;
   paymentTerms?: string | null;
   remarks?: string | null;
   items?: PurchaseOrderItemDTO[]; // If provided, replaces all existing items
@@ -159,6 +196,8 @@ export interface RejectPurchaseOrderDTO {
  */
 export interface CancelPurchaseOrderDTO {
   reason: string;
+  /** ADMIN only: cancel a PO that has already received goods (Close Short is the normal exit) */
+  force?: boolean;
 }
 
 // ============================================
@@ -171,8 +210,9 @@ export interface CancelPurchaseOrderDTO {
 export interface PurchaseOrderFilters {
   status?: PurchaseOrderStatus;
   source?: POSource;
-  poCategories?: string[];
+  poCategories?: POCategory[];
   supplierId?: string;
+  /** The order the PO buys for — its own orderId, or any requirement link back to that order */
   orderId?: string;
   serviceWorkOrderId?: string;
   /** 'TO_BE_ADVISED' = no delivery place yet */
@@ -182,7 +222,7 @@ export interface PurchaseOrderFilters {
   endDate?: Date | string;
   page?: number;
   limit?: number;
-  sortBy?: string;
+  sortBy?: PurchaseOrderSortField;
   sortOrder?: 'asc' | 'desc';
 }
 

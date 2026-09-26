@@ -55,7 +55,8 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 
 ## What approval does
 - GRN status becomes **Accepted** and your name is stamped as approver.
-- Accepted quantity is added to stock: greige goes to greige stock, fabric to fabric stock, lace to lace stock, thread to thread stock, and other materials to Stock Levels for the chosen warehouse. A Stock In movement is recorded for the audit trail.
+- Accepted quantity is added to stock: greige goes to greige stock, fabric to fabric stock, lace to lace stock, thread to thread stock, and other materials to Stock Levels for the chosen warehouse. Trims (buttons, zippers, labels, packaging …) also get their own stock lot, so they show on every stock screen; a label that comes in sizes is stocked size by size. A Stock In movement is recorded for the audit trail.
+- Buttons received in gross are stocked in pieces: 16 gross accepted = 2,304 pcs in stock at the price per piece. The GRN and the PO keep showing gross.
 - The PO receiving status is recomputed — it becomes Partially Received or Received.
 - Rejected quantity is taken back off the PO's received counter so the shortfall can be re-ordered, and is logged as an adjustment-out movement.
 - Receiving greige can automatically ready the linked processing work.

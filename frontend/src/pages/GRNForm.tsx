@@ -8,12 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
+import { getDeliveryProgress, getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
 import { createGRN, getPendingItemsForPO } from '@/services/grn.service';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { WeaverCombobox } from '@/components/WeaverCombobox';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { PurchaseOrder } from '@/types/purchaseOrder.types';
+import type { DeliveryProgress, PurchaseOrder } from '@/types/purchaseOrder.types';
+import { notify } from '@/lib/notify';
 import type {
   CreateGRNRequest,
   CreateGRNItemRequest,
@@ -111,6 +112,8 @@ export default function GRNForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedPOId = searchParams.get('poId');
+  // "Receive here" on the PO page's delivery places
+  const preselectedPointId = searchParams.get('pointId');
 
   const [receivablePOs, setReceivablePOs] = useState<PurchaseOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -121,6 +124,9 @@ export default function GRNForm() {
   const [selectedPOId, setSelectedPOId] = useState(preselectedPOId || '');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [warehouseId, setWarehouseId] = useState('');
+  // Split delivery (2026-09-26): which of the PO's places this delivery is against (required when split)
+  const [deliveryProgress, setDeliveryProgress] = useState<DeliveryProgress | null>(null);
+  const [deliveryPointId, setDeliveryPointId] = useState(preselectedPointId || '');
   const [receivingDate, setReceivingDate] = useState(toDateInputValue(new Date()));
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
@@ -134,6 +140,47 @@ export default function GRNForm() {
   useEffect(() => {
     fetchReceivablePOs();
   }, []);
+
+  // Where the PO says it delivers: a split names its places (pick one; it fills the warehouse), one
+  // place pre-fills the warehouse. The receiver can still book elsewhere — the server warns, never blocks.
+  useEffect(() => {
+    let cancelled = false;
+    setDeliveryProgress(null);
+    if (!selectedPOId) return;
+    getDeliveryProgress(selectedPOId)
+      .then((progress) => {
+        if (cancelled) return;
+        setDeliveryProgress(progress);
+        const planned = progress.points.filter((p) => p.planned);
+        if (progress.mode === 'SPLIT') {
+          const point = planned.find((p) => p.id === deliveryPointId);
+          if (point) setWarehouseId((current) => current || point.warehouseId);
+          else setDeliveryPointId('');
+        } else if (progress.mode === 'ONE_PLACE' && planned[0]) {
+          setDeliveryPointId('');
+          setWarehouseId((current) => current || planned[0].warehouseId);
+        }
+      })
+      .catch((err) => {
+        // The form still works without it (the server enforces the plan); say the picker is missing
+        if (!cancelled) handleApiError(err, "Could not load the PO's delivery places");
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPOId]);
+
+  const splitPoints = deliveryProgress?.mode === 'SPLIT' ? deliveryProgress.points.filter((p) => p.planned) : [];
+  const chosenPoint = splitPoints.find((p) => p.id === deliveryPointId) ?? null;
+  const plannedPlace =
+    chosenPoint ??
+    (deliveryProgress?.mode === 'ONE_PLACE' ? (deliveryProgress.points.find((p) => p.planned) ?? null) : null);
+  const pointSummary = (p: DeliveryProgress['points'][number]) => {
+    const sum = (k: 'planned' | 'received' | 'pending') => p.lines.reduce((acc, l) => acc + l[k], 0);
+    const n = (v: number) => v.toLocaleString('en-IN', { maximumFractionDigits: 3 });
+    return `${n(sum('planned'))} planned · ${n(sum('received'))} received · ${n(sum('pending'))} to come`;
+  };
 
   useEffect(() => {
     if (selectedPOId) {
@@ -351,6 +398,13 @@ export default function GRNForm() {
       handleApiError(new Error('Please select a purchase order'), 'Validation Error');
       return false;
     }
+    if (splitPoints.length > 0 && !deliveryPointId) {
+      handleApiError(
+        new Error('This PO is split across several places — pick which delivery this is'),
+        'Validation Error'
+      );
+      return false;
+    }
     if (!warehouseId) {
       handleApiError(new Error('Please select a warehouse'), 'Validation Error');
       return false;
@@ -469,6 +523,7 @@ export default function GRNForm() {
       const data: CreateGRNRequest = {
         poId: selectedPOId,
         warehouseId,
+        poDeliveryPointId: deliveryPointId || null,
         receivingDate,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
@@ -478,6 +533,8 @@ export default function GRNForm() {
 
       const grn = await createGRN(data);
       handleApiSuccess('GRN created', `GRN ${grn.grnNumber} has been created.`);
+      // Over a place's plan, or booked away from it: allowed, but say so
+      for (const w of grn.deliveryWarnings ?? []) notify.warning(w, { duration: 10000 });
       navigate('/procurement/grn');
     } catch (err) {
       handleApiError(err, 'Failed to create GRN');
@@ -1055,11 +1112,51 @@ export default function GRNForm() {
             into stock.
           </p>
 
+          {/* Delivery point — a split PO names its places; this delivery is against one of them */}
+          {splitPoints.length > 0 && (
+            <div className="space-y-2">
+              <Label>Delivery point *</Label>
+              <Select
+                value={deliveryPointId}
+                onValueChange={(id) => {
+                  setDeliveryPointId(id);
+                  const point = splitPoints.find((p) => p.id === id);
+                  if (point) setWarehouseId(point.warehouseId);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Which of the PO's places is this delivery for?" />
+                </SelectTrigger>
+                <SelectContent>
+                  {splitPoints.map((p) => (
+                    <SelectItem key={p.id!} value={p.id!}>
+                      {p.sequence}. {p.warehouseName} — {pointSummary(p)}
+                      {p.complete ? ' (complete)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                This PO is split across {splitPoints.length} places — one invoice and one e-way bill per delivery.
+              </p>
+            </div>
+          )}
+
           {/* Warehouse & Date */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Warehouse *</Label>
               <WarehouseCombobox value={warehouseId} onValueChange={setWarehouseId} placeholder="Select warehouse" />
+              {plannedPlace && warehouseId && warehouseId !== plannedPlace.warehouseId && (
+                <p className="text-xs text-warning flex items-start gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  The PO plans this delivery for {plannedPlace.warehouseName}. Book it here only if the goods actually
+                  arrived here.
+                </p>
+              )}
+              {plannedPlace && !chosenPoint && warehouseId === plannedPlace.warehouseId && (
+                <p className="text-xs text-muted-foreground">The PO delivers here.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="receivingDate">Receiving Date *</Label>

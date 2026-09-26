@@ -223,6 +223,8 @@ export const purchaseOrderQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   orderId: z.string().uuid().optional(), // Filter POs linked to a specific order
   serviceWorkOrderId: z.string().uuid().optional(), // Scope service-PO dropdowns to a work order
+  // 'TO_BE_ADVISED' = no delivery place decided yet (the PO list's "Delivery: to be advised" filter)
+  delivery: z.enum(['TO_BE_ADVISED']).optional(),
   search: z.string().max(100).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),

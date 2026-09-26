@@ -423,6 +423,34 @@ export default function GRNDetail() {
                     <span className="text-muted-foreground">PO Status:</span>
                     <span>{grn.purchaseOrders?.status}</span>
                   </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-muted-foreground">Received at:</span>
+                    <span className="text-right">{grn.warehouse?.warehouseName ?? '—'}</span>
+                  </div>
+                  {grn.deliveryPoint && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Delivery point:</span>
+                      <span className="text-right">
+                        {grn.deliveryPoint.sequence}. {grn.deliveryPoint.warehouse.warehouseName}
+                        {grn.warehouseId && grn.warehouseId !== grn.deliveryPoint.warehouse.id && (
+                          <span className="block text-xs text-warning">Booked away from the planned place</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {(grn.directSupplyChallans ?? []).map((c) => (
+                    <div key={c.id} className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Job-work challan:</span>
+                      <button
+                        onClick={() => navigate(`/manufacturing/challans/${c.id}`)}
+                        className="text-info hover:underline font-medium text-right"
+                        title="Rule 45 challan: the goods are ours, held by the processor"
+                      >
+                        {c.challanNumber}
+                        {c.issuedDate ? ` · ${formatDate(c.issuedDate)}` : ''}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

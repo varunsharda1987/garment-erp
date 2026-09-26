@@ -18,6 +18,7 @@ import { buildPoDeliveryInstructionDocData } from '../../services/document-data/
 import { documentFacadeService } from '../../services/document-facade.service';
 import { companyProfileService } from '../../services/company-profile.service';
 import { writeFileSync } from 'fs';
+import { manufacturingAlertsService } from '../../services/manufacturing-alerts.service';
 import { join } from 'path';
 
 const RUN = `PSD${Date.now().toString(36).toUpperCase()}`;
@@ -445,6 +446,23 @@ describe('one place, to be advised, and splitting after a receipt', () => {
     expect(change.body.data.deliveryPlanRevisions.map((r: { revisionNumber: number }) => r.revisionNumber)).toEqual([
       2, 1,
     ]);
+  });
+
+  it('flags a sent PO still "to be advised" within 3 days of its due date, until a place is set', async () => {
+    const undecided = async () =>
+      (await manufacturingAlertsService.getAlerts('ADMIN')).alerts.poDeliveryUndecided?.count ?? 0;
+    const before = await undecided();
+    const res = await createPo({
+      expectedDeliveryDate: new Date(Date.now() + 2 * DAY).toISOString(),
+      items: [{ materialId, orderedQuantity: 500, unit: 'METER', unitPrice: 60 }],
+    });
+    const id = res.body.data.id;
+    await markSent(id);
+    expect(await undecided()).toBe(before + 1);
+    const listed = await request(app).get('/api/purchase-orders?delivery=TO_BE_ADVISED&limit=100').set(authHeader);
+    expect(listed.body.data.map((p: { id: string }) => p.id)).toContain(id);
+    await changeDelivery(id, { mode: 'ONE_PLACE', warehouseId: storeId, reason: 'Decided' });
+    expect(await undecided()).toBe(before);
   });
 
   it('lets the old single-place door work on an unsplit draft, and requires a reason once sent', async () => {

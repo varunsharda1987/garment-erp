@@ -62,7 +62,7 @@ describe('Control Center role→panel map', () => {
   it('falls back to a narrow view for an unknown role rather than to everything', () => {
     const scope = scopeForRole('SOMETHING_THAT_IS_NOT_A_ROLE');
     expect(scope.sections).not.toContain('pipeline' as SectionKey);
-    expect(scope.alerts.length).toBeLessThan(7);
+    expect(scope.alerts.length).toBeLessThan(8);
 
     // Same for a missing role (a token predating a rename).
     expect(scopeForRole(undefined).sections).not.toContain('pipeline' as SectionKey);
@@ -72,7 +72,7 @@ describe('Control Center role→panel map', () => {
     it('ADMIN sees everything', () => {
       const scope = scopeForRole(UserRole.ADMIN);
       expect(scope.sections).toEqual(SECTION_RENDER_ORDER);
-      expect(scope.alerts).toHaveLength(7);
+      expect(scope.alerts).toHaveLength(8);
     });
 
     it('MERCHANDISER leads with ship-date risk, then the approvals they chase daily', () => {

@@ -283,6 +283,11 @@ class PurchaseOrderService {
       where.poSource = filters.source;
     }
 
+    // No place decided yet — a split PO's header mirrors point 1, so an empty header IS "to be advised"
+    if (filters?.delivery === 'TO_BE_ADVISED') {
+      where.deliveryLocationId = null;
+    }
+
     if (filters?.poCategories && filters.poCategories.length > 0) {
       where.poCategory = { in: filters.poCategories as POCategory[] };
     }

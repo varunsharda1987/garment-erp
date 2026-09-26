@@ -38,7 +38,8 @@ export type AlertKey =
   | 'stuckCutting'
   | 'qualityFailures'
   | 'pendingApprovals'
-  | 'overdueChallans';
+  | 'overdueChallans'
+  | 'poDeliveryUndecided';
 
 /**
  * What this role's page should show, decided by the server (`control-center-panels.ts`).

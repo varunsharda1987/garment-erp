@@ -17,6 +17,8 @@ import type {
   CancelPurchaseOrderRequest,
   ShortClosePurchaseOrderRequest,
   AmendDeliveryLocationRequest,
+  AmendDeliveryPlanRequest,
+  DeliveryProgress,
   PendingItemsResponse,
   PurchaseOrderItem,
   POStats,
@@ -216,6 +218,22 @@ export const amendDeliveryLocation = async (
   request: AmendDeliveryLocationRequest
 ): Promise<PurchaseOrder> => {
   const { data } = await api.patch<PurchaseOrderResponse>(`${BASE_URL}/${id}/delivery-location`, request);
+  return data.data;
+};
+
+/**
+ * Change delivery — one place, a split across places, or "to be advised" — with a reason once sent
+ */
+export const amendDeliveryPlan = async (id: string, request: AmendDeliveryPlanRequest): Promise<PurchaseOrder> => {
+  const { data } = await api.put<PurchaseOrderResponse>(`${BASE_URL}/${id}/delivery-plan`, request);
+  return data.data;
+};
+
+/**
+ * Planned / received / pending per delivery place
+ */
+export const getDeliveryProgress = async (id: string): Promise<DeliveryProgress> => {
+  const { data } = await api.get<{ success: boolean; data: DeliveryProgress }>(`${BASE_URL}/${id}/delivery-progress`);
   return data.data;
 };
 

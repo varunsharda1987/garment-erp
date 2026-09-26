@@ -358,14 +358,91 @@ export interface PurchaseOrder {
     grnNumber: string;
     receivingDate: string;
     status: string;
+    /** Where it was booked (the ACTUAL place) */
+    warehouseId?: string | null;
+    warehouse?: { id: string; warehouseName: string; warehouseType: string } | null;
+    /** The planned place it delivered against, on a split PO */
+    poDeliveryPointId?: string | null;
     items?: Array<{
       receivedQuantity: number;
       acceptedQuantity: number;
     }>;
   }>;
 
+  // Split delivery (2026-09-26): the places with their share of each line, and every change to the plan
+  deliveryPoints?: PODeliveryPoint[];
+  deliveryPlanRevisions?: PODeliveryPlanRevision[];
+
   // Computed
   itemCount?: number;
+}
+
+// ============================================
+// SPLIT DELIVERY (2026-09-26)
+// ============================================
+
+export type DeliveryPlanMode = 'TO_BE_ADVISED' | 'ONE_PLACE' | 'SPLIT';
+
+export interface PODeliveryPoint {
+  id: string;
+  sequence: number;
+  warehouseId: string;
+  warehouse: WarehouseSummary;
+  lines: Array<{ id: string; poItemId: string; quantity: number | string }>;
+}
+
+/** A plan as stored in a revision's before / after (ONE_PLACE = one point, no lines) */
+export interface DeliveryPlanSnapshot {
+  mode: DeliveryPlanMode;
+  points: Array<{ warehouseId: string; warehouseName: string; lines: Array<{ poItemId: string; quantity: number }> }>;
+}
+
+export interface PODeliveryPlanRevision {
+  id: string;
+  revisionNumber: number;
+  kind: DeliveryPlanMode;
+  before: DeliveryPlanSnapshot;
+  after: DeliveryPlanSnapshot;
+  reason: string | null;
+  poStatus: string;
+  changedAt: string;
+  changedBy?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export type AmendDeliveryPlanRequest =
+  | { mode: 'TO_BE_ADVISED'; reason?: string | null }
+  | { mode: 'ONE_PLACE'; warehouseId: string; reason?: string | null }
+  | {
+      mode: 'SPLIT';
+      points: Array<{ warehouseId: string; lines: Array<{ poItemId: string; quantity: number }> }>;
+      reason?: string | null;
+    };
+
+export interface DeliveryProgressLine {
+  poItemId: string;
+  label: string;
+  planned: number;
+  received: number;
+  pending: number;
+  complete: boolean;
+}
+
+export interface DeliveryProgressPoint {
+  /** The delivery point id — null for an unsplit PO's one place, and for places that received unplanned */
+  id: string | null;
+  sequence: number | null;
+  warehouseId: string;
+  warehouseName: string;
+  planned: boolean;
+  lines: DeliveryProgressLine[];
+  complete: boolean;
+}
+
+export interface DeliveryProgress {
+  poId: string;
+  mode: DeliveryPlanMode;
+  points: DeliveryProgressPoint[];
+  unplaced: Array<{ poItemId: string; received: number }>;
 }
 
 // ============================================
@@ -444,6 +521,8 @@ export interface ShortClosePurchaseOrderRequest {
 
 export interface AmendDeliveryLocationRequest {
   deliveryLocationId: string;
+  /** Required once the PO has been sent */
+  reason?: string | null;
 }
 
 // ============================================
@@ -457,6 +536,8 @@ export interface PurchaseOrderFilters {
   poCategories?: string[];
   supplierId?: string;
   orderId?: string;
+  /** 'TO_BE_ADVISED' = no delivery place decided yet */
+  delivery?: 'TO_BE_ADVISED';
   search?: string;
   startDate?: string;
   endDate?: string;

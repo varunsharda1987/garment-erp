@@ -160,6 +160,7 @@ class ManufacturingAlertsService {
       qualityFailures,
       pendingApprovals,
       overdueChallans,
+      poDeliveryUndecided,
       vendorData,
       dueThisWeekCounts,
     ] = await Promise.all([
@@ -279,6 +280,20 @@ class ManufacturingAlertsService {
             ],
           },
           select: { issuedDate: true, challanDate: true },
+        })
+      ),
+
+      // 7b. A sent PO due within 3 days whose delivery place is still "to be advised": the supplier is
+      //     about to dispatch with nowhere to deliver. A split PO's header mirrors point 1, so an empty
+      //     header IS undecided. Clears the moment a place is set (direct-to-processor plan, Phase 3).
+      ifWanted('poDeliveryUndecided', () =>
+        prisma.purchase_orders.findMany({
+          where: {
+            status: { in: ['SENT', 'ACKNOWLEDGED'] },
+            deliveryLocationId: null,
+            expectedDeliveryDate: { lte: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000) },
+          },
+          select: { poDate: true },
         })
       ),
 
@@ -469,6 +484,10 @@ class ManufacturingAlertsService {
       overdueChallans: overdueChallans && {
         count: overdueChallans.length,
         oldestDays: this.oldestDaysAmong(overdueChallans, ['issuedDate', 'challanDate']),
+      },
+      poDeliveryUndecided: poDeliveryUndecided && {
+        count: poDeliveryUndecided.length,
+        oldestDays: this.oldestDaysAmong(poDeliveryUndecided, ['poDate']),
       },
     };
 

@@ -49,7 +49,7 @@ import { UserRole } from '@prisma/client';
 /** The four blocks the page can render. */
 export type SectionKey = 'pipeline' | 'alerts' | 'vendors' | 'variance';
 
-/** The seven rows inside the "Alerts Requiring Action" block. */
+/** The rows inside the "Alerts Requiring Action" block. */
 export type AlertKey =
   | 'overdueLabDips'
   | 'overdueProcessPOs'
@@ -57,7 +57,9 @@ export type AlertKey =
   | 'stuckCutting'
   | 'qualityFailures'
   | 'pendingApprovals'
-  | 'overdueChallans';
+  | 'overdueChallans'
+  // A sent PO due within 3 days whose delivery place is still "to be advised" (2026-09-26)
+  | 'poDeliveryUndecided';
 
 export interface ControlCenterScope {
   /** Blocks to render, in the order this role should meet them. */
@@ -74,6 +76,7 @@ const ALL_ALERTS: AlertKey[] = [
   'qualityFailures',
   'pendingApprovals',
   'overdueChallans',
+  'poDeliveryUndecided',
 ];
 
 /**
@@ -98,6 +101,7 @@ const SCOPE_BY_ROLE: Record<UserRole, ControlCenterScope> = {
       'qualityFailures',
       'stuckCutting',
       'overdueChallans',
+      'poDeliveryUndecided',
     ],
   },
 
@@ -128,13 +132,13 @@ const SCOPE_BY_ROLE: Record<UserRole, ControlCenterScope> = {
   // No user yet. What is out of the building and what is owed back.
   INVENTORY: {
     sections: ['alerts', 'vendors'],
-    alerts: ['overdueChallans'],
+    alerts: ['overdueChallans', 'poDeliveryUndecided'],
   },
 
   // No user yet. Vendor performance and receipt variance.
   PURCHASE: {
     sections: ['alerts', 'vendors', 'variance'],
-    alerts: ['overdueChallans', 'overdueProcessPOs'],
+    alerts: ['poDeliveryUndecided', 'overdueChallans', 'overdueProcessPOs'],
   },
 
   // No user yet. Delivery risk only — they answer to the customer, not the floor.

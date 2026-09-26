@@ -11,7 +11,6 @@ import {
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
   shortClosePurchaseOrder,
-  amendDeliveryLocation,
 } from '@/services/purchaseOrder.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
 import {
@@ -26,18 +25,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 import { formatCurrency } from '@/lib/currency';
-import {
-  ArrowLeft,
-  Edit,
-  Send,
-  CheckCircle,
-  XCircle,
-  PackageOpen,
-  Building2,
-  MapPin,
-  PenLine,
-  FileMinus,
-} from 'lucide-react';
+import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen, Building2, FileMinus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -49,7 +37,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import { DeliveryPlanCard } from '@/components/purchase-orders/DeliveryPlanCard';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
@@ -136,9 +124,6 @@ export default function PurchaseOrderDetail() {
   const [shortCloseReason, setShortCloseReason] = useState('');
   const [shortCloseReorder, setShortCloseReorder] = useState(false);
   const [isShortClosing, setIsShortClosing] = useState(false);
-  const [amendLocationDialogOpen, setAmendLocationDialogOpen] = useState(false);
-  const [amendLocationId, setAmendLocationId] = useState<string>('');
-  const [isAmending, setIsAmending] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -239,35 +224,6 @@ export default function PurchaseOrderDetail() {
       setIsShortClosing(false);
     }
   };
-
-  const handleAmendLocation = async () => {
-    if (!amendLocationId) {
-      handleApiError(new Error('Please select a delivery location'), 'Validation Error');
-      return;
-    }
-    try {
-      setIsAmending(true);
-      await amendDeliveryLocation(id!, {
-        deliveryLocationId: amendLocationId,
-      });
-      handleApiSuccess('Delivery location amended', 'The delivery location has been updated.');
-      fetchPurchaseOrder();
-    } catch (err) {
-      handleApiError(err, 'Failed to amend delivery location');
-    } finally {
-      setIsAmending(false);
-      setAmendLocationDialogOpen(false);
-    }
-  };
-
-  // Check if location is amended
-  const isDeliveryLocationAmended =
-    purchaseOrder?.originalDeliveryLocationId &&
-    purchaseOrder?.deliveryLocationId &&
-    purchaseOrder.originalDeliveryLocationId !== purchaseOrder.deliveryLocationId;
-
-  // Check if PO can have its delivery location amended (not received/cancelled)
-  const canAmendLocation = !['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(purchaseOrder?.status ?? '');
 
   const getStatusVariant = (status: PurchaseOrderStatus) => {
     switch (status) {
@@ -592,84 +548,12 @@ export default function PurchaseOrderDetail() {
         </Card>
       </div>
 
-      {/* Delivery Location — always shown: a PO with no location is "to be advised" and can be Set here */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <MapPin className="h-4 w-4" />
-              Deliver To
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              {isDeliveryLocationAmended && (
-                <Badge variant="outline" className="text-xs border-amber-300 bg-amber-100 text-amber-800">
-                  Amended
-                </Badge>
-              )}
-              {canAmendLocation && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setAmendLocationId(purchaseOrder.deliveryLocationId || '');
-                    setAmendLocationDialogOpen(true);
-                  }}
-                >
-                  <PenLine className="h-3.5 w-3.5 mr-1" />
-                  {purchaseOrder.deliveryWarehouse ? 'Change' : 'Set'}
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          {purchaseOrder.deliveryWarehouse ? (
-            <>
-              <div className="font-semibold text-lg">{purchaseOrder.deliveryWarehouse.warehouseName}</div>
-              <div className="text-sm text-muted-foreground">{purchaseOrder.deliveryWarehouse.warehouseCode}</div>
-              <div className="text-sm text-muted-foreground">
-                {[
-                  purchaseOrder.deliveryWarehouse.address,
-                  purchaseOrder.deliveryWarehouse.city,
-                  purchaseOrder.deliveryWarehouse.state,
-                  purchaseOrder.deliveryWarehouse.pincode,
-                ]
-                  .filter(Boolean)
-                  .join(', ') ||
-                  // Our own store keeps no address of its own — the PO prints the Company Profile's.
-                  // A processor's unit never borrows it.
-                  (purchaseOrder.deliveryWarehouse.warehouseType !== 'JOB_WORK'
-                    ? `${companyFullAddress} (company address)`
-                    : 'Address not on file — add it to the processor in Suppliers')}
-              </div>
-              {purchaseOrder.deliveryWarehouse.contactPerson && (
-                <div className="text-sm">
-                  <span className="font-medium">Contact:</span> {purchaseOrder.deliveryWarehouse.contactPerson}
-                  {purchaseOrder.deliveryWarehouse.contactPhone && ` (${purchaseOrder.deliveryWarehouse.contactPhone})`}
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="font-semibold text-lg">To be advised</div>
-              <div className="text-sm text-muted-foreground">
-                The PO prints "to be advised before dispatch". Set the place before the supplier dispatches.
-              </div>
-            </>
-          )}
-          {isDeliveryLocationAmended && purchaseOrder.deliveryLocationAmendedAt && (
-            <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-              Amended on {formatDate(new Date(purchaseOrder.deliveryLocationAmendedAt))}{' '}
-              {purchaseOrder.deliveryLocationAmendedBy && (
-                <>
-                  by {purchaseOrder.deliveryLocationAmendedBy.firstName}{' '}
-                  {purchaseOrder.deliveryLocationAmendedBy.lastName}
-                </>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Where it delivers — one place, a split across places, or "to be advised" (2026-09-26) */}
+      <DeliveryPlanCard
+        purchaseOrder={purchaseOrder}
+        companyFullAddress={companyFullAddress}
+        onChanged={setPurchaseOrder}
+      />
 
       {/* Items */}
       <Card>
@@ -841,7 +725,7 @@ export default function PurchaseOrderDetail() {
                     <TableRow key={grn.id}>
                       <TableCell className="font-medium">{grn.grnNumber}</TableCell>
                       <TableCell>{formatDate(grn.receivingDate)}</TableCell>
-                      <TableCell>-</TableCell>
+                      <TableCell>{grn.warehouse?.warehouseName ?? '—'}</TableCell>
                       <TableCell className="text-right">{totalReceived.toLocaleString()}</TableCell>
                       <TableCell>
                         <StatusBadge status={grn.status} variant={grn.status === 'ACCEPTED' ? 'success' : 'warning'} />
@@ -991,38 +875,6 @@ export default function PurchaseOrderDetail() {
             </Button>
             <Button onClick={handleShortClose} disabled={isShortClosing || !shortCloseReason.trim()}>
               {isShortClosing ? 'Closing...' : 'Close Short'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Amend Delivery Location Dialog */}
-      <Dialog open={amendLocationDialogOpen} onOpenChange={setAmendLocationDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{purchaseOrder.deliveryWarehouse ? 'Change' : 'Set'} Delivery Location</DialogTitle>
-            <DialogDescription>
-              {purchaseOrder.deliveryWarehouse
-                ? 'Update where this order should be delivered. The original location will be recorded for tracking.'
-                : 'Where should the supplier deliver this order? Share the PO again after setting it.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Delivery Location</Label>
-              <WarehouseCombobox
-                value={amendLocationId}
-                onValueChange={setAmendLocationId}
-                placeholder="Select delivery location..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAmendLocationDialogOpen(false)} disabled={isAmending}>
-              Cancel
-            </Button>
-            <Button onClick={handleAmendLocation} disabled={isAmending || !amendLocationId}>
-              {isAmending ? 'Updating...' : 'Update Location'}
             </Button>
           </DialogFooter>
         </DialogContent>

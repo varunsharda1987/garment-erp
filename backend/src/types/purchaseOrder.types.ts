@@ -162,6 +162,8 @@ export interface PurchaseOrderFilters {
   supplierId?: string;
   orderId?: string;
   serviceWorkOrderId?: string;
+  /** 'TO_BE_ADVISED' = no delivery place yet */
+  delivery?: 'TO_BE_ADVISED';
   search?: string;
   startDate?: Date | string;
   endDate?: Date | string;

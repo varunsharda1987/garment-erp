@@ -201,6 +201,19 @@ export interface GRN {
   items?: GRNItem[];
   receivedBy?: UserSummary;
   approvedBy?: UserSummary | null;
+  /** Split delivery: the PO's planned place this receipt delivered against (warehouse = where it was booked) */
+  poDeliveryPointId?: string | null;
+  deliveryPoint?: { id: string; sequence: number; warehouse: { id: string; warehouseName: string } } | null;
+  /** Goods booked at a processor's unit: the Rule 45 job-work challan raised for them */
+  directSupplyChallans?: Array<{
+    id: string;
+    challanNumber: string;
+    status: string;
+    issuedDate: string | null;
+    toName: string | null;
+  }>;
+  /** Create only — soft split-delivery warnings (over a place's plan, or booked away from it) */
+  deliveryWarnings?: string[];
 
   // Computed
   itemCount?: number;
@@ -273,6 +286,8 @@ export interface ProcessingContext {
 export interface CreateGRNRequest {
   poId: string;
   warehouseId?: string;
+  /** Required on a split PO: which of its places this delivery is against */
+  poDeliveryPointId?: string | null;
   receivingDate?: string;
   invoiceNumber?: string;
   invoiceDate?: string;

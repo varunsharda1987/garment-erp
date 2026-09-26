@@ -59,6 +59,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { normalizeEnumRecord } from '@/lib/utils';
 import { formatDate } from '@/lib/date';
+import { deliveryUndecidedSoon, planMode } from '@/lib/delivery-plan';
 import {
   ShoppingBag,
   Clock,
@@ -145,6 +146,7 @@ export default function PurchaseOrderList() {
       supplierId: searchParams.get('supplierId') || undefined,
       // Scoped from OrderDetail "View POs" action (?orderId=...) — B09-11 handoff
       orderId: searchParams.get('orderId') || undefined,
+      delivery: searchParams.get('delivery') === 'TO_BE_ADVISED' ? 'TO_BE_ADVISED' : undefined,
       search: searchParams.get('search') || undefined,
       page: parseInt(searchParams.get('page') || '1'),
       limit: 20,
@@ -216,7 +218,8 @@ export default function PurchaseOrderList() {
     searchParams.get('source') ||
     searchParams.get('supplierId') ||
     searchParams.get('search') ||
-    searchParams.get('poCategory')
+    searchParams.get('poCategory') ||
+    searchParams.get('delivery')
   );
 
   // ─── Handlers ──────────────────────────────────────────────
@@ -485,6 +488,20 @@ export default function PurchaseOrderList() {
                   </Select>
                 )}
 
+                {/* Delivery place not decided yet (to be advised) */}
+                <Select
+                  value={searchParams.get('delivery') || 'all'}
+                  onValueChange={(v) => updateURLParams({ delivery: v === 'all' ? undefined : v, page: undefined })}
+                >
+                  <SelectTrigger className="w-[190px]">
+                    <SelectValue placeholder="Any delivery place" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any delivery place</SelectItem>
+                    <SelectItem value="TO_BE_ADVISED">Delivery: to be advised</SelectItem>
+                  </SelectContent>
+                </Select>
+
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={handleClearFilters}>
                     <X className="h-4 w-4 mr-1" />
@@ -593,9 +610,21 @@ export default function PurchaseOrderList() {
                           )}
                         </TableCell>
 
-                        {/* Expected Delivery */}
+                        {/* Expected Delivery — and where, when it is not decided yet */}
                         <TableCell>
                           <span className="text-sm">{formatDate(po.expectedDeliveryDate)}</span>
+                          {planMode(po) === 'TO_BE_ADVISED' &&
+                            !['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(po.status) && (
+                              <Badge
+                                variant="outline"
+                                className={`mt-1 block w-fit text-[10px] ${
+                                  deliveryUndecidedSoon(po) ? 'border-warning bg-warning/10 text-warning' : ''
+                                }`}
+                                title="The delivery place is not decided — set it from the PO page before the supplier dispatches"
+                              >
+                                Delivery: to be advised
+                              </Badge>
+                            )}
                         </TableCell>
 
                         {/* Items */}

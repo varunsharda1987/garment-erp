@@ -32,6 +32,7 @@ import {
   TrendingDown,
   DollarSign,
   BarChart3,
+  MapPin,
 } from 'lucide-react';
 import {
   manufacturingAlertsService,
@@ -107,6 +108,13 @@ const ALERT_CONFIG: Record<string, { label: string; icon: React.ElementType; rou
     // the destination can show fewer rows than the badge.
     route: '/manufacturing/challans?status=ISSUED',
     description: 'Outward challans not yet returned',
+  },
+  poDeliveryUndecided: {
+    label: 'PO Delivery Place Not Decided',
+    icon: MapPin,
+    // PurchaseOrderList.tsx reads ?delivery=TO_BE_ADVISED (the "Delivery: to be advised" filter).
+    route: '/procurement/purchase-orders?delivery=TO_BE_ADVISED',
+    description: 'Sent POs due within 3 days with no delivery place — tell the supplier where',
   },
 };
 

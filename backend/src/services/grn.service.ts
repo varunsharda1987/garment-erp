@@ -2758,6 +2758,16 @@ class GRNService {
           poCategory: true,
         },
       },
+      // Where it was booked (the ACTUAL place)
+      warehouses: { select: { id: true, warehouseCode: true, warehouseName: true } },
+      // Split delivery: the PO's planned place this receipt delivered against
+      deliveryPoint: {
+        select: { id: true, sequence: true, warehouse: { select: { id: true, warehouseName: true } } },
+      },
+      // Goods booked at a processor's unit: the Rule 45 challan raised for them (Phase 2)
+      directSupplyChallans: {
+        select: { id: true, challanNumber: true, status: true, issuedDate: true, toName: true },
+      },
       // Phase 4b: PO-less GRNs identify by their Job Work Order
       jobWorkOrder: {
         select: {

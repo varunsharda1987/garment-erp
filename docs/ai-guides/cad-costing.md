@@ -210,6 +210,7 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
   the cost sheet and MRP. Add the missing rate, fetch it again, then save.
 - **Quantity matters**: Rate slabs depend on quantity - higher quantity = better rate
 - **Approved rows**: You cannot modify a row with approved costing - unapprove first on the Options page
+- **Price approval disappeared**: rejecting the CAD in CAD Planning (row **Reject** or **Reject CAD Plan**) clears the fabric price approval of those rows. The cost figures stay; approve the option again on the Costing Options page after the CAD is re-approved
 - **"... is a Production CAD — the marker for a received fabric lot"**: Save refuses a Production CAD row and saves nothing. Cost the style on the **Costing** or **Raw Mat Calculation** tab instead; the Production CAD itself is approved in CAD Planning.
 
 ## After saving

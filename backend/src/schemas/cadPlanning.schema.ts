@@ -259,6 +259,8 @@ export const cadPurposeActionSchema = z.object({
   rejectionReason: z.string().max(500).optional(),
   rejectionNotes: z.string().max(500).optional(),
   approvalNotes: z.string().max(500).optional(),
+  // Reject: the user has seen the approved cost sheets / order BOMs built on the row (CAD_IN_USE)
+  confirmImpact: z.boolean().optional(),
 });
 
 /**
@@ -312,6 +314,8 @@ export const cadPlanActionSchema = z.object({
   fabricCADMappings: z.array(z.object({ fabricId: z.string().uuid(), fabricCADId: z.string().uuid() })).optional(),
   remarks: z.string().max(500).optional(),
   rejectionReason: z.string().max(500).optional(),
+  // Reject: the user has seen the approved cost sheets / order BOMs built on the rows (CAD_IN_USE)
+  confirmImpact: z.boolean().optional(),
 });
 
 // ============================================================================

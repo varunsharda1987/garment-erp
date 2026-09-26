@@ -8,6 +8,14 @@ import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
+import {
+  EMPTY_CAD_SNAPSHOT,
+  cadSnapshot,
+  describeCadUse,
+  recordCadEdit,
+  recordCadEvent,
+  requireRejectConfirmation,
+} from '../services/helpers/cad-history.helper';
 
 /**
  * Reserve fabric stock for a PRODUCTION CAD
@@ -223,6 +231,13 @@ export async function approveCADPurpose(req: Request, res: Response) {
   // Landmine №3: style-level cadStatus is derived from the rows — never drifts again
   await recomputeStyleCadStatus(prisma, styleId);
 
+  await recordCadEvent({
+    cadId: rowId,
+    userId,
+    action: 'APPROVE',
+    newValues: approvalNotes ? { approvalNotes } : null,
+  });
+
   return res.json({
     success: true,
     message: `${updated.purpose} CAD approved successfully`,
@@ -242,7 +257,7 @@ export async function approveCADPurpose(req: Request, res: Response) {
  */
 export async function rejectCADPurpose(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
-  const { rejectionNotes } = req.body;
+  const { rejectionNotes, confirmImpact } = req.body;
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -273,6 +288,10 @@ export async function rejectCADPurpose(req: Request, res: Response) {
   if (cadRecord.styleFabric?.style_components?.styleId !== styleId) {
     throw new BusinessError('CAD record does not belong to this style');
   }
+
+  // Approved cost sheets / order BOMs built on this row keep their old figures after a reject — the
+  // user sees them and confirms first (ESSKY082LS, 26-Sep-2026: nobody was told).
+  const inUse = await requireRejectConfirmation([rowId], confirmImpact);
 
   // Update approval status. Policy (two-owner split, user decision 2026-08-22): rejecting
   // the CAD geometry also un-approves the row's PRICE — a price computed on rejected
@@ -308,6 +327,14 @@ export async function rejectCADPurpose(req: Request, res: Response) {
 
   // Landmine №3: style-level cadStatus is derived from the rows
   await recomputeStyleCadStatus(prisma, styleId);
+
+  await recordCadEvent({
+    cadId: rowId,
+    userId,
+    action: 'REJECT',
+    reason: rejectionNotes,
+    newValues: inUse.length > 0 ? { inUse: describeCadUse(inUse) } : null,
+  });
 
   return res.json({
     success: true,
@@ -407,6 +434,15 @@ export async function createPlanningVersion(req: Request, res: Response) {
   }
 
   await recomputeStyleCadStatus(prisma, styleId);
+
+  await recordCadEdit({
+    cadId: newVersion.id,
+    userId,
+    action: 'CREATE',
+    before: EMPTY_CAD_SNAPSHOT,
+    after: cadSnapshot({ ...newVersion, sizeBreakdowns: baseCad.sizeBreakdowns }),
+    reason: `Version ${newVersion.version} of CAD ${baseCad.id}${versionReason ? ` — ${versionReason}` : ''}`,
+  });
 
   return res.json({
     success: true,
@@ -518,6 +554,19 @@ export async function copyCADPurpose(req: Request, res: Response) {
     await copyCadChildren(tx, sourceCad.id, created.id);
     await recomputeStyleCadStatus(tx, styleId);
     return created;
+  });
+
+  const copiedSizes = await prisma.cad_size_breakdown.findMany({
+    where: { cadId: newCad.id },
+    select: { sizeName: true, quantity: true },
+  });
+  await recordCadEdit({
+    cadId: newCad.id,
+    userId,
+    action: 'CREATE',
+    before: EMPTY_CAD_SNAPSHOT,
+    after: cadSnapshot({ ...newCad, sizeBreakdowns: copiedSizes }),
+    reason: `Copied from ${sourceCad.purpose} CAD ${sourceCad.id}`,
   });
 
   return res.json({

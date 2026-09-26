@@ -45,12 +45,15 @@ import {
   Sparkles,
   AlertCircle,
   MoreHorizontal,
+  History,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
 // BUG-CAD11 fix: use shared error utility instead of inline extraction
 import { getErrorMessage } from '@/lib/api-error-handler';
-import { cadPlanningService } from '@/services/cad-planning.service';
+import { cadPlanningService, cadInUseFromError, type CadInUseEntry } from '@/services/cad-planning.service';
+import { CadInUseNotice } from './CadInUseNotice';
+import { CadHistoryDialog } from './CadHistoryDialog';
 import { fabricStockService, type FabricStockForCAD } from '@/services/fabricStockService';
 import type {
   CADSpreadsheetRow,
@@ -319,6 +322,10 @@ export function CADSpreadsheetTable({
   // Rejection reason dialog state (BUG-CAD6: replaces native prompt())
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogRowId, setRejectDialogRowId] = useState<string | null>(null);
+  // Approved cost sheets / order BOMs built on the row (409 CAD_IN_USE) — confirm before rejecting
+  const [rejectInUse, setRejectInUse] = useState<CadInUseEntry[] | null>(null);
+  // History dialog (who created / edited / approved / rejected the row)
+  const [historyRowId, setHistoryRowId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   // Version reason dialog state (BUG-CAD6: replaces native prompt())
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
@@ -1111,7 +1118,15 @@ export function CADSpreadsheetTable({
 
     setRejectDialogRowId(rowId);
     setRejectionReason('');
+    setRejectInUse(null);
     setRejectDialogOpen(true);
+  };
+
+  const closeRejectDialog = () => {
+    setRejectDialogOpen(false);
+    setRejectDialogRowId(null);
+    setRejectionReason('');
+    setRejectInUse(null);
   };
 
   // Handle rejection confirmation from dialog
@@ -1126,14 +1141,19 @@ export function CADSpreadsheetTable({
       await cadPlanningService.rejectCADPurpose(styleId, rejectDialogRowId, {
         purpose: row.purpose || 'COSTING',
         rejectionNotes: rejectionReason.trim(),
+        ...(rejectInUse ? { confirmImpact: true } : {}),
       });
       notify.success('CAD rejected');
-      setRejectDialogOpen(false);
-      setRejectDialogRowId(null);
-      setRejectionReason('');
+      closeRejectDialog();
       // Trigger parent refresh via callback (BUG-CAD5: replaces window.location.reload)
       onDataRefresh?.();
     } catch (error: unknown) {
+      const inUse = cadInUseFromError(error);
+      if (inUse) {
+        // Keep the dialog open and show what is built on the row; the button becomes "Reject anyway"
+        setRejectInUse(inUse.inUse);
+        return;
+      }
       // BUG-CAD11 fix: use error utility instead of inline extraction
       notify.error(getErrorMessage(error));
     } finally {
@@ -1853,7 +1873,9 @@ export function CADSpreadsheetTable({
                               e.stopPropagation();
                               setSizeBreakdownOpen(row.id);
                             }}
-                            disabled={isSaving}
+                            // An approved / price-approved row cannot be saved, so do not open it for editing
+                            disabled={isSaving || isRowLocked}
+                            title={isRowLocked ? 'Approved rows cannot be edited' : undefined}
                           >
                             <Calculator className="h-3 w-3" />
                           </Button>
@@ -2027,6 +2049,11 @@ export function CADSpreadsheetTable({
                                       </DropdownMenuItem>
                                     )}
                                   <DropdownMenuSeparator />
+                                  {/* History — who created / edited / approved / rejected the row */}
+                                  <DropdownMenuItem onClick={() => setHistoryRowId(row.id)}>
+                                    <History className="h-4 w-4 mr-2" />
+                                    History
+                                  </DropdownMenuItem>
                                   {/* Edit */}
                                   <DropdownMenuItem onClick={() => setEditingRow(row.id)} disabled={isRowLocked}>
                                     <Pencil className="h-4 w-4 mr-2" />
@@ -2637,21 +2664,20 @@ export function CADSpreadsheetTable({
         isLoading={copyingRow !== null}
       />
 
+      <CadHistoryDialog styleId={styleId} rowId={historyRowId} onClose={() => setHistoryRowId(null)} />
+
       {/* Rejection Reason Dialog (BUG-CAD6: replaces native prompt()) */}
       <Dialog
         open={rejectDialogOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            setRejectDialogOpen(false);
-            setRejectDialogRowId(null);
-            setRejectionReason('');
-          }
+          if (!open) closeRejectDialog();
         }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Reject CAD</DialogTitle>
           </DialogHeader>
+          {rejectInUse && <CadInUseNotice inUse={rejectInUse} />}
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="rejection-reason">Rejection Reason</Label>
@@ -2665,15 +2691,7 @@ export function CADSpreadsheetTable({
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRejectDialogOpen(false);
-                setRejectDialogRowId(null);
-                setRejectionReason('');
-              }}
-              disabled={rejectingRow !== null}
-            >
+            <Button variant="outline" onClick={closeRejectDialog} disabled={rejectingRow !== null}>
               Cancel
             </Button>
             <Button
@@ -2686,6 +2704,8 @@ export function CADSpreadsheetTable({
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Rejecting...
                 </>
+              ) : rejectInUse ? (
+                'Reject anyway'
               ) : (
                 'Reject CAD'
               )}

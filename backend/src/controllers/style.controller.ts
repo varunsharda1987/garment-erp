@@ -544,7 +544,7 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
  */
 export const rejectCADPlan = async (req: Request, res: Response): Promise<void> => {
   const styleId = req.params.styleId || req.params.id;
-  const { rejectionReason } = req.body || {};
+  const { rejectionReason, confirmImpact } = req.body || {};
   const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
 
   if (!styleId) {
@@ -559,12 +559,21 @@ export const rejectCADPlan = async (req: Request, res: Response): Promise<void> 
     throw new ValidationError('User authentication required');
   }
 
-  const updatedStyle = await styleService.rejectCADPlan(styleId, rejectionReason.trim(), userId);
+  const { style: updatedStyle, keptProductionCadCount } = await styleService.rejectCADPlan(
+    styleId,
+    rejectionReason.trim(),
+    userId,
+    confirmImpact === true
+  );
 
   res.status(200).json({
     success: true,
     data: updatedStyle,
-    message: 'CAD plan rejected. All rows reset to PENDING.',
+    message:
+      keptProductionCadCount > 0
+        ? `CAD plan rejected. Planning rows reset to PENDING; ${keptProductionCadCount} Production CAD` +
+          `${keptProductionCadCount > 1 ? 's were' : ' was'} kept approved because cutting uses them.`
+        : 'CAD plan rejected. All rows reset to PENDING.',
   });
 };
 

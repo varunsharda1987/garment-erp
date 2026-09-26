@@ -25,6 +25,7 @@ import {
 } from '../types/style.types';
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
+import { describeCadUse, recordCadEvent, requireRejectConfirmation } from './helpers/cad-history.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { multiplyCurrency, toNumber } from '../utils/currency';
@@ -2667,18 +2668,29 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       await recomputeStyleCadStatus(tx, styleId);
     });
 
+    for (const cadId of mappedCadIds) {
+      await recordCadEvent({ cadId, userId: approvedById, action: 'APPROVE', reason: 'Approve CAD plan' });
+    }
+
     const updatedStyle = await this.prisma.styles.findUniqueOrThrow({ where: { id: styleId } });
     logInfo('CAD plan approved', { styleId, approvedRows: mappedCadIds.length });
     return updatedStyle;
   }
 
   /**
-   * Reject/Unapprove CAD plan - revert to PENDING status
+   * Reject/Unapprove CAD plan - revert the planning rows to PENDING
    * @param styleId - The style ID
    * @param rejectionReason - Reason for rejection
    * @param rejectedById - User ID of who rejected
+   * @param confirmImpact - the user has seen the approved cost sheets / order BOMs built on the rows
+   * @returns the style, and how many Production CADs were left approved
    */
-  async rejectCADPlan(styleId: string, rejectionReason: string, rejectedById: string): Promise<styles> {
+  async rejectCADPlan(
+    styleId: string,
+    rejectionReason: string,
+    rejectedById: string,
+    confirmImpact?: boolean
+  ): Promise<{ style: styles; keptProductionCadCount: number }> {
     // Verify style exists and is approved
     const style = await this.prisma.styles.findUnique({
       where: { id: styleId },
@@ -2701,42 +2713,74 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     const styleFabricIds = styleFabrics.map((sf) => sf.id);
 
-    // Reset all CAD rows linked to these style_fabrics to PENDING.
+    // The planning rows are reset; Production CADs are left alone. A Production CAD is the marker of
+    // one received lot and what cutting cuts to (RULE 6) — resetting it here stopped cutting on a
+    // style whose PLANNING was being reworked. It is rejected on its own row when it is wrong.
+    const rows =
+      styleFabricIds.length > 0
+        ? await this.prisma.fabric_width_cad.findMany({
+            where: { styleFabricId: { in: styleFabricIds } },
+            select: { id: true, purpose: true, purposeEnum: true },
+          })
+        : [];
+    const resetIds = rows.filter((r) => (r.purposeEnum ?? r.purpose) !== 'PRODUCTION').map((r) => r.id);
+    const keptProductionCadCount = rows.length - resetIds.length;
+
+    // Approved cost sheets / order BOMs built on these rows keep their old figures after the reject;
+    // the user sees them and confirms first.
+    const inUse = await requireRejectConfirmation(resetIds, confirmImpact);
+
     // Policy (two-owner split, user decision 2026-08-22): rejecting the CAD plan ALSO
     // un-approves prices — a price approved against rejected geometry must be re-reviewed
     // after the CAD rework. Cost numbers are kept; only the approvals reset.
-    if (styleFabricIds.length > 0) {
-      await this.prisma.fabric_width_cad.updateMany({
-        where: { styleFabricId: { in: styleFabricIds } },
-        data: {
-          approvalStatus: 'PENDING', // allow-cad-approval: CAD-side reset is this method's job
-          approvedBy: null,
-          approvedAt: null,
-          approvalNotes: rejectionReason,
-          rejectedBy: rejectedById,
-          rejectedAt: new Date(),
-          costingApprovalStatus: null,
-          costingApprovedBy: null,
-          costingApprovedAt: null,
-          isPreferred: false,
-        },
-      });
+    await this.prisma.$transaction(async (tx) => {
+      if (resetIds.length > 0) {
+        await tx.fabric_width_cad.updateMany({
+          where: { id: { in: resetIds } },
+          data: {
+            approvalStatus: 'PENDING', // allow-cad-approval: CAD-side reset is this method's job
+            approvedBy: null,
+            approvedAt: null,
+            approvalNotes: rejectionReason,
+            rejectedBy: rejectedById,
+            rejectedAt: new Date(),
+            costingApprovalStatus: null,
+            costingApprovedBy: null,
+            costingApprovedAt: null,
+            isPreferred: false,
+          },
+        });
+      }
 
-      // Clear fabricCADId links on style_fabrics
-      await this.prisma.style_fabrics.updateMany({
-        where: { id: { in: styleFabricIds } },
-        data: { fabricCADId: null },
+      if (styleFabricIds.length > 0) {
+        // Clear fabricCADId links on style_fabrics
+        await tx.style_fabrics.updateMany({
+          where: { id: { in: styleFabricIds } },
+          data: { fabricCADId: null },
+        });
+      }
+
+      // Style status is DERIVED from the rows (landmine №3): IN_PROGRESS once no row is approved,
+      // still APPROVED while a Production CAD stays approved.
+      await recomputeStyleCadStatus(tx, styleId);
+    });
+
+    const inUseById = new Map(inUse.map((e) => [e.cadId, e]));
+    for (const cadId of resetIds) {
+      const used = inUseById.get(cadId);
+      await recordCadEvent({
+        cadId,
+        userId: rejectedById,
+        action: 'REJECT',
+        reason: `Reject CAD plan: ${rejectionReason}`,
+        newValues: used ? { inUse: describeCadUse([used]) } : null,
       });
     }
 
-    // Style status is DERIVED from the rows (landmine №3): with every row just reset to
-    // PENDING this computes IN_PROGRESS (rows exist, none approved) — or PENDING if the
-    // style has no rows at all.
-    await recomputeStyleCadStatus(this.prisma, styleId);
     const updatedStyle = await this.prisma.styles.findUniqueOrThrow({ where: { id: styleId } });
 
-    logInfo('CAD plan rejected', { styleId });
-    return updatedStyle;
+    logInfo('CAD plan rejected', { styleId, resetRows: resetIds.length, keptProductionCadCount });
+    return { style: updatedStyle, keptProductionCadCount };
   }
 
   // ============================================

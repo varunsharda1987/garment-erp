@@ -12,6 +12,12 @@ keywords:
   - approve fabric planning
   - approve production CAD
   - production CAD approval
+  - reject CAD plan
+  - CAD in use
+  - reject anyway
+  - CAD history
+  - who changed the CAD
+  - who approved the CAD
   # Hinglish
   - CAD approve karna
   - marker approve
@@ -19,6 +25,9 @@ keywords:
   - CAD lock karna
   - CAD plan approve
   - production CAD approve karna
+  - CAD reject karna
+  - CAD kisne badla
+  - CAD ki history
   # Devanagari
   - कैड अप्रूव
   - मार्कर अप्रूवल
@@ -26,10 +35,15 @@ keywords:
   - कैड प्लान अप्रूव करना
   - कैड लॉक करना
   - प्रोडक्शन कैड अप्रूव
+  - कैड रिजेक्ट
+  - कैड हिस्ट्री
+  - कैड किसने बदला
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/components/cad/CADSpreadsheetTable.tsx
+  - frontend/src/components/cad/CadInUseNotice.tsx
+  - frontend/src/components/cad/CadHistoryDialog.tsx
 route: /cad-planning
 ---
 
@@ -78,10 +92,12 @@ When you approve a CAD plan:
 
 ## Traps
 
-- **Cannot edit after approval** - Once approved, you cannot change any CAD values. If changes are needed, you must reject the CAD plan first
+- **Cannot edit after approval** - Once approved, you cannot change any CAD values (the Size Breakup button is greyed out too). If changes are needed, you must reject the CAD plan first
 - **Reject requires a reason** - To undo an approval, you must provide a rejection reason
-- **Rejection resets all rows** - Rejecting an approved CAD plan resets the status to PENDING and unlocks all rows for editing
-- **Linked fabric costing is not affected** - Rejecting a CAD plan does not delete any fabric costing records that were already created
+- **Rejection resets the planning rows** - Rejecting an approved CAD plan resets the Costing and Raw Mat rows to PENDING and unlocks them for editing. Production CADs stay approved, because cutting uses them
+- **Rejection clears the fabric price approval** - The fabric costing figures are kept, but their approval is removed and must be done again on the Costing Options page
+- **"This CAD is already in use"** - When an approved cost sheet or an order's BOM is built on the CAD, Reject stops and lists them. They will NOT update and stay on the old figures. Click **Reject anyway** only if you will redo them
+- **Every change is recorded** - Row menu (three dots) > **History** shows who created, edited, approved or rejected the row, what changed (old → new) and why
 - **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
 - **A Production CAD with no average cannot be approved** - Fill in Layer (M) and the Size Breakdown, save, then Approve
 - **A Production CAD must be on a received lot** - Approve does not show on a Production row with no lot. Use **Link to Stock** on the row, or delete it and press **Create CAD** on the lot in the **Fabric Stock Available** box
@@ -94,7 +110,7 @@ Once the CAD plan is approved:
 2. Click **Actions** to access:
    - **Push to Fabric Costing** - Creates fabric costing records from the CAD data
    - **View Fabric Costing** - Opens the Fabric Costing page filtered to this style
-   - **Reject CAD Plan** - Unlocks the CAD plan if changes are needed (requires a reason)
+   - **Reject CAD Plan** - Unlocks the Costing and Raw Mat rows if changes are needed (requires a reason)
 
 3. Navigate to **Cost Sheets** to create or generate the style's cost sheet using the approved CAD values
 
@@ -107,4 +123,7 @@ If you need to make changes to an approved CAD plan:
 3. Select **Reject CAD Plan** (shown in red text)
 4. Enter a reason for rejection in the text area (required)
 5. Click **Reject & Unlock**
-6. The CAD plan is no longer approved and all rows are editable again
+6. If a yellow box **This CAD is already in use** appears, read the cost sheets and orders it lists. They keep the old figures after the reject. Click **Reject anyway** to go ahead, or **Cancel**
+7. The Costing and Raw Mat rows are no longer approved and are editable again. Production CADs stay approved
+
+To see who changed a row and when, open the row menu (three dots) > **History**. The **CAD history** window lists each change with the person, date and time, the old and new values, and the reason. Changes are recorded from 26-Sep-2026; the row's creator and creation date are shown at the top.

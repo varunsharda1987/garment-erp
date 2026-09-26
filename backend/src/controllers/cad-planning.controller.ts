@@ -27,6 +27,7 @@ import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
 import { resolveLiveGreigeRates, greigeRateProvenance } from '../services/helpers/greige-live-rate.helper';
+import { EMPTY_CAD_SNAPSHOT, cadSnapshot, getCadHistory, recordCadEdit } from '../services/helpers/cad-history.helper';
 import { applySearch } from '../utils/search-filter';
 import {
   applyCadListFilters,
@@ -261,6 +262,13 @@ export async function updateCADValues(req: Request, res: Response) {
   const updated = await prisma.fabric_width_cad.update({
     where: { id: cadId },
     data: updateData,
+  });
+
+  await recordCadEdit({
+    cadId,
+    userId: req.user?.userId,
+    before: cadSnapshot(existing),
+    after: cadSnapshot(updated),
   });
 
   return res.json({
@@ -1419,6 +1427,7 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
   // Verify CAD exists
   const existing = await prisma.fabric_width_cad.findUnique({
     where: { id: cadId },
+    include: { sizeBreakdowns: { select: { sizeName: true, quantity: true } } },
   });
 
   if (!existing) {
@@ -1515,6 +1524,13 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
         orderBy: { sizeName: 'asc' },
       },
     },
+  });
+
+  await recordCadEdit({
+    cadId,
+    userId: req.user?.userId,
+    before: cadSnapshot(existing),
+    after: cadSnapshot(finalCad!),
   });
 
   return res.json({
@@ -2833,6 +2849,14 @@ export async function addCADTableRow(req: Request, res: Response) {
 
   await recomputeStyleCadStatus(prisma, styleId); // landmine No.3: derived status
 
+  await recordCadEdit({
+    cadId: newCad.id,
+    userId: req.user?.userId,
+    action: 'CREATE',
+    before: EMPTY_CAD_SNAPSHOT,
+    after: cadSnapshot(newCad),
+  });
+
   return res.status(201).json({
     success: true,
     data: {
@@ -3087,6 +3111,15 @@ export async function addCombinedCADRow(req: Request, res: Response) {
   }
 
   await recomputeStyleCadStatus(prisma, styleId); // landmine No.3: derived status
+
+  await recordCadEdit({
+    cadId: newCad.id,
+    userId: req.user?.userId,
+    action: 'CREATE',
+    before: EMPTY_CAD_SNAPSHOT,
+    after: cadSnapshot(newCad),
+    reason: `Combined cutting: ${combinedComponents}`,
+  });
 
   return res.status(201).json({
     success: true,
@@ -3410,6 +3443,18 @@ export async function updateCADTableRow(req: Request, res: Response) {
     });
   }
 
+  // History: who changed the marker, and from what (nothing recorded this until 2026-09-26)
+  await recordCadEdit({
+    cadId: rowId,
+    userId: req.user?.userId,
+    before: cadSnapshot(existingCad),
+    after: cadSnapshot({
+      ...updatedCad,
+      cadAverage: cadAverage ?? updatedCad.cadAverage,
+      sizeBreakdowns: updatedBreakdowns,
+    }),
+  });
+
   // =====================================================
   // AUTO-TRIGGER FABRIC COSTING on CAD save
   // When CAD data is complete (cadAverage, greigeId, cutableWidth),
@@ -3655,6 +3700,44 @@ export async function updateCADTableRow(req: Request, res: Response) {
     ...(costingWarning || varianceWarning
       ? { warning: [costingWarning, varianceWarning].filter(Boolean).join(' ') }
       : {}),
+  });
+}
+
+/**
+ * History of one CAD row — who created, edited, approved, rejected or corrected it, what changed and why.
+ * GET /api/cad-planning/:styleId/row/:rowId/history
+ *
+ * Events are recorded from 26-Sep-2026 (cad-history.helper). The row's own creator and creation date are
+ * returned alongside, because they are the one piece of older history the row already held.
+ */
+export async function getCADRowHistory(req: Request, res: Response) {
+  const { rowId } = req.params;
+
+  const row = await prisma.fabric_width_cad.findUnique({
+    where: { id: rowId },
+    select: {
+      id: true,
+      createdAt: true,
+      createdBy: { select: { firstName: true, lastName: true, email: true } },
+    },
+  });
+  if (!row) {
+    throw new NotFoundError('CAD row', rowId);
+  }
+
+  const entries = await getCadHistory(rowId);
+  const creatorName = row.createdBy
+    ? [row.createdBy.firstName, row.createdBy.lastName].filter(Boolean).join(' ') || null
+    : null;
+
+  return res.json({
+    success: true,
+    data: {
+      cadId: row.id,
+      createdAt: row.createdAt,
+      createdBy: row.createdBy ? { name: creatorName, email: row.createdBy.email } : null,
+      entries,
+    },
   });
 }
 

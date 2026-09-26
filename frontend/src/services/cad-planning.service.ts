@@ -147,6 +147,44 @@ export interface ApproveCADRequest {
 export interface RejectCADRequest {
   purpose: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   rejectionNotes: string;
+  /** The user has seen the approved cost sheets / order BOMs built on the row (409 CAD_IN_USE) */
+  confirmImpact?: boolean;
+}
+
+/** One approved thing built on a CAD row, as a Reject's 409 CAD_IN_USE lists it */
+export interface CadInUseEntry {
+  cadId: string;
+  costSheets: Array<{ costSheetId: string; version: number; purpose: string; styleCode: string | null }>;
+  orders: Array<{ orderNumber: string; bomVersion: number; bomStatus: string }>;
+}
+
+export interface CadHistoryEntry {
+  id: string;
+  at: string;
+  /** CREATE | UPDATE | APPROVE | REJECT | CORRECT | RELINK_GREIGE */
+  action: string;
+  by: { name: string | null; email: string | null } | null;
+  reason: string | null;
+  changes: Array<{ field: string; from: string | number | null; to: string | number | null }>;
+  inUse: string | null;
+}
+
+export interface CadRowHistory {
+  cadId: string;
+  createdAt: string;
+  createdBy: { name: string | null; email: string | null } | null;
+  entries: CadHistoryEntry[];
+}
+
+/** The 409 a Reject returns when approved cost sheets / order BOMs are built on the CAD */
+export function cadInUseFromError(error: unknown): { message: string; inUse: CadInUseEntry[] } | null {
+  const data = (error as { response?: { status?: number; data?: any } })?.response;
+  const details = data?.data?.details ?? data?.data?.error?.details;
+  if (data?.status !== 409 || details?.code !== 'CAD_IN_USE') return null;
+  return {
+    message: data.data?.message ?? data.data?.error?.message ?? 'This CAD is in use.',
+    inUse: Array.isArray(details.inUse) ? details.inUse : [],
+  };
 }
 
 export interface CopyCADRequest {
@@ -441,8 +479,15 @@ export const cadPlanningService = {
   /**
    * Reject/Unapprove CAD plan - revert to PENDING status
    */
-  async rejectCADPlan(styleId: string, rejectionReason: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.put(`/cad-planning/${styleId}/reject-cad`, { rejectionReason });
+  async rejectCADPlan(
+    styleId: string,
+    rejectionReason: string,
+    confirmImpact?: boolean
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await api.put(`/cad-planning/${styleId}/reject-cad`, {
+      rejectionReason,
+      ...(confirmImpact ? { confirmImpact: true } : {}),
+    });
     return response.data;
   },
 
@@ -594,6 +639,14 @@ export const cadPlanningService = {
   async getCADLineage(styleId: string, rowId: string) {
     const response = await api.get(`/cad-planning/${styleId}/row/${rowId}/lineage`);
     return response.data;
+  },
+
+  /**
+   * Who created / edited / approved / rejected a CAD row, what changed and why
+   */
+  async getCADRowHistory(styleId: string, rowId: string): Promise<CadRowHistory> {
+    const response = await api.get(`/cad-planning/${styleId}/row/${rowId}/history`);
+    return response.data.data;
   },
 };
 

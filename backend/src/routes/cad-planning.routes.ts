@@ -29,6 +29,7 @@ import {
   addCombinedCADRow,
   updateCADTableRow,
   deleteCADTableRow,
+  getCADRowHistory,
   updateCADValues,
   updateCADValuesWithBreakdown,
   getCADGroupDetails,
@@ -424,6 +425,13 @@ router.post(
  * @access  All authenticated users
  */
 router.get('/:styleId/row/:rowId/lineage', validateParams(styleIdAndRowIdParamSchema), asyncHandler(getCADLineage));
+
+/**
+ * @route   GET /api/cad-planning/:styleId/row/:rowId/history
+ * @desc    Who created / edited / approved / rejected a CAD row, what changed and why
+ * @access  All authenticated users
+ */
+router.get('/:styleId/row/:rowId/history', validateParams(styleIdAndRowIdParamSchema), asyncHandler(getCADRowHistory));
 
 /**
  * @route   POST /api/cad-planning/:styleId/link-stock

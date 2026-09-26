@@ -6,6 +6,7 @@ import { systemSettingsService } from '../services/system-settings.service';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
 import { validateCADModification } from './cad-planning.utils';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
+import { cadSnapshot, recordCadEdit } from '../services/helpers/cad-history.helper';
 
 /**
  * Fabric Width CAD Controller
@@ -191,6 +192,10 @@ export const updateCAD = async (req: Request, res: Response) => {
     throw new NotFoundError('CAD entry', id);
   }
 
+  // Same guard every CAD Planning save uses: this legacy route wrote the marker of approved and
+  // price-approved rows with no check at all.
+  await validateCADModification(id, 'update');
+
   // If updating width, check for duplicates
   if (cutableWidth && parseFloat(cutableWidth) !== parseFloat(existingCAD.cutableWidth.toString())) {
     const duplicateWidth = await prisma.fabric_width_cad.findFirst({
@@ -235,6 +240,13 @@ export const updateCAD = async (req: Request, res: Response) => {
         },
       },
     },
+  });
+
+  await recordCadEdit({
+    cadId: id,
+    userId: req.user?.userId,
+    before: cadSnapshot(existingCAD),
+    after: cadSnapshot(updatedCAD),
   });
 
   res.json(updatedCAD);

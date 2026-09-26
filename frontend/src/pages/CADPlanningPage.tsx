@@ -33,7 +33,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { cadPlanningService } from '../services/cad-planning.service';
+import { cadPlanningService, cadInUseFromError, type CadInUseEntry } from '../services/cad-planning.service';
+import { CadInUseNotice } from '../components/cad/CadInUseNotice';
 import { fabricCostingService, type CADCostingStatusResponse } from '../services/fabricCosting.service';
 import {
   ArrowLeft,
@@ -148,6 +149,8 @@ export default function CADPlanningPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  // Approved cost sheets / order BOMs built on the plan's rows (409 CAD_IN_USE) — confirm before rejecting
+  const [rejectInUse, setRejectInUse] = useState<CadInUseEntry[] | null>(null);
 
   // CAD History state
   const [activeTab, setActiveTab] = useState<'spreadsheet' | 'history' | 'orders'>('spreadsheet');
@@ -347,13 +350,20 @@ export default function CADPlanningPage() {
     }
     try {
       setRejecting(true);
-      await cadPlanningService.rejectCADPlan(id, rejectionReason.trim());
-      notify.success('CAD plan rejected. All rows reset to PENDING.', { duration: 5000 });
+      const result = await cadPlanningService.rejectCADPlan(id, rejectionReason.trim(), rejectInUse !== null);
+      notify.success(result.message || 'CAD plan rejected.', { duration: 5000 });
       setShowRejectDialog(false);
       setRejectionReason('');
+      setRejectInUse(null);
       // loadCADTableData also refreshes style info (cadStatus, approvedCadDate)
       await loadCADTableData();
     } catch (error: unknown) {
+      const inUse = cadInUseFromError(error);
+      if (inUse) {
+        // Keep the dialog open and show what is built on the rows; the button becomes "Reject anyway"
+        setRejectInUse(inUse.inUse);
+        return;
+      }
       const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
       notify.error(axiosMsg || 'Failed to reject CAD plan');
     } finally {
@@ -784,7 +794,10 @@ export default function CADPlanningPage() {
         open={showRejectDialog}
         onOpenChange={(open) => {
           setShowRejectDialog(open);
-          if (!open) setRejectionReason('');
+          if (!open) {
+            setRejectionReason('');
+            setRejectInUse(null);
+          }
         }}
       >
         <DialogContent className="sm:max-w-md">
@@ -794,10 +807,11 @@ export default function CADPlanningPage() {
               Reject CAD Plan?
             </DialogTitle>
             <DialogDescription>
-              This will revert the CAD plan status to PENDING and reset all row approvals. You will be able to edit all
-              CAD entries again. Any linked fabric costing data will NOT be affected.
+              This resets the planning rows to PENDING so they can be edited again, and clears their fabric price
+              approval (the cost figures are kept). Production CADs stay approved, because cutting uses them.
             </DialogDescription>
           </DialogHeader>
+          {rejectInUse && <CadInUseNotice inUse={rejectInUse} />}
           <div className="py-4">
             <label htmlFor="rejection-reason" className="text-sm font-medium mb-2 block">
               Reason for rejection <span className="text-destructive">*</span>
@@ -821,6 +835,8 @@ export default function CADPlanningPage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Rejecting...
                 </>
+              ) : rejectInUse ? (
+                'Reject anyway'
               ) : (
                 'Reject & Unlock'
               )}

@@ -13,7 +13,19 @@ import { v4 as uuidv4 } from 'uuid';
 /**
  * Audit action types
  */
-export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'SOFT_DELETE' | 'RESTORE' | 'LOGIN' | 'LOGOUT' | 'VIEW';
+export type AuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'SOFT_DELETE'
+  | 'RESTORE'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'VIEW'
+  // CAD row history (helpers/cad-history.helper.ts)
+  | 'APPROVE'
+  | 'REJECT'
+  | 'CORRECT';
 
 /**
  * Entity types that can be audited

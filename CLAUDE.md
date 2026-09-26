@@ -85,6 +85,11 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 2. **After every quantity change**: Call `syncStockLevelQuantity(materialId, change, tx?)` to keep `stock_levels` in sync
 3. **Applies to ALL stock types**: greige_stock, fabric_stock, lace_stock, thread_stock, and any future specialized stock tables
 4. **The pre-commit hook validates** that any `*stock*.service.ts` file imports `material-sync.helper`
+5. **A lot write and its ledger row commit together or not at all.** Stock routing
+   (`routeToSpecializedStock` / `routeFromSpecializedStock`) runs in the caller's transaction and RETHROWS —
+   never catch-and-return: a swallowed error let the transaction commit a lot decremented with no audit row
+   and stock_levels down by the full quantity (2026-09-26). A lot-backed stock-out its lots cannot cover is
+   refused (`STOCK_LOTS_SHORT`), not taken partly from the lots and fully from stock_levels.
 
 ### Why:
 - The system has two stock tracking layers: specialized tables (greige_stock, fabric_stock, etc.) and centralized `stock_levels`
@@ -141,6 +146,7 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 | Where a PO delivers | `purchase_orders.deliveryLocationId` — ONE place, empty = "to be advised"; on a split PO it only MIRRORS point 1 | `po_delivery_points` + `po_delivery_point_lines` — the split plan. Read and write through `helpers/po-delivery-plan.helper.ts` (2026-09-26) |
 | Where a receipt went | `goods_receiving_notes.warehouseId` — the ACTUAL place, stock is booked there | `goods_receiving_notes.poDeliveryPointId` — the PLANNED place on a split PO. They differ when goods landed elsewhere (warned, allowed) |
 | A label's stock | `label_stock.labelId` (the label) | `label_stock.sizeVariantId` (the SIZE — NULL = unsized stock). `derived_stock_view` puts each lot on exactly ONE materials row: the size row, else the base row (2026-09-26 — before, a label lot showed on the base AND every size row). A trim receipt reaches its lot table by the LINE's material (`routeToSpecializedStock` → `trimLotOf`), never by the PO category; `receivesViaStockLevels()` in `grn.service.ts` is the one predicate approval and reversal share |
+| A thread's stock | `thread_stock.threadId` + `packagingType`/`ply` (the lot's PACK) | `materials` pack rows: `threadPackagingType`/`threadPly` set (NULL on the thread's base row; `materials.threadId` is NOT unique — partial unique indexes keep one base row and one row per pack). `derived_stock_view` puts a lot on the row whose pack matches; every stock_levels write for a lot goes through `threadLotMaterialId`. Find a master's base row with `BASE_MATERIAL_ROW` (`master-config.ts`), never a bare `findFirst({ where: { threadId } })`. Cones and tubes are never added together (2026-09-26) |
 | Which processor holds a lot | `greige_stock.processorId` (DIRECT / TRANSFER lots) | the lot's warehouse when it is a JOB_WORK unit (`warehouses.supplierId`). Lace and fabric have ONLY the warehouse. Read via `lot-location.helper` (`greigeHolderId`, `resolveLotLocation`, `laceCountsForPlanning`) |
 
 `fabricId` on BOM lines and cost-sheet lines is **null by design** (0/82, 0/64): at design time the
@@ -427,9 +433,15 @@ data fix alone came undone on the next save. Repaired by `backend/scripts/repair
   conversions are `grnLineStock()` in `grn.service.ts` (saved on the line as `grn_items.stockQuantity`, so a
   reversal takes back exactly that) and the link writers. Never put the factor into `grnLineActualQty` — it
   feeds GRN value and GST. Stock In converts GROSS/DOZEN to pieces. Rates per stock unit are 4 dp
-  (₹18 / gross = ₹0.125 / piece). Thread (cones/tubes → boxes) is not built yet.
-- **THREAD is the exception**: its lines keep `'lot'` (qty 1 per garment — the quantity counts
-  garments, not cones). Thread costing is not designed yet; do not "fix" thread units unasked.
+  (₹18 / gross = ₹0.125 / piece).
+- **Thread is BOUGHT in boxes of one pack** (2026-09-26): cones (2- or 3-ply) or tubes (3-ply only), box size
+  from ONE table, `thread_packaging_specs` (`helpers/thread-pack.helper.ts` → `orderableThreadBox`). A thread
+  PO line must be `BOX` + `threadPackagingType`/`threadPly` (refused otherwise); `stockUnitsPerUnit` = cones or
+  tubes per box. Stock is kept per PACK — see *A thread's stock* in the two-homes table. The PO form takes
+  cones / tubes and works out the boxes; MRP "generate POs" REFUSES thread requirements; cutting no longer
+  backflushes thread.
+- **THREAD is the exception**: its CONSUMPTION lines keep `'lot'` (qty 1 per garment — the quantity counts
+  garments, not cones). Thread consumption / costing is not designed yet; do not "fix" thread units unasked.
 - **A used material's unit is locked.** `PUT /api/materials/:id` refuses a unit change (409) once
   `materialUsage(id)` finds any BOM / cost-sheet / order-BOM / requirement / PO / GRN / stock row —
   lines are stamped when saved and never follow a later change, so every existing quantity would

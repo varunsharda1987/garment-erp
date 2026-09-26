@@ -1,4 +1,4 @@
-import { COUNT_UNIT_FACTORS, purchaseUnitOf, unitShort } from '@/lib/units';
+import { COUNT_UNIT_FACTORS, purchaseUnitOf, unitHeader, unitShort, unitWord } from '@/lib/units';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -91,6 +91,15 @@ import { formLineLabelKey } from '@/lib/label-line-keys';
 import { generateId } from '@/lib/utils';
 import { LabelSizeQtyDialog } from '@/components/purchase-orders/LabelSizeQtyDialog';
 import { LabelSetDialog, type LabelSetSelection } from '@/components/purchase-orders/LabelSetDialog';
+import { useQuery } from '@tanstack/react-query';
+import { getThreadPackagingSpecs } from '@/services/thread.service';
+import {
+  ORDERABLE_THREAD_PACKS,
+  findPackagingSpec,
+  threadPackLabel,
+  type ThreadPackagingSpec,
+  type ThreadPly,
+} from '@/types/thread.types';
 
 /**
  * Which GST heads apply: IGST for an out-of-state supplier, CGST+SGST for one in our own state.
@@ -123,6 +132,7 @@ const PO_CATEGORY_TO_SUPPLIER_CATEGORY: Record<string, string | undefined> = {
   FABRIC: 'FABRIC_SUPPLIER',
   GREIGE: 'GREIGE_SUPPLIER',
   TRIMS: 'TRIMS_SUPPLIER',
+  THREAD: 'THREAD_SUPPLIER',
   LACE: 'LACE_SUPPLIER',
   GREIGE_LACE: 'LACE_SUPPLIER',
   PROCESSING: 'DYEING_PRINTING',
@@ -178,6 +188,7 @@ const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
     'OTHER_DECORATIVE',
     'OTHER_FUNCTIONAL',
   ],
+  THREAD: ['THREAD'],
   LACE: ['LACE'],
   GREIGE_LACE: ['LACE'],
   GENERAL: undefined, // no type filter — show all
@@ -196,6 +207,8 @@ interface Material {
   materialType: string;
   unit: string | null;
   costPerUnit: number | null;
+  /** Set on a thread's PACK row (a stock item, Cone 3-ply…) — never offered on a PO line; the thread itself is */
+  threadPackagingType?: string | null;
   /** Bought in another unit than it is counted in (buttons by the gross) — and that unit's rate */
   purchaseUnit?: string | null;
   stockUnitsPerPurchaseUnit?: number | null;
@@ -241,11 +254,63 @@ interface POItemForm {
   labelCode?: string;
   labelName?: string;
   size?: string | null;
+  // A THREAD line (2026-09-26): the pack it is ordered in and how many cones / tubes. The line itself is in
+  // BOXES — cones / tubes rounded UP to whole boxes of the size in the packaging table. Cones are priced per
+  // cone (the box rate follows), tubes per box.
+  materialType?: string;
+  threadPackagingType?: 'CONE' | 'TUBE';
+  threadPly?: ThreadPly;
+  threadUnits?: string;
+  threadRatePerCone?: string;
 }
 
 // ============================================
 // Helpers
 // ============================================
+
+/**
+ * A thread line's boxes, rate per box and total from what the user typed: cones / tubes → boxes (rounded up,
+ * box size from the ONE packaging table), a cone rate × cones per box → the rate per box. No box size yet (the
+ * ply is not chosen) = 0 boxes, so the line cannot be saved half-set.
+ */
+function withThreadBoxes(item: POItemForm, specs: ThreadPackagingSpec[] | undefined): POItemForm {
+  const spec = findPackagingSpec(specs, item.threadPackagingType, item.threadPly);
+  const units = parseFloat(item.threadUnits ?? '') || 0;
+  const boxes = spec && units > 0 ? Math.ceil(units / spec.unitsPerBox - 1e-9) : 0;
+  const boxRate =
+    item.threadPackagingType === 'CONE'
+      ? spec
+        ? Math.round((parseFloat(item.threadRatePerCone ?? '') || 0) * spec.unitsPerBox * 100) / 100
+        : 0
+      : parseFloat(item.unitPrice) || 0;
+  return {
+    ...item,
+    unit: 'BOX',
+    orderedQuantity: String(boxes),
+    unitPrice: String(boxRate),
+    totalPrice: boxes * boxRate,
+  };
+}
+
+/** A thread line from a BOM entry: cones by default, ply still to choose — its count is typed, never guessed
+ *  (a BOM's thread counts GARMENTS: thread consumption is not designed yet). */
+function createThreadItem(bomItem: StyleBOMEntry): POItemForm {
+  return {
+    tempId: Date.now().toString(),
+    materialId: undefined, // BOM entry doesn't have materialId, only materialCode
+    materialCode: bomItem.materialCode || undefined,
+    materialName: bomItem.materialName || 'Thread',
+    materialType: 'THREAD',
+    threadPackagingType: 'CONE',
+    threadUnits: '',
+    threadRatePerCone: '',
+    orderedQuantity: '0',
+    unit: 'BOX',
+    unitPrice: '0',
+    totalPrice: 0,
+    remarks: '',
+  };
+}
 
 // NOTE: Processing/Service categories deprecated - use Job Work Orders
 function isProcessingCategory(category: string): boolean {
@@ -764,6 +829,22 @@ export default function PurchaseOrderForm() {
           labelCode: item.materials?.labelMaster?.labelCode,
           labelName: item.materials?.labelMaster?.labelName,
           size: item.materials?.labelSizeVariant?.size ?? null,
+          materialType: item.materials?.materialType,
+          // A thread line reads back as the cones / tubes it holds (boxes × box size) and, for cones, the rate
+          // per cone — what was typed when it was ordered
+          ...(item.threadPackagingType === 'CONE' || item.threadPackagingType === 'TUBE'
+            ? {
+                threadPackagingType: item.threadPackagingType,
+                threadPly: item.threadPly ?? undefined,
+                threadUnits: String(
+                  Math.round(Number(item.orderedQuantity) * (Number(item.stockUnitsPerUnit) || 1) * 1000) / 1000
+                ),
+                threadRatePerCone:
+                  item.threadPackagingType === 'CONE' && Number(item.stockUnitsPerUnit) > 0
+                    ? String(Math.round((Number(item.unitPrice) / Number(item.stockUnitsPerUnit)) * 10000) / 10000)
+                    : '',
+              }
+            : {}),
         }));
         setItems(loadedItems);
         // A split PO opens with its places, each line's share keyed on the line's tempId
@@ -881,7 +962,17 @@ export default function PurchaseOrderForm() {
 
   // Each size of a label is its own material (LBL-0004-XS …), so a PO buys a sized label as one line per
   // size. The picker offers the label ONCE and opens a size grid instead of listing seven rows.
-  const { sizeRowsByLabel, sizedRowsOf, pickerMaterials } = indexSizedLabels(materials);
+  // A thread's PACK rows (Cone 3-ply…) are stock items, not something to order: the thread is, in a pack
+  const { sizeRowsByLabel, sizedRowsOf, pickerMaterials } = indexSizedLabels(
+    materials.filter((m) => !m.threadPackagingType)
+  );
+
+  // Box sizes for thread lines — the ONE packaging table the server converts with
+  const { data: threadSpecs } = useQuery({
+    queryKey: ['thread-packaging-specs'],
+    queryFn: getThreadPackagingSpecs,
+    staleTime: 10 * 60 * 1000,
+  });
 
   // ============================================
   // Material item management
@@ -890,6 +981,27 @@ export default function PurchaseOrderForm() {
   // generateId, not crypto.randomUUID: the team opens the ERP over plain-HTTP LAN, where randomUUID is absent
   // A button is ordered by the gross at its rate per gross; anything else in the unit it is counted in
   const materialLine = (material: Material, qty: number): POItemForm => {
+    // Thread: in cones (ply to choose) at its price per cone; the boxes follow from the count typed
+    if (material.materialType === 'THREAD') {
+      return withThreadBoxes(
+        {
+          tempId: generateId(),
+          materialId: material.id,
+          materialCode: material.code,
+          materialName: material.name,
+          materialType: 'THREAD',
+          threadPackagingType: 'CONE',
+          threadUnits: '',
+          threadRatePerCone: material.costPerUnit ? String(material.costPerUnit) : '',
+          orderedQuantity: '0',
+          unit: 'BOX',
+          unitPrice: '0',
+          totalPrice: 0,
+          remarks: '',
+        },
+        threadSpecs
+      );
+    }
     const rate = material.purchaseUnit ? (material.purchaseUnitPrice ?? 0) : (material.costPerUnit ?? 0);
     const label = material.labelId ? labelDisplay(material) : null;
     return {
@@ -897,6 +1009,7 @@ export default function PurchaseOrderForm() {
       materialId: material.id,
       materialCode: material.code,
       materialName: material.name,
+      materialType: material.materialType,
       labelId: material.labelId ?? undefined,
       labelCode: label?.code,
       labelName: label?.name,
@@ -1033,6 +1146,38 @@ export default function PurchaseOrderForm() {
                 <div className="text-sm text-muted-foreground">{item.materialName}</div>
               </>
             )}
+            {item.materialType === 'THREAD' && (
+              <div className="mt-2 flex gap-2">
+                <Select
+                  value={item.threadPackagingType ?? ''}
+                  onValueChange={(v) => updateThreadLine(item.tempId, { threadPackagingType: v as 'CONE' | 'TUBE' })}
+                >
+                  <SelectTrigger className="h-8 w-28" aria-label="Packing">
+                    <SelectValue placeholder="Packing" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CONE">{unitHeader('CONE')}</SelectItem>
+                    <SelectItem value="TUBE">{unitHeader('TUBE')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={item.threadPly ?? ''}
+                  onValueChange={(v) => updateThreadLine(item.tempId, { threadPly: v as ThreadPly })}
+                  disabled={item.threadPackagingType === 'TUBE'}
+                >
+                  <SelectTrigger className="h-8 w-28" aria-label="Ply">
+                    <SelectValue placeholder="Ply" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORDERABLE_THREAD_PACKS[item.threadPackagingType ?? 'CONE'].map((ply) => (
+                      <SelectItem key={ply} value={ply}>
+                        {ply === 'TWO_PLY' ? '2-ply' : '3-ply'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         )}
       </TableCell>
@@ -1080,14 +1225,37 @@ export default function PurchaseOrderForm() {
         </TableCell>
       )}
       <TableCell>
-        <Input
-          type="number"
-          min="0"
-          step="0.001"
-          value={item.orderedQuantity}
-          onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
-          className="w-full"
-        />
+        {item.materialType === 'THREAD' ? (
+          <>
+            {/* How many cones / tubes are wanted — the line orders whole BOXES of them */}
+            <Input
+              type="number"
+              min="0"
+              step="any"
+              value={item.threadUnits ?? ''}
+              onChange={(e) => updateThreadLine(item.tempId, { threadUnits: e.target.value })}
+              placeholder={unitHeader(item.threadPackagingType ?? 'CONE')}
+              className="w-full"
+            />
+            <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+              {(() => {
+                const spec = findPackagingSpec(threadSpecs, item.threadPackagingType, item.threadPly);
+                if (!spec) return 'Choose the ply';
+                const boxes = Number(item.orderedQuantity) || 0;
+                return `= ${formatQuantity(boxes, 'BOX')} × ${spec.unitsPerBox} = ${formatQuantity(boxes * spec.unitsPerBox, spec.packagingType)}, ${threadPackLabel(spec.packagingType, spec.ply)}`;
+              })()}
+            </div>
+          </>
+        ) : (
+          <Input
+            type="number"
+            min="0"
+            step="0.001"
+            value={item.orderedQuantity}
+            onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
+            className="w-full"
+          />
+        )}
         {/* PO quantities are ACTUAL metres; the GRN converts what the mill counts at L. */}
         {(poCategory === 'GREIGE' || poCategory === 'FABRIC') &&
           hasFold(item.foldLengthCm) &&
@@ -1114,14 +1282,43 @@ export default function PurchaseOrderForm() {
         )}
       </TableCell>
       <TableCell>
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          value={item.unitPrice}
-          onChange={(e) => updateItem(item.tempId, 'unitPrice', e.target.value)}
-          className="w-full"
-        />
+        {item.materialType === 'THREAD' && item.threadPackagingType !== 'TUBE' ? (
+          <>
+            {/* Cones are priced per cone; the line's rate is per box */}
+            <Input
+              type="number"
+              min="0"
+              step="any"
+              value={item.threadRatePerCone ?? ''}
+              onChange={(e) => updateThreadLine(item.tempId, { threadRatePerCone: e.target.value })}
+              placeholder={`Per ${unitWord('CONE')}`}
+              className="w-full"
+            />
+            <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+              per {unitWord('CONE')} = {formatCurrency(parseFloat(item.unitPrice) || 0)} / {unitWord('BOX')}
+            </div>
+          </>
+        ) : (
+          <>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={item.unitPrice}
+              onChange={(e) =>
+                item.materialType === 'THREAD'
+                  ? updateThreadLine(item.tempId, { unitPrice: e.target.value })
+                  : updateItem(item.tempId, 'unitPrice', e.target.value)
+              }
+              className="w-full"
+            />
+            {item.materialType === 'THREAD' && (
+              <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+                per {unitWord('BOX')} of {unitShort('TUBE')}
+              </div>
+            )}
+          </>
+        )}
       </TableCell>
       <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
       <TableCell>
@@ -1243,6 +1440,12 @@ export default function PurchaseOrderForm() {
             <div>
               <p className="font-medium">{item.materialCode || item.serviceType}</p>
               <p className="text-xs text-muted-foreground">{item.materialName || item.serviceDescription}</p>
+              {item.materialType === 'THREAD' && item.threadPackagingType && (
+                <p className="text-xs text-muted-foreground">
+                  {threadPackLabel(item.threadPackagingType, item.threadPly)} — {item.threadUnits}{' '}
+                  {unitShort(item.threadPackagingType)} wanted
+                </p>
+              )}
             </div>
           )}
         </TableCell>
@@ -1434,6 +1637,23 @@ export default function PurchaseOrderForm() {
     }
   };
 
+  // A thread line: packing, ply, cones / tubes or the rate changed → boxes, box rate and total follow. A tube is
+  // always 3-ply and priced per box; switching to tubes clears the per-cone box rate.
+  const updateThreadLine = (tempId: string, patch: Partial<POItemForm>) =>
+    setItems((prev) =>
+      prev.map((row) => {
+        if (row.tempId !== tempId) return row;
+        const next: POItemForm = { ...row, ...patch };
+        if (next.threadPackagingType === 'TUBE') {
+          next.threadPly = 'THREE_PLY';
+          if (patch.threadPackagingType === 'TUBE' && row.threadPackagingType !== 'TUBE') next.unitPrice = '0';
+        } else if (next.threadPly && !ORDERABLE_THREAD_PACKS.CONE.includes(next.threadPly)) {
+          next.threadPly = undefined;
+        }
+        return withThreadBoxes(next, threadSpecs);
+      })
+    );
+
   const calculateGrandTotal = () => {
     return items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
   };
@@ -1464,6 +1684,23 @@ export default function PurchaseOrderForm() {
       return false;
     }
     for (const item of items) {
+      // A thread line needs its pack and a count: the boxes are worked out from them
+      if (item.materialType === 'THREAD' && !findPackagingSpec(threadSpecs, item.threadPackagingType, item.threadPly)) {
+        handleApiError(
+          new Error(`Choose cone or tube, and the ply, for ${item.materialName || 'the thread line'}`),
+          'Validation Error'
+        );
+        return false;
+      }
+      if (item.materialType === 'THREAD' && !(parseFloat(item.threadUnits ?? '') > 0)) {
+        handleApiError(
+          new Error(
+            `Enter how many ${unitShort(item.threadPackagingType ?? 'CONE')} for ${item.materialName || 'the thread line'}`
+          ),
+          'Validation Error'
+        );
+        return false;
+      }
       if (isMaterial && !item.materialId) {
         handleApiError(new Error('Please select a material for all items'), 'Validation Error');
         return false;
@@ -1527,6 +1764,10 @@ export default function PurchaseOrderForm() {
         remarks: item.remarks || undefined,
         foldLengthCm: item.foldLengthCm ? parseFloat(item.foldLengthCm) : undefined,
         weaverId: item.weaverId || null,
+        // Thread: the pack the boxes are of (the server checks it and sets the box size)
+        ...(item.materialType === 'THREAD'
+          ? { threadPackagingType: item.threadPackagingType ?? null, threadPly: item.threadPly ?? null }
+          : {}),
         // Split delivery: this line's share at each place. Un-splitting a split PO sends its one place.
         ...(splitDelivery
           ? {
@@ -2010,12 +2251,21 @@ export default function PurchaseOrderForm() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
+                                    // Thread is ordered in cones / tubes on a Thread PO — its BOM quantity counts garments
+                                    if (item.materialType === 'THREAD') {
+                                      handleMaterialPOClick('THREAD', createThreadItem(item), item.materialName);
+                                      return;
+                                    }
                                     const category = item.materialType === 'LACE' ? 'LACE' : 'TRIMS';
                                     const qtyNum = calculatedQty ? parseFloat(calculatedQty) : null;
                                     handleMaterialPOClick(category, createTrimItem(item, qtyNum), item.materialName);
                                   }}
                                 >
-                                  {item.materialType === 'LACE' ? 'LACE PO' : 'TRIMS PO'}
+                                  {item.materialType === 'LACE'
+                                    ? 'LACE PO'
+                                    : item.materialType === 'THREAD'
+                                      ? 'THREAD PO'
+                                      : 'TRIMS PO'}
                                 </Button>
                               </div>
                             );

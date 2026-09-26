@@ -8,6 +8,7 @@
 // ============================================
 
 import { Unit } from './generated/prisma-enums';
+import type { ThreadPackagingType, ThreadPly } from './generated/prisma-enums';
 
 export const PurchaseOrderStatus = {
   DRAFT: 'DRAFT',
@@ -87,7 +88,15 @@ export const POSourceColors: Record<POSource, string> = {
 export type POGroup = 'all' | 'material';
 
 // Material categories only - all new POs must be one of these
-export const MATERIAL_PO_CATEGORIES = ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE', 'GENERAL'] as const;
+export const MATERIAL_PO_CATEGORIES = [
+  'FABRIC',
+  'GREIGE',
+  'TRIMS',
+  'THREAD',
+  'LACE',
+  'GREIGE_LACE',
+  'GENERAL',
+] as const;
 
 // DEPRECATED: These categories are now handled by Job Work Orders
 // Kept for viewing existing POs only
@@ -117,6 +126,7 @@ export const PO_CATEGORY_LABELS: Record<string, string> = {
   GREIGE: 'Greige',
   PROCESSING: 'Processing',
   TRIMS: 'Trims',
+  THREAD: 'Thread',
   LACE: 'Lace',
   GREIGE_LACE: 'Greige Lace',
   LACE_PROCESSING: 'Lace Processing',
@@ -136,6 +146,7 @@ export const PO_CATEGORY_COLORS: Record<string, string> = {
   GREIGE: 'bg-stone-100 text-stone-800',
   PROCESSING: 'bg-accent/10 text-accent',
   TRIMS: 'bg-cyan-100 text-cyan-800',
+  THREAD: 'bg-indigo-100 text-indigo-800',
   LACE: 'bg-pink-100 text-pink-800',
   GREIGE_LACE: 'bg-warning/10 text-warning',
   LACE_PROCESSING: 'bg-violet-100 text-violet-800',
@@ -267,6 +278,11 @@ export interface PurchaseOrderItem {
   foldLengthCm?: number | null;
   weaverId?: string | null; // Phase 1b: the weaver this line is bought from
   weaver?: { id: string; name: string } | null;
+  /** Stock units in one line unit: 144 for a gross of buttons, cones / tubes per box for thread */
+  stockUnitsPerUnit?: number | null;
+  /** A thread line's pack — CONE (2- or 3-ply) or TUBE (3-ply); the line is in BOXES */
+  threadPackagingType?: ThreadPackagingType | null;
+  threadPly?: ThreadPly | null;
   printingType?: string | null;
   // Service PO fields
   serviceType?: string | null;
@@ -469,6 +485,9 @@ export interface CreatePurchaseOrderItemRequest {
   remarks?: string;
   foldLengthCm?: number; // "L" - fold length in cm (for greige/fabric)
   weaverId?: string | null; // Phase 1b: optional at ordering — the GRN line records what came
+  /** A thread line's pack; the server checks it and sets the box size from the packaging table */
+  threadPackagingType?: ThreadPackagingType | null;
+  threadPly?: ThreadPly | null;
   /** Split delivery: this line's share at each place (omit on every line = one place / to be advised) */
   deliveries?: Array<{ warehouseId: string; quantity: number }>;
 }

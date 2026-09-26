@@ -1,0 +1,530 @@
+{
+  "takenAt": "2026-09-26T06:02:55.273Z",
+  "rows": [
+    {
+      "id": "2cef5508-4115-41a8-b335-ff6f3372150b",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "greigeCostPerMeter": "53",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "b93afcda-6e86-4c78-92a3-20990aee6af0",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY092LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "4085074e-3a0b-4ea4-ba37-3c0445457180",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "47",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "117ae697-e625-42a5-96db-a723a278998a",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY084LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "3574c04f-9d3f-4971-a4b6-3d463bc3775f",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "47",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "a851ba88-b6a6-4053-80a9-20fa066266fc",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-001"
+          }
+        }
+      }
+    },
+    {
+      "id": "b3c7f232-a886-4fec-b509-ee1f7912f558",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "4bbee2ac-0d25-45d3-b719-6e1810d91f47",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-016"
+          }
+        }
+      }
+    },
+    {
+      "id": "8cfa9fe0-f78e-4f98-a8d8-2c9e05e51f41",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": null,
+      "costingStyleId": null,
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY081LV"
+          }
+        }
+      }
+    },
+    {
+      "id": "9bd79d59-aeac-4ae8-8092-c198cca94452",
+      "purpose": "COSTING",
+      "greigeId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "greigeCostPerMeter": "53",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": null,
+      "costingStyleId": "e71917b1-22de-4509-94ae-58734de80698",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-002"
+          }
+        }
+      }
+    },
+    {
+      "id": "f4a8a620-ef70-432f-b380-8eb28b61ea39",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "b5d1ea42-faad-4b1c-9310-30ba867e466d",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-014"
+          }
+        }
+      }
+    },
+    {
+      "id": "8888af2a-7cbc-4434-89fb-fda26e7899a0",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "b44dd6ae-3d88-4f7e-b109-537d431a6ac6",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-004"
+          }
+        }
+      }
+    },
+    {
+      "id": "222913c9-c019-42cf-8fcc-e9c9226468f1",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "7ee31bf1-8c49-4b81-bf6d-8be85a01231e",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-006"
+          }
+        }
+      }
+    },
+    {
+      "id": "5f1eb258-38e6-474b-a044-015b2d8a56e2",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "90fc9f85-9bf1-4ad8-a052-93eefab0552c",
+      "greigeCostPerMeter": "59",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-01-15T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "ff93aed4-6570-4fdd-990e-2bd17f4ba884",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "STYSW-002"
+          }
+        }
+      }
+    },
+    {
+      "id": "ff9ef823-6f77-4eb6-8681-c213a1bb15f2",
+      "purpose": "COSTING",
+      "greigeId": "35cbf330-8eb8-46fc-aa4b-79d9e6779040",
+      "greigeCostPerMeter": "49",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "f93fda26-cd02-4461-a90b-a78a61179fba",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-003"
+          }
+        }
+      }
+    },
+    {
+      "id": "6bbb3804-11c7-4e24-8a9c-ad23f81fa735",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "90fc9f85-9bf1-4ad8-a052-93eefab0552c",
+      "greigeCostPerMeter": "59",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-01-15T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "83b5f7bc-5ef6-4bda-9749-9c5e92a12aed",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "STYSW-001"
+          }
+        }
+      }
+    },
+    {
+      "id": "a6d39cf0-2edc-47f6-827e-f397aafb398c",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "7ee31bf1-8c49-4b81-bf6d-8be85a01231e",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW-006"
+          }
+        }
+      }
+    },
+    {
+      "id": "649c00ea-a27f-4939-b61f-0bc1cd5591ea",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "bb239df6-4200-4075-ac81-1f5488ac528c",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW002"
+          }
+        }
+      }
+    },
+    {
+      "id": "c846497f-a967-4e55-9e0b-ac6fdf3713a9",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "bb239df6-4200-4075-ac81-1f5488ac528c",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "EBWW002"
+          }
+        }
+      }
+    },
+    {
+      "id": "99e845d6-0455-426d-92aa-e109d1085b2e",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "d2aadbbe-8911-4786-87f6-0e9c5aad39d3",
+      "greigeCostPerMeter": "59",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "96609aac-f997-4b05-903d-a56b70502ee7",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "STYSW-003"
+          }
+        }
+      }
+    },
+    {
+      "id": "ce16e527-5e95-4bb3-8772-01395a827d9c",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "d2aadbbe-8911-4786-87f6-0e9c5aad39d3",
+      "greigeCostPerMeter": "59",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "1cf0b8a4-8e16-46ce-bddf-368e0d9b4509",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "STYSW-004"
+          }
+        }
+      }
+    },
+    {
+      "id": "c7233673-f6b2-45e6-bf99-1db862d16747",
+      "purpose": "COSTING",
+      "greigeId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "greigeCostPerMeter": "47",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "117ae697-e625-42a5-96db-a723a278998a",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY084LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "158e2307-38ad-4f5a-8772-bfe63f14192f",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "8c66b6b2-e278-4b7b-aad9-36ab26d88d42",
+      "greigeCostPerMeter": "47",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "5340228a-968a-4df7-a2ac-e463e104da9b",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY082LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "9c5f67d3-2249-471c-9b18-2c040a616be9",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "35cbf330-8eb8-46fc-aa4b-79d9e6779040",
+      "greigeCostPerMeter": "49",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "1e150049-98a6-4b34-bf58-90d86be37e9c",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY086LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "0033acad-6232-4122-8148-b6efb8d88116",
+      "purpose": "COSTING",
+      "greigeId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "greigeCostPerMeter": "47",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2025-12-27T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "41daa65a-f55a-41fc-92f0-bc81924d7ec6",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY087LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "05d898d8-64da-4d98-821e-aec4a53b1b21",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "greigeCostPerMeter": "53",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "f0c3ffe4-a915-433b-83c7-8c5ba066a160",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY089LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "6bdfff2c-1550-41cb-a2c4-df33c90bb94c",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "greigeCostPerMeter": "50.4",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "bc4679db-6d6d-4050-87ae-4792db9cd47b",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY090LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "bc636c7c-048b-4392-9653-fe134f380995",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "greigeCostPerMeter": "53",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2026-04-02T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "4914333e-184b-4255-a412-3f08cd4c836c",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY091LS"
+          }
+        }
+      }
+    },
+    {
+      "id": "adab35a3-27c5-417b-9480-78cd8e1b2744",
+      "purpose": "RAW_MATERIAL_CALCULATION",
+      "greigeId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "greigeCostPerMeter": "47",
+      "greigeRateSource": "PROCUREMENT",
+      "greigeRateSourceDate": "2025-12-27T00:00:00.000Z",
+      "greigeRateSourceRef": null,
+      "greigeRateManualOverride": null,
+      "greigeRateOverrideReason": null,
+      "greigeRateSetById": null,
+      "costingApprovalStatus": "APPROVED",
+      "costingStyleId": "f67611c9-bd61-444f-a9bd-bfcb77d50f4f",
+      "styleFabric": {
+        "style_components": {
+          "styles": {
+            "styleCode": "ESSKY076LS"
+          }
+        }
+      }
+    }
+  ]
+}

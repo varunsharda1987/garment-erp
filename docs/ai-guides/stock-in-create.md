@@ -103,7 +103,7 @@ Choose one of two modes:
 
 ## Processor Return flow (Bring to store)
 
-Use this when goods of ours that a processor is holding come back to our store unprocessed — greige, lace or ready fabric that a supplier delivered straight to the dyer, or that was parked there by a Stock-Out. (Processed fabric coming back from a job is received on the job itself: **Receive from processor**.) You can also start from **Greige Stock**: expand a greige and click the store button on a lot held at a processor.
+Use this when goods of ours that a processor is holding come back to our store unprocessed — greige, lace or ready fabric that a supplier delivered straight to the dyer, or that was parked there by a Stock-Out. (Processed fabric coming back from a job is received on the job itself: **Receive from processor**.) You can also start from **Greige Stock**: expand a greige and click the store button on a lot held at a processor. To send such goods on to a different processor instead, use **Move to another processor** on the same row.
 
 ### Step 1: Select Processor
 

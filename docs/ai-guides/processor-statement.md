@@ -54,7 +54,7 @@ route: /processing/processor-statement
 
 ## What the columns mean
 - **Opening** — what our records say was already lying with them on the From date.
-- **Sent** — what went out in this period, whether on a job work challan, a plain transfer challan, or the challan raised when a supplier delivered straight to the processor. That last one counts from the day the processor received the goods, even if the challan itself is dated later.
+- **Sent** — what went out in this period, whether on a job work challan, a plain transfer challan, or the challan raised when a supplier delivered straight to the processor. That last one counts from the day the processor received the goods, even if the challan itself is dated later. Goods moved here from another processor (**Move to another processor**) count as sent on the day of the move.
 - **Received** — what came back processed, one line per delivery. A job received in parts shows each part with its own GRN number and date.
 - **Returned** — greige that came back unprocessed: on a job's **Returned unprocessed**, or brought back to our store from what the processor held (Stock In → **Processor Return**).
 - **Agreed shrinkage** — the percentage quoted on that job, turned into metres. This is not a claim against the processor; it is what we accepted when we placed the work.

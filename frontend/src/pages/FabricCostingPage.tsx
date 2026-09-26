@@ -368,14 +368,15 @@ function GreigeCostCell({
       {stale && !missing && (
         <button
           type="button"
-          className="text-[10px] text-info mt-0.5 hover:underline whitespace-nowrap"
+          className="text-[10px] text-info mt-0.5 hover:underline leading-tight text-center"
           onClick={applyLive}
           title={liveDescription ? `Live: ₹${live}/m · ${liveDescription}` : undefined}
         >
           Use ₹{live}
-          {row.liveGreigeCostSource === 'PURCHASE_ORDER' && row.liveGreigeCostSourceRef
-            ? ` · ${row.liveGreigeCostSourceRef}`
-            : ''}
+          {/* The PO on its own line — the Greige column is too narrow for both on one */}
+          {row.liveGreigeCostSource === 'PURCHASE_ORDER' && row.liveGreigeCostSourceRef && (
+            <span className="block">{row.liveGreigeCostSourceRef}</span>
+          )}
         </button>
       )}
       {manualAndStale && (

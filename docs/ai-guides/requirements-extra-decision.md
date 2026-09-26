@@ -53,6 +53,7 @@ sources:
   - frontend/src/App.tsx
   - frontend/src/pages/UnifiedRequirementsPage.tsx
   - frontend/src/components/requirements/RequirementDecision.tsx
+  - frontend/src/components/requirements/OrderStyleLabelView.tsx
   - frontend/src/types/mrp.types.ts
   - frontend/src/components/OrderWorkflowTracker.tsx
   - frontend/src/pages/OrderDetail.tsx
@@ -73,7 +74,7 @@ When an order's BOM changes — a new Order BOM version, for example after a CAD
 1. Open **Procurement > Requirements** in the sidebar and stay on the **Material Requirements** tab.
    - From an order: on the order's page, the **PO** step reads "N need a decision (extra quantity)". Click **Decide** — Requirements opens filtered to that order.
 2. In the status box (it reads **All Status**), choose **Needs Decision**.
-3. Use **Flat View**, **By Material**, **By Party** or **By Style**. The two buttons do not appear in **By Order & Style (label sets)**.
+3. Any view shows the two buttons — **Flat View**, **By Material**, **By Party**, **By Style** or **By Order & Style (label sets)**.
 4. Read the row:
    - status **Needs Decision**;
    - the quantity is only the extra, with the note "more needed by BOM vN — order it?" under it;
@@ -95,5 +96,4 @@ When an order's BOM changes — a new Order BOM version, for example after a CAD
 - **An undecided row follows later changes.** If the BOM changes again before you decide, the same Needs Decision row is updated to the new difference, or cancelled when nothing extra is needed any more.
 - **The order page counts them on the PO step** — "N need a decision (extra quantity)", or "… need PO · N need a decision" when other rows need a PO. Use the **Needs Decision** status filter on Requirements to see them all.
 - **Job work (processing) extras are on the Outsourced Work tab.** A processing row reading **Needs Decision** has the same **Order the extra** / **Don't order more** buttons under its status; choose **Processing** and the **Needs Decision** status to list them.
-- **By Order & Style (label sets) shows no buttons.** Switch the view to decide a label row.
 - **"… is not waiting for a decision."** Someone already decided that row. Click **Refresh**.

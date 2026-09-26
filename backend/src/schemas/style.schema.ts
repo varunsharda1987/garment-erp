@@ -388,6 +388,11 @@ export const styleAndBomIdParamSchema = z.object({
   bomId: z.string().uuid('Invalid BOM ID'),
 });
 
+/** GET /styles/:styleId/label-set — optionally for one order (its size breakup and approved BOM) */
+export const labelSetQuerySchema = z.object({
+  orderId: z.string().uuid('Invalid order ID').optional(),
+});
+
 export const styleAndCommentIdParamSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
   commentId: z.string().uuid('Invalid comment ID'),

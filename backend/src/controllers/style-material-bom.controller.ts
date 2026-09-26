@@ -9,6 +9,7 @@ import { ValidationError, NotFoundError } from '../errors';
 import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { systemSettingsService } from '../services/system-settings.service';
 import { lineUnit, loadLineUnits, loadMaterialUnits } from '../services/helpers/material-unit.helper';
+import { getStyleLabelSet } from '../services/label-set.service';
 
 /**
  * Search materials by type and query string
@@ -641,6 +642,10 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
 
     const bomEntry = {
       id: item.id,
+      // The PO form lists a style's labels as their own section (and orders them via the label set)
+      materialId: item.materialId,
+      labelId: item.labelId,
+      extraPercentage: item.extraPercentage != null ? item.extraPercentage.toString() : null,
       materialCode,
       materialName,
       materialType: item.materialType,
@@ -686,6 +691,18 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
       totalMaterialCost: totalMaterialCost.toFixed(2),
     },
   });
+};
+
+/**
+ * GET /api/styles/:styleId/label-set?orderId=
+ * The style's labels, each with its sizes, labels per garment, extra % and suppliers — and, with an order,
+ * that order's garments per size — for ordering the whole set together (services/label-set.service.ts).
+ */
+export const getStyleLabelSetHandler = async (req: Request, res: Response): Promise<void> => {
+  const { styleId } = req.params;
+  const orderId = typeof req.query.orderId === 'string' && req.query.orderId ? req.query.orderId : undefined;
+  const data = await getStyleLabelSet(styleId, orderId);
+  res.json({ success: true, data });
 };
 
 /**

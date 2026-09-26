@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { UnitEnum, flexMaterialId } from './common.schema';
+import { MaterialTypeEnum } from './generated/prisma-enums';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -280,6 +281,11 @@ export const requirementsQuerySchema = z.object({
   status: z.string().optional(), // Can be comma-separated
   source: RequirementSourceEnum.optional(),
   requirementType: RequirementTypeEnum.optional(),
+  // Comma-separated material types of the required material (e.g. "LABEL" — the label-set view)
+  materialType: z
+    .string()
+    .refine((v) => v.split(',').every((t) => MaterialTypeEnum.safeParse(t.trim()).success), 'Unknown material type')
+    .optional(),
   requiredDateFrom: z.string().optional(),
   requiredDateTo: z.string().optional(),
   hasShortfall: z

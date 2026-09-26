@@ -115,6 +115,12 @@ export const getRequirements = async (req: Request, res: Response): Promise<void
     sortBy: (req.query.sortBy as string) || 'createdAt',
     sortOrder: (req.query.sortOrder as 'asc' | 'desc') || 'desc',
     requirementType: req.query.requirementType as 'MATERIAL' | 'PROCESSING' | undefined,
+    materialTypes: req.query.materialType
+      ? String(req.query.materialType)
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : undefined,
   };
 
   // Handle multiple status values

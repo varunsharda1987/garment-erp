@@ -16,6 +16,8 @@ import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty, gstinState, inrWords } from
 import { unitHeader } from '../../utils/units';
 import { resolvePoDeliverTo } from './po-deliver-to';
 import { JOB_WORK_SHIP_TO_NOTE, loadPoShipToPlan, ONE_INVOICE_PER_DELIVERY, PoShipTo } from './po-ship-to';
+import { LABEL_LINE_MATERIAL_SELECT, labelLineKeyOf } from '../helpers/label-line.helper';
+import { groupLabelLines, sumRows } from '../../utils/label-lines';
 
 const poDocInclude = {
   suppliers: {
@@ -30,7 +32,8 @@ const poDocInclude = {
   },
   purchase_order_items: {
     include: {
-      materials: { select: { name: true, code: true, hsnCode: true } },
+      // + which label and size a line is: a label's sizes print under one heading (utils/label-lines)
+      materials: { select: { name: true, code: true, hsnCode: true, ...LABEL_LINE_MATERIAL_SELECT } },
       weaver: { select: { name: true } }, // Phase 1b: printed under the line when known
     },
   },
@@ -40,7 +43,12 @@ type PoWithDetails = Prisma.purchase_ordersGetPayload<{ include: typeof poDocInc
 type PoItem = PoWithDetails['purchase_order_items'][number];
 
 export interface PurchaseOrderDocItem {
-  sn: number;
+  /** Serial number; null on a label's size rows (the label's heading row carries it) */
+  sn: number | null;
+  /** A label's heading row: its sizes follow as `isSize` rows; figures are the sizes' totals */
+  isGroup?: boolean;
+  /** One size of the label above */
+  isSize?: boolean;
   name: string;
   code: string | null; // muted material code next to the name
   weaver: string | null; // "Weaver: …" under the line, when the PO names one
@@ -144,28 +152,71 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
   let cgstSum = toCurrency(0);
   let sgstSum = toCurrency(0);
 
-  const items: PurchaseOrderDocItem[] = po.purchase_order_items.map((item, idx) => {
+  // Totals add up the real lines only — never the label heading rows below
+  for (const item of po.purchase_order_items) {
     taxableSum = addCurrency(taxableSum, Number(item.totalPrice));
     if (item.taxAmount != null) taxSum = addCurrency(taxSum, Number(item.taxAmount));
     if (item.igstAmount != null) igstSum = addCurrency(igstSum, Number(item.igstAmount));
     if (item.cgstAmount != null) cgstSum = addCurrency(cgstSum, Number(item.cgstAmount));
     if (item.sgstAmount != null) sgstSum = addCurrency(sgstSum, Number(item.sgstAmount));
-    return {
-      sn: idx + 1,
-      name: itemName(item),
-      code: item.materials?.code ?? null,
-      weaver: item.weaver?.name ?? null,
-      hsn: item.hsnCode ?? item.materials?.hsnCode ?? EM_DASH,
-      uom: unitHeader(item.unit),
-      qty: fmtQty(Number(item.orderedQuantity), item.unit),
-      rate: fmtMoney(Number(item.unitPrice)),
-      taxable: fmtMoney(Number(item.totalPrice)),
-      gstPct: fmtPct(item.gstRate != null ? Number(item.gstRate) : null),
-      igst: fmtMoney(item.igstAmount != null ? Number(item.igstAmount) : null),
-      cgst: fmtMoney(item.cgstAmount != null ? Number(item.cgstAmount) : null),
-      sgst: fmtMoney(item.sgstAmount != null ? Number(item.sgstAmount) : null),
-    };
+  }
+  const lineRow = (item: PoItem, sn: number | null): PurchaseOrderDocItem => ({
+    sn,
+    name: itemName(item),
+    code: item.materials?.code ?? null,
+    weaver: item.weaver?.name ?? null,
+    hsn: item.hsnCode ?? item.materials?.hsnCode ?? EM_DASH,
+    uom: unitHeader(item.unit),
+    qty: fmtQty(Number(item.orderedQuantity), item.unit),
+    rate: fmtMoney(Number(item.unitPrice)),
+    taxable: fmtMoney(Number(item.totalPrice)),
+    gstPct: fmtPct(item.gstRate != null ? Number(item.gstRate) : null),
+    igst: fmtMoney(item.igstAmount != null ? Number(item.igstAmount) : null),
+    cgst: fmtMoney(item.cgstAmount != null ? Number(item.cgstAmount) : null),
+    sgst: fmtMoney(item.sgstAmount != null ? Number(item.sgstAmount) : null),
   });
+
+  // A label bought in sizes prints as one heading (its totals) with one row per size beneath, in size order
+  const items: PurchaseOrderDocItem[] = [];
+  let sn = 0;
+  for (const g of groupLabelLines(po.purchase_order_items, (item) => labelLineKeyOf(item.materials))) {
+    if (g.kind === 'single') {
+      items.push(lineRow(g.line, ++sn));
+      continue;
+    }
+    const lines = g.rows.map((r) => r.line);
+    const same = <T>(pick: (l: PoItem) => T): T | null =>
+      lines.every((l) => pick(l) === pick(lines[0])) ? pick(lines[0]) : null;
+    const money = (pick: (l: PoItem) => unknown) =>
+      fmtMoney(lines.every((l) => pick(l) == null) ? null : sumRows(g.rows, (l) => Number(pick(l) ?? 0)));
+    const unit = same((l) => l.unit);
+    const rate = same((l) => Number(l.unitPrice));
+    const gst = same((l) => (l.gstRate != null ? Number(l.gstRate) : null));
+    items.push({
+      sn: ++sn,
+      isGroup: true,
+      name: g.name,
+      code: `${g.code} · ${g.rows.length} ${g.rows.length === 1 ? 'size' : 'sizes'}`,
+      weaver: null,
+      hsn: same((l) => l.hsnCode ?? l.materials?.hsnCode ?? null) ?? EM_DASH,
+      uom: unit ? unitHeader(unit) : EM_DASH,
+      qty: unit
+        ? fmtQty(
+            sumRows(g.rows, (l) => Number(l.orderedQuantity)),
+            unit
+          )
+        : EM_DASH,
+      rate: rate != null ? fmtMoney(rate) : EM_DASH,
+      taxable: money((l) => l.totalPrice),
+      gstPct: fmtPct(gst),
+      igst: money((l) => l.igstAmount),
+      cgst: money((l) => l.cgstAmount),
+      sgst: money((l) => l.sgstAmount),
+    });
+    for (const r of g.rows) {
+      items.push({ ...lineRow(r.line, null), isSize: true, name: r.size ? `Size ${r.size}` : 'All sizes', code: null });
+    }
+  }
 
   const isIgst = igstSum.greaterThan(0);
   const subtotalNum = po.subtotal != null ? Number(po.subtotal) : roundToCent(taxableSum).toNumber();

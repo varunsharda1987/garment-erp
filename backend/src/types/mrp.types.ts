@@ -205,6 +205,10 @@ export interface POPreviewItem {
   processingType?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;
+  /** The label this line is (a label's base or size row), for grouping a label's sizes — null otherwise */
+  label?: { id: string; code: string; name: string; type: string | null; category: string | null } | null;
+  /** The size a label size row is for; null for anything else */
+  size?: string | null;
   /**
    * PROCESSING rows only — `quantity` is the BILLABLE fabric-out qty (what the processor
    * charges for); this is the greige to physically issue (billable ÷ (1 − shrinkage)).
@@ -280,6 +284,8 @@ export interface RequirementFilters {
   status?: MaterialRequirementStatus | MaterialRequirementStatus[];
   source?: RequirementSource;
   requirementType?: 'MATERIAL' | 'PROCESSING';
+  /** Material types of the required material (e.g. ['LABEL']) */
+  materialTypes?: string[];
   requiredDateFrom?: string;
   requiredDateTo?: string;
   hasShortfall?: boolean;
@@ -384,6 +390,10 @@ export interface MaterialRequirementResponse {
     materialType: string;
     fabricId?: string | null;
   };
+  /** The label this material is (a label's base or size row), for grouping a label's sizes — null otherwise */
+  label?: { id: string; code: string; name: string; type: string | null; category: string | null } | null;
+  /** The size a label size row is for; null for anything else */
+  size?: string | null;
   preferredSupplier?: {
     id: string;
     code: string;

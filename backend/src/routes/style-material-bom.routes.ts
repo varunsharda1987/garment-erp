@@ -4,16 +4,18 @@ import {
   searchMaterials,
   getMaterialByCode,
   getStyleBOM,
+  getStyleLabelSetHandler,
   addMaterialToBOM,
   updateBOMItem,
   deleteBOMItem,
 } from '../controllers/style-material-bom.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import { styleIdParamSchema, materialCodeParamSchema } from '../schemas/common.schema';
 import {
   styleAndBomIdParamSchema,
+  labelSetQuerySchema,
   addStyleMaterialBOMSchema,
   updateStyleMaterialBOMSchema,
 } from '../schemas/style.schema';
@@ -34,6 +36,13 @@ router.get(
 
 // Style BOM management
 router.get('/:styleId/bom', validateParams(styleIdParamSchema), asyncHandler(getStyleBOM));
+// The style's labels with their sizes, for ordering the whole set together (PO form → Order label set)
+router.get(
+  '/:styleId/label-set',
+  validateParams(styleIdParamSchema),
+  validateQuery(labelSetQuerySchema),
+  asyncHandler(getStyleLabelSetHandler)
+);
 router.post(
   '/:styleId/materials',
   validateParams(styleIdParamSchema),

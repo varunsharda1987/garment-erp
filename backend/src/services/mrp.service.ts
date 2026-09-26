@@ -11,6 +11,7 @@ import {
   POSource,
   POCategory,
   PurchaseOrderStatus,
+  MaterialType,
 } from '@prisma/client';
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
@@ -60,6 +61,13 @@ import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLim
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
+import {
+  LABEL_LINE_MATERIAL_INCLUDE,
+  LABEL_LINE_MATERIAL_SELECT,
+  labelLineKeyOf,
+  toLabelLine,
+} from './helpers/label-line.helper';
+import { flattenGroups, groupLabelLines } from '../utils/label-lines';
 import {
   loadMasterSupplierLinks,
   loadMaterialMasterSuppliers,
@@ -2640,6 +2648,7 @@ export async function getRequirements(
     status,
     source,
     requirementType,
+    materialTypes,
     requiredDateFrom,
     requiredDateTo,
     hasShortfall,
@@ -2659,6 +2668,7 @@ export async function getRequirements(
   if (styleId) where.order_items = { styleId };
   if (source) where.source = source;
   if (requirementType) where.requirementType = requirementType;
+  if (materialTypes?.length) where.materials = { materialType: { in: materialTypes as MaterialType[] } };
 
   // Handle status filter - default: exclude CANCELLED (audit trail on JWO/PO pages)
   if (status) {
@@ -3518,13 +3528,15 @@ export async function generatePOFromRequirements(
   }
 
   // Get all requirements
-  const requirements = await prisma.material_requirements.findMany({
+  const fetchedRequirements = await prisma.material_requirements.findMany({
     where: {
       id: { in: effectiveReqIds },
       ...NEEDS_PO_WHERE,
     },
+    orderBy: { requirementNumber: 'asc' },
     include: {
-      materials: true,
+      // + which label and size a label size row is, so the PO's lines come out grouped (below)
+      materials: { include: LABEL_LINE_MATERIAL_INCLUDE },
       orderBom: { select: { sourceCostSheetId: true } },
       orders: { select: { orderNumber: true, status: true } },
       order_items: {
@@ -3569,6 +3581,9 @@ export async function generatePOFromRequirements(
       linkedRequirement: { select: { shrinkagePercentUsed: true } },
     },
   });
+  // A label's sizes together, in size order (utils/label-lines): the consolidation below keeps first-seen
+  // order, so the PO's lines are written — and printed — label by label, XS → XXXL
+  const requirements = flattenGroups(groupLabelLines(fetchedRequirements, (r) => labelLineKeyOf(r.materials)));
 
   if (requirements.length === 0) {
     throw new Error('No valid requirements found for PO generation');
@@ -3719,6 +3734,8 @@ export async function generatePOFromRequirements(
     orderNumber?: string | null;
     processingType?: string | null;
     fabricWidth?: number | null;
+    /** What the line is for, e.g. "Main Cum Size Label Black (XS)" — shown on the PO, GRN and print */
+    componentName?: string | null;
   }
 
   const poItems: POItemData[] = [];
@@ -3731,6 +3748,8 @@ export async function generatePOFromRequirements(
     orderNumber: req.orders?.orderNumber || null,
     processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
+    // Was missing: every MRP-made PO line stored componentName null although the preview showed it
+    componentName: req.componentName || null,
   });
 
   // Billing basis: PROCESSING item quantities are FABRIC-out meters (what the processor
@@ -4907,6 +4926,8 @@ function getRequirementIncludes() {
         // Loom width of the greige this material represents (null for non-greige) —
         // purchase surfaces display THIS, not the CAD cutable width
         greige_master: { select: { greigeWidth: true } },
+        // Which label and size a label size row is — the requirements page groups a label's sizes
+        ...LABEL_LINE_MATERIAL_SELECT,
       },
     },
     preferredSupplier: {
@@ -5075,6 +5096,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
           fabricId: req.materials.fabricId ?? null,
         }
       : undefined,
+    ...toLabelLine(req.materials),
     preferredSupplier: req.preferredSupplier
       ? {
           id: req.preferredSupplier.id,
@@ -5720,14 +5742,16 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
     const previewableIds = requirementIds.filter((id) => !previewLinkedIds.has(id));
     if (previewableIds.length === 0) continue;
 
-    // Fetch requirements with materials, order, and style info for enriched PO preview
-    const requirements = await prisma.material_requirements.findMany({
+    // Fetch requirements with materials, order, and style info for enriched PO preview —
+    // in the SAME order generation writes them (requirement number, then a label's sizes together)
+    const fetchedRequirements = await prisma.material_requirements.findMany({
       where: {
         id: { in: previewableIds },
         ...NEEDS_PO_WHERE,
       },
+      orderBy: { requirementNumber: 'asc' },
       include: {
-        materials: true,
+        materials: { include: LABEL_LINE_MATERIAL_INCLUDE },
         orderBom: { select: { sourceCostSheetId: true } },
         orders: { select: { orderNumber: true } },
         order_items: {
@@ -5742,6 +5766,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         linkedRequirement: { select: { shrinkagePercentUsed: true } },
       },
     });
+    const requirements = flattenGroups(groupLabelLines(fetchedRequirements, (r) => labelLineKeyOf(r.materials)));
 
     if (requirements.length === 0) continue;
 
@@ -5999,6 +6024,8 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         processingType: mg.processingType,
         componentName: mg.componentName,
         fabricWidth: mg.fabricWidth,
+        // Which label and size this line is — the review table groups a label's sizes
+        ...toLabelLine(mat),
         // PROCESSING rows: greige to issue tracks the (possibly edited) billable qty
         greigeIssueQty:
           mg.greigeIssueQty != null

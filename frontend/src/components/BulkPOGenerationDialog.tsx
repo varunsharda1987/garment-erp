@@ -43,6 +43,8 @@ import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { billableFromGreige, greigeFromBillable } from '@/utils/shrinkage';
 import { toDateInputValue } from '@/lib/date';
+import { groupLabelLines, sumRows } from '@/lib/label-lines';
+import { previewItemLabelKey } from '@/lib/label-line-keys';
 
 interface POGenerationResult {
   totalPOs: number;
@@ -371,6 +373,109 @@ export default function BulkPOGenerationDialog({
   const formatCurrency = (val: number) =>
     `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  /** One review line (a PO line to be): editable quantity and price, keyed by the server's groupKey */
+  const renderReviewRow = (group: POPreviewGroup, item: POPreviewItem, itemIdx: number) => {
+    const recalc = getRecalculatedItem(group, item);
+    // P1.10: Use server-provided groupKey (matches backend generatePOFromRequirements exactly)
+    const itemKey = item.groupKey || item.materialId;
+    const currentPrice = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
+    const isZeroPrice = currentPrice <= 0;
+    // P1.10: Exception-only badge — show ONLY when rateSource is NOT 'ORDER_BOM' (silence = trusted)
+    const showRateWarning = item.rateSource && item.rateSource !== 'ORDER_BOM';
+    const rowClass = item.isGreige ? 'bg-primary/10' : isZeroPrice ? 'bg-destructive/10' : '';
+
+    const rowKey = item.requirementIds?.[0] || `${item.materialId}-${itemIdx}`;
+
+    return (
+      <TableRow key={rowKey} className={rowClass}>
+        <TableCell className="text-xs">
+          <div className="font-medium">{item.materialCode}</div>
+          <div className="text-muted-foreground truncate max-w-[220px]">{item.materialName}</div>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {item.componentName && (
+              <span className="text-[10px] bg-teal-100 text-teal-800 px-1 rounded font-medium">
+                {item.componentName}
+              </span>
+            )}
+            {item.isGreige && <span className="text-[10px] bg-orange-200 text-orange-800 px-1 rounded">Greige</span>}
+            {item.colorName && (
+              <span className="text-[10px] bg-accent/10 text-accent px-1 rounded">{item.colorName}</span>
+            )}
+            {item.processingType && (
+              <span className="text-[10px] bg-info-muted text-info px-1 rounded">{item.processingType}</span>
+            )}
+            {item.fabricWidth && (
+              <span className="text-[10px] bg-muted text-foreground px-1 rounded">{item.fabricWidth}&quot; CW</span>
+            )}
+            {/* P1.10: Exception-only rate badge — show only when NOT from BOM */}
+            {showRateWarning && (
+              <span className="text-[10px] bg-amber-100 text-amber-800 px-1 rounded flex items-center gap-0.5">
+                <AlertTriangle className="h-2.5 w-2.5" />
+                {item.rateSource === 'SUPPLIER_PRICE'
+                  ? 'Supplier rate'
+                  : item.rateSource === 'MANUAL'
+                    ? 'Manual'
+                    : item.rateSource === 'COST_SHEET'
+                      ? 'Cost sheet'
+                      : item.rateSource === 'ORDER_BOM_STALE'
+                        ? 'BOM rate stale — market moved ≥5%'
+                        : item.rateSource}
+              </span>
+            )}
+          </div>
+          {(item.styleCode || item.orderNumber) && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              {item.styleCode && <span>{formatStyleCodeWithRef(item.styleCode, item.buyerStyleRef)}</span>}
+              {item.styleCode && item.orderNumber && <span> | </span>}
+              {item.orderNumber && <span>{item.orderNumber}</span>}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
+        <TableCell className="text-xs text-right">
+          <Input
+            type="number"
+            min={item.quantity}
+            step="any"
+            className="h-7 text-xs text-right w-[100px]"
+            value={editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity}
+            onChange={(e) => handleQuantityChange(group.supplierId, itemKey, e.target.value)}
+          />
+          {/* Job work bills on fabric-out; show the greige to physically issue */}
+          {item.greigeIssueQty != null && (
+            <div className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
+              Issue:{' '}
+              {greigeFromBillable(
+                editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity,
+                item.shrinkagePercent
+              ).toLocaleString()}{' '}
+              {unitShort(item.unit)} greige
+              {item.shrinkagePercent ? ` (+${item.shrinkagePercent}% shrink)` : ''}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-xs">{unitShort(item.unit)}</TableCell>
+        <TableCell className="text-xs text-right">
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            className={`h-7 text-xs text-right w-[100px] ${
+              isZeroPrice ? 'border-destructive/30 bg-destructive/10' : ''
+            }`}
+            value={currentPrice || ''}
+            onChange={(e) => handlePriceChange(group.supplierId, itemKey, e.target.value)}
+          />
+        </TableCell>
+        <TableCell className="text-xs text-right font-mono">{recalc.gstRate}%</TableCell>
+        <TableCell className="text-xs text-right font-mono">{formatCurrency(recalc.taxAmount)}</TableCell>
+        <TableCell className="text-xs text-right font-mono font-medium">
+          {formatCurrency(recalc.totalWithTax)}
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   // =============================================
   // RENDER
   // =============================================
@@ -647,123 +752,29 @@ export default function BulkPOGenerationDialog({
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {group.items.map((item, itemIdx) => {
-                              const recalc = getRecalculatedItem(group, item);
-                              // P1.10: Use server-provided groupKey (matches backend generatePOFromRequirements exactly)
-                              const itemKey = item.groupKey || item.materialId;
-                              const currentPrice = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
-                              const isZeroPrice = currentPrice <= 0;
-                              // P1.10: Exception-only badge — show ONLY when rateSource is NOT 'ORDER_BOM' (silence = trusted)
-                              const showRateWarning = item.rateSource && item.rateSource !== 'ORDER_BOM';
-                              const rowClass = item.isGreige ? 'bg-primary/10' : isZeroPrice ? 'bg-destructive/10' : '';
-
-                              const rowKey = item.requirementIds?.[0] || `${item.materialId}-${itemIdx}`;
-
-                              return (
-                                <TableRow key={rowKey} className={rowClass}>
-                                  <TableCell className="text-xs">
-                                    <div className="font-medium">{item.materialCode}</div>
-                                    <div className="text-muted-foreground truncate max-w-[220px]">
-                                      {item.materialName}
-                                    </div>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {item.componentName && (
-                                        <span className="text-[10px] bg-teal-100 text-teal-800 px-1 rounded font-medium">
-                                          {item.componentName}
+                            {/* A label bought in sizes: a heading row, then its sizes (each keeps its own qty / price) */}
+                            {groupLabelLines(group.items, previewItemLabelKey).flatMap((g) =>
+                              g.kind === 'single'
+                                ? [renderReviewRow(group, g.line, g.index)]
+                                : [
+                                    <TableRow key={g.key} className="bg-muted/40">
+                                      <TableCell colSpan={8} className="text-xs">
+                                        <span className="font-medium">{g.code}</span>{' '}
+                                        <span className="text-muted-foreground">
+                                          {g.name} · {g.rows.length} {g.rows.length === 1 ? 'size' : 'sizes'} ·{' '}
+                                          {sumRows(
+                                            g.rows,
+                                            (i) =>
+                                              editedQuantities[group.supplierId]?.[i.groupKey || i.materialId] ??
+                                              i.quantity
+                                          ).toLocaleString()}{' '}
+                                          {unitShort(g.rows[0].line.unit)}
                                         </span>
-                                      )}
-                                      {item.isGreige && (
-                                        <span className="text-[10px] bg-orange-200 text-orange-800 px-1 rounded">
-                                          Greige
-                                        </span>
-                                      )}
-                                      {item.colorName && (
-                                        <span className="text-[10px] bg-accent/10 text-accent px-1 rounded">
-                                          {item.colorName}
-                                        </span>
-                                      )}
-                                      {item.processingType && (
-                                        <span className="text-[10px] bg-info-muted text-info px-1 rounded">
-                                          {item.processingType}
-                                        </span>
-                                      )}
-                                      {item.fabricWidth && (
-                                        <span className="text-[10px] bg-muted text-foreground px-1 rounded">
-                                          {item.fabricWidth}&quot; CW
-                                        </span>
-                                      )}
-                                      {/* P1.10: Exception-only rate badge — show only when NOT from BOM */}
-                                      {showRateWarning && (
-                                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1 rounded flex items-center gap-0.5">
-                                          <AlertTriangle className="h-2.5 w-2.5" />
-                                          {item.rateSource === 'SUPPLIER_PRICE'
-                                            ? 'Supplier rate'
-                                            : item.rateSource === 'MANUAL'
-                                              ? 'Manual'
-                                              : item.rateSource === 'COST_SHEET'
-                                                ? 'Cost sheet'
-                                                : item.rateSource === 'ORDER_BOM_STALE'
-                                                  ? 'BOM rate stale — market moved ≥5%'
-                                                  : item.rateSource}
-                                        </span>
-                                      )}
-                                    </div>
-                                    {(item.styleCode || item.orderNumber) && (
-                                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                                        {item.styleCode && (
-                                          <span>{formatStyleCodeWithRef(item.styleCode, item.buyerStyleRef)}</span>
-                                        )}
-                                        {item.styleCode && item.orderNumber && <span> | </span>}
-                                        {item.orderNumber && <span>{item.orderNumber}</span>}
-                                      </div>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
-                                  <TableCell className="text-xs text-right">
-                                    <Input
-                                      type="number"
-                                      min={item.quantity}
-                                      step="any"
-                                      className="h-7 text-xs text-right w-[100px]"
-                                      value={editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity}
-                                      onChange={(e) => handleQuantityChange(group.supplierId, itemKey, e.target.value)}
-                                    />
-                                    {/* Job work bills on fabric-out; show the greige to physically issue */}
-                                    {item.greigeIssueQty != null && (
-                                      <div className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
-                                        Issue:{' '}
-                                        {greigeFromBillable(
-                                          editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity,
-                                          item.shrinkagePercent
-                                        ).toLocaleString()}{' '}
-                                        {unitShort(item.unit)} greige
-                                        {item.shrinkagePercent ? ` (+${item.shrinkagePercent}% shrink)` : ''}
-                                      </div>
-                                    )}
-                                  </TableCell>
-                                  <TableCell className="text-xs">{unitShort(item.unit)}</TableCell>
-                                  <TableCell className="text-xs text-right">
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      className={`h-7 text-xs text-right w-[100px] ${
-                                        isZeroPrice ? 'border-destructive/30 bg-destructive/10' : ''
-                                      }`}
-                                      value={currentPrice || ''}
-                                      onChange={(e) => handlePriceChange(group.supplierId, itemKey, e.target.value)}
-                                    />
-                                  </TableCell>
-                                  <TableCell className="text-xs text-right font-mono">{recalc.gstRate}%</TableCell>
-                                  <TableCell className="text-xs text-right font-mono">
-                                    {formatCurrency(recalc.taxAmount)}
-                                  </TableCell>
-                                  <TableCell className="text-xs text-right font-mono font-medium">
-                                    {formatCurrency(recalc.totalWithTax)}
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
+                                      </TableCell>
+                                    </TableRow>,
+                                    ...g.rows.map((r) => renderReviewRow(group, r.line, r.index)),
+                                  ]
+                            )}
                           </TableBody>
                         </Table>
                       </div>

@@ -27,6 +27,7 @@ import {
   X,
 } from 'lucide-react';
 import { unitLabel } from '@/lib/units';
+import { compareSizes } from '@/utils/sku-generator';
 
 export default function LabelDetail() {
   const navigate = useNavigate();
@@ -199,6 +200,22 @@ export default function LabelDetail() {
                   <p className="text-foreground text-xl font-semibold">{label.size}</p>
                 </div>
               )}
+              {label.sizeVariants && label.sizeVariants.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Sizes ({label.sizeVariants.length}) — each size is ordered and stocked on its own
+                  </label>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {[...label.sizeVariants]
+                      .sort((a, b) => compareSizes(a.size, b.size))
+                      .map((v) => (
+                        <Badge key={v.id} variant="outline">
+                          {v.size}
+                        </Badge>
+                      ))}
+                  </div>
+                </div>
+              )}
               {label.printMethod && (
                 <div className="flex items-center gap-2">
                   <Printer className="h-4 w-4 text-muted-foreground" />
@@ -217,7 +234,7 @@ export default function LabelDetail() {
                   </div>
                 </div>
               )}
-              {!label.size && !label.printMethod && !label.color && (
+              {!label.size && !label.sizeVariants?.length && !label.printMethod && !label.color && (
                 <p className="text-muted-foreground text-sm">No specifications available</p>
               )}
             </CardContent>

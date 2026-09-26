@@ -67,6 +67,7 @@ export async function getRequirements(filters?: RequirementFilters): Promise<Req
     if (filters.styleId) params.append('styleId', filters.styleId);
     if (filters.source) params.append('source', filters.source);
     if (filters.requirementType) params.append('requirementType', filters.requirementType);
+    if (filters.materialType) params.append('materialType', filters.materialType);
     if (filters.requiredDateFrom) params.append('requiredDateFrom', filters.requiredDateFrom);
     if (filters.requiredDateTo) params.append('requiredDateTo', filters.requiredDateTo);
     if (filters.hasShortfall !== undefined) params.append('hasShortfall', String(filters.hasShortfall));
@@ -88,6 +89,26 @@ export async function getRequirements(filters?: RequirementFilters): Promise<Req
 
   const response = await api.get<RequirementListResponse>(`${BASE_URL}/requirements?${params.toString()}`);
   return response.data;
+}
+
+/**
+ * Every requirement matching the filters, page by page (the API caps a page at 100), up to `maxRows` —
+ * for views that must not split a group across pages (the label-set view). `total` is the full count.
+ */
+export async function getAllRequirements(
+  filters: RequirementFilters,
+  maxRows = 500
+): Promise<{ data: MaterialRequirement[]; total: number }> {
+  const limit = 100;
+  const data: MaterialRequirement[] = [];
+  let total = 0;
+  for (let page = 1; data.length < maxRows; page++) {
+    const res = await getRequirements({ ...filters, page, limit });
+    total = res.pagination.total;
+    data.push(...res.data);
+    if (page >= res.pagination.totalPages || res.data.length === 0) break;
+  }
+  return { data: data.slice(0, maxRows), total };
 }
 
 /**

@@ -341,6 +341,13 @@ export interface PendingPOItem {
   weaverName?: string | null;
   /** Greige / ready fabric: the receipt must name the weaver or tick "Weaver not known". */
   needsWeaver?: boolean;
+  /** What the PO line is for, e.g. "Main Cum Size Label Black (XS)" */
+  componentName?: string | null;
+  /** The label a label line is, and its size — the GRN form groups a label's sizes (null otherwise) */
+  labelId?: string | null;
+  labelCode?: string | null;
+  labelName?: string | null;
+  size?: string | null;
 }
 
 export interface PendingItemsResponse {

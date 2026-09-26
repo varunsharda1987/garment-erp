@@ -25,7 +25,20 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen, Building2, FileMinus } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Send,
+  CheckCircle,
+  XCircle,
+  PackageOpen,
+  Building2,
+  FileMinus,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
+import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
+import { poItemLabelKey } from '@/lib/label-line-keys';
 import {
   Dialog,
   DialogContent,
@@ -105,6 +118,128 @@ function orderedWidthLabel(item: ExtendedPOItem): string {
 
 interface GRNItem {
   receivedQuantity: number;
+}
+
+type POItem = NonNullable<PurchaseOrder['items']>[number];
+
+/** One PO line; a label's size row shows its size instead of the material (the label is the heading above). */
+function PoItemRow({ item, size }: { item: POItem; size?: string | null }) {
+  // Within rounding dust of the ordered quantity IS fully received (see @/lib/quantity)
+  const isFullyReceived = qtyAtLeast(item.receivedQuantity, item.orderedQuantity);
+  const isPartiallyReceived = !isQtyZero(item.receivedQuantity) && !isFullyReceived;
+  const taxAmt = Number(item.taxAmount || 0);
+  const lineWithTax = Number(item.totalPrice) + taxAmt;
+
+  return (
+    <TableRow className={size !== undefined ? 'bg-muted/10' : undefined}>
+      <TableCell>
+        <div>
+          {size !== undefined && item.materials ? (
+            <div className="pl-6">
+              <div className="font-medium">{size ? `Size ${size}` : 'All sizes'}</div>
+              <div className="text-xs text-muted-foreground">{item.materials.code}</div>
+            </div>
+          ) : item.materials ? (
+            <>
+              <div className="font-medium">{item.materials.code}</div>
+              <div className="text-sm text-muted-foreground">{item.materials.name}</div>
+            </>
+          ) : item.serviceDescription ? (
+            <>
+              <div className="font-medium">{item.serviceDescription}</div>
+              {item.serviceType && (
+                <span className="text-xs text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">
+                  {item.serviceType.replace(/_/g, ' ')}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
+          {item.printingType && <div className="text-xs text-accent mt-0.5">{item.printingType.replace('_', ' ')}</div>}
+        </div>
+      </TableCell>
+      <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
+      <TableCell className="text-sm">{(item as unknown as ExtendedPOItem).componentName || '-'}</TableCell>
+      <TableCell className="text-sm">{(item as unknown as ExtendedPOItem).colorName || '-'}</TableCell>
+      <TableCell className="text-sm whitespace-nowrap">
+        {orderedWidthLabel(item as unknown as ExtendedPOItem)}
+      </TableCell>
+      <TableCell className="text-right font-medium">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
+      <TableCell className="text-right">{Number(item.receivedQuantity).toLocaleString()}</TableCell>
+      <TableCell>{unitShort(item.unit)}</TableCell>
+      <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
+      <TableCell className="text-right">{formatCurrency(Number(item.totalPrice))}</TableCell>
+      <TableCell className="text-right text-xs">{item.gstRate ? `${Number(item.gstRate)}%` : '-'}</TableCell>
+      <TableCell className="text-right text-xs">{taxAmt > 0 ? formatCurrency(taxAmt) : '-'}</TableCell>
+      <TableCell className="text-right font-medium">{formatCurrency(lineWithTax)}</TableCell>
+      <TableCell>
+        {isFullyReceived ? (
+          <span className="text-success text-sm">Received</span>
+        ) : isPartiallyReceived ? (
+          <span className="text-warning text-sm">Partial</span>
+        ) : (
+          <span className="text-muted-foreground text-sm">Pending</span>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+/**
+ * A label bought in sizes: one heading row with the sizes' totals (unit, rate and GST when every size shares
+ * them) and a combined status; click to show the size rows. Collapsed by default.
+ */
+function PoLabelGroupRows({ group }: { group: LabelGroup<POItem> }) {
+  const [open, setOpen] = useState(false);
+  const lines = group.rows.map((r) => r.line);
+  const same = <T,>(pick: (l: POItem) => T): T | null =>
+    lines.every((l) => pick(l) === pick(lines[0])) ? pick(lines[0]) : null;
+  const ordered = sumRows(group.rows, (l) => Number(l.orderedQuantity));
+  const received = sumRows(group.rows, (l) => Number(l.receivedQuantity));
+  const amount = sumRows(group.rows, (l) => Number(l.totalPrice));
+  const tax = sumRows(group.rows, (l) => Number(l.taxAmount || 0));
+  const unit = same((l) => l.unit);
+  const rate = same((l) => Number(l.unitPrice));
+  const gst = same((l) => (l.gstRate ? Number(l.gstRate) : null));
+  const allReceived = lines.every((l) => qtyAtLeast(l.receivedQuantity, l.orderedQuantity));
+  const noneReceived = lines.every((l) => isQtyZero(l.receivedQuantity));
+
+  return (
+    <>
+      <TableRow className="bg-muted/40 cursor-pointer hover:bg-muted/60" onClick={() => setOpen((o) => !o)}>
+        <TableCell colSpan={5}>
+          <div className="flex items-center gap-2">
+            {open ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+            <div>
+              <div className="font-medium">{group.code}</div>
+              <div className="text-sm text-muted-foreground">
+                {group.name} · {group.rows.length} {group.rows.length === 1 ? 'size' : 'sizes'}
+              </div>
+            </div>
+          </div>
+        </TableCell>
+        <TableCell className="text-right font-medium">{ordered.toLocaleString()}</TableCell>
+        <TableCell className="text-right">{received.toLocaleString()}</TableCell>
+        <TableCell>{unit ? unitShort(unit) : '—'}</TableCell>
+        <TableCell className="text-right">{rate != null ? formatCurrency(rate) : '—'}</TableCell>
+        <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
+        <TableCell className="text-right text-xs">{gst != null ? `${gst}%` : '—'}</TableCell>
+        <TableCell className="text-right text-xs">{tax > 0 ? formatCurrency(tax) : '-'}</TableCell>
+        <TableCell className="text-right font-medium">{formatCurrency(amount + tax)}</TableCell>
+        <TableCell>
+          {allReceived ? (
+            <span className="text-success text-sm">Received</span>
+          ) : noneReceived ? (
+            <span className="text-muted-foreground text-sm">Pending</span>
+          ) : (
+            <span className="text-warning text-sm">Partial</span>
+          )}
+        </TableCell>
+      </TableRow>
+      {open && group.rows.map((r) => <PoItemRow key={r.line.id} item={r.line} size={r.size} />)}
+    </>
+  );
 }
 
 export default function PurchaseOrderDetail() {
@@ -581,71 +716,14 @@ export default function PurchaseOrderDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {purchaseOrder.items?.map((item) => {
-                // Within rounding dust of the ordered quantity IS fully received (see @/lib/quantity)
-                const isFullyReceived = qtyAtLeast(item.receivedQuantity, item.orderedQuantity);
-                const isPartiallyReceived = !isQtyZero(item.receivedQuantity) && !isFullyReceived;
-                const taxAmt = Number(item.taxAmount || 0);
-                const lineWithTax = Number(item.totalPrice) + taxAmt;
-
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div>
-                        {item.materials ? (
-                          <>
-                            <div className="font-medium">{item.materials.code}</div>
-                            <div className="text-sm text-muted-foreground">{item.materials.name}</div>
-                          </>
-                        ) : item.serviceDescription ? (
-                          <>
-                            <div className="font-medium">{item.serviceDescription}</div>
-                            {item.serviceType && (
-                              <span className="text-xs text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">
-                                {item.serviceType.replace(/_/g, ' ')}
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                        {item.printingType && (
-                          <div className="text-xs text-accent mt-0.5">{item.printingType.replace('_', ' ')}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{item.hsnCode || '-'}</TableCell>
-                    <TableCell className="text-sm">
-                      {(item as unknown as ExtendedPOItem).componentName || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm">{(item as unknown as ExtendedPOItem).colorName || '-'}</TableCell>
-                    <TableCell className="text-sm whitespace-nowrap">
-                      {orderedWidthLabel(item as unknown as ExtendedPOItem)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {Number(item.orderedQuantity).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">{Number(item.receivedQuantity).toLocaleString()}</TableCell>
-                    <TableCell>{unitShort(item.unit)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(Number(item.totalPrice))}</TableCell>
-                    <TableCell className="text-right text-xs">
-                      {item.gstRate ? `${Number(item.gstRate)}%` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right text-xs">{taxAmt > 0 ? formatCurrency(taxAmt) : '-'}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(lineWithTax)}</TableCell>
-                    <TableCell>
-                      {isFullyReceived ? (
-                        <span className="text-success text-sm">Received</span>
-                      ) : isPartiallyReceived ? (
-                        <span className="text-warning text-sm">Partial</span>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">Pending</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {/* A label bought in sizes: one heading (its totals, collapsed) and its sizes beneath, in size order */}
+              {groupLabelLines(purchaseOrder.items ?? [], poItemLabelKey).map((g) =>
+                g.kind === 'single' ? (
+                  <PoItemRow key={g.line.id} item={g.line} />
+                ) : (
+                  <PoLabelGroupRows key={g.key} group={g} />
+                )
+              )}
             </TableBody>
           </Table>
 

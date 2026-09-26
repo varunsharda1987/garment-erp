@@ -232,6 +232,10 @@ export interface MaterialSummary {
   name: string;
   materialType: string;
   unit: string | null;
+  /** A label's base or size row: the label and, for a size row, its size (PO page groups a label's sizes) */
+  labelId?: string | null;
+  labelMaster?: { id: string; labelCode: string; labelName: string; labelType?: string | null } | null;
+  labelSizeVariant?: { size: string } | null;
 }
 
 // ============================================

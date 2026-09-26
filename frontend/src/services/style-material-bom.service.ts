@@ -5,6 +5,7 @@ import type {
   MaterialSearchResponse,
   MaterialByCodeResponse,
   StyleBOMResponse,
+  StyleLabelSet,
   AddMaterialToBOMRequest,
   AddMaterialToBOMResponse,
   UpdateBOMItemRequest,
@@ -44,6 +45,17 @@ export const getMaterialByCode = async (materialCode: string): Promise<MaterialB
 export const getStyleBOM = async (styleId: string): Promise<StyleBOMResponse> => {
   const response = await api.get<StyleBOMResponse>(`/styles/${styleId}/bom`);
   return response.data;
+};
+
+/**
+ * A style's labels with their sizes, labels per garment, extra % and suppliers — with an order, that order's
+ * garments per size too — for ordering the whole set together.
+ */
+export const getStyleLabelSet = async (styleId: string, orderId?: string): Promise<StyleLabelSet> => {
+  const response = await api.get<{ success: boolean; data: StyleLabelSet }>(`/styles/${styleId}/label-set`, {
+    params: orderId ? { orderId } : undefined,
+  });
+  return response.data.data;
 };
 
 /**

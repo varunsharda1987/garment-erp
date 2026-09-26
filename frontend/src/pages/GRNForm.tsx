@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getDeliveryProgress, getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
 import { createGRN, getPendingItemsForPO } from '@/services/grn.service';
+import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
+import { formLineLabelKey } from '@/lib/label-line-keys';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { WeaverCombobox } from '@/components/WeaverCombobox';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -76,6 +78,11 @@ interface GRNItemForm {
   weaverName: string;
   weaverNotKnown: boolean;
   needsWeaver: boolean;
+  // A label line: its label and size — a label's sizes show under one heading
+  labelId?: string | null;
+  labelCode?: string | null;
+  labelName?: string | null;
+  size?: string | null;
 }
 
 // ============================================
@@ -242,6 +249,10 @@ export default function GRNForm() {
           weaverName: item.weaverName ?? '',
           weaverNotKnown: false,
           needsWeaver: item.needsWeaver === true,
+          labelId: item.labelId ?? null,
+          labelCode: item.labelCode ?? null,
+          labelName: item.labelName ?? null,
+          size: item.size ?? null,
         }));
       setItems(pendingItems);
     } catch (err) {
@@ -596,6 +607,107 @@ export default function GRNForm() {
   };
 
   // Counted at fold L → the actual metres stock, over-receipt and value will use.
+  /** One receipt line; a label's size row shows its size instead of the material (the label is the heading above). */
+  const renderReceiptRow = (item: GRNItemForm, index: number, size?: string | null) => {
+    const received = foldActual(item.receivedQuantity, item.foldLengthCm);
+    const isOver = received > item.pendingQuantity && received > 0;
+    return (
+      <TableRow key={item.poItemId} className="align-top">
+        <TableCell>
+          {size !== undefined ? (
+            <div className="pl-6">
+              <div className="font-medium">{size ? `Size ${size}` : 'All sizes'}</div>
+              <div className="text-xs text-muted-foreground">
+                {item.materialCode} · {unitShort(item.unit)}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="font-medium">{item.materialCode}</div>
+              <div className="text-sm text-muted-foreground">{item.materialName}</div>
+              <div className="text-xs text-muted-foreground">{unitShort(item.unit)}</div>
+            </div>
+          )}
+          {/* Measurement detail section for FABRIC/GREIGE */}
+          {renderDetailSection(item, index)}
+          {/* Override section for GREIGE (received as ready fabric) */}
+          {renderGreigeOverrideSection(item, index)}
+        </TableCell>
+        <TableCell className="text-right">{item.orderedQuantity.toLocaleString()}</TableCell>
+        <TableCell className="text-right">{item.alreadyReceived.toLocaleString()}</TableCell>
+        <TableCell className="text-right font-medium">{item.pendingQuantity.toLocaleString()}</TableCell>
+        <TableCell>
+          <Input
+            type="number"
+            min="0"
+            step="0.001"
+            value={item.receivedQuantity}
+            onChange={(e) => updateItem(index, 'receivedQuantity', e.target.value)}
+            className={`w-full ${isOver ? 'border-warning/50 bg-warning-muted' : ''}`}
+            placeholder="0"
+          />
+          {renderFoldActual(item)}
+          {renderOverReceiptWarning(item)}
+        </TableCell>
+        <TableCell>
+          <Input
+            type="number"
+            min="0"
+            step="0.001"
+            value={item.acceptedQuantity}
+            onChange={(e) => updateItem(index, 'acceptedQuantity', e.target.value)}
+            className="w-full"
+            placeholder="0"
+          />
+        </TableCell>
+        <TableCell>
+          <Input
+            type="number"
+            min="0"
+            step="0.001"
+            value={item.rejectedQuantity}
+            onChange={(e) => updateItem(index, 'rejectedQuantity', e.target.value)}
+            className="w-full"
+            placeholder="0"
+          />
+        </TableCell>
+        <TableCell>
+          <Input
+            value={item.remarks}
+            onChange={(e) => updateItem(index, 'remarks', e.target.value)}
+            placeholder="Notes"
+            className="w-full"
+          />
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  /** A label's heading: totals over its sizes (read-only — each size is received on its own row). */
+  const renderLabelHeading = (group: LabelGroup<GRNItemForm>) => {
+    const rows = group.rows;
+    const sum = (pick: (i: GRNItemForm) => number) => sumRows(rows, pick);
+    return (
+      <TableRow key={group.key} className="bg-muted/40">
+        <TableCell>
+          <div className="font-medium">{group.code}</div>
+          <div className="text-sm text-muted-foreground">
+            {group.name} · {rows.length} {rows.length === 1 ? 'size' : 'sizes'}
+          </div>
+        </TableCell>
+        <TableCell className="text-right font-medium">{sum((i) => i.orderedQuantity).toLocaleString()}</TableCell>
+        <TableCell className="text-right">{sum((i) => i.alreadyReceived).toLocaleString()}</TableCell>
+        <TableCell className="text-right font-medium">{sum((i) => i.pendingQuantity).toLocaleString()}</TableCell>
+        <TableCell className="text-sm font-medium">
+          {sum((i) => foldActual(i.receivedQuantity, i.foldLengthCm)).toLocaleString()}
+        </TableCell>
+        <TableCell className="text-sm">{sum((i) => parseFloat(i.acceptedQuantity) || 0).toLocaleString()}</TableCell>
+        <TableCell className="text-sm">{sum((i) => parseFloat(i.rejectedQuantity) || 0).toLocaleString()}</TableCell>
+        <TableCell />
+      </TableRow>
+    );
+  };
+
   const renderFoldActual = (item: GRNItemForm) => {
     const received = parseFloat(item.receivedQuantity) || 0;
     if (!hasFold(item.foldLengthCm) || received <= 0) return null;
@@ -1252,71 +1364,12 @@ export default function GRNForm() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((item, index) => {
-                  const received = foldActual(item.receivedQuantity, item.foldLengthCm);
-                  const isOver = received > item.pendingQuantity && received > 0;
-                  return (
-                    <TableRow key={item.poItemId} className="align-top">
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{item.materialCode}</div>
-                          <div className="text-sm text-muted-foreground">{item.materialName}</div>
-                          <div className="text-xs text-muted-foreground">{unitShort(item.unit)}</div>
-                        </div>
-                        {/* Measurement detail section for FABRIC/GREIGE */}
-                        {renderDetailSection(item, index)}
-                        {/* Override section for GREIGE (received as ready fabric) */}
-                        {renderGreigeOverrideSection(item, index)}
-                      </TableCell>
-                      <TableCell className="text-right">{item.orderedQuantity.toLocaleString()}</TableCell>
-                      <TableCell className="text-right">{item.alreadyReceived.toLocaleString()}</TableCell>
-                      <TableCell className="text-right font-medium">{item.pendingQuantity.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={item.receivedQuantity}
-                          onChange={(e) => updateItem(index, 'receivedQuantity', e.target.value)}
-                          className={`w-full ${isOver ? 'border-warning/50 bg-warning-muted' : ''}`}
-                          placeholder="0"
-                        />
-                        {renderFoldActual(item)}
-                        {renderOverReceiptWarning(item)}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={item.acceptedQuantity}
-                          onChange={(e) => updateItem(index, 'acceptedQuantity', e.target.value)}
-                          className="w-full"
-                          placeholder="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={item.rejectedQuantity}
-                          onChange={(e) => updateItem(index, 'rejectedQuantity', e.target.value)}
-                          className="w-full"
-                          placeholder="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={item.remarks}
-                          onChange={(e) => updateItem(index, 'remarks', e.target.value)}
-                          placeholder="Notes"
-                          className="w-full"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {/* A label bought in sizes: a read-only heading with its totals, then each size's inputs */}
+                {groupLabelLines(items, formLineLabelKey).flatMap((g) =>
+                  g.kind === 'single'
+                    ? [renderReceiptRow(g.line, g.index)]
+                    : [renderLabelHeading(g), ...g.rows.map((r) => renderReceiptRow(r.line, r.index, r.size))]
+                )}
               </TableBody>
             </Table>
           </CardContent>

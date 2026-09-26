@@ -19,6 +19,7 @@ import { formatCurrency } from '@/lib/currency';
 import { Package, X } from 'lucide-react';
 import { ViewStockButton } from '@/components/ViewStockButton';
 import stockLevelService from '@/services/stockLevel.service';
+import { compareSizes } from '@/utils/sku-generator';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -201,30 +202,28 @@ export default function LabelList() {
           {label.sizeVariants && label.sizeVariants.length > 0 ? (
             <div>
               <div className="flex flex-wrap gap-1">
-                {label.sizeVariants.slice(0, 3).map((variant) => {
-                  const totalStock =
-                    variant.material?.stockLevels?.reduce(
-                      (sum: number, level: { quantity: number }) => sum + Number(level.quantity),
-                      0
-                    ) || 0;
-                  return (
-                    <Badge
-                      key={variant.id}
-                      variant={totalStock > 0 ? 'default' : 'outline'}
-                      className="text-xs"
-                      title={`${variant.size}: ${totalStock} pcs in stock`}
-                    >
-                      {variant.size} ({totalStock})
-                    </Badge>
-                  );
-                })}
-                {label.sizeVariants.length > 3 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{label.sizeVariants.length - 3}
-                  </Badge>
-                )}
+                {/* Every size, in size order — a sized label is ordered and stocked as its whole size set */}
+                {[...label.sizeVariants]
+                  .sort((a, b) => compareSizes(a.size, b.size))
+                  .map((variant) => {
+                    const totalStock =
+                      variant.material?.stockLevels?.reduce(
+                        (sum: number, level: { quantity: number }) => sum + Number(level.quantity),
+                        0
+                      ) || 0;
+                    return (
+                      <Badge
+                        key={variant.id}
+                        variant={totalStock > 0 ? 'default' : 'outline'}
+                        className="text-xs"
+                        title={`${variant.size}: ${totalStock} pcs in stock`}
+                      >
+                        {variant.size} ({totalStock})
+                      </Badge>
+                    );
+                  })}
               </div>
-              <div className="text-xs text-muted-foreground mt-1">{label.sizeVariants.length} size variants</div>
+              <div className="text-xs text-muted-foreground mt-1">{label.sizeVariants.length} sizes</div>
             </div>
           ) : label.size ? (
             <span>{label.size}</span>

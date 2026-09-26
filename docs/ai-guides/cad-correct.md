@@ -142,7 +142,8 @@ A **Needs Decision** requirement cannot go on a PO until someone chooses **Order
 ## Where to see what happened
 
 Row menu (three dots) > **History**. Each step is a **Corrected** entry with the person, date and time and the reason:
-- when it was made — the old → new values (CAD average, layer length, pieces, width, greige, sizes), and "Waiting for the admin to approve the new cost sheet version" when it went for approval;
+- when it was made — only the values that changed, old → new (CAD average, layer length, pieces, width, greige, sizes), and "Waiting for the admin to approve the new cost sheet version" when it went for approval. When the CAD already read the right values and the correction only carries them to the cost sheets and orders, it says so instead of listing changes;
+- "One cost sheet version rejected — that cost sheet keeps its previous figures; the CAD stays corrected" when the admin approved one version and rejected the other;
 - "Approved — the CAD now reads the corrected values" when the admin approved;
 - "Rejected by the admin — the CAD was not changed" when the admin rejected.
 

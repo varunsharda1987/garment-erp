@@ -396,7 +396,20 @@ class JobWorkStatutoryService {
       include: {
         items: {
           include: {
-            jobWorkOrder: true,
+            jobWorkOrder: {
+              select: {
+                outwardChallan: { select: { challanNumber: true } },
+                // A job that took cloth where it lay went out on no challan of its own: the one that
+                // covers its lot (direct supply / Stock-Out) is the outward challan Table B links to
+                greigeStockLot: { select: { sourceChallan: { select: { challanNumber: true } } } },
+              },
+            },
+          },
+        },
+        jobWorkOrder: {
+          select: {
+            outwardChallan: { select: { challanNumber: true } },
+            greigeStockLot: { select: { sourceChallan: { select: { challanNumber: true } } } },
           },
         },
       },
@@ -486,7 +499,13 @@ class JobWorkStatutoryService {
           quantity: Number(item.receivedQty || item.quantity),
           taxableValue: Number(item.declaredValue || 0),
           inputType: 'Inputs',
-          linkedChallanNumber: undefined, // TODO: Link to original outward challan
+          // The outward challan the goods went out under (ITC-04 Table B's "original challan")
+          linkedChallanNumber:
+            item.jobWorkOrder?.outwardChallan?.challanNumber ??
+            item.jobWorkOrder?.greigeStockLot?.sourceChallan?.challanNumber ??
+            challan.jobWorkOrder?.outwardChallan?.challanNumber ??
+            challan.jobWorkOrder?.greigeStockLot?.sourceChallan?.challanNumber ??
+            undefined,
         });
       }
     }

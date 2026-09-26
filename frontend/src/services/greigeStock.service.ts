@@ -34,6 +34,13 @@ export interface GreigeStockEntry {
     construction?: string;
     weaveType?: string;
   };
+  /** The processor holding the lot (delivered straight there, or parked by a Stock-Out), if any */
+  processorId?: string | null;
+  processor?: { id: string; name: string } | null;
+  /** A processor's unit reads warehouseType JOB_WORK with supplierId = that processor */
+  warehouse?: { id: string; warehouseName: string; warehouseType?: string; supplierId?: string | null } | null;
+  receivedDate?: string;
+  weaver?: { id: string; name: string } | null;
 }
 
 // BUG-GR11 fix: added return type

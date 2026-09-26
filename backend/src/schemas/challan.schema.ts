@@ -103,21 +103,6 @@ export const receiveChallanSchema = z.object({
 });
 
 /**
- * Greige Outward Challan Schema
- * POST /api/challans/greige-outward
- *
- * Mirrors CreateGreigeOutwardChallanInput in challan.service.ts minus `userId`, which the controller
- * derives from the authenticated user (req.user.userId) and must NOT be accepted from the body.
- * IDs are validated as non-empty strings (not .uuid()) because the service only does findUnique
- * lookups with them — an unknown id yields a clean "not found", while a non-string reached Prisma.
- */
-export const createGreigeOutwardChallanSchema = z.object({
-  materialRequirementId: z.string().min(1, 'Material requirement ID is required').trim(),
-  fabricProcessingId: z.string().min(1, 'Fabric processing ID is required').trim(),
-  orderId: z.string().min(1).trim().optional(),
-});
-
-/**
  * Split Production Run Schema
  * POST /api/production-runs/:id/split (route lives in challan.routes.ts)
  *
@@ -140,5 +125,4 @@ export const splitProductionRunSchema = z.object({
 export type CreateChallanInput = z.infer<typeof createChallanSchema>;
 export type QuickIssueChallanInput = z.infer<typeof quickIssueChallanSchema>;
 export type ReceiveChallanInput = z.infer<typeof receiveChallanSchema>;
-export type CreateGreigeOutwardChallanInput = z.infer<typeof createGreigeOutwardChallanSchema>;
 export type SplitProductionRunInput = z.infer<typeof splitProductionRunSchema>;

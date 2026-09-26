@@ -325,6 +325,9 @@ class GreigeStockService {
               id: true,
               warehouseCode: true,
               warehouseName: true,
+              // A processor's unit (JOB_WORK + supplierId) — lets a reader place the lot (lot-location)
+              warehouseType: true,
+              supplierId: true,
             },
           },
           supplier: {

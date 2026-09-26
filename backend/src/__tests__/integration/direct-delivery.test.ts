@@ -585,6 +585,18 @@ describe('greige delivered straight to a processor', () => {
     expect((await prisma.challans.findUniqueOrThrow({ where: { id: challanId } })).status).toBe('ISSUED');
   });
 
+  it('refuses "returned unprocessed" for cloth the job took where it lay — nothing came back to our store', async () => {
+    const res = await request(app)
+      .post(`/api/job-work-orders/${jwoA}/return-unprocessed`)
+      .set(authHeader)
+      .send({ returnedQty: 1200 });
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/nothing travelled/);
+    expect(Number((await prisma.greige_stock.findUniqueOrThrow({ where: { id: lotId } })).quantityAvailable)).toBe(
+      1800
+    );
+  });
+
   it('cancelling the job "At Processor" puts the metres back on the held lot', async () => {
     const cancelled = await request(app)
       .post(`/api/job-work-orders/${jwoA}/cancel`)

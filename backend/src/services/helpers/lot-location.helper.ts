@@ -58,6 +58,25 @@ export async function challanOrigin(
   };
 }
 
+export interface ChallanDestination {
+  toType: 'WAREHOUSE';
+  toId?: string;
+  toName: string;
+}
+
+/**
+ * The "To" of an INWARD challan: the store(s) the goods came back into. Until 2026-09-26 every inward
+ * challan read "To: Main Warehouse", a name that exists nowhere in `warehouses` — the mirror of the
+ * outward "From" that challanOrigin fixed.
+ */
+export async function challanDestination(
+  client: WarehouseReader,
+  warehouseIds: Array<string | null | undefined>
+): Promise<ChallanDestination> {
+  const origin = await challanOrigin(client, warehouseIds);
+  return { toType: 'WAREHOUSE', ...(origin.fromId ? { toId: origin.fromId } : {}), toName: origin.fromName };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 // Where a lot IS (Phase 2). One authority, so no reader re-derives it from a single column.
 //

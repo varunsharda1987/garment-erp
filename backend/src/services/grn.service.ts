@@ -56,6 +56,7 @@ import { isQtyZero, qtyExceeds } from '../utils/quantity';
 import { normalizeUnit } from '../utils/units';
 import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
 import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
+import { challanDestination } from './helpers/lot-location.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
@@ -483,8 +484,8 @@ class GRNService {
               fromType: 'VENDOR',
               fromId: po.supplierId,
               fromName: po.suppliers?.name || 'Mill',
-              toType: 'WAREHOUSE',
-              toName: 'Main Warehouse',
+              // The store the goods came back into — never the made-up "Main Warehouse"
+              ...(await challanDestination(tx, [data.warehouseId])),
               purchaseOrderId: po.id,
               jobWorkOrderId: processingJob.id,
               issuedById: userId,
@@ -3646,8 +3647,8 @@ class GRNService {
         fromType: 'VENDOR',
         fromId: jobWorkOrder.processorId,
         fromName: jobWorkOrder.processor?.name || 'Processor',
-        toType: 'WAREHOUSE',
-        toName: 'Main Warehouse',
+        // The store the processed goods came back into — never the made-up "Main Warehouse"
+        ...(await challanDestination(tx, [targetWarehouseId])),
         jobWorkOrderId: jobWorkOrder.id,
         grnId,
         issuedById: userId,

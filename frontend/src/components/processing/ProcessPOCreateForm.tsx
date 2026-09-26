@@ -289,7 +289,22 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   // 14.3% for a 63"→54" job whose real rate-card shrinkage is 8%) measured WIDTH change
   // and had nothing to do with length shrinkage — removed 2026-08-18.
 
-  const greigeStockItems = greigeStockData || [];
+  // Where each lot is, relative to the processor chosen above (the rule of lot-location.helper on the
+  // server): cloth already at that processor comes first — the job takes it where it lies — then our
+  // stores; cloth at ANOTHER processor is left out, since it cannot go on this processor's job.
+  const holderOf = (stock: GreigeStockEntry): { id: string | null; name: string | null } => {
+    const unit = stock.warehouse?.warehouseType === 'JOB_WORK' ? (stock.warehouse.supplierId ?? null) : null;
+    return {
+      id: stock.processorId ?? unit,
+      name: stock.processor?.name ?? (unit ? (stock.warehouse?.warehouseName ?? null) : null),
+    };
+  };
+  const greigeStockItems = (greigeStockData || [])
+    .filter((stock) => {
+      const holder = holderOf(stock).id;
+      return !holder || !selectedProcessor?.id || holder === selectedProcessor.id;
+    })
+    .sort((a, b) => Number(!holderOf(a).id) - Number(!holderOf(b).id));
 
   // Derive effective process type from selected style fabric or prop
   const effectiveProcessType =
@@ -1000,7 +1015,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                             </div>
                             <span className="text-xs text-muted-foreground">
                               {stock.greige.greigeName} | Width: {Number(stock.greigeWidth || 0)}" |{' '}
-                              {stock.warehouseLocation || 'Default'}
+                              {holderOf(stock).id
+                                ? `Already at ${holderOf(stock).name ?? 'the processor'} — no dispatch needed`
+                                : (stock.warehouse?.warehouseName ?? stock.warehouseLocation ?? 'Our store')}
+                              {stock.weaver?.name ? ` | Weaver ${stock.weaver.name}` : ''}
                             </span>
                           </div>
                         </CommandItem>

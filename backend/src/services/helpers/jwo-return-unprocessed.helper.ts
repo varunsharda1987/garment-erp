@@ -31,6 +31,7 @@ import { BusinessError, NotFoundError, ValidationError } from '../../errors';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './material-sync.helper';
 import { toCurrency, toNumber } from '../../utils/currency';
 import { toDateInputValue } from '../../utils/date';
+import { challanDestination } from './lot-location.helper';
 
 export type ReturnedTo = 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
 
@@ -105,6 +106,27 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
           `${job.jobWorkNumber} has already had ${Number(job.qtyReceivedMeters)} ${job.uom} received back. Close it short instead of returning it unprocessed.`
         );
       }
+      // A job that took its cloth where it already lay at the processor moved nothing: no outward
+      // challan, and nothing can "come back" into our store from it. The cloth is still at the
+      // processor — cancelling the job with "At Processor" puts it back on the held lot. Bringing it
+      // to our store is its own door (Phase 4b), with an inward challan from the processor.
+      const travelled =
+        !!job.outwardChallanId ||
+        (await tx.challans.count({
+          where: {
+            challanType: 'OUTWARD',
+            status: { not: 'CANCELLED' },
+            OR: [{ jobWorkOrderId: job.id }, { items: { some: { jobWorkOrderId: job.id } } }],
+          },
+        })) > 0;
+      if (!travelled && job.sentDate) {
+        throw new BusinessError(
+          `${job.jobWorkNumber} took cloth that was already lying at ${job.processor?.name ?? 'the processor'} — nothing ` +
+            `travelled, so nothing can come back to our store from it. Cancel the job and choose "At Processor" to put ` +
+            `the cloth back on the processor's stock.`,
+          { reason: 'RETURN_OF_HELD_CLOTH' }
+        );
+      }
       const sent = toNumber(toCurrency(job.qtySentMeters));
       if (returnedQty - sent > 0.005) {
         throw new BusinessError(
@@ -125,13 +147,19 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
       const styleLabel = job.style?.styleCode ? ` - ${job.style.styleCode}` : '';
 
       // --- put the material back where it came from ------------------------------------------
+      // …and name that store on the inward challan
+      let returnedIntoWarehouseId: string | null = null;
       if (target === 'GREIGE' && job.greigeStockLot) {
+        returnedIntoWarehouseId = job.greigeStockLot.warehouseId;
         await greigeStockService.returnGreigeStock(job.greigeStockLot.id, returnedQty, userId, tx, {
           referenceType: 'JOB_WORK_ORDER',
           referenceId: job.id,
           notes: note,
         });
       } else if (target === 'LACE' && laceComponent?.laceStockId) {
+        returnedIntoWarehouseId =
+          (await tx.lace_stock.findUnique({ where: { id: laceComponent.laceStockId }, select: { warehouseId: true } }))
+            ?.warehouseId ?? null;
         await restoreLaceStock(laceComponent.laceStockId, returnedQty, userId, tx, {
           referenceType: 'JOB_WORK_ORDER',
           referenceId: job.id,
@@ -145,6 +173,7 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
           data: { quantityAvailable: { increment: returnedQty }, status: 'AVAILABLE' },
           select: { fabricId: true, warehouseId: true, quantityAvailable: true, weightedAvgCost: true },
         });
+        returnedIntoWarehouseId = lot.warehouseId;
         const wac = toNumber(toCurrency(lot.weightedAvgCost));
         await tx.fabric_stock_transaction.create({
           data: {
@@ -177,8 +206,7 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
           fromType: 'VENDOR',
           fromId: job.processorId,
           fromName: job.processor?.name || 'Processor',
-          toType: 'WAREHOUSE',
-          toName: 'Main Warehouse',
+          ...(await challanDestination(tx, [returnedIntoWarehouseId])),
           purchaseOrderId: job.purchaseOrderId ?? undefined,
           jobWorkOrderId: job.id,
           issuedById: userId,

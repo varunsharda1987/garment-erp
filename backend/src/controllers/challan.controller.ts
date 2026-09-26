@@ -7,7 +7,6 @@ import {
   receiveChallan,
   cancelChallan,
   getChallanStats,
-  createGreigeOutwardChallan,
   quickIssueChallan,
   getTodaySummary,
 } from '../services/challan.service';
@@ -205,30 +204,6 @@ export async function resolveRateController(req: Request, res: Response) {
   });
 
   return res.json({ success: true, data: result });
-}
-
-/**
- * POST /api/challans/greige-outward
- */
-export async function createGreigeOutwardChallanController(req: Request, res: Response) {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new ValidationError('User not authenticated');
-  }
-
-  const { materialRequirementId, fabricProcessingId, orderId } = req.body;
-  if (!materialRequirementId || !fabricProcessingId) {
-    throw new ValidationError('materialRequirementId and fabricProcessingId are required');
-  }
-
-  const challan = await createGreigeOutwardChallan({
-    materialRequirementId,
-    fabricProcessingId,
-    orderId,
-    userId,
-  });
-
-  return res.status(201).json({ success: true, data: challan, message: 'Greige outward challan created successfully' });
 }
 
 /**

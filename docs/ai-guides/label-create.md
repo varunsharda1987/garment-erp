@@ -55,6 +55,7 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/label.controller.ts
+  - frontend/src/pages/LabelDetail.tsx
 route: /materials/label/new
 ---
 
@@ -79,7 +80,7 @@ Labels are NOT under Trims Dashboard — they live under Packaging. To link a su
 15. Optional: enter the **Supplier Reference Code** under **Reference Codes**, and any **Description** notes under **Additional Information**.
 16. Click **Create Label** (or **Create Hangtag** / **Create Price Tag**). You return to the **Label Management** list. **Cancel** returns without saving.
 
-Back on the list, use the **All Categories** filter to see only **Sewn-in Labels**, **Hangtags** or **Price Tags**, and **All Customers** / **Generic Only** to filter by buyer. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
+Back on the list, use the **All Categories** filter to see only **Sewn-in Labels**, **Hangtags** or **Price Tags**, and **All Customers** / **Generic Only** to filter by buyer. A label with size variants shows every size on the list in size order (XS, S, M …), each with its stock in brackets — a filled chip means that size has stock. Its own page lists them under **Sizes (N)**: each size is ordered and stocked on its own, and on a purchase order the sizes sit under one heading for the label. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
 
 ## Traps
 

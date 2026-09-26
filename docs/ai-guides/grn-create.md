@@ -40,6 +40,11 @@ keywords:
   - bale number kahan likhe
   - बेल नंबर
   - थान नंबर
+  - label sizes
+  - label receive
+  - size wise label receive
+  - label ke size
+  - लेबल साइज़
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -53,6 +58,8 @@ sources:
   - backend/src/services/purchaseOrder.service.ts
   - frontend/src/components/WeaverCombobox.tsx
   - backend/src/services/helpers/po-delivery-plan.helper.ts
+  - frontend/src/lib/label-lines.ts
+  - frontend/src/lib/label-line-keys.ts
 route: /procurement/grn/new
 ---
 
@@ -69,6 +76,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 7. Fill **Invoice Number** and **Invoice Date** if the supplier sent an invoice. Both are optional.
 8. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
 9. If something is damaged, enter **Rejected** and a reason. Accepted plus Rejected must equal Received.
+   **Labels bought in sizes** show as one heading row per label (its code, "N sizes", and the totals of Ordered, Already Rcvd, Pending, This Receipt, Accepted and Rejected across its sizes), with a **Size XS**, **Size S**… row beneath for each size, in size order. Type **This Receipt** on each size row — the heading totals update as you type and cannot be typed into.
    Buttons and snap buttons are received **as the PO ordered them — in gross**: type 16 for 16 gross. Stock is booked in pieces (16 gross = 2,304 pcs) when the GRN is approved.
 10. For Fabric and Greige POs, set **Entry Mode** — Total Meters, Than-wise, Bale-wise or Roll-wise. Than/Bale/Roll modes let you click **Add Than**, **Add Bale** or **Add Roll** and enter meters per piece; the total is summed into This Receipt automatically. Also fill **L / Fold (cm)** (it comes pre-filled from the PO line — change it if the mill delivered at a different L) and **Width (inches)**. In **Bale-wise** mode each bale has a **Bale No.** box for the number printed on the bale, and each than a **Than No.** box for its tag; in **Than-wise** mode each row has **Than No.**, and in **Roll-wise** mode **Roll No.** All are optional — blank bales show as Bale 1, 2, 3. Forgot them? Open the GRN and click **Edit bale / than numbers** on the greige line; it changes only the numbers, never the metres. Type the quantity exactly as the mill counted it (the figure on their bill and than tags). When **L / Fold (cm)** is under 100, a blue line under the quantity shows the conversion, e.g. "10,011 m counted @ L=98 → 9,810.78 m". The actual metres are what go to stock, what the PO counts as received, and what the value is worked out on.
 11. For Fabric and Greige POs also set **Weaver *** — whose cloth actually arrived. It comes pre-filled from the PO line; change it if the supplier's challan names a different mill, or type a new name and click **Add "…" as a new weaver**. If nobody knows, tick **Weaver not known**. The save is refused until each greige/fabric line has one or the other: "Name the weaver of … — or tick Weaver not known." The stock lot carries this weaver; lots of every weaver stay under the same greige.

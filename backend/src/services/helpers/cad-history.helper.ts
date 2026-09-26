@@ -239,6 +239,9 @@ export async function getCadHistory(cadId: string): Promise<CadHistoryEntry[]> {
       // same before and after is not a change
       changes: fields
         .filter((field) => field in newV || !(field in oldV))
+        // A correction never changes the row's purpose or fabric (entries written before 26-Sep 23:30 recorded
+        // them as blank afterwards)
+        .filter((field) => r.action !== 'CORRECT' || (field !== 'purpose' && field !== 'fabricId'))
         .map((field) => ({ field, from: display(field, oldV[field]), to: display(field, newV[field]) }))
         .filter((c) => c.from !== c.to),
       inUse: typeof newV.inUse === 'string' ? newV.inUse : null,

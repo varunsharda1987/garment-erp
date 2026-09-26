@@ -614,9 +614,10 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
    (`scripts/hooks/notices.js`). The deployer and `ship pause/resume` post there by themselves.
 
 **Switched over 2026-09-26 15:51** (first deploy `c9e13afb`, 207 s). `garment-erp-watcher` is deleted
-from PM2 and from `pm2 save`; `garment-erp-deployer` is the only deploy path. If `npm run ship:status`
-ever says the deployer is NOT running, the post-commit hook falls back to the old in-place build and
-fleet-check raises it — tell the owner; restarting it is the owner's call (shared PM2 daemon).
+from PM2 and from `pm2 save`; `garment-erp-deployer` is the only deploy path — there is no fallback
+build. If `npm run ship:status` ever says the deployer is NOT running, commits wait (the post-commit
+hook prints a WARNING and fleet-check raises it) — tell the owner; restarting it is the owner's call
+(shared PM2 daemon).
 
 Still NOT isolated (known): the live API reads PDF templates (`backend/templates/kf`), `node_modules`
 and the Prisma client straight from this folder, and dev and live share one database.

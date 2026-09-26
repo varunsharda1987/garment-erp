@@ -18,6 +18,19 @@
 #     The frontend now builds into dist.staging and is swapped in only after index.html is
 #     confirmed present, so a bad build leaves the running app untouched.
 # =============================================================================
+#
+# 2026-09-26 — DEPLOYS MOVE TO ONE PROCESS. Building from the files on disk shipped every other
+# Claude terminal's unfinished edits with this commit, and two commits could deploy at once. The PM2
+# app garment-erp-deployer (scripts/ship/deployer.js) now builds EXACTLY the committed main in a
+# private folder, one deploy at a time. While it is running, this hook only says so and exits.
+# The in-place build below runs only until the owner has started the deployer; delete it once the
+# deployer has been live for a while.
+# =============================================================================
+
+[ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" = "main" ] || exit 0
+if node scripts/ship/ship.js notify --if-deployer; then
+  exit 0
+fi
 
 set -o pipefail
 

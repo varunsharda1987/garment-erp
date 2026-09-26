@@ -161,8 +161,19 @@ function resume() {
   return 0;
 }
 
-/** Printed by .husky/post-commit. Must never fail a commit. */
-function notify() {
+/**
+ * Printed by .husky/post-commit. Must never fail a commit.
+ * With --if-deployer it prints nothing and exits 1 when the deployer is not running, so the hook
+ * can fall back to its old in-place build until the owner has switched to the deployer.
+ */
+function notify(ifDeployer) {
+  if (ifDeployer) {
+    try {
+      if (!deployerRunning(S.readState())) return 1;
+    } catch {
+      return 1;
+    }
+  }
   try {
     const st = S.readState();
     const pause = S.readPause();
@@ -190,7 +201,7 @@ async function main() {
     case 'now': return now();
     case 'pause': return pause(rest.join(' '));
     case 'resume': return resume();
-    case 'notify': return notify();
+    case 'notify': return notify(rest.includes('--if-deployer'));
     case 'log': return logTail(rest[0]);
     default:
       console.error(`unknown command "${cmd}" — use status | wait [sha] | now | pause [reason] | resume | log [lines]`);

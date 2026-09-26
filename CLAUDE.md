@@ -571,9 +571,48 @@ The app runs via PM2 (auto-managed, no manual start needed):
 - **Backend API:** http://localhost:5000
 
 PM2 commands (user-run only):
-- `pm2 start ecosystem.config.js` — Start this app's services
 - `pm2 logs garment-erp-api` — View this app's logs
-- `node C:\Users\NEW\ops\pm2-safe-restart.js garment-erp-api:5000 garment-erp-web:3000` — Restart after deploy
+- `node C:\Users\NEW\ops\pm2-safe-restart.js garment-erp-api:5000` — Restart a SICK app (not for deploying)
+
+## How changes go live — several Claude terminals share this folder (2026-09-26)
+
+Several terminals edit this ONE folder at once and share ONE git index and ONE live app. So:
+
+1. **A commit on `main` is shipped by the deployer, not by you.** The PM2 app `garment-erp-deployer`
+   (`scripts/ship/deployer.js`) notices the commit, builds EXACTLY that commit in a private folder
+   (`C:\Users\NEW\garment-erp-build`), swaps it in, restarts safely and runs fleet-check. One deploy
+   at a time; commits that land during a deploy ship together. **Uncommitted edits never ship.**
+2. **After committing, run `npm run ship:wait`** (Bash timeout 600000) before checking the live app.
+   It prints LIVE, or FAILED/BLOCKED with the reason; the live app is then unchanged.
+   `npm run ship:status` shows what is live, queued, running, failed or paused.
+3. **Saving deploys nothing.** Never build in `backend/` or `frontend/` here (`npm run build`, `tsc`
+   without `--noEmit`, `vite build`) — `dist/` is the LIVE app. Type-check with `npm run type-check`
+   (backend) / `npx tsc -b` (frontend). Preview uncommitted frontend work with `npx vite` in
+   `frontend/` (port 5173, talks to the live API). Test backend work with jest, never a second API
+   (its port-5000 reclaim kills the live one).
+4. **Commit only your own files, by name:** `git commit -m "…" -- <your files>`. The pre-commit hook
+   refuses files ANOTHER terminal edited and has not committed (`scripts/hooks/session-claims.js`);
+   `ALLOW_SHARED_COMMIT=1` only after the owner agrees.
+5. **A guard hook denies** `git add -A/.`, `commit -a/--amend`, `stash`, `reset --hard`,
+   `checkout .`/`<branch>`, `clean`, `switch`/`rebase`/`merge`, builds into `dist/`, a second API, and
+   `pm2 restart` of the live apps (`scripts/hooks/claude-guard.js`). Its reason says what to do instead.
+6. **API or web not answering? `npm run ship:status` first.** If a deploy is running, wait for it;
+   fleet-check prints a DEPLOY IN PROGRESS banner and `pm2-safe-restart` refuses garment-erp then.
+   Do not run the fleet skill because of a deploy.
+7. **Migrations are applied by hand, BEFORE the commit that needs them** (the deployer BLOCKS a commit
+   whose migration is not applied): `npm run ship -- pause "migration"` → `pm2 stop garment-erp-api`
+   → `cd backend && npx prisma migrate deploy && npx prisma generate` → `pm2 start garment-erp-api`
+   → `npm run ship -- resume`. A changed `package-lock.json` likewise needs `npm ci` in that folder
+   first. Retry a blocked/failed deploy with `npm run ship -- now`.
+
+**Switchover status:** until `npm run ship:status` shows the deployer running, the OLD path is still
+active — `garment-erp-watcher` rebuilds the live app on every save under `src/`, and a commit builds
+from the files on disk. Starting the deployer is the owner's step on the shared daemon:
+`pm2 delete garment-erp-watcher` → `pm2 start ecosystem.config.js --only garment-erp-deployer` →
+`npm run ship:wait` → `pm2 save`. The post-commit hook switches over by itself once the deployer runs.
+
+Still NOT isolated (known): the live API reads PDF templates (`backend/templates/kf`), `node_modules`
+and the Prisma client straight from this folder, and dev and live share one database.
 
 ⚠ **The PM2 daemon on this PC is SHARED with three other businesses** (kasya-b2b, harleen-b2b,
 thar-coal, plus inward-web/ucip/redis — 13 processes). Never run `pm2 restart all`, `pm2 reload all`,

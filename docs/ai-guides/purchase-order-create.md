@@ -2,6 +2,10 @@
 slug: purchase-order-create
 title: Raise a Purchase Order (PO)
 keywords:
+  - split delivery
+  - two places delivery
+  - aadha dyer aadha godown
+  - स्प्लिट डिलीवरी
   - purchase order
   - PO
   - po banaye
@@ -46,6 +50,7 @@ sources:
   - frontend/src/components/WeaverCombobox.tsx
   - frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx
   - backend/src/controllers/material.controller.ts
+  - frontend/src/components/purchase-orders/DeliverySplitEditor.tsx
 route: /procurement/purchase-orders/new
 ---
 
@@ -58,7 +63,7 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 3. Optional but recommended: in the **Link to Style** card, pick a style, and link an order if this PO is for a specific order. Linking a style shows the **Materials Required** card so you can pull quantities from the style.
 4. In the **PO Details** card, choose **PO Category ***. Options are material categories only: Fabric, Greige, Trims, Lace, Greige Lace, General. The category cannot be changed later while editing. If you add a material from the **Materials Required** card (for example with its **GREIGE PO** button), the category fills in on its own and shows a **Set by material** lock — click **Clear Style** to change it.
 5. Choose **Supplier ***. The supplier list is filtered by the category, so select the category first — the box stays disabled until you do.
-6. Set **Delivery Location** — the warehouse or processor's unit the goods should reach. If the place will be decided at dispatch, leave it empty (the box reads **Decide at dispatch (to be advised)**): the PO then prints "To be advised before dispatch", and you set the place later from the PO page. Choosing your own store prints your address from Company Profile.
+6. Set **Delivery Location** — the warehouse or processor's unit the goods should reach. If the place will be decided at dispatch, leave it empty (the box reads **Decide at dispatch (to be advised)**): the PO then prints "To be advised before dispatch", and you set the place later from the PO page. Choosing your own store prints your address from Company Profile. If part goes to one place and part to another (for example some greige straight to a dyer, the rest to Kashaya Fabs), switch on **Split delivery across locations**: a **Split delivery** card appears below the items. Pick each place and type how much of each item goes there; every item must be fully placed before you can save (**Put the balance into place 1** fills what is left). The PO prints every place under **Delivery Points**, and the supplier sends one invoice and one e-way bill per delivery.
 7. Set **Expected Delivery Date *** (required).
 8. In the **Order Items** card, use **Quick Add Material** to search and add a material, or click **Browse All Materials**. For a Greige PO with no style linked, use **Add Greige Fabric**.
    **Labels that come in sizes** (for example a main-cum-size label) are listed ONCE, marked "· 7 sizes". Picking one opens a size box with one quantity per size (XS, S, M, L, XL, XXL, XXXL) and a **Total**. Type the quantity for each size you want and click **Add N lines** — each size becomes its own line on the PO. Sizes left at 0 are not added. To change the quantities later, pick the same label again (in Browse All Materials its button reads **Edit sizes**): the box opens with the current quantities, and **Update lines** saves them — setting a size to 0 removes that size's line.

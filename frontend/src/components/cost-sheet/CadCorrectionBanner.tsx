@@ -50,8 +50,9 @@ export function CadCorrectionBanner({ costSheetId }: { costSheetId: string }) {
       <AlertTitle>Made by a CAD correction</AlertTitle>
       <AlertDescription className="space-y-2 text-sm">
         <p>
-          CAD average {avg(correction.before?.cadAverage)} → <strong>{avg(correction.after?.cadAverage)}</strong> m/pc,
-          corrected by {by} on {formatDateTime(correction.correctedAt)} — {correction.reason}.
+          Average {avg(correction.sheetAverageBefore ?? correction.before?.cadAverage)} →{' '}
+          <strong>{avg(correction.after?.cadAverage)}</strong> m/pc, corrected by {by} on{' '}
+          {formatDateTime(correction.correctedAt)} — {correction.reason.replace(/[.\s]+$/, '')}.
         </p>
         {correction.status === 'PENDING_APPROVAL' && (
           <p>

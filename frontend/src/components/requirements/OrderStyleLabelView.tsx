@@ -25,6 +25,7 @@ import {
   type MaterialRequirement,
 } from '@/types/mrp.types';
 import type { MergedRequirementRow, OrderStyleGroup } from './order-style-groups';
+import { RequirementDecisionActions, RequirementQtyNote } from './RequirementDecision';
 
 interface OrderStyleLabelViewProps {
   groups: OrderStyleGroup[];
@@ -153,6 +154,8 @@ export function OrderStyleLabelView({
           const canCancel = req.status === 'PENDING' || req.status === 'PO_REQUIRED';
           return (
             <span key={req.id} className="contents">
+              {/* A new BOM version needs more than the PO placed: Order the extra / Don't order more */}
+              <RequirementDecisionActions req={req} />
               {canUseStock && (
                 <Button
                   variant="ghost"
@@ -206,7 +209,12 @@ export function OrderStyleLabelView({
           {reqs.map((r) => r.requirementNumber).join(', ')}
           {reqs.length > 1 && <div>{reqs.length} colours</div>}
         </TableCell>
-        <TableCell className="text-right text-sm">{formatQuantity(row.totalRequired, row.unit)}</TableCell>
+        <TableCell className="text-right text-sm">
+          {formatQuantity(row.totalRequired, row.unit)}
+          {reqs.map((r) => (
+            <RequirementQtyNote key={r.id} req={r} />
+          ))}
+        </TableCell>
         <TableCell className="text-right">
           <span className={`text-sm font-medium ${!isQtyZero(row.shortfall) ? 'text-primary' : 'text-success'}`}>
             {!isQtyZero(row.shortfall) ? formatQuantity(row.shortfall, row.unit) : 'Fulfilled'}

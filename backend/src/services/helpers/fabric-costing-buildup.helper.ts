@@ -162,9 +162,16 @@ export async function recostCadRow(
         })
       : null;
     if (!found) {
+      const [processor, greige] = await Promise.all([
+        db.suppliers.findUnique({ where: { id: cad.processorId }, select: { name: true } }),
+        after.greigeId
+          ? db.greige_master.findUnique({ where: { id: after.greigeId }, select: { greigeCode: true } })
+          : Promise.resolve(null),
+      ]);
       throw new BusinessError(
-        `The processor has no ${card?.printingType ?? card?.processingType ?? ''} rate for this greige at ` +
-          `${Math.round(slabMetres)} m. Add it on the Processor Rate Card page first, then correct again.`
+        `${processor?.name ?? 'The processor'} has no ${card?.printingType ?? card?.processingType ?? ''} rate for ` +
+          `${greige?.greigeCode ?? 'this greige'} at ${Math.round(slabMetres)} m. Add it on the Processor Rate ` +
+          'Card page first, then correct again.'
       );
     }
     processing = found.ratePerMeter;

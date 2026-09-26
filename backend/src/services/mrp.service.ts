@@ -1592,155 +1592,68 @@ export async function calculateRequirementsFromOrder(
         preferredSupplier?.supplierId ??
         null;
 
-      // Check available stock if requested
+      // Stock is SUGGESTED here, never claimed (owner decision 26-Sep-2026). availableStock is the free stock
+      // this line could use — the Requirements page shows it ("Can Fulfill", Use Stock) — but the requirement
+      // is met from stock only through Use Stock (allocateStock), which reserves named lots. A calculation-time
+      // claim reserved nothing, so two orders counted the same metres (MR2608-0117: 3,271 m of GRG-0039
+      // "allocated from stock" while the lot showed 0 reserved). A row that already holds a reservation keeps
+      // it through requirement-reconcile.helper.
       let availableStock = 0;
-      let allocatedFromStock = 0;
-      let shortfall = totalRequired;
+      const allocatedFromStock = 0;
+      const shortfall = totalRequired;
+      // PO Required — or SIZE_PENDING for a size-wise label with no split yet (below)
       let status: MaterialRequirementStatus = MaterialRequirementStatus.PO_REQUIRED;
 
-      // Quantity rule (utils/quantity): stock lots are stored at 2 decimals, the requirement at 3.
-      // Stock within dust of the need covers it, dust stock is no stock, and a shortfall within dust
-      // is stored as 0 — otherwise a 2 mm gap reads "Partially from Stock" and sits in the PO lists.
       if (checkStock) {
         // For GREIGE_PROCESSED and LANDED GREIGE items, check greige_stock table
         if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
           // MRP-14 / 2026-09-25: our stores, plus greige already at the processor this line will be
           // dyed at (at any processor while none is chosen) — never another processor's cloth.
-          const totalGreigeStock = netFreeGreige(
-            await loadPlanningGreigeLots(prisma, [bomItem.greigeId]),
-            bomItem.greigeId,
-            bomItem.processorId ?? null
+          availableStock = Math.max(
+            0,
+            netFreeGreige(
+              await loadPlanningGreigeLots(prisma, [bomItem.greigeId]),
+              bomItem.greigeId,
+              bomItem.processorId ?? null
+            )
           );
-
-          if (qtyAtLeast(totalGreigeStock, totalRequired)) {
-            availableStock = totalGreigeStock;
-            allocatedFromStock = totalRequired;
-            shortfall = 0;
-            status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (qtyExceeds(totalGreigeStock, 0)) {
-            availableStock = totalGreigeStock;
-            allocatedFromStock = totalGreigeStock;
-            shortfall = qtyRemaining(totalRequired, totalGreigeStock);
-            status = MaterialRequirementStatus.PARTIAL_STOCK;
-          }
-          // else: no greige stock, defaults remain (PO_REQUIRED)
-
-          // For FABRIC items with CAD width info, check fabric_stock with width filtering
-        } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && bomItem.fabricWidthInches) {
-          const bomWidth = Number(bomItem.fabricWidthInches);
-
-          // Check fabric_stock at the BOM-specified width (tolerance ±0.5 inches)
-          const fabricStockAtWidth = await prisma.fabric_stock.aggregate({
-            where: {
-              fabricId: bomItem.fabricId,
-              cutableWidth: { gte: bomWidth - 0.5, lte: bomWidth + 0.5 },
-              status: 'AVAILABLE',
-              ...notInProcessorUnitWhere(),
-            },
+        } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId) {
+          // Fabric at the BOM width (±0.5") when the line has one; otherwise — or when none is at that
+          // width — at any width (MRP-13: off-width stock is still worth showing)
+          const anyWidth = await prisma.fabric_stock.aggregate({
+            where: { fabricId: bomItem.fabricId, status: 'AVAILABLE', ...notInProcessorUnitWhere() },
             _sum: { quantityAvailable: true, quantityReserved: true },
           });
-          const stockAtBomWidth = netFreeStock(fabricStockAtWidth._sum);
-
-          // Also check stock at ANY width for this fabric (for split scenarios)
-          const fabricStockAnyWidth = await prisma.fabric_stock.aggregate({
-            where: {
-              fabricId: bomItem.fabricId,
-              status: 'AVAILABLE',
-              ...notInProcessorUnitWhere(),
-            },
-            _sum: { quantityAvailable: true, quantityReserved: true },
-          });
-          const totalFabricStock = netFreeStock(fabricStockAnyWidth._sum);
-
-          if (qtyAtLeast(stockAtBomWidth, totalRequired)) {
-            // Fully available at requested width
-            availableStock = stockAtBomWidth;
-            allocatedFromStock = totalRequired;
-            shortfall = 0;
-            status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (qtyExceeds(stockAtBomWidth, 0)) {
-            // Partial stock at requested width
-            availableStock = stockAtBomWidth;
-            allocatedFromStock = stockAtBomWidth;
-            shortfall = qtyRemaining(totalRequired, stockAtBomWidth);
-            status = MaterialRequirementStatus.PARTIAL_STOCK;
-          } else if (qtyExceeds(totalFabricStock, 0)) {
-            // Stock exists, but only at a different width — net it the same way the partial
-            // branch above does.
-            // MRP-13: this used to read `totalFabricStock > 0 && totalFabricStock < totalRequired`,
-            // so when off-width stock FULLY covered the need no branch matched at all and the row
-            // silently fell through to PO_REQUIRED with availableStock 0 — more stock produced
-            // less netting.
-            availableStock = totalFabricStock;
-            shortfall = qtyRemaining(totalRequired, totalFabricStock);
-            allocatedFromStock = isQtyZero(shortfall) ? totalRequired : totalFabricStock;
-            status = isQtyZero(shortfall)
-              ? MaterialRequirementStatus.FULFILLED_STOCK
-              : MaterialRequirementStatus.PARTIAL_STOCK;
+          let atWidth = 0;
+          if (bomItem.fabricWidthInches) {
+            const bomWidth = Number(bomItem.fabricWidthInches);
+            const width = await prisma.fabric_stock.aggregate({
+              where: {
+                fabricId: bomItem.fabricId,
+                cutableWidth: { gte: bomWidth - 0.5, lte: bomWidth + 0.5 },
+                status: 'AVAILABLE',
+                ...notInProcessorUnitWhere(),
+              },
+              _sum: { quantityAvailable: true, quantityReserved: true },
+            });
+            atWidth = netFreeStock(width._sum);
           }
-          // else: no stock at all, defaults remain (PO_REQUIRED)
-        } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && !bomItem.fabricWidthInches) {
-          // FABRIC without width info — check fabric_stock at ANY width
-          const fabricStockAnyWidth = await prisma.fabric_stock.aggregate({
-            where: {
-              fabricId: bomItem.fabricId,
-              status: 'AVAILABLE',
-              ...notInProcessorUnitWhere(),
-            },
-            _sum: { quantityAvailable: true, quantityReserved: true },
-          });
-          const totalFabricStock = netFreeStock(fabricStockAnyWidth._sum);
-
-          if (qtyAtLeast(totalFabricStock, totalRequired)) {
-            availableStock = totalFabricStock;
-            allocatedFromStock = totalRequired;
-            shortfall = 0;
-            status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (qtyExceeds(totalFabricStock, 0)) {
-            availableStock = totalFabricStock;
-            allocatedFromStock = totalFabricStock;
-            shortfall = qtyRemaining(totalRequired, totalFabricStock);
-            status = MaterialRequirementStatus.PARTIAL_STOCK;
-          }
-          // else: no stock, defaults remain (PO_REQUIRED)
+          availableStock = qtyExceeds(atWidth, 0) ? atWidth : Math.max(0, netFreeStock(anyWidth._sum));
         } else if (bomItem.materialType === 'LACE' && bomItem.laceId) {
-          // For LACE items, check lace_stock: our stores plus lace already at this line's processor
-          // (at any processor while none is chosen) — never another processor's lace.
-          const totalLaceStock = netFreeLace(
-            await loadPlanningLaceLots(prisma, [bomItem.laceId]),
-            bomItem.laceId,
-            bomItem.processorId ?? null
+          // Our stores plus lace already at this line's processor (at any processor while none is
+          // chosen) — never another processor's lace
+          availableStock = Math.max(
+            0,
+            netFreeLace(
+              await loadPlanningLaceLots(prisma, [bomItem.laceId]),
+              bomItem.laceId,
+              bomItem.processorId ?? null
+            )
           );
-
-          if (qtyAtLeast(totalLaceStock, totalRequired)) {
-            // Fully available from lace stock
-            availableStock = totalLaceStock;
-            allocatedFromStock = totalRequired;
-            shortfall = 0;
-            status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (qtyExceeds(totalLaceStock, 0)) {
-            // Partial stock available
-            availableStock = totalLaceStock;
-            allocatedFromStock = totalLaceStock;
-            shortfall = qtyRemaining(totalRequired, totalLaceStock);
-            status = MaterialRequirementStatus.PARTIAL_STOCK;
-          }
-          // else: no stock at all, defaults remain (PO_REQUIRED)
         } else if (material?.id || resolvedTrimMaterialId) {
           // Non-fabric/non-lace or without specific IDs: use generic stock_levels
-          const stockMaterialId = material?.id || resolvedTrimMaterialId!;
           // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
-          availableStock = await getDerivedOnHand(stockMaterialId);
-
-          if (qtyAtLeast(availableStock, totalRequired)) {
-            allocatedFromStock = totalRequired;
-            shortfall = 0;
-            status = MaterialRequirementStatus.FULFILLED_STOCK;
-          } else if (qtyExceeds(availableStock, 0)) {
-            allocatedFromStock = availableStock;
-            shortfall = qtyRemaining(totalRequired, availableStock);
-            status = MaterialRequirementStatus.PARTIAL_STOCK;
-          }
+          availableStock = await getDerivedOnHand(material?.id || resolvedTrimMaterialId!);
         }
       }
 
@@ -5766,14 +5679,11 @@ export async function convertToGreigeProcessing(
 
   // Quantity rule (utils/quantity): greige lots are 2-decimal, the adjusted need 3 — stock within
   // dust of the need covers it, and the shortfall is stored as 0, not 0.002.
-  const greigeFree = Math.max(0, greigeAvailable);
-  const greigeShortfall = qtyRemaining(greigeQtyNeeded, greigeFree);
-  const greigeAllocated = isQtyZero(greigeShortfall) ? greigeQtyNeeded : greigeFree;
-  const greigeStatus = isQtyZero(greigeShortfall)
-    ? MaterialRequirementStatus.FULFILLED_STOCK
-    : qtyExceeds(greigeAllocated, 0)
-      ? MaterialRequirementStatus.PARTIAL_STOCK
-      : MaterialRequirementStatus.PO_REQUIRED;
+  // Stock is suggested, never claimed (owner decision 26-Sep-2026): the new greige requirement shows the free
+  // greige and waits for Use Stock, which reserves named lots — as the main calculation does.
+  const greigeShortfall = greigeQtyNeeded;
+  const greigeAllocated = 0;
+  const greigeStatus = MaterialRequirementStatus.PO_REQUIRED;
 
   // Qty-rate audit 2026-08-24: this dialog accepted a free-typed processing cost with no
   // rate-card consultation at all (rateSource stayed 'MANUAL' even when a card existed for

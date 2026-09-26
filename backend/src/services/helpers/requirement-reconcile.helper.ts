@@ -19,7 +19,9 @@
  *                       committed row — the PO is never touched.
  *
  * Earlier "Don't order more" decisions (CANCELLED + shortCloseReason NOT_ORDERED) count as covered, so a
- * recalculation never asks twice. Rows the reconcile owns are returned in `handledIds` — the cancel pass
+ * recalculation never asks twice. A line the matcher could not pair with the line it replaces takes the
+ * unclaimed rows of its material on a replaced BOM (so a PO row is still found); a committed row whose
+ * material the current BOM no longer uses (greige changed, line dropped) is marked all surplus. Rows the reconcile owns are returned in `handledIds` — the cancel pass
  * must leave them alone.
  */
 
@@ -133,25 +135,58 @@ export async function reconcileRequirementLineage(
   const greigeKey = (r: CalculatedRequirement, materialId: string) =>
     `${r.orderItemId}-${materialId}-${r.colorName || ''}-${r.orderBomItemId || ''}`;
 
-  for (const req of all) {
-    if (!req.orderBomItemId) continue;
-    const lines = [req.orderBomItemId, ...(ancestors.get(req.orderBomItemId) ?? [])];
-    const type = req.requirementType || 'MATERIAL';
-    const familyWhere: Prisma.material_requirementsWhereInput = {
-      orderId: req.orderId,
-      orderItemId: req.orderItemId,
-      materialId: req.materialId,
-      requirementType: type,
-      colorName: req.colorName || null,
-      orderBomItemId: { in: lines },
-    };
-
-    const family = (await tx.material_requirements.findMany({
-      where: familyWhere,
+  // Pass 1 — each line's own family: rows on the line and the lines it replaces (previousItemId).
+  // Pass 2 — a line with none (the matcher could not pair it with the line it replaces) takes the rows of the
+  // same material / type / colour left on a replaced BOM that no family claimed; without this such a line
+  // planned a FULL new requirement beside a PO-linked one, as before lineage existed.
+  const claimed = new Set<string>();
+  const sameStream = (req: CalculatedRequirement): Prisma.material_requirementsWhereInput => ({
+    orderId: req.orderId,
+    orderItemId: req.orderItemId,
+    materialId: req.materialId,
+    requirementType: req.requirementType || 'MATERIAL',
+    colorName: req.colorName || null,
+  });
+  const loadFamily = async (where: Prisma.material_requirementsWhereInput) =>
+    (await tx.material_requirements.findMany({
+      where,
       orderBy: { createdAt: 'asc' },
       include: FAMILY_INCLUDE,
     })) as FamilyRow[];
+  const plans: Array<{
+    req: CalculatedRequirement;
+    familyWhere: Prisma.material_requirementsWhereInput;
+    family: FamilyRow[];
+  }> = [];
+  const unpaired: CalculatedRequirement[] = [];
+  for (const req of all) {
+    if (!req.orderBomItemId) continue;
+    const lines = [req.orderBomItemId, ...(ancestors.get(req.orderBomItemId) ?? [])];
+    const familyWhere = { ...sameStream(req), orderBomItemId: { in: lines } };
+    const family = await loadFamily(familyWhere);
+    if (family.length === 0) {
+      unpaired.push(req);
+      continue;
+    }
+    family.forEach((r) => claimed.add(r.id));
+    plans.push({ req, familyWhere, family });
+  }
+  for (const req of unpaired) {
+    const familyWhere: Prisma.material_requirementsWhereInput = {
+      ...sameStream(req),
+      orderBomItem: { orderBom: { isActive: false } },
+      id: { notIn: [...claimed] },
+    };
+    const family = await loadFamily(familyWhere);
     if (family.length === 0) continue;
+    family.forEach((r) => claimed.add(r.id));
+    plans.push({ req, familyWhere, family });
+  }
+  // Greige MATERIAL rows before the PROCESSING rows that link to them, as calculated
+  plans.sort((a, b) => all.indexOf(a.req) - all.indexOf(b.req));
+
+  for (const { req, familyWhere, family } of plans) {
+    const type = req.requirementType || 'MATERIAL';
     const settled = new Set(
       type === 'MATERIAL'
         ? (
@@ -211,8 +246,8 @@ export async function reconcileRequirementLineage(
       if (held > need && !isQtyZero(held - need)) {
         held -= await releaseReservations(tx, [keep.id], round3(held - need));
       }
-      // A row holding a real reservation keeps it (and shows what is still short); a row that never
-      // reserved takes today's stock check as before
+      // A row holding a real reservation keeps it (and shows what is still short); a row that never reserved
+      // is PO Required — MRP suggests stock, only Use Stock claims it (owner decision 26-Sep-2026)
       const holds = held > 0 && !isQtyZero(held);
       const allocated = holds ? Math.min(held, need) : req.allocatedFromStock;
       const shortfall = holds ? qtyRemaining(need, allocated) : req.shortfall;
@@ -356,5 +391,74 @@ export async function reconcileRequirementLineage(
     outcome.savedFor.set(req, decisionId ?? lockedRoots[0]?.id ?? [...survivors][0] ?? null);
     if (req.isGreigeRequirement && lockedRoots[0]) greigeFor.set(greigeKey(req, req.materialId), lockedRoots[0].id);
   }
+
+  await markUnneededCommitted(tx, {
+    orders: [...new Set(all.map((r) => r.orderId))],
+    orderItems: [...new Set(all.map((r) => r.orderItemId))],
+    claimed,
+    settledWhere: args.settledWhere,
+    outcome,
+  });
   return outcome;
+}
+
+/**
+ * A committed row (on a PO / job work, received, greige sent) on a REPLACED BOM that no line of the current
+ * version claimed — its greige was changed, or its line dropped — is all surplus: the current BOM needs none
+ * of it. It is never cancelled (the PO stands); surplusQty says so. Conversion chains are left alone: a
+ * CONVERTED fabric row's greige / processing children carry its plan under other materials.
+ */
+async function markUnneededCommitted(
+  tx: Tx,
+  args: {
+    orders: string[];
+    orderItems: string[];
+    claimed: Set<string>;
+    settledWhere: Prisma.material_requirementsWhereInput;
+    outcome: ReconcileOutcome;
+  }
+): Promise<void> {
+  const base: Prisma.material_requirementsWhereInput = {
+    orderId: { in: args.orders },
+    orderItemId: { in: args.orderItems },
+    status: { notIn: ['CANCELLED', 'CONVERTED'] },
+    orderBomItem: { orderBom: { isActive: false } },
+    id: { notIn: [...args.claimed] },
+  };
+  const rows = await tx.material_requirements.findMany({
+    where: base,
+    select: {
+      id: true,
+      status: true,
+      totalRequired: true,
+      surplusQty: true,
+      linkedRequirement: { select: { status: true, linkedRequirement: { select: { status: true } } } },
+      requirement_po_links: {
+        where: { purchase_orders: { status: { notIn: ['CANCELLED'] } } },
+        select: { id: true },
+      },
+      _count: { select: { requirement_jwo_links: true } },
+    },
+  });
+  if (rows.length === 0) return;
+  const settled = new Set(
+    (await tx.material_requirements.findMany({ where: { AND: [base, args.settledWhere] }, select: { id: true } })).map(
+      (r) => r.id
+    )
+  );
+  for (const r of rows) {
+    const inConversion =
+      r.linkedRequirement?.status === 'CONVERTED' || r.linkedRequirement?.linkedRequirement?.status === 'CONVERTED';
+    const committed =
+      LOCKED_STATUSES.has(String(r.status)) ||
+      r.requirement_po_links.length > 0 ||
+      r._count.requirement_jwo_links > 0 ||
+      settled.has(r.id);
+    if (inConversion || !committed) continue;
+    args.outcome.handledIds.add(r.id);
+    const all = round3(Number(r.totalRequired));
+    if (Number(r.surplusQty ?? 0) !== all) {
+      await tx.material_requirements.update({ where: { id: r.id }, data: { surplusQty: all } });
+    }
+  }
 }

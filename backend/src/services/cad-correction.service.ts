@@ -523,7 +523,10 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
       userId,
       action: 'CORRECT',
       oldValues: cadSnapshot({ ...cad, sizeBreakdowns: cad.sizeBreakdowns }) as unknown as Record<string, unknown>,
-      newValues: { ...(cadSnapshot(after) as unknown as Record<string, unknown>), correctionId: correction.id },
+      newValues: {
+        ...(cadSnapshot({ ...cad, ...after }) as unknown as Record<string, unknown>),
+        correctionId: correction.id,
+      },
       reason,
     });
     return { correction, impact, status: 'APPLIED' as const };
@@ -531,6 +534,14 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
 
   // Something approved is built on it — new cost-sheet versions wait for an admin; the CAD waits too
   const approvedSheets = impact.costSheets.filter((s) => s.action === 'NEW_VERSION');
+  const lagging = impact.costSheets.find(
+    (s) => s.cadAverageOnSheet !== null && s.cadAverageOnSheet !== after.cadAverage
+  )?.cadAverageOnSheet;
+  const carryNote = impact.carryForwardOnly
+    ? `The CAD already reads these values — this carries them to the cost sheets and orders still on ${
+        lagging ?? 'the old average'
+      }. `
+    : '';
   if (approvedSheets.length === 0) {
     throw new BusinessError(
       'An order is built on this CAD but no approved cost sheet is — approve (or discard) the pending cost ' +
@@ -569,9 +580,9 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
     action: 'CORRECT',
     oldValues: cadSnapshot({ ...cad, sizeBreakdowns: cad.sizeBreakdowns }) as unknown as Record<string, unknown>,
     newValues: {
-      ...(cadSnapshot(after) as unknown as Record<string, unknown>),
+      ...(cadSnapshot({ ...cad, ...after }) as unknown as Record<string, unknown>),
       correctionId: correction.id,
-      outcome: 'Waiting for the admin to approve the new cost sheet version',
+      outcome: `${carryNote}Waiting for the admin to approve the new cost sheet version`,
     },
     reason,
   });
@@ -828,13 +839,20 @@ export async function listCorrections(cadId: string) {
 
 /** The correction a cost sheet version belongs to, if any (cost sheet banner) */
 export async function correctionForCostSheet(costSheetId: string) {
-  return prisma.cad_corrections.findFirst({
+  const correction = await prisma.cad_corrections.findFirst({
     where: { newCostSheetIds: { has: costSheetId } },
     include: {
       correctedBy: { select: { firstName: true, lastName: true, email: true } },
       cad: { select: { id: true, cutableWidth: true, componentName: true } },
     },
   });
+  if (!correction) return null;
+  // The average the version this sheet replaces carried — on a carry-forward correction it differs from
+  // the CAD's own "before" (ESSKY082LS: sheet 0.7033, CAD already 0.8440)
+  const sheet = await prisma.style_costing.findUnique({ where: { id: costSheetId }, select: { purpose: true } });
+  const impact = correction.impact as unknown as CorrectionImpact | null;
+  const replaced = impact?.costSheets?.find((s) => s.action === 'NEW_VERSION' && s.purpose === sheet?.purpose);
+  return { ...correction, sheetAverageBefore: replaced?.cadAverageOnSheet ?? null };
 }
 
 export const cadCorrectionService = {

@@ -30,15 +30,16 @@ let customerId: string;
 let dyerId: string;
 let warehouseId: string;
 let greigeId: string;
+let greige2Id: string; // the greige a later version switches to
 let lotId: string;
 let orderId: string;
 let itemA: string;
 let itemB: string;
 let base = 0; // greige metres at 1 m per garment — what the formula makes of QTY (shrinkage and all)
 
-const lineData = (qpg: number) => ({
+const lineData = (qpg: number, lineGreigeId = greigeId) => ({
   materialType: 'GREIGE',
-  greigeId,
+  greigeId: lineGreigeId,
   sourcingStrategy: 'GREIGE_PROCESSED',
   processorId: dyerId,
   componentName: 'Top - Moss',
@@ -56,24 +57,46 @@ const lineData = (qpg: number) => ({
   sortOrder: 0,
 });
 
-async function createBom(styleId: string, orderItemId: string, version: number, qpg: number, previousItemId?: string) {
+async function createBom(
+  styleId: string,
+  orderItemId: string,
+  version: number,
+  qpg: number,
+  previousItemId?: string,
+  lineGreigeId?: string
+) {
   const bom = await prisma.order_bom.create({
     data: { orderId, styleId, orderItemId, createdById: userId, status: 'APPROVED', isActive: true, version },
   });
   const line = await prisma.order_bom_items.create({
-    data: { id: randomUUID(), orderBomId: bom.id, ...lineData(qpg), previousItemId: previousItemId ?? null },
+    data: {
+      id: randomUUID(),
+      orderBomId: bom.id,
+      ...lineData(qpg, lineGreigeId),
+      previousItemId: previousItemId ?? null,
+    },
   });
   return { bomId: bom.id, lineId: line.id };
 }
 
-/** A new approved BOM version for style A, its line pointing back at the line it replaces */
-async function rebuildA(qpg: number) {
+/**
+ * A new approved BOM version for style A, its line pointing back at the line it replaces — unless `paired` is
+ * false (the matcher could not pair it) — optionally on another greige
+ */
+async function rebuildA(qpg: number, opts: { paired?: boolean; greige?: string } = {}) {
   const prev = await prisma.order_bom.findFirstOrThrow({
     where: { orderId, styleId: styleA, isActive: true },
     include: { items: true },
   });
   await prisma.order_bom.update({ where: { id: prev.id }, data: { isActive: false } });
-  return createBom(styleA, itemA, prev.version + 1, qpg, prev.items[0].id);
+  return createBom(
+    styleA,
+    itemA,
+    prev.version + 1,
+    qpg,
+    opts.paired === false ? undefined : prev.items[0].id,
+    opts.greige
+  );
 }
 
 const recalc = () => calculateRequirementsFromOrder({ orderId, checkStock: true }, userId);
@@ -150,6 +173,19 @@ beforeAll(async () => {
     })
   ).id;
   await ensureMaterialRecord(greigeId, 'GREIGE');
+  greige2Id = (
+    await prisma.greige_master.create({
+      data: {
+        greigeCode: `${RUN}-GG2`,
+        greigeName: `${RUN} Moss 2`,
+        genericGreigeName: `${RUN} Moss 2`,
+        composition: '100% Viscose',
+        greigeWidth: 63,
+        createdById: userId,
+      },
+    })
+  ).id;
+  await ensureMaterialRecord(greige2Id, 'GREIGE');
   lotId = (
     await prisma.greige_stock.create({
       data: {
@@ -203,9 +239,21 @@ afterAll(async () => {
     ['order_bom', () => prisma.order_bom.deleteMany({ where: { orderId: only(orderId) } })],
     ['orders', () => prisma.orders.deleteMany({ where: { id: only(orderId) } })],
     ['greige_stock', () => prisma.greige_stock.deleteMany({ where: { greigeId: only(greigeId) } })],
-    ['stock_levels', () => prisma.stock_levels.deleteMany({ where: { materials: { greigeId: only(greigeId) } } })],
-    ['materials', () => prisma.materials.deleteMany({ where: { greigeId: only(greigeId) } })],
-    ['greige_master', () => prisma.greige_master.deleteMany({ where: { id: only(greigeId) } })],
+    [
+      'stock_levels',
+      () =>
+        prisma.stock_levels.deleteMany({
+          where: { materials: { greigeId: { in: [greigeId, greige2Id].filter(Boolean) } } },
+        }),
+    ],
+    [
+      'materials',
+      () => prisma.materials.deleteMany({ where: { greigeId: { in: [greigeId, greige2Id].filter(Boolean) } } }),
+    ],
+    [
+      'greige_master',
+      () => prisma.greige_master.deleteMany({ where: { id: { in: [greigeId, greige2Id].filter(Boolean) } } }),
+    ],
     ['warehouses', () => prisma.warehouses.deleteMany({ where: { id: only(warehouseId) } })],
     ['suppliers', () => prisma.suppliers.deleteMany({ where: { id: only(dyerId) } })],
     ['customers', () => prisma.customers.deleteMany({ where: { id: only(customerId) } })],
@@ -229,8 +277,15 @@ describe('a new Order BOM version and the requirements already planned', () => {
   let pB: string;
 
   it('updates the same requirement in place — same number, reservation kept, nothing duplicated', async () => {
-    await calculateRequirementsFromOrder({ orderId, checkStock: false }, userId);
+    await calculateRequirementsFromOrder({ orderId, checkStock: true }, userId);
     [mA] = await liveOf(itemA, 'MATERIAL');
+    // MRP suggests the free stock, it claims none: only Use Stock reserves (owner decision 26-Sep-2026)
+    const suggested = await prisma.material_requirements.findUniqueOrThrow({ where: { id: mA.id } });
+    expect(suggested.status).toBe('PO_REQUIRED');
+    expect(Number(suggested.allocatedFromStock)).toBe(0);
+    expect(Number(suggested.availableStock)).toBeCloseTo(600, 2);
+    expect(Number(suggested.shortfall)).toBeCloseTo(Number(suggested.totalRequired), 3);
+    expect(await reservedOnLot()).toBe(0);
     [pA] = await liveOf(itemA, 'PROCESSING');
     mB = (await liveOf(itemB, 'MATERIAL'))[0].id;
     pB = (await liveOf(itemB, 'PROCESSING'))[0].id;
@@ -380,5 +435,28 @@ describe('a new Order BOM version and the requirements already planned', () => {
     expect(Number(material[0].totalRequired)).toBeCloseTo(base * 0.2, 1);
     expect(Number(material[0].surplusQty)).toBeCloseTo(base * 0.1, 1);
     expect((await prisma.material_requirements.findUniqueOrThrow({ where: { id: extraId } })).status).toBe('CANCELLED');
+  });
+
+  it('a line the matcher could not pair still finds the PO row — no second full requirement', async () => {
+    const v = await rebuildA(0.4, { paired: false });
+    await recalc();
+    // 0.4 needed = 0.2 on the PO + 0.3 declined earlier → nothing more to decide, nothing duplicated
+    const material = await liveOf(itemA, 'MATERIAL');
+    expect(material.map((r) => r.id)).toEqual([mA.id]);
+    expect(material[0].surplusQty).toBeNull();
+    const processing = await liveOf(itemA, 'PROCESSING');
+    expect(processing.map((r) => r.id)).toEqual([pA.id]);
+    expect(processing[0].orderBomItemId).toBe(v.lineId);
+  });
+
+  it("a greige change leaves the old greige's PO row alone and shows all of it as surplus", async () => {
+    await rebuildA(0.4, { greige: greige2Id });
+    await recalc();
+    const old = await prisma.material_requirements.findUniqueOrThrow({ where: { id: mA.id } });
+    expect(old.status).toBe('PO_GENERATED');
+    expect(Number(old.surplusQty)).toBeCloseTo(Number(old.totalRequired), 3);
+    const newGreige = (await liveOf(itemA, 'MATERIAL')).filter((r) => r.id !== mA.id);
+    expect(newGreige).toHaveLength(1);
+    expect(newGreige[0].status).toBe('PO_REQUIRED');
   });
 });

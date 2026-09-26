@@ -1344,7 +1344,7 @@ export function CADSpreadsheetTable({
                                         ? ` by ${pendingByCad.get(row.id)!.correctedBy!.name}`
                                         : ''}{' '}
                                       on {formatDateTime(pendingByCad.get(row.id)!.correctedAt)} —{' '}
-                                      {pendingByCad.get(row.id)!.reason}.
+                                      {pendingByCad.get(row.id)!.reason.replace(/[.\s]+$/, '')}.
                                       {pendingByCad.get(row.id)!.status === 'PARTIAL'
                                         ? ` Not updated yet: ${
                                             (pendingByCad.get(row.id)!.appliedOrders?.orders ?? [])

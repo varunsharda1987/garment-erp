@@ -734,6 +734,8 @@ export const cadPlanningService = {
       correctedAt: string;
       before: { cadAverage: number | null };
       after: { cadAverage: number | null };
+      /** The average on the cost-sheet version this one replaces (differs from before on a carry-forward) */
+      sheetAverageBefore: number | null;
       correctedBy: { firstName: string | null; lastName: string | null; email: string } | null;
       appliedOrders: PendingCadCorrection['appliedOrders'];
     } | null;

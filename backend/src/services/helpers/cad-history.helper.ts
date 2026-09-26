@@ -235,7 +235,12 @@ export async function getCadHistory(cadId: string): Promise<CadHistoryEntry[]> {
       action: r.action,
       by: r.users ? { name, email: r.users.email } : null,
       reason: typeof newV.reason === 'string' ? newV.reason : null,
-      changes: fields.map((field) => ({ field, from: display(field, oldV[field]), to: display(field, newV[field]) })),
+      // Only what changed: a field the event did not record after (absent from newValues) or that reads the
+      // same before and after is not a change
+      changes: fields
+        .filter((field) => field in newV || !(field in oldV))
+        .map((field) => ({ field, from: display(field, oldV[field]), to: display(field, newV[field]) }))
+        .filter((c) => c.from !== c.to),
       inUse: typeof newV.inUse === 'string' ? newV.inUse : null,
       outcome: typeof newV.outcome === 'string' ? newV.outcome : null,
     };

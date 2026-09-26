@@ -1553,6 +1553,54 @@ function unguardedCadDelete(relFiles) {
   return out;
 }
 
+// Rate-card printing type (2026-09-26) — PIGMENT / PROCIAN / DISCHARGE / PIGMENT_DISCHARGE are
+// separate open-ended cards in ONE slab. A processor_rate_card lookup that filters on
+// processingType but not printingType picks whichever print type sorts first: ESSKY082LS
+// (Pigment ₹20) was compared against Procian ₹28 and blocked from Order BOM as "+40%".
+// Sanctioned shapes: put printingType in the where (null for dyeing); a literal 'DYEING'
+// query (lace) or a variable filter is skipped; a deliberate cross-print-type read carries
+// `// allow-any-print-type` on or just above the call.
+function rateCardPrintingTypeDrift(relFiles) {
+  const out = [];
+  const re = /\.processor_rate_card\.(findFirst|findFirstOrThrow|findMany)\s*\(/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const rawLines = (readRel(rel) || '').split('\n');
+    const seen = new Map();
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      const argsOpen = content.indexOf('{', m.index + m[0].length - 1);
+      if (argsOpen < 0) continue;
+      const args = sliceBalancedBraces(content, argsOpen);
+      const whereAt = args.search(/\bwhere\s*:/);
+      if (whereAt < 0) continue;
+      const afterWhere = args.slice(whereAt).replace(/^where\s*:\s*/, '');
+      if (!afterWhere.startsWith('{')) continue; // variable filter — its shape is not visible here
+      const where = sliceBalancedBraces(afterWhere, 0);
+      if (/^\{\s*id\s*[:,}]/.test(where)) continue;
+      if (!/\bprocessingType\b/.test(where) || /\bprintingType\b/.test(where)) continue;
+      if (/\bprocessingType\s*:\s*['"]DYEING['"]/.test(where)) continue;
+      const lineNo = lineOf(content, m.index);
+      const context = rawLines.slice(Math.max(0, lineNo - 3), lineNo).join('\n');
+      if (/allow-any-print-type/.test(context)) continue;
+      const n = (seen.get(m[1]) || 0) + 1;
+      seen.set(m[1], n);
+      out.push({
+        key: `${rel} :: processor_rate_card.${m[1]} #${n}`,
+        file: rel,
+        line: lineNo,
+        detail: `processor_rate_card.${m[1]} filters processingType but not printingType — sibling print types share a slab, so this picks an arbitrary one`,
+      });
+    }
+  }
+  return out;
+}
+
 // Two-owner approval split (2026-08-22) — costing code must key on costingApprovalStatus.
 // fabric_width_cad.approvalStatus is CAD-GEOMETRY approval only ("how much fabric"); the
 // costing PRICE approval lives in costingApprovalStatus/costingApprovedBy/costingApprovedAt.
@@ -2208,6 +2256,7 @@ module.exports = {
   manualMaterialCreate,
   colourSentinelLiteral,
   unguardedCadDelete,
+  rateCardPrintingTypeDrift,
   costingCadApprovalDrift,
   saleOrderStatusWrite,
   cadPurposeSingleWrite,

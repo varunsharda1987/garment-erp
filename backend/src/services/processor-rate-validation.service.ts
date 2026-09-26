@@ -5,6 +5,7 @@
  */
 
 import prisma from '../config/database';
+import type { PrintingType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 // BUG-PRC7 fix: use decimal.js utilities for precise rate calculations
 import { toCurrency } from '../utils/currency';
@@ -119,7 +120,8 @@ export async function getCurrentProcessorRate(
   greigeId: string | null,
   laceId: string | null,
   processingType: string = 'DYEING',
-  slabId?: string | null
+  slabId?: string | null,
+  printingType: PrintingType | null = null
 ): Promise<{
   id: string;
   ratePerMeter: number;
@@ -136,6 +138,9 @@ export async function getCurrentProcessorRate(
     where: {
       processorId,
       processingType,
+      // PIGMENT / PROCIAN / DISCHARGE cards share one slab as separate prices; without this a
+      // Pigment sheet was compared against the newest Procian card (ESSKY082LS, 20 → 28). Null = dyeing.
+      printingType,
       greigeId: greigeId || undefined,
       laceId: laceId || undefined,
       slabId,
@@ -170,7 +175,8 @@ export async function getRateAtDate(
   laceId: string | null,
   asOfDate: Date,
   processingType: string = 'DYEING',
-  slabId?: string | null
+  slabId?: string | null,
+  printingType: PrintingType | null = null
 ): Promise<{
   id: string;
   ratePerMeter: number;
@@ -184,6 +190,7 @@ export async function getRateAtDate(
     where: {
       processorId,
       processingType,
+      printingType, // same rule as getCurrentProcessorRate — sibling print types share a slab
       greigeId: greigeId || undefined,
       laceId: laceId || undefined,
       slabId,
@@ -235,6 +242,7 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
               effectiveFrom: true,
               slabId: true,
               processingType: true, // costing-14: needed to validate against the correct process
+              printingType: true,
             },
           },
         },
@@ -254,6 +262,7 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
               effectiveFrom: true,
               slabId: true,
               processingType: true, // costing-14: needed to validate against the correct process
+              printingType: true,
             },
           },
         },
@@ -292,7 +301,8 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
       item.greigeId,
       null,
       item.rateCard?.processingType || 'DYEING',
-      item.rateCard?.slabId
+      item.rateCard?.slabId,
+      item.rateCard?.printingType ?? null
     );
 
     if (!currentRate) continue; // No current rate found, skip
@@ -344,7 +354,8 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
       null,
       item.greigeLaceId,
       item.rateCard?.processingType || 'DYEING',
-      item.rateCard?.slabId
+      item.rateCard?.slabId,
+      item.rateCard?.printingType ?? null
     );
 
     if (!currentRate) continue;

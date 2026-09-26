@@ -547,6 +547,7 @@ export async function suggestProcessorForService(
   const processingTypeForRateCard = mapServiceTypeToRateCardProcessingType(serviceType);
 
   if (processingTypeForRateCard) {
+    // allow-any-print-type: picks a processor who prints at all; no rate is read
     const rateCard = await prisma.processor_rate_card.findFirst({
       where: {
         processingType: processingTypeForRateCard,

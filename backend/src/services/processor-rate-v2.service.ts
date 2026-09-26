@@ -1085,7 +1085,7 @@ export async function explainMissingRate(query: RateLookupQuery): Promise<Missin
   }
   const slabLabel = slabDisplayLabel(slab);
 
-  // 2. What does this processor rate at all?
+  // 2. What does this processor rate at all? (allow-any-print-type: lists every print type it quotes)
   const cards = await prisma.processor_rate_card.findMany({
     where: { processorId, processingType, isActive: true },
     select: {

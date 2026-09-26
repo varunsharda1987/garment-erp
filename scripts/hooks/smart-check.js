@@ -458,6 +458,17 @@ function checkUnguardedCadDelete(tsFiles) {
   );
 }
 
+/** Check: a rate-card lookup blind to printing type (false RATES_OUTDATED, ESSKY082LS) — BLOCKING new + ratchet. */
+function checkRateCardPrintingType(tsFiles) {
+  console.log(`\n${c.cyan}Checking rate-card lookups for printing type...${c.reset}`);
+  return runRatchetedCheck(
+    'rate-card lookup(s) that ignore printingType (Pigment/Procian/Discharge share a slab)',
+    detectors.rateCardPrintingTypeDrift(tsFiles),
+    'rate-card-printing-type-baseline.json',
+    'Add printingType to the processor_rate_card where clause (the card\'s own printingType; null for dyeing). A deliberate read across print types carries `// allow-any-print-type` on or just above the call. If intentional, add the key to scripts/hooks/rate-card-printing-type-baseline.json.'
+  );
+}
+
 /** Check (E5): costing code touching the CAD-geometry approval column — BLOCKING new + ratchet. */
 function checkCostingApprovalDrift(tsFiles) {
   console.log(`\n${c.cyan}Checking for CAD/costing approval drift...${c.reset}`);
@@ -1306,6 +1317,7 @@ function runAllModeChecks() {
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
+  if (!checkRateCardPrintingType(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
   if (!checkCadPurposeSingleWrite(tsFiles)) ok = false;
@@ -1430,6 +1442,7 @@ function main() {
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
+    if (!checkRateCardPrintingType(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;
     if (!checkCadPurposeSingleWrite(categories.typescript)) allPassed = false;

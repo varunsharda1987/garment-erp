@@ -160,6 +160,8 @@ The table shows:
 
 - **Missing greige rate blocks save** - Build Up rows without a greige price cannot be saved. Enter a rate or set one on the Greige Master.
 - **A typed greige rate needs a reason** - If the rate differs from the live one, the save is refused until the **Reason** box under it is filled. Click **Use ₹…** to take the live rate instead.
+- **"Processing rate looked up again for … row"**: the fabric (greige) on those rows was changed in CAD Planning after they were costed, so the page read the processor's rate for the new greige. Check the **Process** rate, then click **Save Costing**. If it says **No processor rate for this combination**, add the new greige for that processor on the **Processor Rate Card** page first
+- **"… the processing rate is <processor>'s rate for GRG-…, but this fabric is now GRG-…"**: the save was refused because the rate came from another greige. Select the processor again on that row to take its rate for the new greige
 
 - **Missing landed price skipped** - Landed Price mode rows without a price are silently excluded from save.
 

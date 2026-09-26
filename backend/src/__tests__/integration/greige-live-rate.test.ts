@@ -30,6 +30,7 @@ const DAY = 24 * 60 * 60 * 1000;
 let userId: string;
 let authHeader: Record<string, string>;
 let supplierId: string;
+let processorId: string; // a dyer, for the rate-card cases
 let greigeId: string; // the Jan purchase + a SENT PO
 let tieGreigeId: string; // a receipt and a PO on the same day
 let styleId: string;
@@ -92,7 +93,11 @@ const purchase = (gId: string, rate: number, purchaseDate: Date) =>
 const cadRow = () => prisma.fabric_width_cad.findUniqueOrThrow({ where: { id: cadId } });
 
 /** What the Fabric Costing page posts for the row, at a given greige rate */
-const save = (greigeCostPerMeter: number, greigeRateOverrideReason?: string) =>
+const save = (
+  greigeCostPerMeter: number,
+  greigeRateOverrideReason?: string,
+  processing: { processorId?: string; rateCardId?: string; processingCostPerMeter?: number } = {}
+) =>
   request(app)
     .post('/api/fabric-costing/save')
     .set(authHeader)
@@ -107,9 +112,9 @@ const save = (greigeCostPerMeter: number, greigeRateOverrideReason?: string) =>
           greigeCostPerMeter,
           ...(greigeRateOverrideReason !== undefined ? { greigeRateOverrideReason } : {}),
           transportCostPerMeter: 2,
-          processorId: null,
-          rateCardId: null,
-          processingCostPerMeter: null,
+          processorId: processing.processorId ?? null,
+          rateCardId: processing.rateCardId ?? null,
+          processingCostPerMeter: processing.processingCostPerMeter ?? null,
           shrinkagePercent: null,
           shrinkageCostPerMeter: null,
           screenCostPerMeter: null,
@@ -207,6 +212,12 @@ afterAll(async () => {
     ['style_fabrics', () => prisma.style_fabrics.deleteMany({ where: { id: only(slotId) } })],
     ['style_components', () => prisma.style_components.deleteMany({ where: { styleId: only(styleId) } })],
     ['styles', () => prisma.styles.deleteMany({ where: { id: only(styleId) } })],
+    ['processor_rate_card', () => prisma.processor_rate_card.deleteMany({ where: { greigeId: { in: greiges } } })],
+    [
+      'processor_quantity_slabs',
+      () => prisma.processor_quantity_slabs.deleteMany({ where: { processorId: only(processorId) } }),
+    ],
+    ['processor', () => prisma.suppliers.deleteMany({ where: { id: only(processorId) } })],
     ['purchase_order_items', () => prisma.purchase_order_items.deleteMany({ where: { poId: { in: poIds } } })],
     ['purchase_orders', () => prisma.purchase_orders.deleteMany({ where: { id: { in: poIds } } })],
     ['fabric_procurement', () => prisma.fabric_procurement.deleteMany({ where: { greigeId: { in: greiges } } })],
@@ -333,5 +344,66 @@ describe('CAD Planning seeds a new row with the same live rate', () => {
       await prisma.cad_size_breakdown.deleteMany({ where: { cadId: row.id } });
       await prisma.fabric_width_cad.delete({ where: { id: row.id } });
     }
+  });
+});
+
+describe("a processing rate card belongs to ONE greige (IP00138 / IT00254 kept GRG-0049's card on GRG-0072)", () => {
+  let cardForThisGreige: string;
+  let cardForOtherGreige: string;
+
+  beforeAll(async () => {
+    processorId = (
+      await prisma.suppliers.create({
+        data: {
+          code: `${RUN}-DYER`,
+          name: `${RUN} Dyer`,
+          supplierCategories: ['DYEING_PRINTING'],
+          createdById: userId,
+        },
+      })
+    ).id;
+    const slab = await prisma.processor_quantity_slabs.create({
+      data: {
+        processorId,
+        processingType: 'DYEING',
+        slabOrder: 1,
+        minQuantity: 0,
+        maxQuantity: 100000,
+        createdById: userId,
+      },
+    });
+    const card = (gId: string) =>
+      prisma.processor_rate_card.create({
+        data: {
+          processorId,
+          processingType: 'DYEING',
+          greigeId: gId,
+          slabId: slab.id,
+          ratePerMeter: 10,
+          shrinkagePercent: 5,
+          createdById: userId,
+        },
+      });
+    cardForThisGreige = (await card(greigeId)).id;
+    cardForOtherGreige = (await card(tieGreigeId)).id;
+  });
+
+  it("a save carrying another greige's card is refused, naming both greiges — nothing written", async () => {
+    const res = await save(67, undefined, { processorId, rateCardId: cardForOtherGreige, processingCostPerMeter: 10 });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain(`${RUN}-G2`);
+    expect(res.body.message).toContain(`but this fabric is now ${RUN}-G1`);
+    expect((await cadRow()).rateCardId).not.toBe(cardForOtherGreige);
+  });
+
+  it("the card for the row's own greige saves, and the page is told which greige the card prices", async () => {
+    await save(67, undefined, { processorId, rateCardId: cardForThisGreige, processingCostPerMeter: 10 }).expect(200);
+    expect((await cadRow()).rateCardId).toBe(cardForThisGreige);
+    const res = await request(app)
+      .get(`/api/fabric-costing/style/${styleId}?purpose=RAW_MATERIAL_CALCULATION`)
+      .set(authHeader)
+      .expect(200);
+    const row = res.body.data.fabrics.find((f: { id: string }) => f.id === cadId);
+    expect(row.rateCardGreigeId).toBe(greigeId);
   });
 });

@@ -274,6 +274,8 @@ export interface FabricForCosting {
   // MRP-48d: the processor rate card the saved costs came from, and its printing type
   rateCardId?: string | null;
   printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE' | null;
+  /** The greige that saved rate card prices — not this row's greige when the greige was changed after costing */
+  rateCardGreigeId?: string | null;
   // Ready fabric cost - prioritizes stock cost if available
   readyFabricCost: number | null;
   // Source of the ready fabric cost
@@ -431,6 +433,8 @@ export interface FabricCostingRow {
    * UI-only: never sent on save.
    */
   rateIssue: RateCardMissing | null;
+  /** UI-only: the saved rate card priced another greige, so the rate is looked up again once after load */
+  rateCardRelookup?: boolean;
   // CAD-GEOMETRY approval (two-owner split; informational on this page)
   approvalStatus?: string | null;
   // Costing PRICE approval — an approved-costing row is skipped on save and badged

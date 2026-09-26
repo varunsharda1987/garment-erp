@@ -27,6 +27,7 @@
  * D17 Production CADs with no received lot                 (Copy / Promote / purpose edit, before 25-Sep)
  * D18 Production CADs carrying a price or the promote lock (the undeletable "costed PRODUCTION CAD")
  * D19 greige rates labelled from a purchase/PO that does not carry them (typed rate, stale label)
+ * D20 costings priced from another greige's processing rate card (greige changed after costing)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -356,6 +357,27 @@ async function main() {
                  AND po."poNumber" = c.greige_rate_source_ref
                  AND abs(poi."unitPrice" - c."greigeCostPerMeter") < 0.005))
          )
+       ORDER BY s."styleCode"`
+  );
+
+  // A processing rate card prices ONE greige. A greige changed in CAD Planning after costing left the
+  // old greige's card on the row, and every re-save carried it (IP00138 / IT00254, 26-Sep-2026). The
+  // costing page now looks the rate up again, and the save refuses a mismatched card.
+  await run(
+    'D20',
+    "Costings priced from another greige's processing rate card",
+    prisma.$queryRaw`
+      SELECT s."styleCode", s.buyer_style_ref AS buyer_ref, c.purpose, c."cutableWidth"::float AS width,
+             g_row."greigeCode" AS row_greige, g_card."greigeCode" AS card_greige,
+             c.costing_approval_status::text AS price
+        FROM fabric_width_cad c
+        JOIN processor_rate_card rc ON rc.id = c."rateCardId"
+        LEFT JOIN greige_master g_row ON g_row.id = c."greigeId"
+        LEFT JOIN greige_master g_card ON g_card.id = rc."greigeId"
+        LEFT JOIN style_fabrics sf ON sf.id = c.style_fabric_id
+        LEFT JOIN style_components sc ON sc.id = sf."componentId"
+        LEFT JOIN styles s ON s.id = COALESCE(sc."styleId", c."costingStyleId")
+       WHERE rc."greigeId" IS NOT NULL AND c."greigeId" IS NOT NULL AND rc."greigeId" <> c."greigeId"
        ORDER BY s."styleCode"`
   );
 

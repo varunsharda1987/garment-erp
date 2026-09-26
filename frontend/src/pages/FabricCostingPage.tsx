@@ -266,6 +266,24 @@ function StockBadge({ row, effectiveQty }: { row: FabricCostingRow; effectiveQty
 }
 
 /**
+ * A saved processing rate card prices ONE greige. When the row's greige was changed in CAD Planning
+ * after it was costed, the card still belongs to the OLD greige (IP00138 / IT00254, 26-Sep-2026) — the
+ * rate is looked up again for the new greige instead of being re-saved. Not for a price-approved row:
+ * it is never re-saved from this page.
+ */
+function rateCardNeedsRelookup(fabric: FabricForCosting): boolean {
+  const priceApproved =
+    fabric.costingApprovalStatus === 'APPROVED' || fabric.costingApprovalStatus === 'ALTERNATE_APPROVED';
+  return (
+    !priceApproved &&
+    !!fabric.rateCardId &&
+    !!fabric.rateCardGreigeId &&
+    !!fabric.greigeId &&
+    fabric.rateCardGreigeId !== fabric.greigeId
+  );
+}
+
+/**
  * The greige ₹/m cell: the rate, an honest source label, and — when the row's number differs
  * from today's price — the live rate with one click to adopt it.
  *
@@ -1388,8 +1406,12 @@ export default function FabricCostingPage() {
               processingCostPerMeter: fabric.processingPricePerMeter || null,
               slabLabel: null,
               // MRP-48d: restore which rate card the saved numbers came from, so re-saving
-              // doesn't silently drop the processor's committed shrinkage/print type
-              rateCardId: fabric.rateCardId ?? null,
+              // doesn't silently drop the processor's committed shrinkage/print type — UNLESS that card
+              // prices another greige (the greige was changed in CAD Planning after costing). Then it is
+              // dropped and the rate looked up again for this greige once the rows load. A price-approved
+              // row is not re-saved from here, so it keeps its card (the health check lists it).
+              rateCardId: rateCardNeedsRelookup(fabric) ? null : (fabric.rateCardId ?? null),
+              rateCardRelookup: rateCardNeedsRelookup(fabric),
 
               // Screen cost (from saved data or fabric directly)
               numberOfColors: fabric.numberOfColors,
@@ -1744,7 +1766,8 @@ export default function FabricCostingPage() {
 
   // Lookup processor rate
   // overrides: optional partial row data for values not yet committed to state
-  const lookupRate = async (index: number, overrides?: Partial<FabricCostingRow>) => {
+  // options.quiet: no success toast (the automatic re-lookup below shows one summary instead)
+  const lookupRate = async (index: number, overrides?: Partial<FabricCostingRow>, options?: { quiet?: boolean }) => {
     const baseRow = fabricRows[index];
     const row = overrides ? { ...baseRow, ...overrides } : baseRow;
 
@@ -1927,10 +1950,12 @@ export default function FabricCostingPage() {
             }
           });
 
-          notify.success(
-            `Batch rate loaded: ₹${batchRate}/m for ${batchQuantityMeters.toFixed(0)}m combined (${result.slabLabel})`
-          );
-        } else {
+          if (!options?.quiet) {
+            notify.success(
+              `Batch rate loaded: ₹${batchRate}/m for ${batchQuantityMeters.toFixed(0)}m combined (${result.slabLabel})`
+            );
+          }
+        } else if (!options?.quiet) {
           notify.success(`Rate loaded: ₹${result.ratePerMeter}/m (${result.slabLabel})`);
         }
       } else {
@@ -1990,6 +2015,24 @@ export default function FabricCostingPage() {
       notify.error(errorMessage);
     }
   };
+
+  // Rows whose saved rate card priced ANOTHER greige (rateCardNeedsRelookup — the greige was changed
+  // in CAD Planning after costing) look their processing rate up again for the new greige, once,
+  // after they load. If the processor has no rate for it, the lookup's own "No processor rate"
+  // warning names what is missing and Save names the row — the old greige's rate is never re-saved.
+  useEffect(() => {
+    const due = fabricRows.flatMap((r, i) => (r.rateCardRelookup && !r.isLoading ? [i] : []));
+    if (due.length === 0) return;
+    for (const i of due) {
+      updateRow(i, { rateCardRelookup: false });
+      void lookupRate(i, undefined, { quiet: true });
+    }
+    notify.info(`Processing rate looked up again for ${due.length} row${due.length > 1 ? 's' : ''}`, {
+      description: 'The fabric (greige) was changed after it was costed. Check the rate, then Save Costing.',
+    });
+    // Runs on each load; lookupRate/updateRow are recreated every render and only read current state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fabricRows]);
 
   /**
    * Picking a processor, shared by both render branches.

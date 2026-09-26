@@ -328,6 +328,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
                     select: {
                       id: true,
                       printingType: true,
+                      // Which greige the card prices — a CAD greige change leaves the old one here
+                      greigeId: true,
                     },
                   },
                 },
@@ -550,6 +552,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
             // so reopening the page restores the same rate selection instead of blanking it
             rateCardId: cadRow.rateCardId || null,
             printingType: cadRow.rateCard?.printingType || null,
+            // The greige that saved card belongs to. When it is not this row's greige (the greige was
+            // changed in CAD Planning after costing), the page looks the processing rate up again.
+            rateCardGreigeId: cadRow.rateCard?.greigeId ?? null,
             // Order quantity for rate slab lookup (persisted from save)
             orderQuantityPcs: cadRow.orderQuantityPcs ?? null,
             // Creation timestamp for sorting by most recent
@@ -826,6 +831,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
           greigeRateManualOverride: true,
           greigeRateOverrideReason: true,
           greigeRateSetById: true,
+          rateCardId: true,
         },
       })
     : [];
@@ -865,6 +871,41 @@ export async function saveFabricCosting(req: Request, res: Response) {
           greigeRateSetById: row.greigeRateSetById,
         }
       : {};
+
+  // A processing rate card prices ONE greige. When the row's greige was changed in CAD Planning after
+  // costing, the page used to re-send the OLD greige's card (IP00138 / IT00254, 26-Sep-2026) — the
+  // shrinkage and print type down the chain then came from the wrong fabric. Refused, before any write.
+  const cardOf = (c: any): string | null =>
+    c.rateCardId || (c.cloneFromCadId && !c.fabricWidthCadId ? targetOf(c)?.rateCardId : null) || null;
+  const cardIds = [...new Set(fabricCostings.map(cardOf).filter((id: string | null): id is string => !!id))];
+  if (cardIds.length > 0) {
+    const cards = await prisma.processor_rate_card.findMany({
+      where: { id: { in: cardIds } },
+      select: { id: true, greigeId: true, processor: { select: { name: true } } },
+    });
+    const cardById = new Map(cards.map((card) => [card.id, card]));
+    const mismatch = fabricCostings.find((c: any) => {
+      const card = cardOf(c) ? cardById.get(cardOf(c)!) : undefined;
+      const greigeId = greigeOf(c);
+      return card?.greigeId && greigeId && card.greigeId !== greigeId;
+    });
+    if (mismatch) {
+      const card = cardById.get(cardOf(mismatch)!)!;
+      const target = targetOf(mismatch);
+      const greiges = await prisma.greige_master.findMany({
+        where: { id: { in: [card.greigeId!, greigeOf(mismatch)!] } },
+        select: { id: true, greigeCode: true },
+      });
+      const code = (id: string) => greiges.find((g) => g.id === id)?.greigeCode ?? id;
+      const newCode = code(greigeOf(mismatch)!);
+      throw new ValidationError(
+        `${target ? `${target.componentName ?? 'Row'} ${Number(target.cutableWidth)}"` : 'A row'}: the processing rate ` +
+          `is ${card.processor?.name ?? 'the processor'}'s rate for ${code(card.greigeId!)}, but this fabric is now ` +
+          `${newCode}. Select the processor again to take its rate for ${newCode} — or, if it has none, add ` +
+          `${newCode} for that processor on the Processor Rate Card page.`
+      );
+    }
+  }
 
   // Save each fabric costing to fabric_width_cad
   const updates = await Promise.all(

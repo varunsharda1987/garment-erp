@@ -197,6 +197,8 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
 - **Missing greige rate**: Enter a rate or set it on the Greige Master
 - **"Enter a reason for the greige rate typed on …"**: you typed a greige rate different from the live one. Fill the **Reason** box under it, or click **Use ₹…** to take the live rate
 - **The PO you expected is not the live rate**: the live rate is read for the exact greige on the row. A PO raised on a different greige master (even with the same generic name) does not count — check the greige in CAD Planning
+- **"Processing rate looked up again for … row"**: the fabric (greige) on those rows was changed in CAD Planning after they were costed, so the page read the processor's rate for the new greige. Check the **Process** rate, then click **Save Costing**. If it says **No processor rate for this combination**, add the new greige for that processor on the **Processor Rate Card** page first
+- **"… the processing rate is <processor>'s rate for GRG-…, but this fabric is now GRG-…"**: the save was refused because the rate came from another greige. Select the processor again on that row to take its rate for the new greige
 - **No processor rate**: If the processor has no rate for this combination, a warning panel
   appears above the table naming the exact reason - for example that the processor has no
   quantity slabs set, does not rate this greige, or does not rate this print type. The

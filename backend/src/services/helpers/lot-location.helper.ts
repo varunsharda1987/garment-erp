@@ -177,6 +177,53 @@ export function greigeCountsForPlanning(
 }
 
 /**
+ * Is this lot sitting in a processor's unit? Lace and fabric lots have no processorId, so their unit
+ * is the only place signal. Such a lot is physically at the processor: it can be drawn there by that
+ * processor's job, but it cannot be allocated or issued to our production floor from where it lies.
+ */
+export function lotInProcessorUnit(lot: { warehouse?: Pick<LotWarehouseInfo, 'warehouseType'> | null }): boolean {
+  return lot.warehouse?.warehouseType === 'JOB_WORK';
+}
+
+/**
+ * Prisma `where` for lace / fabric lots NOT in a processor's unit — our stores, or no warehouse
+ * recorded. A fresh object each call: Prisma's `OR` takes a mutable array.
+ */
+export function notInProcessorUnitWhere() {
+  return {
+    OR: [{ warehouseId: null }, { warehouse: { warehouseType: { not: 'JOB_WORK' as const } } }],
+  };
+}
+
+/** What a planning reader (MRP) selects on a lace lot, so `laceCountsForPlanning` can place it. */
+export const PLANNING_LACE_LOT_SELECT = {
+  id: true,
+  laceId: true,
+  quantityAvailable: true,
+  quantityReserved: true,
+  receivedDate: true,
+  warehouse: { select: LOT_WAREHOUSE_SELECT },
+} as const;
+
+/**
+ * May MRP plan a lace requirement against this lace lot? The same rule as greige
+ * (`greigeCountsForPlanning`): our stores, plus lace already at the requirement's own processor (at any
+ * processor while none is chosen), never another processor's lace. Lace has no processorId, so the
+ * lot's unit is what places it.
+ */
+export function laceCountsForPlanning(
+  lot: { warehouse?: LotWarehouseInfo | null },
+  requirementProcessorId: string | null
+): boolean {
+  return greigeCountsForPlanning({ warehouse: lot.warehouse }, requirementProcessorId);
+}
+
+/** The processor whose unit a lace / fabric lot sits in, or null for our store. */
+export function unitLotHolderId(lot: { warehouse?: LotWarehouseInfo | null }): string | null {
+  return greigeHolderId({ warehouse: lot.warehouse });
+}
+
+/**
  * Place a lot relative to the processor a job is for. Conflicting signals (processorId says one
  * processor, the unit another) take the conservative answer: AT_OTHER_PROCESSOR — never issued.
  */

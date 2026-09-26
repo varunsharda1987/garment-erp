@@ -13,6 +13,8 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { applySearch } from '../utils/search-filter';
 import { qtyExceeds, qtyRemaining, isQtyZero, snapToLimit } from '../utils/quantity';
+import { LOT_WAREHOUSE_SELECT } from './helpers/lot-location.helper';
+import { assertLaceInOurStore } from './laceStock.service';
 
 // ============================================
 // Types
@@ -78,7 +80,7 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
     // Validate stock exists and has sufficient quantity - INSIDE transaction to prevent race condition
     const stock = await tx.lace_stock.findUnique({
       where: { id: input.stockId },
-      include: { laceMaster: true },
+      include: { laceMaster: true, warehouse: { select: LOT_WAREHOUSE_SELECT } },
     });
 
     if (!stock) {
@@ -88,6 +90,8 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
     if (stock.status !== 'AVAILABLE') {
       throw new Error(`Stock is not available (status: ${stock.status})`);
     }
+
+    assertLaceInOurStore(stock, 'issued to the production floor');
 
     const available = Number(stock.quantityAvailable) - Number(stock.quantityReserved);
     // Quantity rule (utils/quantity): issuing the whole lot typed at 2 decimals is issuing the lot.

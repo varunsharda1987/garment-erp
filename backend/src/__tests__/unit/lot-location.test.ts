@@ -6,8 +6,11 @@
 import {
   greigeCountsForPlanning,
   greigeHolderId,
+  laceCountsForPlanning,
   lotCountsOnHand,
+  lotInProcessorUnit,
   resolveLotLocation,
+  unitLotHolderId,
 } from '../../services/helpers/lot-location.helper';
 
 const store = { warehouseName: 'Kashaya Fabs', warehouseType: 'RAW_MATERIAL', supplierId: null };
@@ -87,5 +90,31 @@ describe('greigeCountsForPlanning', () => {
   it('never counts a Stock-Out shadow or a lot in an unlinked unit', () => {
     expect(greigeCountsForPlanning(transferShadow, null)).toBe(false);
     expect(greigeCountsForPlanning(unlinkedUnit, null)).toBe(false);
+  });
+});
+
+describe('lace: placed by its unit alone (no processorId)', () => {
+  const laceInStore = { warehouse: store };
+  const laceAtA = { warehouse: unitOf('A') };
+  const laceNoWarehouse = { warehouse: null };
+  const laceInUnlinkedUnit = { warehouse: unitOf(null, 'Old') };
+
+  it('laceCountsForPlanning mirrors the greige rule', () => {
+    expect(laceCountsForPlanning(laceInStore, 'A')).toBe(true);
+    expect(laceCountsForPlanning(laceNoWarehouse, 'A')).toBe(true);
+    expect(laceCountsForPlanning(laceAtA, 'A')).toBe(true);
+    expect(laceCountsForPlanning(laceAtA, null)).toBe(true);
+    expect(laceCountsForPlanning(laceAtA, 'B')).toBe(false);
+    expect(laceCountsForPlanning(laceInUnlinkedUnit, null)).toBe(false);
+  });
+
+  it('unitLotHolderId / lotInProcessorUnit read the unit', () => {
+    expect(unitLotHolderId(laceAtA)).toBe('A');
+    expect(unitLotHolderId(laceInStore)).toBeNull();
+    expect(unitLotHolderId(laceInUnlinkedUnit)).toBeNull();
+    expect(lotInProcessorUnit(laceAtA)).toBe(true);
+    expect(lotInProcessorUnit(laceInUnlinkedUnit)).toBe(true);
+    expect(lotInProcessorUnit(laceInStore)).toBe(false);
+    expect(lotInProcessorUnit(laceNoWarehouse)).toBe(false);
   });
 });

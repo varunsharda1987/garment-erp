@@ -60,7 +60,14 @@ import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLim
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
-import { greigeCountsForPlanning, greigeHolderId, PLANNING_LOT_SELECT } from './helpers/lot-location.helper';
+import {
+  greigeCountsForPlanning,
+  greigeHolderId,
+  laceCountsForPlanning,
+  PLANNING_LACE_LOT_SELECT,
+  PLANNING_LOT_SELECT,
+  unitLotHolderId,
+} from './helpers/lot-location.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
 import { applySearch } from '../utils/search-filter';
 import { normalizeUnit, unitLabel, unitToJwoUom } from '../utils/units';
@@ -841,6 +848,34 @@ function netFreeGreige(lots: PlanningGreigeLot[], greigeId: string, processorId:
   });
 }
 
+type PlanningLaceLot = Prisma.lace_stockGetPayload<{ select: typeof PLANNING_LACE_LOT_SELECT }>;
+
+/** Every AVAILABLE lot of these laces, placed well enough for `laceCountsForPlanning`. */
+async function loadPlanningLaceLots(
+  client: Prisma.TransactionClient | typeof prisma,
+  laceIds: string[]
+): Promise<PlanningLaceLot[]> {
+  if (laceIds.length === 0) return [];
+  return client.lace_stock.findMany({
+    where: { laceId: { in: laceIds }, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+    select: PLANNING_LACE_LOT_SELECT,
+  });
+}
+
+/**
+ * Free-to-plan lace for a requirement processed at `processorId` (null = none): our stores plus the
+ * lace already in THAT processor's unit, net of what is reserved — the greige rule (netFreeGreige).
+ * Until 2026-09-26 lace sitting in any dyer's unit counted for every requirement, so dyer A's greige
+ * lace could "cover" a requirement to be dyed at B.
+ */
+function netFreeLace(lots: PlanningLaceLot[], laceId: string, processorId: string | null): number {
+  const counted = lots.filter((lot) => lot.laceId === laceId && laceCountsForPlanning(lot, processorId));
+  return netFreeStock({
+    quantityAvailable: toNumber(addCurrency(0, ...counted.map((lot) => Number(lot.quantityAvailable)))),
+    quantityReserved: toNumber(addCurrency(0, ...counted.map((lot) => Number(lot.quantityReserved ?? 0)))),
+  });
+}
+
 /**
  * Batch lookup current stock for multiple requirements.
  * Groups requirements by stock table type and queries in bulk.
@@ -909,21 +944,8 @@ async function batchGetCurrentStock(
     }
   }
 
-  // Batch query lace_stock
-  const laceStockMap = new Map<string, number>();
-  if (laceIds.size > 0) {
-    const laceStock = await prisma.lace_stock.groupBy({
-      by: ['laceId'],
-      where: {
-        laceId: { in: [...laceIds] },
-        status: 'AVAILABLE',
-      },
-      _sum: { quantityAvailable: true, quantityReserved: true },
-    });
-    for (const l of laceStock) {
-      laceStockMap.set(l.laceId, netFreeStock(l._sum));
-    }
-  }
+  // Lace lots: like greige, which count depends on the requirement's processor (placed by its unit)
+  const laceLots = await loadPlanningLaceLots(prisma, [...laceIds]);
 
   // Batch query generic materials via derived_stock_view
   const genericStockMap = new Map<string, number>();
@@ -951,7 +973,7 @@ async function batchGetCurrentStock(
         stock = fabricStockMap.get(lookup.lookupId) ?? 0;
         break;
       case 'lace':
-        stock = laceStockMap.get(lookup.lookupId) ?? 0;
+        stock = netFreeLace(laceLots, lookup.lookupId, req.processorId ?? null);
         break;
       case 'generic':
         stock = genericStockMap.get(lookup.lookupId) ?? 0;
@@ -1613,16 +1635,13 @@ export async function calculateRequirementsFromOrder(
           }
           // else: no stock, defaults remain (PO_REQUIRED)
         } else if (bomItem.materialType === 'LACE' && bomItem.laceId) {
-          // For LACE items, check lace_stock table
-          const laceStockResult = await prisma.lace_stock.aggregate({
-            where: {
-              laceId: bomItem.laceId,
-              status: 'AVAILABLE',
-              quantityAvailable: { gt: 0 },
-            },
-            _sum: { quantityAvailable: true, quantityReserved: true },
-          });
-          const totalLaceStock = netFreeStock(laceStockResult._sum);
+          // For LACE items, check lace_stock: our stores plus lace already at this line's processor
+          // (at any processor while none is chosen) — never another processor's lace.
+          const totalLaceStock = netFreeLace(
+            await loadPlanningLaceLots(prisma, [bomItem.laceId]),
+            bomItem.laceId,
+            bomItem.processorId ?? null
+          );
 
           if (qtyAtLeast(totalLaceStock, totalRequired)) {
             // Fully available from lace stock
@@ -3041,10 +3060,14 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
           remaining -= toReserve;
         }
       } else if (matType === 'LACE' && reqWithMaterial.materials.laceId) {
-        const lots = await tx.lace_stock.findMany({
-          where: { laceId: reqWithMaterial.materials.laceId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
-          orderBy: { receivedDate: 'asc' },
-        });
+        // The greige rule (lot-location.helper): our stores and lace already in its processor's unit,
+        // that processor's first, then FIFO. Until 2026-09-26 this reserved ANY lot, another dyer's too.
+        const processorId = reqWithMaterial.processorId ?? null;
+        const atItsProcessor = (lot: PlanningLaceLot) =>
+          processorId != null && unitLotHolderId(lot) === processorId ? 0 : 1;
+        const lots = (await loadPlanningLaceLots(tx, [reqWithMaterial.materials.laceId]))
+          .filter((lot) => laceCountsForPlanning(lot, processorId))
+          .sort((a, b) => atItsProcessor(a) - atItsProcessor(b) || a.receivedDate.getTime() - b.receivedDate.getTime());
         let remaining = reserveQty;
         for (const lot of lots) {
           if (isQtyZero(remaining) || remaining < 0) break;

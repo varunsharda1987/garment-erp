@@ -10,6 +10,8 @@
  *  - READY FABRIC: recorded there with its challan; a job cannot take it where it lies until Phase 4a,
  *    so the issue refuses it rather than putting it on a dispatch challan.
  *  - TRIMS: named on the challan by material.
+ *  - MRP (2026-09-26): lace in A's unit plans only for requirements at A (or with no processor yet),
+ *    and our production floor cannot allocate or issue it from where it lies.
  */
 
 import request from 'supertest';
@@ -18,6 +20,9 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
+import { getRequirements } from '../../services/mrp.service';
+import { getAvailableStockForLace } from '../../services/laceStock.service';
+import { createLaceIssueNote } from '../../services/laceIssueNote.service';
 
 const RUN = `DDM${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -210,6 +215,11 @@ afterAll(async () => {
   await prisma.challans.deleteMany({ where: { id: { in: challanIds } } });
   await prisma.job_work_order_components.deleteMany({ where: { jobWorkOrderId: { in: jwoIds } } });
   await prisma.job_work_orders.deleteMany({ where: { id: { in: jwoIds } } });
+  const reqIds = (
+    await prisma.material_requirements.findMany({ where: { materialId: { in: materialIds } }, select: { id: true } })
+  ).map((r) => r.id);
+  await prisma.stock_reservations.deleteMany({ where: { referenceId: { in: reqIds } } });
+  await prisma.material_requirements.deleteMany({ where: { id: { in: reqIds } } });
   const laceLots = (
     await prisma.lace_stock.findMany({ where: { laceId: only(greigeLaceId) }, select: { id: true } })
   ).map((l) => l.id);
@@ -295,6 +305,93 @@ describe('lace, fabric and trims delivered straight to a processor', () => {
       where: { stockId: laceLotId, referenceType: 'JOB_WORK_ORDER', referenceId: jobId },
     });
     expect(draw).not.toBeNull();
+  });
+
+  it("MRP plans lace at a requirement's own dyer only, reserves the same way, and our floor cannot take it", async () => {
+    // 700 m left at dyer A (above); 200 m in our store (no warehouse recorded = ours)
+    const storeLot = await prisma.lace_stock.create({
+      data: {
+        laceId: greigeLaceId,
+        lotNumber: `${RUN}-STORE`,
+        quantityAvailable: 200,
+        weightedAvgCost: 40,
+        purchaseCost: 40,
+        receivedDate: new Date(Date.now() - 20 * DAY),
+      },
+    });
+    let seq = 0;
+    const makeRequirement = (processorId: string | null) =>
+      prisma.material_requirements.create({
+        data: {
+          id: randomUUID(),
+          requirementNumber: `${RUN}-MR${++seq}`,
+          source: 'WORK_ORDER',
+          unit: 'METER',
+          materialId: materialIds[0],
+          orderQuantity: 100,
+          quantityPerUnit: 1,
+          wastagePercent: 0,
+          totalRequired: 100,
+          shortfall: 100,
+          status: 'PO_REQUIRED',
+          requiredDate: new Date(Date.now() + 30 * DAY),
+          processorId,
+          createdById: userId,
+        },
+      });
+    const atA = await makeRequirement(dyerA);
+    const atB = await makeRequirement(dyerB);
+    const unassigned = await makeRequirement(null);
+
+    const { data } = await getRequirements({ materialId: materialIds[0], page: 1, limit: 50 } as never);
+    const stockOf = (id: string) => data.find((r) => r.id === id)!.currentStock;
+    expect(stockOf(atA.id)).toBe(900);
+    expect(stockOf(atB.id)).toBe(200); // dyer A's lace is not dyer B's to plan with
+    expect(stockOf(unassigned.id)).toBe(900);
+
+    const reservedOn = async (id: string) =>
+      Number((await prisma.lace_stock.findUniqueOrThrow({ where: { id } })).quantityReserved ?? 0);
+    await request(app)
+      .post(`/api/mrp/requirements/${atB.id}/allocate-stock`)
+      .set(authHeader)
+      .send({ quantity: 100 })
+      .expect(200);
+    expect(await reservedOn(storeLot.id)).toBe(100);
+    expect(await reservedOn(laceLotId)).toBe(0);
+    await request(app)
+      .post(`/api/mrp/requirements/${atA.id}/allocate-stock`)
+      .set(authHeader)
+      .send({ quantity: 100 })
+      .expect(200);
+    expect(await reservedOn(laceLotId)).toBe(100); // its own dyer's lace first
+    await prisma.lace_stock.updateMany({
+      where: { id: { in: [laceLotId, storeLot.id] } },
+      data: { quantityReserved: 0 },
+    });
+
+    // Allocating or issuing to our production floor: only store lace is offered, unit lace is refused
+    const offered = await getAvailableStockForLace(greigeLaceId);
+    expect(offered.stocks.map((l) => l.id)).toEqual([storeLot.id]);
+    const allocate = await request(app)
+      .post(`/api/lace-stock/${laceLotId}/allocate`)
+      .set(authHeader)
+      .send({ orderId: randomUUID(), styleId: randomUUID(), quantityToAllocate: 50 });
+    expect(allocate.status).toBe(422);
+    expect(allocate.body.details).toMatchObject({ code: 'LACE_AT_PROCESSOR' });
+    await expect(
+      createLaceIssueNote({
+        orderId: randomUUID(),
+        styleId: randomUUID(),
+        stockId: laceLotId,
+        laceId: greigeLaceId,
+        issuedQuantity: 50,
+        issuedById: userId,
+      })
+    ).rejects.toMatchObject({ details: { code: 'LACE_AT_PROCESSOR' } });
+    expect(Number((await prisma.lace_stock.findUniqueOrThrow({ where: { id: laceLotId } })).quantityAvailable)).toBe(
+      700
+    );
+    await prisma.lace_stock.delete({ where: { id: storeLot.id } });
   });
 
   it('refuses reversing the lace receipt once some of it was drawn', async () => {

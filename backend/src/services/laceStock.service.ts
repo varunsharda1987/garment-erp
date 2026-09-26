@@ -15,6 +15,8 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 import { toCurrency, multiplyCurrency, toNumber, roundToCent, Decimal } from '../utils/currency'; // BUG-LAC8 fix
 import { applySearch } from '../utils/search-filter';
 import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
+import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit, notInProcessorUnitWhere } from './helpers/lot-location.helper';
+import { BusinessError } from '../errors';
 
 // ============================================================================
 // INTERFACES
@@ -354,7 +356,8 @@ export async function getAllLaceStock(filters: LaceStockFilters = {}) {
 }
 
 /**
- * Get available stock for a lace item (for allocation)
+ * Get available stock for a lace item (for allocation). Lace sitting in a processor's unit is left
+ * out: it is at the dyer, so it cannot be allocated to our production floor from where it lies.
  */
 export async function getAvailableStockForLace(laceId: string, minQuantity: number = 0) {
   const stocks = await prisma.lace_stock.findMany({
@@ -362,6 +365,7 @@ export async function getAvailableStockForLace(laceId: string, minQuantity: numb
       laceId,
       status: 'AVAILABLE',
       quantityAvailable: { gt: minQuantity },
+      ...notInProcessorUnitWhere(),
     },
     include: {
       laceMaster: {
@@ -418,6 +422,27 @@ export async function getAvailableStockForLace(laceId: string, minQuantity: numb
 // ============================================================================
 
 /**
+ * Refuse to allocate or issue a lace lot that sits in a processor's unit. It is physically at the dyer
+ * (delivered straight there, or waiting to be dyed): that processor's job draws it where it lies, and it
+ * reaches our floor only by coming back to a store first.
+ */
+export function assertLaceInOurStore(
+  lot: {
+    lotNumber?: string | null;
+    warehouse?: { warehouseName: string; warehouseType: string; supplier?: { name: string } | null } | null;
+  },
+  action: string
+): void {
+  if (!lotInProcessorUnit(lot)) return;
+  const where = lot.warehouse?.supplier?.name ?? lot.warehouse?.warehouseName ?? 'a processor';
+  throw new BusinessError(
+    `Lace lot ${lot.lotNumber ?? ''} is at ${where}, not in our store, so it cannot be ${action}. ` +
+      `A job at ${where} can use it where it lies; bring it back to a store first to use it here.`,
+    { code: 'LACE_AT_PROCESSOR' }
+  );
+}
+
+/**
  * Allocate stock to an order/style
  */
 export async function allocateStock(input: AllocateStockInput) {
@@ -430,6 +455,8 @@ export async function allocateStock(input: AllocateStockInput) {
       originStyleId: true,
       originStyleCode: true,
       originOrderId: true,
+      lotNumber: true,
+      warehouse: { select: LOT_WAREHOUSE_SELECT },
     },
   });
 
@@ -440,6 +467,8 @@ export async function allocateStock(input: AllocateStockInput) {
   if (stock.status !== 'AVAILABLE') {
     throw new Error('Stock is not available for allocation');
   }
+
+  assertLaceInOurStore(stock, 'allocated to production');
 
   const available = Number(stock.quantityAvailable);
   if (qtyExceeds(input.quantityToAllocate, available)) {

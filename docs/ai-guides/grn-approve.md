@@ -26,6 +26,9 @@ keywords:
   - job work challan on grn
   - delivery point
   - डिलीवरी पॉइंट
+  - thread receipt
+  - cones received
+  - धागा प्राप्त
 sources:
   - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
@@ -36,6 +39,7 @@ sources:
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/helpers/po-delivery-plan.helper.ts
+  - backend/src/services/thread-stock.service.ts
 route: /procurement/grn
 ---
 
@@ -57,6 +61,7 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 - GRN status becomes **Accepted** and your name is stamped as approver.
 - Accepted quantity is added to stock: greige goes to greige stock, fabric to fabric stock, lace to lace stock, thread to thread stock, and other materials to Stock Levels for the chosen warehouse. Trims (buttons, zippers, labels, packaging …) also get their own stock lot, so they show on every stock screen; a label that comes in sizes is stocked size by size. A Stock In movement is recorded for the audit trail.
 - Buttons received in gross are stocked in pieces: 16 gross accepted = 2,304 pcs in stock at the price per piece. The GRN and the PO keep showing gross.
+- Thread received in boxes is stocked in cones or tubes: 2 boxes of Cone 3-ply accepted = 20 cones, at the price per cone. Each pack is its own stock item ("… - Cone 3-ply", "… - Tube 3-ply"), never added together. The GRN and the PO keep showing boxes.
 - The PO receiving status is recomputed — it becomes Partially Received or Received.
 - Rejected quantity is taken back off the PO's received counter so the shortfall can be re-ordered, and is logged as an adjustment-out movement.
 - Receiving greige can automatically ready the linked processing work.
@@ -71,5 +76,6 @@ Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) a
 - Approval is one-way from this screen — you cannot re-approve or re-edit an Accepted GRN here.
 - If two people approve the same GRN at once, the second one gets "GRN is no longer PENDING_QC". Refresh and check the status.
 - An inactive warehouse is rejected. Pick an active one.
+- Reversing a GRN whose thread or trim lot has already been partly used is refused ("… has already been used. Take those back first, then reverse.").
 - Reversing a **Job work return** takes back only that receipt's lot and inward challan. A job received in parts keeps its other parts; its total is recomputed, and if the reversed receipt was the final delivery the job goes back to **Partial Receipt** so the last delivery can be entered again.
 - A **Job work return** cannot be rejected or re-approved here — it is already accepted. If the count was wrong, ask an admin to reverse it: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved.

@@ -16,6 +16,13 @@ keywords:
   - reorder level
   - inventory dashboard
   - material stock check
+  - thread stock
+  - cone stock
+  - tube stock
+  - dhaga stock
+  - kitne cone bache
+  - धागा स्टॉक
+  - कोन स्टॉक
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -24,6 +31,7 @@ sources:
   - frontend/src/pages/StockLevelList.tsx
   - frontend/src/pages/StockDashboard.tsx
   - frontend/src/components/WarehouseCombobox.tsx
+  - backend/src/services/helpers/thread-pack.helper.ts
 route: /inventory/stock-levels
 ---
 
@@ -41,6 +49,7 @@ route: /inventory/stock-levels
 ## Notes
 
 - The same material can appear on more than one row if it is kept in more than one warehouse. Add the rows up for the total.
+- A thread shows one row per pack it is stocked in — for example "… - Cone 3-ply" and "… - Tube 3-ply" — each counted in cones or tubes. Cones and tubes are never added together, so do not add those rows up.
 - The count at the bottom ("Showing N stock levels") reflects the filters currently applied, not the whole factory.
 - For a summary of the whole inventory instead of a list, open **Inventory → Inventory Dashboard** (the page is titled **Unified Inventory Dashboard**). Its **Finished Fabric Stock** and **Generic Greige Stock** cards each have a **View Details** button, and the **Trim & Accessories Stock** card has **View All Stock Levels**. The greige card shows five tiles: **Total Meters**, **Total Value**, **Bales**, **Thans** and **Aging (>180d)**.
 - Greige and finished fabric also have their own detailed screens: **Inventory → Greige Stock** and **Inventory → Fabric Stock**. Use those when you need roll numbers, lot detail or ageing.

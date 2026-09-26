@@ -48,7 +48,14 @@ import { customerService } from '../services/customer.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { resolveGreigeCost, isGreigeRateStale, greigeSourceLabel, describeLiveRate } from '../utils/greigeRate';
+import {
+  resolveGreigeCost,
+  isGreigeRateStale,
+  greigeSourceLabel,
+  describeLiveRate,
+  needsGreigeReason,
+  sameRate,
+} from '../utils/greigeRate';
 import type {
   FabricCostingRow,
   FabricForCosting,
@@ -278,15 +285,21 @@ function GreigeCostCell({
   const label = greigeSourceLabel(row.greigeCostSource);
   const liveDescription = describeLiveRate(row);
   const missing = row.greigeCostPerMeter == null || row.greigeCostPerMeter <= 0;
+  // A typed rate that departs from today's price must say why (the save refuses without it)
+  const manualAndStale = row.greigeCostSource === 'MANUAL' && stale;
+  const reasonMissing = needsGreigeReason(row);
 
-  const applyLive = () => onChange({ greigeCostPerMeter: live, greigeCostSource: row.liveGreigeCostSource });
+  const applyLive = () =>
+    onChange({ greigeCostPerMeter: live, greigeCostSource: row.liveGreigeCostSource, greigeRateOverrideReason: null });
 
   const title = missing
     ? 'No greige rate available — enter one, or set a rate on the Greige Master'
     : [
         row.greigeCostSource === 'COMMITTED' ? 'The rate this costing was saved at' : null,
-        row.greigeCostSource === 'MANUAL' ? 'Manually entered' : null,
-        liveDescription ? `Live: ₹${live}/m ${liveDescription}` : null,
+        row.greigeCostSource === 'MANUAL'
+          ? `Entered by hand${row.greigeRateOverrideReason ? ` — ${row.greigeRateOverrideReason}` : ''}`
+          : null,
+        liveDescription ? `Live: ₹${live}/m · ${liveDescription}` : null,
       ]
         .filter(Boolean)
         .join(' · ');
@@ -308,9 +321,13 @@ function GreigeCostCell({
           value={row.greigeCostPerMeter ?? ''}
           onChange={(e) => {
             const parsed = parseFloat(e.target.value);
+            const value = Number.isFinite(parsed) ? parsed : null;
+            // Typing the live rate back is not a manual rate — keep its source, drop any reason
+            const isLive = sameRate(value, live);
             onChange({
-              greigeCostPerMeter: Number.isFinite(parsed) ? parsed : null,
-              greigeCostSource: 'MANUAL',
+              greigeCostPerMeter: value,
+              greigeCostSource: isLive ? row.liveGreigeCostSource : 'MANUAL',
+              ...(isLive ? { greigeRateOverrideReason: null } : {}),
             });
           }}
           title={title}
@@ -330,14 +347,14 @@ function GreigeCostCell({
       {/* No label at all when nothing resolved — this used to read "default" over an empty box */}
       {label && !missing && (
         <span
-          className={`text-[8px] mt-0.5 ${
+          className={`text-[10px] mt-0.5 ${
             row.greigeCostSource === 'MANUAL'
               ? 'text-warning'
               : row.greigeCostSource === 'COMMITTED'
                 ? 'text-muted-foreground'
-                : row.greigeCostSource === 'GREIGE_PROCUREMENT'
+                : row.greigeCostSource === 'PURCHASE_ORDER' || row.greigeCostSource === 'PROCUREMENT'
                   ? 'text-info'
-                  : row.greigeCostSource === 'GREIGE_STOCK'
+                  : row.greigeCostSource === 'STOCK_VALUATION'
                     ? 'text-success'
                     : 'text-muted-foreground'
           }`}
@@ -346,11 +363,31 @@ function GreigeCostCell({
           {label}
         </span>
       )}
-      {missing && <span className="text-[8px] mt-0.5 text-destructive">rate required</span>}
+      {missing && <span className="text-[10px] mt-0.5 text-destructive">rate required</span>}
+      {/* Today's price, named — e.g. "Use ₹67 · PO2609-0004" — one click to adopt it */}
       {stale && !missing && (
-        <span className="text-[8px] text-info mt-0.5" title={liveDescription ?? undefined}>
-          live ₹{live}
-        </span>
+        <button
+          type="button"
+          className="text-[10px] text-info mt-0.5 hover:underline whitespace-nowrap"
+          onClick={applyLive}
+          title={liveDescription ? `Live: ₹${live}/m · ${liveDescription}` : undefined}
+        >
+          Use ₹{live}
+          {row.liveGreigeCostSource === 'PURCHASE_ORDER' && row.liveGreigeCostSourceRef
+            ? ` · ${row.liveGreigeCostSourceRef}`
+            : ''}
+        </button>
+      )}
+      {manualAndStale && (
+        <Input
+          placeholder="Reason *"
+          aria-label="Reason for a greige rate different from the live rate"
+          className={`w-24 h-5 mt-0.5 px-1 text-[10px] ${reasonMissing ? 'border-warning bg-warning-muted' : ''}`}
+          value={row.greigeRateOverrideReason ?? ''}
+          maxLength={300}
+          onChange={(e) => onChange({ greigeRateOverrideReason: e.target.value })}
+          title="Why this rate differs from the live one — e.g. supplier quote"
+        />
       )}
     </div>
   );
@@ -2056,6 +2093,17 @@ export default function FabricCostingPage() {
       (row) => !missingGreige.includes(row) && !missingProcessingRate.includes(row) && !approvedRows.includes(row)
     );
 
+    // A typed greige rate that departs from today's price needs its reason — the API refuses the
+    // whole save without one, so name the rows here instead of sending it
+    const reasonMissing = rowsToSave.filter((row) => row.costInputMode === 'BUILD_UP' && needsGreigeReason(row));
+    if (reasonMissing.length > 0) {
+      notify.error(
+        `Enter a reason for the greige rate typed on ${reasonMissing.map(describeRow).join(', ')} — it differs from ` +
+          `the live rate. Or click "Use ₹…" to take the live rate.`
+      );
+      return;
+    }
+
     if (rowsToSave.length === 0) {
       const hasMissingPrices =
         missingGreige.length > 0 || missingProcessingRate.length > 0 || missingLandedPrice.length > 0;
@@ -2122,6 +2170,11 @@ export default function FabricCostingPage() {
             // Greige and Transport
             greigeId: row.greigeId,
             greigeCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.greigeCostPerMeter : null,
+            // Why a typed rate departs from the live one; the server labels the rate MANUAL_OVERRIDE with it
+            greigeRateOverrideReason:
+              row.costInputMode === 'BUILD_UP' && row.greigeCostSource === 'MANUAL'
+                ? row.greigeRateOverrideReason?.trim() || null
+                : null,
             transportCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.transportCostPerMeter : null,
             // Processing
             processorId: row.processorId,

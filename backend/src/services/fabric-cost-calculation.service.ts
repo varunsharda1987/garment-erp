@@ -18,7 +18,7 @@
  */
 
 import prisma from '../config/database';
-import { getGreigeWAC } from './helpers/derived-stock.helper';
+import { resolveLiveGreigeRates } from './helpers/greige-live-rate.helper';
 import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, PrintingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
 import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
@@ -83,8 +83,12 @@ export interface GreigeProcessingOption {
   };
   details: string;
   // Rate source info
-  greigeRateSource: 'PROCUREMENT' | 'STOCK_WAC' | 'GREIGE_MASTER' | null;
+  // The live greige rate's source (greige-live-rate.helper — the one lookup every screen shares)
+  greigeRateSource: 'PURCHASE_ORDER' | 'PROCUREMENT' | 'STOCK_VALUATION' | 'GREIGE_MASTER' | null;
+  /** The document behind it: PO number for PURCHASE_ORDER, procurement id for PROCUREMENT */
+  greigeRateRef?: string | null;
   processingRateSource: 'RATE_CARD' | 'PROCESSOR_DEFAULT' | null;
+  /** The date of the live rate's source (PO date / purchase date / lot received date) */
   greigeProcurementDate: string | null;
   rateCardEffectiveDate: string | null;
   lastUpdated: string | null;
@@ -403,46 +407,15 @@ async function calculateGreigeProcessingCost(
     };
   }
 
-  // Get greige cost with priority: procurement → stock → greige_master
-  // 1. First try latest procurement
-  const latestGreigeProcurement = await prisma.fabric_procurement.findFirst({
-    where: {
-      greigeId: fabric.greigeId,
-      procurementType: 'GREIGE',
-      status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
-    },
-    orderBy: { purchaseDate: 'desc' },
-  });
-
-  // 2. If no procurement, check greige stock for valuation rate (WAC)
-  // T2-1 Stage C: derived greige WAC (in-stock gate from derived qty, rate + asOf from stock_settings — the
-  // live WAC home) instead of stock_levels.findFirst. getGreigeWAC verified to pick the same lowest rate.
-  const greigeWac = await getGreigeWAC(fabric.greigeId);
-
-  // 3. Priority: procurement rate → stock valuation rate → greige master default cost
-  let greigeCostPerMeter: number | null = null;
-  let greigeRateSource: 'PROCUREMENT' | 'STOCK_WAC' | 'GREIGE_MASTER' | null = null;
-  let greigeProcurementDate: string | null = null;
-  let greigeLastUpdated: string | null = null;
-
-  if (latestGreigeProcurement) {
-    greigeCostPerMeter = Number(latestGreigeProcurement.ratePerUnit);
-    greigeRateSource = 'PROCUREMENT';
-    greigeProcurementDate = latestGreigeProcurement.purchaseDate
-      ? new Date(latestGreigeProcurement.purchaseDate).toISOString()
-      : null;
-    greigeLastUpdated = latestGreigeProcurement.updatedAt
-      ? new Date(latestGreigeProcurement.updatedAt).toISOString()
-      : null;
-  } else if (greigeWac?.rate) {
-    greigeCostPerMeter = Number(greigeWac.rate);
-    greigeRateSource = 'STOCK_WAC';
-    greigeLastUpdated = greigeWac.asOf ? new Date(greigeWac.asOf).toISOString() : null;
-  } else if (fabric.greige.costPerMeter) {
-    greigeCostPerMeter = Number(fabric.greige.costPerMeter);
-    greigeRateSource = 'GREIGE_MASTER';
-    greigeLastUpdated = fabric.greige.updatedAt ? new Date(fabric.greige.updatedAt).toISOString() : null;
-  }
+  // The live greige rate — the same lookup Fabric Costing and CAD Planning show: the newest placed
+  // greige PO or receipt, else the greige master default (greige-live-rate.helper). This used to
+  // read received purchases only, then the stock valuation average, so a new PO never reached here.
+  const live = (await resolveLiveGreigeRates([fabric.greigeId])).get(fabric.greigeId);
+  const greigeCostPerMeter: number | null = live?.rate ?? null;
+  const greigeRateSource = live && live.source !== 'MANUAL_OVERRIDE' ? live.source : null;
+  const greigeRateRef = live?.ref ?? null;
+  const greigeProcurementDate: string | null = live?.date ? live.date.toISOString() : null;
+  const greigeLastUpdated: string | null = greigeProcurementDate;
 
   if (!greigeCostPerMeter) {
     return {
@@ -491,6 +464,7 @@ async function calculateGreigeProcessingCost(
       },
       details: 'Cannot determine processing type',
       greigeRateSource,
+      greigeRateRef,
       processingRateSource: null,
       greigeProcurementDate,
       rateCardEffectiveDate: null,
@@ -521,6 +495,7 @@ async function calculateGreigeProcessingCost(
       details:
         'Printed fabric needs a printing type (Pigment / Procian / Discharge / Pigment+Discharge) before processors can be compared — printing rates are held per printing type.',
       greigeRateSource,
+      greigeRateRef,
       processingRateSource: null,
       greigeProcurementDate,
       rateCardEffectiveDate: null,
@@ -567,6 +542,7 @@ async function calculateGreigeProcessingCost(
       },
       details: `No processor rate found for ${processingType} of ${fabric.greige.greigeName || 'greige'}`,
       greigeRateSource,
+      greigeRateRef,
       processingRateSource: null,
       greigeProcurementDate,
       rateCardEffectiveDate: null,
@@ -601,6 +577,7 @@ async function calculateGreigeProcessingCost(
     },
     details: `Greige: ₹${greigeCostPerMeter}/m + ${processingType}: ₹${processingCostPerMeter.toFixed(2)}/m from ${bestRate.processorName} (${bestRate.slabLabel}) = ₹${totalPerMeter.toFixed(2)}/m`,
     greigeRateSource,
+    greigeRateRef,
     processingRateSource: 'RATE_CARD',
     greigeProcurementDate,
     rateCardEffectiveDate,

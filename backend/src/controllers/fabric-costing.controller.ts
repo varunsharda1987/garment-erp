@@ -11,6 +11,11 @@ import prisma from '../config/database';
 import { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 import { AppError, NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors';
 import { getCadCostingDependents } from '../services/helpers/cad-costing-provenance.helper';
+import {
+  resolveLiveGreigeRates,
+  greigeRateProvenance,
+  GreigeRateProvenance,
+} from '../services/helpers/greige-live-rate.helper';
 import { logInfo } from '../utils/logger';
 
 /**
@@ -163,41 +168,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
                 include: {
                   greige: {
                     include: {
-                      // Include latest greige procurement to get last procured rate
-                      fabricProcurements: {
-                        where: {
-                          procurementType: 'GREIGE',
-                          status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
-                        },
-                        orderBy: {
-                          purchaseDate: 'desc',
-                        },
-                        take: 1,
-                        select: {
-                          id: true,
-                          ratePerUnit: true,
-                          quantityPurchased: true,
-                          purchaseDate: true,
-                          // Named on the costing page's live-rate line so the user can see
-                          // WHOSE purchase set the price before adopting it
-                          supplier: { select: { name: true } },
-                        },
-                      },
-                      // Include latest greige stock for direct stock entries
-                      greigeStock: {
-                        where: {
-                          purchaseCost: { not: null },
-                        },
-                        orderBy: {
-                          receivedDate: 'desc',
-                        },
-                        take: 1,
-                        select: {
-                          id: true,
-                          purchaseCost: true,
-                          receivedDate: true,
-                        },
-                      },
+                      // (The live greige rate is resolved once for the whole page below —
+                      // greige-live-rate.helper — not per include.)
                       // Include finished fabrics for generic fabric stock badge fallback
                       finishedFabrics: {
                         select: {
@@ -253,79 +225,11 @@ export async function getStyleFabrics(req: Request, res: Response) {
               fabricCAD: {
                 include: {
                   // Include greige selected in CAD Planning
-                  greige: {
-                    include: {
-                      fabricProcurements: {
-                        where: {
-                          procurementType: 'GREIGE',
-                          status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
-                        },
-                        orderBy: {
-                          purchaseDate: 'desc',
-                        },
-                        take: 1,
-                        select: {
-                          id: true,
-                          ratePerUnit: true,
-                          quantityPurchased: true,
-                          purchaseDate: true,
-                          // Named on the costing page's live-rate line so the user can see
-                          // WHOSE purchase set the price before adopting it
-                          supplier: { select: { name: true } },
-                        },
-                      },
-                      greigeStock: {
-                        where: {
-                          purchaseCost: { not: null },
-                        },
-                        orderBy: {
-                          receivedDate: 'desc',
-                        },
-                        take: 1,
-                        select: {
-                          id: true,
-                          purchaseCost: true,
-                          receivedDate: true,
-                        },
-                      },
-                    },
-                  },
+                  greige: true,
                 },
               },
               selectedGreige: {
                 include: {
-                  // Include latest greige procurement for selectedGreige as well
-                  fabricProcurements: {
-                    where: {
-                      procurementType: 'GREIGE',
-                      status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
-                    },
-                    orderBy: {
-                      purchaseDate: 'desc',
-                    },
-                    take: 1,
-                    select: {
-                      id: true,
-                      ratePerUnit: true,
-                      quantityPurchased: true,
-                      purchaseDate: true,
-                      supplier: { select: { name: true } },
-                    },
-                  },
-                  greigeStock: {
-                    where: {
-                      purchaseCost: { not: null },
-                    },
-                    orderBy: {
-                      receivedDate: 'desc',
-                    },
-                    take: 1,
-                    select: {
-                      id: true,
-                      purchaseCost: true,
-                      receivedDate: true,
-                    },
-                  },
                   // BUG-GF4 fix: Include finished fabrics auto-created from this greige
                   finishedFabrics: {
                     where: { isActive: true },
@@ -385,35 +289,6 @@ export async function getStyleFabrics(req: Request, res: Response) {
                       greigeCode: true,
                       costPerMeter: true,
                       averageShrinkagePercent: true, // For shrinkage fallback when no processor rate
-                      fabricProcurements: {
-                        where: {
-                          procurementType: 'GREIGE',
-                          status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
-                        },
-                        orderBy: { purchaseDate: 'desc' },
-                        take: 1,
-                        select: {
-                          id: true,
-                          ratePerUnit: true,
-                          quantityPurchased: true,
-                          purchaseDate: true,
-                          // Named on the costing page's live-rate line so the user can see
-                          // WHOSE purchase set the price before adopting it
-                          supplier: { select: { name: true } },
-                        },
-                      },
-                      greigeStock: {
-                        where: {
-                          purchaseCost: { not: null },
-                        },
-                        orderBy: { receivedDate: 'desc' },
-                        take: 1,
-                        select: {
-                          id: true,
-                          purchaseCost: true,
-                          receivedDate: true,
-                        },
-                      },
                       // BUG-GF4 fix: Include finished fabrics auto-created from this greige
                       // so generic fabrics (no fabricId) can show stock from processed fabric
                       finishedFabrics: {
@@ -609,43 +484,6 @@ export async function getStyleFabrics(req: Request, res: Response) {
           const greige = cadRow.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
           const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
 
-          // Get latest prices from both procurement and direct stock entry
-          const greigeProcurements = greige?.fabricProcurements || [];
-          const latestProcurement = greigeProcurements[0];
-          const procurementRate = latestProcurement?.ratePerUnit ? Number(latestProcurement.ratePerUnit) : null;
-          const procurementDate = latestProcurement?.purchaseDate ? new Date(latestProcurement.purchaseDate) : null;
-
-          const greigeStockEntries = greige?.greigeStock || [];
-          const latestStock = greigeStockEntries[0];
-          const stockRate = latestStock?.purchaseCost ? Number(latestStock.purchaseCost) : null;
-          const stockDate = latestStock?.receivedDate ? new Date(latestStock.receivedDate) : null;
-
-          // Determine greige cost: use most recent price from either source
-          let greigeCostPerMeter: number | null = null;
-          // null (not 'GREIGE_MASTER') when nothing resolves: a row with no rate anywhere used to
-          // claim a Greige Master default it does not have, rendering "default" over an empty box.
-          let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' | null = null;
-
-          if (procurementDate && stockDate) {
-            // Both exist - use more recent
-            if (procurementDate > stockDate) {
-              greigeCostPerMeter = procurementRate;
-              greigeCostSource = 'GREIGE_PROCUREMENT';
-            } else {
-              greigeCostPerMeter = stockRate;
-              greigeCostSource = 'GREIGE_STOCK';
-            }
-          } else if (procurementRate !== null) {
-            greigeCostPerMeter = procurementRate;
-            greigeCostSource = 'GREIGE_PROCUREMENT';
-          } else if (stockRate !== null) {
-            greigeCostPerMeter = stockRate;
-            greigeCostSource = 'GREIGE_STOCK';
-          } else if (greigeDefaultCost !== null) {
-            greigeCostPerMeter = greigeDefaultCost;
-            greigeCostSource = 'GREIGE_MASTER';
-          }
-
           // Calculate per-piece consumption (cadAverage)
           // Priority: 1) stored cadAverage, 2) calculate from cadMeters + size breakdowns
           let perPieceConsumption: number | null = null;
@@ -676,10 +514,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
             greigeName: greige?.greigeName || null,
             greigeCode: greige?.greigeCode || null,
             greigeDefaultCost,
-            greigeStockCost: procurementRate,
-            greigeCostPerMeter,
-            greigeCostSource,
-            greigeStockAvailable: latestProcurement ? Number(latestProcurement.quantityPurchased) : null,
+            // The LIVE rate and its provenance (greigeCostPerMeter / greigeCostSource / …Date /
+            // …Supplier / …Ref) are filled for every row in one lookup after this loop.
             // Include existing costing data from CAD row if available
             processorId: cadRow.processorId || null,
             processorName: cadRow.processor?.name || null,
@@ -688,12 +524,12 @@ export async function getStyleFabrics(req: Request, res: Response) {
             // Not a price "source" — the costing page labels the live rate and shows this as the
             // row's committed number, so a new GRN never silently re-prices an approved costing.
             greigeCostPerMeterSaved: cadRow.greigeCostPerMeter != null ? Number(cadRow.greigeCostPerMeter) : null,
-            // Provenance of the LIVE rate, so the page can show "from GRN · Bhuval · 20 Aug"
-            // instead of an unattributed number the user has no way to judge.
-            greigeCostSourceDate:
-              (greigeCostSource === 'GREIGE_PROCUREMENT' ? procurementDate : stockDate)?.toISOString() ?? null,
-            greigeCostSourceSupplier:
-              greigeCostSource === 'GREIGE_PROCUREMENT' ? ((latestProcurement as any)?.supplier?.name ?? null) : null,
+            // What the SAVED rate is labelled (greige-live-rate.helper greigeRateProvenance): a live
+            // source + document, or MANUAL_OVERRIDE with the reason typed for it
+            savedGreigeRateSource: cadRow.greigeRateSource ?? null,
+            savedGreigeRateRef: cadRow.greigeRateSourceRef ?? null,
+            savedGreigeRateDate: cadRow.greigeRateSourceDate?.toISOString() ?? null,
+            savedGreigeRateReason: cadRow.greigeRateOverrideReason ?? null,
             transportCostPerMeter: cadRow.transportCostPerMeter ? Number(cadRow.transportCostPerMeter) : null,
             processingPricePerMeter: cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null,
             // Shrinkage: ONLY from processor rate card (no fallback to greige master)
@@ -730,42 +566,6 @@ export async function getStyleFabrics(req: Request, res: Response) {
         const greige = styleFabric.fabricCAD?.greige || styleFabric.selectedGreige || styleFabric.fabric?.greige;
         const greigeDefaultCost = greige?.costPerMeter ? Number(greige.costPerMeter) : null;
 
-        // Get latest prices from both procurement and direct stock entry
-        const greigeProcurements = greige?.fabricProcurements || [];
-        const latestProcurement = greigeProcurements[0];
-        const procurementRate = latestProcurement?.ratePerUnit ? Number(latestProcurement.ratePerUnit) : null;
-        const procurementDate = latestProcurement?.purchaseDate ? new Date(latestProcurement.purchaseDate) : null;
-
-        const greigeStockEntries = greige?.greigeStock || [];
-        const latestStock = greigeStockEntries[0];
-        const stockRate = latestStock?.purchaseCost ? Number(latestStock.purchaseCost) : null;
-        const stockDate = latestStock?.receivedDate ? new Date(latestStock.receivedDate) : null;
-
-        // Determine greige cost: use most recent price from either source
-        let greigeCostPerMeter: number | null = null;
-        // null when nothing resolves — see the CAD branch above
-        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' | null = null;
-
-        if (procurementDate && stockDate) {
-          // Both exist - use more recent
-          if (procurementDate > stockDate) {
-            greigeCostPerMeter = procurementRate;
-            greigeCostSource = 'GREIGE_PROCUREMENT';
-          } else {
-            greigeCostPerMeter = stockRate;
-            greigeCostSource = 'GREIGE_STOCK';
-          }
-        } else if (procurementRate !== null) {
-          greigeCostPerMeter = procurementRate;
-          greigeCostSource = 'GREIGE_PROCUREMENT';
-        } else if (stockRate !== null) {
-          greigeCostPerMeter = stockRate;
-          greigeCostSource = 'GREIGE_STOCK';
-        } else if (greigeDefaultCost !== null) {
-          greigeCostPerMeter = greigeDefaultCost;
-          greigeCostSource = 'GREIGE_MASTER';
-        }
-
         // Use legacy cadAverageMeters or fabricCAD
         let cadMeters: number | null = null;
         if (styleFabric.cadAverageMeters) {
@@ -793,22 +593,27 @@ export async function getStyleFabrics(req: Request, res: Response) {
           greigeName: greige?.greigeName || null,
           greigeCode: greige?.greigeCode || null,
           greigeDefaultCost,
-          greigeStockCost: procurementRate,
-          greigeCostPerMeter,
-          greigeCostSource,
-          greigeStockAvailable: latestProcurement ? Number(latestProcurement.quantityPurchased) : null,
-          // Live-rate provenance, same contract as the CAD branch. NOTE: deliberately no
+          // Live rate filled after the loop, same contract as the CAD branch. NOTE: deliberately no
           // totalCostPerMeter here — legacy rows carry id = style_fabrics.id, and a total would
           // push them into the frontend's restore branch, which saves against a CAD id that
           // does not exist for them.
-          greigeCostSourceDate:
-            (greigeCostSource === 'GREIGE_PROCUREMENT' ? procurementDate : stockDate)?.toISOString() ?? null,
-          greigeCostSourceSupplier:
-            greigeCostSource === 'GREIGE_PROCUREMENT' ? ((latestProcurement as any)?.supplier?.name ?? null) : null,
           widthOptions: [],
         });
       }
     }
+  }
+
+  // The LIVE greige rate for every row, from ONE lookup: the newest placed PO or receipt
+  // (greige-live-rate.helper). greigeCostSource is null when nothing resolves — a row with no rate
+  // anywhere used to claim a Greige Master default it does not have.
+  const liveRates = await resolveLiveGreigeRates(fabricsForCosting.map((f) => f.greigeId));
+  for (const row of fabricsForCosting) {
+    const live = row.greigeId ? liveRates.get(row.greigeId) : undefined;
+    row.greigeCostPerMeter = live?.rate ?? null;
+    row.greigeCostSource = live?.source ?? null;
+    row.greigeCostSourceDate = live?.date?.toISOString() ?? null;
+    row.greigeCostSourceSupplier = live?.supplierName ?? null;
+    row.greigeCostSourceRef = live?.ref ?? null;
   }
 
   res.json(
@@ -1002,9 +807,69 @@ export async function saveFabricCosting(req: Request, res: Response) {
     );
   }
 
+  // Greige rate label (greige-live-rate.helper) — decided for EVERY row before any write, because
+  // the saves below run in parallel: a typed rate without a reason refuses the whole save, not half
+  // of it. The page re-sends untouched rows, so a rate that did not change keeps its label.
+  const userId = req.user?.userId ?? null;
+  const targetRows = targetCadIds.length
+    ? await prisma.fabric_width_cad.findMany({
+        where: { id: { in: targetCadIds } },
+        select: {
+          id: true,
+          greigeId: true,
+          componentName: true,
+          cutableWidth: true,
+          greigeCostPerMeter: true,
+          greigeRateSource: true,
+          greigeRateSourceDate: true,
+          greigeRateSourceRef: true,
+          greigeRateManualOverride: true,
+          greigeRateOverrideReason: true,
+          greigeRateSetById: true,
+        },
+      })
+    : [];
+  const targetById = new Map(targetRows.map((r) => [r.id, r]));
+  const targetOf = (c: any) => targetById.get(c.fabricWidthCadId || c.cloneFromCadId);
+  const greigeOf = (c: any): string | null => c.greigeId || targetOf(c)?.greigeId || null;
+  const liveRates = await resolveLiveGreigeRates(fabricCostings.map(greigeOf));
+  const greigeLabels: Array<GreigeRateProvenance | 'KEEP'> = fabricCostings.map((c: any) => {
+    const target = targetOf(c);
+    const greigeId = greigeOf(c);
+    const live = greigeId ? liveRates.get(greigeId) : undefined;
+    const rate = c.greigeCostPerMeter != null && c.greigeCostPerMeter !== '' ? parseFloat(c.greigeCostPerMeter) : null;
+    const stored = target?.greigeCostPerMeter != null ? Number(target.greigeCostPerMeter) : null;
+    const unchanged =
+      target != null &&
+      greigeId === target.greigeId &&
+      rate != null &&
+      stored != null &&
+      Math.abs(rate - stored) < 0.005;
+    if (unchanged && !(live && Math.abs(rate! - live.rate) < 0.005)) return 'KEEP';
+    return greigeRateProvenance({
+      rate,
+      live,
+      reason: c.greigeRateOverrideReason,
+      userId,
+      rowLabel: target ? `${target.componentName ?? 'Row'} ${Number(target.cutableWidth)}"` : undefined,
+    });
+  });
+  const storedLabel = (row: (typeof targetRows)[number] | undefined): Partial<GreigeRateProvenance> =>
+    row
+      ? {
+          greigeRateSource: row.greigeRateSource,
+          greigeRateSourceDate: row.greigeRateSourceDate,
+          greigeRateSourceRef: row.greigeRateSourceRef,
+          greigeRateManualOverride: row.greigeRateManualOverride != null ? Number(row.greigeRateManualOverride) : null,
+          greigeRateOverrideReason: row.greigeRateOverrideReason,
+          greigeRateSetById: row.greigeRateSetById,
+        }
+      : {};
+
   // Save each fabric costing to fabric_width_cad
   const updates = await Promise.all(
-    fabricCostings.map(async (costing: any) => {
+    fabricCostings.map(async (costing: any, index: number) => {
+      const greigeLabel = greigeLabels[index];
       // CLONE MODE: When quantity changes, create new record instead of updating
       // Frontend sends cloneFromCadId (source record) without fabricWidthCadId (target record)
       if (costing.cloneFromCadId && !costing.fabricWidthCadId) {
@@ -1046,6 +911,8 @@ export async function saveFabricCosting(req: Request, res: Response) {
             greigeId: costing.greigeId || sourceRecord.greigeId,
             // != null (not truthy): a legitimate 0 cost must stay 0, not collapse to null
             greigeCostPerMeter: costing.greigeCostPerMeter != null ? parseFloat(costing.greigeCostPerMeter) : null,
+            // The clone carries the source's label when its rate did not change
+            ...(greigeLabel === 'KEEP' ? storedLabel(targetOf(costing)) : greigeLabel),
             transportCostPerMeter:
               costing.transportCostPerMeter != null ? parseFloat(costing.transportCostPerMeter) : null,
             processingPricePerMeter:
@@ -1122,6 +989,8 @@ export async function saveFabricCosting(req: Request, res: Response) {
         greigeId: costing.greigeId || existingCad.greigeId,
         // != null (not truthy): a legitimate 0 cost must stay 0, not collapse to null
         greigeCostPerMeter: costing.greigeCostPerMeter != null ? parseFloat(costing.greigeCostPerMeter) : null,
+        // Its label: the live source it matches, or MANUAL_OVERRIDE + reason (untouched rate: unchanged)
+        ...(greigeLabel === 'KEEP' ? {} : greigeLabel),
         transportCostPerMeter: costing.transportCostPerMeter != null ? parseFloat(costing.transportCostPerMeter) : null,
         processingPricePerMeter:
           costing.processingCostPerMeter != null ? parseFloat(costing.processingCostPerMeter) : null,
@@ -2104,31 +1973,14 @@ export async function pushFromCAD(req: Request, res: Response) {
     throw new ValidationError('Missing required fields: styleId, cadRowIds (array)');
   }
 
-  // Fetch CAD rows with greige and procurement info
   const cadRows = await prisma.fabric_width_cad.findMany({
     where: {
       id: { in: cadRowIds },
     },
-    include: {
-      greige: {
-        include: {
-          fabricProcurements: {
-            where: {
-              status: { in: ['RECEIVED', 'COMPLETED'] }, // Use received/completed procurements
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-            select: {
-              id: true,
-              ratePerUnit: true, // Correct field name from schema
-              totalCost: true,
-              quantityPurchased: true,
-            },
-          },
-        },
-      },
-    },
   });
+  // The same live greige rate Fabric Costing shows (greige-live-rate.helper): newest placed PO or receipt
+  const liveRates = await resolveLiveGreigeRates(cadRows.map((r) => r.greigeId));
+  const userId = req.user?.userId ?? null;
 
   const createdRows: any[] = [];
   const skippedRows: any[] = [];
@@ -2164,11 +2016,10 @@ export async function pushFromCAD(req: Request, res: Response) {
       continue;
     }
 
-    // Get greige cost from latest procurement
-    const latestProcurement = row.greige?.fabricProcurements?.[0];
-    const greigeCostPerMeter = latestProcurement?.ratePerUnit
-      ? parseFloat(latestProcurement.ratePerUnit.toString())
-      : null;
+    // Seed the live greige rate, labelled with where it came from
+    const live = row.greigeId ? liveRates.get(row.greigeId) : undefined;
+    const greigeCostPerMeter = live?.rate ?? null;
+    const greigeLabel = greigeRateProvenance({ rate: greigeCostPerMeter, live, userId });
     // Note: transport cost is not tracked separately in fabric_procurement
     // It's included in the ratePerUnit or we default to 0
     const transportCostPerMeter = 0;
@@ -2182,6 +2033,7 @@ export async function pushFromCAD(req: Request, res: Response) {
       data: {
         costingStyleId: styleId,
         greigeCostPerMeter,
+        ...greigeLabel,
         transportCostPerMeter,
         totalCostPerMeter,
         // Initialize other costing fields

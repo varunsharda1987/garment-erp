@@ -172,6 +172,7 @@ export const GreigeRateSource = {
   STOCK_VALUATION: 'STOCK_VALUATION',
   GREIGE_MASTER: 'GREIGE_MASTER',
   MANUAL_OVERRIDE: 'MANUAL_OVERRIDE',
+  PURCHASE_ORDER: 'PURCHASE_ORDER',
 } as const;
 export type GreigeRateSource = (typeof GreigeRateSource)[keyof typeof GreigeRateSource];
 

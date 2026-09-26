@@ -26,6 +26,7 @@
  * D16 job work orders sent out with no outward challan    (29-Aug to 25-Sep: fabric-roll / garment issues)
  * D17 Production CADs with no received lot                 (Copy / Promote / purpose edit, before 25-Sep)
  * D18 Production CADs carrying a price or the promote lock (the undeletable "costed PRODUCTION CAD")
+ * D19 greige rates labelled from a purchase/PO that does not carry them (typed rate, stale label)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -322,6 +323,40 @@ async function main() {
     'D18',
     'Production CADs carrying a price or the old promote lock',
     productionCadRows('c."totalCostPerMeter" IS NOT NULL OR c.is_locked')
+  );
+
+  // ---- Fabric Costing: greige rate provenance ---------------------------------------------
+
+  // A saved greige rate labelled with a purchase or PO that does not carry it. Until 2026-09-26 the
+  // costing save wrote a typed rate and left CAD Planning's earlier label beside it, so ₹65 read as
+  // "the 25-Jan purchase" (₹58.5) — 28 rows. A typed rate is now MANUAL_OVERRIDE with a reason
+  // (greige-live-rate.helper greigeRateProvenance).
+  await run(
+    'D19',
+    'Greige rates labelled from a purchase or PO that does not carry them',
+    prisma.$queryRaw`
+      SELECT s."styleCode", s.buyer_style_ref AS buyer_ref, c.purpose, c."greigeCostPerMeter"::float AS stored,
+             c.greige_rate_source::text AS label, c.greige_rate_source_date::date AS label_date,
+             c.greige_rate_source_ref AS ref, c.costing_approval_status::text AS price
+        FROM fabric_width_cad c
+        LEFT JOIN style_fabrics sf ON sf.id = c.style_fabric_id
+        LEFT JOIN style_components sc ON sc.id = sf."componentId"
+        LEFT JOIN styles s ON s.id = COALESCE(sc."styleId", c."costingStyleId")
+       WHERE c."greigeCostPerMeter" IS NOT NULL
+         AND (
+           (c.greige_rate_source = 'PROCUREMENT' AND NOT EXISTS (
+              SELECT 1 FROM fabric_procurement fp
+               WHERE fp."greigeId" = c."greigeId"
+                 AND fp."purchaseDate"::date = c.greige_rate_source_date::date
+                 AND abs(fp."ratePerUnit" - c."greigeCostPerMeter") < 0.005))
+           OR (c.greige_rate_source = 'PURCHASE_ORDER' AND NOT EXISTS (
+              SELECT 1 FROM purchase_order_items poi
+                JOIN purchase_orders po ON po.id = poi."poId"
+               WHERE poi."materialId" = c."greigeId"
+                 AND po."poNumber" = c.greige_rate_source_ref
+                 AND abs(poi."unitPrice" - c."greigeCostPerMeter") < 0.005))
+         )
+       ORDER BY s."styleCode"`
   );
 
   // ---- Output ---------------------------------------------------------------------------

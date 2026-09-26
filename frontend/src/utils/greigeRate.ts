@@ -1,16 +1,19 @@
 /**
  * Which greige rate the Fabric Costing grid shows, and what it is labelled.
  *
- * The price sources are resolved LIVE by the API: latest greige purchase → latest priced stock
- * lot → Greige Master fallback. The rate stored on the CAD row is deliberately NOT one of them —
- * it is the number a finished costing was committed at.
+ * The price sources are resolved LIVE by the API — the newest placed greige PO or receipt (purchase
+ * or priced stock lot), else the Greige Master default (backend greige-live-rate.helper, the one
+ * lookup every screen shares). The rate stored on the CAD row is deliberately NOT one of them — it
+ * is the number a finished costing was committed at.
  *
  * Rules:
  *   - A row that has never been costed shows the live rate, so a new GRN takes effect at once.
  *     (Rows used to display a CAD Planning snapshot taken months earlier — nine live rows were
  *     stuck at a December price while the fabric had been repurchased in August.)
- *   - A costed row keeps its committed number and is labelled "committed", never "manual".
- *     The live rate travels alongside so the page can offer it without ever applying it silently.
+ *   - A costed row keeps its committed number and is labelled "committed" — or "manual" with its
+ *     reason when it was saved as a typed rate (MANUAL_OVERRIDE). The live rate travels alongside
+ *     so the page can offer it without ever applying it silently.
+ *   - A typed rate that departs from the live one needs a reason; the save refuses without it.
  *
  * `??` is used throughout rather than `||`: a genuine ₹0 must not fall through to the next source.
  */
@@ -30,6 +33,9 @@ export interface ResolvedGreigeRate {
   liveGreigeCostSource: LiveGreigeCostSource | null;
   liveGreigeCostSourceDate: string | null;
   liveGreigeCostSourceSupplier: string | null;
+  liveGreigeCostSourceRef: string | null;
+  /** The reason a saved manual rate carries (null for any other label) */
+  greigeRateOverrideReason: string | null;
 }
 
 /**
@@ -48,11 +54,22 @@ export function resolveGreigeCost(fabric: FabricForCosting, isCosted: boolean): 
     liveGreigeCostSource: liveSource,
     liveGreigeCostSourceDate: live == null ? null : (fabric.greigeCostSourceDate ?? null),
     liveGreigeCostSourceSupplier: live == null ? null : (fabric.greigeCostSourceSupplier ?? null),
+    liveGreigeCostSourceRef: live == null ? null : (fabric.greigeCostSourceRef ?? null),
+    greigeRateOverrideReason: null,
   };
 
   // 1. A finished costing keeps the rate it was priced at. Labelled by what it demonstrably is:
   //    if it still equals the live rate there is nothing to flag, so name the live source.
   if (isCosted && committed != null) {
+    // Saved as a typed rate: it stays "manual", with the reason given for it
+    if (fabric.savedGreigeRateSource === 'MANUAL_OVERRIDE' && !sameRate(committed, live)) {
+      return {
+        ...liveInfo,
+        greigeCostPerMeter: committed,
+        greigeCostSource: 'MANUAL',
+        greigeRateOverrideReason: fabric.savedGreigeRateReason ?? null,
+      };
+    }
     return {
       ...liveInfo,
       greigeCostPerMeter: committed,
@@ -94,9 +111,19 @@ export function isGreigeRateStale(row: {
 }
 
 const LIVE_SOURCE_TEXT: Record<LiveGreigeCostSource, string> = {
-  GREIGE_PROCUREMENT: 'from GRN',
-  GREIGE_STOCK: 'from Stock',
+  PURCHASE_ORDER: 'from PO',
+  // A fabric_procurement purchase — not a GRN, which this label used to claim
+  PROCUREMENT: 'from purchase',
+  STOCK_VALUATION: 'from stock',
   GREIGE_MASTER: 'default',
+};
+
+/** The document named first on the live-rate line */
+const LIVE_SOURCE_NOUN: Record<LiveGreigeCostSource, string> = {
+  PURCHASE_ORDER: 'PO',
+  PROCUREMENT: 'purchase',
+  STOCK_VALUATION: 'stock lot',
+  GREIGE_MASTER: 'Greige Master default',
 };
 
 /** Short label under the input, e.g. "from GRN". */
@@ -107,19 +134,41 @@ export function greigeSourceLabel(source: GreigeCostSource | null): string | nul
   return LIVE_SOURCE_TEXT[source];
 }
 
-/** "from GRN · Bhuval Corporation · 20 Aug 2026" for the live-rate line. */
+/** "PO2609-0004 · Hardik International · 21-Sep-2026" (or "purchase · Bhuval · 20-Aug-2026") for the live-rate line. */
 export function describeLiveRate(row: {
   liveGreigeCostPerMeter: number | null;
   liveGreigeCostSource: LiveGreigeCostSource | null;
   liveGreigeCostSourceDate: string | null;
   liveGreigeCostSourceSupplier: string | null;
+  liveGreigeCostSourceRef?: string | null;
 }): string | null {
   if (row.liveGreigeCostPerMeter == null) return null;
-  const parts = [row.liveGreigeCostSource ? LIVE_SOURCE_TEXT[row.liveGreigeCostSource] : null];
+  const source = row.liveGreigeCostSource;
+  const parts = [
+    source === 'PURCHASE_ORDER' && row.liveGreigeCostSourceRef
+      ? row.liveGreigeCostSourceRef
+      : source
+        ? LIVE_SOURCE_NOUN[source]
+        : null,
+  ];
   if (row.liveGreigeCostSourceSupplier) parts.push(row.liveGreigeCostSourceSupplier);
   if (row.liveGreigeCostSourceDate) {
     const d = new Date(row.liveGreigeCostSourceDate);
     if (!isNaN(d.getTime())) parts.push(formatDate(d));
   }
   return parts.filter(Boolean).join(' · ');
+}
+
+/** A typed rate that departs from today's needs a reason before the save will take it. */
+export function needsGreigeReason(row: {
+  greigeCostPerMeter: number | null;
+  liveGreigeCostPerMeter: number | null;
+  greigeCostSource: GreigeCostSource | null;
+  greigeRateOverrideReason: string | null;
+}): boolean {
+  return (
+    row.greigeCostSource === 'MANUAL' &&
+    isGreigeRateStale(row) &&
+    (row.greigeRateOverrideReason?.trim().length ?? 0) < 3
+  );
 }

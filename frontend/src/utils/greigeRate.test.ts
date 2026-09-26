@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { resolveGreigeCost, isGreigeRateStale, greigeSourceLabel, describeLiveRate } from './greigeRate';
+import {
+  resolveGreigeCost,
+  isGreigeRateStale,
+  greigeSourceLabel,
+  describeLiveRate,
+  needsGreigeReason,
+} from './greigeRate';
 import type { FabricForCosting } from '../types/fabricCosting.types';
 
 /** Only the greige-related fields matter; the rest of FabricForCosting is irrelevant here. */
@@ -16,17 +22,17 @@ describe('resolveGreigeCost', () => {
   it('shows the LIVE rate on a row that was never costed, ignoring an older stamp', () => {
     // The reported bug: nine rows stamped ₹42 in December, repurchased at ₹47 in August.
     const r = resolveGreigeCost(
-      fabric({ greigeCostPerMeter: 47, greigeCostSource: 'GREIGE_PROCUREMENT', greigeCostPerMeterSaved: 42 }),
+      fabric({ greigeCostPerMeter: 47, greigeCostSource: 'PROCUREMENT', greigeCostPerMeterSaved: 42 }),
       false
     );
     expect(r.greigeCostPerMeter).toBe(47);
-    expect(r.greigeCostSource).toBe('GREIGE_PROCUREMENT');
+    expect(r.greigeCostSource).toBe('PROCUREMENT');
   });
 
   it('keeps the committed rate on a costed row and never calls it manual', () => {
     // GRG-0017: costed at ₹59 against a 1-metre sample GRN of ₹50. Must not re-price.
     const r = resolveGreigeCost(
-      fabric({ greigeCostPerMeter: 50, greigeCostSource: 'GREIGE_PROCUREMENT', greigeCostPerMeterSaved: 59 }),
+      fabric({ greigeCostPerMeter: 50, greigeCostSource: 'PROCUREMENT', greigeCostPerMeterSaved: 59 }),
       true
     );
     expect(r.greigeCostPerMeter).toBe(59);
@@ -36,11 +42,11 @@ describe('resolveGreigeCost', () => {
 
   it('labels a costed row by its live source when the committed rate still matches', () => {
     const r = resolveGreigeCost(
-      fabric({ greigeCostPerMeter: 47, greigeCostSource: 'GREIGE_STOCK', greigeCostPerMeterSaved: 47 }),
+      fabric({ greigeCostPerMeter: 47, greigeCostSource: 'STOCK_VALUATION', greigeCostPerMeterSaved: 47 }),
       true
     );
     expect(r.greigeCostPerMeter).toBe(47);
-    expect(r.greigeCostSource).toBe('GREIGE_STOCK');
+    expect(r.greigeCostSource).toBe('STOCK_VALUATION');
   });
 
   it('falls back to the committed rate when nothing resolves live', () => {
@@ -63,7 +69,7 @@ describe('resolveGreigeCost', () => {
   });
 
   it('never attaches a source to a null live rate', () => {
-    const r = resolveGreigeCost(fabric({ greigeCostPerMeter: null, greigeCostSource: 'GREIGE_PROCUREMENT' }), false);
+    const r = resolveGreigeCost(fabric({ greigeCostPerMeter: null, greigeCostSource: 'PROCUREMENT' }), false);
     expect(r.liveGreigeCostSource).toBeNull();
   });
 
@@ -71,7 +77,7 @@ describe('resolveGreigeCost', () => {
     const r = resolveGreigeCost(
       fabric({
         greigeCostPerMeter: 47,
-        greigeCostSource: 'GREIGE_PROCUREMENT',
+        greigeCostSource: 'PROCUREMENT',
         greigeCostSourceDate: '2026-08-20T00:00:00.000Z',
         greigeCostSourceSupplier: 'Bhuval Corporation',
         greigeCostPerMeterSaved: 42,
@@ -99,8 +105,10 @@ describe('isGreigeRateStale', () => {
 
 describe('labels', () => {
   it('names each source, and nothing when there is none', () => {
-    expect(greigeSourceLabel('GREIGE_PROCUREMENT')).toBe('from GRN');
-    expect(greigeSourceLabel('GREIGE_STOCK')).toBe('from Stock');
+    expect(greigeSourceLabel('PURCHASE_ORDER')).toBe('from PO');
+    // A fabric_procurement purchase, not a GRN — the label used to claim one
+    expect(greigeSourceLabel('PROCUREMENT')).toBe('from purchase');
+    expect(greigeSourceLabel('STOCK_VALUATION')).toBe('from stock');
     expect(greigeSourceLabel('GREIGE_MASTER')).toBe('default');
     expect(greigeSourceLabel('COMMITTED')).toBe('committed');
     expect(greigeSourceLabel('MANUAL')).toBe('manual');
@@ -110,12 +118,22 @@ describe('labels', () => {
   it('describes the live rate with supplier and date', () => {
     const text = describeLiveRate({
       liveGreigeCostPerMeter: 47,
-      liveGreigeCostSource: 'GREIGE_PROCUREMENT',
+      liveGreigeCostSource: 'PROCUREMENT',
       liveGreigeCostSourceDate: '2026-08-20T00:00:00.000Z',
       liveGreigeCostSourceSupplier: 'Bhuval Corporation',
     });
-    expect(text).toContain('from GRN');
+    expect(text).toContain('purchase');
     expect(text).toContain('Bhuval Corporation');
+  });
+  it('names the PO first when the live rate is a placed PO (PO2609-0004, 2026-09-26)', () => {
+    const text = describeLiveRate({
+      liveGreigeCostPerMeter: 67,
+      liveGreigeCostSource: 'PURCHASE_ORDER',
+      liveGreigeCostSourceDate: '2026-09-21T13:37:46.500Z',
+      liveGreigeCostSourceSupplier: 'Hardik International',
+      liveGreigeCostSourceRef: 'PO2609-0004',
+    });
+    expect(text).toBe('PO2609-0004 · Hardik International · 21-Sep-2026');
   });
 
   it('returns nothing when there is no live rate', () => {
@@ -127,5 +145,32 @@ describe('labels', () => {
         liveGreigeCostSourceSupplier: null,
       })
     ).toBeNull();
+  });
+});
+
+describe('a typed greige rate (IP00138 / IT00254: ₹65 typed against a live ₹58.5)', () => {
+  it('a costed row saved as MANUAL_OVERRIDE stays manual, with its reason', () => {
+    const r = resolveGreigeCost(
+      fabric({
+        greigeCostPerMeter: 58.5,
+        greigeCostSource: 'PROCUREMENT',
+        greigeCostPerMeterSaved: 65,
+        savedGreigeRateSource: 'MANUAL_OVERRIDE',
+        savedGreigeRateReason: 'supplier quote',
+      }),
+      true
+    );
+    expect(r.greigeCostPerMeter).toBe(65);
+    expect(r.greigeCostSource).toBe('MANUAL');
+    expect(r.greigeRateOverrideReason).toBe('supplier quote');
+  });
+
+  it('needs a reason only when a typed rate departs from the live one', () => {
+    const typed = { greigeCostPerMeter: 65, liveGreigeCostPerMeter: 58.5, greigeCostSource: 'MANUAL' as const };
+    expect(needsGreigeReason({ ...typed, greigeRateOverrideReason: null })).toBe(true);
+    expect(needsGreigeReason({ ...typed, greigeRateOverrideReason: 'ok' })).toBe(true); // < 3 characters
+    expect(needsGreigeReason({ ...typed, greigeRateOverrideReason: 'supplier quote' })).toBe(false);
+    expect(needsGreigeReason({ ...typed, greigeCostPerMeter: 58.5, greigeRateOverrideReason: null })).toBe(false);
+    expect(needsGreigeReason({ ...typed, greigeCostSource: 'COMMITTED', greigeRateOverrideReason: null })).toBe(false);
   });
 });

@@ -69,7 +69,10 @@ export interface GreigeProcessingOption {
   };
   details: string;
   // Rate source info
-  greigeRateSource: 'PROCUREMENT' | 'STOCK_WAC' | 'GREIGE_MASTER' | null;
+  // The live greige rate's source — the one lookup every screen shares (greige-live-rate.helper)
+  greigeRateSource: LiveGreigeCostSource | null;
+  /** PO number (PURCHASE_ORDER) or procurement id (PROCUREMENT) behind the rate */
+  greigeRateRef?: string | null;
   processingRateSource: 'RATE_CARD' | 'PROCESSOR_DEFAULT' | null;
   greigeProcurementDate: string | null;
   rateCardEffectiveDate: string | null;
@@ -136,12 +139,12 @@ export type CostInputMode = 'LANDED_PRICE' | 'BUILD_UP';
 /**
  * Where a greige rate came from.
  *
- * The first three are resolved LIVE by the API (latest greige purchase → latest priced stock
- * lot → Greige Master fallback). COMMITTED is the rate a finished costing was priced at — it is
+ * The first four are resolved LIVE by the API — the newest placed greige PO or receipt (purchase or
+ * priced stock lot), else the Greige Master default. COMMITTED is the rate a finished costing was priced at — it is
  * NOT a price source, it is this row's agreed number, kept so a later GRN cannot silently
  * re-price an approved costing. MANUAL is a rate the user typed here.
  */
-export type LiveGreigeCostSource = 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER';
+export type LiveGreigeCostSource = 'PURCHASE_ORDER' | 'PROCUREMENT' | 'STOCK_VALUATION' | 'GREIGE_MASTER';
 export type GreigeCostSource = LiveGreigeCostSource | 'MANUAL' | 'COMMITTED';
 
 // Transport cost mode
@@ -240,15 +243,15 @@ export interface FabricForCosting {
   greigeName: string | null;
   greigeCode: string | null;
   greigeDefaultCost: number | null; // Default cost from greige_master
-  greigeStockCost: number | null; // Cost from latest greige procurement
-  greigeCostPerMeter: number | null; // LIVE rate resolved now (latest purchase → stock lot → master)
+  greigeCostPerMeter: number | null; // LIVE rate resolved now (newest placed PO or receipt → master)
   /** Source of the live rate. null = no rate could be resolved from any source. */
   greigeCostSource: LiveGreigeCostSource | null;
   /** When the live rate was set (purchase date / stock receipt date). */
   greigeCostSourceDate?: string | null;
   /** Supplier behind the live rate, when it came from a purchase. */
   greigeCostSourceSupplier?: string | null;
-  greigeStockAvailable: number | null; // Greige stock quantity available
+  /** The document behind the live rate: PO number, or procurement id. */
+  greigeCostSourceRef?: string | null;
   numberOfColors: number | null;
   // Shrinkage from saved data or greige master fallback
   shrinkagePercent: number | null;
@@ -263,6 +266,11 @@ export interface FabricForCosting {
   totalCostPerMeter?: number | null;
   transportCostPerMeter?: number | null;
   greigeCostPerMeterSaved?: number | null;
+  /** What the SAVED rate is labelled: a live source + document, or MANUAL_OVERRIDE with its reason */
+  savedGreigeRateSource?: LiveGreigeCostSource | 'MANUAL_OVERRIDE' | null;
+  savedGreigeRateRef?: string | null;
+  savedGreigeRateDate?: string | null;
+  savedGreigeRateReason?: string | null;
   // MRP-48d: the processor rate card the saved costs came from, and its printing type
   rateCardId?: string | null;
   printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE' | null;
@@ -369,6 +377,9 @@ export interface FabricCostingRow {
   liveGreigeCostSource: LiveGreigeCostSource | null;
   liveGreigeCostSourceDate: string | null;
   liveGreigeCostSourceSupplier: string | null;
+  liveGreigeCostSourceRef: string | null;
+  /** Why a typed rate departs from the live one — required by the save when it does */
+  greigeRateOverrideReason: string | null;
   transportCostMode: TransportCostMode;
   transportCostPerMeter: number | null;
   transportFixedAmount: number | null;
@@ -474,6 +485,8 @@ export interface FabricCostingSaveItem {
   // Greige and Transport
   greigeId: string | null;
   greigeCostPerMeter: number | null;
+  /** Required by the API when greigeCostPerMeter departs from the live rate */
+  greigeRateOverrideReason?: string | null;
   transportCostPerMeter: number | null;
   // Processing
   processorId: string | null;

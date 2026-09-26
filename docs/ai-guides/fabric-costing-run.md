@@ -5,6 +5,9 @@ keywords:
   # English
   - fabric costing
   - costing run
+  - greige rate from PO
+  - live greige rate
+  - greige rate reason
   - processor cost
   - fabric rate
   - build up cost
@@ -15,6 +18,8 @@ keywords:
   - screen cost
   - fabric cost per meter
   # Hinglish
+  - PO wala rate
+  - greige rate reason kyun
   - fabric costing karna
   - costing run karna
   - fabric ka rate
@@ -26,10 +31,13 @@ keywords:
   - फैब्रिक रेट
   - प्रोसेसर कॉस्ट
   - ग्रेज कॉस्ट
+  - पीओ रेट
+  - ग्रेज रेट का कारण
   - सिकुड़न
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
+  - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/ProcessorRateCardPage.tsx
 route: /fabric-costing
 ---
@@ -91,9 +99,10 @@ The table shows all fabrics from CAD Planning. For each row:
 **For Build Up Mode:**
 
 1. **Greige Rate (Rs/m):**
-   - Auto-filled from Greige Master if available
-   - Shows source label (stock, procurement, manual)
-   - Blue refresh icon appears when a newer rate exists
+   - Filled with the live rate: the newest greige PO or purchase for that greige, else the Greige Master default
+   - The label under the box says where it came from: **from PO**, **from purchase**, **from stock**, **default**, **committed** (the rate a saved costing was priced at) or **manual**
+   - When the box differs from today's rate, a line under it reads **Use ₹67 · PO2609-0004**; click it (or the blue refresh icon) to take the live rate
+   - A typed rate that differs from the live one needs a reason: fill the **Reason** box that appears under it. **Save Costing** names any row still missing one
 
 2. **Transport:**
    - Default Rs 2/m
@@ -150,6 +159,7 @@ The table shows:
 ## Traps
 
 - **Missing greige rate blocks save** - Build Up rows without a greige price cannot be saved. Enter a rate or set one on the Greige Master.
+- **A typed greige rate needs a reason** - If the rate differs from the live one, the save is refused until the **Reason** box under it is filled. Click **Use ₹…** to take the live rate instead.
 
 - **Missing landed price skipped** - Landed Price mode rows without a price are silently excluded from save.
 

@@ -98,7 +98,13 @@ export type OrderBOMStatus = z.infer<typeof OrderBOMStatusEnum>;
 export const VarianceApprovalStatusEnum = z.enum(['NOT_REQUIRED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED']);
 export type VarianceApprovalStatus = z.infer<typeof VarianceApprovalStatusEnum>;
 
-export const GreigeRateSourceEnum = z.enum(['PROCUREMENT', 'STOCK_VALUATION', 'GREIGE_MASTER', 'MANUAL_OVERRIDE']);
+export const GreigeRateSourceEnum = z.enum([
+  'PROCUREMENT',
+  'STOCK_VALUATION',
+  'GREIGE_MASTER',
+  'MANUAL_OVERRIDE',
+  'PURCHASE_ORDER',
+]);
 export type GreigeRateSource = z.infer<typeof GreigeRateSourceEnum>;
 
 export const FabricFinishTypeEnum = z.enum(['DYED', 'PRINTED', 'YARN_DYED', 'RAW']);

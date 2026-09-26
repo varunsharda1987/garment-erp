@@ -55,6 +55,9 @@ export const saveFabricCostingSchema = z.object({
           // Greige and Transport
           greigeId: z.string().uuid().nullable().optional(),
           greigeCostPerMeter: z.number().nonnegative().nullable().optional(),
+          // Why a typed greige rate departs from the live one (newest PO / receipt). The server
+          // requires it then, and saves the rate as MANUAL_OVERRIDE with it (greige-live-rate.helper).
+          greigeRateOverrideReason: z.string().trim().max(300).nullable().optional(),
           transportCostPerMeter: z.number().nonnegative().nullable().optional(),
           // Processing
           processorId: z.string().uuid().nullable().optional(),

@@ -8,6 +8,10 @@ keywords:
   - processing cost
   - fabric cost
   - greige cost
+  - live rate
+  - PO rate
+  - greige rate from PO
+  - manual greige rate reason
   - shrinkage
   - processor rate
   - cost per meter
@@ -32,6 +36,9 @@ keywords:
   - CAD ki costing
   - processing ka rate
   - greige ka rate
+  - PO ka rate
+  - naya PO rate
+  - reason kyun dena hai
   - shrinkage kitna hai
   - meter ka cost
   - processor rate card
@@ -48,6 +55,9 @@ keywords:
   - प्रोसेसिंग कॉस्ट
   - श्रिंकेज
   - ग्रेज रेट
+  - पीओ रेट
+  - लाइव रेट
+  - कारण
   - प्रोसेसर रेट कार्ड
   - मीटर का रेट
   - ट्रांसपोर्ट कॉस्ट
@@ -62,6 +72,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
+  - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/pages/StyleFabricCostingOptionsPage.tsx
   - frontend/src/pages/ProcessorRateCardPage.tsx
@@ -114,9 +125,9 @@ Each row represents one fabric from CAD Planning. You have two costing modes:
 
 Fill in these fields:
 1. **Greige** (per meter) - The raw greige fabric cost
-   - Auto-populated from greige master or recent GRN
-   - You can override manually (shows "manual" label)
-   - If stale, click the refresh icon to use current rate
+   - Filled with the **live rate**: the newest greige PO or purchase for that greige (the label under the box says **from PO**, **from purchase** or **from stock**), else the Greige Master default
+   - When the box differs from today's rate, a line under it reads **Use ₹67 · PO2609-0004** (the live rate and the PO it came from). Click it, or the refresh icon, to take that rate
+   - If you type a different rate, the box turns amber and a **Reason** box appears under it. Write why (for example "supplier quote for the new quality"). **Save Costing** is refused until a reason is filled in, and the rate is saved as **manual** with that reason
    
 2. **Transport** (per meter) - Transport cost to bring greige
    - Default is usually set
@@ -184,6 +195,8 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
 
 - **No CAD data**: If you see "No CAD Data Found" warning, go to CAD Planning first
 - **Missing greige rate**: Enter a rate or set it on the Greige Master
+- **"Enter a reason for the greige rate typed on …"**: you typed a greige rate different from the live one. Fill the **Reason** box under it, or click **Use ₹…** to take the live rate
+- **The PO you expected is not the live rate**: the live rate is read for the exact greige on the row. A PO raised on a different greige master (even with the same generic name) does not count — check the greige in CAD Planning
 - **No processor rate**: If the processor has no rate for this combination, a warning panel
   appears above the table naming the exact reason - for example that the processor has no
   quantity slabs set, does not rate this greige, or does not rate this print type. The

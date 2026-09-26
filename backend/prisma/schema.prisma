@@ -4906,6 +4906,11 @@ model fabric_width_cad {
   greigeRateOverrideReason    String?                      @map("greige_rate_override_reason")
   greigeRateSource            GreigeRateSource?            @map("greige_rate_source")
   greigeRateSourceDate        DateTime?                    @map("greige_rate_source_date")
+  /// The document the greige rate came from: PO number (PURCHASE_ORDER) or procurement id (PROCUREMENT).
+  /// Null for a stock lot, the greige master default or a MANUAL_OVERRIDE. Set by greige-live-rate.helper.
+  greigeRateSourceRef         String?                      @map("greige_rate_source_ref")
+  /// Who saved the greige rate (and so its label) last
+  greigeRateSetById           String?                      @map("greige_rate_set_by_id")
   purposeEnum                 CadPurpose?                  @map("purpose_enum")
   varianceApprovalNotes       String?                      @map("variance_approval_notes")
   varianceApprovalStatus      VarianceApprovalStatus?      @default(NOT_REQUIRED) @map("variance_approval_status")
@@ -9597,6 +9602,8 @@ enum GreigeRateSource {
   STOCK_VALUATION
   GREIGE_MASTER
   MANUAL_OVERRIDE
+  // A placed greige PO's agreed price (2026-09-26). Declared last to match Postgres ADD VALUE.
+  PURCHASE_ORDER
 }
 
 enum FabricFinishType {

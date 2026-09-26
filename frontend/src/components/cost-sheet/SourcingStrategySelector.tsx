@@ -107,8 +107,10 @@ export default function SourcingStrategySelector({
   const getRateSourceLabel = (source: string | null | undefined) => {
     if (!source) return null;
     const labels: Record<string, string> = {
+      PURCHASE_ORDER: 'Purchase Order',
+      STOCK_VALUATION: 'Stock lot',
       STOCK_WAC: 'Stock WAC',
-      PROCUREMENT: 'Procurement',
+      PROCUREMENT: 'Purchase',
       FABRIC_MASTER: 'Fabric Master',
       GREIGE_MASTER: 'Greige Master',
       RATE_CARD: 'Rate Card',
@@ -495,14 +497,20 @@ export default function SourcingStrategySelector({
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent/10 text-accent">
                                 {getRateSourceLabel(greigeProcessing.greigeRateSource)}
                               </span>
-                              {greigeProcessing.greigeRateSource === 'PROCUREMENT' &&
+                              {/* The document and date behind the live rate (greige-live-rate.helper) */}
+                              {(greigeProcessing.greigeRateSource === 'PURCHASE_ORDER' ||
+                                greigeProcessing.greigeRateSource === 'PROCUREMENT' ||
+                                greigeProcessing.greigeRateSource === 'STOCK_VALUATION') &&
                                 greigeProcessing.greigeProcurementDate && (
                                   <span className="text-xs text-muted-foreground">
-                                    PO dated {formatDate(greigeProcessing.greigeProcurementDate)}
+                                    {greigeProcessing.greigeRateSource === 'PURCHASE_ORDER' &&
+                                    greigeProcessing.greigeRateRef
+                                      ? `${greigeProcessing.greigeRateRef} · `
+                                      : 'dated '}
+                                    {formatDate(greigeProcessing.greigeProcurementDate)}
                                   </span>
                                 )}
-                              {(greigeProcessing.greigeRateSource === 'STOCK_WAC' ||
-                                greigeProcessing.greigeRateSource === 'GREIGE_MASTER') &&
+                              {greigeProcessing.greigeRateSource === 'GREIGE_MASTER' &&
                                 greigeProcessing.lastUpdated && (
                                   <span className="text-xs text-muted-foreground">
                                     as of {formatDate(greigeProcessing.lastUpdated)}

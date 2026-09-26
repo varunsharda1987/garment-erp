@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { lookupRate, lookupLaceRate } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 import { formatDate } from '../utils/date';
+import { BASE_MATERIAL_ROW } from './helpers/master-config';
 
 // ============================================
 // TYPES
@@ -89,7 +90,7 @@ async function getMaterialsIdFromLegacyInt(materialMasterId: number): Promise<st
 
   // Find materials entry where the FK matches (e.g., buttonId = "uuid-123")
   const materialsRecord = await prisma.materials.findFirst({
-    where: { [mapping.materialsField]: legacyId },
+    where: { [mapping.materialsField]: legacyId, ...BASE_MATERIAL_ROW }, // never a label size / thread pack row
     select: { id: true },
   });
 

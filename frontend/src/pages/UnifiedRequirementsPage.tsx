@@ -106,6 +106,7 @@ import { isQtyZero, minQty, prefillQty, qtyAtLeast, qtyExceeds, snapToLimit } fr
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import {
+  Info,
   FileText,
   RefreshCw,
   Package,
@@ -123,6 +124,19 @@ import {
   Plus,
   Download,
 } from 'lucide-react';
+
+/** Waiting for a PO — the statuses a requirement can be ordered from. */
+const needsPO = (r: { status: string }) => r.status === 'PO_REQUIRED' || r.status === 'PARTIAL_STOCK';
+
+/**
+ * A requirement that can be selected for a PO here. Thread is NOT (2026-09-26): its requirement counts garments
+ * (thread consumption is not designed yet) while thread is bought as cones / tubes in boxes — it is ordered on a
+ * Purchase Order, and the server refuses it here too.
+ */
+const canOrderFromHere = (r: { status: string; material?: { materialType?: string | null } | null }) =>
+  needsPO(r) && r.material?.materialType !== 'THREAD';
+
+const THREAD_PO_HINT = 'Order thread from Purchase Orders, in cones / tubes';
 
 type RequirementTab = 'material' | 'outsourced' | 'thread';
 
@@ -540,7 +554,7 @@ function MaterialRequirementsTab({
       existing.requirements.push(req);
       existing.totalShortfall += Number(req.shortfall) || 0;
       existing.count++;
-      if (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') {
+      if (canOrderFromHere(req)) {
         existing.selectableCount++;
       }
       grouped.set(key, existing);
@@ -559,26 +573,19 @@ function MaterialRequirementsTab({
   };
 
   const handleSelectGroup = (group: RequirementGroup, checked: boolean) => {
-    const groupSelectableIds = group.requirements
-      .filter((r) => r.status === 'PO_REQUIRED' || r.status === 'PARTIAL_STOCK')
-      .map((r) => r.id);
+    const groupSelectableIds = group.requirements.filter(canOrderFromHere).map((r) => r.id);
     setSelectedIds((prev) =>
       checked ? [...new Set([...prev, ...groupSelectableIds])] : prev.filter((id) => !groupSelectableIds.includes(id))
     );
   };
 
   const isGroupFullySelected = (group: RequirementGroup): boolean => {
-    const groupSelectableIds = group.requirements
-      .filter((r) => r.status === 'PO_REQUIRED' || r.status === 'PARTIAL_STOCK')
-      .map((r) => r.id);
+    const groupSelectableIds = group.requirements.filter(canOrderFromHere).map((r) => r.id);
     return groupSelectableIds.length > 0 && groupSelectableIds.every((id) => selectedIds.includes(id));
   };
 
   // Selection helpers
-  const selectableRequirements = useMemo(
-    () => requirements.filter((r) => r.status === 'PO_REQUIRED' || r.status === 'PARTIAL_STOCK'),
-    [requirements]
-  );
+  const selectableRequirements = useMemo(() => requirements.filter(canOrderFromHere), [requirements]);
 
   // MRP-17: selection used to survive filter, search and page changes. The bulk bar kept counting
   // rows that were no longer on screen — and Bulk Generate POs would happily raise POs for them.
@@ -1075,7 +1082,7 @@ function MaterialRequirementsTab({
                         </TableHeader>
                         <TableBody>
                           {group.requirements.map((req) => {
-                            const isSelectable = req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK';
+                            const isSelectable = canOrderFromHere(req);
                             return (
                               <TableRow key={req.id}>
                                 <TableCell>
@@ -1084,6 +1091,11 @@ function MaterialRequirementsTab({
                                       checked={selectedIds.includes(req.id)}
                                       onCheckedChange={(checked) => handleSelectOne(req.id, !!checked)}
                                     />
+                                  )}
+                                  {!isSelectable && needsPO(req) && (
+                                    <span title={THREAD_PO_HINT} aria-label={THREAD_PO_HINT}>
+                                      <Info className="h-4 w-4 text-muted-foreground" />
+                                    </span>
                                   )}
                                 </TableCell>
                                 <TableCell className="text-sm font-medium">
@@ -1270,7 +1282,7 @@ function MaterialRequirementsTab({
                   </TableRow>
                 ) : (
                   requirements.map((req) => {
-                    const isSelectable = req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK';
+                    const isSelectable = canOrderFromHere(req);
                     return (
                       <TableRow key={req.id}>
                         <TableCell>
@@ -1279,6 +1291,11 @@ function MaterialRequirementsTab({
                               checked={selectedIds.includes(req.id)}
                               onCheckedChange={(checked) => handleSelectOne(req.id, !!checked)}
                             />
+                          )}
+                          {!isSelectable && needsPO(req) && (
+                            <span title={THREAD_PO_HINT} aria-label={THREAD_PO_HINT}>
+                              <Info className="h-4 w-4 text-muted-foreground" />
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-sm font-medium">

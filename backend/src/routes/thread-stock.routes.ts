@@ -89,6 +89,8 @@ router.post(
 
     const {
       threadId,
+      packagingType,
+      ply,
       quantity,
       unit,
       metersPerUnit,
@@ -106,6 +108,7 @@ router.post(
     const stock = await threadStockService.createThreadStock(
       {
         threadId,
+        ...(packagingType && { pack: { packagingType, ply: ply ?? null } }),
         quantity,
         unit,
         metersPerUnit,

@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { UnitEnum, flexMaterialId, formNumberRequired } from './common.schema';
+import { ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
 import { isQtyZero } from '../utils/quantity';
 
 // ============================================================================
@@ -71,6 +72,10 @@ export const purchaseOrderItemSchema = z.object({
   // The weaver this line is bought from, when known at ordering (Phase 1b) — the GRN line records the
   // one that actually came. Never stored on the greige master.
   weaverId: z.string().uuid('Invalid weaver').nullish(),
+  // A thread line's pack (2026-09-26): thread is ordered as cones (2- or 3-ply) or tubes (3-ply) in BOXES. The
+  // server checks the pair and sets the box size from thread_packaging_specs; other lines ignore both.
+  threadPackagingType: ThreadPackagingTypeEnum.nullish(),
+  threadPly: ThreadPlyEnum.nullish(),
   // Split delivery (2026-09-26): how much of this line goes to each place. Omit on every line for one
   // place / "to be advised". The places of one line add up to its quantity (checked on the items array).
   deliveries: z
@@ -110,6 +115,8 @@ export const updatePurchaseOrderItemSchema = z.object({
   unit: UnitEnum.optional(),
   unitPrice: z.number().positive('Unit price must be greater than 0').optional(),
   remarks: z.string().max(500).nullish(),
+  threadPackagingType: ThreadPackagingTypeEnum.nullish(),
+  threadPly: ThreadPlyEnum.nullish(),
 });
 
 // ============================================================================

@@ -4,7 +4,8 @@
  * A material is COUNTED in `materials.unit` (its consumption unit — every BOM, cost-sheet, order-BOM
  * and requirement line; see material-unit.helper). Some are BOUGHT in another unit (owner, 2026-09-26):
  *   - buttons and snap buttons: counted per PIECE, ordered and inwarded by the GROSS (144);
- *   - thread: bought in BOXES of cones / tubes (Phase C — the factor is the box size).
+ *   - thread: ordered as cones (2- or 3-ply) or tubes (3-ply), bought in BOXES — the factor is the box size
+ *     from `thread_packaging_specs` (thread-pack.helper), and stock is kept per pack in cones / tubes.
  *
  * The PO line and the GRN line stay in the purchase unit (quantity, rate, value, GST). Requirement
  * links and stock stay in the stock unit. These helpers are the only arithmetic between the two.
@@ -15,6 +16,8 @@ import prisma from '../../config/database';
 import { COUNT_UNIT_FACTORS, normalizeUnit, purchaseUnitOf, unitLabel } from '../../utils/units';
 import { QTY_EPSILON } from '../../utils/quantity';
 import { BusinessError } from '../../errors';
+import type { ThreadPackagingType, ThreadPly } from '../../schemas/generated/prisma-enums';
+import { orderableThreadBox } from './thread-pack.helper';
 
 export interface PurchaseUnit {
   /** The unit the PO / GRN line is in */
@@ -48,18 +51,25 @@ export function toStockQty(purchaseQty: number, stockUnitsPerUnit: number | null
 export interface PoLineUnitInput {
   materialId?: string | null;
   unit: string;
+  /** A thread line's pack — CONE (2- or 3-ply) or TUBE (3-ply) */
+  threadPackagingType?: ThreadPackagingType | null;
+  threadPly?: ThreadPly | null;
 }
 
 export interface PoLineUnit {
   unit: Unit;
   /** null = the line is in the unit its material is counted in */
   stockUnitsPerUnit: number | null;
+  /** Set on a thread line only (the GRN books the lot on this pack), null on every other line */
+  threadPackagingType: ThreadPackagingType | null;
+  threadPly: ThreadPly | null;
 }
 
 /**
  * The unit a PO line is stored in, and how many stock units one of it holds — decided by the SERVER for
  * every PO writer (a request body never sets the factor). Aligned with `lines` by index.
  *   - buttons / snap buttons: must be GROSS (factor 144) — refused otherwise, with the reason;
+ *   - thread: must be BOX of a cone (2- or 3-ply) or tube (3-ply) pack; factor = the box size by pack;
  *   - a DOZEN / GROSS of something counted in pieces: factor 12 / 144;
  *   - anything else: as sent, no factor.
  */
@@ -71,31 +81,65 @@ export async function resolvePoLineUnits(
   const materials = ids.length
     ? await (tx ?? prisma).materials.findMany({
         where: { id: { in: ids } },
-        select: { id: true, name: true, unit: true, materialType: true },
+        select: { id: true, name: true, unit: true, materialType: true, threadPackagingType: true, threadPly: true },
       })
     : [];
   const byId = new Map(materials.map((m) => [m.id, m]));
 
-  return lines.map((line) => {
+  const noPack = { threadPackagingType: null, threadPly: null };
+  const out: PoLineUnit[] = [];
+  for (const line of lines) {
     const requested = normalizeUnit(line.unit) ?? (line.unit as Unit);
     const material = line.materialId ? byId.get(line.materialId) : undefined;
-    if (!material) return { unit: requested, stockUnitsPerUnit: null };
+    if (!material) {
+      out.push({ unit: requested, stockUnitsPerUnit: null, ...noPack });
+      continue;
+    }
 
-    const purchase = purchaseUnitFor(material.materialType);
-    if (purchase) {
-      if (requested !== purchase.unit) {
+    if (material.materialType === 'THREAD') {
+      if (requested !== 'BOX') {
         throw new BusinessError(
-          `${material.name} is bought by the ${unitLabel(purchase.unit).toLowerCase()} ` +
-            `(${purchase.stockUnitsPerUnit} ${unitLabel(material.unit).toLowerCase()}s each) — order it in ` +
-            `${unitLabel(purchase.unit)}, not ${unitLabel(requested)}.`
+          `${material.name} is bought in boxes — enter the cones or tubes you want and the boxes follow, ` +
+            `not ${unitLabel(requested)}.`
         );
       }
-      return { unit: purchase.unit, stockUnitsPerUnit: purchase.stockUnitsPerUnit };
+      // A line on a thread's pack row (Cone 3-ply…) is that pack; on the base row, the pack the line names
+      const box = material.threadPackagingType
+        ? await orderableThreadBox(material.name, material.threadPackagingType, material.threadPly, tx)
+        : await orderableThreadBox(material.name, line.threadPackagingType, line.threadPly, tx);
+      out.push({
+        unit: 'BOX',
+        stockUnitsPerUnit: box.unitsPerBox,
+        threadPackagingType: box.packing,
+        threadPly: box.ply,
+      });
+      continue;
     }
-    const factor = COUNT_UNIT_FACTORS[requested];
-    if (factor && factor.of === material.unit) return { unit: requested, stockUnitsPerUnit: factor.per };
-    return { unit: requested, stockUnitsPerUnit: null };
-  });
+
+    out.push({ ...resolveCountedLine(material, requested), ...noPack });
+  }
+  return out;
+}
+
+/** A non-thread line: the purchase unit its type is bought in, or a dozen / gross of pieces, or as sent. */
+function resolveCountedLine(
+  material: { name: string; unit: Unit; materialType: string },
+  requested: Unit
+): { unit: Unit; stockUnitsPerUnit: number | null } {
+  const purchase = purchaseUnitFor(material.materialType);
+  if (purchase) {
+    if (requested !== purchase.unit) {
+      throw new BusinessError(
+        `${material.name} is bought by the ${unitLabel(purchase.unit).toLowerCase()} ` +
+          `(${purchase.stockUnitsPerUnit} ${unitLabel(material.unit).toLowerCase()}s each) — order it in ` +
+          `${unitLabel(purchase.unit)}, not ${unitLabel(requested)}.`
+      );
+    }
+    return { unit: purchase.unit, stockUnitsPerUnit: purchase.stockUnitsPerUnit };
+  }
+  const factor = COUNT_UNIT_FACTORS[requested];
+  if (factor && factor.of === material.unit) return { unit: requested, stockUnitsPerUnit: factor.per };
+  return { unit: requested, stockUnitsPerUnit: null };
 }
 
 /**

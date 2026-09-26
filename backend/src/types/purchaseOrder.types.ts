@@ -3,7 +3,15 @@
  * Type definitions for purchase order operations
  */
 
-import { PurchaseOrderStatus, Unit, POSource, DeliveryLocationType, POCategory } from '@prisma/client';
+import {
+  PurchaseOrderStatus,
+  Unit,
+  POSource,
+  DeliveryLocationType,
+  POCategory,
+  ThreadPackagingType,
+  ThreadPly,
+} from '@prisma/client';
 
 // Re-export Prisma types for use in controllers
 export { PurchaseOrderStatus, POSource };
@@ -47,6 +55,9 @@ export interface PurchaseOrderItemDTO {
   remarks?: string | null;
   foldLengthCm?: number | null; // "L" - fold length in cm (for greige/fabric)
   weaverId?: string | null; // Phase 1b: the weaver this line is bought from, when known at ordering
+  /** A thread line's pack — CONE (2- or 3-ply) or TUBE (3-ply); the server sets the box size from it */
+  threadPackagingType?: ThreadPackagingType | null;
+  threadPly?: ThreadPly | null;
   /**
    * Split delivery (2026-09-26): how much of this line goes to each place. Absent on every line = one
    * place (the header's deliveryLocationId) or "to be advised". po-delivery-plan.helper builds the plan.
@@ -62,6 +73,8 @@ export interface UpdatePurchaseOrderItemDTO {
   unit?: Unit;
   unitPrice?: number;
   remarks?: string | null;
+  threadPackagingType?: ThreadPackagingType | null;
+  threadPly?: ThreadPly | null;
 }
 
 /**

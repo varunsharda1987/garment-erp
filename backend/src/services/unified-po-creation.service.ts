@@ -15,7 +15,16 @@
  * - Transaction-safe operations
  */
 
-import { POCategory, POSource, PurchaseOrderStatus, ServiceType, Unit, Prisma } from '@prisma/client';
+import {
+  POCategory,
+  POSource,
+  PurchaseOrderStatus,
+  ServiceType,
+  Unit,
+  Prisma,
+  ThreadPackagingType,
+  ThreadPly,
+} from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
@@ -38,6 +47,9 @@ export interface UnifiedPOItemInput {
   unit: Unit;
   unitPrice: number;
   remarks?: string;
+  /** A thread line's pack (CONE 2-/3-ply, TUBE 3-ply) — thread lines are BOXES of one pack */
+  threadPackagingType?: ThreadPackagingType | null;
+  threadPly?: ThreadPly | null;
 
   // Source link quantities (for traceability)
   sourceQuantities?: {
@@ -556,6 +568,8 @@ export async function createUnifiedPO(
           receivedQuantity: 0,
           unit: lineUnits[i].unit,
           stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
+          threadPackagingType: lineUnits[i].threadPackagingType,
+          threadPly: lineUnits[i].threadPly,
           unitPrice: item.unitPrice,
           totalPrice,
           remarks: item.remarks,

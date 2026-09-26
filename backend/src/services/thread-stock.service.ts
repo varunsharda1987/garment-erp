@@ -5,12 +5,25 @@
 import { Prisma, StockStatus, SpecializedStockTransactionType, TransactionReferenceType } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError } from '../utils/logger';
-import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { syncStockLevelQuantity, threadLotMaterialId } from './helpers/material-sync.helper';
+import { threadPackUnit } from './helpers/thread-pack.helper';
+import type { ThreadPackagingType, ThreadPly } from '../schemas/generated/prisma-enums';
 import { multiplyCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-THR6 fix
 
 export interface CreateThreadStockDTO {
   threadId: string;
+  /**
+   * The PACK this lot is (owner, 2026-09-26: cones and tubes are separate stock items). Given = used as-is
+   * (a GRN line's packing + ply, the Stock In row's pack; `packagingType: null` = an unpacked lot). Absent =
+   * the thread master's own packing (legacy callers). The lot's materials row follows from it.
+   */
+  pack?: { packagingType: ThreadPackagingType | null; ply: ThreadPly | null };
+  /** Quantity in the pack's unit — cones or tubes */
   quantity: number;
+  /** The GRN line and PO this lot was received on — one lot per GRN line (reversal finds it by grnItemId) */
+  grnItemId?: string;
+  grnId?: string;
+  procurementId?: string;
   unit?: 'SPOOL' | 'CONE' | 'CONE_5K' | 'CONE_10K';
   metersPerUnit?: number;
   unitsPerBox?: number;
@@ -72,9 +85,21 @@ class ThreadStockService {
         throw new Error(`Thread with ID ${data.threadId} not found`);
       }
 
-      const unit = data.unit ?? thread.packagingType ?? 'SPOOL';
-      const metersPerUnit = data.metersPerUnit ?? Number(thread.metersPerUnit) ?? 5000;
-      const unitsPerBox = data.unitsPerBox ?? Number(thread.unitsPerBox) ?? 12;
+      // The pack decides the lot's row: a packed lot sits on its pack row, an unpacked one on the base row
+      const packagingType = data.pack ? data.pack.packagingType : thread.packagingType;
+      const ply = packagingType ? (data.pack ? data.pack.ply : thread.ply) : null;
+      // Box size and metres per unit come from the ONE packaging table; the master's own figures are a fallback
+      const spec =
+        packagingType && ply
+          ? await tx.thread_packaging_specs.findUnique({
+              where: { ply_packagingType: { ply, packagingType } },
+              select: { unitsPerBox: true, metersPerUnit: true },
+            })
+          : null;
+      const unit = packagingType ? threadPackUnit(packagingType) : (data.unit ?? 'SPOOL');
+      const metersPerUnit =
+        data.metersPerUnit ?? (spec ? Number(spec.metersPerUnit) : Number(thread.metersPerUnit) || 5000);
+      const unitsPerBox = data.unitsPerBox ?? (spec ? spec.unitsPerBox : Number(thread.unitsPerBox) || 12);
 
       // Calculate derived quantities - BUG-THR6 fix: use decimal.js to prevent floating-point errors
       const metersAvailable = toNumber(multiplyCurrency(data.quantity, metersPerUnit));
@@ -93,8 +118,10 @@ class ThreadStockService {
           boxesAvailable: new Prisma.Decimal(boxesAvailable),
           purchaseCost: new Prisma.Decimal(cost),
           weightedAvgCost: new Prisma.Decimal(cost),
-          ply: thread.ply,
-          packagingType: thread.packagingType,
+          ply,
+          packagingType,
+          procurementId: data.procurementId ?? null,
+          grnItemId: data.grnItemId ?? null,
           materialComposition: thread.materialComposition,
           colorName: thread.colorMaster?.colorName || thread.color || null,
           supplierLotNumber: data.supplierLotNumber || null,
@@ -131,16 +158,18 @@ class ThreadStockService {
           quantity: new Prisma.Decimal(data.quantity),
           balanceAfter: new Prisma.Decimal(data.quantity),
           referenceType: data.sourceType === 'GRN' ? 'GRN' : 'MANUAL',
+          referenceId: data.sourceType === 'GRN' ? (data.grnId ?? null) : null,
           notes: data.sourceType === 'MANUAL' ? 'Manual stock entry' : 'Stock receipt',
           performedById: userId,
         },
       });
 
-      // Ensure materials record exists + sync stock_levels
+      // Ensure the lot's materials row exists + sync stock_levels — on the PACK row, in cones / tubes (it used to
+      // add METRES to the base row, so one thread's stock read 50,000 "cones" for 10 cones)
       // Skip when called from stock routing (parent already handles this)
       if (!data.skipMaterialSync) {
-        const materialId = await ensureMaterialRecord(data.threadId, 'THREAD', tx);
-        await syncStockLevelQuantity(materialId, metersAvailable, data.warehouseId, 'METER', tx);
+        const materialId = await threadLotMaterialId({ threadId: data.threadId, packagingType, ply }, tx);
+        await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unit, tx);
       }
 
       logInfo(`Created thread stock for ${thread.threadCode}: ${data.quantity} ${unit} (${metersAvailable}m)`);
@@ -288,7 +317,7 @@ class ThreadStockService {
   }
 
   /**
-   * Get stock summary by thread
+   * Get stock summary by thread AND pack — a thread held as cones and as tubes gives two rows, never one total
    */
   async getStockSummary() {
     const summary = await prisma.$queryRaw<
@@ -296,6 +325,8 @@ class ThreadStockService {
         threadId: string;
         threadCode: string;
         threadName: string;
+        packagingType: string | null;
+        ply: string | null;
         totalQuantity: Prisma.Decimal;
         totalMeters: Prisma.Decimal;
         totalValue: Prisma.Decimal;
@@ -306,6 +337,8 @@ class ThreadStockService {
         ts."threadId",
         tm."threadCode",
         tm."threadName",
+        ts."packagingType"::text as "packagingType",
+        ts.ply::text as "ply",
         SUM(ts."quantityAvailable") as "totalQuantity",
         SUM(ts."metersAvailable") as "totalMeters",
         SUM(ts."quantityAvailable" * ts."weightedAvgCost") as "totalValue",
@@ -313,7 +346,7 @@ class ThreadStockService {
       FROM thread_stock ts
       JOIN thread_master tm ON ts."threadId" = tm.id
       WHERE ts.status = 'AVAILABLE'
-      GROUP BY ts."threadId", tm."threadCode", tm."threadName"
+      GROUP BY ts."threadId", tm."threadCode", tm."threadName", ts."packagingType", ts.ply
       ORDER BY "totalValue" DESC
     `;
 
@@ -321,6 +354,8 @@ class ThreadStockService {
       threadId: s.threadId,
       threadCode: s.threadCode,
       threadName: s.threadName,
+      packagingType: s.packagingType,
+      ply: s.ply,
       totalQuantity: Number(s.totalQuantity),
       totalMeters: Number(s.totalMeters),
       totalValue: Number(s.totalValue),

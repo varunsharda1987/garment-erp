@@ -16,7 +16,7 @@ import {
 import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
-import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
+import { createFabricReturnChallan } from '../services/challan.service';
 import { maxCutForSize, maxCutBySize, fabricCutBySize, MAX_EXTRA_CUT_PERCENT } from '../utils/cut-allowance';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
@@ -951,7 +951,10 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     );
   }
 
-  // P6.1.4: Trim backflush - auto-consume trims/threads based on BOM per-garment × good pieces
+  // P6.1.4: Trim backflush — REPORT ONLY. Nothing is taken out of stock here. Thread used to be auto-issued
+  // (per-garment qty × good pieces) — but a thread line counts GARMENTS ('lot' = 1 per piece), so it took one
+  // cone per garment cut. Thread is stocked in cones / tubes and its consumption is not designed yet (owner,
+  // 2026-09-26); the other trims were never deducted. Each line is logged for a manual issue.
   try {
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: existing.workOrderId },
@@ -976,70 +979,13 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
         },
       });
 
-      if (orderBom?.items && orderBom.items.length > 0) {
-        const trimChallanItems: Array<{
-          itemType: string;
-          description: string;
-          quantity: number;
-          unit: string;
-          threadStockId?: string;
-          materialId?: string;
-        }> = [];
-
-        for (const bomItem of orderBom.items) {
-          const perGarment = Number(bomItem.quantityPerGarment) || 0;
-          if (perGarment <= 0) continue;
-
-          const consumption = totalCut * perGarment;
-          if (consumption <= 0) continue;
-
-          // For THREAD items, find an available thread_stock
-          if (bomItem.materialType === 'THREAD' && bomItem.threadId) {
-            const threadStock = await prisma.thread_stock.findFirst({
-              where: { threadId: bomItem.threadId, quantityAvailable: { gt: 0 } },
-              orderBy: { quantityAvailable: 'desc' },
-              select: { id: true, threadId: true },
-            });
-
-            if (threadStock) {
-              trimChallanItems.push({
-                itemType: 'THREAD',
-                description: `Thread consumption for batch ${batch.batchNumber}`,
-                quantity: Math.round(consumption * 100) / 100,
-                unit: bomItem.unit || 'METER',
-                threadStockId: threadStock.id,
-              });
-            }
-          }
-
-          // Log other trim types for future implementation
-          if (['BUTTON', 'ZIPPER', 'ELASTIC', 'SNAP_BUTTON', 'HOOK_EYE'].includes(bomItem.materialType)) {
-            logInfo(
-              `Trim backflush: ${bomItem.materialType} - ${consumption.toFixed(2)} ${bomItem.unit} needed for batch ${batch.batchNumber} (manual deduction required)`
-            );
-          }
-        }
-
-        // Create challan for thread consumption if any
-        if (trimChallanItems.length > 0) {
-          const trimChallan = await createChallan({
-            challanType: 'INTERNAL',
-            challanDate: new Date(),
-            orderId: workOrder.orderId,
-            productionRunId: existing.workOrderId,
-            fromType: 'DEPARTMENT',
-            fromName: 'Thread Store',
-            toType: 'DEPARTMENT',
-            toName: 'Cutting',
-            remarks: `Auto-consumed trims for cutting batch ${batch.batchNumber} completion`,
-            issuedById: req.user?.userId || existing.createdById,
-            items: trimChallanItems,
-          });
-          await issueChallan(trimChallan.id, req.user?.userId || existing.createdById);
-          logInfo(
-            `Auto-issued trim challan ${trimChallan.challanNumber} for ${trimChallanItems.length} items at batch ${batch.batchNumber} completion`
-          );
-        }
+      for (const bomItem of orderBom?.items ?? []) {
+        const perGarment = Number(bomItem.quantityPerGarment) || 0;
+        const consumption = totalCut * perGarment;
+        if (consumption <= 0) continue;
+        logInfo(
+          `Trim backflush: ${bomItem.materialType} - ${consumption.toFixed(2)} ${bomItem.unit} needed for batch ${batch.batchNumber} (manual deduction required)`
+        );
       }
     }
   } catch (trimError) {

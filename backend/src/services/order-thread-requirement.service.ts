@@ -24,6 +24,7 @@ import { createUnifiedPO, UnifiedPOCreationInput } from './unified-po-creation.s
 import { materialService } from './material.service';
 import { applySearch } from '../utils/search-filter';
 import { normalizeUnit } from '../utils/units';
+import { BASE_MATERIAL_ROW } from './helpers/master-config';
 
 // ==================== TYPES ====================
 
@@ -546,7 +547,7 @@ export async function getStats() {
  * Ensure a materials record exists for a thread_master entry (for PO linking)
  */
 async function ensureMaterialForThread(threadId: string): Promise<string | null> {
-  const existing = await prisma.materials.findFirst({ where: { threadId } });
+  const existing = await prisma.materials.findFirst({ where: { threadId, ...BASE_MATERIAL_ROW } });
   if (existing) return existing.id;
 
   const thread = await prisma.thread_master.findUnique({

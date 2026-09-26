@@ -58,7 +58,7 @@ import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/
 import logger, { logWarn } from '../utils/logger';
 import { BusinessError } from '../errors';
 import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
-import { MASTER_CONFIG } from './helpers/master-config';
+import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
 import { purchaseUnitFor, purchaseUnitPrices, toPurchaseLine, toStockQty } from './helpers/purchase-unit.helper';
@@ -306,7 +306,7 @@ async function ensureMaterialForGreige(greigeId: string): Promise<{ id: string }
  */
 async function ensureMaterialForThread(threadId: string): Promise<{ id: string } | null> {
   try {
-    const existing = await prisma.materials.findFirst({ where: { threadId } });
+    const existing = await prisma.materials.findFirst({ where: { threadId, ...BASE_MATERIAL_ROW } });
     if (existing) return existing;
 
     const thread = await prisma.thread_master.findUnique({
@@ -347,7 +347,7 @@ async function ensureMaterialForThread(threadId: string): Promise<{ id: string }
     return material;
   } catch (err: any) {
     if (err?.code === 'P2002') {
-      const justCreated = await prisma.materials.findFirst({ where: { threadId } });
+      const justCreated = await prisma.materials.findFirst({ where: { threadId, ...BASE_MATERIAL_ROW } });
       if (justCreated) return justCreated;
     }
     logger.error(`[MRP] Failed to auto-create materials record for threadId ${threadId}:`, err);
@@ -3464,6 +3464,22 @@ async function defaultGreigeDeliveryUnit(requirementIds: string[]): Promise<stri
   return unit?.id ?? null;
 }
 
+/**
+ * Thread is not ordered from requirements (owner, 2026-09-26): a thread requirement counts GARMENTS (1 'lot' per
+ * piece — thread consumption is not designed yet), while thread is bought as cones / tubes in boxes. It is
+ * ordered on a Purchase Order, where the cones or tubes are entered and the boxes follow.
+ */
+function refuseThreadRequirements(
+  requirements: ReadonlyArray<{ requirementNumber: string; materials: { materialType: string } | null }>
+): void {
+  const thread = requirements.filter((r) => r.materials?.materialType === 'THREAD');
+  if (thread.length === 0) return;
+  throw new BusinessError(
+    `${thread.map((r) => r.requirementNumber).join(', ')}: order thread from Purchase Orders in cones / tubes — ` +
+      `a thread requirement counts garments, not cones.`
+  );
+}
+
 export async function generatePOFromRequirements(
   data: GeneratePOFromRequirementsRequest,
   userId: string
@@ -3589,6 +3605,7 @@ export async function generatePOFromRequirements(
   if (requirements.length === 0) {
     throw new Error('No valid requirements found for PO generation');
   }
+  refuseThreadRequirements(requirements);
 
   // Qty-rate audit 2026-08-24: calculateMRP blocks cancelled orders (MRP-09), but generation
   // selected requirements purely by id + status and never joined back to the order — so a
@@ -5797,6 +5814,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       },
     });
     const requirements = flattenGroups(groupLabelLines(fetchedRequirements, (r) => labelLineKeyOf(r.materials)));
+    refuseThreadRequirements(requirements);
 
     if (requirements.length === 0) continue;
 

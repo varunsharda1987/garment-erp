@@ -34,6 +34,7 @@
 
 import prisma from '../config/database';
 import { addCurrency, subtractCurrency, toCurrency, toNumber } from '../utils/currency';
+import type { ThreadPackagingType, ThreadPly } from '../schemas/generated/prisma-enums';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -942,9 +943,16 @@ async function loadLace(laceId: string): Promise<{ lots: RawLot[]; txns: RawTxn[
   return { lots, txns };
 }
 
-async function loadThread(threadId: string): Promise<{ lots: RawLot[]; txns: RawTxn[] }> {
+/**
+ * A thread's lots for ONE of its materials rows: a pack row (Cone 3-ply…) reads only its pack's lots, the base
+ * row only unpacked lots — the rule derived_stock_view joins on. Cones and tubes are never one ledger.
+ */
+async function loadThread(
+  threadId: string,
+  pack: { packagingType: ThreadPackagingType | null; ply: ThreadPly | null }
+): Promise<{ lots: RawLot[]; txns: RawTxn[] }> {
   const rows = await prisma.thread_stock.findMany({
-    where: { threadId },
+    where: { threadId, packagingType: pack.packagingType, ply: pack.ply },
     select: {
       id: true,
       quantityAvailable: true,
@@ -1112,6 +1120,8 @@ export async function getMaterialLedger(materialId: string, query: LedgerQuery):
       fabricId: true,
       laceId: true,
       threadId: true,
+      threadPackagingType: true,
+      threadPly: true,
       labelId: true,
       sizeVariantId: true,
     },
@@ -1138,7 +1148,10 @@ export async function getMaterialLedger(materialId: string, query: LedgerQuery):
   } else if (kind === 'LACE' && masterId) {
     ({ lots, txns } = await loadLace(masterId));
   } else if (kind === 'THREAD' && masterId) {
-    ({ lots, txns } = await loadThread(masterId));
+    ({ lots, txns } = await loadThread(masterId, {
+      packagingType: material.threadPackagingType,
+      ply: material.threadPly,
+    }));
   } else {
     events = await loadGenericMovements(materialId, false);
   }

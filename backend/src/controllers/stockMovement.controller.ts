@@ -21,6 +21,7 @@ import {
 } from '../services/helpers/held-stock-doors.helper';
 import type { CreateProcessorReturnInput, MoveHeldStockInput } from '../schemas/stockMovement.schema';
 import { qtyExceeds, snapToLimit } from '../utils/quantity';
+import { BASE_MATERIAL_ROW } from '../services/helpers/master-config';
 
 // Map polymorphic item types to their FK field in the materials table.
 // KEEP IN SYNC with ItemTypeEnum in ../schemas/stockMovement.schema.ts.
@@ -137,8 +138,8 @@ export const createStockIn = async (req: Request, res: Response) => {
     const fkField = ITEM_TYPE_TO_FK[itemType];
     if (fkField) {
       const material = await prisma.materials.findFirst({
-        // A label's base row — its size rows share the labelId
-        where: { [fkField]: itemId, ...(fkField === 'labelId' ? { sizeVariantId: null } : {}) },
+        // The base row — a label's size rows and a thread's pack rows share its FK
+        where: { [fkField]: itemId, ...BASE_MATERIAL_ROW },
         select: { id: true },
       });
       if (material) {
@@ -232,8 +233,8 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
       const fkField = ITEM_TYPE_TO_FK[item.itemType];
       if (fkField) {
         const material = await prisma.materials.findFirst({
-          // A label's base row — its size rows share the labelId
-          where: { [fkField]: item.itemId, ...(fkField === 'labelId' ? { sizeVariantId: null } : {}) },
+          // The base row — a label's size rows and a thread's pack rows share its FK
+          where: { [fkField]: item.itemId, ...BASE_MATERIAL_ROW },
           select: { id: true },
         });
         if (material) {
@@ -311,8 +312,8 @@ export const createStockOut = async (req: Request, res: Response) => {
     const fkField = ITEM_TYPE_TO_FK[itemType];
     if (fkField) {
       const material = await prisma.materials.findFirst({
-        // A label's base row — its size rows share the labelId
-        where: { [fkField]: itemId, ...(fkField === 'labelId' ? { sizeVariantId: null } : {}) },
+        // The base row — a label's size rows and a thread's pack rows share its FK
+        where: { [fkField]: itemId, ...BASE_MATERIAL_ROW },
         select: { id: true },
       });
       if (material) {

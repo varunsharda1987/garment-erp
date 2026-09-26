@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, useWatch } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import ColorPicker from '@/components/ColorPicker';
-import { createThread, getThreadById, updateThread } from '@/services/thread.service';
+import { createThread, getThreadById, getThreadPackagingSpecs, updateThread } from '@/services/thread.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type {
   ThreadFormData,
@@ -19,6 +20,7 @@ import type {
   ThreadPly,
   ThreadMaterial,
 } from '@/types/thread.types';
+import { ORDERABLE_THREAD_PACKS, findPackagingSpec, threadPackLabel } from '@/types/thread.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -49,29 +51,31 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
 
   const isNewThread = mode === 'create' || !id;
 
-  // Auto-set piecesPerBox and unitsPerBox when packagingType or ply changes
-  useEffect(() => {
-    // LEGACY: Backward compatibility for old CONE/TUBE
-    if (watchedPackagingType === 'CONE') {
-      setValue('piecesPerBox', 6);
-      setValue('unitsPerBox', 6); // Same as piecesPerBox for legacy
-    } else if (watchedPackagingType === 'TUBE') {
-      setValue('piecesPerBox', 10);
-      setValue('unitsPerBox', 10); // Same as piecesPerBox for legacy
-    }
+  // Box sizes come from the ONE table (thread_packaging_specs) by packing + ply — the same figures a PO line
+  // converts cones / tubes to boxes with. The old hard-coded "cone 6 / tube 10 per box" disagreed with it.
+  const { data: packagingSpecs } = useQuery({
+    queryKey: ['thread-packaging-specs'],
+    queryFn: getThreadPackagingSpecs,
+    staleTime: 10 * 60 * 1000,
+  });
+  const orderablePacksText = (Object.keys(ORDERABLE_THREAD_PACKS) as Array<keyof typeof ORDERABLE_THREAD_PACKS>)
+    .flatMap((packing) =>
+      ORDERABLE_THREAD_PACKS[packing].map((ply) => {
+        const spec = findPackagingSpec(packagingSpecs, packing, ply);
+        return spec ? `${threadPackLabel(packing, ply)} ${spec.unitsPerBox} / box` : null;
+      })
+    )
+    .filter(Boolean)
+    .join(' · ');
 
-    // NEW: Thread Material module - set based on ply + packaging
-    else if (watchedPackagingType && watchedPly) {
-      if (watchedPackagingType === 'SPOOL') {
-        const unitsPerBox = watchedPly === 'THREE_PLY' ? 15 : 10;
-        setValue('piecesPerBox', unitsPerBox);
-        setValue('unitsPerBox', unitsPerBox);
-      } else if (watchedPackagingType === 'CONE_5K' || watchedPackagingType === 'CONE_10K') {
-        setValue('piecesPerBox', 10);
-        setValue('unitsPerBox', 10);
-      }
+  // Auto-set piecesPerBox and unitsPerBox from the table when packagingType or ply changes
+  useEffect(() => {
+    const spec = findPackagingSpec(packagingSpecs, watchedPackagingType, watchedPly);
+    if (spec) {
+      setValue('piecesPerBox', spec.unitsPerBox);
+      setValue('unitsPerBox', spec.unitsPerBox);
     }
-  }, [watchedPackagingType, watchedPly, setValue]);
+  }, [packagingSpecs, watchedPackagingType, watchedPly, setValue]);
 
   // Load thread data for edit mode
   useEffect(() => {
@@ -336,9 +340,9 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                       <SelectValue placeholder="Select packaging type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Backward compatibility options */}
-                      <SelectItem value="CONE">Cone (6 pcs/box) - Legacy</SelectItem>
-                      <SelectItem value="TUBE">Tube (10 pcs/box) - Legacy</SelectItem>
+                      {/* How it is usually bought — each PO line still chooses cones or tubes */}
+                      <SelectItem value="CONE">Cone</SelectItem>
+                      <SelectItem value="TUBE">Tube (3-ply)</SelectItem>
 
                       {/* New Thread Material module options */}
                       {watchedPly && watchedMaterialComposition && (
@@ -377,7 +381,10 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                     className="bg-muted cursor-not-allowed"
                     placeholder="Auto-set based on packaging type"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Cone: 6 pcs/box | Tube: 10 pcs/box</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    From the thread packaging table{orderablePacksText ? `: ${orderablePacksText}` : ''}. Each purchase
+                    order line chooses cones or tubes.
+                  </p>
                 </div>
 
                 {/* Units per Box (NEW - Thread Material module) */}

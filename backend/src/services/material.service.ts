@@ -9,7 +9,9 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
-import { MASTER_CONFIG } from './helpers/master-config';
+import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
+import { threadPackCode, threadPackLabel, threadPackUnit } from './helpers/thread-pack.helper';
+import type { ThreadPackagingType, ThreadPly } from '../schemas/generated/prisma-enums';
 import { applySearch } from '../utils/search-filter';
 
 // ============================================
@@ -836,10 +838,10 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
 
     // Idempotency: return the existing row whether it was created under the same-id
     // convention (id === master.id) or the legacy mat-<code> convention (found via FK).
-    // sizeVariantId: null matters for LABELs — a label has one BASE row plus per-size rows
-    // (labelId non-unique); the FK lookup must not return a size row as "the" base row.
+    // BASE_MATERIAL_ROW: a label has one BASE row plus per-size rows, a thread one base row plus per-pack
+    // rows (labelId / threadId non-unique); the FK lookup must not return a size or pack row as "the" base.
     const existing = await client.materials.findFirst({
-      where: { OR: [{ id: master.id }, { [config.fkField]: master.id, sizeVariantId: null }] },
+      where: { OR: [{ id: master.id }, { [config.fkField]: master.id, ...BASE_MATERIAL_ROW }] },
     });
 
     if (existing) {
@@ -905,6 +907,44 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     });
 
     logInfo(`Created materials record for label size variant`, { id: material.id, code: material.code });
+    return material;
+  }
+
+  /**
+   * Create the materials record for ONE THREAD PACK — Cone 2-ply, Cone 3-ply, Tube 3-ply (owner, 2026-09-26:
+   * cones and tubes are separate stock items). A thread has one base row (id = thread_master.id) plus one
+   * row per pack, keyed by (threadId, threadPackagingType, threadPly) under partial unique indexes. A pack
+   * has no table of its own, so its row gets a fresh id. Counted in cones / tubes.
+   */
+  async createFromThreadPack(
+    thread: { id: string; threadCode: string; threadName: string },
+    packing: ThreadPackagingType,
+    ply: ThreadPly | null,
+    tx?: any
+  ): Promise<materials> {
+    const client = tx || this.prisma;
+    const existing = await client.materials.findFirst({
+      where: { threadId: thread.id, threadPackagingType: packing, threadPly: ply },
+    });
+    if (existing) return existing;
+
+    const categoryId = await this.getOrCreateCategory('THREAD', tx);
+    const material = await client.materials.create({
+      data: {
+        id: randomUUID(),
+        code: threadPackCode(thread.threadCode, packing, ply),
+        name: `${thread.threadName} - ${threadPackLabel(packing, ply)}`,
+        categoryId,
+        materialType: 'THREAD',
+        unit: threadPackUnit(packing),
+        isActive: true,
+        threadId: thread.id,
+        threadPackagingType: packing,
+        threadPly: ply,
+      },
+    });
+
+    logInfo(`Created materials record for thread pack`, { id: material.id, code: material.code });
     return material;
   }
 }

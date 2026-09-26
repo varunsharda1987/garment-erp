@@ -18,7 +18,9 @@ import type { Unit } from '../../schemas/generated/prisma-enums';
 // Single source of truth for ALL 27 master-backed material types (material-identity project:
 // previously only 11 were configured here, so ensureMaterialRecord threw "Unknown master type"
 // for every extended trim — hook_eye, ribbon, sequin, etc. — breaking their stock operations).
-import { MASTER_CONFIG } from './master-config';
+import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './master-config';
+import type { ThreadPackagingType, ThreadPly } from '../../schemas/generated/prisma-enums';
+import { threadPackCode, threadPackLabel } from './thread-pack.helper';
 
 /**
  * Ensures a `materials` record exists for a given master record.
@@ -37,10 +39,10 @@ export async function ensureMaterialRecord(masterId: string, masterType: string,
   // deadlock, and any create would commit outside the caller's transaction (bug-hunt T1-1).
   const client = tx || prisma;
 
-  // Check if materials record already exists. `sizeVariantId: null` — a label's SIZE rows carry the same
-  // labelId, so an unfiltered lookup returned a size row for the base label (created before the base).
+  // Check if materials record already exists — the BASE row: a label's SIZE rows and a thread's PACK rows
+  // carry the same labelId / threadId, so an unfiltered lookup returned one of them for the base.
   const existing = await client.materials.findFirst({
-    where: { [config.fkField]: masterId, sizeVariantId: null },
+    where: { [config.fkField]: masterId, ...BASE_MATERIAL_ROW },
     select: { id: true },
   });
   if (existing) return existing.id;
@@ -70,7 +72,7 @@ export async function ensureMaterialRecord(masterId: string, masterType: string,
     if (err.code === 'P2002') {
       // Race condition — record was just created by another process
       const retried = await client.materials.findFirst({
-        where: { [config.fkField]: masterId, sizeVariantId: null },
+        where: { [config.fkField]: masterId, ...BASE_MATERIAL_ROW },
         select: { id: true },
       });
       if (retried) return retried.id;
@@ -92,6 +94,56 @@ export async function ensureLabelSizeMaterialRecord(sizeVariantId: string, tx?: 
   if (!variant) throw new Error(`Label size "${sizeVariantId}" does not exist`);
   const material = await materialService.createFromLabelSizeVariant(variant.label, variant, tx);
   return material.id;
+}
+
+/**
+ * The materials row of ONE thread PACK (Cone 2-ply, Cone 3-ply, Tube 3-ply…), created when missing. A thread
+ * bought as cones and as tubes is stocked as separate items (owner, 2026-09-26): every lot, movement and
+ * stock_levels row of a packed lot is booked on this row, in cones / tubes — never on the base thread row.
+ */
+export async function ensureThreadPackMaterialRecord(
+  threadId: string,
+  packing: ThreadPackagingType,
+  ply: ThreadPly | null | undefined,
+  tx?: any
+): Promise<string> {
+  const client = tx || prisma;
+  const existing = await client.materials.findFirst({
+    where: { threadId, threadPackagingType: packing, threadPly: ply ?? null },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+  const thread = await client.thread_master.findUnique({
+    where: { id: threadId },
+    select: { id: true, threadCode: true, threadName: true },
+  });
+  if (!thread) throw new Error(`Thread "${threadId}" does not exist`);
+  try {
+    const material = await materialService.createFromThreadPack(thread, packing, ply ?? null, tx);
+    return material.id;
+  } catch (err: any) {
+    if (err.code === 'P2002') {
+      const retried = await client.materials.findFirst({
+        where: { threadId, threadPackagingType: packing, threadPly: ply ?? null },
+        select: { id: true },
+      });
+      if (retried) return retried.id;
+    }
+    throw err;
+  }
+}
+
+/**
+ * The materials row a thread LOT belongs to — the same rule derived_stock_view joins on: a packed lot is on
+ * its pack row, an unpacked (legacy) lot on the base row. Every stock_levels write for a thread lot goes here.
+ */
+export async function threadLotMaterialId(
+  lot: { threadId: string; packagingType: ThreadPackagingType | null; ply: ThreadPly | null },
+  tx?: any
+): Promise<string> {
+  return lot.packagingType
+    ? ensureThreadPackMaterialRecord(lot.threadId, lot.packagingType, lot.ply, tx)
+    : ensureMaterialRecord(lot.threadId, 'THREAD', tx);
 }
 
 /**
@@ -282,11 +334,31 @@ export async function syncMasterToMaterials(
     if (updates.name) updateData.name = updates.name;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
-    // Only the master's own row: a label's SIZE rows share its labelId and keep their own code/name
+    // Only the master's own row: a label's SIZE rows and a thread's PACK rows share its FK and keep their own
+    // code/name (renamed below)
     const result = await client.materials.updateMany({
-      where: { [config.fkField]: masterId, sizeVariantId: null },
+      where: { [config.fkField]: masterId, ...BASE_MATERIAL_ROW },
       data: updateData,
     });
+
+    // A renamed / recoded thread renames its pack rows: "<name> - Cone 3-ply", "<code>-CONE-3PLY"
+    if (masterType === 'THREAD' && (updates.name || updates.code)) {
+      const packs = await client.materials.findMany({
+        where: { threadId: masterId, NOT: { threadPackagingType: null } },
+        select: { id: true, threadPackagingType: true, threadPly: true },
+      });
+      for (const pack of packs) {
+        await client.materials.update({
+          where: { id: pack.id },
+          data: {
+            ...(updates.name && {
+              name: `${updates.name} - ${threadPackLabel(pack.threadPackagingType!, pack.threadPly)}`,
+            }),
+            ...(updates.code && { code: threadPackCode(updates.code, pack.threadPackagingType!, pack.threadPly) }),
+          },
+        });
+      }
+    }
 
     // A renamed label renames its size rows as "<name> - Size <size>" (their codes carry the size already)
     if (masterType === 'LABEL' && updates.name) {

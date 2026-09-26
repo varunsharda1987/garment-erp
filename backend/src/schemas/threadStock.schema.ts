@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
 
 /**
  * Create Thread Stock (manual entry)
@@ -15,6 +16,9 @@ import { z } from 'zod';
  */
 export const createThreadStockSchema = z.object({
   threadId: z.string().uuid('Invalid thread ID'),
+  // The pack received (cones and tubes are separate stock items). Omitted = the thread master's own packing.
+  packagingType: ThreadPackagingTypeEnum.optional(),
+  ply: ThreadPlyEnum.optional(),
   quantity: z.number().positive('Quantity must be positive'),
   unit: z.string().max(20).optional(),
   metersPerUnit: z.number().positive().optional(),

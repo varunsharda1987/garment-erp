@@ -276,3 +276,10 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     categoryName: 'Accessories',
   },
 };
+
+/**
+ * The row a master's FK finds as "the" material: never a label SIZE row, never a thread PACK row. Those rows
+ * share their master's labelId / threadId (materials.labelId and threadId are non-unique), so a bare
+ * `findFirst({ where: { threadId } })` could return a pack row. Spread it into every FK lookup of the base row.
+ */
+export const BASE_MATERIAL_ROW = { sizeVariantId: null, threadPackagingType: null } as const;

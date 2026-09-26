@@ -138,6 +138,8 @@ export async function routeToSpecializedStock(
         machinePartId: true,
         otherMaterialId: true,
         sizeVariantId: true,
+        threadPackagingType: true,
+        threadPly: true,
         greige_master: { select: { greigeWidth: true } },
         fabric_master: { select: { actualWidth: true } },
       },
@@ -234,9 +236,12 @@ export async function routeToSpecializedStock(
     }
 
     if (material.threadId) {
+      // The lot takes the pack of the row it is received on (Cone 3-ply…) — a base row makes an unpacked lot —
+      // so derived_stock_view puts it on the same row the caller's stock_levels write went to
       const stock = await threadStockService.createThreadStock(
         {
           threadId: material.threadId,
+          pack: { packagingType: material.threadPackagingType, ply: material.threadPly },
           quantity: actualQty,
           purchaseCost: data.rate,
           warehouseId: data.warehouseId,
@@ -333,6 +338,8 @@ export async function routeFromSpecializedStock(
         machinePartId: true,
         otherMaterialId: true,
         sizeVariantId: true,
+        threadPackagingType: true,
+        threadPly: true,
       },
     });
 
@@ -496,6 +503,9 @@ export async function routeFromSpecializedStock(
       const stocks = await client.thread_stock.findMany({
         where: {
           threadId: material.threadId,
+          // Only this row's pack: cones are never drawn for tubes (nor packed lots for the base row)
+          packagingType: material.threadPackagingType,
+          ply: material.threadPly,
           quantityAvailable: { gt: 0 },
           ...(data.warehouseId && { warehouseId: data.warehouseId }),
         },

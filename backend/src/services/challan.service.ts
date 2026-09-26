@@ -7,7 +7,7 @@ import { logWarn } from '../utils/logger';
 import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
 import stockMovementService from './stockMovement.service';
-import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { ensureMaterialRecord, syncStockLevelQuantity, threadLotMaterialId } from './helpers/material-sync.helper';
 // BUG-CHN5 fix: Use decimal.js for quantity calculations to avoid floating-point errors
 import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
@@ -567,20 +567,16 @@ export async function issueChallan(id: string, userId?: string) {
             },
           });
 
-          // BUG-INV3 fix: find materials.id instead of using threadId directly
+          // The lot's own materials row — its pack row (cones / tubes) or, unpacked, the thread's base row
           if (threadStock.threadId) {
-            const threadMaterial = await tx.materials.findFirst({
-              where: { threadId: threadStock.threadId },
-              select: { id: true },
-            });
-            if (threadMaterial)
-              await syncStockLevelQuantity(
-                threadMaterial.id,
-                -lotQty,
-                threadStock.warehouseId ?? undefined,
-                'METER',
-                tx
-              );
+            const threadMaterialId = await threadLotMaterialId(threadStock, tx);
+            await syncStockLevelQuantity(
+              threadMaterialId,
+              -lotQty,
+              threadStock.warehouseId ?? undefined,
+              undefined,
+              tx
+            );
           }
         }
 

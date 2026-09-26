@@ -38,6 +38,37 @@ export const THREAD_PACKAGING_LABELS: Record<ThreadPackagingType, string> = {
   CONE_10K: `${unitLabel('CONE')} (10,000 m)`,
 };
 
+/** One row of the ONE box-size table (thread_packaging_specs): how many cones / tubes a box holds, by pack. */
+export interface ThreadPackagingSpec {
+  ply: ThreadPly;
+  packagingType: ThreadPackagingType;
+  unitsPerBox: number;
+  metersPerUnit: number;
+}
+
+/**
+ * What a PO line may order (owner, 2026-09-26): cones in 2- or 3-ply, tubes in 3-ply only. Thread is bought in
+ * BOXES of one pack, and each pack is its own stock item — cones and tubes are never added together. The server
+ * checks the same list (backend thread-pack.helper `ORDERABLE_THREAD_PACKS`).
+ */
+export const ORDERABLE_THREAD_PACKS: Record<'CONE' | 'TUBE', ThreadPly[]> = {
+  CONE: ['TWO_PLY', 'THREE_PLY'],
+  TUBE: ['THREE_PLY'],
+};
+
+/** "Cone 3-ply", "Tube 3-ply" — the name a pack's stock item carries. */
+export const threadPackLabel = (packing: ThreadPackagingType, ply?: ThreadPly | null): string =>
+  ply
+    ? `${THREAD_PACKAGING_LABELS[packing]} ${ply === 'TWO_PLY' ? '2-ply' : '3-ply'}`
+    : THREAD_PACKAGING_LABELS[packing];
+
+/** The box size of one pack, from the table (undefined when the table has no row for it). */
+export const findPackagingSpec = (
+  specs: ThreadPackagingSpec[] | undefined,
+  packing: ThreadPackagingType | null | undefined,
+  ply: ThreadPly | null | undefined
+): ThreadPackagingSpec | undefined => specs?.find((s) => s.packagingType === packing && s.ply === ply);
+
 export interface ThreadQuantityConversion {
   totalUnits: number;
   totalBoxes: number;

@@ -177,6 +177,8 @@ class PurchaseOrderService {
           receivedQuantity: 0,
           unit: lineUnits[i].unit,
           stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
+          threadPackagingType: lineUnits[i].threadPackagingType,
+          threadPly: lineUnits[i].threadPly,
           unitPrice: item.unitPrice,
           totalPrice,
           hsnCode: gst.hsnCode,
@@ -485,7 +487,14 @@ class PurchaseOrderService {
       if (data.items) {
         const existingItems = await tx.purchase_order_items.findMany({
           where: { poId: id },
-          select: { id: true, materialId: true, serviceType: true, receivedQuantity: true },
+          select: {
+            id: true,
+            materialId: true,
+            serviceType: true,
+            receivedQuantity: true,
+            threadPackagingType: true,
+            threadPly: true,
+          },
         });
         const existingById = new Map(existingItems.map((i) => [i.id, i]));
 
@@ -540,9 +549,17 @@ class PurchaseOrderService {
           let poTotalSgst = 0;
           let poTotalIgst = 0;
 
-          // Every kept or new line re-derives its unit + factor (a line added on edit got no factor before)
+          // Every kept or new line re-derives its unit + factor (a line added on edit got no factor before).
+          // A kept thread line the client re-sends without its pack keeps the pack it was ordered in.
           const lineUnits = await resolvePoLineUnits(
-            resolved.map((r) => r.item),
+            resolved.map(({ item, existingId }) => {
+              const kept = existingId ? existingById.get(existingId) : undefined;
+              return {
+                ...item,
+                threadPackagingType: item.threadPackagingType ?? kept?.threadPackagingType,
+                threadPly: item.threadPly ?? kept?.threadPly,
+              };
+            }),
             tx
           );
 
@@ -572,6 +589,8 @@ class PurchaseOrderService {
               orderedQuantity: item.orderedQuantity,
               unit: lineUnits[i].unit,
               stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
+              threadPackagingType: lineUnits[i].threadPackagingType,
+              threadPly: lineUnits[i].threadPly,
               unitPrice: item.unitPrice,
               totalPrice,
               hsnCode: gst.hsnCode,
@@ -783,6 +802,8 @@ class PurchaseOrderService {
           receivedQuantity: 0,
           unit: lineUnit.unit,
           stockUnitsPerUnit: lineUnit.stockUnitsPerUnit,
+          threadPackagingType: lineUnit.threadPackagingType,
+          threadPly: lineUnit.threadPly,
           unitPrice: item.unitPrice,
           totalPrice,
           hsnCode: gst.hsnCode,
@@ -859,7 +880,12 @@ class PurchaseOrderService {
     const totalPrice = this.calculateItemTotal(orderedQuantity, unitPrice);
     // A unit change re-derives the factor with it (the old factor must never outlive its unit)
     const [lineUnit] = await resolvePoLineUnits([
-      { materialId: existingItem.materialId, unit: data.unit ?? existingItem.unit },
+      {
+        materialId: existingItem.materialId,
+        unit: data.unit ?? existingItem.unit,
+        threadPackagingType: data.threadPackagingType ?? existingItem.threadPackagingType,
+        threadPly: data.threadPly ?? existingItem.threadPly,
+      },
     ]);
 
     // Recalculate GST if price changed
@@ -879,6 +905,8 @@ class PurchaseOrderService {
           orderedQuantity: data.orderedQuantity,
           unit: lineUnit.unit,
           stockUnitsPerUnit: lineUnit.stockUnitsPerUnit,
+          threadPackagingType: lineUnit.threadPackagingType,
+          threadPly: lineUnit.threadPly,
           unitPrice: data.unitPrice,
           totalPrice,
           gstRate: gst.gstRate,

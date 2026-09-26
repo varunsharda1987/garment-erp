@@ -8,6 +8,7 @@ import type {
   BulkImportResponse,
   BulkImportRow,
   TemplateResponse,
+  ThreadPackagingSpec,
 } from '../types/thread.types';
 
 /**
@@ -84,4 +85,14 @@ export const bulkImportThreads = async (data: BulkImportRow[], createStock?: boo
 export const downloadTemplate = async (): Promise<TemplateResponse> => {
   const { data } = await api.get<TemplateResponse>('/materials/thread/template');
   return data;
+};
+
+/**
+ * The ONE box-size table (thread_packaging_specs): cones / tubes per box and metres per unit, by pack and ply
+ */
+export const getThreadPackagingSpecs = async (): Promise<ThreadPackagingSpec[]> => {
+  const { data } = await api.get<{ success: boolean; data: ThreadPackagingSpec[] }>(
+    '/materials/thread/packaging-specs'
+  );
+  return data.data;
 };

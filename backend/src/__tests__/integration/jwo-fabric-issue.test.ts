@@ -297,6 +297,8 @@ describe('issuing greige fabric on a job work order', () => {
         reservedQuantity: RESERVED,
         unit: 'METER',
         reservedById: userId,
+        // A reservation names the lot it holds (allocateStock, 2026-09-26) — the issue gives back to it
+        greigeStockId: lotId,
       },
     });
     await prisma.greige_stock.update({ where: { id: lotId }, data: { quantityReserved: RESERVED } });

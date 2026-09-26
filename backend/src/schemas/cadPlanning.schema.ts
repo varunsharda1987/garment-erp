@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { multiValue } from './common.schema';
+import { formNumber, multiValue } from './common.schema';
 import { CAD_PROGRESS_FILTERS, CAD_ORDER_FILTERS } from '../services/helpers/cad-list-filter.helper';
 
 // ============================================================================
@@ -259,8 +259,6 @@ export const cadPurposeActionSchema = z.object({
   rejectionReason: z.string().max(500).optional(),
   rejectionNotes: z.string().max(500).optional(),
   approvalNotes: z.string().max(500).optional(),
-  // Reject: the user has seen the approved cost sheets / order BOMs built on the row (CAD_IN_USE)
-  confirmImpact: z.boolean().optional(),
 });
 
 /**
@@ -306,6 +304,30 @@ export const linkCADToStockSchema = z.object({
  * PUT /api/cad-planning/:styleId/approve-cad
  * PUT /api/cad-planning/:styleId/reject-cad
  */
+/**
+ * Correct an approved CAD row (Correct CAD flow, cad-correction.service)
+ * POST /api/cad-planning/:styleId/row/:rowId/correction/preview — what it would change
+ * POST /api/cad-planning/:styleId/row/:rowId/correction          — make it (reason required)
+ * Every field is optional: an omitted field keeps the row's current value.
+ */
+const cadCorrectionFields = {
+  layerLengthMeters: formNumber(z.number().positive()),
+  sizeBreakdowns: z
+    .array(z.object({ sizeName: z.string().min(1).max(50), quantity: z.number().int().nonnegative() }))
+    .optional(),
+  greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
+  cutableWidth: formNumber(z.number().positive()),
+};
+export const cadCorrectionPreviewSchema = z.object({
+  ...cadCorrectionFields,
+  reason: z.string().max(500).optional(),
+});
+export const cadCorrectionSchema = z.object({
+  ...cadCorrectionFields,
+  reason: z.string().trim().min(3, 'Give a reason for the correction').max(500),
+});
+export const cadCorrectionIdParamSchema = z.object({ correctionId: z.string().uuid() });
+
 export const cadPlanActionSchema = z.object({
   cadSelections: z.record(z.string(), z.string().uuid()).optional(),
   // The Approve action posts fabric->CAD mappings that approveCADPlan requires; without this field
@@ -314,8 +336,6 @@ export const cadPlanActionSchema = z.object({
   fabricCADMappings: z.array(z.object({ fabricId: z.string().uuid(), fabricCADId: z.string().uuid() })).optional(),
   remarks: z.string().max(500).optional(),
   rejectionReason: z.string().max(500).optional(),
-  // Reject: the user has seen the approved cost sheets / order BOMs built on the rows (CAD_IN_USE)
-  confirmImpact: z.boolean().optional(),
 });
 
 // ============================================================================

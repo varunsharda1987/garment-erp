@@ -46,6 +46,7 @@ function HistoryEntry({ entry }: { entry: CadHistoryEntry }) {
         <span className="text-muted-foreground">{formatDateTime(entry.at)}</span>
       </div>
       {entry.reason && <p className="text-sm text-muted-foreground">Reason: {entry.reason}</p>}
+      {entry.outcome && <p className="text-sm">{entry.outcome}</p>}
       {entry.inUse && (
         <p className="text-sm text-warning">Rejected while in use by {entry.inUse} (confirmed by the user).</p>
       )}

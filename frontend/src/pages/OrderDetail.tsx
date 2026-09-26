@@ -630,6 +630,7 @@ export default function OrderDetail() {
                   totalRequirements: mrpSummary.totalRequirements,
                   requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
                   requirementsAwaitingSizes: mrpSummary.requirementsAwaitingSizes,
+                  requirementsAwaitingDecision: mrpSummary.requirementsAwaitingDecision,
                   hasShortfall: qtyExceeds(mrpSummary.totalShortfall, 0),
                 }
               : null,

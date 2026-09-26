@@ -147,8 +147,6 @@ export interface ApproveCADRequest {
 export interface RejectCADRequest {
   purpose: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
   rejectionNotes: string;
-  /** The user has seen the approved cost sheets / order BOMs built on the row (409 CAD_IN_USE) */
-  confirmImpact?: boolean;
 }
 
 /** One approved thing built on a CAD row, as a Reject's 409 CAD_IN_USE lists it */
@@ -167,6 +165,7 @@ export interface CadHistoryEntry {
   reason: string | null;
   changes: Array<{ field: string; from: string | number | null; to: string | number | null }>;
   inUse: string | null;
+  outcome: string | null;
 }
 
 export interface CadRowHistory {
@@ -174,6 +173,64 @@ export interface CadRowHistory {
   createdAt: string;
   createdBy: { name: string | null; email: string | null } | null;
   entries: CadHistoryEntry[];
+}
+
+/** A Correct CAD request — omitted fields keep the row's current value */
+export interface CadCorrectionRequest {
+  layerLengthMeters?: number;
+  sizeBreakdowns?: Array<{ sizeName: string; quantity: number }>;
+  greigeId?: string | null;
+  cutableWidth?: number;
+  reason?: string;
+}
+
+/** What a correction would change (POST …/correction/preview) */
+export interface CadCorrectionImpact {
+  before: {
+    cadAverage: number | null;
+    totalCostPerMeter: number | null;
+    greigeId: string | null;
+    width: number | null;
+  };
+  after: { cadAverage: number | null; totalCostPerMeter: number | null; greigeId: string | null; width: number | null };
+  costing: { slabLabel: string | null; slabMetres: number | null; priceChanged: boolean; notes: string[] };
+  fabricCostPerPiece: { before: number | null; after: number | null };
+  costSheets: Array<{
+    costSheetId: string;
+    version: number;
+    purpose: string;
+    approvalStatus: string;
+    action: 'NEW_VERSION' | 'UPDATE';
+    cadAverageOnSheet: number | null;
+  }>;
+  orders: Array<{
+    orderNumber: string;
+    orderBomId: string;
+    bomVersion: number;
+    bomStatus: string;
+    locked: boolean;
+    metresBefore: number | null;
+    metresAfter: number | null;
+    requirements: Array<{ requirementNumber: string; requirementType: string; status: string; state: string }>;
+  }>;
+  needsApproval: boolean;
+  carryForwardOnly: boolean;
+  nothingToCorrect?: boolean;
+  cuttingNote: string;
+}
+
+export interface PendingCadCorrection {
+  correctionId: string;
+  cadId: string;
+  status: 'PENDING_APPROVAL' | 'PARTIAL';
+  reason: string;
+  correctedAt: string;
+  correctedBy: { name: string | null; email: string | null } | null;
+  newCostSheetIds: string[];
+  appliedOrders: {
+    cadApplied?: boolean;
+    orders?: Array<{ orderNumber: string; status: string; message?: string }>;
+  } | null;
 }
 
 /** The 409 a Reject returns when approved cost sheets / order BOMs are built on the CAD */
@@ -479,15 +536,8 @@ export const cadPlanningService = {
   /**
    * Reject/Unapprove CAD plan - revert to PENDING status
    */
-  async rejectCADPlan(
-    styleId: string,
-    rejectionReason: string,
-    confirmImpact?: boolean
-  ): Promise<{ success: boolean; message: string }> {
-    const response = await api.put(`/cad-planning/${styleId}/reject-cad`, {
-      rejectionReason,
-      ...(confirmImpact ? { confirmImpact: true } : {}),
-    });
+  async rejectCADPlan(styleId: string, rejectionReason: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.put(`/cad-planning/${styleId}/reject-cad`, { rejectionReason });
     return response.data;
   },
 
@@ -647,6 +697,51 @@ export const cadPlanningService = {
   async getCADRowHistory(styleId: string, rowId: string): Promise<CadRowHistory> {
     const response = await api.get(`/cad-planning/${styleId}/row/${rowId}/history`);
     return response.data.data;
+  },
+
+  // ============================================
+  // CORRECT CAD (fix an approved CAD and carry it to cost sheets / orders / requirements)
+  // ============================================
+
+  async previewCadCorrection(styleId: string, rowId: string, data: CadCorrectionRequest): Promise<CadCorrectionImpact> {
+    const response = await api.post(`/cad-planning/${styleId}/row/${rowId}/correction/preview`, data);
+    return response.data.data;
+  },
+
+  async submitCadCorrection(
+    styleId: string,
+    rowId: string,
+    data: CadCorrectionRequest & { reason: string }
+  ): Promise<{
+    data: { correctionId: string; status: 'APPLIED' | 'PENDING_APPROVAL'; newCostSheetIds: string[] };
+    message: string;
+  }> {
+    const response = await api.post(`/cad-planning/${styleId}/row/${rowId}/correction`, data);
+    return response.data;
+  },
+
+  async getPendingCadCorrections(styleId: string): Promise<PendingCadCorrection[]> {
+    const response = await api.get(`/cad-planning/${styleId}/corrections/pending`);
+    return response.data.data;
+  },
+
+  async getCorrectionForCostSheet(costSheetId: string) {
+    const response = await api.get(`/cad-planning/corrections/by-cost-sheet/${costSheetId}`);
+    return response.data.data as {
+      id: string;
+      status: string;
+      reason: string;
+      correctedAt: string;
+      before: { cadAverage: number | null };
+      after: { cadAverage: number | null };
+      correctedBy: { firstName: string | null; lastName: string | null; email: string } | null;
+      appliedOrders: PendingCadCorrection['appliedOrders'];
+    } | null;
+  },
+
+  async retryCadCorrection(correctionId: string) {
+    const response = await api.post(`/cad-planning/corrections/${correctionId}/retry`);
+    return response.data;
   },
 };
 

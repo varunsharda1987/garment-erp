@@ -21,6 +21,9 @@ export const MaterialRequirementStatus = {
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
   CONVERTED: 'CONVERTED', // P3: fabric req converted to greige+processing
+  // A new BOM version needs more than the PO / job work already placed. Visible, NOT orderable until the
+  // team chooses "Order the extra" (→ PO_REQUIRED) or "Don't order more" (→ CANCELLED, NOT_ORDERED).
+  DECISION_PENDING: 'DECISION_PENDING',
 } as const;
 
 export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];
@@ -37,6 +40,7 @@ export const MaterialRequirementStatusLabels: Record<MaterialRequirementStatus, 
   RECEIVED: 'Received',
   CANCELLED: 'Cancelled',
   CONVERTED: 'Converted to Greige', // P3
+  DECISION_PENDING: 'Needs Decision',
 };
 
 export const MaterialRequirementStatusColors: Record<MaterialRequirementStatus, string> = {
@@ -51,6 +55,7 @@ export const MaterialRequirementStatusColors: Record<MaterialRequirementStatus, 
   RECEIVED: 'bg-emerald-100 text-emerald-800',
   CANCELLED: 'bg-destructive/10 text-destructive',
   CONVERTED: 'bg-violet-100 text-violet-800', // P3
+  DECISION_PENDING: 'bg-amber-100 text-amber-900 ring-1 ring-amber-300',
 };
 
 export const RequirementSource = {
@@ -197,6 +202,8 @@ export interface MaterialRequirement {
   shortQuantity?: number | null;
   /** Why the buyer closed that PO short. */
   shortCloseReason?: string | null;
+  /** A later BOM version needs this much LESS than this PO / job-work row holds — the PO is never changed. */
+  surplusQty?: number | null;
   /** MRP-48f: shrinkage applied and where it came from (RATE_CARD | RATE_CARD_RESOLVED | GREIGE_MASTER_FALLBACK | NONE). */
   shrinkagePercentUsed?: number | null;
   shrinkageSource?: string | null;
@@ -476,6 +483,8 @@ export interface OrderRequirementsSummary {
   requirementsNeedingPO: number;
   /** SIZE_PENDING rows: planned, but not orderable until the order gets its size split. */
   requirementsAwaitingSizes?: number;
+  /** DECISION_PENDING rows: a new BOM version needs more than the PO / job work placed; not orderable until decided. */
+  requirementsAwaitingDecision?: number;
   estimatedPOValue?: number;
   // P5.1: GRN tracking fields
   receivedCount?: number;

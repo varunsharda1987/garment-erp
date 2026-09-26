@@ -27,6 +27,7 @@ import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
+import { consumeReservations } from './helpers/stock-reservation.helper';
 import {
   coveringChallanWhere,
   challanOrigin,
@@ -1122,39 +1123,26 @@ async function issueOneWithinTx(
   // the MATERIAL requirement it came from (linkedRequirementId). Matching only the job's own links
   // never found that hold: DJ-ESSKY086LS-004 sent 1,833.25 m on 21-Sep 2026 and the lot kept
   // reading 1,833.25 m reserved against 421.5 m on the shelf — zero free greige.
+  //
+  // Only what was ISSUED is consumed, and each reservation gives back to the lot IT holds
+  // (stock-reservation.helper): until 2026-09-26 this marked every reservation consumed even on a part
+  // issue, and decremented the lots the cloth was taken from — stripping another order's hold on them and
+  // leaving the real hold (on the reserved lot) in place for ever. Fabric holds were never released.
   const reqIds = jwo.requirementLinks.flatMap((l) =>
     [l.material_requirements.id, l.material_requirements.linkedRequirementId].filter((id): id is string => !!id)
   );
   if (reqIds.length > 0) {
-    const released = await tx.stock_reservations.updateMany({
-      where: { referenceId: { in: reqIds }, status: 'ACTIVE' },
-      data: { status: 'CONSUMED', completedAt: issueDate },
-    });
-    if (released.count > 0) {
-      for (const { row, qty } of lots) {
-        const fresh = await tx.greige_stock.findUnique({
-          where: { id: row.id },
-          select: { quantityReserved: true },
-        });
-        const dec = Math.min(Number(fresh?.quantityReserved ?? 0), qty);
-        if (dec > 0) {
-          await tx.greige_stock.updateMany({
-            where: { id: row.id, quantityReserved: { gte: dec } },
-            data: { quantityReserved: { decrement: dec } },
-          });
-        }
-      }
-      for (const { row, qty } of laceLots) {
-        const fresh = await tx.lace_stock.findUnique({ where: { id: row.id }, select: { quantityReserved: true } });
-        const dec = Math.min(Number(fresh?.quantityReserved ?? 0), qty);
-        if (dec > 0) {
-          await tx.lace_stock.updateMany({
-            where: { id: row.id, quantityReserved: { gte: dec } },
-            data: { quantityReserved: { decrement: dec } },
-          });
-        }
-      }
-      logInfo(`[Issuance] Released ${released.count} MRP reservation(s) fulfilled by ${jwo.jobWorkNumber}`);
+    const fabricIssued = lots.length === 0 && fabricLotRow ? Number(jwo.qtySentMeters) : 0;
+    const issuedQty =
+      lots.reduce((sum, l) => sum + l.qty, 0) + laceLots.reduce((sum, l) => sum + l.qty, 0) + fabricIssued;
+    const issuedLotIds = [
+      ...lots.map((l) => l.row.id),
+      ...laceLots.map((l) => l.row.id),
+      ...(fabricIssued > 0 && fabricLotRow ? [fabricLotRow.id] : []),
+    ];
+    const consumed = await consumeReservations(tx, reqIds, issuedQty, issueDate, issuedLotIds);
+    if (consumed > 0) {
+      logInfo(`[Issuance] Consumed ${consumed} of this order's MRP reservations with ${jwo.jobWorkNumber}`);
     }
   }
 

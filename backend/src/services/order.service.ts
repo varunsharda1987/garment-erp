@@ -15,6 +15,7 @@ import { validateTransition } from '../utils/stateMachine';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
+import { releaseReservations } from './helpers/stock-reservation.helper';
 
 // ============================================
 // Types
@@ -761,13 +762,22 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       // later correction of the order. Same open-status filter as order-bom.service.
       // cancelBomRequirements: rows already on POs (PO_GENERATED/PO_SENT/…) are kept, since a
       // real commercial document references them.
-      await tx.material_requirements.updateMany({
+      const openRequirements = await tx.material_requirements.findMany({
         where: {
           orderId: id,
           status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
         },
-        data: { status: 'CANCELLED' },
+        select: { id: true },
       });
+      const openRequirementIds = openRequirements.map((r) => r.id);
+      if (openRequirementIds.length > 0) {
+        await tx.material_requirements.updateMany({
+          where: { id: { in: openRequirementIds } },
+          data: { status: 'CANCELLED' },
+        });
+        // The cancelled order no longer holds cloth: give its reservations back to their lots
+        await releaseReservations(tx, openRequirementIds);
+      }
 
       // Handle ALL lace allocations for this order (not just RESERVED/IN_USE)
       const laceAllocations = await tx.lace_stock_allocation.findMany({

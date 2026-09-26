@@ -62,6 +62,13 @@ import {
 } from '../controllers/cad-embroidery.controller';
 import { approveCADPlan, rejectCADPlan } from '../controllers/style.controller';
 import {
+  previewCadCorrection,
+  submitCadCorrection,
+  getPendingCadCorrections,
+  getCorrectionForCostSheet,
+  retryCadCorrection,
+} from '../controllers/cad-correction.controller';
+import {
   uploadMiniMarker,
   getMiniMarkers,
   getMiniMarkersByPurpose,
@@ -97,6 +104,9 @@ import {
   updateCADValuesWithBreakdownSchema,
   updateCADValuesSchema,
   cadPurposeActionSchema,
+  cadCorrectionSchema,
+  cadCorrectionPreviewSchema,
+  cadCorrectionIdParamSchema,
   createPlanningVersionSchema,
   copyCADPurposeSchema,
   linkCADToStockSchema,
@@ -181,6 +191,29 @@ router.get('/greige/:greigeId/widths', validateParams(greigeIdParamSchema), asyn
  * @query   styleId (optional), orderId (optional)
  */
 router.get('/pending-variance', requireAdmin(), asyncHandler(getPendingVarianceApprovals));
+
+// ============================================
+// CAD CORRECTIONS (literal "corrections" routes — before any /:styleId route)
+// ============================================
+
+/**
+ * @route   GET /api/cad-planning/corrections/by-cost-sheet/:costSheetId
+ * @desc    The CAD correction a cost-sheet version was made by (cost sheet banner)
+ * @access  All authenticated users
+ */
+router.get('/corrections/by-cost-sheet/:costSheetId', asyncHandler(getCorrectionForCostSheet));
+
+/**
+ * @route   POST /api/cad-planning/corrections/:correctionId/retry
+ * @desc    Carry a partly applied correction to its orders again
+ * @access  ADMIN only
+ */
+router.post(
+  '/corrections/:correctionId/retry',
+  requireAdmin(),
+  validateParams(cadCorrectionIdParamSchema),
+  asyncHandler(retryCadCorrection) // no-body
+);
 
 // ============================================
 // STYLE-SPECIFIC CAD OPERATIONS
@@ -432,6 +465,37 @@ router.get('/:styleId/row/:rowId/lineage', validateParams(styleIdAndRowIdParamSc
  * @access  All authenticated users
  */
 router.get('/:styleId/row/:rowId/history', validateParams(styleIdAndRowIdParamSchema), asyncHandler(getCADRowHistory));
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/correction/preview
+ * @desc    What correcting an approved CAD row would change (writes nothing)
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/correction/preview',
+  validateParams(styleIdAndRowIdParamSchema),
+  validateBody(cadCorrectionPreviewSchema),
+  asyncHandler(previewCadCorrection)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/correction
+ * @desc    Correct an approved CAD row — applied now, or sent for admin approval with new cost-sheet versions
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/correction',
+  validateParams(styleIdAndRowIdParamSchema),
+  validateBody(cadCorrectionSchema),
+  asyncHandler(submitCadCorrection)
+);
+
+/**
+ * @route   GET /api/cad-planning/:styleId/corrections/pending
+ * @desc    The style's CAD corrections waiting for approval (row badges)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/corrections/pending', validateParams(styleIdParamSchema), asyncHandler(getPendingCadCorrections));
 
 /**
  * @route   POST /api/cad-planning/:styleId/link-stock

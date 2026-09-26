@@ -12,6 +12,7 @@ import {
   CUTABLE_WIDTH_OFFSETS,
   getDefaultLayerMargin,
   calculateCadAverage,
+  cadAverageFromMarker,
   validateCutableWidth,
   validateCADModification,
   defaultCutableWidthForGreige,
@@ -3425,15 +3426,14 @@ export async function updateCADTableRow(req: Request, res: Response) {
         : [];
   }
 
-  const totalPieces = updatedBreakdowns.reduce((sum, sb) => sum + sb.quantity, 0);
   const finalCadMeters = updatedCad.cadMeters ? Number(updatedCad.cadMeters) : null;
-  const finalLayerMargin = updatedCad.layerMarginMeters
-    ? Number(updatedCad.layerMarginMeters)
-    : finalCadMeters
-      ? getDefaultLayerMargin(finalCadMeters)
-      : 0;
-  // CAD Average = (layerLengthMeters + layerMargin) / piecesPerMarker
-  const cadAverage = finalCadMeters && totalPieces > 0 ? (finalCadMeters + finalLayerMargin) / totalPieces : null;
+  // CAD Average = (layer length + layer margin) / total pieces of the size breakdown — the one formula
+  // the Correct CAD flow uses too (cadAverageFromMarker)
+  const { cadAverage } = cadAverageFromMarker(
+    finalCadMeters,
+    updatedBreakdowns,
+    updatedCad.layerMarginMeters ? Number(updatedCad.layerMarginMeters) : null
+  );
 
   // IMPORTANT: Store cadAverage in the database
   if (cadAverage !== null) {

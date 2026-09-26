@@ -135,6 +135,23 @@ export function calculateCadAverage(
 }
 
 /**
+ * A CAD row's marker → its average, the way the CAD Planning spreadsheet computes it: the layer margin is
+ * the default for the layer length, and the pieces are the size breakdown's total. The spreadsheet save
+ * and the Correct CAD flow both call this, so a correction can never compute a different average from
+ * the same marker.
+ */
+export function cadAverageFromMarker(
+  layerLengthMeters: number | null | undefined,
+  sizeBreakdowns: Array<{ quantity: number }> | null | undefined,
+  storedLayerMarginMeters?: number | null
+): { layerMarginMeters: number | null; piecesPerMarker: number; cadAverage: number | null } {
+  const pieces = (sizeBreakdowns ?? []).reduce((sum, sb) => sum + (Number(sb.quantity) || 0), 0);
+  const layer = layerLengthMeters ? Number(layerLengthMeters) : null;
+  const margin = storedLayerMarginMeters ?? (layer ? getDefaultLayerMargin(layer) : null);
+  return { layerMarginMeters: margin, piecesPerMarker: pieces, cadAverage: calculateCadAverage(layer, margin, pieces) };
+}
+
+/**
  * The width a CAD row starts at when a greige is picked and no width was typed.
  * Business rules: 63" greige → 52", 48" greige → 40", otherwise the greige's min finished width.
  */

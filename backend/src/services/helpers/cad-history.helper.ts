@@ -171,6 +171,8 @@ export interface CadHistoryEntry {
   changes: CadHistoryChange[];
   /** Approved cost sheets / orders a confirmed Reject went ahead over (Reject events only). */
   inUse: string | null;
+  /** Where a correction stands: waiting for approval / approved / rejected (Correct events only) */
+  outcome: string | null;
 }
 
 /** Fields the History dialog shows; anything else a row carries is left out. */
@@ -235,6 +237,7 @@ export async function getCadHistory(cadId: string): Promise<CadHistoryEntry[]> {
       reason: typeof newV.reason === 'string' ? newV.reason : null,
       changes: fields.map((field) => ({ field, from: display(field, oldV[field]), to: display(field, newV[field]) })),
       inUse: typeof newV.inUse === 'string' ? newV.inUse : null,
+      outcome: typeof newV.outcome === 'string' ? newV.outcome : null,
     };
   });
 }
@@ -296,21 +299,18 @@ export function describeCadUse(entries: CadInUseEntry[]): string {
 }
 
 /**
- * A Reject clears the row's fabric price approval, and the cost sheets / order BOMs built on it keep
- * their old figures. Refuse (409 `CAD_IN_USE`, requiresConfirmation) until the user has seen what is
- * built on the row and confirmed. Returns the in-use list so the caller can record it.
+ * A Reject clears the row's fabric price approval, and the cost sheets / order BOMs built on it would keep
+ * their old figures — how ESSKY082LS's 0.8440 never reached its order. Once anything approved is built on
+ * the row, Reject is refused (409 `CAD_IN_USE`, blocking) and the user is sent to Correct, which carries the
+ * change to them (cad-correction.service). Production CADs are never costed, so they stay rejectable.
  */
-export async function requireRejectConfirmation(
-  cadIds: string[],
-  confirmImpact: boolean | undefined
-): Promise<CadInUseEntry[]> {
+export async function refuseRejectWhenInUse(cadIds: string[]): Promise<void> {
   const inUse = await findCadsInUse(cadIds);
-  if (inUse.length > 0 && confirmImpact !== true) {
+  if (inUse.length > 0) {
     throw new ConflictError(
-      `This CAD is already used by ${describeCadUse(inUse)}. Rejecting it clears its fabric price approval, ` +
-        'and those will NOT update — they stay on the old figures. Confirm to reject anyway.',
-      { code: 'CAD_IN_USE', requiresConfirmation: true, inUse }
+      `This CAD is already used by ${describeCadUse(inUse)}. Rejecting it would leave them on the old figures — ` +
+        'use Correct instead (row menu → Correct…): it carries the change to them.',
+      { code: 'CAD_IN_USE', blocking: true, inUse }
     );
   }
-  return inUse;
 }

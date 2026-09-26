@@ -14,6 +14,7 @@ import {
   calculateRequirementsSchema,
   createManualRequirementSchema,
   allocateStockSchema,
+  declineExtraSchema,
   linkToPOSchema,
   convertToGreigeSchema,
   updateRequirementStatusSchema,
@@ -124,6 +125,31 @@ router.post(
   validateParams(idParamSchema),
   validateBody(allocateStockSchema),
   asyncHandler(mrpController.allocateStock)
+);
+
+/**
+ * @route   POST /api/mrp/requirements/:id/order-extra
+ * @desc    A requirement waiting for a decision (a new BOM version needs more than the PO / job work
+ *          already placed) becomes orderable
+ * @access  Private
+ */
+router.post(
+  '/requirements/:id/order-extra',
+  validateParams(idParamSchema),
+  asyncHandler(mrpController.orderExtraRequirement) // no-body
+);
+
+/**
+ * @route   POST /api/mrp/requirements/:id/decline-extra
+ * @desc    "Don't order more" — close a requirement waiting for a decision as not ordered
+ * @access  Private
+ * @body    { reason?: string }
+ */
+router.post(
+  '/requirements/:id/decline-extra',
+  validateParams(idParamSchema),
+  validateBody(declineExtraSchema),
+  asyncHandler(mrpController.declineExtraRequirement)
 );
 
 /**

@@ -49,6 +49,7 @@ import {
   createCostSheetVersion,
 } from '../services/costSheet.service';
 import type { CostSheet, CostSheetDriftItem } from '../types/costSheet.types';
+import { CadCorrectionBanner } from '../components/cost-sheet/CadCorrectionBanner';
 
 const CostSheetDetail = () => {
   const navigate = useNavigate();
@@ -395,6 +396,9 @@ const CostSheetDetail = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* A version made by a CAD correction: what approving it does (cad-correction.service) */}
+      {id && <CadCorrectionBanner costSheetId={id} />}
 
       {/* Source-costing drift: the fabric costing this sheet was built from has
           changed (re-priced, unapproved or cleared) since the snapshot was taken. */}

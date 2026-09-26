@@ -148,6 +148,25 @@ export async function allocateStock(id: string, data: AllocateStockRequest): Pro
 }
 
 /**
+ * A new BOM version needs more than the PO / job work already placed (status DECISION_PENDING):
+ * "Order the extra" makes the difference orderable (→ PO Required).
+ */
+export async function orderExtraRequirement(id: string): Promise<MaterialRequirement> {
+  const response = await api.post<RequirementResponse>(`${BASE_URL}/requirements/${id}/order-extra`);
+  return response.data.data;
+}
+
+/**
+ * "Don't order more" — the difference is recorded as not ordered; a recalculation does not ask again.
+ */
+export async function declineExtraRequirement(id: string, reason?: string): Promise<MaterialRequirement> {
+  const response = await api.post<RequirementResponse>(`${BASE_URL}/requirements/${id}/decline-extra`, {
+    reason: reason || undefined,
+  });
+  return response.data.data;
+}
+
+/**
  * Link a requirement to an existing PO item
  */
 export async function linkRequirementToPO(id: string, data: LinkToPORequest): Promise<MaterialRequirement> {
@@ -370,6 +389,8 @@ export default {
   createManualRequirement,
   cancelRequirement,
   allocateStock,
+  orderExtraRequirement,
+  declineExtraRequirement,
   linkRequirementToPO,
   updateRequirementStatus,
   generatePOFromRequirements,

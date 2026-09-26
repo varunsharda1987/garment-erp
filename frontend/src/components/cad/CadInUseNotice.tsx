@@ -1,5 +1,6 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, PencilLine } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import type { CadInUseEntry } from '@/services/cad-planning.service';
 
 const PURPOSE_LABEL: Record<string, string> = {
@@ -8,11 +9,11 @@ const PURPOSE_LABEL: Record<string, string> = {
 };
 
 /**
- * What a Reject would leave behind: the approved cost sheets and order BOMs built on the CAD keep the
- * old figures (409 CAD_IN_USE from the reject endpoints). Shown inside the Reject dialogs before the
- * user confirms.
+ * Why a Reject was refused: approved cost sheets / order BOMs are built on the CAD (409 CAD_IN_USE), and a
+ * reject would leave them on the old figures. The change goes through Correct instead, which carries it to
+ * them. `onCorrect` shows a "Correct instead" button (row Reject); the plan-level Reject has none.
  */
-export function CadInUseNotice({ inUse }: { inUse: CadInUseEntry[] }) {
+export function CadInUseNotice({ inUse, onCorrect }: { inUse: CadInUseEntry[]; onCorrect?: () => void }) {
   const sheets = new Map<string, string>();
   const orders = new Set<string>();
   for (const entry of inUse) {
@@ -25,7 +26,7 @@ export function CadInUseNotice({ inUse }: { inUse: CadInUseEntry[] }) {
   return (
     <Alert className="border-warning/40 bg-warning/10 [&>svg]:text-warning">
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle>This CAD is already in use</AlertTitle>
+      <AlertTitle>This CAD is already in use — it cannot be rejected</AlertTitle>
       <AlertDescription className="space-y-2">
         <ul className="list-disc pl-4 text-sm">
           {[...sheets.values()].map((label) => (
@@ -36,9 +37,15 @@ export function CadInUseNotice({ inUse }: { inUse: CadInUseEntry[] }) {
           ))}
         </ul>
         <p className="text-sm">
-          Rejecting clears the fabric price approval, and these will <strong>not</strong> update — they stay on the old
-          figures. Reject anyway only if you will redo them.
+          Rejecting would leave these on the old figures. Use <strong>Correct</strong> instead (row menu → Correct…): it
+          carries the change to them.
         </p>
+        {onCorrect && (
+          <Button size="sm" variant="outline" onClick={onCorrect}>
+            <PencilLine className="h-4 w-4 mr-2" />
+            Correct instead
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

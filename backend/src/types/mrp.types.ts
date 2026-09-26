@@ -336,6 +336,8 @@ export interface MaterialRequirementResponse {
   shortQuantity?: number | null;
   /** Why the buyer closed that PO short. */
   shortCloseReason?: string | null;
+  /** A later BOM version needs this much LESS than this PO / job-work row holds — the PO is never changed. */
+  surplusQty?: number | null;
   /** MRP-48f: shrinkage applied to this requirement and where it was resolved from. */
   shrinkagePercentUsed?: number | null;
   shrinkageSource?: string | null;
@@ -497,6 +499,8 @@ export interface OrderRequirementsSummary {
   requirementsNeedingPO: number;
   /** SIZE_PENDING rows: planned, but not orderable until the order gets its size split. */
   requirementsAwaitingSizes?: number;
+  /** DECISION_PENDING rows: a new BOM version needs more than the PO / job work placed; not orderable until decided. */
+  requirementsAwaitingDecision?: number;
   estimatedPOValue?: number;
 }
 

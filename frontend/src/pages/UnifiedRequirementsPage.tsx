@@ -105,6 +105,7 @@ import type { ServiceDashboardStats } from '@/types/serviceRequirement.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
+import { RequirementDecisionActions, RequirementQtyNote } from '@/components/requirements/RequirementDecision';
 import { isQtyZero, minQty, prefillQty, qtyAtLeast, qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDate, toDateInputValue } from '@/lib/date';
@@ -1228,6 +1229,7 @@ function MaterialRequirementsTab({
                                       {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
                                     </div>
                                   )}
+                                  <RequirementQtyNote req={req} />
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <span
@@ -1267,6 +1269,7 @@ function MaterialRequirementsTab({
                                 )}
                                 <TableCell className="text-right">
                                   <div className="flex gap-1 justify-end">
+                                    <RequirementDecisionActions req={req} />
                                     {/* Allocate from Stock button */}
                                     {!isQtyZero(req.currentStock) &&
                                       !isQtyZero(req.shortfall) &&
@@ -1438,6 +1441,7 @@ function MaterialRequirementsTab({
                               {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
                             </div>
                           )}
+                          <RequirementQtyNote req={req} />
                         </TableCell>
                         <TableCell className="text-right">
                           <span
@@ -1475,6 +1479,7 @@ function MaterialRequirementsTab({
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex gap-1 justify-end">
+                            <RequirementDecisionActions req={req} />
                             {/* Allocate from Stock button - show when stock available and requirement has shortfall */}
                             {!isQtyZero(req.currentStock) &&
                               !isQtyZero(req.shortfall) &&
@@ -2388,6 +2393,7 @@ function OutsourcedWorkTab({
     { value: 'PO_SENT', label: 'Sent to Processor' },
     { value: 'PARTIALLY_RECEIVED', label: 'Partially Received' },
     { value: 'RECEIVED', label: 'Received' },
+    { value: 'DECISION_PENDING', label: 'Needs Decision' },
     { value: 'CANCELLED', label: 'Cancelled' },
   ];
   const SERVICE_STATUS_OPTIONS = [
@@ -3225,6 +3231,12 @@ function OutsourcedWorkTab({
                             {row.statusLabel}
                           </span>
                         )}
+                        {row.originalProcessing && <RequirementQtyNote req={row.originalProcessing} />}
+                        {row.originalProcessing?.status === 'DECISION_PENDING' && (
+                          <div className="mt-1 flex gap-1">
+                            <RequirementDecisionActions req={row.originalProcessing} />
+                          </div>
+                        )}
                       </TableCell>
                       {/* Date */}
                       <TableCell className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</TableCell>
@@ -3407,6 +3419,12 @@ function OutsourcedWorkTab({
                                   >
                                     {row.statusLabel}
                                   </span>
+                                )}
+                                {row.originalProcessing && <RequirementQtyNote req={row.originalProcessing} />}
+                                {row.originalProcessing?.status === 'DECISION_PENDING' && (
+                                  <div className="mt-1 flex gap-1">
+                                    <RequirementDecisionActions req={row.originalProcessing} />
+                                  </div>
                                 )}
                               </TableCell>
                             </TableRow>

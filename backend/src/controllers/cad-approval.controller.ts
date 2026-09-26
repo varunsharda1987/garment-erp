@@ -11,10 +11,9 @@ import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/produ
 import {
   EMPTY_CAD_SNAPSHOT,
   cadSnapshot,
-  describeCadUse,
   recordCadEdit,
   recordCadEvent,
-  requireRejectConfirmation,
+  refuseRejectWhenInUse,
 } from '../services/helpers/cad-history.helper';
 
 /**
@@ -257,7 +256,7 @@ export async function approveCADPurpose(req: Request, res: Response) {
  */
 export async function rejectCADPurpose(req: Request, res: Response) {
   const { styleId, rowId } = req.params;
-  const { rejectionNotes, confirmImpact } = req.body;
+  const { rejectionNotes } = req.body;
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -289,9 +288,9 @@ export async function rejectCADPurpose(req: Request, res: Response) {
     throw new BusinessError('CAD record does not belong to this style');
   }
 
-  // Approved cost sheets / order BOMs built on this row keep their old figures after a reject — the
-  // user sees them and confirms first (ESSKY082LS, 26-Sep-2026: nobody was told).
-  const inUse = await requireRejectConfirmation([rowId], confirmImpact);
+  // Approved cost sheets / order BOMs built on this row would keep their old figures after a reject
+  // (ESSKY082LS, 26-Sep-2026) — once anything is built on it, the change goes through Correct instead.
+  await refuseRejectWhenInUse([rowId]);
 
   // Update approval status. Policy (two-owner split, user decision 2026-08-22): rejecting
   // the CAD geometry also un-approves the row's PRICE — a price computed on rejected
@@ -333,7 +332,6 @@ export async function rejectCADPurpose(req: Request, res: Response) {
     userId,
     action: 'REJECT',
     reason: rejectionNotes,
-    newValues: inUse.length > 0 ? { inUse: describeCadUse(inUse) } : null,
   });
 
   return res.json({

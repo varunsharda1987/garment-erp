@@ -14,6 +14,7 @@ import { systemSettingsService } from '../services/system-settings.service';
 import { processorRateValidationService } from '../services/processor-rate-validation.service';
 import { findRateCardsForShrinkage } from '../services/processor-rate-v2.service';
 import { lineUnit, loadLineUnits } from '../services/helpers/material-unit.helper';
+import { computeCostSheetTotals } from '../services/helpers/cost-sheet-totals.helper';
 import {
   StyleCostingWhereInput,
   FabricDetail,
@@ -139,24 +140,27 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     .filter((l) => !l.isNotApplicable)
     .reduce((sum, l) => sum + l.totalCost, 0);
 
-  // Calculate subtotal (before value loss and markup) — lace included, matching the relational
-  // recompute in styleCostingLaceItems.service (PHASE3 finding: create/update previously
-  // excluded lace while the recompute included it, so the two totals drifted)
-  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal + laceTotal;
-
-  // Calculate value loss
-  const valueLossAmount = (subtotal * validatedData.valueLossPercent) / 100;
-  const totalAfterValueLoss = subtotal + valueLossAmount;
-
-  // Calculate markup
-  const markupAmount = (totalAfterValueLoss * validatedData.markupPercent) / 100;
-  const totalProductCost = totalAfterValueLoss + markupAmount;
-
-  // Calculate derived cost fields for display
-  const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal + laceTotal;
-  const totalProcessingCost = embroideryTotal + cmtTotal;
-  const totalCostPerPiece = totalProductCost; // Same as totalProductCost (per piece cost)
-  const sellingPricePerPiece = totalProductCost; // Base selling price equals total cost
+  // Subtotal (lace included), value loss, markup and the derived totals — the one calculation
+  // (cost-sheet-totals.helper), shared with update and the Correct CAD flow
+  const {
+    subtotal,
+    valueLossAmount,
+    markupAmount,
+    totalProductCost,
+    totalMaterialCost,
+    totalProcessingCost,
+    totalCostPerPiece,
+    sellingPricePerPiece,
+  } = computeCostSheetTotals({
+    fabricTotal,
+    trimsTotal,
+    cmtTotal,
+    embroideryTotal,
+    accessoriesTotal,
+    laceTotal,
+    valueLossPercent: validatedData.valueLossPercent,
+    markupPercent: validatedData.markupPercent,
+  });
 
   // Generate unique ID for cost sheet
   const costSheetId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
@@ -973,19 +977,26 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
           })
         ).reduce((sum, l) => sum + Number(l.totalCost || 0), 0);
 
-  // Lace included in subtotal, matching the relational recompute in styleCostingLaceItems.service
-  // (PHASE3 finding: create/update previously excluded lace while the recompute included it)
-  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal + laceTotal;
-  const valueLossAmount = (subtotal * valueLossPercent) / 100;
-  const totalAfterValueLoss = subtotal + valueLossAmount;
-  const markupAmount = (totalAfterValueLoss * markupPercent) / 100;
-  const totalProductCost = totalAfterValueLoss + markupAmount;
-
-  // Calculate derived cost fields for display
-  const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal + laceTotal;
-  const totalProcessingCost = embroideryTotal + cmtTotal;
-  const totalCostPerPiece = totalProductCost;
-  const sellingPricePerPiece = totalProductCost;
+  // Lace included in subtotal (PHASE3 finding) — the one calculation (cost-sheet-totals.helper)
+  const {
+    subtotal,
+    valueLossAmount,
+    markupAmount,
+    totalProductCost,
+    totalMaterialCost,
+    totalProcessingCost,
+    totalCostPerPiece,
+    sellingPricePerPiece,
+  } = computeCostSheetTotals({
+    fabricTotal,
+    trimsTotal,
+    cmtTotal,
+    embroideryTotal,
+    accessoriesTotal,
+    laceTotal,
+    valueLossPercent,
+    markupPercent,
+  });
 
   // Build update data
   const updateData: Prisma.style_costingUpdateInput = {
@@ -1303,6 +1314,21 @@ export const deleteCostSheet = async (req: Request, res: Response): Promise<void
         `${consumers.anyOrderItemCostingCount} order-item costing(s) reference this cost sheet. ` +
         `It must be kept for audit. Create a new version if changes are needed.`,
       { code: 'COST_SHEET_IN_USE', dependents: consumers }
+    );
+  }
+
+  // A CAD correction's new version is decided by the admin (cad-correction.service): deleting it would
+  // leave the correction waiting for a sheet that no longer exists and the CAD row blocked for ever
+  const correction = await prisma.cad_corrections.findFirst({
+    where: { status: { in: ['PENDING_APPROVAL', 'PARTIAL'] }, newCostSheetIds: { has: id } },
+    select: { id: true },
+  });
+  if (correction) {
+    throw new ConflictError(
+      'This cost sheet version was made by a CAD correction that is waiting for a decision. Reject it ' +
+        '(Approve / Reject on the cost sheet) instead of deleting it — rejecting drops the correction and ' +
+        'restores the previous version.',
+      { code: 'COST_SHEET_OF_CAD_CORRECTION', correctionId: correction.id }
     );
   }
 

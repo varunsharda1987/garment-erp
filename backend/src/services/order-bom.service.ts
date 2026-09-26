@@ -19,6 +19,8 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { divideByShrinkage, toNumber, toCurrency, roundToCent } from '../utils/currency';
+import { releaseReservations } from './helpers/stock-reservation.helper';
+import { resolvePreviousItems } from './helpers/bom-lineage.helper';
 import { SearchFilter } from '../types/prisma.types';
 import { GENERIC_TRIM_FK_FIELDS } from '../schemas/orderBom.schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -1330,12 +1332,21 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     // BUG-S3 fix: Validate all FK IDs before creating BOM items
     await this.validateBomItemFKs(bomItems);
 
+    // Lineage: which line of the order item's previous APPROVED BOM each new line replaces, so MRP can
+    // carry its requirements over instead of re-creating them (bom-lineage.helper)
+    const previousItemIds = await resolvePreviousItems(
+      this.prisma,
+      { orderId: input.orderId, styleId: input.styleId, orderItemId: input.orderItemId || orderItem?.id },
+      bomItems
+    );
+    for (const item of bomItems) item.previousItemId = previousItemIds.get(item.id) ?? null;
+
     // Create Order BOM in transaction
     const orderBOM = await this.prisma.$transaction(async (tx) => {
-      // Cancel open requirements of the BOMs being superseded, then deactivate them
-      await this.cancelBomRequirements(tx, {
-        orderBom: { orderId: input.orderId, styleId: input.styleId, isActive: true },
-      });
+      // Requirements are NOT cancelled here (2026-09-26): they stay valid until the new BOM is approved
+      // and MRP reconciles them to its lines through previousItemId (requirement-reconcile.helper) —
+      // same numbers, reservations kept, PO-linked rows never duplicated. Cancelling at DRAFT time
+      // stranded reservations and, when the draft was never approved, left the order with nothing.
       await tx.order_bom.updateMany({
         where: {
           orderId: input.orderId,
@@ -1559,18 +1570,27 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         usageCategory: item.usageCategory,
         notes: item.notes,
         sortOrder: item.sortOrder,
+        // Set below from THIS order's previous BOM — never the source order's line (another order)
+        previousItemId: null as string | null,
       };
     });
+
+    const copyPreviousItemIds = await resolvePreviousItems(
+      this.prisma,
+      { orderId: input.targetOrderId, styleId: input.styleId },
+      newItems
+    );
+    for (const item of newItems) item.previousItemId = copyPreviousItemIds.get(item.id) ?? null;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalMaterialCost = newItems.reduce((sum: number, item: any) => sum + item.totalCost, 0);
 
     // Create in transaction
     const newBOM = await this.prisma.$transaction(async (tx) => {
-      // Cancel open requirements of the BOMs being superseded, then deactivate them
-      await this.cancelBomRequirements(tx, {
-        orderBom: { orderId: input.targetOrderId, styleId: input.styleId, isActive: true },
-      });
+      // Requirements are NOT cancelled here (2026-09-26): they stay valid until the new BOM is approved
+      // and MRP reconciles them to its lines through previousItemId (requirement-reconcile.helper) —
+      // same numbers, reservations kept, PO-linked rows never duplicated. Cancelling at DRAFT time
+      // stranded reservations and, when the draft was never approved, left the order with nothing.
       await tx.order_bom.updateMany({
         where: {
           orderId: input.targetOrderId,
@@ -1803,13 +1823,21 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       }
     });
 
+    // Lineage (bom-lineage.helper): every copied line replaces the line it was copied from — when that
+    // BOM was approved (its lines carry the requirements); a draft's lines pass on their own ancestor.
+    const currentIsApproved = currentBOM.status === 'APPROVED';
+    currentBOM.items.forEach((item: { id: string; previousItemId?: string | null }, i: number) => {
+      newItems[i].previousItemId = currentIsApproved ? item.id : (item.previousItemId ?? null);
+    });
+
     const totalMaterialCost = newItems.reduce((sum, item) => sum + (item.totalCost || 0), 0);
 
     // Create new BOM version in transaction
     const newBOM = await this.prisma.$transaction(async (tx) => {
-      // Cancel open requirements of the superseded version, then deactivate it
-      // (they are revived/recreated when the new version is approved and MRP recalculates)
-      await this.cancelBomRequirements(tx, { orderBomId: currentBOM.id });
+      // Requirements are NOT cancelled here (2026-09-26): they stay valid until the new BOM is approved
+      // and MRP reconciles them to its lines through previousItemId (requirement-reconcile.helper) —
+      // same numbers, reservations kept, PO-linked rows never duplicated. Cancelling at DRAFT time
+      // stranded reservations and, when the draft was never approved, left the order with nothing.
       await tx.order_bom.update({
         where: { id: currentBOM.id },
         data: { isActive: false },
@@ -2183,6 +2211,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           // Carry forward what the payload cannot express. Payload wins when it explicitly
           // sends a value (including an explicit null to clear); otherwise keep the stored one.
           ...carryForwardPreservedFields(item, prev),
+          // The line's place in the version lineage is not the client's to change (bom-lineage.helper)
+          previousItemId: prev?.previousItemId ?? null,
           materialId: item.materialId,
           buttonId: item.buttonId,
           threadId: item.threadId,
@@ -2347,17 +2377,23 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     client: Prisma.TransactionClient,
     where: Prisma.material_requirementsWhereInput
   ): Promise<number> {
-    const result = await client.material_requirements.updateMany({
+    // CONVERTED rows are kept: their greige + processing children carry on (convert-to-greige), and
+    // cancelling the parent orphaned that chain.
+    const rows = await client.material_requirements.findMany({
       where: {
         ...where,
-        status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+        status: { notIn: ['RECEIVED', 'CANCELLED', 'CONVERTED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
       },
-      data: { status: 'CANCELLED' },
+      select: { id: true },
     });
-    if (result.count > 0) {
-      logInfo('Cancelled MRP requirements for deactivated BOM(s)', { where, cancelledCount: result.count });
-    }
-    return result.count;
+    if (rows.length === 0) return 0;
+    const ids = rows.map((r) => r.id);
+    await client.material_requirements.updateMany({ where: { id: { in: ids } }, data: { status: 'CANCELLED' } });
+    // A cancelled requirement no longer holds cloth: give its reservations back to their lots
+    // (until 2026-09-26 they stayed reserved for ever — stock-reservation.helper).
+    const released = await releaseReservations(client, ids);
+    logInfo('Cancelled MRP requirements for deactivated BOM(s)', { where, cancelledCount: ids.length, released });
+    return ids.length;
   }
 
   /**

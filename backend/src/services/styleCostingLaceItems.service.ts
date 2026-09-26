@@ -9,6 +9,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { calculateLaceCost, LaceCostCalculationResult } from './laceCostingCalculation.service';
 import { Decimal } from '@prisma/client/runtime/library';
+import { computeCostSheetTotals } from './helpers/cost-sheet-totals.helper';
 
 export interface CreateLaceItemInput {
   costingId: string;
@@ -430,27 +431,34 @@ async function updateCostSheetLaceTotal(
   const embroideryTotal = Number(costSheet.embroideryTotal || 0);
   const accessoriesTotal = Number(costSheet.accessoriesTotal || 0);
   const laceTotalNum = Number(laceTotal);
+  // NOTE: a stored 0 % reads as the default here (2 % / 15 %) — long-standing behaviour, kept as is
   const valueLossPercent = Number(costSheet.valueLossPercent || 2);
   const markupPercent = Number(costSheet.markupPercent || 15);
 
-  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal + laceTotalNum;
-  const valueLossAmount = (subtotal * valueLossPercent) / 100;
-  const totalAfterValueLoss = subtotal + valueLossAmount;
-  const markupAmount = (totalAfterValueLoss * markupPercent) / 100;
-  const totalProductCost = totalAfterValueLoss + markupAmount;
+  // The one calculation (cost-sheet-totals.helper)
+  const totals = computeCostSheetTotals({
+    fabricTotal,
+    trimsTotal,
+    cmtTotal,
+    embroideryTotal,
+    accessoriesTotal,
+    laceTotal: laceTotalNum,
+    valueLossPercent,
+    markupPercent,
+  });
 
   // Update cost sheet
   await tx.style_costing.update({
     where: { id: costingId },
     data: {
       laceTotal: new Decimal(laceTotalNum),
-      subtotal: new Decimal(subtotal),
-      valueLossAmount: new Decimal(valueLossAmount),
-      markupAmount: new Decimal(markupAmount),
-      totalProductCost: new Decimal(totalProductCost),
-      totalMaterialCost: new Decimal(fabricTotal + trimsTotal + accessoriesTotal + laceTotalNum),
-      totalCostPerPiece: new Decimal(totalProductCost),
-      sellingPricePerPiece: new Decimal(totalProductCost),
+      subtotal: new Decimal(totals.subtotal),
+      valueLossAmount: new Decimal(totals.valueLossAmount),
+      markupAmount: new Decimal(totals.markupAmount),
+      totalProductCost: new Decimal(totals.totalProductCost),
+      totalMaterialCost: new Decimal(totals.totalMaterialCost),
+      totalCostPerPiece: new Decimal(totals.totalCostPerPiece),
+      sellingPricePerPiece: new Decimal(totals.sellingPricePerPiece),
     },
   });
 }

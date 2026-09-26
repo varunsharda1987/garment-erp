@@ -149,7 +149,7 @@ export default function CADPlanningPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
-  // Approved cost sheets / order BOMs built on the plan's rows (409 CAD_IN_USE) — confirm before rejecting
+  // Approved cost sheets / order BOMs built on the plan's rows (409 CAD_IN_USE) — the reject is refused
   const [rejectInUse, setRejectInUse] = useState<CadInUseEntry[] | null>(null);
 
   // CAD History state
@@ -173,6 +173,13 @@ export default function CADPlanningPage() {
   const { data: miniMarkerCount } = useQuery({
     queryKey: ['miniMarkerCount', id],
     queryFn: () => miniMarkerService.getCount(id!),
+    enabled: !!id,
+  });
+
+  // Corrections of this style's CAD rows waiting for an admin ("Correction pending" badges)
+  const { data: pendingCorrections = [], refetch: refetchPendingCorrections } = useQuery({
+    queryKey: ['cadPendingCorrections', id],
+    queryFn: () => cadPlanningService.getPendingCadCorrections(id!),
     enabled: !!id,
   });
 
@@ -350,7 +357,7 @@ export default function CADPlanningPage() {
     }
     try {
       setRejecting(true);
-      const result = await cadPlanningService.rejectCADPlan(id, rejectionReason.trim(), rejectInUse !== null);
+      const result = await cadPlanningService.rejectCADPlan(id, rejectionReason.trim());
       notify.success(result.message || 'CAD plan rejected.', { duration: 5000 });
       setShowRejectDialog(false);
       setRejectionReason('');
@@ -360,7 +367,7 @@ export default function CADPlanningPage() {
     } catch (error: unknown) {
       const inUse = cadInUseFromError(error);
       if (inUse) {
-        // Keep the dialog open and show what is built on the rows; the button becomes "Reject anyway"
+        // Keep the dialog open and show what is built on the rows — they are corrected, not rejected
         setRejectInUse(inUse.inUse);
         return;
       }
@@ -760,7 +767,11 @@ export default function CADPlanningPage() {
                 onDeleteRow={handleSpreadsheetDeleteRow}
                 disabled={false}
                 isStyleApproved={isApproved}
-                onDataRefresh={loadCADTableData}
+                onDataRefresh={() => {
+                  void loadCADTableData();
+                  void refetchPendingCorrections();
+                }}
+                pendingCorrections={pendingCorrections}
               />
             </div>
           )}
@@ -829,14 +840,16 @@ export default function CADPlanningPage() {
             <Button variant="outline" onClick={() => setShowRejectDialog(false)} disabled={rejecting}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleRejectCAD} disabled={rejecting || !rejectionReason.trim()}>
+            <Button
+              variant="destructive"
+              onClick={handleRejectCAD}
+              disabled={rejecting || !rejectionReason.trim() || rejectInUse !== null}
+            >
               {rejecting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Rejecting...
                 </>
-              ) : rejectInUse ? (
-                'Reject anyway'
               ) : (
                 'Reject & Unlock'
               )}

@@ -5,8 +5,8 @@
  * reject cleared the fabric price approval with no check, the approval wiped who had rejected, no save
  * left a trace, and the cost sheets / order BOM / requirement built on 0.7033 were never told. This
  * suite pins:
- *   - a Reject on a CAD that an approved cost sheet is built on answers 409 CAD_IN_USE until the user
- *     confirms, and records the confirmation;
+ *   - a Reject on a CAD that an approved cost sheet is built on is refused (409 CAD_IN_USE, blocking — the
+ *     user is sent to Correct, which carries the change down); there is no "reject anyway";
  *   - a style-level Reject resets planning rows but leaves an approved Production CAD approved;
  *   - approve / reject / geometry saves each write a history row, readable from the History endpoint;
  *   - the legacy fabric-master CAD update refuses an approved row.
@@ -117,7 +117,7 @@ afterAll(async () => {
 });
 
 describe('Row Reject on a CAD in use', () => {
-  it('asks for confirmation while an approved cost sheet is built on it, then records who confirmed', async () => {
+  it('is refused while an approved cost sheet is built on it — use Correct instead', async () => {
     const cad = await createCadRow({ componentName: `${RUN}-INUSE` });
     const sheet = await approvedSheetOn(cad.id);
 
@@ -127,29 +127,21 @@ describe('Row Reject on a CAD in use', () => {
       .send({ rejectionNotes: 'average was wrong' })
       .expect(409);
     expect(refused.body.details.code).toBe('CAD_IN_USE');
-    expect(refused.body.details.requiresConfirmation).toBe(true);
+    expect(refused.body.details.blocking).toBe(true);
     expect(refused.body.details.inUse[0].costSheets[0].costSheetId).toBe(sheet.id);
+    expect(refused.body.message).toMatch(/Correct/);
 
-    const untouched = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
-    expect(untouched!.approvalStatus).toBe('APPROVED');
-    expect(untouched!.costingApprovalStatus).toBe('APPROVED');
-
+    // An old client's "confirm" flag is not a way round it
     await request(app)
       .post(`/api/cad-planning/${styleId}/row/${cad.id}/reject`)
       .set(authHeader)
       .send({ rejectionNotes: 'average was wrong', confirmImpact: true })
-      .expect(200);
+      .expect(409);
 
-    const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
-    expect(after!.approvalStatus).toBe('REJECTED');
-
-    const events = await historyOf(cad.id);
-    const reject = events.find((e) => e.action === 'REJECT');
-    expect(reject).toBeDefined();
-    expect(reject!.userId).toBe(testUserId);
-    const values = reject!.newValues as Record<string, unknown>;
-    expect(values.reason).toBe('average was wrong');
-    expect(String(values.inUse)).toContain('approved cost sheet v');
+    const untouched = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
+    expect(untouched!.approvalStatus).toBe('APPROVED');
+    expect(untouched!.costingApprovalStatus).toBe('APPROVED');
+    expect((await historyOf(cad.id)).some((e) => e.action === 'REJECT')).toBe(false);
   });
 
   it('rejects at once when nothing approved is built on the row, and History shows it', async () => {
@@ -173,7 +165,7 @@ describe('Row Reject on a CAD in use', () => {
 });
 
 describe('Reject CAD Plan', () => {
-  it('resets planning rows, keeps an approved Production CAD approved, and confirms over an approved sheet', async () => {
+  it('is refused over an approved sheet; otherwise resets planning rows and keeps an approved Production CAD', async () => {
     const planning = await createCadRow({ componentName: `${RUN}-PLAN` });
     const production = await createCadRow({
       componentName: `${RUN}-PROD`,
@@ -192,11 +184,19 @@ describe('Reject CAD Plan', () => {
       .send({ rejectionReason: 'planning rework' })
       .expect(409);
     expect(refused.body.details.code).toBe('CAD_IN_USE');
+    expect(refused.body.details.blocking).toBe(true);
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: planning.id } }))!.approvalStatus).toBe('APPROVED');
 
+    // Once nothing approved is built on the plan (this sheet, and the one an earlier test left on
+    // another of the style's rows), the reject goes through
+    expect(refused.body.details.inUse.some((u: { cadId: string }) => u.cadId === planning.id)).toBe(true);
+    const sheets = { costingId: { startsWith: `CS-${RUN}` } };
+    await prisma.style_costing_fabric_items.deleteMany({ where: sheets });
+    await prisma.style_costing.deleteMany({ where: { id: { startsWith: `CS-${RUN}` } } });
     const ok = await request(app)
       .put(`/api/cad-planning/${styleId}/reject-cad`)
       .set(authHeader)
-      .send({ rejectionReason: 'planning rework', confirmImpact: true })
+      .send({ rejectionReason: 'planning rework' })
       .expect(200);
     expect(ok.body.message).toMatch(/Production CAD was kept approved/);
 

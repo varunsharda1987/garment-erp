@@ -58,6 +58,14 @@ import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/
 import logger, { logWarn } from '../utils/logger';
 import { BusinessError } from '../errors';
 import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
+import {
+  reserveOnLots,
+  releaseReservations,
+  type LotReservation,
+  type LotTable,
+} from './helpers/stock-reservation.helper';
+import { NOT_ORDERED, reconcileRequirementLineage } from './helpers/requirement-reconcile.helper';
+import { createAuditLog } from './audit.service';
 import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
@@ -1146,7 +1154,15 @@ export async function calculateRequirementsFromOrder(
   // rolls the cancel back with it. The revive-CANCELLED lookups further down see these rows
   // because they run in the same transaction.
   const activeBomIds = order.orderBoms.map((b) => b.id);
-  const cancelSupersededRequirements = async (tx: Prisma.TransactionClient): Promise<void> => {
+  const cancelSupersededRequirements = async (
+    tx: Prisma.TransactionClient,
+    // Rows the lineage reconcile carried to the new BOM (requirement-reconcile.helper) — never cancelled
+    reconciledIds: Set<string>,
+    // Order items rebuilt from an approved BOM in THIS run. A style whose new BOM is still a draft keeps
+    // its rows: a sibling style's recalculation (size breakup, …) used to cancel them with nothing in
+    // their place (2026-09-26).
+    rebuiltItemIds: Set<string>
+  ): Promise<void> => {
     if (activeBomIds.length === 0) return;
 
     // First, find ALL requirements for this order that have active PO links (PO not cancelled)
@@ -1214,7 +1230,7 @@ export async function calculateRequirementsFromOrder(
     // 1. Belonging to this order AND one of the active BOMs (or null orderBomId for manual reqs)
     // 2. NOT in terminal/PO-progression statuses
     // 3. NOT linked to active POs, NOT part of a convert-to-greige chain, NOT a split remainder
-    await tx.material_requirements.updateMany({
+    const superseded = await tx.material_requirements.findMany({
       where: {
         orderId,
         // MRP-01: when the caller scopes the rebuild to a single order item, the cancel must be
@@ -1223,15 +1239,31 @@ export async function calculateRequirementsFromOrder(
         // Include BOM-linked, manual (null orderBomId), AND stale (inactive/superseded BOM)
         // requirements for this order. Without the isActive:false branch, requirements from
         // deactivated BOMs linger as PO_REQUIRED and recalc creates duplicates next to them.
-        OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }, { orderBom: { isActive: false } }],
+        AND: [
+          { OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }, { orderBom: { isActive: false } }] },
+          // Manual rows (no BOM) as before; BOM rows only of the order items rebuilt now
+          { OR: [{ orderBomId: null }, { orderItemId: { in: [...rebuiltItemIds] } }] },
+        ],
         // Exclude terminal statuses AND PO-progression statuses
         status: { notIn: ['RECEIVED', 'CANCELLED', 'CONVERTED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
         // Also exclude any with active PO links (belt-and-suspenders), a live conversion chain,
-        // or an outstanding split balance
-        id: { notIn: [...poLinkedIds, ...conversionChainIds, ...splitRemainderIds, ...sentToProcessorIds] },
+        // an outstanding split balance, or a row the reconcile carried over
+        id: {
+          notIn: [...poLinkedIds, ...conversionChainIds, ...splitRemainderIds, ...sentToProcessorIds, ...reconciledIds],
+        },
       },
-      data: { status: 'CANCELLED' },
+      select: { id: true },
     });
+    const supersededIds = superseded.map((r) => r.id);
+    if (supersededIds.length > 0) {
+      await tx.material_requirements.updateMany({
+        where: { id: { in: supersededIds } },
+        data: { status: 'CANCELLED' },
+      });
+      // A cancelled requirement holds no cloth any more — its reservations go back to their lots
+      // (stock-reservation.helper; until 2026-09-26 they stayed reserved for ever)
+      await releaseReservations(tx, supersededIds);
+    }
   };
 
   const calculatedRequirements: CalculatedRequirement[] = [];
@@ -2276,14 +2308,48 @@ export async function calculateRequirementsFromOrder(
       let updated = 0;
       const savedRequirements: MaterialRequirementResponse[] = [];
 
+      // A rebuilt BOM's lines carry their requirements over (requirement-reconcile.helper): updated in
+      // place, or a "needs X more" decision beside a PO-linked row — never a full duplicate.
+      const reconciled = await reconcileRequirementLineage(tx, {
+        materialReqs,
+        processingReqs,
+        requiredDate,
+        userId,
+        nextNumber: () => generateRequirementNumber(tx),
+        settledWhere: GREIGE_SENT_TO_PROCESSOR,
+      });
+      created += reconciled.created;
+      updated += reconciled.updated;
+      const standingRow = async (req: CalculatedRequirement) => {
+        const id = reconciled.savedFor.get(req);
+        return id ? tx.material_requirements.findUnique({ where: { id }, include: getRequirementIncludes() }) : null;
+      };
+
       // MRP-01: supersede-cancel and rebuild are one atomic unit — see the closure definition.
-      await cancelSupersededRequirements(tx);
+      await cancelSupersededRequirements(
+        tx,
+        reconciled.handledIds,
+        new Set(calculatedRequirements.map((r) => r.orderItemId))
+      );
 
       // Track GREIGE requirements by materialId for linking PROCESSING requirements
       const greigeRequirementIds: Map<string, string> = new Map();
 
       // First pass: Create/update MATERIAL requirements (including GREIGE)
       for (const req of materialReqs) {
+        if (reconciled.savedFor.has(req)) {
+          const standing = await standingRow(req);
+          if (standing) {
+            if (req.isGreigeRequirement) {
+              greigeRequirementIds.set(
+                `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}-${req.orderBomItemId || ''}`,
+                standing.id
+              );
+            }
+            savedRequirements.push(mapToResponse(standing));
+          }
+          continue;
+        }
         // CRITICAL: First check if a requirement already exists with an active PO
         // (PO_GENERATED, PO_SENT, PARTIALLY_RECEIVED) — do NOT create duplicates
         // MRP-39: probe with a bare id first. This runs once per requirement inside the
@@ -2348,6 +2414,7 @@ export async function calculateRequirementsFromOrder(
             colorName: req.colorName || null, // Different colors = separate requirements
             orderBomItemId: req.orderBomItemId ?? null, // MRP-26: …and different BOM lines too
             status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
+            NOT: { shortCloseReason: NOT_ORDERED }, // "Don't order more" is final
           },
           // MRP-26: deterministic pick — this had no ordering, so with several cancelled
           // candidates the revived row (and therefore its requirement number) was arbitrary.
@@ -2442,6 +2509,11 @@ export async function calculateRequirementsFromOrder(
 
       // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
       for (const req of processingReqs) {
+        if (reconciled.savedFor.has(req)) {
+          const standing = await standingRow(req);
+          if (standing) savedRequirements.push(mapToResponse(standing));
+          continue;
+        }
         const linkedGreigeId = greigeRequirementIds.get(
           `${req.orderId}-${req.orderItemId}-${req.linkedGreigeMaterialId || req.materialId}-${req.colorName || ''}-${req.orderBomItemId || ''}`
         );
@@ -2486,6 +2558,7 @@ export async function calculateRequirementsFromOrder(
             colorName: req.colorName || null,
             orderBomItemId: req.orderBomItemId ?? null, // MRP-26: distinguish BOM lines
             status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
+            NOT: { shortCloseReason: NOT_ORDERED }, // "Don't order more" is final
           },
           orderBy: { createdAt: 'desc' }, // MRP-26: deterministic revive
         });
@@ -2838,6 +2911,10 @@ export async function getOrderRequirementsSummary(orderId: string): Promise<Orde
   const requirementsAwaitingSizes = requirements.filter(
     (r) => r.status === MaterialRequirementStatus.SIZE_PENDING
   ).length;
+  // A new BOM version needs more than the PO / job work placed — the team has not chosen yet
+  const requirementsAwaitingDecision = requirements.filter(
+    (r) => r.status === MaterialRequirementStatus.DECISION_PENDING
+  ).length;
 
   return {
     orderId: order.id,
@@ -2847,6 +2924,7 @@ export async function getOrderRequirementsSummary(orderId: string): Promise<Orde
     totalShortfall,
     requirementsNeedingPO,
     requirementsAwaitingSizes,
+    requirementsAwaitingDecision,
   };
 }
 
@@ -3081,7 +3159,24 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
     if (reqWithMaterial?.materials) {
       const matType = reqWithMaterial.materials.materialType;
       const reserveQty = allocateQty;
+      // A lot's free quantity is what it holds less what is already reserved on it — until 2026-09-26 the
+      // cap ignored the reserved part, so two allocations could reserve more than a lot held.
+      const freeOf = (lot: { quantityAvailable: unknown; quantityReserved?: unknown }) =>
+        Math.max(0, Number(lot.quantityAvailable) - Number(lot.quantityReserved ?? 0));
+      const plan = (candidates: Array<{ id: string; warehouseId: string | null; free: number }>, table: LotTable) => {
+        let remaining = reserveQty;
+        const lots: LotReservation[] = [];
+        for (const lot of candidates) {
+          if (isQtyZero(remaining) || remaining < 0) break;
+          const take = Math.min(remaining, lot.free);
+          if (isQtyZero(take) || take < 0) continue;
+          lots.push({ table, lotId: lot.id, warehouseId: lot.warehouseId, quantity: take });
+          remaining -= take;
+        }
+        return { lots, remaining };
+      };
 
+      let lotPlan: { lots: LotReservation[]; remaining: number } | null = null;
       if (matType === 'FABRIC' && reqWithMaterial.materials.fabricId) {
         const lots = await tx.fabric_stock.findMany({
           where: {
@@ -3090,18 +3185,13 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
             quantityAvailable: { gt: 0 },
             ...notInProcessorUnitWhere(),
           },
+          select: { id: true, warehouseId: true, quantityAvailable: true, quantityReserved: true },
           orderBy: { receivedDate: 'asc' },
         });
-        let remaining = reserveQty;
-        for (const lot of lots) {
-          if (isQtyZero(remaining) || remaining < 0) break;
-          const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
-          await tx.fabric_stock.update({
-            where: { id: lot.id },
-            data: { quantityReserved: { increment: toReserve } },
-          });
-          remaining -= toReserve;
-        }
+        lotPlan = plan(
+          lots.map((l) => ({ id: l.id, warehouseId: l.warehouseId, free: freeOf(l) })),
+          'fabric'
+        );
       } else if (matType === 'GREIGE' && reqWithMaterial.materials.greigeId) {
         // Only cloth this requirement may use (lot-location.helper): our stores and what is already at
         // its processor — until 2026-09-25 this reserved ANY lot, another dyer's included. Cloth
@@ -3112,16 +3202,10 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         const lots = (await loadPlanningGreigeLots(tx, [reqWithMaterial.materials.greigeId]))
           .filter((lot) => greigeCountsForPlanning(lot, processorId))
           .sort((a, b) => atItsProcessor(a) - atItsProcessor(b) || a.receivedDate.getTime() - b.receivedDate.getTime());
-        let remaining = reserveQty;
-        for (const lot of lots) {
-          if (isQtyZero(remaining) || remaining < 0) break;
-          const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
-          await tx.greige_stock.update({
-            where: { id: lot.id },
-            data: { quantityReserved: { increment: toReserve } },
-          });
-          remaining -= toReserve;
-        }
+        lotPlan = plan(
+          lots.map((l) => ({ id: l.id, warehouseId: l.warehouse?.id ?? null, free: freeOf(l) })),
+          'greige'
+        );
       } else if (matType === 'LACE' && reqWithMaterial.materials.laceId) {
         // The greige rule (lot-location.helper): our stores and lace already in its processor's unit,
         // that processor's first, then FIFO. Until 2026-09-26 this reserved ANY lot, another dyer's too.
@@ -3131,40 +3215,40 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         const lots = (await loadPlanningLaceLots(tx, [reqWithMaterial.materials.laceId]))
           .filter((lot) => laceCountsForPlanning(lot, processorId))
           .sort((a, b) => atItsProcessor(a) - atItsProcessor(b) || a.receivedDate.getTime() - b.receivedDate.getTime());
-        let remaining = reserveQty;
-        for (const lot of lots) {
-          if (isQtyZero(remaining) || remaining < 0) break;
-          const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
-          await tx.lace_stock.update({
-            where: { id: lot.id },
-            data: { quantityReserved: { increment: toReserve } },
-          });
-          remaining -= toReserve;
-        }
+        lotPlan = plan(
+          lots.map((l) => ({ id: l.id, warehouseId: l.warehouse?.id ?? null, free: freeOf(l) })),
+          'lace'
+        );
       }
 
-      // Create audit entry in stock_reservations
+      // A lot-tracked material must be covered by its lots — the reservation row used to record the full
+      // quantity whatever the lots could hold
+      if (lotPlan && qtyExceeds(lotPlan.remaining, 0)) {
+        const free = toNumber(roundToCent(reserveQty - lotPlan.remaining));
+        throw new BusinessError(
+          `Only ${free} is free on the lots ${reqWithMaterial.requirementNumber} may use — ` +
+            `${reserveQty} cannot be allocated from stock.`
+        );
+      }
+
+      // One stock_reservations row per lot, each lot up by exactly its share (stock-reservation.helper)
       const warehouseId = data.warehouseId;
       const warehouse = warehouseId
         ? await tx.warehouses.findUnique({ where: { id: warehouseId } })
         : await tx.warehouses.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
-
-      if (warehouse) {
-        await tx.stock_reservations.create({
-          data: {
-            materialId: reqWithMaterial.materialId,
-            warehouseId: warehouse.id,
-            reservationType: 'ORDER',
-            referenceType: 'MATERIAL_REQUIREMENT',
-            referenceId: data.requirementId,
-            referenceNumber: reqWithMaterial.requirementNumber,
-            reservedQuantity: reserveQty,
-            unit: reqWithMaterial.unit as any,
-            status: 'ACTIVE',
-            reservedById: userId,
-          },
-        });
-      }
+      await reserveOnLots(tx, {
+        requirement: {
+          id: data.requirementId,
+          requirementNumber: reqWithMaterial.requirementNumber,
+          materialId: reqWithMaterial.materialId,
+          unit: String(reqWithMaterial.unit),
+        },
+        lots: lotPlan?.lots ?? [],
+        userId,
+        fallbackWarehouseId: warehouse?.id ?? null,
+        // Trims have no lot table: the allocation is recorded, no lot quantity moves
+        untrackedQuantity: lotPlan ? undefined : reserveQty,
+      });
     }
 
     return upd;
@@ -4705,7 +4789,7 @@ export async function updateRequirementStatus(
   // material re-orderable. Route it through the shared state machine like every other document.
   const current = await prisma.material_requirements.findUnique({
     where: { id },
-    select: { status: true, requirementNumber: true },
+    select: { status: true, requirementNumber: true, totalRequired: true },
   });
   if (!current) {
     throw new Error(`Requirement ${id} not found`);
@@ -4721,10 +4805,23 @@ export async function updateRequirementStatus(
     );
   }
 
-  const updated = await prisma.material_requirements.update({
-    where: { id },
-    data: { status },
-    include: getRequirementIncludes(),
+  // Leaving stock (FULFILLED/PARTIAL_STOCK → PO_REQUIRED / CANCELLED) gives the reserved cloth back to its
+  // lots — until 2026-09-26 it stayed reserved while the requirement was re-bought
+  const leavesStock =
+    (current.status === MaterialRequirementStatus.FULFILLED_STOCK ||
+      current.status === MaterialRequirementStatus.PARTIAL_STOCK) &&
+    (status === MaterialRequirementStatus.PO_REQUIRED || status === MaterialRequirementStatus.CANCELLED);
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (leavesStock) await releaseReservations(tx, [id]);
+    return tx.material_requirements.update({
+      where: { id },
+      data: {
+        status,
+        ...(leavesStock ? { allocatedFromStock: 0, shortfall: current.totalRequired } : {}),
+      },
+      include: getRequirementIncludes(),
+    });
   });
 
   return mapToResponse(updated);
@@ -4761,12 +4858,91 @@ export async function cancelRequirement(id: string, userId: string): Promise<Mat
     );
   }
 
-  const updated = await prisma.material_requirements.update({
-    where: { id },
-    data: { status: MaterialRequirementStatus.CANCELLED },
-    include: getRequirementIncludes(),
+  // The cancelled requirement no longer holds cloth: its reservations go back to their lots, atomically
+  const updated = await prisma.$transaction(async (tx) => {
+    await releaseReservations(tx, [id]);
+    return tx.material_requirements.update({
+      where: { id },
+      data: { status: MaterialRequirementStatus.CANCELLED },
+      include: getRequirementIncludes(),
+    });
   });
 
+  return mapToResponse(updated);
+}
+
+/**
+ * "Order the extra": a DECISION_PENDING requirement — a new BOM version needs more than the PO / job work
+ * already placed (requirement-reconcile.helper) — becomes orderable, for just that difference.
+ */
+export async function orderExtraRequirement(id: string, userId: string): Promise<MaterialRequirementResponse> {
+  const current = await prisma.material_requirements.findUnique({
+    where: { id },
+    select: { status: true, requirementNumber: true, totalRequired: true },
+  });
+  if (!current) throw new Error(`Requirement ${id} not found`);
+  if (current.status !== MaterialRequirementStatus.DECISION_PENDING) {
+    throw new BusinessError(`${current.requirementNumber} is not waiting for a decision.`);
+  }
+  const updated = await prisma.material_requirements.update({
+    where: { id },
+    data: {
+      status: MaterialRequirementStatus.PO_REQUIRED,
+      allocatedFromStock: 0,
+      shortfall: current.totalRequired,
+    },
+    include: getRequirementIncludes(),
+  });
+  await createAuditLog({
+    userId,
+    action: 'UPDATE',
+    entityType: 'material_requirement',
+    entityId: id,
+    oldValues: { status: current.status },
+    newValues: { status: 'PO_REQUIRED', decision: 'ORDER_EXTRA', quantity: Number(current.totalRequired) },
+  });
+  return mapToResponse(updated);
+}
+
+/**
+ * "Don't order more": a DECISION_PENDING requirement is closed as NOT_ORDERED, and its quantity counts as
+ * covered from then on — a recalculation never asks for it again (requirement-reconcile.helper).
+ */
+export async function declineExtraRequirement(
+  id: string,
+  userId: string,
+  reason?: string | null
+): Promise<MaterialRequirementResponse> {
+  const current = await prisma.material_requirements.findUnique({
+    where: { id },
+    select: { status: true, requirementNumber: true, totalRequired: true },
+  });
+  if (!current) throw new Error(`Requirement ${id} not found`);
+  if (current.status !== MaterialRequirementStatus.DECISION_PENDING) {
+    throw new BusinessError(`${current.requirementNumber} is not waiting for a decision.`);
+  }
+  const updated = await prisma.material_requirements.update({
+    where: { id },
+    data: {
+      status: MaterialRequirementStatus.CANCELLED,
+      shortCloseReason: NOT_ORDERED,
+      shortQuantity: current.totalRequired,
+    },
+    include: getRequirementIncludes(),
+  });
+  await createAuditLog({
+    userId,
+    action: 'UPDATE',
+    entityType: 'material_requirement',
+    entityId: id,
+    oldValues: { status: current.status },
+    newValues: {
+      status: 'CANCELLED',
+      decision: 'NOT_ORDERED',
+      quantity: Number(current.totalRequired),
+      ...(reason ? { reason } : {}),
+    },
+  });
   return mapToResponse(updated);
 }
 
@@ -5104,6 +5280,8 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     // actually ARRIVED, so without these two the missing quantity is invisible on every screen.
     shortQuantity: req.shortQuantity != null ? Number(req.shortQuantity) : null,
     shortCloseReason: req.shortCloseReason || null,
+    // A later BOM version needs less than this committed row holds (requirement-reconcile.helper)
+    surplusQty: req.surplusQty != null ? Number(req.surplusQty) : null,
 
     // P5.3 Provenance fields
     unitPrice: req.unitPrice ? Number(req.unitPrice) : null,
@@ -6136,6 +6314,8 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
 }
 
 export default {
+  orderExtraRequirement,
+  declineExtraRequirement,
   calculateRequirementsFromOrder,
   createManualRequirement,
   getRequirements,

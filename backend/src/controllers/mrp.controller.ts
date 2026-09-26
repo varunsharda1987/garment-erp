@@ -336,6 +336,33 @@ export const cancelRequirement = async (req: Request, res: Response): Promise<vo
 };
 
 /**
+ * "Order the extra" — a requirement waiting for a decision becomes orderable
+ * POST /api/mrp/requirements/:id/order-extra
+ */
+export const orderExtraRequirement = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new ValidationError('Authentication required');
+  }
+  const requirement = await mrpService.orderExtraRequirement(req.params.id, userId);
+  res.json({ success: true, data: requirement, message: 'The extra quantity can now be ordered' });
+};
+
+/**
+ * "Don't order more" — a requirement waiting for a decision is closed as not ordered
+ * POST /api/mrp/requirements/:id/decline-extra
+ */
+export const declineExtraRequirement = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new ValidationError('Authentication required');
+  }
+  const { reason } = req.body;
+  const requirement = await mrpService.declineExtraRequirement(req.params.id, userId, reason ?? null);
+  res.json({ success: true, data: requirement, message: 'Recorded — the extra will not be ordered' });
+};
+
+/**
  * Group requirements by supplier for bulk PO generation
  * POST /api/mrp/group-by-supplier
  */
@@ -469,6 +496,8 @@ export const previewPOs = async (req: Request, res: Response): Promise<void> => 
 };
 
 export default {
+  orderExtraRequirement,
+  declineExtraRequirement,
   calculateRequirements,
   createManualRequirement,
   getRequirements,

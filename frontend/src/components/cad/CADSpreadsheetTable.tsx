@@ -46,14 +46,22 @@ import {
   AlertCircle,
   MoreHorizontal,
   History,
+  PencilLine,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
 // BUG-CAD11 fix: use shared error utility instead of inline extraction
 import { getErrorMessage } from '@/lib/api-error-handler';
-import { cadPlanningService, cadInUseFromError, type CadInUseEntry } from '@/services/cad-planning.service';
+import {
+  cadPlanningService,
+  cadInUseFromError,
+  type CadInUseEntry,
+  type PendingCadCorrection,
+} from '@/services/cad-planning.service';
 import { CadInUseNotice } from './CadInUseNotice';
 import { CadHistoryDialog } from './CadHistoryDialog';
+import { SizeBreakdownPopup } from './SizeBreakdownPopup';
+import { CorrectCadDialog } from './CorrectCadDialog';
 import { fabricStockService, type FabricStockForCAD } from '@/services/fabricStockService';
 import type {
   CADSpreadsheetRow,
@@ -120,173 +128,8 @@ export interface CADSpreadsheetTableProps {
   isStyleApproved?: boolean;
   /** Callback to refresh data after approve/reject/version operations (replaces window.location.reload) */
   onDataRefresh?: () => void;
-}
-
-// Size Breakdown Popup Component
-function SizeBreakdownPopup({
-  isOpen,
-  onClose,
-  sizeOptions = [],
-  currentBreakdowns = [],
-  onSave,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  sizeOptions: CADSizeOption[];
-  currentBreakdowns: CADSizeBreakdown[];
-  onSave: (breakdowns: CADSizeBreakdown[]) => void;
-}) {
-  const [breakdowns, setBreakdowns] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {};
-    (currentBreakdowns || []).forEach((b) => {
-      initial[b.sizeName] = b.quantity;
-    });
-    return initial;
-  });
-
-  const handleQuantityChange = (sizeName: string, value: string) => {
-    const qty = parseInt(value) || 0;
-    setBreakdowns((prev) => ({
-      ...prev,
-      [sizeName]: qty,
-    }));
-  };
-
-  const handleIncrement = (sizeName: string, delta: number) => {
-    setBreakdowns((prev) => {
-      const current = prev[sizeName] || 0;
-      const newQty = Math.max(0, current + delta);
-      return {
-        ...prev,
-        [sizeName]: newQty,
-      };
-    });
-  };
-
-  const handleIncrementAll = () => {
-    const safeSizeOptions = sizeOptions || [];
-    setBreakdowns((prev) => {
-      const newBreakdowns: Record<string, number> = { ...prev };
-      safeSizeOptions.forEach((size) => {
-        newBreakdowns[size.name] = (newBreakdowns[size.name] || 0) + 1;
-      });
-      return newBreakdowns;
-    });
-  };
-
-  const handleClearAll = () => {
-    const safeSizeOptions = sizeOptions || [];
-    const newBreakdowns: Record<string, number> = {};
-    safeSizeOptions.forEach((size) => {
-      newBreakdowns[size.name] = 0;
-    });
-    setBreakdowns(newBreakdowns);
-  };
-
-  const handleSave = () => {
-    const result: CADSizeBreakdown[] = Object.entries(breakdowns)
-      .filter(([, qty]) => qty > 0)
-      .map(([sizeName, quantity]) => {
-        const sizeOpt = (sizeOptions || []).find((s) => s.name === sizeName);
-        return {
-          sizeName,
-          sizeId: sizeOpt?.id || null,
-          quantity,
-        };
-      });
-    onSave(result);
-    onClose();
-  };
-
-  const totalPieces = Object.values(breakdowns).reduce((sum, qty) => sum + qty, 0);
-
-  // Ensure sizeOptions is always an array
-  const safeSizeOptions = sizeOptions || [];
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Size Breakdown</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-4">
-          {safeSizeOptions.length === 0 ? (
-            <p className="text-muted-foreground text-center py-4">
-              No size options available. Please add sizes to the style first.
-            </p>
-          ) : (
-            <>
-              {/* Apply All Section */}
-              <div className="flex items-center gap-2 pb-3 border-b">
-                <Label className="text-sm font-medium whitespace-nowrap">Apply to all:</Label>
-                <Button type="button" size="sm" variant="secondary" onClick={handleIncrementAll} className="px-4">
-                  + Add 1 to all
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleClearAll}
-                  className="text-muted-foreground"
-                >
-                  Clear
-                </Button>
-              </div>
-
-              {/* Size Rows with Increment/Decrement Buttons */}
-              {safeSizeOptions.map((size) => (
-                <div key={size.id} className="flex items-center gap-2">
-                  <Label className="w-16 text-right font-medium">{size.name}</Label>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleIncrement(size.name, -1)}
-                      disabled={(breakdowns[size.name] || 0) < 1}
-                    >
-                      -
-                    </Button>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={breakdowns[size.name] || ''}
-                      onChange={(e) => handleQuantityChange(size.name, e.target.value)}
-                      className="w-20 h-8 text-center"
-                      placeholder="0"
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 w-8 p-0"
-                      onClick={() => handleIncrement(size.name, 1)}
-                    >
-                      +
-                    </Button>
-                  </div>
-                  <span className="text-muted-foreground text-sm">pcs</span>
-                </div>
-              ))}
-            </>
-          )}
-          <div className="border-t pt-3 flex justify-between items-center">
-            <span className="font-medium">Total Pieces:</span>
-            <Badge variant="secondary" className="text-lg">
-              {totalPieces}
-            </Badge>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+  /** Corrections of this style's CAD rows waiting for an admin ("Correction pending" badges) */
+  pendingCorrections?: PendingCadCorrection[];
 }
 
 export function CADSpreadsheetTable({
@@ -303,6 +146,7 @@ export function CADSpreadsheetTable({
   isLoading = false,
   isStyleApproved = false,
   onDataRefresh,
+  pendingCorrections = [],
 }: CADSpreadsheetTableProps) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState<string | null>(null);
@@ -322,10 +166,13 @@ export function CADSpreadsheetTable({
   // Rejection reason dialog state (BUG-CAD6: replaces native prompt())
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectDialogRowId, setRejectDialogRowId] = useState<string | null>(null);
-  // Approved cost sheets / order BOMs built on the row (409 CAD_IN_USE) — confirm before rejecting
+  // Approved cost sheets / order BOMs built on the row (409 CAD_IN_USE) — the reject is refused
   const [rejectInUse, setRejectInUse] = useState<CadInUseEntry[] | null>(null);
   // History dialog (who created / edited / approved / rejected the row)
   const [historyRowId, setHistoryRowId] = useState<string | null>(null);
+  // Correct CAD dialog (an approved row, fixed and carried to its cost sheets / orders)
+  const [correctRow, setCorrectRow] = useState<CADSpreadsheetRow | null>(null);
+  const pendingByCad = useMemo(() => new Map(pendingCorrections.map((c) => [c.cadId, c])), [pendingCorrections]);
   const [rejectionReason, setRejectionReason] = useState('');
   // Version reason dialog state (BUG-CAD6: replaces native prompt())
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
@@ -1141,7 +988,6 @@ export function CADSpreadsheetTable({
       await cadPlanningService.rejectCADPurpose(styleId, rejectDialogRowId, {
         purpose: row.purpose || 'COSTING',
         rejectionNotes: rejectionReason.trim(),
-        ...(rejectInUse ? { confirmImpact: true } : {}),
       });
       notify.success('CAD rejected');
       closeRejectDialog();
@@ -1150,7 +996,7 @@ export function CADSpreadsheetTable({
     } catch (error: unknown) {
       const inUse = cadInUseFromError(error);
       if (inUse) {
-        // Keep the dialog open and show what is built on the row; the button becomes "Reject anyway"
+        // Keep the dialog open and show what is built on the row — it is corrected, not rejected
         setRejectInUse(inUse.inUse);
         return;
       }
@@ -1475,6 +1321,40 @@ export function CADSpreadsheetTable({
                                       {row.rejectedByName ? ` by ${row.rejectedByName}` : ''}
                                       {row.rejectedAt ? ` on ${formatDateTime(row.rejectedAt)}` : ''}
                                       {row.approvalNotes ? ` — ${row.approvalNotes}` : ''}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                              {pendingByCad.has(row.id) && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[9px] px-1 py-0 w-fit cursor-help bg-warning/10 text-warning border-warning/25"
+                                      >
+                                        {pendingByCad.get(row.id)!.status === 'PARTIAL'
+                                          ? 'Correction partly applied'
+                                          : 'Correction pending'}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      Corrected
+                                      {pendingByCad.get(row.id)!.correctedBy?.name
+                                        ? ` by ${pendingByCad.get(row.id)!.correctedBy!.name}`
+                                        : ''}{' '}
+                                      on {formatDateTime(pendingByCad.get(row.id)!.correctedAt)} —{' '}
+                                      {pendingByCad.get(row.id)!.reason}.
+                                      {pendingByCad.get(row.id)!.status === 'PARTIAL'
+                                        ? ` Not updated yet: ${
+                                            (pendingByCad.get(row.id)!.appliedOrders?.orders ?? [])
+                                              .filter((o) => o.status !== 'UPDATED')
+                                              .map((o) => o.orderNumber)
+                                              .join(', ') || 'some orders'
+                                          }. An admin can press Retry on the new cost sheet version (Cost Sheets).`
+                                        : pendingByCad.get(row.id)!.appliedOrders?.cadApplied
+                                          ? ' Already applied from one new cost sheet version; another version is still waiting for an admin.'
+                                          : ' Waiting for an admin to approve the new cost sheet version.'}
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -2008,6 +1888,16 @@ export function CADSpreadsheetTable({
                                           <XCircle className="h-4 w-4 mr-2" />
                                         )}
                                         Reject
+                                      </DropdownMenuItem>
+                                    )}
+                                  {/* Correct — an approved planning row with cost sheets / orders built on it is fixed here,
+                                      and the fix is carried to them (cad-correction.service) */}
+                                  {(row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED &&
+                                    row.purpose !== 'PRODUCTION' &&
+                                    !pendingByCad.has(row.id) && (
+                                      <DropdownMenuItem onClick={() => setCorrectRow(row)}>
+                                        <PencilLine className="h-4 w-4 mr-2" />
+                                        Correct…
                                       </DropdownMenuItem>
                                     )}
                                   {/* Create Version - for APPROVED planning rows (a Production CAD is one lot's marker: Reject → edit → Approve) */}
@@ -2666,6 +2556,15 @@ export function CADSpreadsheetTable({
 
       <CadHistoryDialog styleId={styleId} rowId={historyRowId} onClose={() => setHistoryRowId(null)} />
 
+      <CorrectCadDialog
+        styleId={styleId}
+        row={correctRow}
+        sizeOptions={sizeOptions}
+        availableGreiges={availableGreiges}
+        onClose={() => setCorrectRow(null)}
+        onDone={() => onDataRefresh?.()}
+      />
+
       {/* Rejection Reason Dialog (BUG-CAD6: replaces native prompt()) */}
       <Dialog
         open={rejectDialogOpen}
@@ -2677,7 +2576,16 @@ export function CADSpreadsheetTable({
           <DialogHeader>
             <DialogTitle>Reject CAD</DialogTitle>
           </DialogHeader>
-          {rejectInUse && <CadInUseNotice inUse={rejectInUse} />}
+          {rejectInUse && (
+            <CadInUseNotice
+              inUse={rejectInUse}
+              onCorrect={() => {
+                const target = rows.find((r) => r.id === rejectDialogRowId) ?? null;
+                closeRejectDialog();
+                setCorrectRow(target);
+              }}
+            />
+          )}
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="rejection-reason">Rejection Reason</Label>
@@ -2697,15 +2605,13 @@ export function CADSpreadsheetTable({
             <Button
               variant="destructive"
               onClick={handleRejectConfirm}
-              disabled={!rejectionReason.trim() || rejectingRow !== null}
+              disabled={!rejectionReason.trim() || rejectingRow !== null || rejectInUse !== null}
             >
               {rejectingRow ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   Rejecting...
                 </>
-              ) : rejectInUse ? (
-                'Reject anyway'
               ) : (
                 'Reject CAD'
               )}

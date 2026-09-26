@@ -544,7 +544,7 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
  */
 export const rejectCADPlan = async (req: Request, res: Response): Promise<void> => {
   const styleId = req.params.styleId || req.params.id;
-  const { rejectionReason, confirmImpact } = req.body || {};
+  const { rejectionReason } = req.body || {};
   const userId = (req as Request & { user?: { userId?: string } }).user?.userId;
 
   if (!styleId) {
@@ -562,8 +562,7 @@ export const rejectCADPlan = async (req: Request, res: Response): Promise<void> 
   const { style: updatedStyle, keptProductionCadCount } = await styleService.rejectCADPlan(
     styleId,
     rejectionReason.trim(),
-    userId,
-    confirmImpact === true
+    userId
   );
 
   res.status(200).json({

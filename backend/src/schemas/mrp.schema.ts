@@ -29,6 +29,8 @@ export const MaterialRequirementStatusEnum = z.enum([
   // MRP-45: present in the Prisma enum and written by convert-to-greige, but missing here — so
   // PATCH /requirements/:id/status could never set (or restore) CONVERTED without a 400.
   'CONVERTED',
+  // DECISION_PENDING is deliberately absent: only MRP's reconcile creates it, and it is left only through
+  // order-extra / decline-extra (who + when recorded). Filtering by it uses the free-text list filter.
 ]);
 
 export const RequirementSourceEnum = z.enum(['SALES_ORDER', 'WORK_ORDER', 'MANUAL']);
@@ -84,6 +86,14 @@ export const createManualRequirementSchema = z.object({
 export const allocateStockSchema = z.object({
   quantity: z.number().positive('Quantity must be positive'),
   warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
+});
+
+/**
+ * "Don't order more" on a requirement waiting for a decision (DECISION_PENDING)
+ * POST /api/mrp/requirements/:id/decline-extra
+ */
+export const declineExtraSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
 });
 
 /**

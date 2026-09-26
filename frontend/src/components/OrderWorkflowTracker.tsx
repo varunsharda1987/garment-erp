@@ -169,6 +169,7 @@ export interface OrderWorkflowData {
     totalRequirements: number;
     requirementsNeedingPO: number;
     requirementsAwaitingSizes?: number;
+    requirementsAwaitingDecision?: number;
     hasShortfall: boolean;
     // P5.1: GRN tracking
     receivedCount?: number;
@@ -324,10 +325,25 @@ export function buildWorkflowSteps(
     poStep = {
       id: 'po',
       label: 'PO',
-      description: `${mrpSummary.requirementsNeedingPO} need PO`,
+      description:
+        `${mrpSummary.requirementsNeedingPO} need PO` +
+        ((mrpSummary.requirementsAwaitingDecision ?? 0) > 0
+          ? ` · ${mrpSummary.requirementsAwaitingDecision} need a decision`
+          : ''),
       status: 'in_progress',
       action: handlers.onViewMRP,
       actionLabel: 'Generate',
+    };
+  } else if ((mrpSummary.requirementsAwaitingDecision ?? 0) > 0) {
+    // A new BOM version needs more than the PO / job work placed: nothing is orderable until the team
+    // chooses "Order the extra" or "Don't order more" on the Requirements page.
+    poStep = {
+      id: 'po',
+      label: 'PO',
+      description: `${mrpSummary.requirementsAwaitingDecision} need a decision (extra quantity)`,
+      status: 'in_progress',
+      action: handlers.onViewMRP,
+      actionLabel: 'Decide',
     };
   } else if ((mrpSummary.requirementsAwaitingSizes ?? 0) > 0) {
     // Nothing is orderable YET, but procurement is not finished either: size-wise labels are

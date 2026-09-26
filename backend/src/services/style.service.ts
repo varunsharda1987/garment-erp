@@ -25,7 +25,7 @@ import {
 } from '../types/style.types';
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
-import { describeCadUse, recordCadEvent, requireRejectConfirmation } from './helpers/cad-history.helper';
+import { recordCadEvent, refuseRejectWhenInUse } from './helpers/cad-history.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { multiplyCurrency, toNumber } from '../utils/currency';
@@ -2682,14 +2682,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * @param styleId - The style ID
    * @param rejectionReason - Reason for rejection
    * @param rejectedById - User ID of who rejected
-   * @param confirmImpact - the user has seen the approved cost sheets / order BOMs built on the rows
    * @returns the style, and how many Production CADs were left approved
    */
   async rejectCADPlan(
     styleId: string,
     rejectionReason: string,
-    rejectedById: string,
-    confirmImpact?: boolean
+    rejectedById: string
   ): Promise<{ style: styles; keptProductionCadCount: number }> {
     // Verify style exists and is approved
     const style = await this.prisma.styles.findUnique({
@@ -2726,9 +2724,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     const resetIds = rows.filter((r) => (r.purposeEnum ?? r.purpose) !== 'PRODUCTION').map((r) => r.id);
     const keptProductionCadCount = rows.length - resetIds.length;
 
-    // Approved cost sheets / order BOMs built on these rows keep their old figures after the reject;
-    // the user sees them and confirms first.
-    const inUse = await requireRejectConfirmation(resetIds, confirmImpact);
+    // Approved cost sheets / order BOMs built on these rows would keep their old figures after the
+    // reject — once anything is built on a row, the change goes through Correct instead.
+    await refuseRejectWhenInUse(resetIds);
 
     // Policy (two-owner split, user decision 2026-08-22): rejecting the CAD plan ALSO
     // un-approves prices — a price approved against rejected geometry must be re-reviewed
@@ -2765,15 +2763,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       await recomputeStyleCadStatus(tx, styleId);
     });
 
-    const inUseById = new Map(inUse.map((e) => [e.cadId, e]));
     for (const cadId of resetIds) {
-      const used = inUseById.get(cadId);
       await recordCadEvent({
         cadId,
         userId: rejectedById,
         action: 'REJECT',
         reason: `Reject CAD plan: ${rejectionReason}`,
-        newValues: used ? { inUse: describeCadUse([used]) } : null,
       });
     }
 

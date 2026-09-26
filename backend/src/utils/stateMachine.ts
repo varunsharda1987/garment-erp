@@ -120,6 +120,9 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     PARTIALLY_RECEIVED: ['RECEIVED', 'PO_SENT', 'PARTIALLY_RECEIVED'],
     RECEIVED: ['PARTIALLY_RECEIVED'], // only a GRN reversal may undo a completed receipt
     CONVERTED: ['CANCELLED'], // the greige/processing children carry the plan now
+    // A new BOM version needs more than the PO / job work already placed: the team decides —
+    // "Order the extra" → PO_REQUIRED, "Don't order more" → CANCELLED (NOT_ORDERED). Never orderable as is.
+    DECISION_PENDING: ['PO_REQUIRED', 'CANCELLED'],
     CANCELLED: [], // Terminal — recalculation revives by rewriting the row, not by transition
   },
 };

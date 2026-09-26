@@ -18,6 +18,7 @@ import { customerService } from '../services/customer.service';
 import { fabricStockService } from '../services/fabricStock.service';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { getRunsByStyle, getRunById, type CostingRun } from '../services/fabricCostingRun.service';
+import { CostingRunDetailDialog } from '../components/fabric-costing/CostingRunDetailDialog';
 import { StyleCombobox } from '../components/StyleCombobox';
 import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
@@ -43,6 +44,7 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
+  Info,
 } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
@@ -166,6 +168,7 @@ const CostSheetForm = () => {
   // Costing Runs (groups of fabric CADs from Fabric Costing page)
   const [costingRuns, setCostingRuns] = useState<CostingRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [detailRunId, setDetailRunId] = useState<string | null>(null); // run whose "how was it done" is open
   const [loadingRuns, setLoadingRuns] = useState(false);
 
   // Track if style has lace in BOM (to conditionally show Lace section)
@@ -1835,6 +1838,14 @@ const CostSheetForm = () => {
             }`,
             { duration: 6000 }
           );
+          // A run loads its OWN saved figures (frozen when it was saved), not today's costing
+          if (run.changedCount > 0) {
+            notify.warning(
+              `${run.changedCount} fabric(s) in ${run.runName} have been changed since it was saved. ` +
+                `The run's own figures were loaded — click ⓘ on the run to compare with today's.`,
+              { duration: 9000 }
+            );
+          }
           return;
         }
 
@@ -2126,55 +2137,68 @@ const CostSheetForm = () => {
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">Costing Run:</span>
               {costingRuns.map((run) => (
-                <button
-                  key={run.id}
-                  type="button"
-                  // Choosing a run applies it. Re-clicking the active chip is a no-op rather than
-                  // a deselect: deselecting would clear the highlight while its fabric rows stayed
-                  // in the form, so the chips would stop showing which run is actually loaded.
-                  onClick={() => {
-                    if (selectedRunId === run.id || loading || isApprovedCostSheet) return;
-                    setSelectedRunId(run.id);
-                    handleLoadFromCostingRun(run.id);
-                  }}
-                  disabled={loading || isApprovedCostSheet}
-                  title="Use this run's costed fabrics for the fabric rows"
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-full text-sm transition-all disabled:opacity-60 ${
-                    selectedRunId === run.id
-                      ? 'border-info bg-info/10 text-info font-medium'
-                      : 'border-border bg-card hover:border-info/50 text-foreground'
-                  }`}
-                >
-                  <span>{run.runName}</span>
-                  <span className="text-muted-foreground">•</span>
-                  <span>
-                    {run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}
-                  </span>
-                  {run.totalFabricCost && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="font-medium">₹{Number(run.totalFabricCost).toFixed(0)}</span>
-                    </>
-                  )}
-                  <span
-                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs ${
-                      run.isComplete ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
+                <span key={run.id} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    // Choosing a run applies it. Re-clicking the active chip is a no-op rather than
+                    // a deselect: deselecting would clear the highlight while its fabric rows stayed
+                    // in the form, so the chips would stop showing which run is actually loaded.
+                    onClick={() => {
+                      if (selectedRunId === run.id || loading || isApprovedCostSheet) return;
+                      setSelectedRunId(run.id);
+                      handleLoadFromCostingRun(run.id);
+                    }}
+                    disabled={loading || isApprovedCostSheet}
+                    title="Use this run's costed fabrics for the fabric rows"
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-full text-sm transition-all disabled:opacity-60 ${
+                      selectedRunId === run.id
+                        ? 'border-info bg-info/10 text-info font-medium'
+                        : 'border-border bg-card hover:border-info/50 text-foreground'
                     }`}
                   >
-                    {run.isComplete ? '✓' : '⚠'}
-                  </span>
-                  {selectedRunId === run.id && (
-                    <svg className="h-4 w-4 text-info" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  )}
-                </button>
+                    <span>{run.runName}</span>
+                    <span className="text-muted-foreground">•</span>
+                    <span>
+                      {run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}
+                    </span>
+                    {run.totalFabricCost && (
+                      <>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="font-medium">₹{Number(run.totalFabricCost).toFixed(0)}</span>
+                      </>
+                    )}
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs ${
+                        run.isComplete ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
+                      }`}
+                    >
+                      {run.isComplete ? '✓' : '⚠'}
+                    </span>
+                    {selectedRunId === run.id && (
+                      <svg className="h-4 w-4 text-info" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-info"
+                    title={`See how ${run.runName} was costed`}
+                    aria-label={`See how ${run.runName} was costed`}
+                    onClick={() => setDetailRunId(run.id)}
+                  >
+                    <Info className="h-4 w-4" />
+                  </Button>
+                </span>
               ))}
               {selectedRunId && <span className="text-xs text-info ml-2">✓ fabric rows loaded from this run</span>}
+              <CostingRunDetailDialog runId={detailRunId} onClose={() => setDetailRunId(null)} />
             </div>
           )}
 

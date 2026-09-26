@@ -172,7 +172,7 @@ Fill in these fields:
 
 ### 6. Save the costing
 - Click **Save Costing** button
-- After saving, optionally create a **Costing Run** (groups related options)
+- After saving, optionally create a **Costing Run** (groups related options and keeps its own copy of the figures). Click a run card under **Existing Costing Runs** to see how each fabric was costed when that run was saved
 
 ## Understanding the costs
 

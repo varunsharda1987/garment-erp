@@ -17,6 +17,10 @@ keywords:
   - shrinkage
   - screen cost
   - fabric cost per meter
+  - saved run details
+  - how was the run costed
+  - compare costing runs
+  - old costing run
   # Hinglish
   - PO wala rate
   - greige rate reason kyun
@@ -25,6 +29,9 @@ keywords:
   - fabric ka rate
   - processor rate lookup
   - shrinkage calculate
+  - purana run dekhna
+  - run kaise bana tha
+  - run ki detail
   # Devanagari
   - फैब्रिक कॉस्टिंग
   - कॉस्टिंग रन
@@ -34,9 +41,12 @@ keywords:
   - पीओ रेट
   - ग्रेज रेट का कारण
   - सिकुड़न
+  - रन की डिटेल
+  - पुराना रन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
+  - frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx
   - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/ProcessorRateCardPage.tsx
 route: /fabric-costing
@@ -148,13 +158,27 @@ The table shows:
 
 - Click **Save Costing** button
 - Saves to fabric_width_cad table
-- Option to create a "Costing Run" to group these fabrics together
+- A dialog offers **Create Run N**: it saves these fabrics as a costing run. A run keeps its own copy of every figure, so later changes to the costing do not alter it — you can save several runs (for example at different quantities) and look back at each.
 
 ### 8. View Options (Optional)
 
 - Click **Options** button or **View All Options**
 - See all saved costing options for the style
 - Approve options from there
+
+### 9. See how a saved run was costed
+
+1. Select the style and the mode (**Costing** or **Raw Mat Calculation**). The **Existing Costing Runs** box lists that mode's runs, newest first.
+2. Each run card shows the fabric cost per garment, the number of fabrics, the order quantity, the processor, and when and by whom it was saved. **N changed since** means some of its fabrics have been re-costed after the run was saved.
+3. Click a run card. A window opens showing, for every fabric, how the cost was built up as it was when the run was saved:
+   - **Greige** rate and where it came from (from PO with the PO number, from a purchase, from a stock lot, Greige Master default, or typed by hand with the reason)
+   - **+ Transport**, **+ Processing** (processor, process, print type and colours), **+ Shrinkage** (the loss %), **+ Screen**
+   - **= Fabric cost** per metre, **× CAD average** per piece = cost per garment
+   - The quantity it was costed for, and whether a batch rate was used
+   - Whether the price was approved at that time
+4. A fabric marked **Re-costed since this run** shows **Today:** with the current figure under the run's own figure. **Costing removed since** means that fabric's costing was later removed. **This fabric was saved again in Run N** means it is also in a later run.
+5. Runs saved before 26-Sep-2026 say their figures were recorded on that date, from the costing as it stood then.
+6. To delete a run, click the bin icon on its card. Deleting a run does not delete the costing itself.
 
 ## Traps
 

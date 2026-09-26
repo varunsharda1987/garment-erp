@@ -6,8 +6,35 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { serialize } from '../utils/serializer';
-import { CadPurpose } from '@prisma/client';
+import { CadPurpose, Prisma } from '@prisma/client';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { freezeRunItems, presentRunItem, RUN_ITEM_LIVE_INCLUDE } from '../services/helpers/costing-run-items.helper';
+
+/**
+ * A run's fabrics are its OWN frozen record (fabric_costing_run_items, 2026-09-26), not the CAD rows
+ * that point at it: a row saved into a later run moves its costingRunId there, and a re-costed row
+ * no longer says what the run was saved with. Totals, counts and the fabric list all come from items.
+ */
+const RUN_ITEMS_INCLUDE = {
+  items: { include: RUN_ITEM_LIVE_INCLUDE, orderBy: { sortOrder: 'asc' } },
+} satisfies Prisma.fabric_costing_runInclude;
+
+type RunWithItems = Prisma.fabric_costing_runGetPayload<{ include: typeof RUN_ITEMS_INCLUDE }>;
+
+/** A run as the API returns it: its frozen fabrics beside today's costing, totals from the frozen figures. */
+function presentRun<T extends RunWithItems>(run: T) {
+  const { items, ...rest } = run;
+  const fabrics = items.map((item) => presentRunItem(item, run.id));
+  return {
+    ...rest,
+    ...computeRunTotals(items),
+    fabrics,
+    /** Fabrics re-costed (or whose costing was removed) since this run was saved */
+    changedCount: fabrics.filter((f) => f.change !== null).length,
+    /** The run was saved before runs kept their own record; its lines were recorded later */
+    backfilled: items.some((i) => i.backfilled),
+  };
+}
 
 /**
  * costing-18: derive run totals at read time from the loaded fabricCads. The stored
@@ -41,23 +68,7 @@ export async function getRunsByStyle(req: Request, res: Response) {
       ...(purpose && { purpose: purpose as CadPurpose }),
     },
     include: {
-      fabricCads: {
-        select: {
-          id: true,
-          componentName: true,
-          cutableWidth: true,
-          orderQuantityPcs: true,
-          cadAverage: true,
-          totalCostPerMeter: true,
-          greigeId: true,
-          greige: {
-            select: {
-              greigeCode: true,
-              greigeName: true,
-            },
-          },
-        },
-      },
+      ...RUN_ITEMS_INCLUDE,
       createdBy: {
         select: {
           id: true,
@@ -69,16 +80,7 @@ export async function getRunsByStyle(req: Request, res: Response) {
     orderBy: { runNumber: 'desc' },
   });
 
-  // Transform to include per-garment costs (totals derived from line items, costing-18)
-  const result = runs.map((run) => ({
-    ...run,
-    ...computeRunTotals(run.fabricCads),
-    fabrics: run.fabricCads.map((cad) => ({
-      ...cad,
-      costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
-    })),
-  }));
+  const result = runs.map(presentRun);
 
   res.json(
     serialize({
@@ -98,34 +100,7 @@ export async function getRunById(req: Request, res: Response) {
   const run = await prisma.fabric_costing_run.findUnique({
     where: { id: runId },
     include: {
-      fabricCads: {
-        select: {
-          id: true,
-          componentName: true,
-          cutableWidth: true,
-          orderQuantityPcs: true,
-          cadAverage: true,
-          totalCostPerMeter: true,
-          greigeId: true,
-          greigeCostPerMeter: true,
-          processingPricePerMeter: true,
-          shrinkageCostPerMeter: true,
-          transportCostPerMeter: true,
-          screenCostPerMeter: true,
-          greige: {
-            select: {
-              greigeCode: true,
-              greigeName: true,
-            },
-          },
-          processor: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
+      ...RUN_ITEMS_INCLUDE,
       style: {
         select: {
           id: true,
@@ -149,16 +124,7 @@ export async function getRunById(req: Request, res: Response) {
     throw new NotFoundError('Costing run', runId);
   }
 
-  // Transform to include per-garment costs (totals derived from line items, costing-18)
-  const result = {
-    ...run,
-    ...computeRunTotals(run.fabricCads),
-    fabrics: run.fabricCads.map((cad) => ({
-      ...cad,
-      costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
-    })),
-  };
+  const result = presentRun(run);
 
   res.json(
     serialize({
@@ -210,49 +176,31 @@ export async function createRun(req: Request, res: Response) {
       },
     });
 
-    // Link fabric CADs to this run
+    // Point the rows at their latest run
     await tx.fabric_width_cad.updateMany({
       where: { id: { in: fabricCadIds } },
       data: { costingRunId: newRun.id },
     });
 
-    // Calculate totals
-    const cads = await tx.fabric_width_cad.findMany({
-      where: { costingRunId: newRun.id },
-    });
+    // The run's own record: freeze each fabric's costing as it is now
+    const frozen = await freezeRunItems(tx, newRun.id, fabricCadIds);
+    if (frozen === 0) {
+      throw new ValidationError(
+        'None of the fabric rows sent exist any more. Save the costing again, then create the run.'
+      );
+    }
 
-    const { totalFabricCost, isComplete } = computeRunTotals(cads);
+    const items = await tx.fabric_costing_run_items.findMany({ where: { runId: newRun.id } });
+    const { totalFabricCost, isComplete, fabricCount } = computeRunTotals(items);
 
-    // Update run with calculated totals
-    const updatedRun = await tx.fabric_costing_run.update({
+    return tx.fabric_costing_run.update({
       where: { id: newRun.id },
-      data: { totalFabricCost, isComplete },
-      include: {
-        fabricCads: {
-          select: {
-            id: true,
-            componentName: true,
-            cutableWidth: true,
-            orderQuantityPcs: true,
-            cadAverage: true,
-            totalCostPerMeter: true,
-          },
-        },
-      },
+      data: { totalFabricCost, isComplete, fabricCount },
+      include: RUN_ITEMS_INCLUDE,
     });
-
-    return updatedRun;
   });
 
-  // Transform response
-  const result = {
-    ...run,
-    fabrics: run.fabricCads.map((cad) => ({
-      ...cad,
-      costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
-    })),
-  };
+  const result = presentRun(run);
 
   res.status(201).json(
     serialize({
@@ -265,7 +213,7 @@ export async function createRun(req: Request, res: Response) {
 
 /**
  * DELETE /api/fabric-costing-runs/:runId
- * Delete a costing run (unlinks CADs, doesn't delete them)
+ * Delete a costing run (unlinks CADs, doesn't delete them; its frozen items cascade)
  */
 export async function deleteRun(req: Request, res: Response) {
   const { runId } = req.params;
@@ -306,56 +254,25 @@ export async function deleteRun(req: Request, res: Response) {
 export async function updateRunTotals(req: Request, res: Response) {
   const { runId } = req.params;
 
-  // Get run with its CADs
+  // Totals come from the run's frozen record — a run's figures do not follow later re-costing
   const run = await prisma.fabric_costing_run.findUnique({
     where: { id: runId },
-    include: {
-      fabricCads: true,
-    },
+    include: { items: true },
   });
 
   if (!run) {
     throw new NotFoundError('Costing run', runId);
   }
 
-  // Recalculate totals
-  const totalFabricCost = run.fabricCads.reduce((sum, cad) => {
-    const avg = cad.cadAverage ? Number(cad.cadAverage) : 0;
-    const rate = cad.totalCostPerMeter ? Number(cad.totalCostPerMeter) : 0;
-    return sum + avg * rate;
-  }, 0);
+  const { totalFabricCost, isComplete, fabricCount } = computeRunTotals(run.items);
 
-  const isComplete = run.fabricCads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
-
-  const fabricCount = run.fabricCads.length;
-
-  // Update run
   const updatedRun = await prisma.fabric_costing_run.update({
     where: { id: runId },
     data: { totalFabricCost, isComplete, fabricCount },
-    include: {
-      fabricCads: {
-        select: {
-          id: true,
-          componentName: true,
-          cutableWidth: true,
-          orderQuantityPcs: true,
-          cadAverage: true,
-          totalCostPerMeter: true,
-        },
-      },
-    },
+    include: RUN_ITEMS_INCLUDE,
   });
 
-  // Transform response
-  const result = {
-    ...updatedRun,
-    fabrics: updatedRun.fabricCads.map((cad) => ({
-      ...cad,
-      costPerGarment:
-        cad.cadAverage && cad.totalCostPerMeter ? Number(cad.cadAverage) * Number(cad.totalCostPerMeter) : null,
-    })),
-  };
+  const result = presentRun(updatedRun);
 
   res.json(
     serialize({

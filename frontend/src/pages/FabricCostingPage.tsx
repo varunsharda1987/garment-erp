@@ -43,6 +43,7 @@ import {
 import { fabricCostingService } from '../services/fabricCosting.service';
 import type { StyleCostingStatus } from '../services/fabricCosting.service';
 import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../services/fabricCostingRun.service';
+import { CostingRunDetailDialog } from '../components/fabric-costing/CostingRunDetailDialog';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
@@ -74,7 +75,9 @@ import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { getErrorMessage } from '../lib/api-error-handler';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
-import { formatDate, formatTime } from '@/lib/date';
+import { formatDate, formatDateTime, formatTime } from '@/lib/date';
+import { formatCurrency } from '@/lib/currency';
+import { formatQuantity } from '@/lib/formatters';
 
 // Helper to validate UUID format
 const isValidUUID = (str: string): boolean => {
@@ -1033,6 +1036,7 @@ export default function FabricCostingPage() {
   const [isCreatingRun, setIsCreatingRun] = useState(false);
   const [savedCadIds, setSavedCadIds] = useState<string[]>([]);
   const [isDeletingRun, setIsDeletingRun] = useState<string | null>(null);
+  const [detailRunId, setDetailRunId] = useState<string | null>(null); // run whose "how was it done" is open
 
   // CAD validation state
   const [hasCADData, setHasCADData] = useState(true);
@@ -2842,42 +2846,86 @@ export default function FabricCostingPage() {
                 </h3>
                 {isLoadingRuns && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
               </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Click a run to see how each fabric was costed when it was saved.
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {existingRuns.map((run) => (
-                  <div key={run.id} className="p-3 border rounded-lg bg-card hover:shadow-sm transition-shadow">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="font-medium text-sm">{run.runName}</span>
-                      <div className="flex items-center gap-1">
-                        {run.isComplete ? (
-                          <Badge className="bg-success-muted text-success text-xs">
-                            <CheckCircle2 className="w-3 h-3 mr-1" />
-                            Complete
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-warning/10 text-warning text-xs">Incomplete</Badge>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => handleDeleteRun(run.id)}
-                          disabled={isDeletingRun === run.id}
-                        >
-                          {isDeletingRun === run.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
+                {existingRuns.map((run) => {
+                  const quantities = [
+                    ...new Set(run.fabrics.map((f) => f.orderQuantityPcs).filter((q): q is number => q != null)),
+                  ];
+                  const processors = [
+                    ...new Set(run.fabrics.map((f) => f.processor?.name).filter((n): n is string => !!n)),
+                  ];
+                  return (
+                    <div
+                      key={run.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setDetailRunId(run.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setDetailRunId(run.id);
+                        }
+                      }}
+                      title="See how this run was costed"
+                      className="p-3 border rounded-lg bg-card hover:shadow-sm hover:border-info/50 transition-shadow cursor-pointer text-left"
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium text-sm">{run.runName}</span>
+                        <div className="flex items-center gap-1">
+                          {run.isComplete ? (
+                            <Badge className="bg-success-muted text-success text-xs">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Complete
+                            </Badge>
                           ) : (
-                            <Trash2 className="w-3 h-3" />
+                            <Badge className="bg-warning/10 text-warning text-xs">Incomplete</Badge>
                           )}
-                        </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            title="Delete this run"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRun(run.id);
+                            }}
+                            onKeyDown={(e) => e.stopPropagation()}
+                            disabled={isDeletingRun === run.id}
+                          >
+                            {isDeletingRun === run.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p className="text-sm font-semibold text-foreground">
+                          {formatCurrency(run.totalFabricCost ?? 0)} / garment
+                        </p>
+                        <p>
+                          {run.fabricCount} fabric{run.fabricCount === 1 ? '' : 's'}
+                          {quantities.length > 0 &&
+                            ` · ${quantities.map((q) => formatQuantity(q, 'PCS', 0)).join(', ')}`}
+                        </p>
+                        {processors.length > 0 && <p className="truncate">{processors.join(', ')}</p>}
+                        <p>
+                          {formatDateTime(run.createdAt)}
+                          {run.createdBy && ` · ${run.createdBy.firstName}`}
+                        </p>
+                        {run.changedCount > 0 && (
+                          <Badge className="bg-warning-muted text-warning border-warning/25 text-xs">
+                            {run.changedCount} changed since
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p>{run.fabricCount} fabrics</p>
-                      <p>₹{run.totalFabricCost?.toFixed(2) ?? '0.00'}/garment</p>
-                      <p className="text-muted-foreground">{formatDate(new Date(run.createdAt))}</p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </Card>
           )}
@@ -3221,6 +3269,9 @@ export default function FabricCostingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* How a saved run was costed */}
+      <CostingRunDetailDialog runId={detailRunId} onClose={() => setDetailRunId(null)} />
 
       {/* BUG-FC3 fix: Unsaved changes warning dialog for in-app navigation */}
       <UnsavedDialog />

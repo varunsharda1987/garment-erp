@@ -4977,6 +4977,8 @@ model fabric_width_cad {
   costingFabricItems          style_costing_fabric_items[]
   styleFabrics                style_fabrics[]
   costingRun                  fabric_costing_run?          @relation(fields: [costingRunId], references: [id])
+  /// Frozen copies of this row's costing, one per run it was saved into
+  costingRunItems             fabric_costing_run_items[]
   // Purchase orders linked to this CAD (for Manual PO traceability)
   purchaseOrders              purchase_orders[]            @relation("PO_CAD")
 
@@ -5026,13 +5028,66 @@ model fabric_costing_run {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  style      styles             @relation(fields: [styleId], references: [id])
-  createdBy  users              @relation("fabric_costing_run_createdBy", fields: [createdById], references: [id])
+  style      styles                     @relation(fields: [styleId], references: [id])
+  createdBy  users                      @relation("fabric_costing_run_createdBy", fields: [createdById], references: [id])
+  /// The CAD rows whose LATEST run this is (fabric_width_cad.costingRunId). A row saved again into a
+  /// later run moves there, so this is not the run's record — `items` is.
   fabricCads fabric_width_cad[]
+  /// The run's own record: each fabric's costing frozen when the run was saved (2026-09-26)
+  items      fabric_costing_run_items[]
 
   @@unique([styleId, purpose, runNumber])
   @@index([styleId, purpose])
   @@index([createdAt])
+}
+
+/// One fabric of a costing run, frozen when the run was saved, so every run keeps how it was costed
+/// even after its CAD rows are re-costed, saved into a later run, or deleted (2026-09-26).
+/// Written ONLY by freezeRunItems (helpers/costing-run-items.helper.ts).
+model fabric_costing_run_items {
+  id                       String             @id @default(uuid())
+  runId                    String             @map("run_id")
+  /// The CAD row this line was frozen from; null once that row is deleted (the frozen figures stay)
+  cadId                    String?            @map("cad_id")
+  sortOrder                Int                @default(0) @map("sort_order")
+  /// true = recorded when this table was added, from the costing as it stood then — the run itself
+  /// was saved earlier, before runs kept their own record
+  backfilled               Boolean            @default(false)
+  componentName            String?            @map("component_name")
+  greigeCode               String?            @map("greige_code")
+  greigeName               String?            @map("greige_name")
+  cutableWidth             Decimal?           @map("cutable_width") @db.Decimal(10, 2)
+  cadAverage               Decimal?           @map("cad_average") @db.Decimal(10, 4)
+  orderQuantityPcs         Int?               @map("order_quantity_pcs")
+  costedAtQuantityMeters   Decimal?           @map("costed_at_quantity_meters") @db.Decimal(12, 2)
+  costedRateIsBatch        Boolean            @default(false) @map("costed_rate_is_batch")
+  batchColorName           String?            @map("batch_color_name")
+  costInputMode            String?            @map("cost_input_mode")
+  greigeCostPerMeter       Decimal?           @map("greige_cost_per_meter") @db.Decimal(10, 2)
+  greigeRateSource         GreigeRateSource?  @map("greige_rate_source")
+  greigeRateSourceRef      String?            @map("greige_rate_source_ref")
+  greigeRateSourceDate     DateTime?          @map("greige_rate_source_date")
+  greigeRateOverrideReason String?            @map("greige_rate_override_reason")
+  transportCostPerMeter    Decimal?           @map("transport_cost_per_meter") @db.Decimal(10, 2)
+  processorId              String?            @map("processor_id")
+  processorName            String?            @map("processor_name")
+  processingType           String?            @map("processing_type")
+  printingType             PrintingType?      @map("printing_type")
+  numberOfColors           Int?               @map("number_of_colors")
+  processingPricePerMeter  Decimal?           @map("processing_price_per_meter") @db.Decimal(10, 2)
+  shrinkagePercent         Decimal?           @map("shrinkage_percent") @db.Decimal(5, 2)
+  shrinkageCostPerMeter    Decimal?           @map("shrinkage_cost_per_meter") @db.Decimal(10, 2)
+  screenType               String?            @map("screen_type")
+  screenCostPerMeter       Decimal?           @map("screen_cost_per_meter") @db.Decimal(10, 2)
+  totalCostPerMeter        Decimal?           @map("total_cost_per_meter") @db.Decimal(10, 2)
+  costingApprovalStatus    CadApprovalStatus? @map("costing_approval_status")
+  createdAt                DateTime           @default(now()) @map("created_at")
+
+  run fabric_costing_run @relation(fields: [runId], references: [id], onDelete: Cascade)
+  cad fabric_width_cad?  @relation(fields: [cadId], references: [id], onDelete: SetNull)
+
+  @@index([runId])
+  @@index([cadId])
 }
 
 model cad_size_breakdown {

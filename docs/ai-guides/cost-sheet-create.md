@@ -63,6 +63,7 @@ sources:
   - frontend/src/App.tsx
   - frontend/src/pages/CostSheetList.tsx
   - frontend/src/pages/CostSheetForm.tsx
+  - frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx
   - frontend/src/pages/CostSheetDetail.tsx
   - frontend/src/components/cost-sheet/LaceCostingSection.tsx
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
@@ -87,7 +88,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 3. In **Search Style**, type the style code and pick the style. It is required. You can also type the style name, the customer, or the buyer's own style code, and several words together narrow it — "kasya LNG229" finds that one style. **Customer** fills itself and stays read-only.
 4. Picking the style fills the form by itself — fabrics come from the approved fabric costings, and trims, lace, embroidery and accessories come from the style's BOM. There is no button to press for this. Nothing is saved yet.
 5. Choose **Fabric Costing Mode**: **Costing (Buyer Quotation)** or **Raw Material Calculation**. Only approved costing options from that mode are used for fabric rates, and changing the mode refills the fabric rows. The system remembers your last choice. There is no Production mode — orders and production run on an approved **Raw Material Calculation** sheet.
-6. If **Costing Run** chips appear and you want that specific run's fabrics instead, just click the chip — it loads straight away and the chip shows **✓ fabric rows loaded from this run**. A green tick on the chip means all its costs are complete; a warning sign means some are missing. Clicking a different chip switches to that run. This replaces the fabric rows only; trims, lace, embroidery and accessories are untouched.
+6. If **Costing Run** chips appear and you want that specific run's fabrics instead, just click the chip — it loads straight away and the chip shows **✓ fabric rows loaded from this run**. To see how a run was costed before choosing it, click the **ⓘ** next to its chip: a window shows every fabric's greige, transport, processing, shrinkage and screen cost as the run was saved. A run loads its own saved figures; if any of its fabrics were changed after the run was saved, a warning says how many. A green tick on the chip means all its costs are complete; a warning sign means some are missing. Clicking a different chip switches to that run. This replaces the fabric rows only; trims, lace, embroidery and accessories are untouched.
 7. In **Raw Material Calculation** mode an **Enable Budget Tracking for Procurement** box appears. Leave it unticked for a normal cost sheet. Tick it only when you want budget-versus-actual variance tracked during procurement: then set **Budget Source** to **Manual Entry** and type each category budget, or to **Auto-Calculate from Style Data** and click **Fetch Budgets** to fill them from the style.
 8. **Number of Components**, **Category** and **Sub Category** are optional. Category is normally already filled from the style.
 9. Review the **Fabric Details** table. A fabric costed at more than one width appears as **one row per width** — both belong in the sheet, so do not delete one as a duplicate. Every row needs a name, a CAD average and a rate, or it must be marked **N/A**. Use **Add Fabric** to add a row by hand.

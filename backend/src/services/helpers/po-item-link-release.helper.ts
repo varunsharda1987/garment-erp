@@ -3,11 +3,12 @@
  *
  * Four tables point at `purchase_order_items`, and ALL FOUR are `onDelete: Cascade`:
  *   requirement_po_links, service_requirement_po_links, po_source_links, grn_items
- * plus `order_thread_requirements.poItemId`, which is SET NULL.
+ * (The retired Thread Requirements tab's `order_thread_requirements.poItemId` was the fifth — retired
+ * 2026-09-26: thread is ordered on a Thread PO in cones / tubes and no demand row points at its line.)
  *
  * That cascade is the trap. Deleting a PO item makes the LINK disappear while the demand row it
  * pointed at keeps its "already ordered" status — PO_GENERATED for a material requirement,
- * PO_GENERATED/IN_PROGRESS for a service requirement, PO_GENERATED for a thread requirement. A
+ * PO_GENERATED/IN_PROGRESS for a service requirement. A
  * requirement in that state is invisible to every re-order path: PO generation only accepts
  * PO_REQUIRED/PARTIAL_STOCK, the duplicate guard skips anything already ordered, the recalc
  * supersede pass excludes PO_GENERATED, and `scripts/recompute-requirement-statuses.ts` explicitly
@@ -37,7 +38,6 @@ const MATERIAL_ORDERED_STATUSES: MaterialRequirementStatus[] = [
 export interface ReleasedLinkSummary {
   materialRequirements: number;
   serviceRequirements: number;
-  threadRequirements: number;
 }
 
 /**
@@ -56,7 +56,6 @@ export async function releasePurchaseOrderItemLinks(
   const summary: ReleasedLinkSummary = {
     materialRequirements: 0,
     serviceRequirements: 0,
-    threadRequirements: 0,
   };
 
   if (itemIds.length === 0) return summary;
@@ -120,22 +119,13 @@ export async function releasePurchaseOrderItemLinks(
     await tx.service_requirement_po_links.deleteMany({ where: { purchaseOrderItemId: { in: itemIds } } });
   }
 
-  // ---- Thread requirements ---------------------------------------------------------------
-  // poItemId is SET NULL by the FK, but the STATUS is what makes the row re-orderable, and nothing
-  // resets it. Clear both explicitly so this works for an in-place replace as well as a delete.
-  const revertedThreads = await tx.order_thread_requirements.updateMany({
-    where: { poItemId: { in: itemIds }, status: { in: ['PO_GENERATED', 'PARTIALLY_RECEIVED'] } },
-    data: { status: 'PENDING', poItemId: null, supplierId: null },
-  });
-  summary.threadRequirements = revertedThreads.count;
-
   // po_source_links carry no status of their own — they are pure provenance and cascade away with
   // the item, which is correct. Nothing to hand back there.
 
-  if (summary.materialRequirements || summary.serviceRequirements || summary.threadRequirements) {
+  if (summary.materialRequirements || summary.serviceRequirements) {
     logWarn(
       `[PO ${poNumber}] returned demand to the plan: ${summary.materialRequirements} material, ` +
-        `${summary.serviceRequirements} service, ${summary.threadRequirements} thread requirement(s)`
+        `${summary.serviceRequirements} service requirement(s)`
     );
   }
 

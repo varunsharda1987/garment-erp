@@ -31,7 +31,6 @@
   "frontend/src/components/processing/QualityCheckDialog.tsx :: or-fallback :: defectMeters||''",
   "frontend/src/components/processing/ReturnUnprocessedDialog.tsx :: or-fallback :: returnedQtyMeters||''",
   "frontend/src/components/production/ProductionTrackingInlineForm.tsx :: or-fallback :: quantityCompleted||''",
-  "frontend/src/components/thread/OrderThreadRequirementForm.tsx :: or-fallback :: row.unitPrice||''",
   "frontend/src/features/styles/StyleForm/hooks/useStyleFormData.ts :: or-fallback :: costPrice||null",
   "frontend/src/features/styles/StyleForm/hooks/useStyleFormData.ts :: or-fallback :: expectedOrderQty||null",
   "frontend/src/features/styles/StyleForm/hooks/useStyleFormData.ts :: or-fallback :: sellingPrice||null",

@@ -2285,14 +2285,6 @@ class GRNService {
         userId
       );
 
-      // Update linked thread requirements status to RECEIVED
-      if (item.purchase_order_items?.id) {
-        await tx.order_thread_requirements.updateMany({
-          where: { poItemId: item.purchase_order_items.id },
-          data: { status: 'RECEIVED' },
-        });
-      }
-
       logInfo(`Thread lot from GRN ${grn.grnNumber}: ${stock.qty} ${stock.unit} of threadId=${material.threadId}`, {
         grnId: grn.id,
         lotId: lot.id,

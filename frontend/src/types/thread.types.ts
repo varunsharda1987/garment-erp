@@ -13,10 +13,7 @@ export type ThreadMaterial = 'POLYESTER' | 'COTTON';
 // schema.prisma. A thread PO line's unit is read from it (CONE_5K → CONE) by the unit registry.
 export type { ThreadPackagingType };
 
-export type ThreadQuantityInput = 'UNITS' | 'BOXES';
-
-// MRP-38: typed as Record<…> so a new enum member fails the build instead of rendering
-// "undefined" in the requirements table.
+// MRP-38: typed as Record<…> so a new enum member fails the build instead of rendering "undefined".
 export const THREAD_PLY_LABELS: Record<ThreadPly, string> = {
   TWO_PLY: '2-Ply',
   THREE_PLY: '3-Ply',
@@ -68,118 +65,6 @@ export const findPackagingSpec = (
   packing: ThreadPackagingType | null | undefined,
   ply: ThreadPly | null | undefined
 ): ThreadPackagingSpec | undefined => specs?.find((s) => s.packagingType === packing && s.ply === ply);
-
-export interface ThreadQuantityConversion {
-  totalUnits: number;
-  totalBoxes: number;
-  totalMeters: number;
-}
-
-export type ThreadRequirementStatus = 'PENDING' | 'PO_GENERATED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
-
-export const THREAD_REQUIREMENT_STATUS_LABELS: Record<ThreadRequirementStatus, string> = {
-  PENDING: 'Pending',
-  PO_GENERATED: 'PO Generated',
-  PARTIALLY_RECEIVED: 'Partially Received',
-  RECEIVED: 'Received',
-  CANCELLED: 'Cancelled',
-};
-
-export interface OrderThreadRequirement {
-  id: string;
-  orderId: string;
-  threadId: string;
-  threadName: string;
-  threadCode: string;
-  ply: ThreadPly;
-  materialComposition: ThreadMaterial;
-  colorName: string;
-  packagingType: ThreadPackagingType;
-  inputType: ThreadQuantityInput;
-  unitsOrdered?: number;
-  boxesOrdered?: number;
-  totalUnits: number;
-  totalBoxes: number;
-  totalMeters: number;
-  unitPrice?: number;
-  totalCost?: number;
-  status: ThreadRequirementStatus;
-  supplierId?: string;
-  supplierName?: string;
-  poItemId?: string;
-  orderNumber?: string;
-  notes?: string;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ThreadRequirementQueryParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  status?: ThreadRequirementStatus;
-  orderId?: string;
-}
-
-export interface PaginatedThreadRequirements {
-  data: OrderThreadRequirement[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-export interface ThreadRequirementStats {
-  total: number;
-  pending: number;
-  poGenerated: number;
-  received: number;
-  cancelled: number;
-}
-
-export interface GenerateThreadPOInput {
-  requirementIds: string[];
-  supplierId: string;
-  expectedDeliveryDate: string;
-  remarks?: string;
-}
-
-export interface ThreadPOSupplier {
-  id: string;
-  name: string;
-  code: string;
-}
-
-/**
- * DTO for creating thread requirement (API request)
- */
-export interface CreateThreadRequirementDto {
-  orderId?: string; // Optional since it comes from URL param
-  threadId: string;
-  packagingType: ThreadPackagingType;
-  inputType: ThreadQuantityInput;
-  unitsOrdered?: number;
-  boxesOrdered?: number;
-  unitPrice?: number;
-  notes?: string;
-}
-
-/**
- * Thread shortage detection result
- */
-export interface ThreadShortage {
-  threadId: string;
-  threadName: string;
-  threadCode: string;
-  requiredUnits: number;
-  availableUnits: number;
-  shortageUnits: number;
-  shortageBoxes: number;
-  hasShortage: boolean;
-}
 
 // ============================================
 // MASTER DATA TYPES (for existing thread management)

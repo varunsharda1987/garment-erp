@@ -1,9 +1,9 @@
 /**
  * Unified Requirements Page
- * Three tabs:
+ * Two tabs:
  *   1. Material Requirements — only requirementType='MATERIAL' items
  *   2. Outsourced Work — PROCESSING items (from material_requirements) + SERVICE items (from work_order_service_requirements)
- *   3. Thread Requirements — order_thread_requirements
+ * The Thread Requirements tab is retired (2026-09-26): thread is ordered on a Thread PO in cones / tubes.
  */
 
 import { unitShort } from '@/lib/units';
@@ -37,10 +37,8 @@ import ProcessingAssignDialog from '@/components/ProcessingAssignDialog';
 import BulkPOGenerationDialog from '@/components/BulkPOGenerationDialog';
 import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
-import OrderThreadRequirementForm from '@/components/thread/OrderThreadRequirementForm';
 import { OrderStyleLabelView } from '@/components/requirements/OrderStyleLabelView';
 import { groupRequirementsByOrderStyle } from '@/components/requirements/order-style-groups';
-import { Combobox } from '@/components/ui/combobox';
 
 // Services
 import {
@@ -60,29 +58,11 @@ import {
   generateServiceJWOs,
   getDashboardStats as getServiceDashboardStats,
 } from '@/services/serviceRequirement.service';
-import {
-  getAllThreadRequirements,
-  getThreadRequirementStats,
-  generateThreadPO,
-  getAvailableSuppliers as getThreadSuppliers,
-} from '@/services/threadRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { workOrderService } from '@/services/workOrder.service';
 import { getProcessorSuppliers } from '@/services/vendorSuggestion.service';
 import { useDebounce } from '@/hooks/useDebounce';
-import { getAllOrders } from '@/services/order.service';
 import type { Supplier } from '@/types/supplier.types';
-import type {
-  ThreadRequirementStatus,
-  ThreadRequirementStats,
-  PaginatedThreadRequirements,
-} from '@/types/thread.types';
-import {
-  THREAD_REQUIREMENT_STATUS_LABELS,
-  THREAD_PLY_LABELS,
-  THREAD_MATERIAL_LABELS,
-  THREAD_PACKAGING_LABELS,
-} from '@/types/thread.types';
 import api from '@/lib/api';
 
 // Types
@@ -124,8 +104,6 @@ import {
   CheckCircle2,
   ArrowRight,
   X,
-  Scissors,
-  Plus,
   Download,
 } from 'lucide-react';
 
@@ -142,7 +120,7 @@ const canOrderFromHere = (r: { status: string; material?: { materialType?: strin
 
 const THREAD_PO_HINT = 'Order thread from Purchase Orders, in cones / tubes';
 
-type RequirementTab = 'material' | 'outsourced' | 'thread';
+type RequirementTab = 'material' | 'outsourced';
 
 /**
  * MRP-43: search boxes on this page wrote straight to the URL on every keystroke, and the URL is
@@ -184,7 +162,7 @@ export default function UnifiedRequirementsPage() {
 
   // MRP-37: an unrecognised ?tab= used to fall through the render ternary and silently show the
   // Outsourced tab. Validate against the union and fall back to the default instead.
-  const TAB_VALUES: RequirementTab[] = ['material', 'outsourced', 'thread'];
+  const TAB_VALUES: RequirementTab[] = ['material', 'outsourced'];
   const tabParam = searchParams.get('tab');
   const activeTab: RequirementTab = TAB_VALUES.includes(tabParam as RequirementTab)
     ? (tabParam as RequirementTab)
@@ -203,12 +181,6 @@ export default function UnifiedRequirementsPage() {
     getServiceDashboardStats,
     { staleTime: 60 * 1000 }
   );
-
-  const { data: threadStats } = useQuery<ThreadRequirementStats>({
-    queryKey: ['thread-requirements', 'stats'],
-    queryFn: getThreadRequirementStats,
-    staleTime: 60 * 1000,
-  });
 
   // Combined stats
   const totalRequirements =
@@ -279,9 +251,6 @@ export default function UnifiedRequirementsPage() {
             onClick={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.mrp.all });
               queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequirements.all });
-              // MRP-21: the thread tab has its own query prefix — without this, pressing Refresh
-              // while looking at Thread Requirements did nothing at all.
-              queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
             }}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
@@ -369,7 +338,7 @@ export default function UnifiedRequirementsPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="material" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Material Requirements
@@ -386,21 +355,12 @@ export default function UnifiedRequirementsPage() {
               {(mrpStats?.processingRequirementsCount || 0) + (serviceStats?.totalServices || 0)}
             </Badge>
           </TabsTrigger>
-          <TabsTrigger value="thread" className="flex items-center gap-2">
-            <Scissors className="h-4 w-4" />
-            Thread Requirements
-            <Badge variant="secondary" className="ml-1 text-xs">
-              {(threadStats?.pending || 0) + (threadStats?.poGenerated || 0)}
-            </Badge>
-          </TabsTrigger>
         </TabsList>
       </Tabs>
 
       {/* Tab Content */}
       {activeTab === 'material' ? (
         <MaterialRequirementsTab searchParams={searchParams} updateURLParams={updateURLParams} />
-      ) : activeTab === 'thread' ? (
-        <ThreadRequirementsTab searchParams={searchParams} updateURLParams={updateURLParams} />
       ) : (
         <OutsourcedWorkTab searchParams={searchParams} updateURLParams={updateURLParams} />
       )}
@@ -1881,451 +1841,6 @@ interface OutsourcedRow {
   // Original data references for bulk operations
   originalProcessing?: MaterialRequirement;
   originalService?: ServiceRequirement;
-}
-
-// ─────────────────────────────────────────────────────────────
-// Thread Requirements Tab
-// ─────────────────────────────────────────────────────────────
-
-function ThreadRequirementsTab({
-  searchParams,
-  updateURLParams,
-}: {
-  searchParams: URLSearchParams;
-  updateURLParams: (updates: Record<string, string | undefined>) => void;
-}) {
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-
-  // Filters from URL
-  const search = searchParams.get('search') || '';
-  const statusFilter = searchParams.get('status') || '';
-  const page = parseInt(searchParams.get('page') || '1');
-  const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
-
-  // Fetch thread requirements
-  const { data: threadData, isLoading } = useQuery<PaginatedThreadRequirements>({
-    queryKey: ['thread-requirements', { page, search, status: statusFilter }],
-    queryFn: () =>
-      getAllThreadRequirements({
-        page,
-        limit: 25,
-        search: search || undefined,
-        status: (statusFilter || undefined) as ThreadRequirementStatus | undefined,
-      }),
-    staleTime: 30 * 1000,
-  });
-
-  const requirements = threadData?.data || [];
-  const pagination = threadData?.pagination;
-
-  // Selection state
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [poDialogOpen, setPODialogOpen] = useState(false);
-  const [poSupplierId, setPOSupplierId] = useState('');
-  const [poDeliveryDate, setPODeliveryDate] = useState('');
-  const [poRemarks, setPORemarks] = useState('');
-  const [poGenerating, setPOGenerating] = useState(false);
-  const [availableSuppliers, setAvailableSuppliers] = useState<{ id: string; name: string; code: string }[]>([]);
-
-  // Add Thread Requirement dialog state
-  const [addThreadDialogOpen, setAddThreadDialogOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState('');
-  const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([]);
-  const [ordersTotal, setOrdersTotal] = useState<number | undefined>(undefined);
-  const [loadingOrders, setLoadingOrders] = useState(false);
-
-  // Fetch orders for selector
-  const loadOrders = useCallback(async (searchTerm: string) => {
-    setLoadingOrders(true);
-    try {
-      // 50 most recent, and the picker says how many more exist (2026-09-14: 20 with no hint)
-      const response = await getAllOrders({ search: searchTerm, limit: 50 });
-      setOrdersTotal(response.pagination?.total);
-      // MRP-30: this read `order.style` / `order.styleName`, neither of which exists on Order —
-      // styles hang off orderItems — so every option in this picker read "Unknown Style". The
-      // `any` cast was hiding it from the compiler.
-      const options = (response.data || []).map((order) => {
-        const styleCodes = [...new Set((order.orderItems || []).map((item) => item.style?.styleCode).filter(Boolean))];
-        const styleLabel =
-          styleCodes.length === 0
-            ? (order.customer?.name ?? 'No style')
-            : styleCodes.length <= 2
-              ? styleCodes.join(', ')
-              : `${styleCodes.slice(0, 2).join(', ')} +${styleCodes.length - 2}`;
-        return {
-          value: order.id,
-          label: `${order.orderNumber} - ${styleLabel}`,
-        };
-      });
-      setOrderOptions(options);
-    } catch (err) {
-      handleApiError(err, 'Failed to load orders for selection');
-    } finally {
-      setLoadingOrders(false);
-    }
-  }, []);
-
-  // Load orders on dialog open
-  const handleOpenAddDialog = () => {
-    setAddThreadDialogOpen(true);
-    setSelectedOrderId('');
-    loadOrders('');
-  };
-
-  // Only pending items can be selected
-  const selectableIds = requirements.filter((r) => r.status === 'PENDING').map((r) => r.id);
-
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === selectableIds.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(selectableIds);
-    }
-  };
-
-  // Open PO dialog — fetch available suppliers
-  const handleOpenPODialog = async () => {
-    if (selectedIds.length === 0) return;
-    try {
-      const suppliers = await getThreadSuppliers(selectedIds);
-      setAvailableSuppliers(suppliers);
-      setPODialogOpen(true);
-    } catch (err) {
-      handleApiError(err, 'Failed to fetch suppliers');
-    }
-  };
-
-  // Generate PO
-  const handleGeneratePO = async () => {
-    if (!poSupplierId || !poDeliveryDate) return;
-    setPOGenerating(true);
-    try {
-      const result = await generateThreadPO({
-        requirementIds: selectedIds,
-        supplierId: poSupplierId,
-        expectedDeliveryDate: poDeliveryDate,
-        remarks: poRemarks || undefined,
-      });
-      handleApiSuccess('Thread PO Created', `PO created with ${result.updatedRequirements} items`);
-      setPODialogOpen(false);
-      setSelectedIds([]);
-      setPOSupplierId('');
-      setPODeliveryDate('');
-      setPORemarks('');
-      queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
-    } catch (err) {
-      handleApiError(err, 'Failed to generate thread PO');
-    } finally {
-      setPOGenerating(false);
-    }
-  };
-
-  const getStatusBadge = (status: ThreadRequirementStatus) => {
-    const colorMap: Record<ThreadRequirementStatus, string> = {
-      PENDING: 'bg-yellow-100 text-yellow-800',
-      PO_GENERATED: 'bg-info-muted text-info',
-      PARTIALLY_RECEIVED: 'bg-accent/10 text-accent',
-      RECEIVED: 'bg-success-muted text-success',
-      CANCELLED: 'bg-muted text-foreground',
-    };
-    return (
-      <Badge className={colorMap[status] || 'bg-muted text-foreground'}>
-        {THREAD_REQUIREMENT_STATUS_LABELS[status] || status}
-      </Badge>
-    );
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Filters & Actions */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <Input
-              placeholder="Search thread, order..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-64"
-            />
-            <Select
-              value={statusFilter || 'all'}
-              onValueChange={(v) => updateURLParams({ status: v === 'all' ? undefined : v, page: undefined })}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="PO_GENERATED">PO Generated</SelectItem>
-                <SelectItem value="PARTIALLY_RECEIVED">Partially Received</SelectItem>
-                <SelectItem value="RECEIVED">Received</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div className="ml-auto flex items-center gap-2">
-              <Button onClick={handleOpenAddDialog} size="sm" variant="outline">
-                <Plus className="h-4 w-4 mr-1" />
-                Add Thread Requirement
-              </Button>
-              {selectedIds.length > 0 && (
-                <Button onClick={handleOpenPODialog} size="sm">
-                  <FileText className="h-4 w-4 mr-1" />
-                  Generate PO ({selectedIds.length})
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={selectableIds.length > 0 && selectedIds.length === selectableIds.length}
-                    onCheckedChange={toggleSelectAll}
-                    disabled={selectableIds.length === 0}
-                  />
-                </TableHead>
-                <TableHead>Order</TableHead>
-                <TableHead>Thread</TableHead>
-                <TableHead>Ply / Material</TableHead>
-                <TableHead>Color</TableHead>
-                <TableHead>Packaging</TableHead>
-                <TableHead className="text-right">Qty (Units)</TableHead>
-                <TableHead className="text-right">Boxes</TableHead>
-                <TableHead className="text-right">Meters</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Supplier</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : requirements.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
-                    No thread requirements found. Click "Add Thread Requirement" to create one.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                requirements.map((req) => (
-                  <TableRow key={req.id} className={selectedIds.includes(req.id) ? 'bg-info-muted' : ''}>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedIds.includes(req.id)}
-                        onCheckedChange={() => toggleSelect(req.id)}
-                        disabled={req.status !== 'PENDING'}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <button
-                        className="text-info hover:underline text-sm font-medium"
-                        onClick={() => navigate(`/orders/${req.orderId}`)}
-                      >
-                        {req.orderNumber || req.orderId.slice(0, 8)}
-                      </button>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm font-medium">{req.threadCode}</div>
-                      <div className="text-xs text-muted-foreground">{req.threadName}</div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {/* MRP-38: fall back to the raw value like the packaging column already
-                          did — an unmapped enum used to render "undefined / undefined". */}
-                      {THREAD_PLY_LABELS[req.ply] || req.ply || '-'} /{' '}
-                      {THREAD_MATERIAL_LABELS[req.materialComposition] || req.materialComposition || '-'}
-                    </TableCell>
-                    <TableCell className="text-sm">{req.colorName}</TableCell>
-                    <TableCell className="text-sm">
-                      {THREAD_PACKAGING_LABELS[req.packagingType] || req.packagingType}
-                    </TableCell>
-                    {/* MRP-29: three quantity columns previously used three different formats —
-                        two raw, one bare toLocaleString() that silently rounded to 3 decimals. */}
-                    <TableCell className="text-right font-mono text-sm">{formatQuantity(req.totalUnits)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatQuantity(req.totalBoxes)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{formatQuantity(req.totalMeters)}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {req.unitPrice ? formatCurrency(req.unitPrice) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm">
-                      {req.totalCost ? formatCurrency(req.totalCost) : '-'}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(req.status)}</TableCell>
-                    <TableCell className="text-sm">{req.supplierName || '-'}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            Showing {(pagination.page - 1) * pagination.limit + 1}-
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-          </span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page <= 1}
-              onClick={() => updateURLParams({ page: String(pagination.page - 1) })}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page >= pagination.totalPages}
-              onClick={() => updateURLParams({ page: String(pagination.page + 1) })}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Generate PO Dialog */}
-      <Dialog open={poDialogOpen} onOpenChange={setPODialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate Thread Purchase Order</DialogTitle>
-            <DialogDescription>Create a PO for {selectedIds.length} selected thread requirement(s).</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label>Supplier</Label>
-              {availableSuppliers.length === 0 ? (
-                <Alert className="mt-2">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    No common supplier found for all selected threads. Ensure each thread has the supplier linked in
-                    Thread Master.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Select value={poSupplierId} onValueChange={setPOSupplierId}>
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select supplier" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableSuppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.code} - {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            <div>
-              <Label>Expected Delivery Date</Label>
-              <Input
-                type="date"
-                value={poDeliveryDate}
-                onChange={(e) => setPODeliveryDate(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label>Remarks (optional)</Label>
-              <Textarea
-                value={poRemarks}
-                onChange={(e) => setPORemarks(e.target.value)}
-                placeholder="Additional notes..."
-                className="mt-1"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPODialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleGeneratePO} disabled={!poSupplierId || !poDeliveryDate || poGenerating}>
-              {poGenerating ? 'Generating...' : 'Generate PO'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Thread Requirement Dialog */}
-      <Dialog open={addThreadDialogOpen} onOpenChange={setAddThreadDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Thread Requirement</DialogTitle>
-            <DialogDescription>
-              {selectedOrderId
-                ? 'Enter thread requirements for the selected order.'
-                : 'Select an order to add thread requirements.'}
-            </DialogDescription>
-          </DialogHeader>
-          {!selectedOrderId ? (
-            <div className="py-4">
-              <Label>Select Order</Label>
-              <Combobox
-                options={orderOptions}
-                value={selectedOrderId}
-                onValueChange={setSelectedOrderId}
-                placeholder={loadingOrders ? 'Loading orders...' : 'Search and select an order...'}
-                searchPlaceholder="Search by order number or style..."
-                emptyText="No orders found. Try a different search."
-                onSearchChange={loadOrders}
-                className="mt-2"
-                footer={
-                  ordersTotal !== undefined && ordersTotal > orderOptions.length
-                    ? `Showing the ${orderOptions.length} most recent of ${ordersTotal.toLocaleString('en-IN')} orders — type an order number or style to narrow`
-                    : undefined
-                }
-              />
-            </div>
-          ) : (
-            <div className="py-4">
-              <div className="mb-4 flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Order: {orderOptions.find((o) => o.value === selectedOrderId)?.label || selectedOrderId}
-                </span>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedOrderId('')}>
-                  Change Order
-                </Button>
-              </div>
-              <OrderThreadRequirementForm
-                orderId={selectedOrderId}
-                onSave={() => {
-                  setAddThreadDialogOpen(false);
-                  setSelectedOrderId('');
-                  queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
-                }}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────────────────────

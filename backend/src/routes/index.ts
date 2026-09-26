@@ -38,7 +38,6 @@ import buttonRoutes from './button.routes';
 import threadRoutes from './thread.routes';
 import threadStockRoutes from './thread-stock.routes';
 import trimStockRoutes from './trim-stock.routes';
-import orderThreadRequirementRoutes from './order-thread-requirement.routes';
 import zipperRoutes from './zipper.routes';
 import elasticRoutes from './elastic.routes';
 import labelRoutes from './label.routes';
@@ -202,8 +201,7 @@ export function createApiRouter(): Router {
   router.use('/materials/lace', laceRoutes);
   router.use('/materials/button', buttonRoutes);
 
-  // Thread routes (consolidated)
-  router.use('/', orderThreadRequirementRoutes); // Order thread requirements: /api/orders/:orderId/thread-requirements
+  // Thread routes (the order thread-requirements API is retired, 2026-09-26: thread is ordered on a Thread PO)
   router.use('/materials/thread', threadRoutes); // Thread master and conversions: /api/materials/thread/*
   router.use('/materials/zipper', zipperRoutes);
   router.use('/materials/elastic', elasticRoutes);

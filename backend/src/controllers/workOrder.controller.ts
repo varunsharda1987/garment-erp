@@ -924,12 +924,15 @@ export const getThreadIssuanceData = async (req: Request, res: Response) => {
   });
   if (!workOrder) throw new NotFoundError('WorkOrder', id);
 
-  // Get thread requirements for this order
-  const threadRequirements = await prisma.order_thread_requirements.findMany({
-    where: { orderId: workOrder.orderId! },
-    select: { threadId: true },
-  });
-  const threadIds = [...new Set(threadRequirements.map((r) => r.threadId))];
+  // The threads this style uses: its BOM's thread lines. (Until 2026-09-26 this read the retired Thread
+  // Requirements tab, which never held a row — so the list was always empty.)
+  const bomThreads = workOrder.styleId
+    ? await prisma.style_material_bom.findMany({
+        where: { styleId: workOrder.styleId, isActive: true, threadId: { not: null } },
+        select: { threadId: true },
+      })
+    : [];
+  const threadIds = [...new Set(bomThreads.map((r) => r.threadId).filter((t): t is string => !!t))];
 
   // Get available thread_stock lots for these threads
   const threadStockLots =

@@ -13,7 +13,6 @@
   "backend/src/schemas/invoice.schema.ts :: toDate",
   "backend/src/schemas/laceDefect.schema.ts :: discoveredAt",
   "backend/src/schemas/laceStock.schema.ts :: expiryDate",
-  "backend/src/schemas/orderThreadRequirement.schema.ts :: expectedDeliveryDate",
   "backend/src/schemas/printing.schema.ts :: expectedDate",
   "backend/src/schemas/printing.schema.ts :: expectedReturnDate",
   "backend/src/schemas/printing.schema.ts :: receivedDate",

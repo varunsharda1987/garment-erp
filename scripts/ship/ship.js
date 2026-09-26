@@ -141,6 +141,17 @@ async function now() {
     return 1;
   }
   S.writeJson(S.RETRY_FILE, { at: new Date().toISOString(), by: who() });
+  // The deployer consumes the retry file on its next tick (every 3 s). Until then the state still
+  // shows the OLD failure, which wait() would report straight back.
+  const deadline = Date.now() + 20000;
+  while (fs.existsSync(S.RETRY_FILE) && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  if (fs.existsSync(S.RETRY_FILE)) {
+    console.log(`The deployer did not pick up the retry within 20 s. ${deployerRunning(S.readState()) ? 'It may be mid-deploy — check npm run ship:status.' : NOT_RUNNING}`);
+    return 1;
+  }
+  await new Promise((r) => setTimeout(r, 1500)); // let it write `deploying`
   return wait();
 }
 

@@ -269,11 +269,19 @@ function prismaClientProblem(sha) {
   } catch {
     return null;
   }
+  // Read the schema the RUNTIME uses — the `inlineSchema` embedded in the generated index.js — not the
+  // schema.prisma copy beside it: on Windows `prisma generate` often writes index.js/index.d.ts and
+  // then fails with EPERM renaming the locked query engine, leaving that copy stale while the client
+  // itself is current (2026-09-26: the first deploy was BLOCKED on exactly that false alarm).
   let generated;
   try {
-    generated = norm(fs.readFileSync(path.join(S.REPO, 'backend', 'node_modules', '.prisma', 'client', 'schema.prisma'), 'utf-8'));
+    const src = fs.readFileSync(path.join(S.REPO, 'backend', 'node_modules', '.prisma', 'client', 'index.js'), 'utf-8');
+    const at = src.indexOf('"inlineSchema"');
+    const m = at < 0 ? null : src.slice(at).match(/^"inlineSchema":\s*("(?:[^"\\]|\\.)*")/);
+    if (!m) return 'cannot read the inlineSchema of backend/node_modules/.prisma/client/index.js (Prisma format changed?) — check scripts/ship/deployer.js prismaClientProblem';
+    generated = norm(JSON.parse(m[1]));
   } catch {
-    return 'backend/node_modules/.prisma/client/schema.prisma is missing (prisma generate never ran)';
+    return 'backend/node_modules/.prisma/client/index.js is missing (prisma generate never ran)';
   }
   const missing = [...committed].filter((l) => !generated.has(l));
   if (!missing.length) return null;

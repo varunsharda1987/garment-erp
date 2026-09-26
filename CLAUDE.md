@@ -613,11 +613,10 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
    --from <your ListAgents name>` — each terminal gets it on its next prompt, new ones at start
    (`scripts/hooks/notices.js`). The deployer and `ship pause/resume` post there by themselves.
 
-**Switchover status:** until `npm run ship:status` shows the deployer running, the OLD path is still
-active — `garment-erp-watcher` rebuilds the live app on every save under `src/`, and a commit builds
-from the files on disk. Starting the deployer is the owner's step on the shared daemon:
-`pm2 delete garment-erp-watcher` → `pm2 start ecosystem.config.js --only garment-erp-deployer` →
-`npm run ship:wait` → `pm2 save`. The post-commit hook switches over by itself once the deployer runs.
+**Switched over 2026-09-26 15:51** (first deploy `c9e13afb`, 207 s). `garment-erp-watcher` is deleted
+from PM2 and from `pm2 save`; `garment-erp-deployer` is the only deploy path. If `npm run ship:status`
+ever says the deployer is NOT running, the post-commit hook falls back to the old in-place build and
+fleet-check raises it — tell the owner; restarting it is the owner's call (shared PM2 daemon).
 
 Still NOT isolated (known): the live API reads PDF templates (`backend/templates/kf`), `node_modules`
 and the Prisma client straight from this folder, and dev and live share one database.

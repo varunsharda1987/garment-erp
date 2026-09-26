@@ -8,6 +8,9 @@
 
 import { z } from 'zod';
 
+export const CadCorrectionStatusEnum = z.enum(['PENDING_APPROVAL', 'APPLIED', 'PARTIAL', 'REJECTED']);
+export type CadCorrectionStatus = z.infer<typeof CadCorrectionStatusEnum>;
+
 export const StyleImageTypeEnum = z.enum([
   'MAIN',
   'SKETCH_FRONT',
@@ -590,6 +593,7 @@ export const MaterialRequirementStatusEnum = z.enum([
   'RECEIVED',
   'CANCELLED',
   'CONVERTED',
+  'DECISION_PENDING',
 ]);
 export type MaterialRequirementStatus = z.infer<typeof MaterialRequirementStatusEnum>;
 

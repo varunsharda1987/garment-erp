@@ -23,6 +23,9 @@ export const MaterialRequirementStatus = {
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
   CONVERTED: 'CONVERTED', // P3: fabric req converted to greige+processing
+  // A new BOM version needs more than the PO/JWO-linked requirements cover. Visible, NOT orderable until
+  // the team chooses "Order the extra" (→ PO_REQUIRED) or "Don't order more" (→ CANCELLED, NOT_ORDERED).
+  DECISION_PENDING: 'DECISION_PENDING',
 } as const;
 
 export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];

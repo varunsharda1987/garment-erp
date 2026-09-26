@@ -6,6 +6,14 @@
  * instead of re-typing the values — the hand-typed frontend `Unit` copies drifted to 13 of 16.
  */
 
+export const CadCorrectionStatus = {
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  APPLIED: 'APPLIED',
+  PARTIAL: 'PARTIAL',
+  REJECTED: 'REJECTED',
+} as const;
+export type CadCorrectionStatus = (typeof CadCorrectionStatus)[keyof typeof CadCorrectionStatus];
+
 export const StyleImageType = {
   MAIN: 'MAIN',
   SKETCH_FRONT: 'SKETCH_FRONT',
@@ -858,6 +866,7 @@ export const MaterialRequirementStatus = {
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
   CONVERTED: 'CONVERTED',
+  DECISION_PENDING: 'DECISION_PENDING',
 } as const;
 export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];
 

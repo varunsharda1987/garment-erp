@@ -1250,6 +1250,18 @@ class GRNService {
                     },
                   });
 
+                  // The parked lot is on hand at the processor's unit (Phase 4e): the unit gives it up
+                  if (processorGreigeStock.warehouseId) {
+                    const greigeMaterialId = await ensureMaterialRecord(processorGreigeStock.greigeId, 'GREIGE', tx);
+                    await syncStockLevelQuantity(
+                      greigeMaterialId,
+                      -qtyToConsume,
+                      processorGreigeStock.warehouseId,
+                      'METER',
+                      tx
+                    );
+                  }
+
                   logInfo(`Consumed ${qtyToConsume}m from processor greige_stock`, {
                     grnId: id,
                     processorStockId: processorGreigeStock.id,
@@ -4174,6 +4186,10 @@ class GRNService {
             performedById: userId,
           },
         });
+        if (processorGreigeStock.warehouseId) {
+          const greigeMaterialId = await ensureMaterialRecord(processorGreigeStock.greigeId, 'GREIGE', tx);
+          await syncStockLevelQuantity(greigeMaterialId, partQty, processorGreigeStock.warehouseId, 'METER', tx);
+        }
 
         logInfo(`Restored processor greige_stock: ${partQty}m`, {
           grnId: grn.id,

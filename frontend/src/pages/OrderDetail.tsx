@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { getOrderById, createWorkOrdersForOrder } from '../services/order.service';
 import { getAllPurchaseOrders } from '../services/purchaseOrder.service';
+import { MATERIAL_PO_CATEGORIES } from '../types/purchaseOrder.types';
 import workOrderService from '../services/workOrder.service';
 import { getInvoices } from '../services/invoice.service';
 import { deliveryNoteService } from '../services/dispatch.service';
@@ -206,7 +207,8 @@ export default function OrderDetail() {
     [...queryKeys.purchaseOrders.all, 'order-count', id || ''],
     async () => {
       try {
-        const res = await getAllPurchaseOrders({ orderId: id!, limit: 1 });
+        // Material categories only — the same set the Purchase Orders list (where View POs lands) shows
+        const res = await getAllPurchaseOrders({ orderId: id!, poCategories: [...MATERIAL_PO_CATEGORIES], limit: 1 });
         return res.pagination?.total ?? 0;
       } catch {
         return 0;

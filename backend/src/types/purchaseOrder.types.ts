@@ -47,6 +47,11 @@ export interface PurchaseOrderItemDTO {
   remarks?: string | null;
   foldLengthCm?: number | null; // "L" - fold length in cm (for greige/fabric)
   weaverId?: string | null; // Phase 1b: the weaver this line is bought from, when known at ordering
+  /**
+   * Split delivery (2026-09-26): how much of this line goes to each place. Absent on every line = one
+   * place (the header's deliveryLocationId) or "to be advised". po-delivery-plan.helper builds the plan.
+   */
+  deliveries?: Array<{ warehouseId: string; quantity: number }> | null;
 }
 
 /**

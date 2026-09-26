@@ -42,6 +42,8 @@ const blankToNumber = (v: unknown): unknown => {
 
 /** Optional numeric form field: ''→null, '12.5'→12.5, null/undefined pass through. */
 export const formNumber = (base: z.ZodNumber = z.number()) => z.preprocess(blankToNumber, base.optional().nullable());
+/** Required numeric form field: '12.5'→12.5; blank is refused by `base` with its own message. */
+export const formNumberRequired = (base: z.ZodNumber = z.number()) => z.preprocess(blankToNumber, base);
 
 // ============================================================================
 // Query-string facets (multi-select) + numeric ranges

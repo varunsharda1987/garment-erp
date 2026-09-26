@@ -113,6 +113,8 @@ export interface GRNItemResponse {
 export interface CreateGRNDTO {
   poId: string;
   warehouseId?: string | null; // Optional for now since schema doesn't have it yet
+  /** Split delivery: the planned place this delivery is against — required on a split PO. */
+  poDeliveryPointId?: string | null;
   receivingDate?: Date | string;
   invoiceNumber?: string | null;
   invoiceDate?: Date | string | null;

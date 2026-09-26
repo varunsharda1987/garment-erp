@@ -16,6 +16,7 @@ import {
 } from '../types/purchaseOrder.types';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError, UnauthorizedError } from '../errors';
+import type { AmendDeliveryPlanInput } from '../schemas/purchaseOrder.schema';
 
 /**
  * @route GET /api/purchase-orders
@@ -400,7 +401,7 @@ export const shortClosePurchaseOrder = async (req: Request, res: Response) => {
  */
 export const amendDeliveryLocation = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { deliveryLocationId } = req.body;
+  const { deliveryLocationId, reason } = req.body;
   // bug-hunt: was user?.id but auth middleware populates userId
   const userId = (req as any).user?.userId;
 
@@ -408,7 +409,7 @@ export const amendDeliveryLocation = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
 
-  const purchaseOrder = await purchaseOrderService.amendDeliveryLocation(id, deliveryLocationId, userId);
+  const purchaseOrder = await purchaseOrderService.amendDeliveryLocation(id, deliveryLocationId, userId, reason);
 
   logInfo(`Purchase order delivery location amended: ${purchaseOrder.poNumber}`);
 
@@ -417,4 +418,35 @@ export const amendDeliveryLocation = async (req: Request, res: Response) => {
     data: purchaseOrder,
     message: 'Delivery location amended successfully',
   });
+};
+
+/**
+ * @route   PUT /api/purchase-orders/:id/delivery-plan
+ * @desc    Change where a PO delivers: one place, a split across places, or "to be advised" — with a reason
+ */
+export const amendDeliveryPlan = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+  const body = req.body as AmendDeliveryPlanInput;
+  const purchaseOrder = await purchaseOrderService.amendDeliveryPlan(id, body, userId, body.reason);
+
+  logInfo(`Purchase order delivery plan changed: ${purchaseOrder.poNumber} (${body.mode})`);
+
+  res.json({
+    success: true,
+    data: purchaseOrder,
+    message: 'Delivery changed',
+  });
+};
+
+/**
+ * @route   GET /api/purchase-orders/:id/delivery-progress
+ * @desc    Planned / received / pending per delivery place
+ */
+export const getDeliveryProgress = async (req: Request, res: Response) => {
+  const progress = await purchaseOrderService.getDeliveryProgress(req.params.id);
+  res.json({ success: true, data: progress });
 };

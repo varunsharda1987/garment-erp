@@ -33,6 +33,13 @@ import { BusinessError, NotFoundError } from '../errors';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
 import { applySearch } from '../utils/search-filter';
+import {
+  applyDeliveryPlan,
+  loadDeliveryProgress,
+  planFromItemDeliveries,
+  rebalanceSplitToFirstPoint,
+  type DeliveryPlanInput,
+} from './helpers/po-delivery-plan.helper';
 
 class PurchaseOrderService {
   /**
@@ -199,39 +206,48 @@ class PurchaseOrderService {
       }
     }
 
+    // Split delivery: per-line places → one plan, written by the ONE plan writer in the same transaction
+    const deliveryPlan = planFromItemDeliveries(
+      itemsWithTotals.map((item, i) => ({ id: item.id, deliveries: data.items[i].deliveries }))
+    );
+
     // Create PO with items in transaction
-    const purchaseOrder = await prisma.purchase_orders.create({
-      data: {
-        id: randomUUID(),
-        poNumber,
-        supplierId: data.supplierId,
-        expectedDeliveryDate: new Date(data.expectedDeliveryDate),
-        status: PurchaseOrderStatus.DRAFT,
-        poSource: POSource.MANUAL,
-        poCategory: (data.poCategory as POCategory | undefined) || undefined,
-        subtotal: parseFloat(subtotal.toFixed(2)),
-        totalCgst: parseFloat(poTotalCgst.toFixed(2)),
-        totalSgst: parseFloat(poTotalSgst.toFixed(2)),
-        totalIgst: parseFloat(poTotalIgst.toFixed(2)),
-        totalTax,
-        totalAmount,
-        isInterstate,
-        paymentTerms: data.paymentTerms || supplier.paymentTerms || null,
-        remarks: data.remarks || null,
-        createdById: userId,
-        // Optional traceability links (for Manual POs)
-        styleId: data.styleId || null,
-        orderId: data.orderId || null,
-        cadId: data.cadId || null,
-        // Delivery location (type derived from warehouse)
-        deliveryLocationType,
-        deliveryLocationId: data.deliveryLocationId || null,
-        originalDeliveryLocationId: data.deliveryLocationId || null, // Same as initial
-        purchase_order_items: {
-          create: itemsWithTotals,
+    const poId = randomUUID();
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      await tx.purchase_orders.create({
+        data: {
+          id: poId,
+          poNumber,
+          supplierId: data.supplierId,
+          expectedDeliveryDate: new Date(data.expectedDeliveryDate),
+          status: PurchaseOrderStatus.DRAFT,
+          poSource: POSource.MANUAL,
+          poCategory: (data.poCategory as POCategory | undefined) || undefined,
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+          totalTax,
+          totalAmount,
+          isInterstate,
+          paymentTerms: data.paymentTerms || supplier.paymentTerms || null,
+          remarks: data.remarks || null,
+          createdById: userId,
+          // Optional traceability links (for Manual POs)
+          styleId: data.styleId || null,
+          orderId: data.orderId || null,
+          cadId: data.cadId || null,
+          // Delivery location (type derived from warehouse)
+          deliveryLocationType,
+          deliveryLocationId: data.deliveryLocationId || null,
+          originalDeliveryLocationId: data.deliveryLocationId || null, // Same as initial
+          purchase_order_items: {
+            create: itemsWithTotals,
+          },
         },
-      },
-      include: this.getFullInclude(),
+      });
+      if (deliveryPlan) await applyDeliveryPlan(tx, poId, deliveryPlan, { userId, revision: false });
+      return tx.purchase_orders.findUniqueOrThrow({ where: { id: poId }, include: this.getFullInclude() });
     });
 
     return purchaseOrder;
@@ -422,6 +438,10 @@ class PurchaseOrderService {
       }
     }
 
+    // The lines as saved (existing ids kept, new ids minted) — so a split's per-line places can be
+    // matched to them after the reconcile
+    const savedLines: Array<{ id: string; deliveries?: Array<{ warehouseId: string; quantity: number }> | null }> = [];
+
     // Use transaction to update PO and replace items atomically
     const purchaseOrder = await prisma.$transaction(async (tx) => {
       // Update PO header
@@ -555,10 +575,13 @@ class PurchaseOrderService {
               // receivedQuantity is deliberately NOT written: it is the receipt ledger's column,
               // and resetting it here is what made the old rebuild lose delivery history.
               await tx.purchase_order_items.update({ where: { id: existingId }, data: lineData });
+              savedLines.push({ id: existingId, deliveries: item.deliveries });
             } else {
+              const newLineId = randomUUID();
               await tx.purchase_order_items.create({
-                data: { id: randomUUID(), poId: id, receivedQuantity: 0, ...lineData },
+                data: { id: newLineId, poId: id, receivedQuantity: 0, ...lineData },
               });
+              savedLines.push({ id: newLineId, deliveries: item.deliveries });
             }
           }
 
@@ -578,6 +601,30 @@ class PurchaseOrderService {
             },
           });
         }
+      }
+
+      // Where it delivers (not yet sent — composing the PO, so no revision). Per-line places win; else
+      // a header place is ONE_PLACE (it used to be accepted and silently dropped); else a split PO whose
+      // lines changed puts each line's difference on point 1.
+      const linePlan = data.items ? planFromItemDeliveries(savedLines) : null;
+      if (linePlan) {
+        await applyDeliveryPlan(tx, id, linePlan, { userId: updatedPO.createdById, revision: false });
+      } else if (data.deliveryLocationId !== undefined) {
+        const splitPoints = await tx.po_delivery_points.count({ where: { poId: id } });
+        if (splitPoints > 0) {
+          if (data.items) await rebalanceSplitToFirstPoint(tx, id);
+        } else {
+          await applyDeliveryPlan(
+            tx,
+            id,
+            data.deliveryLocationId
+              ? { mode: 'ONE_PLACE', warehouseId: data.deliveryLocationId }
+              : { mode: 'TO_BE_ADVISED' },
+            { userId: updatedPO.createdById, revision: false }
+          );
+        }
+      } else if (data.items) {
+        await rebalanceSplitToFirstPoint(tx, id);
       }
 
       // Fetch and return the updated PO with all includes
@@ -746,6 +793,8 @@ class PurchaseOrderService {
 
       // Recalculate PO total (now includes GST)
       await this.recalculatePOTotal(poId, tx);
+      // A split PO keeps adding up: the new line goes to point 1
+      await rebalanceSplitToFirstPoint(tx, poId);
 
       return created;
     });
@@ -832,6 +881,8 @@ class PurchaseOrderService {
 
       // Recalculate PO total
       await this.recalculatePOTotal(poId, tx);
+      // A split PO keeps adding up: the line's difference goes to point 1
+      await rebalanceSplitToFirstPoint(tx, poId);
 
       return updated;
     });
@@ -877,6 +928,8 @@ class PurchaseOrderService {
 
       // Recalculate PO total
       await this.recalculatePOTotal(poId, tx);
+      // A split PO keeps adding up: the line's difference goes to point 1
+      await rebalanceSplitToFirstPoint(tx, poId);
     });
 
     return { message: 'Item removed successfully' };
@@ -1543,6 +1596,10 @@ class PurchaseOrderService {
           grnNumber: true,
           receivingDate: true,
           status: true,
+          // Where it was booked, and the planned place it delivered against (split delivery)
+          warehouseId: true,
+          poDeliveryPointId: true,
+          warehouses: { select: { id: true, warehouseName: true, warehouseType: true } },
           grn_items: {
             select: {
               receivedQuantity: true,
@@ -1654,6 +1711,42 @@ class PurchaseOrderService {
           firstName: true,
           lastName: true,
           email: true,
+        },
+      },
+      // Split delivery: the places with their share of each line, and every change to the plan
+      deliveryPoints: {
+        orderBy: { sequence: 'asc' as const },
+        select: {
+          id: true,
+          sequence: true,
+          warehouseId: true,
+          warehouse: {
+            select: {
+              id: true,
+              warehouseCode: true,
+              warehouseName: true,
+              warehouseType: true,
+              address: true,
+              city: true,
+              state: true,
+              pincode: true,
+            },
+          },
+          lines: { select: { id: true, poItemId: true, quantity: true } },
+        },
+      },
+      deliveryPlanRevisions: {
+        orderBy: { revisionNumber: 'desc' as const },
+        select: {
+          id: true,
+          revisionNumber: true,
+          kind: true,
+          before: true,
+          after: true,
+          reason: true,
+          poStatus: true,
+          changedAt: true,
+          changedBy: { select: { id: true, firstName: true, lastName: true } },
         },
       },
     };
@@ -1793,56 +1886,38 @@ class PurchaseOrderService {
   }
 
   /**
-   * Amend delivery location for a PO
-   * Tracks original location for amendment history
-   * All locations are warehouses (including processor locations which are JOB_WORK type)
+   * Amend the delivery place to ONE place (the Deliver To field). Kept for its callers; it now goes
+   * through the one plan writer, so it writes a revision like every other change, refuses a split PO
+   * (use the delivery plan), and needs a reason once the PO has been sent.
    */
-  async amendDeliveryLocation(poId: string, deliveryLocationId: string, amendedById: string) {
-    const existingPO = await prisma.purchase_orders.findUnique({
-      where: { id: poId },
-    });
-
-    if (!existingPO) {
-      throw new Error('Purchase order not found');
-    }
-
-    // Cannot amend a PO that is finished — there is nothing left to deliver anywhere.
-    const TERMINAL: PurchaseOrderStatus[] = [
-      PurchaseOrderStatus.CANCELLED,
-      PurchaseOrderStatus.RECEIVED,
-      PurchaseOrderStatus.SHORT_CLOSED,
-    ];
-    if (TERMINAL.includes(existingPO.status)) {
+  async amendDeliveryLocation(poId: string, deliveryLocationId: string, amendedById: string, reason?: string | null) {
+    const splitPoints = await prisma.po_delivery_points.count({ where: { poId } });
+    if (splitPoints > 0) {
       throw new BusinessError(
-        `Cannot change the delivery location of ${existingPO.poNumber} — it is ${existingPO.status}.`
+        'This PO is split across several places — change it with Change delivery on the PO page.',
+        { code: 'DELIVERY_PO_IS_SPLIT' }
       );
     }
+    return this.amendDeliveryPlan(poId, { mode: 'ONE_PLACE', warehouseId: deliveryLocationId }, amendedById, reason);
+  }
 
-    // Validate the warehouse exists
-    const warehouse = await prisma.warehouses.findUnique({
-      where: { id: deliveryLocationId },
+  /**
+   * Change where a PO delivers — one place, a split across places, or back to "to be advised" — with a
+   * revision row (who, when, why). PUT /api/purchase-orders/:id/delivery-plan.
+   */
+  async amendDeliveryPlan(poId: string, plan: DeliveryPlanInput, userId: string, reason?: string | null) {
+    const exists = await prisma.purchase_orders.findUnique({ where: { id: poId }, select: { id: true } });
+    if (!exists) throw new NotFoundError('Purchase order not found');
+    return prisma.$transaction(async (tx) => {
+      await applyDeliveryPlan(tx, poId, plan, { userId, reason, revision: true });
+      return tx.purchase_orders.findUniqueOrThrow({ where: { id: poId }, include: this.getFullInclude() });
     });
-    if (!warehouse) {
-      throw new Error('Warehouse not found');
-    }
+  }
 
-    // Derive type from warehouse: JOB_WORK = PROCESSOR location, anything else = WAREHOUSE
-    const deliveryLocationType = warehouse.warehouseType === 'JOB_WORK' ? 'PROCESSOR' : 'WAREHOUSE';
-
-    const purchaseOrder = await prisma.purchase_orders.update({
-      where: { id: poId },
-      data: {
-        deliveryLocationType,
-        deliveryLocationId,
-        // Only set original if this is the first amendment (preserve the very first location)
-        originalDeliveryLocationId: existingPO.originalDeliveryLocationId || existingPO.deliveryLocationId,
-        deliveryLocationAmendedAt: new Date(),
-        deliveryLocationAmendedById: amendedById,
-      },
-      include: this.getFullInclude(),
-    });
-
-    return purchaseOrder;
+  /** Planned / received / pending per delivery place (received derived from the receipts, ACTUAL units). */
+  async getDeliveryProgress(poId: string) {
+    const underTolerance = await systemSettingsService.getNumberDefault('GRN_UNDER_RECEIPT_TOLERANCE_PERCENT');
+    return loadDeliveryProgress(prisma, poId, underTolerance);
   }
 }
 

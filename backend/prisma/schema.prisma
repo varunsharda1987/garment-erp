@@ -935,36 +935,43 @@ model finished_goods_stock {
 }
 
 model goods_receiving_notes {
-  id                                              String            @id
-  grnNumber                                       String            @unique
+  id                                              String              @id
+  grnNumber                                       String              @unique
   poId                                            String? // Phase 4b: nullable — PO-less receiving keys on jobWorkOrderId
   jobWorkOrderId                                  String? // Phase 4a: GRN→JWO at creation (supports partial GRNs; 4b: the key for PO-less receiving)
   supplierId                                      String
+  /// The ACTUAL place the goods arrived — stock is booked here. On a split PO the PLANNED ship-to is
+  /// poDeliveryPointId; the two differ when a delivery went somewhere other than planned (warned, allowed).
   warehouseId                                     String?
-  receivingDate                                   DateTime          @default(now())
+  /// The PLANNED ship-to on a split PO (po_delivery_points) this receipt delivers against — required on a
+  /// split PO, null on an unsplit one. Received-per-point is derived from it, never stored.
+  poDeliveryPointId                               String?
+  receivingDate                                   DateTime            @default(now())
   invoiceNumber                                   String?
   invoiceDate                                     DateTime?
-  status                                          GRNStatus         @default(PENDING_QC)
+  status                                          GRNStatus           @default(PENDING_QC)
   remarks                                         String?
   receivedById                                    String
   approvedById                                    String?
-  createdAt                                       DateTime          @default(now())
+  createdAt                                       DateTime            @default(now())
   /// The Receive-from-processor dialog's per-opening key. The same submission sent again (a retry after a
   /// timeout, a double press) returns this receipt instead of filing another — six were filed for one
   /// delivery of DJ-ESSKY076LS-001 on 2026-09-25. Null on every receipt from any other door.
-  submissionKey                                   String?           @unique
-  users_goods_receiving_notes_approvedByIdTousers users?            @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id])
-  purchase_orders                                 purchase_orders?  @relation(fields: [poId], references: [id])
-  jobWorkOrder                                    job_work_orders?  @relation("GRNJobWorkOrder", fields: [jobWorkOrderId], references: [id])
-  users_goods_receiving_notes_receivedByIdTousers users             @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id])
-  suppliers                                       suppliers         @relation(fields: [supplierId], references: [id])
-  warehouses                                      warehouses?       @relation(fields: [warehouseId], references: [id])
+  submissionKey                                   String?             @unique
+  users_goods_receiving_notes_approvedByIdTousers users?              @relation("goods_receiving_notes_approvedByIdTousers", fields: [approvedById], references: [id])
+  purchase_orders                                 purchase_orders?    @relation(fields: [poId], references: [id])
+  jobWorkOrder                                    job_work_orders?    @relation("GRNJobWorkOrder", fields: [jobWorkOrderId], references: [id])
+  users_goods_receiving_notes_receivedByIdTousers users               @relation("goods_receiving_notes_receivedByIdTousers", fields: [receivedById], references: [id])
+  suppliers                                       suppliers           @relation(fields: [supplierId], references: [id])
+  warehouses                                      warehouses?         @relation(fields: [warehouseId], references: [id])
   grn_items                                       grn_items[]
   job_work_orders                                 job_work_orders[]
-  inwardChallans                                  challans[]        @relation("ChallanReceipt")
-  directSupplyChallans                            challans[]        @relation("ChallanDirectSupplyGrn")
+  inwardChallans                                  challans[]          @relation("ChallanReceipt")
+  directSupplyChallans                            challans[]          @relation("ChallanDirectSupplyGrn")
+  deliveryPoint                                   po_delivery_points? @relation("GRNDeliveryPoint", fields: [poDeliveryPointId], references: [id], onDelete: Restrict)
 
   @@index([grnNumber])
+  @@index([poDeliveryPointId])
   @@index([poId])
   @@index([jobWorkOrderId])
   @@index([warehouseId])
@@ -1562,6 +1569,7 @@ model purchase_order_items {
   po_source_links              po_source_links[]
   weaver                       weavers?                       @relation("POItemWeaver", fields: [weaverId], references: [id])
   threadRequirements           order_thread_requirements[]    @relation("thread_requirement_po_item")
+  deliveryPointLines           po_delivery_point_lines[]      @relation("DeliveryPointLinePOItem")
 
   @@index([materialId])
   @@index([poId])
@@ -1638,6 +1646,8 @@ model purchase_orders {
   cad                                       fabric_width_cad?                 @relation("PO_CAD", fields: [cadId], references: [id])
   // Delivery Location
   deliveryLocationType                      DeliveryLocationType?
+  /// ONE place, or empty = "to be advised". On a split PO (deliveryPoints present) it MIRRORS point 1 —
+  /// the points are the plan; read them through helpers/po-delivery-plan.helper.ts, never this alone.
   deliveryLocationId                        String? // Points to warehouses.id OR suppliers.id (processor)
   // Amendment tracking
   originalDeliveryLocationId                String? // Original location before any amendment
@@ -1646,6 +1656,9 @@ model purchase_orders {
   // Delivery location relations
   deliveryWarehouse                         warehouses?                       @relation("PO_DeliveryWarehouse", fields: [deliveryLocationId], references: [id])
   deliveryLocationAmendedBy                 users?                            @relation("PO_DeliveryAmendedBy", fields: [deliveryLocationAmendedById], references: [id])
+  // Split delivery (2026-09-26): where each line's quantity goes, and every change to that plan
+  deliveryPoints                            po_delivery_points[]              @relation("PODeliveryPoints")
+  deliveryPlanRevisions                     po_delivery_plan_revisions[]      @relation("PODeliveryPlanRevisions")
 
   @@index([poNumber])
   @@index([supplierId])
@@ -3249,6 +3262,7 @@ model users {
   purchase_orders_purchase_orders_approvedByIdTousers             purchase_orders[]                 @relation("purchase_orders_approvedByIdTousers")
   cancelled_purchase_orders                                       purchase_orders[]                 @relation("po_cancelledBy")
   short_closed_purchase_orders                                    purchase_orders[]                 @relation("po_shortClosedBy")
+  poDeliveryPlanRevisions                                         po_delivery_plan_revisions[]      @relation("DeliveryPlanRevisionBy")
   purchase_orders_purchase_orders_createdByIdTousers              purchase_orders[]                 @relation("purchase_orders_createdByIdTousers")
   purchase_orders_purchase_orders_userIdTousers                   purchase_orders[]                 @relation("purchase_orders_userIdTousers")
   qualityInspectionsCreated                                       quality_inspection[]              @relation("quality_inspection_createdBy")
@@ -3773,6 +3787,7 @@ model warehouses {
   supplier               suppliers?              @relation("WarehouseSupplier", fields: [supplierId], references: [id])
   // POs to be delivered here
   deliveryPurchaseOrders purchase_orders[]       @relation("PO_DeliveryWarehouse")
+  poDeliveryPoints       po_delivery_points[]    @relation("DeliveryPointWarehouse")
 
   // Specialized stock relations
   greigeStock        greige_stock[]         @relation("GreigeStockWarehouse")
@@ -11208,4 +11223,69 @@ model customer_fabric_wash_care {
   @@unique([customerId, greigeId, colorId])
   @@index([customerId])
   @@index([greigeId])
+}
+
+/// One ship-to of a SPLIT purchase order: a place (our store or a processor's unit) and how much of each
+/// line goes there (po_delivery_point_lines). No rows = one place, the PO header's deliveryLocationId, or
+/// "to be advised" when that is empty. The header mirrors sequence 1. Written ONLY by
+/// helpers/po-delivery-plan.helper.ts (applyDeliveryPlan) — received-per-point is derived from the GRNs
+/// that name the point (goods_receiving_notes.poDeliveryPointId), never stored. 2026-09-26.
+model po_delivery_points {
+  id          String   @id @default(uuid())
+  poId        String
+  warehouseId String
+  /// 1 = the first point, the one the PO header mirrors
+  sequence    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchaseOrder purchase_orders           @relation("PODeliveryPoints", fields: [poId], references: [id], onDelete: Cascade)
+  warehouse     warehouses                @relation("DeliveryPointWarehouse", fields: [warehouseId], references: [id])
+  lines         po_delivery_point_lines[] @relation("DeliveryPointLines")
+  grns          goods_receiving_notes[]   @relation("GRNDeliveryPoint")
+
+  @@unique([poId, warehouseId])
+  @@index([warehouseId])
+}
+
+/// How much of one PO line goes to one delivery point, in the PO line's (ACTUAL) unit. On a split PO a
+/// line's points add up to its ordered quantity within the one quantity tolerance (utils/quantity).
+/// DB CHECK quantity > 0 (raw SQL in the migration).
+model po_delivery_point_lines {
+  id              String  @id @default(uuid())
+  deliveryPointId String
+  poItemId        String
+  quantity        Decimal @db.Decimal(10, 3)
+
+  deliveryPoint po_delivery_points   @relation("DeliveryPointLines", fields: [deliveryPointId], references: [id], onDelete: Cascade)
+  poItem        purchase_order_items @relation("DeliveryPointLinePOItem", fields: [poItemId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryPointId, poItemId])
+  @@index([poItemId])
+}
+
+/// Every change to where a PO delivers — one place to another, to a split, a re-split, to or from "to be
+/// advised" — with who, when and why. `before` / `after` are the plan snapshots
+/// (po-delivery-plan.helper DeliveryPlanSnapshot). A change made once the PO has left DRAFT is an
+/// AMENDMENT: the printout counts them ("Amendment N — supersedes earlier copies").
+model po_delivery_plan_revisions {
+  id             String   @id @default(uuid())
+  poId           String
+  /// 1, 2, 3… per PO
+  revisionNumber Int
+  /// ONE_PLACE | SPLIT | TO_BE_ADVISED — the shape of the plan AFTER this change
+  kind           String
+  before         Json
+  after          Json
+  reason         String?
+  /// The PO's status when the change was made; DRAFT changes are not amendments
+  poStatus       String
+  changedById    String
+  changedAt      DateTime @default(now())
+
+  purchaseOrder purchase_orders @relation("PODeliveryPlanRevisions", fields: [poId], references: [id], onDelete: Cascade)
+  changedBy     users           @relation("DeliveryPlanRevisionBy", fields: [changedById], references: [id])
+
+  @@unique([poId, revisionNumber])
+  @@index([poId])
 }

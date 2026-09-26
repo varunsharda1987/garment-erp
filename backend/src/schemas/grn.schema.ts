@@ -74,6 +74,8 @@ export const createGRNSchema = z
   .object({
     poId: z.string().min(1, 'Purchase Order ID is required'),
     warehouseId: z.string().optional().nullable(),
+    // Split delivery: the planned place this delivery is against — required on a split PO (2026-09-26)
+    poDeliveryPointId: z.string().uuid('Invalid delivery point').optional().nullable(),
     receivingDate: z.string().optional(),
     invoiceNumber: z.string().max(100, 'Invoice number must not exceed 100 characters').trim().optional().nullable(),
     invoiceDate: z.string().optional().nullable(),

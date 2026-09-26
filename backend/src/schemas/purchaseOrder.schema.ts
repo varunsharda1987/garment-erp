@@ -6,7 +6,8 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum, flexMaterialId } from './common.schema';
+import { UnitEnum, flexMaterialId, formNumberRequired } from './common.schema';
+import { isQtyZero } from '../utils/quantity';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -70,7 +71,36 @@ export const purchaseOrderItemSchema = z.object({
   // The weaver this line is bought from, when known at ordering (Phase 1b) — the GRN line records the
   // one that actually came. Never stored on the greige master.
   weaverId: z.string().uuid('Invalid weaver').nullish(),
+  // Split delivery (2026-09-26): how much of this line goes to each place. Omit on every line for one
+  // place / "to be advised". The places of one line add up to its quantity (checked on the items array).
+  deliveries: z
+    .array(
+      z.object({
+        warehouseId: z.string().uuid('Invalid delivery place'),
+        quantity: formNumberRequired(z.number().positive('Each place needs a quantity above 0')),
+      })
+    )
+    .max(10, 'At most 10 delivery places')
+    .nullish(),
 });
+
+/** Each line's delivery places add up to what it orders, within the one quantity tolerance. */
+const deliveriesAddUp = (
+  items: Array<{ orderedQuantity: number; deliveries?: Array<{ quantity: number }> | null }>,
+  ctx: z.RefinementCtx
+) => {
+  items.forEach((item, index) => {
+    if (!item.deliveries?.length) return;
+    const placed = item.deliveries.reduce((sum, d) => sum + d.quantity, 0);
+    if (!isQtyZero(placed - item.orderedQuantity)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [index, 'deliveries'],
+        message: `Delivery places add up to ${Math.round(placed * 1000) / 1000}, but the line orders ${item.orderedQuantity}`,
+      });
+    }
+  });
+};
 
 /**
  * PO Item for update
@@ -96,7 +126,7 @@ export const createPurchaseOrderSchema = z.object({
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
   poCategory: ManualPOCategoryEnum.optional(),
-  items: z.array(purchaseOrderItemSchema).min(1, 'At least one item required'),
+  items: z.array(purchaseOrderItemSchema).min(1, 'At least one item required').superRefine(deliveriesAddUp),
   // Optional traceability links (for Manual POs)
   styleId: z.string().uuid('Invalid style ID').nullish(),
   orderId: z.string().uuid('Invalid order ID').nullish(),
@@ -120,6 +150,7 @@ export const updatePurchaseOrderSchema = z.object({
   items: z
     .array(purchaseOrderItemSchema.extend({ id: z.string().uuid().optional() }))
     .min(1)
+    .superRefine(deliveriesAddUp)
     .optional(),
   // Optional traceability links (for Manual POs)
   styleId: z.string().uuid('Invalid style ID').nullish(),
@@ -224,6 +255,44 @@ export type PurchaseOrderQueryInput = z.infer<typeof purchaseOrderQuerySchema>;
  */
 export const amendDeliveryLocationSchema = z.object({
   deliveryLocationId: z.string().uuid('Invalid delivery location ID'),
+  // Required by the server once the PO has been sent (every change is a revision with a reason)
+  reason: z.string().trim().max(500).nullish(),
 });
 
 export type AmendDeliveryLocationInput = z.infer<typeof amendDeliveryLocationSchema>;
+
+/**
+ * Change delivery — one place, a split across places, or "to be advised" (2026-09-26)
+ * PUT /api/purchase-orders/:id/delivery-plan
+ * The reason is required by the server once the PO has been sent. Balance and receipt rules are
+ * enforced by helpers/po-delivery-plan.helper.ts.
+ */
+const deliveryReason = z.string().trim().max(500).nullish();
+export const amendDeliveryPlanSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('TO_BE_ADVISED'), reason: deliveryReason }),
+  z.object({
+    mode: z.literal('ONE_PLACE'),
+    warehouseId: z.string().uuid('Pick the delivery place'),
+    reason: deliveryReason,
+  }),
+  z.object({
+    mode: z.literal('SPLIT'),
+    points: z
+      .array(
+        z.object({
+          warehouseId: z.string().uuid('Pick the delivery place'),
+          lines: z.array(
+            z.object({
+              poItemId: z.string().uuid(),
+              quantity: formNumberRequired(z.number().nonnegative('A quantity cannot be negative')),
+            })
+          ),
+        })
+      )
+      .min(2, 'A split needs at least two places')
+      .max(10, 'At most 10 delivery places'),
+    reason: deliveryReason,
+  }),
+]);
+
+export type AmendDeliveryPlanInput = z.infer<typeof amendDeliveryPlanSchema>;

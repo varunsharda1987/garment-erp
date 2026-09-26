@@ -51,6 +51,7 @@ import {
   stampJwoFinishedFabric,
 } from './helpers/jwo-arriving-material.helper';
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
+import { resolveReceiptDeliveryPoint } from './helpers/po-delivery-plan.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyExceeds } from '../utils/quantity';
 import { normalizeUnit } from '../utils/units';
@@ -143,7 +144,10 @@ class GRNService {
       );
     }
     const [po, processor, supplier] = await Promise.all([
-      prisma.purchase_orders.findUnique({ where: { id: grn.poId }, select: { deliveryLocationId: true } }),
+      prisma.purchase_orders.findUnique({
+        where: { id: grn.poId },
+        select: { deliveryLocationId: true, deliveryPoints: { select: { warehouseId: true } } },
+      }),
       prisma.suppliers.findUnique({ where: { id: warehouse.supplierId }, select: { id: true, name: true } }),
       grn.supplierId ? prisma.suppliers.findUnique({ where: { id: grn.supplierId }, select: { name: true } }) : null,
     ]);
@@ -158,7 +162,9 @@ class GRNService {
         { reason: 'DIRECT_DELIVERY_SELF_SUPPLY' }
       );
     }
-    const implicit = po?.deliveryLocationId === warehouse.id;
+    // Implicit when the PO's plan delivers here: its one place, or one of its split places (Phase 3)
+    const implicit =
+      po?.deliveryLocationId === warehouse.id || !!po?.deliveryPoints.some((p) => p.warehouseId === warehouse.id);
     if (!implicit && !confirmed) {
       throw new BusinessError(
         `${grn.grnNumber} books the goods at ${warehouse.warehouseName}. Confirm the supplier delivered them straight to ${processor.name} (tick "Delivered straight to ${processor.name}"), or approve into our store.`,
@@ -286,6 +292,18 @@ class GRNService {
       }
     }
 
+    // Split delivery (2026-09-26): which planned place this delivery is against (required on a split
+    // PO, the warehouse defaulting from it); over-plan or a different warehouse only warns.
+    const delivery = await resolveReceiptDeliveryPoint(prisma, data.poId, {
+      poDeliveryPointId: data.poDeliveryPointId,
+      warehouseId: data.warehouseId,
+      items: data.items.map((i) => ({
+        poItemId: i.poItemId,
+        receivedQuantity: Number(i.receivedQuantity),
+        foldLengthCm: i.foldLengthCm != null ? Number(i.foldLengthCm) : null,
+      })),
+    });
+
     const grnNumber = await this.generateGRNNumber();
 
     // PROCESSING PO: validate the linked job work order BEFORE booking anything (bug-hunt
@@ -334,7 +352,8 @@ class GRNService {
             poId: data.poId,
             jobWorkOrderId: processingJob?.id ?? null, // Phase 4a: GRN→JWO at creation
             supplierId: po.supplierId,
-            warehouseId: data.warehouseId || null, // Target warehouse for received goods
+            warehouseId: delivery.warehouseId, // Target warehouse for received goods (the ACTUAL place)
+            poDeliveryPointId: delivery.poDeliveryPointId, // the PLANNED place on a split PO
             receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
             invoiceNumber: data.invoiceNumber || null,
             invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
@@ -591,7 +610,8 @@ class GRNService {
     // Update PO status based on receiving
     await purchaseOrderService.updateReceivingStatus(data.poId);
 
-    return grn;
+    // Soft split-delivery warnings ride on the response; they never block a receipt
+    return Object.assign(grn, { deliveryWarnings: delivery.warnings });
   }
 
   /**

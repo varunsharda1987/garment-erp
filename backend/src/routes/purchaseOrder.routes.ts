@@ -21,6 +21,8 @@ import {
   cancelPurchaseOrder,
   shortClosePurchaseOrder,
   amendDeliveryLocation,
+  amendDeliveryPlan,
+  getDeliveryProgress,
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -34,6 +36,7 @@ import {
   shortClosePurchaseOrderSchema,
   purchaseOrderQuerySchema,
   amendDeliveryLocationSchema,
+  amendDeliveryPlanSchema,
 } from '../schemas/purchaseOrder.schema';
 import {
   idParamSchema,
@@ -220,5 +223,25 @@ router.patch(
   validateBody(amendDeliveryLocationSchema),
   asyncHandler(amendDeliveryLocation)
 );
+
+/**
+ * @route   PUT /api/purchase-orders/:id/delivery-plan
+ * @desc    Change delivery: one place, a split across places (with quantities), or "to be advised".
+ *          Every change is a revision with who / when / why (a reason is required once sent).
+ * @access  Private (purchaseOrders permission)
+ */
+router.put(
+  '/:id/delivery-plan',
+  validateParams(idParamSchema),
+  validateBody(amendDeliveryPlanSchema),
+  asyncHandler(amendDeliveryPlan)
+);
+
+/**
+ * @route   GET /api/purchase-orders/:id/delivery-progress
+ * @desc    Planned / received / pending per delivery place (received derived from the receipts)
+ * @access  Private
+ */
+router.get('/:id/delivery-progress', validateParams(idParamSchema), asyncHandler(getDeliveryProgress));
 
 export default router;

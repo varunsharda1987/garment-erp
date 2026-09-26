@@ -529,6 +529,21 @@ const receiveGrnFull: ActionDefinition = {
   // Build the item lines from what is actually still pending on the PO
   prepare: async (payload: Payload, ctx: ActionContext): Promise<StepResult> => {
     try {
+      // A PO split across several places is received one delivery at a time, each against its place
+      const plan = await internalFetch(
+        `/api/purchase-orders/${payload.poId}/delivery-progress`,
+        { method: 'GET' },
+        ctx.authHeader
+      );
+      if (plan.ok && (plan.body.data as { mode?: string } | undefined)?.mode === 'SPLIT') {
+        return {
+          ok: false,
+          question:
+            'That purchase order is split across several delivery places, so each delivery is received on its own. ' +
+            'Open Goods Receipt → New GRN and pick the delivery point for the goods that arrived.',
+        };
+      }
+
       const { ok, body } = await internalFetch(
         `/api/grn/po/${payload.poId}/pending`,
         { method: 'GET' },

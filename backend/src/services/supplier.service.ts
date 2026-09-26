@@ -11,6 +11,7 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { gstService } from './gst.service';
 import warehouseService from './warehouse.service';
+import { syncProcessingUnitAddress } from './helpers/processing-unit-address.helper';
 
 // ============================================
 // Constants
@@ -254,13 +255,15 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
           warehouseCode,
           warehouseName: `${data.name} - Processing Unit`,
           warehouseType: 'JOB_WORK',
-          address: data.address || undefined,
           contactPerson: data.contactPerson || undefined,
           contactPhone: data.phone || undefined,
           isActive: true,
           supplierId: supplierId,
           createdById: userId,
         });
+        // The unit's address is the processor's ship-to (shipping, else billing) with city, state and
+        // pincode — a PO delivering straight to the dyer prints it (processing-unit-address.helper)
+        await syncProcessingUnitAddress(this.prisma, supplierId);
         logInfo('Auto-created JOB_WORK warehouse for processor', { supplierId, warehouseCode });
       } catch (err) {
         logError('Failed to auto-create warehouse for processor', { supplierId, error: err });
@@ -362,6 +365,8 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
         }
       }
     }
+    // A processor's unit whose address is still blank takes the processor's address (never overwrites one)
+    await syncProcessingUnitAddress(this.prisma, id);
 
     logInfo('Supplier updated successfully', { id });
     return supplierWithGst!;

@@ -366,8 +366,16 @@ class WarehouseService {
    */
   async generateWarehouseCode(warehouseType: WarehouseType): Promise<string> {
     const prefix = this.getWarehouseTypePrefix(warehouseType);
-    // Atomic sequence; the helper appends "-NNNN" so codes stay e.g. WH-RM-0001
-    return generateAtomicMasterCode(prefix, 4);
+    // Atomic sequence; the helper appends "-NNNN" so codes stay e.g. WH-RM-0001. A code already taken is
+    // skipped: WH-JW-0015..0025 were created on 27-Aug-2026 without advancing the sequence, so every new
+    // processor's unit collided on WH-JW-0015 and was silently never created (supplier.service only
+    // logs that failure) — no unit means nothing can be delivered to, or received at, that processor.
+    for (let attempt = 0; attempt < 200; attempt++) {
+      const code = await generateAtomicMasterCode(prefix, 4);
+      const taken = await prisma.warehouses.findFirst({ where: { warehouseCode: code }, select: { id: true } });
+      if (!taken) return code;
+    }
+    throw new Error(`Could not find a free ${prefix} warehouse code`);
   }
 
   /**

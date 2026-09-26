@@ -28,6 +28,9 @@
  * D18 Production CADs carrying a price or the promote lock (the undeletable "costed PRODUCTION CAD")
  * D19 greige rates labelled from a purchase/PO that does not carry them (typed rate, stale label)
  * D20 costings priced from another greige's processing rate card (greige changed after costing)
+ * D21 split PO lines whose delivery places do not add up to the line (po-delivery-plan.helper)
+ * D22 receipts on a split PO that name no delivery place     [GRN create requires one]
+ * D23 active processors with no processing unit              (WH-JW code collision, until 26-Sep)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -379,6 +382,57 @@ async function main() {
         LEFT JOIN styles s ON s.id = COALESCE(sc."styleId", c."costingStyleId")
        WHERE rc."greigeId" IS NOT NULL AND c."greigeId" IS NOT NULL AND rc."greigeId" <> c."greigeId"
        ORDER BY s."styleCode"`
+  );
+
+  // Split delivery (2026-09-26): each line's places add up to what it orders, within the one quantity
+  // tolerance. po-delivery-plan.helper is the only writer and checks it; a draft line edit rebalances.
+  await run(
+    'D21',
+    'Split PO lines whose delivery places do not add up to the line',
+    prisma.$queryRaw`
+      SELECT po."poNumber", po.status::text AS status, poi.id AS po_item_id,
+             poi."orderedQuantity"::float AS ordered, COALESCE(SUM(l.quantity), 0)::float AS placed
+        FROM purchase_orders po
+        JOIN purchase_order_items poi ON poi."poId" = po.id
+        LEFT JOIN po_delivery_points p ON p."poId" = po.id
+        LEFT JOIN po_delivery_point_lines l ON l."deliveryPointId" = p.id AND l."poItemId" = poi.id
+       WHERE EXISTS (SELECT 1 FROM po_delivery_points x WHERE x."poId" = po.id)
+       GROUP BY po."poNumber", po.status, poi.id, poi."orderedQuantity"
+      HAVING abs(poi."orderedQuantity" - COALESCE(SUM(l.quantity), 0)) >= 0.005
+       ORDER BY po."poNumber"`
+  );
+
+  // A receipt on a split PO says which place it delivered against (createGRN requires it; receipts from
+  // before the split are linked by warehouse when the split is made). One that names none cannot be
+  // counted toward any place.
+  await run(
+    'D22',
+    'Receipts on a split PO that name no delivery place',
+    prisma.$queryRaw`
+      SELECT g."grnNumber", po."poNumber", g.status::text AS status, w."warehouseName" AS booked_at
+        FROM goods_receiving_notes g
+        JOIN purchase_orders po ON po.id = g."poId"
+        LEFT JOIN warehouses w ON w.id = g."warehouseId"
+       WHERE g."poDeliveryPointId" IS NULL
+         AND g.status::text NOT IN ('REJECTED', 'REVERSED')
+         AND EXISTS (SELECT 1 FROM po_delivery_points p WHERE p."poId" = po.id)
+       ORDER BY g."grnNumber"`
+  );
+
+  // Every processor needs its "… - Processing Unit": it is where goods delivered to it, and goods it
+  // holds, are recorded. Until 26-Sep the unit's code collided (WH-JW-0015) and supplier.service only
+  // logged the failure, so a new processor silently had none.
+  await run(
+    'D23',
+    'Active processors with no processing unit',
+    prisma.$queryRaw`
+      SELECT s.code, s.name, s."createdAt"::date AS created
+        FROM suppliers s
+       WHERE s."isActive"
+         AND s."supplierCategories" && ARRAY['DYEING_PRINTING','EMBROIDERY','HAND_WORK','SMOCKING','CMT_UNIT',
+             'FINISHING_CONTRACTOR','STITCHING_CONTRACTOR','WASHING','DORI_PIPING_CONTRACTOR']::"SupplierCategory"[]
+         AND NOT EXISTS (SELECT 1 FROM warehouses w WHERE w."supplierId" = s.id AND w."warehouseType" = 'JOB_WORK')
+       ORDER BY s.name`
   );
 
   // ---- Output ---------------------------------------------------------------------------

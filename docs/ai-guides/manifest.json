@@ -165,7 +165,7 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/CostSheetList.tsx": "6798f26a5473",
-      "frontend/src/pages/CostSheetForm.tsx": "269b3b72e3e4",
+      "frontend/src/pages/CostSheetForm.tsx": "f10bcabf5fc2",
       "frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx": "0cbd69cc2bec",
       "frontend/src/pages/CostSheetDetail.tsx": "8191a2c56646",
       "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
@@ -174,12 +174,12 @@
       "backend/src/controllers/style-costing-calc.controller.ts": "dcb354b02642",
       "backend/src/controllers/style-costing.utils.ts": "3726b391f930",
       "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
-      "backend/src/controllers/lace.controller.ts": "6791c77f2d53",
+      "backend/src/controllers/lace.controller.ts": "d39342fa739b",
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234",
-      "backend/src/services/helpers/material-unit.helper.ts": "e6b9a665919d"
+      "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e"
     },
-    "contentHash": "539c37b0cb16",
-    "generatedAt": "2026-09-26T09:56:02.566Z"
+    "contentHash": "9c2c5e0a3708",
+    "generatedAt": "2026-09-26T10:49:33.042Z"
   },
   "credit-note-create": {
     "sources": {
@@ -283,14 +283,14 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/TrimMastersDashboard.tsx": "df651f0bd8ff",
-      "frontend/src/pages/GenericTrimList.tsx": "d6a11dc480a9",
-      "frontend/src/pages/GenericTrimForm.tsx": "582180e513fd",
-      "frontend/src/types/genericTrim.types.ts": "7dc2edcbe621",
+      "frontend/src/pages/GenericTrimList.tsx": "cc0df0fcf1b1",
+      "frontend/src/pages/GenericTrimForm.tsx": "caae2e030ed2",
+      "frontend/src/types/genericTrim.types.ts": "487f7d7b12fb",
       "frontend/src/services/genericTrim.service.ts": "3435e43fb964",
       "frontend/src/config/trimTypeRegistry.ts": "e918b41b0e12"
     },
-    "contentHash": "af58b60c2ecd",
-    "generatedAt": "2026-09-23T06:17:36.027Z"
+    "contentHash": "c11c965a69c3",
+    "generatedAt": "2026-09-26T10:49:33.236Z"
   },
   "dye-lab-dip-create": {
     "sources": {

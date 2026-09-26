@@ -61,6 +61,7 @@ Closing short ends the *ordering* only. It moves no stock, and it does not write
 - Lines the supplier never delivered against go back to the material plan on their own, so they can be ordered again.
 - A part-delivered requirement is closed at what actually arrived, and records both the short quantity and your reason.
 - On a Greige PO, any Processing PO that was waiting for that greige is released and its quantity trimmed to the greige that really arrived.
+- On a PO split across several delivery places, closing short ends every place's balance at once. The **Deliver To** card keeps showing what each place received, but no longer offers **Receive here** or **Change delivery**.
 
 ## Validation traps
 - **Close Short only appears on a Partially Received order.** A Draft, Sent or fully Received order does not offer it, and the server refuses it too.

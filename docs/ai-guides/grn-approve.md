@@ -23,6 +23,9 @@ keywords:
   - quality check
   - grn approval kaise kare
   - greige stock
+  - job work challan on grn
+  - delivery point
+  - डिलीवरी पॉइंट
 sources:
   - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
@@ -32,6 +35,7 @@ sources:
   - frontend/src/pages/GRNDetail.tsx
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
+  - backend/src/services/helpers/po-delivery-plan.helper.ts
 route: /procurement/grn
 ---
 
@@ -41,12 +45,12 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 ## Steps
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
 2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, the supplier's invoice number, the PO or job work order number, supplier, warehouse, or the style — including the buyer's own style code. Typing several words narrows the list, since each word must match something. You can also filter by supplier using the supplier dropdown.
-3. Click the GRN number to open it. The **PO / JWO** column shows which purchase order or job work order the GRN belongs to.
+3. Click the GRN number to open it. The **PO / JWO** column shows which purchase order or job work order the GRN belongs to. On the GRN page, **Received at** shows the warehouse it was booked into; on a PO split across several places, **Delivery point** shows which of the PO's places it delivered against (flagged "Booked away from the planned place" when the warehouse differs).
 4. Check the summary tiles — **Total Items**, **Total Received**, **Total Accepted**, **Total Rejected** — and the **Received Items** table. Than, bale and roll breakdowns are shown under each material.
 5. Click **Approve**.
 6. If the GRN has no warehouse yet, the **Select Warehouse to Approve** box appears. Pick **Warehouse *** and click **Approve**.
 7. If the GRN already has a warehouse, confirm on the **Approve GRN** dialog by clicking **Approve**.
-   If the warehouse is a processor's unit (e.g. **Aryan Dyeing - Processing Unit**), a second question appears: **Delivered straight to *<processor>*?** Click **Yes — delivered straight to *<processor>*** only if the supplier really delivered the goods to the processor. The goods are then recorded as ours, **held by that processor**, and one job-work challan dated the receipt day is raised automatically for everything on the receipt — greige, lace, ready fabric or trims. A later greige or lace job at that processor uses it where it lies, with no second challan. If the goods came to our store, click **Go back** and approve into our store instead. The question is skipped when the purchase order's **Delivery Location** is already that processor's unit.
+   If the warehouse is a processor's unit (e.g. **Aryan Dyeing - Processing Unit**), a second question appears: **Delivered straight to *<processor>*?** Click **Yes — delivered straight to *<processor>*** only if the supplier really delivered the goods to the processor. The goods are then recorded as ours, **held by that processor**, and one job-work challan dated the receipt day is raised automatically for everything on the receipt — greige, lace, ready fabric or trims. A later greige or lace job at that processor uses it where it lies, with no second challan. If the goods came to our store, click **Go back** and approve into our store instead. The question is skipped when the purchase order already delivers to that processor's unit — its one place, or one of its places when the delivery is split. After approval the GRN page shows the challan under **Job-work challan** (click it to open the challan).
 8. A GRN badged **Job work return** in the **PO / JWO** column never needs approving: it was filed already **Accepted** by the job's **Receive from processor** action, which recorded the quality and booked the stock in the same step. Only a GRN against an old Processing purchase order still opens the **Approve Processing GRN - Quality Check** dialog: fill **Quality Grade *** (A - Good, B - Minor Defects, Reject), **Color Match**, **Defect Meters**, **Defect Type**, **Actual Rate (per meter)** and **QC Remarks**, pick **Warehouse *** if the GRN has none, then click **Approve & Create Stock**.
 
 ## What approval does

@@ -16,6 +16,10 @@ keywords:
   - बैंक
   - supplier category
   - suplier
+  - processing unit
+  - dyer address
+  - dyer ka address
+  - प्रोसेसिंग यूनिट
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -27,6 +31,7 @@ sources:
   - backend/src/schemas/supplier.schema.ts
   - backend/src/routes/supplier.routes.ts
   - backend/src/services/supplier.service.ts
+  - backend/src/services/helpers/processing-unit-address.helper.ts
 route: /suppliers/new
 ---
 
@@ -51,4 +56,6 @@ route: /suppliers/new
 ## Notes
 
 - If you see "Supplier code already exists", go back to the list and open the form again to get a fresh code.
+- A processor (Dyeing & Printing, Embroidery, Hand Work, Smocking, CMT Unit, Finishing, Stitching, Washing or Dori/Piping) gets its own **<Name> - Processing Unit** warehouse automatically. Goods delivered to it, and goods it holds for us, are recorded there.
+- Fill a processor's **Shipping Location** (or at least the billing address) and its GST number: when a purchase order sends goods straight to that processor, the printout shows its unit's address and GSTIN. The unit takes the address automatically — shipping, else billing, else the address on the primary GST number — as long as nobody has typed one on the warehouse itself. Adding the address later with **Edit** fills the unit then.
 - To change a supplier later, use **Edit** on its row. **Deactivate** is blocked while the supplier still has open purchase orders or pending GRNs — the dialog lists the blocking items.

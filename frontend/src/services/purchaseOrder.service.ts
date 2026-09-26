@@ -27,25 +27,28 @@ import type {
 const BASE_URL = '/purchase-orders';
 
 /**
+ * The query string for GET /purchase-orders: EVERY key of the filters, blanks left out, a list joined with
+ * commas (poCategories). No hand-written whitelist — the one this replaced forgot `delivery`, so the list's
+ * "Delivery: to be advised" filter (and the Control Center link to it) silently showed every PO.
+ */
+export function toPurchaseOrderListParams(filters: PurchaseOrderFilters = {}): Record<string, string | number> {
+  const params: Record<string, string | number> = { page: filters.page || 1, limit: filters.limit || 20 };
+  for (const [key, value] of Object.entries(filters) as Array<[string, unknown]>) {
+    if (key === 'page' || key === 'limit' || value === undefined || value === null || value === '') continue;
+    if (Array.isArray(value)) {
+      if (value.length > 0) params[key] = value.join(',');
+      continue;
+    }
+    params[key] = value as string | number;
+  }
+  return params;
+}
+
+/**
  * Get all purchase orders with filters and pagination
  */
 export const getAllPurchaseOrders = async (filters?: PurchaseOrderFilters): Promise<PurchaseOrderListResponse> => {
-  const { data } = await api.get(BASE_URL, {
-    params: {
-      page: filters?.page || 1,
-      limit: filters?.limit || 20,
-      status: filters?.status || undefined,
-      source: filters?.source || undefined,
-      poCategories: filters?.poCategories?.join(',') || undefined,
-      supplierId: filters?.supplierId || undefined,
-      orderId: filters?.orderId || undefined,
-      search: filters?.search || undefined,
-      startDate: filters?.startDate || undefined,
-      endDate: filters?.endDate || undefined,
-      sortBy: filters?.sortBy || undefined,
-      sortOrder: filters?.sortOrder || undefined,
-    },
-  });
+  const { data } = await api.get(BASE_URL, { params: toPurchaseOrderListParams(filters) });
   return data;
 };
 

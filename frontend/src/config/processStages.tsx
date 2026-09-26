@@ -372,19 +372,24 @@ export const processStages: ProcessStage[] = [
 
   // PRODUCTION STAGES
   {
-    id: 'material-requisition',
+    id: 'material-procurement',
     order: 7,
-    title: 'Material Requisition & Procurement',
+    title: 'Material Requirements & Purchase Orders',
     icon: <ShoppingCart className="h-5 w-5" />,
     category: 'production',
-    description: 'Request materials from inventory or procure via purchase orders',
+    description:
+      'Requirements → Generate PO or Create PO → Send to Supplier → GRN → Close Short if the supplier sent less',
     purpose:
-      'Ensure all required materials are available before production begins. Check stock, issue from inventory, or create purchase orders.',
+      "Buy the materials an order needs. Approving the order's BOM calculates its material requirements (MRP); each one is met from free stock with Use Stock or ordered with Generate PO. Anything bought outside MRP — greige ordered ahead of any work order, thread — is raised with Create PO. Goods arrive on a GRN, and stock is booked when the GRN is approved.",
     prerequisites: [
       {
-        stage: 'work-order',
-        condition: 'Work Order must exist',
+        condition: 'Suppliers and material masters set up',
         required: true,
+      },
+      {
+        stage: 'order-creation',
+        condition: "To order from Requirements: the order's BOM approved (Approve & Calculate All)",
+        required: false,
       },
     ],
     pages: [
@@ -399,29 +404,50 @@ export const processStages: ProcessStage[] = [
         icon: <ShoppingCart className="h-4 w-4" />,
       },
       {
+        title: 'Create Purchase Order',
+        path: '/procurement/purchase-orders/new',
+        icon: <ShoppingCart className="h-4 w-4" />,
+      },
+      {
         title: 'GRN (Goods Receipt)',
         path: '/procurement/grn',
         icon: <PackageOpen className="h-4 w-4" />,
       },
     ],
     statusFlow: [
-      { from: 'PENDING', to: 'ISSUED' },
-      { from: 'ISSUED', to: 'RECEIVED' },
+      { from: 'DRAFT', to: 'SENT' },
+      { from: 'SENT', to: 'ACKNOWLEDGED' },
+      { from: 'ACKNOWLEDGED', to: 'PARTIALLY_RECEIVED' },
+      { from: 'PARTIALLY_RECEIVED', to: 'RECEIVED' },
+      { from: 'PARTIALLY_RECEIVED', to: 'SHORT_CLOSED' },
+      { from: 'SENT', to: 'CANCELLED' },
     ],
     databaseModels: [
-      'material_requisitions',
-      'material_requisition_items',
+      'material_requirements',
+      'requirement_po_links',
       'purchase_orders',
       'purchase_order_items',
       'goods_receiving_notes',
+      'grn_items',
     ],
-    keyFields: ['requisitionNumber (MRQ2512-0001)', 'workOrderId', 'status', 'requestedDate'],
+    keyFields: [
+      'requirementNumber (MR2609-0001)',
+      'poNumber (PO2609-0001)',
+      'poCategory (FABRIC | GREIGE | TRIMS | THREAD | LACE | GREIGE_LACE | GENERAL)',
+      'expectedDeliveryDate',
+      'status',
+      'grnNumber (GRN2609-0001)',
+    ],
     tips: [
-      'System checks stock availability first',
-      'If stock insufficient, auto-creates purchase order',
-      'GRN records quality check: Accept/Reject/Partially Accept',
-      'Auto updates inventory on GRN approval',
+      'Requirements show free stock (Current Stock, Can Fulfill) but do not hold it — only Use Stock reserves it for the order',
+      'Tick PO Required rows, then Bulk Generate POs (one PO per vendor) or Manual PO (one PO for one supplier) — both make Draft POs',
+      'Create PO on the Purchase Orders page for anything bought outside MRP; thread is always ordered this way, in cones / tubes',
+      'Send to Supplier on the PO page; Acknowledge is optional',
+      'Receive Goods on the PO page opens a GRN; stock is booked only when the GRN is approved',
+      'Supplier sent less and the rest is not coming: Close Short on the PO page. A Draft PO that is not needed is deleted, not cancelled',
+      'Dyeing, printing and other outside work is a Job Work Order (Outsourced Work tab), not a PO',
     ],
+    gates: ['Goods can be received only on a Sent, Acknowledged or Partially Received PO — Send to Supplier first'],
   },
   {
     id: 'fabric-processing',

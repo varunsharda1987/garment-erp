@@ -20,6 +20,9 @@ export const MAX_DELIVERY_POINTS = 10;
 /** POs not yet sent — a delivery change there is part of composing the PO and needs no reason. */
 export const PRE_SEND_STATUSES = ['DRAFT', 'PENDING_GREIGE', 'READY_FOR_PROCESSING'];
 
+/** POs with nothing left to deliver — where they deliver no longer matters (the server's FINISHED_STATUSES). */
+export const FINISHED_STATUSES = ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'];
+
 export interface SplitLine {
   id: string;
   label: string;

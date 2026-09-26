@@ -9,9 +9,14 @@ import {
   getPurchaseOrderById,
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
-  cancelPurchaseOrder,
+  deletePurchaseOrder,
   shortClosePurchaseOrder,
 } from '@/services/purchaseOrder.service';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-client';
+import { usePermissions } from '@/hooks/usePermissions';
+import { PRE_SEND_STATUSES } from '@/lib/delivery-plan';
+import { CancelPoDialog } from '@/components/purchase-orders/CancelPoDialog';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
 import {
   PurchaseOrderStatusLabels,
@@ -36,6 +41,8 @@ import {
   FileMinus,
   ChevronDown,
   ChevronRight,
+  Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
 import { poItemLabelKey } from '@/lib/label-line-keys';
@@ -247,6 +254,8 @@ export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { isAdmin } = usePermissions();
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +264,10 @@ export default function PurchaseOrderDetail() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [acknowledgeDialogOpen, setAcknowledgeDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  // The admin force-cancel after goods arrived, not the normal cancel of a SENT / ACKNOWLEDGED order. Not reset
+  // on close, so the dialog keeps its wording while it animates out.
+  const [cancelForce, setCancelForce] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [shortCloseDialogOpen, setShortCloseDialogOpen] = useState(false);
   const [shortCloseReason, setShortCloseReason] = useState('');
   const [shortCloseReorder, setShortCloseReorder] = useState(false);
@@ -274,6 +287,10 @@ export default function PurchaseOrderDetail() {
     if (searchParams.get('action') !== 'short-close' || !purchaseOrder) return;
     if (purchaseOrder.status === 'PARTIALLY_RECEIVED') {
       setShortCloseDialogOpen(true);
+    } else {
+      // The list row was stale — the order moved on since. Say so rather than open the page silently.
+      const label = PurchaseOrderStatusLabels[purchaseOrder.status] ?? purchaseOrder.status;
+      notify.info(`${purchaseOrder.poNumber} is ${label.toLowerCase()} — there is nothing left to close short`);
     }
     searchParams.delete('action');
     setSearchParams(searchParams, { replace: true });
@@ -293,6 +310,19 @@ export default function PurchaseOrderDetail() {
     }
   };
 
+  // The PO list and its count cards cache for up to a minute — every change made here must reach them
+  const refreshLists = () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
+  };
+
+  // Back returns to the list as it was left (its filters, tab and page live in the URL); opened directly
+  // (a link, a new tab) there is nothing to go back to, so it opens the list
+  const goBack = () => {
+    const historyIndex = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (historyIndex > 0) navigate(-1);
+    else navigate('/procurement/purchase-orders');
+  };
+
   const handleSend = async () => {
     try {
       await sendPurchaseOrder(id!);
@@ -302,6 +332,7 @@ export default function PurchaseOrderDetail() {
       handleApiError(err, 'Failed to send purchase order');
     } finally {
       setSendDialogOpen(false);
+      refreshLists();
     }
   };
 
@@ -314,18 +345,21 @@ export default function PurchaseOrderDetail() {
       handleApiError(err, 'Failed to acknowledge purchase order');
     } finally {
       setAcknowledgeDialogOpen(false);
+      refreshLists();
     }
   };
 
-  const handleCancel = async () => {
+  // A draft was never sent to anyone — it is deleted, not cancelled (owner 2026-09-27)
+  const handleDelete = async () => {
     try {
-      await cancelPurchaseOrder(id!, { reason: 'Cancelled by user' });
-      handleApiSuccess('Purchase order cancelled', 'The purchase order has been cancelled.');
-      fetchPurchaseOrder();
+      await deletePurchaseOrder(id!);
+      handleApiSuccess('Draft deleted', `${purchaseOrder?.poNumber ?? 'The purchase order'} has been deleted.`);
+      navigate('/procurement/purchase-orders', { replace: true });
     } catch (err) {
-      handleApiError(err, 'Failed to cancel purchase order');
+      handleApiError(err, 'Failed to delete purchase order');
+      fetchPurchaseOrder();
     } finally {
-      setCancelDialogOpen(false);
+      refreshLists();
     }
   };
 
@@ -357,6 +391,7 @@ export default function PurchaseOrderDetail() {
       handleApiError(err, 'Failed to close purchase order short');
     } finally {
       setIsShortClosing(false);
+      refreshLists();
     }
   };
 
@@ -432,7 +467,7 @@ export default function PurchaseOrderDetail() {
           <CardContent className="pt-6">
             <div className="text-center text-destructive">{error || 'Purchase order not found'}</div>
             <div className="text-center mt-4">
-              <Button onClick={() => navigate('/procurement/purchase-orders')}>Back to Purchase Orders</Button>
+              <Button onClick={goBack}>Back to Purchase Orders</Button>
             </div>
           </CardContent>
         </Card>
@@ -442,14 +477,20 @@ export default function PurchaseOrderDetail() {
 
   const receivingProgress = calculateReceivingProgress();
 
-  const canEdit = ['DRAFT', 'PENDING_GREIGE', 'READY_FOR_PROCESSING'].includes(purchaseOrder.status);
+  // The same "not sent yet" rule the form and the delivery-plan editor use
+  const canEdit = PRE_SEND_STATUSES.includes(purchaseOrder.status);
   const canSend = purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'READY_FOR_PROCESSING';
   const canAcknowledge = purchaseOrder.status === 'SENT';
   const canReceive = ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'].includes(purchaseOrder.status);
-  // PARTIALLY_RECEIVED is deliberately excluded: once goods have been delivered, cancel
+  // A draft never reached the supplier — its exit is Delete, the same as on the list (owner 2026-09-27)
+  const canDelete = purchaseOrder.status === 'DRAFT';
+  // Cancel starts once the PO is sent and stops once anything arrives: after a delivery, cancel
   // misrepresents history (supplier ledger, payments and GST all saw a real receipt). The honest
   // exit for a part-delivered order is Close Short.
-  const canCancel = !['PARTIALLY_RECEIVED', 'RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(purchaseOrder.status);
+  const canCancel = ['SENT', 'ACKNOWLEDGED'].includes(purchaseOrder.status);
+  // ...except an ADMIN may force it, with a typed reason, which the server logs (owner 2026-09-27). The server
+  // also refuses it while a receipt waits for QC.
+  const canForceCancel = isAdmin && ['PARTIALLY_RECEIVED', 'RECEIVED'].includes(purchaseOrder.status);
   // Only a part-delivered order can be closed short — there is nothing to close short about an
   // order the supplier never delivered against (that one is cancelled) or delivered in full.
   const canShortClose = purchaseOrder.status === 'PARTIALLY_RECEIVED';
@@ -469,7 +510,7 @@ export default function PurchaseOrderDetail() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/procurement/purchase-orders')}>
+          <Button variant="ghost" size="sm" onClick={goBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -514,9 +555,34 @@ export default function PurchaseOrderDetail() {
             </Button>
           )}
           {canCancel && (
-            <Button variant="destructive" onClick={() => setCancelDialogOpen(true)}>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setCancelForce(false);
+                setCancelDialogOpen(true);
+              }}
+            >
               <XCircle className="h-4 w-4 mr-2" />
               Cancel
+            </Button>
+          )}
+          {canForceCancel && (
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive"
+              onClick={() => {
+                setCancelForce(true);
+                setCancelDialogOpen(true);
+              }}
+            >
+              <ShieldAlert className="h-4 w-4 mr-2" />
+              Force cancel (admin)
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
             </Button>
           )}
           <DocumentShareMenu
@@ -687,7 +753,10 @@ export default function PurchaseOrderDetail() {
       <DeliveryPlanCard
         purchaseOrder={purchaseOrder}
         companyFullAddress={companyFullAddress}
-        onChanged={setPurchaseOrder}
+        onChanged={(po) => {
+          setPurchaseOrder(po);
+          refreshLists();
+        }}
       />
 
       {/* Items */}
@@ -839,7 +908,7 @@ export default function PurchaseOrderDetail() {
         open={sendDialogOpen}
         onOpenChange={setSendDialogOpen}
         title="Send Purchase Order"
-        description={`Are you sure you want to send PO ${purchaseOrder.poNumber} to the supplier? This will change the status to "Sent".`}
+        description={`Send ${purchaseOrder.poNumber} to the supplier? This will change the status to "Sent".`}
         confirmText="Send"
         cancelText="Cancel"
         onConfirm={handleSend}
@@ -849,20 +918,29 @@ export default function PurchaseOrderDetail() {
         open={acknowledgeDialogOpen}
         onOpenChange={setAcknowledgeDialogOpen}
         title="Acknowledge Purchase Order"
-        description={`Mark PO ${purchaseOrder.poNumber} as acknowledged by the supplier?`}
+        description={`Mark ${purchaseOrder.poNumber} as acknowledged by the supplier?`}
         confirmText="Acknowledge"
         cancelText="Cancel"
         onConfirm={handleAcknowledge}
       />
 
-      <ConfirmDialog
+      {/* One cancel dialog for the list and this page: a typed reason, and it stays open until the server answers */}
+      <CancelPoDialog
         open={cancelDialogOpen}
         onOpenChange={setCancelDialogOpen}
-        title="Cancel Purchase Order"
-        description={`Are you sure you want to cancel PO ${purchaseOrder.poNumber}? This action cannot be undone.`}
-        confirmText="Cancel Order"
-        cancelText="Keep Order"
-        onConfirm={handleCancel}
+        po={purchaseOrder}
+        force={cancelForce}
+        onCancelled={fetchPurchaseOrder}
+      />
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete draft purchase order"
+        description={`Delete ${purchaseOrder.poNumber}? It was never sent to the supplier; anything it was ordered for goes back to be ordered again. This cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Keep Draft"
+        onConfirm={handleDelete}
         variant="destructive"
       />
 

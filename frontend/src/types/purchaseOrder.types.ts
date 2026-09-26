@@ -165,6 +165,10 @@ export const PO_CATEGORY_COLORS: Record<string, string> = {
 // PO STATS (from /api/purchase-orders/stats)
 // ============================================
 
+/**
+ * Counts keyed by the enum VALUE exactly as stored (`{ GREIGE: 12 }`, `{ SENT: 2 }`) — the response
+ * serializer leaves SCREAMING_CASE keys alone, so read them directly.
+ */
 export interface POStats {
   bySource: Record<string, number>;
   byCategory: Record<string, number>;
@@ -494,6 +498,8 @@ export interface CreatePurchaseOrderItemRequest {
 
 export interface CreatePurchaseOrderRequest {
   supplierId: string;
+  /** The PO's own date, `yyyy-MM-dd` (toDateInputValue) — today or earlier; omitted = today */
+  poDate?: string;
   expectedDeliveryDate: string;
   paymentTerms?: string;
   remarks?: string;
@@ -510,6 +516,8 @@ export interface CreatePurchaseOrderRequest {
 
 export interface UpdatePurchaseOrderRequest {
   supplierId?: string;
+  /** The PO's own date, `yyyy-MM-dd` (toDateInputValue) — today or earlier */
+  poDate?: string;
   expectedDeliveryDate?: string;
   paymentTerms?: string;
   remarks?: string;
@@ -536,6 +544,8 @@ export interface UpdatePurchaseOrderItemRequest {
 
 export interface CancelPurchaseOrderRequest {
   reason: string;
+  /** ADMIN only: cancel a PO goods have already been received against (the server refuses anyone else) */
+  force?: boolean;
 }
 
 export interface ShortClosePurchaseOrderRequest {
@@ -554,10 +564,14 @@ export interface AmendDeliveryLocationRequest {
 // FILTER TYPES
 // ============================================
 
+/**
+ * GET /purchase-orders query — every key is sent as-is (`toPurchaseOrderListParams`), so each must be one the
+ * API's `purchaseOrderQuerySchema` reads; one it does not know is stripped there and filters nothing.
+ */
 export interface PurchaseOrderFilters {
   status?: PurchaseOrderStatus;
   source?: POSource;
-  poCategory?: string;
+  /** Sent comma-joined; a single category from `?poCategory=` is a one-item list */
   poCategories?: string[];
   supplierId?: string;
   orderId?: string;

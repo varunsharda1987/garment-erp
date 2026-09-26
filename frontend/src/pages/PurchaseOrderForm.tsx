@@ -4,7 +4,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { DeliverySplitEditor } from '@/components/purchase-orders/DeliverySplitEditor';
-import { emptyPoint, newPointKey, splitProblems, type SplitLine, type SplitPointDraft } from '@/lib/delivery-plan';
+import {
+  PRE_SEND_STATUSES,
+  emptyPoint,
+  newPointKey,
+  splitProblems,
+  type SplitLine,
+  type SplitPointDraft,
+} from '@/lib/delivery-plan';
 import { isQtyZero, prefillQty, toQty } from '@/lib/quantity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,10 +55,12 @@ import {
 import type {
   CreatePurchaseOrderRequest,
   CreatePurchaseOrderItemRequest,
+  PurchaseOrder,
   Unit,
   SupplierSummary,
 } from '@/types/purchaseOrder.types';
 import {
+  PurchaseOrderStatusLabels,
   PO_CATEGORY_LABELS,
   PO_CATEGORY_COLORS,
   PO_GROUP_CATEGORIES,
@@ -59,6 +68,9 @@ import {
   DEPRECATED_SERVICE_CATEGORIES,
 } from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
+import { toDateInputValue } from '@/lib/date';
+import { queryKeys } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
@@ -91,7 +103,7 @@ import { formLineLabelKey } from '@/lib/label-line-keys';
 import { generateId } from '@/lib/utils';
 import { LabelSizeQtyDialog } from '@/components/purchase-orders/LabelSizeQtyDialog';
 import { LabelSetDialog, type LabelSetSelection } from '@/components/purchase-orders/LabelSetDialog';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getThreadPackagingSpecs } from '@/services/thread.service';
 import {
   ORDERABLE_THREAD_PACKS,
@@ -425,6 +437,7 @@ function createTrimItem(bomItem: StyleBOMEntry, calculatedQty: number | null): P
 
 export default function PurchaseOrderForm() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { company, companyFullAddress, isPlaceholder: isCompanyPlaceholder } = useCompanyProfile();
   const { id } = useParams();
   const isEditMode = Boolean(id);
@@ -438,6 +451,9 @@ export default function PurchaseOrderForm() {
   const [poCategory, setPoCategory] = useState('');
   const [supplierId, setSupplierId] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  // The date the PO was placed — today unless it was placed earlier and is being entered now (owner 2026-09-27).
+  // Never in the future. The printed PO and the greige live-rate ranking read it.
+  const [poDate, setPoDate] = useState(() => toDateInputValue(new Date()));
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<POItemForm[]>([]);
@@ -785,6 +801,15 @@ export default function PurchaseOrderForm() {
       setIsLoading(true);
       const po = await getPurchaseOrderById(poId);
 
+      // Only a PO not yet sent is edited here — the server refuses the rest, and "Save as Draft" on a sent or
+      // received PO says something false. Open its page instead.
+      if (!PRE_SEND_STATUSES.includes(po.status)) {
+        const label = PurchaseOrderStatusLabels[po.status] ?? po.status;
+        notify.info(`${po.poNumber} is ${label.toLowerCase()} — it can no longer be edited`);
+        navigate(`/procurement/purchase-orders/${po.id}`, { replace: true });
+        return;
+      }
+
       // Set category from loaded PO
       if (po.poCategory) {
         setPoCategory(po.poCategory);
@@ -794,6 +819,7 @@ export default function PurchaseOrderForm() {
       if (po.supplier && typeof po.supplier === 'object' && 'id' in po.supplier && 'code' in po.supplier) {
         setSelectedSupplier(po.supplier as Supplier);
       }
+      if (po.poDate) setPoDate(toDateInputValue(po.poDate));
       setExpectedDeliveryDate(po.expectedDeliveryDate.split('T')[0]);
       setRemarks(po.remarks || '');
       // Was never prefilled, so the field rendered EMPTY on a PO that already had a location —
@@ -1675,6 +1701,15 @@ export default function PurchaseOrderForm() {
       handleApiError(new Error('Please enter expected delivery date'), 'Validation Error');
       return false;
     }
+    if (!poDate) {
+      handleApiError(new Error('Please enter the PO date'), 'Validation Error');
+      return false;
+    }
+    // ISO yyyy-mm-dd strings compare in date order
+    if (poDate > toDateInputValue(new Date())) {
+      handleApiError(new Error('The PO date cannot be in the future'), 'Validation Error');
+      return false;
+    }
     if (items.length === 0) {
       handleApiError(new Error('Please add at least one item'), 'Validation Error');
       return false;
@@ -1752,6 +1787,9 @@ export default function PurchaseOrderForm() {
   // Core save logic - called after duplicate check passes or user confirms
   const executeSave = async (shouldSend: boolean = false) => {
     setIsSaving(true);
+    // Once the save lands the PO exists: a send that fails after it must not read as a failed save, or a
+    // retry creates a second PO
+    let savedPO: PurchaseOrder | null = null;
     try {
       const itemsData: CreatePurchaseOrderItemRequest[] = items.map((item) => ({
         id: item.id,
@@ -1782,6 +1820,7 @@ export default function PurchaseOrderForm() {
 
       const data: CreatePurchaseOrderRequest = {
         supplierId,
+        poDate,
         expectedDeliveryDate,
         poCategory: poCategory || undefined,
         paymentTerms: selectedSupplier?.paymentTerms || undefined,
@@ -1795,10 +1834,10 @@ export default function PurchaseOrderForm() {
         deliveryLocationId: splitDelivery ? splitPoints[0]?.warehouseId || null : deliveryLocationId || null,
       };
 
-      let savedPO;
       if (isEditMode && id) {
         savedPO = await updatePurchaseOrder(id, {
           supplierId,
+          poDate,
           expectedDeliveryDate,
           paymentTerms: selectedSupplier?.paymentTerms || undefined,
           remarks: remarks || undefined,
@@ -1823,15 +1862,22 @@ export default function PurchaseOrderForm() {
           }
         }
 
-        handleApiSuccess('Purchase order updated', `PO ${savedPO.poNumber} has been updated.`);
+        handleApiSuccess('Purchase order updated', `${savedPO.poNumber} has been updated.`);
       } else {
         savedPO = await createPurchaseOrder(data);
-        handleApiSuccess('Purchase order created', `PO ${savedPO.poNumber} has been created.`);
+        handleApiSuccess('Purchase order created', `${savedPO.poNumber} has been created.`);
       }
 
-      if (shouldSend && savedPO) {
-        await sendPurchaseOrder(savedPO.id);
-        handleApiSuccess('Purchase order sent', `PO ${savedPO.poNumber} has been sent to supplier.`);
+      if (shouldSend) {
+        try {
+          await sendPurchaseOrder(savedPO.id);
+        } catch (err) {
+          // The PO is saved; only the send failed. Open its page, where Send can be retried on THIS PO.
+          handleApiError(err, `${savedPO.poNumber} saved as Draft — sending failed`);
+          navigate(`/procurement/purchase-orders/${savedPO.id}`, { replace: true });
+          return;
+        }
+        handleApiSuccess('Purchase order sent', `${savedPO.poNumber} has been sent to supplier.`);
       }
 
       navigate('/procurement/purchase-orders');
@@ -1839,6 +1885,8 @@ export default function PurchaseOrderForm() {
       handleApiError(err, 'Failed to save purchase order');
     } finally {
       setIsSaving(false);
+      // The list, its counts and the PO's page must show what was saved / sent, not a 30-second-old copy
+      if (savedPO) void queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
     }
   };
 
@@ -2518,6 +2566,17 @@ export default function PurchaseOrderForm() {
                 </Select>
               </div>
             )}
+
+            <div className="space-y-2">
+              <Label htmlFor="poDate">PO Date *</Label>
+              <Input
+                id="poDate"
+                type="date"
+                value={poDate}
+                max={toDateInputValue(new Date())}
+                onChange={(e) => setPoDate(e.target.value)}
+              />
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="expectedDeliveryDate">Expected Delivery Date *</Label>

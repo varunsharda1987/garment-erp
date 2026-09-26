@@ -12,7 +12,7 @@ import { openPDF } from '@/lib/document-utils';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatDate } from '@/lib/date';
 import { isQtyZero } from '@/lib/quantity';
-import { deliveryUndecidedSoon, planMode, PRE_SEND_STATUSES } from '@/lib/delivery-plan';
+import { deliveryUndecidedSoon, FINISHED_STATUSES, planMode, PRE_SEND_STATUSES } from '@/lib/delivery-plan';
 import type { PurchaseOrder, WarehouseSummary } from '@/types/purchaseOrder.types';
 
 interface DeliveryPlanCardProps {
@@ -23,7 +23,6 @@ interface DeliveryPlanCardProps {
 }
 
 const RECEIVABLE = ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'];
-const FINISHED = ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'];
 
 function addressOf(wh: WarehouseSummary | null | undefined, companyFullAddress: string): string {
   if (!wh) return '';
@@ -51,7 +50,7 @@ export function DeliveryPlanCard({ purchaseOrder: po, companyFullAddress, onChan
     enabled: mode !== 'TO_BE_ADVISED',
   });
 
-  const canChange = !FINISHED.includes(po.status);
+  const canChange = !FINISHED_STATUSES.includes(po.status);
   const canReceive = RECEIVABLE.includes(po.status);
   const amendments = (po.deliveryPlanRevisions ?? []).filter((r) => !PRE_SEND_STATUSES.includes(r.poStatus)).length;
   const undecidedSoon = deliveryUndecidedSoon(po);

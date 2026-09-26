@@ -24,6 +24,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { getOrderById, createWorkOrdersForOrder } from '../services/order.service';
+import { getAllPurchaseOrders } from '../services/purchaseOrder.service';
 import workOrderService from '../services/workOrder.service';
 import { getInvoices } from '../services/invoice.service';
 import { deliveryNoteService } from '../services/dispatch.service';
@@ -193,6 +194,22 @@ export default function OrderDetail() {
         return res.data;
       } catch {
         return [];
+      }
+    },
+    { enabled: !!id, staleTime: 60 * 1000 }
+  );
+
+  // React Query: how many POs buy for this order — the workflow tracker offers "View POs" only when there are
+  // some. One row is enough: the count is the pagination total. Under purchaseOrders.all, so any PO change
+  // refreshes it.
+  const { data: orderPoCount = 0 } = useDetailQuery<number>(
+    [...queryKeys.purchaseOrders.all, 'order-count', id || ''],
+    async () => {
+      try {
+        const res = await getAllPurchaseOrders({ orderId: id!, limit: 1 });
+        return res.pagination?.total ?? 0;
+      } catch {
+        return 0;
       }
     },
     { enabled: !!id, staleTime: 60 * 1000 }
@@ -634,6 +651,7 @@ export default function OrderDetail() {
                   hasShortfall: qtyExceeds(mrpSummary.totalShortfall, 0),
                 }
               : null,
+            generatedPOs: orderPoCount,
             // P5.1: GRN status - derive from MRP received counts
             grnSummary: mrpSummary
               ? {

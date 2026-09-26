@@ -1034,16 +1034,18 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/PurchaseOrderList.tsx": "1e2931d9b698",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "50ba4deb0b08",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "6fe089d20cca",
-      "frontend/src/types/purchaseOrder.types.ts": "a4ad66332e5f",
-      "backend/src/schemas/purchaseOrder.schema.ts": "fed8bda1338c",
+      "frontend/src/pages/PurchaseOrderList.tsx": "5697924bba3f",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "f2516b89a00b",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "b8fc1825d1cb",
+      "frontend/src/types/purchaseOrder.types.ts": "a2953ec710cc",
+      "backend/src/schemas/purchaseOrder.schema.ts": "8ca4625c9654",
       "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
-      "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a"
+      "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
+      "frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx": "127c69d8cc71",
+      "backend/src/controllers/material.controller.ts": "dd8cec337a77"
     },
-    "contentHash": "5fdcae458423",
-    "generatedAt": "2026-09-25T08:27:58.854Z"
+    "contentHash": "0f2f5828a29b",
+    "generatedAt": "2026-09-26T08:53:52.469Z"
   },
   "quotation-convert": {
     "sources": {

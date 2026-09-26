@@ -1,5 +1,6 @@
 // Server entry point
-// Note: Environment variables are loaded via -r dotenv/config in package.json dev script
+// .env FIRST — ./config/database reads DATABASE_URL the moment it is imported (see load-env.ts)
+import './config/load-env';
 import prisma from './config/database';
 import app from './app';
 import { logInfo, logError } from './utils/logger';

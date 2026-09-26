@@ -34,6 +34,7 @@ import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
 import { resolvePoLineUnits } from './helpers/purchase-unit.helper';
 import { applySearch } from '../utils/search-filter';
+import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER } from './helpers/label-line.helper';
 import {
   applyDeliveryPlan,
   loadDeliveryProgress,
@@ -1579,6 +1580,7 @@ class PurchaseOrderService {
         },
       },
       purchase_order_items: {
+        orderBy: PO_LINE_ORDER,
         include: {
           weaver: { select: { id: true, name: true } }, // Phase 1b
           materials: {
@@ -1594,6 +1596,8 @@ class PurchaseOrderService {
               // never shown bare on purchase surfaces (industry model 2026-08-18).
               greige_master: { select: { greigeWidth: true } },
               fabric_master: { select: { actualWidth: true } },
+              // Which label and size a label size row is — PO pages group a label's sizes
+              ...LABEL_LINE_MATERIAL_SELECT,
             },
           },
         },

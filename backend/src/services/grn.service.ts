@@ -83,6 +83,7 @@ import {
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
 import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
 import { applySearch } from '../utils/search-filter';
+import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER, toLabelLine } from './helpers/label-line.helper';
 
 /**
  * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
@@ -943,12 +944,15 @@ class GRNService {
       where: { id: poId },
       include: {
         purchase_order_items: {
+          orderBy: PO_LINE_ORDER,
           include: {
             materials: {
               select: {
                 id: true,
                 code: true,
                 name: true,
+                // Which label and size a line is — the GRN form groups a label's sizes
+                ...LABEL_LINE_MATERIAL_SELECT,
               },
             },
             weaver: { select: { id: true, name: true } },
@@ -979,6 +983,13 @@ class GRNService {
         weaverId: item.weaverId,
         weaverName: item.weaver?.name ?? null,
         needsWeaver,
+        componentName: item.componentName ?? null,
+        ...(({ label, size }) => ({
+          labelId: label?.id ?? null,
+          labelCode: label?.code ?? null,
+          labelName: label?.name ?? null,
+          size,
+        }))(toLabelLine(item.materials)),
       }));
   }
 

@@ -16,7 +16,7 @@ import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty, gstinState, inrWords } from
 import { unitHeader } from '../../utils/units';
 import { resolvePoDeliverTo } from './po-deliver-to';
 import { JOB_WORK_SHIP_TO_NOTE, loadPoShipToPlan, ONE_INVOICE_PER_DELIVERY, PoShipTo } from './po-ship-to';
-import { LABEL_LINE_MATERIAL_SELECT, labelLineKeyOf } from '../helpers/label-line.helper';
+import { LABEL_LINE_MATERIAL_SELECT, labelLineKeyOf, PO_LINE_ORDER } from '../helpers/label-line.helper';
 import { groupLabelLines, sumRows } from '../../utils/label-lines';
 
 const poDocInclude = {
@@ -31,6 +31,7 @@ const poDocInclude = {
     select: { warehouseName: true, warehouseType: true, address: true, city: true, pincode: true },
   },
   purchase_order_items: {
+    orderBy: PO_LINE_ORDER,
     include: {
       // + which label and size a line is: a label's sizes print under one heading (utils/label-lines)
       materials: { select: { name: true, code: true, hsnCode: true, ...LABEL_LINE_MATERIAL_SELECT } },

@@ -351,4 +351,25 @@ describe('label sets', () => {
     expect(doc.items[0].name).toBe(`${RUN} L1 Label`);
     expect(doc.items[0].code).toBe(`${code('L1')} · 3 sizes`);
   });
+
+  it('the PO page and the GRN form get each line’s label and size', async () => {
+    const detail = await request(app).get(`/api/purchase-orders/${poId}`).set(authHeader).expect(200);
+    const po = detail.body.data ?? detail.body;
+    const sized = (po.items as any[]).filter((i) => i.materials?.labelSizeVariant?.size);
+    expect(sized).toHaveLength(5);
+    expect(sized.every((i) => labelIds.includes(i.materials.labelMaster.id))).toBe(true);
+
+    const pending = await request(app).get(`/api/grn/po/${poId}/pending`).set(authHeader).expect(200);
+    const rows: any[] = pending.body.data ?? pending.body;
+    expect(
+      rows
+        .filter((r) => r.labelCode === code('L1'))
+        .map((r) => r.size)
+        .sort()
+    ).toEqual(['M', 'S', 'XS']);
+    const plain = rows.find((r) => r.labelCode === code('L3'));
+    expect(plain).toBeDefined();
+    expect(plain.size).toBeNull();
+    expect(rows.filter((r) => r.componentName).length).toBe(5);
+  });
 });

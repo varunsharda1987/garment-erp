@@ -7,6 +7,18 @@
  * grouping itself is `utils/label-lines.ts` (twin of `frontend/src/lib/label-lines.ts`).
  */
 
+import type { Prisma } from '@prisma/client';
+
+/**
+ * A fixed order for a PO's lines: purchase_order_items has no line number or createdAt, so the database hands
+ * them back in storage order, which is NOT the order they were written once rows have been deleted and their
+ * space reused. Item code, then id — a label's size rows are then regrouped in size order by groupLabelLines.
+ */
+export const PO_LINE_ORDER: Prisma.purchase_order_itemsOrderByWithRelationInput[] = [
+  { materials: { code: 'asc' } },
+  { id: 'asc' },
+];
+
 /** Relations to add to a materials `include` (`materials: true` already brings `labelId`). */
 export const LABEL_LINE_MATERIAL_INCLUDE = {
   label_master: { select: { id: true, labelCode: true, labelName: true, labelType: true, labelCategory: true } },

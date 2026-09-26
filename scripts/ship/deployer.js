@@ -32,6 +32,12 @@ const http = require('http');
 const { spawn, spawnSync, execSync } = require('child_process');
 const S = require('./state');
 const { ensureBuildTree, copyEnvFiles } = require('./setup-build-tree');
+const notices = require('../hooks/notices');
+
+/** Tell every Claude terminal (notice board) — not in a dry run. */
+function announce(text, opts) {
+  if (!DRY) notices.post(text, { from: 'garment-erp-deployer', ...opts });
+}
 
 const ONCE = process.argv.includes('--once');
 const DRY = process.argv.includes('--dry-run');
@@ -458,6 +464,7 @@ function remember(entry) {
 
 async function deploy(sha) {
   const subject = S.subjectOf(sha);
+  const wasBroken = st.state === 'failed' || st.state === 'blocked';
   const from = st.liveSha && S.tryGit(['cat-file', '-e', `${st.liveSha}^{commit}`]) !== null ? st.liveSha : null;
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
@@ -486,6 +493,7 @@ async function deploy(sha) {
       const msg = 'garment-erp-watcher is still running (it rebuilds the live app on every file save). ' +
         'Remove it first: pm2 delete garment-erp-watcher && pm2 save — then: npm run ship -- now';
       done('blocked', { state: 'blocked', failedSha: sha, error: msg });
+      announce(`Deploy BLOCKED: ${msg}`);
       return log(`BLOCKED ${S.short(sha)}: ${msg}`);
     }
 
@@ -510,6 +518,8 @@ async function deploy(sha) {
     if (blocked) {
       if (DRY) return log(`dry run: would be BLOCKED:\n${blocked}`);
       done('blocked', { state: 'blocked', failedSha: sha, error: blocked });
+      announce(`Deploy of ${S.short(sha)} "${subject}" is BLOCKED — the live app is unchanged: ${blocked.split('\n')[0]} ` +
+        'The terminal that owns that commit: fix the cause, then `npm run ship -- now`. Details: npm run ship:status');
       return log(`BLOCKED ${S.short(sha)}:\n${blocked}`);
     }
 
@@ -526,6 +536,7 @@ async function deploy(sha) {
 
     const seconds = done('live', { state: 'idle', liveSha: sha, liveSubject: subject, liveAt: new Date().toISOString(), failedSha: null, attempts: 0 });
     log(`LIVE ${S.short(sha)} "${subject}" in ${seconds}s`);
+    if (wasBroken) announce(`Deploys are flowing again — ${S.short(sha)} "${subject}" is live (the earlier failed/blocked deploy is resolved).`, { hours: 12 });
     log('-- fleet-check');
     const fleetOk = runFleetCheck();
     save({ fleetOk });
@@ -534,6 +545,8 @@ async function deploy(sha) {
     const failure = e instanceof StepFailure ? e : new StepFailure(`unexpected deployer error: ${e.message}`, e.stack);
     if (DRY) return log(`dry run FAILED: ${failure.message}\n${failure.tail || ''}`);
     done('failed', { state: 'failed', failedSha: sha, error: failure.message, logTail: failure.tail });
+    announce(`Deploy of ${S.short(sha)} "${subject}" FAILED — ${failure.message}. ` +
+      'The terminal that owns that commit: fix it and commit again (that redeploys). Others: nothing to do. Details: npm run ship:status');
     log(`FAILED ${S.short(sha)}: ${failure.message}`);
     if (failure.tail) log(`last output:\n${failure.tail}`);
   }
@@ -591,7 +604,17 @@ function recoverInterrupted() {
 
 async function main() {
   if (!acquireLock()) process.exit(1);
+  const firstEver = !S.readJson(S.STATE_FILE);
   if (!DRY) recoverInterrupted();
+  if (firstEver && !ONCE) {
+    announce(
+      'SWITCHOVER DONE: garment-erp-deployer is now the only thing that puts code live. Only COMMITTED code on main ships, one ' +
+      'deploy at a time; saving a file no longer deploys (garment-erp-watcher is retired). Uncommitted edits are NOT on the live ' +
+      'app any more — commit your finished work by name (git commit -m "..." -- <your files>), then `npm run ship:wait`. ' +
+      'Never build in backend/ or frontend/. API restarts during a deploy are expected — `npm run ship:status` before any fleet check.',
+      { sticky: true, hours: 72 },
+    );
+  }
   save({ deployerStartedAt: new Date().toISOString() });
   log(`deployer started (pid ${process.pid}${ONCE ? ', --once' : ''}${DRY ? ', --dry-run' : ''}); live is ${S.short(st.liveSha)}`);
 

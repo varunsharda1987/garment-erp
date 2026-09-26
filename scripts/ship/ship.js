@@ -14,6 +14,7 @@
  */
 const fs = require('fs');
 const S = require('./state');
+const notices = require('../hooks/notices');
 
 const WAIT_LIMIT_MS = 20 * 60 * 1000;
 const pad = (n) => String(n).padStart(2, '0');
@@ -145,6 +146,8 @@ async function now() {
 
 function pause(reason) {
   S.writeJson(S.PAUSE_FILE, { at: new Date().toISOString(), by: who(), reason: reason || null });
+  notices.post(`Deploys PAUSED by ${who()}${reason ? ` — "${reason}"` : ''}. Commits wait until \`npm run ship -- resume\`. ` +
+    'If the API is stopped meanwhile, that is deliberate — do not restart it.', { hours: 12 });
   const st = S.readState();
   if (S.isDeployActive(st)) {
     console.log(`Paused — but a deploy of ${S.short(st.targetSha)} is running now (${st.step}); it will finish first.`);
@@ -157,6 +160,7 @@ function pause(reason) {
 
 function resume() {
   fs.rmSync(S.PAUSE_FILE, { force: true });
+  notices.post(`Deploys RESUMED by ${who()} — queued commits on main will now ship.`, { hours: 12 });
   console.log('Resumed — the deployer will ship main if it is not live.');
   return 0;
 }

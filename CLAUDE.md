@@ -607,6 +607,10 @@ Several terminals edit this ONE folder at once and share ONE git index and ONE l
    → `cd backend && npx prisma migrate deploy && npx prisma generate` → `pm2 start garment-erp-api`
    → `npm run ship -- resume`. A changed `package-lock.json` likewise needs `npm ci` in that folder
    first. Retry a blocked/failed deploy with `npm run ship -- now`.
+8. **Coordinate with the other terminals yourselves — never ask the owner to carry messages.** One
+   terminal: `SendMessage` (find it with `ListAgents`). Every terminal: `npm run notice -- "text"
+   --from <your ListAgents name>` — each terminal gets it on its next prompt, new ones at start
+   (`scripts/hooks/notices.js`). The deployer and `ship pause/resume` post there by themselves.
 
 **Switchover status:** until `npm run ship:status` shows the deployer running, the OLD path is still
 active — `garment-erp-watcher` rebuilds the live app on every save under `src/`, and a commit builds

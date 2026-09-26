@@ -528,11 +528,12 @@
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
       "frontend/src/pages/GRNDetail.tsx": "05cddae6d872",
       "backend/src/schemas/grn.schema.ts": "c2b010eff8d6",
-      "backend/src/services/grn.service.ts": "9066066863df",
-      "backend/src/services/helpers/po-delivery-plan.helper.ts": "08960ca2f0bc"
+      "backend/src/services/grn.service.ts": "3c7fa8b6c809",
+      "backend/src/services/helpers/po-delivery-plan.helper.ts": "08960ca2f0bc",
+      "backend/src/services/thread-stock.service.ts": "bd87591f61a7"
     },
-    "contentHash": "e987ae1fc038",
-    "generatedAt": "2026-09-26T10:52:56.877Z"
+    "contentHash": "d32125ac988f",
+    "generatedAt": "2026-09-26T16:33:51.147Z"
   },
   "grn-create": {
     "sources": {
@@ -540,17 +541,19 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
-      "frontend/src/pages/GRNForm.tsx": "772f26caf541",
+      "frontend/src/pages/GRNForm.tsx": "0683d072cb5f",
       "frontend/src/pages/GRNDetail.tsx": "05cddae6d872",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "b8fc1825d1cb",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "86275f579fad",
       "backend/src/schemas/grn.schema.ts": "c2b010eff8d6",
-      "backend/src/services/grn.service.ts": "9066066863df",
-      "backend/src/services/purchaseOrder.service.ts": "47e9a50532b4",
+      "backend/src/services/grn.service.ts": "3c7fa8b6c809",
+      "backend/src/services/purchaseOrder.service.ts": "abef99be329b",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
-      "backend/src/services/helpers/po-delivery-plan.helper.ts": "08960ca2f0bc"
+      "backend/src/services/helpers/po-delivery-plan.helper.ts": "08960ca2f0bc",
+      "frontend/src/lib/label-lines.ts": "169c3b0c5007",
+      "frontend/src/lib/label-line-keys.ts": "62a10e98a1b6"
     },
-    "contentHash": "dc72c799e894",
-    "generatedAt": "2026-09-26T10:52:57.080Z"
+    "contentHash": "9a424c7fe988",
+    "generatedAt": "2026-09-26T16:33:51.297Z"
   },
   "gst-reports": {
     "sources": {
@@ -668,14 +671,14 @@
       "backend/src/schemas/grn.schema.ts": "c2b010eff8d6",
       "backend/src/routes/grn.routes.ts": "ffecf209c4c8",
       "backend/src/controllers/job-work-order.controller.ts": "b9ad40be48d7",
-      "backend/src/services/grn.service.ts": "9066066863df",
+      "backend/src/services/grn.service.ts": "3c7fa8b6c809",
       "backend/src/services/helpers/jwo-arriving-material.helper.ts": "622bf8d344ab",
       "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c",
       "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
       "backend/src/controllers/grn.controller.ts": "e9e5f5133756"
     },
     "contentHash": "b331d29dd4b2",
-    "generatedAt": "2026-09-26T10:52:57.118Z"
+    "generatedAt": "2026-09-26T16:33:51.311Z"
   },
   "lab-dip-approve": {
     "sources": {
@@ -804,18 +807,18 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/routes/lazy-routes.tsx": "c1a31efdef59",
-      "frontend/src/pages/MaterialLedger.tsx": "8560b60e0853",
-      "frontend/src/pages/StockLevelList.tsx": "3573443894bb",
-      "frontend/src/pages/StockMovementList.tsx": "a0c50bb56f62",
+      "frontend/src/pages/MaterialLedger.tsx": "23222ad2cdb8",
+      "frontend/src/pages/StockLevelList.tsx": "1cefadcb8502",
+      "frontend/src/pages/StockMovementList.tsx": "494ff50f1e07",
       "frontend/src/services/materialLedger.service.ts": "15a27cee33f1",
       "frontend/src/components/MaterialCombobox.tsx": "957d5589e86d",
       "frontend/src/components/WarehouseCombobox.tsx": "937ff6b14213",
       "backend/src/routes/material.routes.ts": "7206cbae2823",
       "backend/src/controllers/material-ledger.controller.ts": "a845c99e67a0",
-      "backend/src/services/material-ledger.service.ts": "82559f8ea601"
+      "backend/src/services/material-ledger.service.ts": "bb1360da0189"
     },
-    "contentHash": "c3223acf4420",
-    "generatedAt": "2026-09-23T06:17:36.169Z"
+    "contentHash": "911f8b882a0a",
+    "generatedAt": "2026-09-26T16:33:51.317Z"
   },
   "material-quick-add": {
     "sources": {
@@ -1044,22 +1047,26 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderList.tsx": "5697924bba3f",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "c6aedd98aa66",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "450bab63924d",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "86275f579fad",
-      "frontend/src/types/purchaseOrder.types.ts": "cb5d7c5f4d67",
+      "frontend/src/types/purchaseOrder.types.ts": "f927d01e16c5",
       "backend/src/schemas/purchaseOrder.schema.ts": "af4274361964",
       "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
       "frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx": "127c69d8cc71",
-      "backend/src/controllers/material.controller.ts": "5d8997de4579",
+      "backend/src/controllers/material.controller.ts": "8b6a3eef5beb",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e",
-      "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "52b912365131",
+      "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "2dbef8936f1d",
       "frontend/src/lib/label-materials.ts": "9a26c39223ed",
       "frontend/src/lib/label-lines.ts": "169c3b0c5007",
-      "backend/src/services/label-set.service.ts": "b13c4435a32f"
+      "backend/src/services/label-set.service.ts": "b13c4435a32f",
+      "frontend/src/types/thread.types.ts": "cb92f6fbb71d",
+      "frontend/src/services/thread.service.ts": "e781f273e238",
+      "backend/src/services/helpers/purchase-unit.helper.ts": "74fe0087e9dd",
+      "backend/src/services/helpers/thread-pack.helper.ts": "5c65fcd9b0d4"
     },
-    "contentHash": "2063f8d56581",
-    "generatedAt": "2026-09-26T16:08:41.145Z"
+    "contentHash": "7fd4f1130086",
+    "generatedAt": "2026-09-26T16:33:51.328Z"
   },
   "quotation-convert": {
     "sources": {
@@ -1236,12 +1243,13 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/routes/lazy-routes.tsx": "c1a31efdef59",
-      "frontend/src/pages/StockLevelList.tsx": "3573443894bb",
-      "frontend/src/pages/StockDashboard.tsx": "9b408230c561",
-      "frontend/src/components/WarehouseCombobox.tsx": "937ff6b14213"
+      "frontend/src/pages/StockLevelList.tsx": "1cefadcb8502",
+      "frontend/src/pages/StockDashboard.tsx": "e59302f509af",
+      "frontend/src/components/WarehouseCombobox.tsx": "937ff6b14213",
+      "backend/src/services/helpers/thread-pack.helper.ts": "5c65fcd9b0d4"
     },
-    "contentHash": "3cd20b57a617",
-    "generatedAt": "2026-09-23T06:17:36.298Z"
+    "contentHash": "6b507a8f8510",
+    "generatedAt": "2026-09-26T16:33:51.335Z"
   },
   "stock-out-create": {
     "sources": {
@@ -1384,22 +1392,24 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/TrimMastersDashboard.tsx": "df651f0bd8ff",
       "frontend/src/pages/ThreadList.tsx": "ff4865c991f4",
-      "frontend/src/pages/ThreadForm.tsx": "097efb9ccfeb",
+      "frontend/src/pages/ThreadForm.tsx": "d86e31e6db3e",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
       "frontend/src/components/SupplierCombobox.tsx": "7113afec968b",
       "frontend/src/components/ColorPicker.tsx": "3a00b634812d",
-      "frontend/src/services/thread.service.ts": "e6107e77bc1f",
-      "frontend/src/lib/api-error-handler.ts": "aeda0b5e854c",
-      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
-      "backend/src/schemas/common.schema.ts": "878d7c33024c",
-      "backend/src/schemas/generated/prisma-enums.ts": "3168393630b9",
+      "frontend/src/services/thread.service.ts": "e781f273e238",
+      "frontend/src/lib/api-error-handler.ts": "b5afd15f1fb0",
+      "backend/src/schemas/trimMasters.schema.ts": "93bf459db544",
+      "backend/src/schemas/common.schema.ts": "408d77eb8826",
+      "backend/src/schemas/generated/prisma-enums.ts": "dc7b99b3a0b3",
       "backend/src/routes/thread.routes.ts": "5ba06c87806f",
       "backend/src/middleware/validation.middleware.ts": "6053b03f5667",
-      "backend/src/controllers/thread.controller.ts": "ca3661066fed",
-      "backend/src/utils/code-generator.ts": "2672cbc3ab81"
+      "backend/src/controllers/thread.controller.ts": "1a3cdc3c7402",
+      "backend/src/utils/code-generator.ts": "2672cbc3ab81",
+      "frontend/src/types/thread.types.ts": "cb92f6fbb71d",
+      "backend/src/services/thread-conversion.service.ts": "fd8546feb3a0"
     },
-    "contentHash": "9d8c790a5fa4",
-    "generatedAt": "2026-09-23T06:17:36.361Z"
+    "contentHash": "4781ab0cf5ac",
+    "generatedAt": "2026-09-26T16:33:51.344Z"
   },
   "trf-create": {
     "sources": {

@@ -9,6 +9,10 @@ keywords:
   - inward greige
   - greige aaya bina order
   - maal aaya bina po
+  - po baad mein banaya
+  - back date po
+  - purani date ka po
+  - पुरानी तारीख का पीओ
   - direct greige entry
   - opening stock greige
   - fresh stock
@@ -58,10 +62,10 @@ Use this for any greige you bought from a supplier, even if you forgot to make t
 2. Click **Create PO**. The page title reads **Create Purchase Order**.
 3. Set **PO Category** to **Greige** first. The supplier box stays locked until a category is chosen.
 4. Under **Supplier**, search and pick your greige supplier. Only suppliers with category Greige Supplier appear.
-5. Fill **Expected Delivery Date** (required). **Delivery Location** is optional.
+5. Set **PO Date** to the day the greige was really ordered — it is today by default, and an earlier date is allowed (a date after today is not). Fill **Expected Delivery Date** (required). **Delivery Location** is optional.
 6. In the **Order Items** card, use the **Add Greige Fabric** search box and pick the greige you received. You can add several greige types to one PO.
 7. In the items table, enter **Fold L (cm)** if the cloth is folded short, plus **Quantity** and **Unit Price**. GST and totals calculate automatically.
-8. Click **Save & Send** to create and send the PO in one step. Or click **Save as Draft** and later use **Send to Supplier** on the PO page.
+8. Click **Save & Send** to create and send the PO in one step. Or click **Save as Draft** and later use **Send to Supplier** on the PO page. If Save & Send saves the PO but the send fails, the message says "saved as Draft — sending failed" and the PO's page opens: click **Send to Supplier** there. Do not create the PO again. A Draft cannot be received — send it first.
 9. Now open **Procurement → GRN (Goods Receipt)**. The page title is **Goods Receiving Notes**.
 10. Click **+ Create GRN**. Under **Purchase Order**, search and select your new PO.
 11. Fill the received quantities and click **Save GRN**.

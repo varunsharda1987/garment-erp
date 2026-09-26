@@ -45,6 +45,9 @@ keywords:
   - size wise label receive
   - label ke size
   - लेबल साइज़
+  - pending qc po
+  - po close short nahi ho raha
+  - पेंडिंग क्यूसी
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -53,6 +56,7 @@ sources:
   - frontend/src/pages/GRNForm.tsx
   - frontend/src/pages/GRNDetail.tsx
   - frontend/src/pages/PurchaseOrderDetail.tsx
+  - frontend/src/components/purchase-orders/DeliveryPlanCard.tsx
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/purchaseOrder.service.ts
@@ -95,3 +99,5 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 
 ## After saving
 The GRN is created with status **Pending QC**. Stock is NOT added yet — it is added only when the GRN is approved. (A **Job work return** is different: it is filed already accepted by the job's **Receive from processor** action, with the stock booked in the same step.)
+
+Saving already counts the delivery on the purchase order — it shows **Partially Received** or **Received** straight away. Until this GRN is approved or rejected, that PO cannot be closed short or cancelled: the refusal names the GRN still awaiting QC. Approve or reject it first (see *Approve a GRN*).

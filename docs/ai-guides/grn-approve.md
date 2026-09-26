@@ -29,6 +29,17 @@ keywords:
   - thread receipt
   - cones received
   - धागा प्राप्त
+  - grn cannot be approved
+  - po cancelled grn
+  - cancelled purchase order
+  - po cancel ho gaya
+  - grn approve nahi ho raha
+  - कैंसिल पीओ
+  - जीआरएन अप्रूव नहीं हो रहा
+  - awaiting qc
+  - po close short nahi ho raha
+  - po cancel nahi ho raha
+  - पीओ कैंसिल नहीं हो रहा
 sources:
   - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
@@ -36,8 +47,10 @@ sources:
   - frontend/src/App.tsx
   - frontend/src/pages/GRNList.tsx
   - frontend/src/pages/GRNDetail.tsx
+  - frontend/src/pages/PurchaseOrderDetail.tsx
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
+  - backend/src/services/purchaseOrder.service.ts
   - backend/src/services/helpers/po-delivery-plan.helper.ts
   - backend/src/services/thread-stock.service.ts
 route: /procurement/grn
@@ -48,8 +61,8 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 
 ## Steps
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
-2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, the supplier's invoice number, the PO or job work order number, supplier, warehouse, or the style — including the buyer's own style code. Typing several words narrows the list, since each word must match something. You can also filter by supplier using the supplier dropdown.
-3. Click the GRN number to open it. The **PO / JWO** column shows which purchase order or job work order the GRN belongs to. On the GRN page, **Received at** shows the warehouse it was booked into; on a PO split across several places, **Delivery point** shows which of the PO's places it delivered against (flagged "Booked away from the planned place" when the warehouse differs).
+2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, the supplier's invoice number, the PO or job work order number, the material's name or code, supplier, warehouse, or the style — including the buyer's own style code. Typing several words narrows the list, since each word must match something. You can also filter by supplier using the supplier dropdown.
+3. Click the GRN number to open it. The **PO / JWO** column shows which purchase order or job work order the GRN belongs to. On the GRN page, **PO Status** shows the purchase order's status — if it reads **CANCELLED**, do not approve: reject the GRN instead (see *Traps*). **Received at** shows the warehouse it was booked into; on a PO split across several places, **Delivery point** shows which of the PO's places it delivered against (flagged "Booked away from the planned place" when the warehouse differs).
 4. Check the summary tiles — **Total Items**, **Total Received**, **Total Accepted**, **Total Rejected** — and the **Received Items** table. Than, bale and roll breakdowns are shown under each material.
 5. Click **Approve**.
 6. If the GRN has no warehouse yet, the **Select Warehouse to Approve** box appears. Pick **Warehouse *** and click **Approve**.
@@ -70,9 +83,11 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 - If fabric was waiting for a production run, a banner appears with **Go to Cutting Chart** or **View Cutting**.
 
 ## Rejecting instead
-Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) and click **Reject**. This reverts the received quantities on the purchase order and creates no stock.
+Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) and click **Reject**. This reverts the received quantities on the purchase order and creates no stock. It is also the only way to settle a GRN whose purchase order has been cancelled.
 
 ## Traps
+- A GRN whose purchase order is **cancelled** cannot be approved. Approve is refused with "… cannot be approved: purchase order … is cancelled, and its material has been handed back for re-ordering. Reject this receipt instead." The cancel already sent that material back to be ordered again, so approving would buy it twice. Click **Reject** and give the reason.
+- A GRN waiting in **Pending QC** holds its purchase order open. Until it is approved or rejected, the PO cannot be closed short (**Close Short** on the PO page) or cancelled — not even with an admin's **Force cancel (admin)**. The refusal names the GRN: "Cannot short-close …: GRN … is still awaiting QC. Complete or reject it first so the delivered quantity is final." Approve or reject the GRN first, then close the PO.
 - Approval is one-way from this screen — you cannot re-approve or re-edit an Accepted GRN here.
 - If two people approve the same GRN at once, the second one gets "GRN is no longer PENDING_QC". Refresh and check the status.
 - An inactive warehouse is rejected. Pick an active one.

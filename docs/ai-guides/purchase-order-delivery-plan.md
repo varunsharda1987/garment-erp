@@ -42,6 +42,8 @@ sources:
   - backend/src/schemas/purchaseOrder.schema.ts
   - backend/src/services/helpers/po-delivery-plan.helper.ts
   - backend/src/services/document-data/po-ship-to.ts
+  - backend/src/services/purchaseOrder.service.ts
+  - frontend/src/pages/ManufacturingControlCenter.tsx
 route: /procurement/purchase-orders
 ---
 
@@ -62,8 +64,8 @@ A purchase order delivers to **one place**, to **several places** with a quantit
 8. When a delivery arrives, click **Receive here** on that place in the **Deliver To** card. The GRN form opens with the PO and the place chosen.
 
 ## Finding POs with no place yet
-- On **Purchase Orders**, the filter **Delivery: to be advised** lists them; each row carries a **Delivery: to be advised** badge, amber when the PO is due within 3 days.
-- The PO page shows an amber warning, and the **Manufacturing Control Center** shows **PO Delivery Place Not Decided**, for a sent PO due within 3 days with no place.
+- On **Purchase Orders**, change the delivery filter from **Any delivery place** to **Delivery: to be advised**. It lists only POs still waiting for goods — Received, Closed Short and Cancelled POs are left out. Each such row carries a **Delivery: to be advised** badge under its expected delivery date, amber when the PO is due within 3 days.
+- The PO page shows an amber warning, and the **Manufacturing Control Center** shows **PO Delivery Place Not Decided**, for a sent PO due within 3 days with no place. Click that alert to open **Purchase Orders** with the **Delivery: to be advised** filter already on.
 
 ## Validation traps
 - Every item must be fully placed: the places of each item must add up to what the PO orders. The save stays disabled and lists what is short or over.

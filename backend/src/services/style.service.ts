@@ -4,7 +4,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { styles, ProductionStage, Gender, AgeGroup, Prisma, Unit } from '@prisma/client';
+import { styles, ProductionStage, Gender, AgeGroup, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
@@ -26,6 +26,7 @@ import {
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
+import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { multiplyCurrency, toNumber } from '../utils/currency';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { systemSettingsService } from './system-settings.service';
@@ -505,6 +506,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Link placeholder THREAD rows to the real Default Thread master — never persist a
     // BOM row without a master FK
     await this.resolveDefaultThread(validMaterialBOM);
+    // A line's unit is its material's unit (material-unit.helper) — never the form's 'pcs'
+    const bomLineUnits = await loadLineUnits(validMaterialBOM);
 
     logDebug(`Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
@@ -642,7 +645,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
                       ? 1
                       : 0,
-                unit: bom.unit || Unit.PIECE,
+                unit: lineUnit(bom, bomLineUnits),
                 unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
                 totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
                 notes: bom.notes || null,
@@ -1823,6 +1826,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         // Link placeholder THREAD rows to the real Default Thread master — never persist a
         // BOM row without a master FK
         await this.resolveDefaultThread(validMaterialBOM, tx);
+        // A line's unit is its material's unit (material-unit.helper) — every save recreates
+        // these rows, so a stamped 'pcs' would come back on each save
+        const bomLineUnits = await loadLineUnits(validMaterialBOM, tx);
 
         logDebug(`[UPDATE] Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
@@ -1983,7 +1989,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 ...buildGenericTrimFkFields(bom.materialType, bom.materialId || null),
                 componentName: bom.componentName || null,
                 quantityPerGarment: mergedQuantity,
-                unit: bom.unit || Unit.PIECE,
+                unit: lineUnit(bom, bomLineUnits),
                 unitPrice: mergedUnitPrice,
                 totalCost:
                   mergedUnitPrice != null
@@ -2967,7 +2973,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         usageCategory: 'GARMENT_TRIM',
         componentName: 'Default Thread',
         quantityPerGarment: 1,
-        unit: 'lot',
+        unit: 'lot', // allow-unit-literal — thread design pending
       });
     }
 
@@ -3018,9 +3024,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         materialId: trim.masterId === 'auto-thread' ? null : trim.masterId,
         usageCategory: 'GARMENT_TRIM' as const,
         componentName: trim.masterName,
-        // Thread is bulk item: quantity=1, price represents total estimated order cost
+        // Thread is bulk item: quantity=1, price represents total estimated order cost.
+        // Every other trim takes its material's unit when the row is saved (lineUnit).
         quantityPerGarment: isBulkItem ? 1 : 0,
-        unit: isBulkItem ? 'lot' : 'pcs',
+        unit: isBulkItem ? 'lot' : undefined, // allow-unit-literal — thread design pending
         unitPrice: null,
         totalCost: null,
         notes: trim.color || null,
@@ -3069,35 +3076,6 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         notes: proc.notes || proc.description || null,
       })) || []
     );
-  }
-
-  private buildMaterialBOMData(materialBOM: MaterialBOMInput[]) {
-    return materialBOM.map((bom, index) => {
-      const isValidMaterialId = bom.materialId && !bom.materialId.startsWith('auto-');
-      const materialId = isValidMaterialId ? bom.materialId : null;
-
-      return {
-        id: randomUUID(),
-        materialType: bom.materialType,
-        materialId,
-        usageCategory: bom.usageCategory || 'GARMENT_TRIM',
-        componentName: bom.componentName || null,
-        quantityPerGarment: bom.quantityPerGarment ? parseFloat(String(bom.quantityPerGarment)) : 0,
-        unit: bom.unit || Unit.PIECE,
-        unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
-        totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
-        notes: bom.notes || null,
-        sortOrder: index,
-        // Material-specific IDs
-        laceId: bom.materialType === 'LACE' ? materialId : null,
-        buttonId: bom.materialType === 'BUTTON' ? materialId : null,
-        threadId: bom.materialType === 'THREAD' ? materialId : null,
-        zipperId: bom.materialType === 'ZIPPER' ? materialId : null,
-        elasticId: bom.materialType === 'ELASTIC' ? materialId : null,
-        labelId: bom.materialType === 'LABEL' ? materialId : null,
-        packagingId: bom.materialType === 'PACKAGING' ? materialId : null,
-      };
-    });
   }
 
   private buildVariantsData(skuVariants?: SKUVariantInput[]) {

@@ -8,6 +8,7 @@ import { ValidationError, NotFoundError } from '../errors';
 // BUG-STY8 fix: Use decimal.js for precise BOM quantity calculations
 import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { systemSettingsService } from '../services/system-settings.service';
+import { lineUnit, loadLineUnits, loadMaterialUnits } from '../services/helpers/material-unit.helper';
 
 /**
  * Search materials by type and query string
@@ -698,7 +699,6 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     usageCategory,
     componentName,
     quantityPerGarment,
-    unit,
     notes,
     extraPercentage,
     unitPrice: unitPriceOverride,
@@ -706,9 +706,9 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
 
   logDebug(`Adding material to BOM: style=${styleId}, material=${materialCode}`);
 
-  // Validation
-  if (!materialCode || !usageCategory || !quantityPerGarment || !unit) {
-    throw new ValidationError('materialCode, usageCategory, quantityPerGarment, and unit are required');
+  // Validation. No `unit`: the line takes its material's unit (material-unit.helper).
+  if (!materialCode || !usageCategory || !quantityPerGarment) {
+    throw new ValidationError('materialCode, usageCategory and quantityPerGarment are required');
   }
 
   // Verify style exists
@@ -845,6 +845,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
   // BUG-STY8 fix: Use decimal.js for precise total cost calculation
   const quantityDecimal = toCurrency(quantityPerGarment);
   const totalCost = toNumber(multiplyCurrency(quantityPerGarment, unitPrice));
+  const unit = lineUnit({ materialType, materialId }, await loadMaterialUnits([materialId]));
 
   // Build the data object for BOM creation
   // BUG-STY8 fix: Convert Decimal back to number for Prisma storage
@@ -903,7 +904,8 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
  */
 export const updateBOMItem = async (req: Request, res: Response): Promise<void> => {
   const { styleId, bomId } = req.params;
-  const { componentName, quantityPerGarment, unit, notes, isActive, extraPercentage, unitPrice } = req.body;
+  // No `unit` from the body: the line keeps its material's unit (material-unit.helper)
+  const { componentName, quantityPerGarment, notes, isActive, extraPercentage, unitPrice } = req.body;
 
   logDebug(`Updating BOM item: ${bomId} for style ${styleId}`);
 
@@ -940,7 +942,8 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
       componentName: componentName !== undefined ? componentName : existing.componentName,
       quantityPerGarment:
         quantityPerGarment !== undefined ? toNumber(toCurrency(quantityPerGarment)) : existing.quantityPerGarment,
-      unit: unit !== undefined ? unit : existing.unit,
+      // Re-derived on every edit, so a line saved before 2026-09-26 as 'pcs' heals here too
+      unit: lineUnit(existing, await loadLineUnits([existing])),
       // `!== undefined` so an explicit null clears the price; `||` would discard it.
       unitPrice: unitPrice !== undefined ? unitPrice : existing.unitPrice,
       totalCost,

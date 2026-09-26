@@ -326,36 +326,6 @@ const CostSheetForm = () => {
                 savedLaces.flatMap((l: LaceDetail) => [l.laceId, l.greigeLaceId].filter(Boolean) as string[])
               );
 
-              // Helper function to get unit based on material type
-              const getUnitForMaterialType = (materialType: string): string => {
-                const unitMapping: Record<string, string> = {
-                  BUTTON: 'pcs',
-                  ZIPPER: 'pcs',
-                  THREAD: 'cone',
-                  LACE: 'meters',
-                  ELASTIC: 'meters',
-                  LABEL: 'pcs',
-                  HOOK_EYE: 'pair',
-                  SNAP_BUTTON: 'pcs',
-                  BUCKLE: 'pcs',
-                  BELT: 'pcs',
-                  VELCRO: 'meters',
-                  DRAWSTRING: 'meters',
-                  RIBBON: 'meters',
-                  SEQUIN: 'pcs',
-                  BEAD: 'pcs',
-                  MOTIF: 'pcs',
-                  INTERLINING: 'meters',
-                  PADDING: 'meters',
-                  OTHER_FASTENER: 'pcs',
-                  OTHER_TAPE: 'meters',
-                  OTHER_DECORATIVE: 'pcs',
-                  OTHER_FUNCTIONAL: 'pcs',
-                  PACKAGING: 'pcs',
-                };
-                return unitMapping[materialType] || 'pcs';
-              };
-
               // Data-driven master extraction config (legacy + generic trims)
               const masterExtractors: Array<{ masterKey: string; nameField: string; priceField: string }> = [
                 { masterKey: 'laceMaster', nameField: 'laceName', priceField: 'pricePerMeter' },
@@ -410,7 +380,8 @@ const CostSheetForm = () => {
                 const quantity = bom.quantityPerGarment || 0;
                 const rate = bom.unitPrice || Number(masterPrice) || 0;
                 const total = quantity * rate;
-                const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
+                // The BOM line's unit is its material's unit (the API derives it) — no local type→unit map
+                const unit = bom.unit as string;
                 const bomId = bom.id as string;
 
                 // ============================================
@@ -1144,36 +1115,6 @@ const CostSheetForm = () => {
               laceDetails.flatMap((l) => [l.laceId, l.greigeLaceId].filter(Boolean) as string[])
             );
 
-            // Helper function to get unit based on material type
-            const getUnitForMaterialType = (materialType: string): string => {
-              const unitMapping: Record<string, string> = {
-                BUTTON: 'pcs',
-                ZIPPER: 'pcs',
-                THREAD: 'cone',
-                LACE: 'meters',
-                ELASTIC: 'meters',
-                LABEL: 'pcs',
-                HOOK_EYE: 'pair',
-                SNAP_BUTTON: 'pcs',
-                BUCKLE: 'pcs',
-                BELT: 'pcs',
-                VELCRO: 'meters',
-                DRAWSTRING: 'meters',
-                RIBBON: 'meters',
-                SEQUIN: 'pcs',
-                BEAD: 'pcs',
-                MOTIF: 'pcs',
-                INTERLINING: 'meters',
-                PADDING: 'meters',
-                OTHER_FASTENER: 'pcs',
-                OTHER_TAPE: 'meters',
-                OTHER_DECORATIVE: 'pcs',
-                OTHER_FUNCTIONAL: 'pcs',
-                PACKAGING: 'pcs',
-              };
-              return unitMapping[materialType] || 'pcs';
-            };
-
             for (const bom of styleDetails.styleMaterialBom) {
               // Type assertion for flexible property access
               const bomAny = bom as unknown as Record<string, unknown>;
@@ -1223,7 +1164,8 @@ const CostSheetForm = () => {
               // Prioritize master price over BOM unitPrice (master is source of truth)
               const rate = (masterPrice as number) || bom.unitPrice || 0;
               const total = quantity * rate;
-              const unit = (bom.unit as string) || getUnitForMaterialType(materialType);
+              // The BOM line's unit is its material's unit (the API derives it) — no local type→unit map
+              const unit = bom.unit as string;
               const bomId = bom.id as string;
 
               // ============================================
@@ -1637,15 +1579,15 @@ const CostSheetForm = () => {
     const updated = [...trimsDetails];
     updated[index] = { ...updated[index], [field]: value };
 
-    // When materialType changes, clear the previous master ID
+    // When materialType changes, clear the previous master and its unit. Every FK in the registry,
+    // not just the legacy seven: a stale interliningId would make the API derive the unit (and
+    // match the price) from the material the row no longer is.
     if (field === 'materialType') {
-      updated[index].threadId = undefined;
-      updated[index].buttonId = undefined;
-      updated[index].zipperId = undefined;
-      updated[index].elasticId = undefined;
-      updated[index].labelId = undefined;
-      updated[index].packagingId = undefined;
+      for (const entry of ALL_TRIM_TYPES) {
+        (updated[index] as Record<string, unknown>)[entry.idField] = undefined;
+      }
       updated[index].materialId = undefined;
+      updated[index].unit = undefined;
       updated[index].trimName = '';
     }
 

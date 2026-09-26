@@ -2064,7 +2064,7 @@ export default function StyleFormRedesigned() {
         usageCategory: 'PACKAGING' as const, // All accessories (labels, packaging) go to PACKAGING category
         componentName: acc.masterName, // Use masterName as componentName for display
         quantityPerGarment: 1, // Labels and packaging default to 1 per garment
-        unit: 'pcs',
+        // No unit: the API gives every BOM line its material's unit
       }));
 
       // Build components array from selectedComponents

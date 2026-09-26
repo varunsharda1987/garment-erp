@@ -73,6 +73,7 @@ sources:
   - backend/src/routes/style.routes.ts
   - backend/src/services/style.service.ts
   - backend/src/services/helpers/default-thread.helper.ts
+  - backend/src/services/helpers/material-unit.helper.ts
 route: /styles/new
 ---
 
@@ -98,7 +99,7 @@ The customer must already exist in the Customers master, and the customer needs 
 14. For each fabric, pick **Source:** — **Greige / Process** (then fill **Generic Greige Name**) or **Ready Fabric** (then search the fabric master under **Ready Fabric**; **Create New Fabric** opens the fabric form in a new tab). Picking a ready fabric copies its finish type, design and colour into the row.
 15. Choose **Fabric Finish Type**: **Solid/Dyed**, **Printed**, **Yarn Dyed** or **Raw/Unfinished**. **Printed** and **Yarn Dyed** show **Design Name** (required) and **Color (Optional)**; **Solid/Dyed** shows **Color** (required).
 16. Tick **Has Embroidery** and click **Select Design** if the fabric is embroidered.
-17. Click **Next: Trims & Materials**. Under **Trims & Materials**, select the trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically when the style is saved — you will see it appear in the cost sheet.
+17. Click **Next: Trims & Materials**. Under **Trims & Materials**, select the trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically when the style is saved — you will see it appear in the cost sheet. Each trim is counted in its master's own unit — metres for lace, elastic, interlining (fusing) and drawstring; pieces for buttons and zippers — and the style's BOM takes that unit automatically.
 18. Click **Next: Accessories**. If the customer has presets, **Customer Accessory Preset** shows the default preset already applied; switch it or click **Re-apply Preset**. Under **Garment Accessories**, select labels, polybags, hangtags and cartons.
 19. Click **Create Style**.
 20. The style is saved as a draft. To make it usable for orders, click **Publish Style** (top right, shown once the style has been saved) and confirm **Publish** — or open the **Drafts** tab on the Style Master page and click **Publish** on the row.

@@ -299,6 +299,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
 | Strict number schema | An optional `z.number()` on a form-fed numeric field (`price…units` names): HTML inputs post strings and `''` when blank, so every save carrying that field 400s (six of seven trim forms could not add a supplier row, 2026-09-10) | Use `formNumber(z.number()…)` from `backend/src/schemas/common.schema.ts` (or mark `// allow-strict-number` for typed-client-only fields) |
 | Unit vocabulary drift | A new hand-written unit list or map: 3+ distinct unit spellings (`METER`, `MTR`, `pcs`, `KG`…) quoted on one line, or 3+ consecutive lines keyed on units. The frontend's live `Unit` copy had 13 of 16 values, a 9-value material enum refused a PACK material, and a dozen local maps disagreed (kilograms printed as metres) | Use the unit registry (see *Units: one registry*): `unitShort`/`unitPer`/`unitLabel`, `normalizeUnit`, `UNIT_OPTIONS`, the generated `Unit`. A genuine subset takes `// allow-unit-list` |
+| Material line unit literal | A `unit:` that is a quoted unit or `Unit.X` (incl. `x.unit \|\| Unit.PIECE`) inside a quantity-bearing object in a backend file that writes `style_material_bom` / `style_costing_trim_items` / `order_bom_items` / `material_requirements`, or a Zod `unit … .default('<unit>')` in the schemas feeding them. The Style save stamped every trim `'pcs'`: 111 metre lines read "pcs" and a requirement asked for 2,300 PIECES of fusing (2026-09-26) | `lineUnit()` / `loadLineUnits()` from `services/helpers/material-unit.helper.ts` (see *A material line's unit IS its material's unit*). THREAD's `'lot'` takes `// allow-unit-literal` |
 | Quantity exact compare | An exact zero comparison on a quantity-named value (`shortfall` / `remaining` / `pending` / `balance` / `outstanding` / `leftover` with `=== 0`, `<= 0`, `> 0`…; money and count names skipped), or a quantity input pre-filled with `.toFixed()`. Mixed 3dp/2dp storage leaves 0.002 of dust: a requirement read "Partially from Stock" for 2 mm and a dialog refused its own pre-fill (2026-09-24) | Use `isQtyZero` / `qtyAtLeast` / `qtyExceeds` / `qtyRemaining` / `snapToLimit` / `prefillQty` from `utils/quantity` or `@/lib/quantity` (see *Quantities: one tolerance*). A genuine count or money value takes `// allow-exact-qty` |
 | Radix singleton split (no baseline) | **(a)** any `@radix-ui/react-*` declared directly in `frontend/package.json` (only `@radix-ui/react-icons` is allowed — it is an icon set, not a primitive); **(b)** two resolved copies of a package holding module-scope state: `react-focus-scope`, `react-dismissable-layer`, `react-focus-guards`, `aria-hidden`, `react-remove-scroll(-bar)`, `react`, `react-dom`. Radix pins its internals to EXACT versions and keeps its focus-trap stack in module scope, so a second copy means a Sheet/Dialog never pauses for a Popover inside it and steals focus back — no combobox inside any dialog could be typed in (Sale Order Primary Style, 2026-09-14; introduced by bumping `react-dialog` alone in `8ca11d39`) | Import the namespace from the meta-package — `import { Dialog as DialogPrimitive } from 'radix-ui'` — and delete the direct entry. To move to a newer generation, bump **`radix-ui`** itself: one version number owns every primitive, so a partial bump is not an operation that exists. Never `resolve.dedupe` or npm `overrides` |
 
@@ -394,6 +395,31 @@ vocabulary but not stock units: `normalizeUnit` returns null for them and the ca
 Migrating the text columns to the enum is a separate project (needs a decision on what `lot` means).
 
 Enforced by the *unit vocabulary drift* smart-check. Tests: `backend/src/__tests__/unit/units.test.ts`.
+
+### A material line's unit IS its material's unit
+
+`materials.unit` is the ONE home of a material's unit (29 of the type masters have no unit column —
+do not add one; `materials.id === master.id`, so any master FK on a line is a materials id). A
+**consumption** line — `style_material_bom`, `style_costing_trim_items`, `order_bom_items`,
+`material_requirements` — stores that unit, resolved by
+**`backend/src/services/helpers/material-unit.helper.ts`**: `loadLineUnits(rows, tx?)` once, then
+`lineUnit(row, units)` per row (materials.unit → `MASTER_CONFIG[type].unit` → caller's unit → PIECE).
+A request body never overrides it: quantity and rate are per the master's unit.
+
+Until 2026-09-26 the Style save stamped every trim `'pcs'`, and the cost sheet, order BOM and
+requirement copied it forward — 111 lace/elastic/interlining/drawstring lines read "pcs" and
+MR2608-0111 asked for 2,300 PIECES of a metre fusing. Every style save recreates its BOM rows, so a
+data fix alone came undone on the next save. Repaired by `backend/scripts/repair-line-units.ts`
+(its dry run is the invariant sweep: 0 rows).
+
+- **Consumption unit ≠ purchase unit.** Buttons are consumed per PIECE but bought by the GROSS;
+  thread is bought in cones/tubes and converted by box size (`thread-conversion.service.ts`). PO
+  lines are NOT governed by this rule — purchase-unit conversion at PO time is not built yet.
+- **THREAD is the exception**: its lines keep `'lot'` (qty 1 per garment — the quantity counts
+  garments, not cones). Thread costing is not designed yet; do not "fix" thread units unasked.
+
+Enforced by the *material line unit literal* smart-check. Tests: `unit/material-unit.helper.test.ts`,
+`integration/material-line-units.test.ts`.
 
 ## Quantities: one tolerance
 

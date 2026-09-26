@@ -7,7 +7,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { Prisma, order_bom, OrderBOMStatus, Unit } from '@prisma/client';
+import { Prisma, order_bom, OrderBOMStatus } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { processorRateValidationService } from './processor-rate-validation.service';
@@ -17,6 +17,7 @@ import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v
 import { systemSettingsService } from './system-settings.service';
 import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
+import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { divideByShrinkage, toNumber, toCurrency, roundToCent } from '../utils/currency';
 import { SearchFilter } from '../types/prisma.types';
 import { GENERIC_TRIM_FK_FIELDS } from '../schemas/orderBom.schema';
@@ -478,6 +479,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         });
 
         let sortOrder = 0;
+        // A line's unit is its material's unit (material-unit.helper), never a blanket PIECE
+        const csLineUnits = await loadLineUnits([...csTrims, ...csAccessories]);
 
         // Create style_material_bom records from trimsDetails
         // BUG-ORD4 fix: Skip trims marked "Not Applicable" on cost sheet
@@ -527,7 +530,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               usageCategory: 'GARMENT_TRIM',
               componentName: trim.trimName,
               quantityPerGarment: trim.trimQuantity || 1,
-              unit: Unit.PIECE,
+              unit: lineUnit({ ...trim, materialType }, csLineUnits),
               unitPrice: trim.trimRate ?? 0, // NOTE: Zero rate = missing data in cost sheet
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
@@ -579,7 +582,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               usageCategory: 'PACKAGING',
               componentName: acc.accessoryName,
               quantityPerGarment: acc.accessoryQuantity || 1,
-              unit: Unit.PIECE,
+              unit: lineUnit({ ...acc, materialType }, csLineUnits),
               unitPrice: acc.accessoryRate ?? 0, // NOTE: Zero rate = missing data in cost sheet
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
@@ -811,7 +814,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         totalQuantity,
         wastagePercent,
         totalWithWastage,
-        unit: material.unit || Unit.PIECE,
+        unit: material.unit, // stamped from the material before save
         unitPrice,
         totalCost,
         componentName: material.componentName,
@@ -869,7 +872,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: trim.unit || Unit.PIECE,
+          unit: trim.unit, // stamped from the material before save
           unitPrice,
           totalCost,
           componentName: trim.trimName,
@@ -933,7 +936,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: Unit.PIECE,
           unitPrice,
           totalCost,
           componentName: acc.accessoryName,
@@ -998,7 +1000,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: trim.unit || Unit.PIECE,
+          unit: trim.unit, // stamped from the material before save
           unitPrice,
           totalCost,
           componentName: trim.trimName,
@@ -1055,7 +1057,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: Unit.PIECE,
           unitPrice,
           totalCost,
           componentName: acc.accessoryName,
@@ -1162,7 +1163,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalQuantity,
           wastagePercent,
           totalWithWastage,
-          unit: 'METER',
           unitPrice,
           totalCost,
           componentName: (fabricItem as any).fabricCAD?.styleFabric?.style_components?.componentName
@@ -1237,7 +1237,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         totalQuantity,
         wastagePercent,
         totalWithWastage,
-        unit: 'METER',
         unitPrice,
         totalCost,
         componentName: laceItem.laceName || laceItem.lace?.laceName || `Lace ${i + 1}`,
@@ -1307,7 +1306,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             totalQuantity,
             wastagePercent,
             totalWithWastage,
-            unit: 'LOT',
+            unit: 'LOT', // allow-unit-literal — thread design pending
             unitPrice,
             totalCost,
             componentName: threadItem.threadName || threadItem.thread?.threadName || `Thread ${i + 1}`,
@@ -1318,6 +1317,12 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         }
       }
     }
+
+    // Every line's unit is its material's unit (material-unit.helper) — one pass here rather than
+    // a literal at each builder above; those literals are how metre trims came to read 'pcs'.
+    // THREAD keeps the unit its builder gave it.
+    const bomItemUnits = await loadLineUnits(bomItems);
+    for (const item of bomItems) item.unit = lineUnit(item, bomItemUnits);
 
     // Calculate total material cost
     const totalMaterialCost = bomItems.reduce((sum, item) => sum + (item.totalCost || 0), 0);
@@ -2158,57 +2163,61 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       });
 
       // Create new items
+      const newItems = data.items!.map((item, index) => {
+        const totalQuantity = item.quantityPerGarment * item.orderQuantity;
+        const totalWithWastage = totalQuantity * (1 + (item.wastagePercent || 0) / 100);
+        const totalCost = totalWithWastage * item.unitPrice;
+
+        // Only ids that belong to THIS BOM resolve — a foreign or stale id falls through to a
+        // fresh row rather than adopting another BOM's provenance.
+        const prev = item.id ? existingById.get(item.id) : undefined;
+
+        return {
+          // Reuse the row id when it is one of ours. The page applies an optimistic local
+          // update instead of refetching, so it re-sends the ids it already had; minting new
+          // uuids here made the carry-forward above miss on every subsequent edit in the same
+          // page session — the exact usage pattern that stripped ORD2026080032.
+          id: prev ? prev.id : uuidv4(),
+          orderBomId: id,
+          materialType: item.materialType,
+          // Carry forward what the payload cannot express. Payload wins when it explicitly
+          // sends a value (including an explicit null to clear); otherwise keep the stored one.
+          ...carryForwardPreservedFields(item, prev),
+          materialId: item.materialId,
+          buttonId: item.buttonId,
+          threadId: item.threadId,
+          zipperId: item.zipperId,
+          laceId: item.laceId,
+          elasticId: item.elasticId,
+          labelId: item.labelId,
+          packagingId: item.packagingId,
+          fabricId: item.fabricId,
+          greigeId: item.greigeId || null,
+          sourcingStrategy: item.sourcingStrategy || null,
+          processorId: item.processorId || null,
+          greigeCost: item.greigeCost || null,
+          processingCost: item.processingCost || null,
+          rateCardId: item.rateCardId || null,
+          colorName: item.colorName || null,
+          quantityPerGarment: item.quantityPerGarment,
+          orderQuantity: item.orderQuantity,
+          totalQuantity,
+          wastagePercent: item.wastagePercent || 0,
+          totalWithWastage,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          totalCost,
+          componentName: item.componentName,
+          usageCategory: item.usageCategory,
+          notes: item.notes,
+          sortOrder: item.sortOrder || index,
+        };
+      });
+      // A line's unit is its material's unit (material-unit.helper) — the page's payload unit only
+      // stands for THREAD. Stamped after carry-forward so a preserved generic-trim FK is honoured.
+      const newItemUnits = await loadLineUnits(newItems, tx);
       await tx.order_bom_items.createMany({
-        data: data.items!.map((item, index) => {
-          const totalQuantity = item.quantityPerGarment * item.orderQuantity;
-          const totalWithWastage = totalQuantity * (1 + (item.wastagePercent || 0) / 100);
-          const totalCost = totalWithWastage * item.unitPrice;
-
-          // Only ids that belong to THIS BOM resolve — a foreign or stale id falls through to a
-          // fresh row rather than adopting another BOM's provenance.
-          const prev = item.id ? existingById.get(item.id) : undefined;
-
-          return {
-            // Reuse the row id when it is one of ours. The page applies an optimistic local
-            // update instead of refetching, so it re-sends the ids it already had; minting new
-            // uuids here made the carry-forward above miss on every subsequent edit in the same
-            // page session — the exact usage pattern that stripped ORD2026080032.
-            id: prev ? prev.id : uuidv4(),
-            orderBomId: id,
-            materialType: item.materialType,
-            // Carry forward what the payload cannot express. Payload wins when it explicitly
-            // sends a value (including an explicit null to clear); otherwise keep the stored one.
-            ...carryForwardPreservedFields(item, prev),
-            materialId: item.materialId,
-            buttonId: item.buttonId,
-            threadId: item.threadId,
-            zipperId: item.zipperId,
-            laceId: item.laceId,
-            elasticId: item.elasticId,
-            labelId: item.labelId,
-            packagingId: item.packagingId,
-            fabricId: item.fabricId,
-            greigeId: item.greigeId || null,
-            sourcingStrategy: item.sourcingStrategy || null,
-            processorId: item.processorId || null,
-            greigeCost: item.greigeCost || null,
-            processingCost: item.processingCost || null,
-            rateCardId: item.rateCardId || null,
-            colorName: item.colorName || null,
-            quantityPerGarment: item.quantityPerGarment,
-            orderQuantity: item.orderQuantity,
-            totalQuantity,
-            wastagePercent: item.wastagePercent || 0,
-            totalWithWastage,
-            unit: item.unit,
-            unitPrice: item.unitPrice,
-            totalCost,
-            componentName: item.componentName,
-            usageCategory: item.usageCategory,
-            notes: item.notes,
-            sortOrder: item.sortOrder || index,
-          };
-        }),
+        data: newItems.map((row) => ({ ...row, unit: lineUnit(row, newItemUnits) })),
       });
 
       return tx.order_bom.findUnique({

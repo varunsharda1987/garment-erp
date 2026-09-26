@@ -126,7 +126,9 @@ export const materialBOMSchema = z.object({
   usageCategory: z.string().optional().default('GARMENT_TRIM'),
   componentName: z.string().optional().nullable(),
   quantityPerGarment: z.number().nonnegative().optional().default(0),
-  unit: z.string().optional().default('pcs'),
+  // Ignored for a picked material — the saved line takes the material's unit (material-unit.helper).
+  // No default: a 'pcs' default here stamped every lace/elastic line "pcs" until 2026-09-26.
+  unit: z.string().optional(),
   unitPrice: z.number().nonnegative().optional().nullable(),
   totalCost: z.number().nonnegative().optional().nullable(),
   notes: z.string().optional().nullable(),
@@ -137,7 +139,7 @@ export const garmentTrimSchema = z.object({
   trimName: z.string().min(1, 'Trim name is required'),
   trimType: z.string().optional().default(''),
   quantityPerPiece: z.number().nonnegative().optional().default(0),
-  unit: z.string().optional().default('pcs'),
+  unit: z.string().optional(),
   supplier: z.string().optional().nullable(),
 });
 
@@ -643,7 +645,8 @@ export const addStyleMaterialBOMSchema = z.object({
   usageCategory: MaterialUsageCategoryEnum,
   componentName: z.string().max(200, 'Component name must not exceed 200 characters').trim().optional().nullable(),
   quantityPerGarment: z.coerce.number().positive('Quantity per garment must be positive'),
-  unit: z.string().trim().min(1, 'Unit is required').max(50),
+  // Optional and ignored: the line takes its material's unit (material-unit.helper)
+  unit: z.string().trim().max(50).optional(),
   notes: z.string().max(1000, 'Notes must not exceed 1000 characters').trim().optional().nullable(),
   // Wastage/extra %. Omitted (undefined) means "use the system default"; an explicit 0 is a
   // real value and must survive. No .default() here on purpose — a Zod default fills in a
@@ -663,7 +666,7 @@ export const addStyleMaterialBOMSchema = z.object({
 export const updateStyleMaterialBOMSchema = z.object({
   componentName: z.string().max(200, 'Component name must not exceed 200 characters').trim().optional().nullable(),
   quantityPerGarment: z.coerce.number().positive('Quantity per garment must be positive').optional(),
-  unit: z.string().trim().min(1, 'Unit must not be empty').max(50).optional(),
+  // No `unit`: the line keeps its material's unit (material-unit.helper), re-derived on every edit
   notes: z.string().max(1000, 'Notes must not exceed 1000 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),
   // See addStyleMaterialBOMSchema — without this field the API silently stripped every

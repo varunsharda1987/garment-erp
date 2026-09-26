@@ -13,6 +13,7 @@ import { UnauthorizedError, NotFoundError, ValidationError, BusinessError, Confl
 import { systemSettingsService } from '../services/system-settings.service';
 import { processorRateValidationService } from '../services/processor-rate-validation.service';
 import { findRateCardsForShrinkage } from '../services/processor-rate-v2.service';
+import { lineUnit, loadLineUnits } from '../services/helpers/material-unit.helper';
 import {
   StyleCostingWhereInput,
   FabricDetail,
@@ -406,6 +407,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     // Generic fallback for NEW material types
     masterId: trim.masterId || null,
   }));
+
+  // A trim line's unit is its material's unit (material-unit.helper), not what the form sent
+  const trimLineUnits = await loadLineUnits(trimItemsToCreate);
+  for (const item of trimItemsToCreate) item.unit = lineUnit(item, trimLineUnits);
 
   // style_costing_accessory_items from accessoriesDetails JSON (relational source of truth)
   const accessoryItemsToCreate = (validatedData.accessoriesDetails || []).map((acc) => ({
@@ -1165,6 +1170,10 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     // Generic fallback for NEW material types
     masterId: trim.masterId || null,
   }));
+
+  // A trim line's unit is its material's unit (material-unit.helper), not what the form sent
+  const trimLineUnits = await loadLineUnits(trimItemsToCreate);
+  for (const item of trimItemsToCreate) item.unit = lineUnit(item, trimLineUnits);
 
   // style_costing_accessory_items are rebuilt from accessoriesDetails JSON
   const accessoryItemsToCreate = (accessoriesDetails || []).map((acc: any) => ({

@@ -37,6 +37,7 @@ sources:
   - frontend/src/pages/StyleList.tsx
   - backend/src/schemas/style.schema.ts
   - backend/src/services/style.service.ts
+  - backend/src/services/helpers/material-unit.helper.ts
 route: /styles
 ---
 
@@ -88,6 +89,7 @@ route: /styles
 2. Available trim types: Button, Thread, Zipper, Elastic, Lace, Hook & Eye, Snap Button, Buckle, Belt, Velcro, Drawstring, Ribbon, Sequin, Bead, Motif, Interlining, Padding, and more
 3. Search and select trims from the master data
 4. Click the X to remove a trim
+5. Each trim keeps its master's own unit — metres for lace, elastic, interlining (fusing) and drawstring; pieces for buttons and zippers. Saving the style applies it to the BOM; there is no unit to choose here
 
 ### Editing Accessories (Tab 4)
 

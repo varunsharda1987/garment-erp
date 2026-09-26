@@ -661,6 +661,106 @@ function unitVocabularyDrift(relFiles) {
   return out;
 }
 
+// --- materialLineUnitLiteral (2026-09-26) ---------------------------------------------------------
+// A CONSUMPTION line's unit is its material's unit — `materials.unit`, resolved by lineUnit() in
+// backend/src/services/helpers/material-unit.helper.ts. Until 2026-09-26 the style save stamped
+// every trim 'pcs' (`unit: isBulkItem ? 'lot' : 'pcs'`), the Zod schema defaulted it to 'pcs', and
+// the order BOM fell back to `x.unit || Unit.PIECE`: 111 lace/elastic/interlining/drawstring lines
+// read "pcs", and MR2608-0111 asked for 2,300 PIECES of a metre fusing.
+//
+// Flags, in a backend file that writes style_material_bom / style_costing_trim_items /
+// order_bom_items / material_requirements, a `unit:` whose value is a quoted unit spelling or a
+// `Unit.X` — only inside an object that also carries a quantity (so lookup/picker responses and the
+// materials row a size variant creates are not lines). Also flags a Zod `unit: … .default('<unit>')`
+// in the schemas that feed those lines. Per-line opt-out: // allow-unit-literal (THREAD's 'lot':
+// thread costing is not designed yet).
+const LINE_UNIT_TABLES = /\.(style_material_bom|style_costing_trim_items|order_bom_items|material_requirements)\.(create|createMany|update|updateMany|upsert)\b/;
+const LINE_UNIT_SCHEMA_FILES = [
+  'backend/src/schemas/style.schema.ts',
+  'backend/src/schemas/orderBom.schema.ts',
+  'backend/src/schemas/mrp.schema.ts',
+  'backend/src/controllers/style-costing.utils.ts',
+];
+// `quantityPerGarment:` or shorthand `quantityPerGarment,` — the order BOM builders use shorthand.
+// Not `totalQuantity`: a challan HEADER carries that, and its unit is not a material line's.
+const LINE_QTY_KEY = /\b(quantityPerGarment|totalRequired|trimQuantity|accessoryQuantity|totalWithWastage)\s*[:,}]/;
+
+/** The innermost `{ … }` around `idx` (brace-counted on comment-blanked code). */
+function enclosingObject(content, idx) {
+  let depth = 0;
+  let start = -1;
+  for (let i = idx; i >= 0; i--) {
+    const ch = content[i];
+    if (ch === '}') depth++;
+    else if (ch === '{') {
+      if (depth === 0) {
+        start = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (start < 0) return '';
+  depth = 0;
+  for (let i = start; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) return content.slice(start, i + 1);
+  }
+  return content.slice(start);
+}
+
+function materialLineUnitLiteral(relFiles) {
+  const out = [];
+  const tokens = new Set([...UNIT_TOKENS, 'LOT', 'LOTS']);
+  const hasUnitLiteral = (value) => {
+    if (/\bUnit\.[A-Z_]+\b/.test(value)) return true;
+    const quoted = /['"]([A-Za-z][A-Za-z0-9_]*)['"]/g;
+    let m;
+    while ((m = quoted.exec(value))) if (tokens.has(m[1].toUpperCase())) return true;
+    return false;
+  };
+
+  for (const rel of relFiles) {
+    if (!/\.(ts|tsx)$/.test(rel)) continue;
+    const norm = rel.split(String.fromCharCode(92)).join('/');
+    if (!norm.startsWith('backend/src/')) continue;
+    if (/__tests__|\.test\.ts$/.test(norm)) continue;
+    if (norm.endsWith('services/helpers/material-unit.helper.ts')) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const isSchema = LINE_UNIT_SCHEMA_FILES.some((f) => norm.endsWith(f));
+    if (!isSchema && !LINE_UNIT_TABLES.test(content)) continue;
+
+    const rawLines = (readRel(rel) || '').split('\n');
+    const optedOut = (i) => /allow-unit-literal/.test(`${rawLines[i - 1] || ''}\n${rawLines[i] || ''}`);
+    const seen = new Map();
+    const lines = content.split('\n');
+    let offset = 0;
+    lines.forEach((line, i) => {
+      const lineStart = offset;
+      offset += line.length + 1;
+      const m = /\bunit\s*:\s*(.*)$/.exec(line);
+      if (!m || optedOut(i)) return;
+      const value = m[1].replace(/,\s*$/, '').trim();
+      let detail;
+      if (isSchema) {
+        if (!/\.default\(/.test(value) || !hasUnitLiteral(value.slice(value.indexOf('.default(')))) return;
+        detail = `Zod unit default ${value} — a consumption line takes its material's unit (lineUnit), never a schema default`;
+      } else {
+        if (!hasUnitLiteral(value)) return;
+        if (!LINE_QTY_KEY.test(enclosingObject(content, lineStart + m.index))) return;
+        detail = `unit literal ${value} on a material line — use lineUnit() from services/helpers/material-unit.helper`;
+      }
+      const base = `${norm} :: line unit literal :: ${value.replace(/\s+/g, ' ')}`;
+      const n = (seen.get(base) || 0) + 1;
+      seen.set(base, n);
+      out.push({ key: `${base}${n > 1 ? ` #${n}` : ''}`, file: rel, line: i + 1, detail });
+    });
+  }
+  return out;
+}
+
 // C1 — controller re-parses req.body/req.query with its own schema after route-level validation.
 // Two independently-maintained schemas for one request ALWAYS drift (Phase-3: the cost-sheet edit
 // endpoint silently discarded every edit because the route schema and controller schema shared zero
@@ -2246,6 +2346,7 @@ module.exports = {
   currencyFormat,
   dateFormatDrift,
   unitVocabularyDrift,
+  materialLineUnitLiteral,
   quantityExactCompare,
   controllerReparse,
   globalPrismaInTx,

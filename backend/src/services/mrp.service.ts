@@ -59,6 +59,7 @@ import { BusinessError } from '../errors';
 import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
+import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
 import { greigeCountsForPlanning, greigeHolderId, PLANNING_LOT_SELECT } from './helpers/lot-location.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
 import { applySearch } from '../utils/search-filter';
@@ -1215,6 +1216,9 @@ export async function calculateRequirementsFromOrder(
       continue;
     }
 
+    // A trim requirement's unit is its material's unit (material-unit.helper), whatever its BOM line says
+    const bomLineUnits = await loadLineUnits(bom.items);
+
     // Process each BOM item
     for (const bomItem of bom.items) {
       const material = bomItem.material;
@@ -2129,7 +2133,8 @@ export async function calculateRequirementsFromOrder(
           quantityPerUnit,
           wastagePercent,
           totalRequired,
-          unit: toRequirementUnit(bomItem.unit),
+          // THREAD's 'lot' is not a stock unit: requirementLineUnit gives null and it counts as PIECE, as before
+          unit: requirementLineUnit(bomItem, bomLineUnits) ?? toRequirementUnit(bomItem.unit),
           availableStock,
           allocatedFromStock,
           shortfall,
@@ -2305,6 +2310,8 @@ export async function calculateRequirementsFromOrder(
               status: req.status,
               fabricWidth: req.fabricWidth,
               cadId: req.cadId,
+              // A revived CANCELLED row kept its OLD unit even after the BOM line's unit was corrected
+              unit: req.unit as Unit,
               calculatedAt: new Date(),
               // Re-link to the CURRENT BOM — a revived CANCELLED requirement may point at an
               // old inactive BOM; leaving it would orphan it on the next regenerate cycle
@@ -2437,6 +2444,7 @@ export async function calculateRequirementsFromOrder(
               processingCost: req.processingCost,
               fabricWidth: req.fabricWidth,
               linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
+              unit: req.unit as Unit, // revived rows take today's unit too
               calculatedAt: new Date(),
               // Re-link to the CURRENT BOM (same reason as the MATERIAL revive block above)
               orderBomId: req.orderBomId,

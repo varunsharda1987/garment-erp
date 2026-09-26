@@ -294,6 +294,17 @@ function checkUnitVocabulary(tsFiles) {
   );
 }
 
+function checkMaterialLineUnit(tsFiles) {
+  console.log(`
+${c.cyan}Checking material line units...${c.reset}`);
+  return runRatchetedCheck(
+    'hardcoded unit(s) on a material line (BOM / cost sheet / order BOM / requirement)',
+    detectors.materialLineUnitLiteral(tsFiles),
+    'material-line-unit-baseline.json',
+    "A consumption line's unit IS its material's unit (materials.unit): resolve it with lineUnit() / loadLineUnits() from backend/src/services/helpers/material-unit.helper.ts — never 'pcs', Unit.PIECE or a schema default. THREAD's 'lot' (thread costing not designed yet) takes // allow-unit-literal."
+  );
+}
+
 function checkCurrencyFormat(tsFiles) {
   console.log(`\n${c.cyan}Checking en-IN currency formatting...${c.reset}`);
   return runRatchetedCheck(
@@ -1303,6 +1314,7 @@ function runAllModeChecks() {
   if (!checkCurrencyFormat(tsFiles)) ok = false;
   if (!checkDateFormat(tsFiles)) ok = false;
   if (!checkUnitVocabulary(tsFiles)) ok = false;
+  if (!checkMaterialLineUnit(tsFiles)) ok = false;
   if (!checkQuantityExactCompare(tsFiles)) ok = false;
   if (!checkControllerReparse(tsFiles)) ok = false;
   if (!checkGlobalPrismaInTx(tsFiles)) ok = false;
@@ -1426,6 +1438,7 @@ function main() {
     if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
     if (!checkDateFormat(categories.typescript)) allPassed = false;
     if (!checkUnitVocabulary(categories.typescript)) allPassed = false;
+    if (!checkMaterialLineUnit(categories.typescript)) allPassed = false;
     if (!checkQuantityExactCompare(categories.typescript)) allPassed = false;
     // Phase-3 guardrails: dual-schema re-parse, rollback-escaping writes, Decimal string-compare,
     // count-based numbering (BLOCKING new + ratchet)

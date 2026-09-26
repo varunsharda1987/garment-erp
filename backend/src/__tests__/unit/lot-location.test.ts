@@ -7,7 +7,6 @@ import {
   greigeCountsForPlanning,
   greigeHolderId,
   laceCountsForPlanning,
-  lotCountsOnHand,
   lotInProcessorUnit,
   resolveLotLocation,
   unitLotHolderId,
@@ -57,14 +56,6 @@ describe('resolveLotLocation', () => {
 
   it('never places a lot in a unit linked to no processor at this processor', () => {
     expect(resolveLotLocation(unlinkedUnit, 'A').category).toBe('AT_OTHER_PROCESSOR');
-  });
-});
-
-describe('lotCountsOnHand', () => {
-  it('keeps TRANSFER lots (Stock-Out shadows) off the ledger', () => {
-    expect(lotCountsOnHand(transferAtB)).toBe(false);
-    expect(lotCountsOnHand(heldAtA)).toBe(true);
-    expect(lotCountsOnHand(storeLot)).toBe(true);
   });
 });
 

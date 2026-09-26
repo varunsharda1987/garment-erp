@@ -31,7 +31,6 @@ import {
   coveringChallanWhere,
   challanOrigin,
   LOT_WAREHOUSE_SELECT,
-  lotCountsOnHand,
   resolveLotLocation,
   type LotLocation,
 } from './helpers/lot-location.helper';
@@ -1783,9 +1782,7 @@ export async function unissueForCancel(
     const material = lotRow?.greigeId
       ? await tx.materials.findFirst({ where: { greigeId: lotRow.greigeId }, select: { id: true } })
       : null;
-    if (lotRow && !lotCountsOnHand(lotRow)) {
-      // A TRANSFER lot is off the ledger both ways (lot-location.helper lotCountsOnHand).
-    } else if (material) {
+    if (material) {
       await syncStockLevelQuantity(material.id, lot.qty, lotRow?.warehouseId ?? undefined, 'METER', tx);
     } else {
       logError(

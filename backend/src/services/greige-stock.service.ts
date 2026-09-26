@@ -10,7 +10,7 @@ import {
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity, getDefaultWarehouseId } from './helpers/material-sync.helper';
-import { lotCountsOnHand } from './helpers/lot-location.helper';
+import { notInProcessorUnitWhere } from './helpers/lot-location.helper';
 import { systemSettingsService } from './system-settings.service';
 // BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
 import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currency';
@@ -302,8 +302,10 @@ class GreigeStockService {
       }
 
       if (filters?.excludeTransferred) {
-        // Exclude transferred stock - include null sourceType (regular stock) and non-TRANSFER types
-        where.OR = [{ sourceType: null }, { sourceType: { not: 'TRANSFER' } }];
+        // Our stores only: nothing a processor holds (parked by a Stock-Out, delivered straight there,
+        // moved there) — the Stock-Out refuses those lots, so it must not offer them
+        where.processorId = null;
+        where.AND = [notInProcessorUnitWhere()];
       }
 
       const stocks = await prisma.greige_stock.findMany({
@@ -640,11 +642,7 @@ class GreigeStockService {
         where: { greigeId: updatedStock.greigeId },
         select: { id: true },
       });
-      if (!lotCountsOnHand(updatedStock)) {
-        // A TRANSFER lot was never in the ledger (its metres left the store lot when the Stock-Out
-        // challan parked it at the processor) — taking it off again would drive stock_levels below
-        // derived_stock_view (the GRG-0006 drift class).
-      } else if (material) {
+      if (material) {
         // Pass `client` (not the possibly-undefined outer tx var) so the sync always joins the tx
         await syncStockLevelQuantity(material.id, -quantity, updatedStock.warehouseId || undefined, 'METER', client);
       } else {
@@ -734,9 +732,7 @@ class GreigeStockService {
         where: { greigeId: updatedStock.greigeId },
         select: { id: true },
       });
-      if (!lotCountsOnHand(updatedStock)) {
-        // TRANSFER lot: off the ledger both ways (see consumeGreigeStock).
-      } else if (material) {
+      if (material) {
         await syncStockLevelQuantity(material.id, quantity, updatedStock.warehouseId || undefined, 'METER', client);
       } else {
         logError(
@@ -1478,10 +1474,9 @@ class GreigeStockService {
    *
    * The held lot (DIRECT — delivered straight there, or TRANSFER — parked by a Stock-Out) gives up the
    * metres, and a NEW lot in the store takes them (sourceType PROCESSOR_RETURN, sourceChallanId = the
-   * inward challan). The ledger follows: a DIRECT lot was on hand at the processor's unit, so the unit
-   * gives the metres to the store; a TRANSFER lot is a shadow never put on the ledger, so only the store
-   * gains. Until 2026-09-26 this door only took the metres off a TRANSFER lot — and off a ledger it was
-   * never on — booking nothing into any store.
+   * inward challan). The ledger follows: the held lot is on hand at the processor's unit (TRANSFER lots
+   * too, since Phase 4e), so the unit gives the metres to the store. Until 2026-09-26 this door only took
+   * the metres off a TRANSFER lot, booking nothing into any store.
    *
    * `alreadyDrawnByJobId`: the metres were drawn by a job where they lay and come back unprocessed — the
    * held lot is not touched (the draw already took them off it and off the unit's ledger).
@@ -1556,7 +1551,7 @@ class GreigeStockService {
           performedById: p.userId,
         },
       });
-      if (lotCountsOnHand(lot) && lot.warehouseId) {
+      if (lot.warehouseId) {
         await syncStockLevelQuantity(materialId, -qty, lot.warehouseId, 'METER', tx);
       }
     }
@@ -1582,8 +1577,9 @@ class GreigeStockService {
         warehouseId: p.storeWarehouseId,
         warehouseLocation: store?.warehouseName ?? null,
         processorId: p.toProcessorId ?? null,
-        // Moved: held at the new processor as before (on hand like DIRECT, or a Stock-Out shadow)
-        sourceType: p.toProcessorId ? (lotCountsOnHand(lot) ? 'DIRECT' : 'TRANSFER') : 'PROCESSOR_RETURN',
+        // Moved: held at the new processor, keeping how it first got to a processor (bought and delivered
+        // there, or parked by a Stock-Out)
+        sourceType: p.toProcessorId ? (lot.sourceType === 'TRANSFER' ? 'TRANSFER' : 'DIRECT') : 'PROCESSOR_RETURN',
         sourceChallanId: p.inwardChallanId,
         status: 'AVAILABLE',
         createdById: p.userId,
@@ -1608,10 +1604,7 @@ class GreigeStockService {
         performedById: p.userId,
       },
     });
-    // A Stock-Out shadow moved on stays a shadow — never put on the ledger
-    if (!p.toProcessorId || lotCountsOnHand(lot)) {
-      await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
-    }
+    await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
 
     logInfo(
       `Brought ${qty} m of ${lot.greige.greigeCode} from ${holder} to ${store?.warehouseName} (${p.inwardChallanNumber})`

@@ -468,7 +468,7 @@ class StyleStockController {
    * GET /api/greige/stock
    * Query params:
    *   - warehouseLocation: Filter by warehouse location
-   *   - excludeTransferred: If 'true', excludes stock with sourceType='TRANSFER'
+   *   - excludeTransferred: If 'true', our stores only — leaves out every lot a processor holds
    */
   async getAvailableGreigeStock(req: Request, res: Response) {
     try {

@@ -647,10 +647,9 @@ function warehouseOf(w: { id: string; warehouseName: string } | null | undefined
 
 async function loadGreige(greigeId: string): Promise<{ lots: RawLot[]; txns: RawTxn[] }> {
   const rows = await prisma.greige_stock.findMany({
-    // Lots parked at a processor are excluded from on-hand by design (the source lot's
-    // consumption already recorded the outward move), so including them here would show the
-    // same metres twice — once issued, once sitting in a second lot.
-    where: { greigeId, NOT: { AND: [{ processorId: { not: null } }, { sourceType: 'TRANSFER' }] } },
+    // Every lot, those a processor holds included: a Stock-Out's lot at the processor's unit is on hand
+    // there (Phase 4e) — the store lot's consumption is the move out, this lot the move in.
+    where: { greigeId },
     select: {
       id: true,
       quantityAvailable: true,

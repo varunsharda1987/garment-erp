@@ -66,7 +66,7 @@ export const greigeStockService = {
   /**
    * Get individual greige stock entries (available, with IDs for challan issuance)
    * @param filters.warehouseLocation - Filter by warehouse location
-   * @param filters.excludeTransferred - Exclude stock already transferred to processors
+   * @param filters.excludeTransferred - Our stores only: leave out every lot a processor holds
    */
   async listAvailableStock(filters?: {
     warehouseLocation?: string;

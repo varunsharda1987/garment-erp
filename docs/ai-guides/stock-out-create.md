@@ -30,10 +30,14 @@ keywords:
   - डिपार्टमेंट ट्रांसफर
   - चालान बनाना
   - माल भेजना
+  - greige to processor
+  - processor ko greige bhejna
+  - प्रोसेसर को ग्रे भेजना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockOutForm.tsx
   - frontend/src/pages/StockMovementList.tsx
+  - backend/src/services/challan.service.ts
 route: /inventory/movements/stock-out
 ---
 
@@ -84,6 +88,8 @@ route: /inventory/movements/stock-out
 - **Stock deducts immediately**: When you submit, stock is deducted right away and a challan is created and issued in one step
 - **Processing goes to Job Work Order**: If you select "Send for Processing", you are redirected to the Dyeing & Printing page because processing requires proper job work tracking
 - **Supplier material types are filtered**: For Purchase Return, only material types that match the supplier's categories are shown
+- **Greige sent to a processor stays ours**: if the supplier you pick is a processor (it has a "… - Processing Unit"), greige on the challan is not a return — it is booked as held at that processor's unit, and the challan goes out as a job-work challan that must come back within one year. To bring it back later, use **Stock In → Processor Return** or **Bring to store** on Greige Stock
+- **Only greige in our stores is offered**: greige a processor already holds is not listed here — move it with **Move to another processor** or bring it back with **Bring to store**
 
 ## After saving
 

@@ -137,14 +137,10 @@ export function greigeHolderId(lot: LocatableLot): string | null {
   return lot.processorId ?? (unit && unit !== 'UNLINKED_UNIT' ? unit : null);
 }
 
-/**
- * Does this lot's quantity sit in the stock ledger (stock_levels / derived_stock_view)? A TRANSFER lot
- * is a shadow of metres already taken off a store lot by a Stock-Out challan — never added to the
- * ledger, so it must never be taken off it either. Every other lot (GRN, DIRECT, MANUAL…) is on it.
- */
-export function lotCountsOnHand(lot: { sourceType?: string | null }): boolean {
-  return lot.sourceType !== 'TRANSFER';
-}
+// Every greige lot in a warehouse is on the stock ledger (stock_levels / derived_stock_view) — a lot a
+// processor holds is on hand at that processor's unit. Until Phase 4e (2026-09-26) a Stock-Out's
+// TRANSFER lot was a "shadow" kept off the ledger both ways (`lotCountsOnHand`), so what a Stock-Out
+// parked at a processor vanished from every stock total while it sat there (GRG-0006, 500 m).
 
 /** What a planning reader (MRP) selects on a greige lot, so `greigeCountsForPlanning` can place it. */
 export const PLANNING_LOT_SELECT = {

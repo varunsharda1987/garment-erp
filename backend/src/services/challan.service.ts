@@ -7,7 +7,7 @@ import { logWarn } from '../utils/logger';
 import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
 import stockMovementService from './stockMovement.service';
-import { syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 // BUG-CHN5 fix: Use decimal.js for quantity calculations to avoid floating-point errors
 import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
@@ -15,6 +15,9 @@ import { toDateInputValue } from '../utils/date';
 import { normalizeUnit, unitLabel } from '../utils/units';
 import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
 import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit } from './helpers/lot-location.helper';
+
+/** Rule 55 wording on a Stock-Out that sends our goods to a job worker (Phase 4e). */
+export const STOCK_OUT_TO_JOB_WORKER_REASON = 'Inputs sent to a job worker for job work (CGST Rule 45) — not a supply';
 
 /**
  * challan_items.unit is free text (schema default 'PCS'); a stock movement takes the Unit enum.
@@ -287,6 +290,34 @@ export async function issueChallan(id: string, userId?: string) {
       }
     }
 
+    // A Stock-Out to a processor (direct-to-processor plan, Phase 4e): the destination has a processing
+    // unit, so the goods stay OURS, held there. The challan goes out as a job-work challan — toType
+    // VENDOR, Rule 45 wording, one-year return — which puts it in ITC-04 Table A by construction.
+    // (The Stock-Out screen posts toType SUPPLIER; before 4e the lot was parked but the challan was not.)
+    const processorUnit =
+      existing.challanType === 'OUTWARD' &&
+      existing.fromType !== 'VENDOR' &&
+      (existing.toType === 'SUPPLIER' || existing.toType === 'VENDOR') &&
+      existing.toId
+        ? await tx.warehouses.findFirst({
+            where: { supplierId: existing.toId, warehouseType: 'JOB_WORK', isActive: true },
+            select: { id: true, warehouseName: true },
+          })
+        : null;
+    if (processorUnit && existing.items.some((it) => it.greigeStockId)) {
+      const issuedOn = existing.issuedDate ?? existing.challanDate ?? new Date();
+      const returnBy = new Date(issuedOn);
+      returnBy.setFullYear(returnBy.getFullYear() + 1);
+      await tx.challans.update({
+        where: { id },
+        data: {
+          toType: 'VENDOR',
+          reasonForTransport: existing.reasonForTransport ?? STOCK_OUT_TO_JOB_WORKER_REASON,
+          expectedDate: existing.expectedDate ?? returnBy,
+        },
+      });
+    }
+
     // Auto-deduct stock for OUTWARD and INTERNAL challans based on stock type
     if (existing.challanType === 'OUTWARD' || existing.challanType === 'INTERNAL') {
       const effectiveUserId = userId || existing.issuedById;
@@ -317,8 +348,7 @@ export async function issueChallan(id: string, userId?: string) {
           // challan if issuance later fails (was on the global client → stock deducted with no challan; F4).
           // The challan reference is passed so this ONE ledger row fully describes the movement. It
           // used to be omitted, leaving referenceId null and forcing a second, duplicate row below.
-          const isProcessorTransfer =
-            existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && !!existing.toId;
+          const isProcessorTransfer = !!processorUnit;
           await greigeStockService.consumeGreigeStock(item.greigeStockId, greigeQty, effectiveUserId, tx, {
             referenceType: 'CHALLAN',
             referenceId: existing.id,
@@ -327,59 +357,54 @@ export async function issueChallan(id: string, userId?: string) {
               : `Consumed via challan ${existing.challanNumber}`,
           });
 
-          // If OUTWARD to a processor, create stock at processor's warehouse
-          if (existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && existing.toId && originalStock) {
-            // Find processor's warehouse (linked by supplierId)
-            const processorWarehouse = await tx.warehouses.findFirst({
-              where: { supplierId: existing.toId },
+          // If OUTWARD to a processor, the goods are held at its processing unit
+          if (processorUnit && existing.toId && originalStock) {
+            // Create new greige stock entry at processor's warehouse.
+            // warehouseId must be the FK, not just the display name — a NULL-warehouse lot is
+            // invisible to derived_stock_view, so the transferred stock vanished from every
+            // stock page while the source consumption still deducted the ledger (GRG-0006 −500m).
+            await tx.greige_stock.create({
+              data: {
+                greigeId: originalStock.greigeId,
+                quantityAvailable: new Prisma.Decimal(greigeQty),
+                quantityReserved: new Prisma.Decimal(0),
+                quantityConsumed: new Prisma.Decimal(0),
+                unit: originalStock.unit,
+                greigeWidth: originalStock.greigeWidth,
+                cutableWidth: originalStock.cutableWidth,
+                purchaseCost: originalStock.purchaseCost,
+                weightedAvgCost: originalStock.weightedAvgCost,
+                supplierId: originalStock.supplierId, // Preserve original supplier (who SOLD the greige)
+                processorId: existing.toId, // Track processor currently holding the stock
+                procurementId: originalStock.procurementId, // Preserve procurement link
+                sourceChallanId: existing.id,
+                sourceType: 'TRANSFER',
+                warehouseId: processorUnit.id,
+                warehouseLocation: processorUnit.warehouseName,
+                qualityGrade: originalStock.qualityGrade,
+                // The day it reached the processor — its one-year return period runs from it
+                receivedDate: existing.challanDate ?? new Date(),
+                status: 'AVAILABLE',
+                stockType: 'GENERIC',
+                createdById: effectiveUserId,
+              },
             });
 
-            if (processorWarehouse) {
-              // Create new greige stock entry at processor's warehouse.
-              // warehouseId must be the FK, not just the display name — a NULL-warehouse lot is
-              // invisible to derived_stock_view, so the transferred stock vanished from every
-              // stock page while the source consumption still deducted the ledger (GRG-0006 −500m).
-              await tx.greige_stock.create({
-                data: {
-                  greigeId: originalStock.greigeId,
-                  quantityAvailable: new Prisma.Decimal(greigeQty),
-                  quantityReserved: new Prisma.Decimal(0),
-                  quantityConsumed: new Prisma.Decimal(0),
-                  unit: originalStock.unit,
-                  greigeWidth: originalStock.greigeWidth,
-                  cutableWidth: originalStock.cutableWidth,
-                  purchaseCost: originalStock.purchaseCost,
-                  weightedAvgCost: originalStock.weightedAvgCost,
-                  supplierId: originalStock.supplierId, // Preserve original supplier (who SOLD the greige)
-                  processorId: existing.toId, // Track processor currently holding the stock
-                  procurementId: originalStock.procurementId, // Preserve procurement link
-                  sourceChallanId: existing.id,
-                  sourceType: 'TRANSFER',
-                  warehouseId: processorWarehouse.id,
-                  warehouseLocation: processorWarehouse.warehouseName,
-                  qualityGrade: originalStock.qualityGrade,
-                  receivedDate: new Date(),
-                  status: 'AVAILABLE',
-                  stockType: 'GENERIC',
-                  createdById: effectiveUserId,
-                },
-              });
-
-              // NOTE (on-hand semantics, T2-1): processor-held lots are deliberately EXCLUDED
-              // from on-hand — derived_stock_view filters processorId IS NULL AND sourceType
-              // != 'TRANSFER'. So the source consumption's ledger debit is the whole story:
-              // issued greige leaves on-hand and returns as fabric via GRN. Do NOT credit the
-              // ledger here — that would recreate ledger↔derived drift on every transfer.
-              //
-              // A second TRANSFER_OUT row used to be written here against the SOURCE lot. It was
-              // wrong twice over: the lot already had a CONSUMPTION row for the same metres (so
-              // the lot read as if double the quantity had left), and its balanceAfter was
-              // hard-coded to 0 with a comment claiming consumeGreigeStock would correct it —
-              // which never happened, because that runs first and writes its own row. The only
-              // thing it added was the challan reference, which the consumption row now carries
-              // itself. Live example: GRG-0006 showed CONSUMPTION −500 (balance 4883.14) AND
-              // TRANSFER_OUT −500 (balance 0) for a single 500 m challan.
-            }
+            // On hand at the processor's unit (Phase 4e, like greige delivered straight there): the
+            // store lot's consumption above took the metres off the store; the unit takes them on.
+            // Before 4e this lot was kept off the ledger, so a Stock-Out's metres vanished from every
+            // stock total while the processor held them (GRG-0006, 500 m at Manish Textiles).
+            const greigeMaterialId = await ensureMaterialRecord(originalStock.greigeId, 'GREIGE', tx);
+            await syncStockLevelQuantity(greigeMaterialId, greigeQty, processorUnit.id, 'METER', tx);
+            //
+            // A second TRANSFER_OUT row used to be written here against the SOURCE lot. It was
+            // wrong twice over: the lot already had a CONSUMPTION row for the same metres (so
+            // the lot read as if double the quantity had left), and its balanceAfter was
+            // hard-coded to 0 with a comment claiming consumeGreigeStock would correct it —
+            // which never happened, because that runs first and writes its own row. The only
+            // thing it added was the challan reference, which the consumption row now carries
+            // itself. Live example: GRG-0006 showed CONSUMPTION −500 (balance 4883.14) AND
+            // TRANSFER_OUT −500 (balance 0) for a single 500 m challan.
           }
         }
 

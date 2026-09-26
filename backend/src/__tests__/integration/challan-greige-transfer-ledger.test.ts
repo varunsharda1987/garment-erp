@@ -1,9 +1,12 @@
 /**
- * Greige transfer-to-processor ledger (2026-09-07).
+ * Greige transfer-to-processor ledger (2026-09-07; on-hand at the unit since Phase 4e, 2026-09-26).
  *
  * Issuing an OUTWARD challan to a processor does two things: it consumes the metres from the
- * source lot, and it creates a new lot holding those metres at the processor's warehouse. That is
- * correct and is NOT a discrepancy — processor-held lots are deliberately excluded from on-hand.
+ * source lot, and it creates a new lot holding those metres at the processor's unit. Since Phase 4e
+ * that lot is ON HAND at the unit — the store gives the metres up, the unit takes them on, and
+ * derived_stock_view counts the lot — and the challan goes out as a job-work challan (toType VENDOR,
+ * Rule 45 wording, one-year return) so ITC-04 lists it. Until then the lot was kept off the ledger,
+ * and a Stock-Out's metres vanished from every stock total while the processor held them (GRG-0006).
  *
  * What was wrong was the audit trail. The source lot got TWO debit rows for one physical
  * movement: a CONSUMPTION written by consumeGreigeStock, plus a second TRANSFER_OUT written by
@@ -20,7 +23,10 @@
 
 import { randomUUID } from 'crypto';
 import { prisma, createTestUser } from '../helpers/test-utils';
-import { issueChallan } from '../../services/challan.service';
+import { issueChallan, STOCK_OUT_TO_JOB_WORKER_REASON } from '../../services/challan.service';
+import greigeStockService from '../../services/greige-stock.service';
+import { jobWorkStatutoryService } from '../../services/job-work-statutory.service';
+import { toDateInputValue } from '../../utils/date';
 
 const RUN = `CGT${Date.now().toString(36).toUpperCase()}`;
 
@@ -118,7 +124,7 @@ beforeAll(async () => {
       status: 'DRAFT',
       fromType: 'WAREHOUSE',
       fromName: srcWh.warehouseName,
-      // 'SUPPLIER' is what issueChallan branches on for a processor transfer.
+      // What the Stock-Out screen posts; issuing turns it into a job-work challan (toType VENDOR)
       toType: 'SUPPLIER',
       toId: processorId,
       toName: processor.name,
@@ -149,6 +155,12 @@ afterAll(async () => {
   if (lotIds.length) {
     await prisma.greige_stock_transaction.deleteMany({ where: { stockId: { in: lotIds } } });
   }
+  const materialIds = (
+    await prisma.materials.findMany({ where: { greigeId: only(greigeId) }, select: { id: true } })
+  ).map((m) => m.id);
+  await prisma.stock_movements.deleteMany({ where: { materialId: { in: materialIds } } });
+  await prisma.stock_transactions.deleteMany({ where: { materialId: { in: materialIds } } });
+  await prisma.stock_levels.deleteMany({ where: { materialId: { in: materialIds } } });
   await prisma.challan_items.deleteMany({ where: { challanId: only(challanId) } });
   await prisma.challans.deleteMany({ where: { id: only(challanId) } });
   await prisma.greige_stock.deleteMany({ where: { greigeId: only(greigeId) } });
@@ -180,6 +192,43 @@ describe('greige transferred to a processor by challan', () => {
     expect(processorLot?.processorId).toBe(processorId);
     expect(processorLot?.warehouseId).toBe(processorWarehouseId);
     expect(processorLot?.sourceChallanId).toBe(challanId);
+  });
+
+  it('puts the metres ON HAND at the processor unit, the view agreeing (Phase 4e)', async () => {
+    const material = await prisma.materials.findFirstOrThrow({ where: { greigeId }, select: { id: true } });
+    const level = await prisma.stock_levels.findFirst({
+      where: { materialId: material.id, warehouseId: processorWarehouseId },
+    });
+    expect(Number(level?.quantity)).toBeCloseTo(TRANSFER_QTY, 2);
+    const view = await prisma.$queryRaw<Array<{ quantity: unknown }>>`
+      SELECT quantity FROM derived_stock_view
+      WHERE "materialId" = ${material.id} AND "warehouseId" = ${processorWarehouseId}`;
+    expect(Number(view[0]?.quantity)).toBeCloseTo(TRANSFER_QTY, 2);
+  });
+
+  it('goes out as a job-work challan: VENDOR, Rule 45 wording, one-year return, in ITC-04 Table A', async () => {
+    const challan = await prisma.challans.findUniqueOrThrow({ where: { id: challanId } });
+    expect(challan.status).toBe('ISSUED');
+    expect(challan.toType).toBe('VENDOR');
+    expect(challan.toId).toBe(processorId);
+    expect(challan.reasonForTransport).toBe(STOCK_OUT_TO_JOB_WORKER_REASON);
+    const oneYearOn = new Date(challan.issuedDate ?? challan.challanDate);
+    oneYearOn.setFullYear(oneYearOn.getFullYear() + 1);
+    expect(toDateInputValue(challan.expectedDate!)).toBe(toDateInputValue(oneYearOn));
+    const DAY = 24 * 60 * 60 * 1000;
+    const itc = await jobWorkStatutoryService.getITC04Extract(
+      new Date(challan.challanDate.getTime() - DAY),
+      new Date(Date.now() + DAY)
+    );
+    expect(itc.tableA.items.some((i) => i.challanId === challanId)).toBe(true);
+  });
+
+  it('is not offered to the next Stock-Out — nothing a processor holds is', async () => {
+    const offered = await greigeStockService.getGreigeStock({ greigeId, excludeTransferred: true });
+    const ids = offered.map((l) => l.id);
+    expect(ids).toContain(sourceStockId);
+    const processorLot = await prisma.greige_stock.findFirstOrThrow({ where: { greigeId, sourceType: 'TRANSFER' } });
+    expect(ids).not.toContain(processorLot.id);
   });
 
   it('writes exactly ONE debit row for the movement, with a real balance and the challan link', async () => {

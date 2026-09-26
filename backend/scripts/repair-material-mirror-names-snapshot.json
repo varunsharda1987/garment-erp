@@ -1,0 +1,321 @@
+{
+  "takenAt": "2026-09-26T18:54:44.771Z",
+  "note": "materials rows before repair-material-mirror-names --apply (id, code, name)",
+  "rows": [
+    {
+      "type": "GREIGE",
+      "masterId": "c4c9d46f-73ca-4537-bc66-cf2d0f9d92ea",
+      "id": "c4c9d46f-73ca-4537-bc66-cf2d0f9d92ea",
+      "code": "GRG-0003",
+      "name": "Poplin 40×40 / 92×88 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "eda00e84-b1b5-4ed5-9955-28c6d32bb94a",
+      "id": "eda00e84-b1b5-4ed5-9955-28c6d32bb94a",
+      "code": "GRG-0004",
+      "name": "Poplin 40×40 / 92×88 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "5dbc8711-274a-4df1-8344-e741cf490d97",
+      "id": "5dbc8711-274a-4df1-8344-e741cf490d97",
+      "code": "GRG-0005",
+      "name": "Cambric 60×60 / 92×84 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "95da389c-e05a-4823-b8a2-2bc7a9855395",
+      "id": "95da389c-e05a-4823-b8a2-2bc7a9855395",
+      "code": "GRG-0006",
+      "name": "Cambric 60×60 / 92×88 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "1ec399ee-31f5-40ab-862b-b8a8ad30c208",
+      "id": "1ec399ee-31f5-40ab-862b-b8a8ad30c208",
+      "code": "GRG-0007",
+      "name": "Cotton Crepe 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "89662916-5baf-462e-b6c0-7e1dcd11ff75",
+      "id": "89662916-5baf-462e-b6c0-7e1dcd11ff75",
+      "code": "GRG-0008",
+      "name": "Poplin 40×40 / 120×64 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "63500570-0265-4e1e-8f1c-5cb4347a59ba",
+      "id": "63500570-0265-4e1e-8f1c-5cb4347a59ba",
+      "code": "GRG-0009",
+      "name": "Poplin 40×40 / 88×66 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "630b864e-80e1-4348-af1a-29750180e13d",
+      "id": "630b864e-80e1-4348-af1a-29750180e13d",
+      "code": "GRG-0010",
+      "name": "Poplin 40×40 / 92×70 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "6fc89ae3-e21d-4c64-bda1-cec799aa9bc0",
+      "id": "6fc89ae3-e21d-4c64-bda1-cec799aa9bc0",
+      "code": "GRG-0012",
+      "name": "Cambric 60×60 / 92×84 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "3ba6e79f-c466-4976-b82b-4e20d9283a77",
+      "id": "3ba6e79f-c466-4976-b82b-4e20d9283a77",
+      "code": "GRG-0013",
+      "name": "Cambric 60×60 / 92×88 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "a45a9165-21e7-406b-98f0-bf043260aea3",
+      "id": "a45a9165-21e7-406b-98f0-bf043260aea3",
+      "code": "GRG-0014",
+      "name": "Cotton Crepe 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "6334ffb0-884a-4954-9ab5-267becde67cc",
+      "id": "6334ffb0-884a-4954-9ab5-267becde67cc",
+      "code": "GRG-0015",
+      "name": "Poplin 40×40 / 120×64 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "cae6b50f-5e67-4161-b674-f2299eb14653",
+      "id": "cae6b50f-5e67-4161-b674-f2299eb14653",
+      "code": "GRG-0016",
+      "name": "Poplin 40×40 / 133×72 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "90fc9f85-9bf1-4ad8-a052-93eefab0552c",
+      "id": "90fc9f85-9bf1-4ad8-a052-93eefab0552c",
+      "code": "GRG-0017",
+      "name": "Poplin 40×40 / 88×66 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "d2aadbbe-8911-4786-87f6-0e9c5aad39d3",
+      "id": "d2aadbbe-8911-4786-87f6-0e9c5aad39d3",
+      "code": "GRG-0018",
+      "name": "Poplin 40×40 / 92×70 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "03f38372-4e4b-4913-bc42-4661bd9abf53",
+      "id": "03f38372-4e4b-4913-bc42-4661bd9abf53",
+      "code": "GRG-0019",
+      "name": "Nazneen 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "7ab934a2-4dff-4292-8455-3b0886572f94",
+      "id": "7ab934a2-4dff-4292-8455-3b0886572f94",
+      "code": "GRG-0020",
+      "name": "Nazneen 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "1b9bcf03-2df8-4d07-80f0-3d8cc9816358",
+      "id": "1b9bcf03-2df8-4d07-80f0-3d8cc9816358",
+      "code": "GRG-0021",
+      "name": "Upada Silk 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "201a8d0a-3b02-41e0-9c66-2d2c2109f305",
+      "id": "201a8d0a-3b02-41e0-9c66-2d2c2109f305",
+      "code": "GRG-0022",
+      "name": "Viscose Chanderi 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "98b82c8a-ec61-40bf-84e7-6f8b47a19b72",
+      "id": "98b82c8a-ec61-40bf-84e7-6f8b47a19b72",
+      "code": "GRG-0023",
+      "name": "Viscose Crepe 30×30 / 68×46 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "c330d0a6-57c8-4010-9779-eb8f2449f6df",
+      "id": "c330d0a6-57c8-4010-9779-eb8f2449f6df",
+      "code": "GRG-0024",
+      "name": "Viscose Dobby 30×30 / 68×60 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "a0607c3b-b26b-4234-ba03-a3ea9fbe338d",
+      "id": "a0607c3b-b26b-4234-ba03-a3ea9fbe338d",
+      "code": "GRG-0025",
+      "name": "Viscose Moss 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "796a6638-a57b-4ca9-b5d1-4b2c5ba096b8",
+      "id": "796a6638-a57b-4ca9-b5d1-4b2c5ba096b8",
+      "code": "GRG-0026",
+      "name": "Viscose Organaza 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "95b858f1-92d4-4d5d-975d-9efcd86a3938",
+      "id": "95b858f1-92d4-4d5d-975d-9efcd86a3938",
+      "code": "GRG-0027",
+      "name": "Viscose Shantoon 40×40 / 92×58 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "2e5d01ed-1af2-4e9a-b735-8f09a271b37a",
+      "id": "2e5d01ed-1af2-4e9a-b735-8f09a271b37a",
+      "code": "GRG-0028",
+      "name": "Viscose Slub 30×30 / 68X64 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "07f2b522-3405-4de4-b3cf-0cfab5123287",
+      "id": "07f2b522-3405-4de4-b3cf-0cfab5123287",
+      "code": "GRG-0029",
+      "name": "Viscose Staple 30×30 / 68×64 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "82429f36-8ef7-43ad-96c6-f8d48fae8a6d",
+      "id": "82429f36-8ef7-43ad-96c6-f8d48fae8a6d",
+      "code": "GRG-0030",
+      "name": "Viscose Tissue 1×1 / 1×1 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "90fb6915-4728-485a-98ff-2b39ecc979cb",
+      "id": "90fb6915-4728-485a-98ff-2b39ecc979cb",
+      "code": "GRG-0031",
+      "name": "Viscose Twill 30×30 / 92×64 / 48\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "1fd440f8-2d44-409e-8772-34ca47f864a0",
+      "id": "1fd440f8-2d44-409e-8772-34ca47f864a0",
+      "code": "GRG-0032",
+      "name": "Upada Silk 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "253775f8-4e1a-486c-90be-6d2522bb28aa",
+      "id": "253775f8-4e1a-486c-90be-6d2522bb28aa",
+      "code": "GRG-0033",
+      "name": "Viscose Chanderi 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "58ac84d1-a181-407c-9287-c0791c9d5f82",
+      "id": "58ac84d1-a181-407c-9287-c0791c9d5f82",
+      "code": "GRG-0034",
+      "name": "Viscose Dobby 30×30 / 68×60 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "35cbf330-8eb8-46fc-aa4b-79d9e6779040",
+      "id": "35cbf330-8eb8-46fc-aa4b-79d9e6779040",
+      "code": "GRG-0035",
+      "name": "Viscose Moss 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "8e69d9b3-67fc-4c30-b24d-a19369644388",
+      "id": "8e69d9b3-67fc-4c30-b24d-a19369644388",
+      "code": "GRG-0036",
+      "name": "Viscose Organaza 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "55cb1f12-2107-41c0-9812-2b86bbd0464c",
+      "id": "55cb1f12-2107-41c0-9812-2b86bbd0464c",
+      "code": "GRG-0037",
+      "name": "Viscose Shantoon 40×40 / 92×58 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "id": "63b6bf45-8b6d-4982-9d56-d831e4529fd2",
+      "code": "GRG-0038",
+      "name": "Viscose Slub 30×30 / 68X64 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "id": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "code": "GRG-0039",
+      "name": "Viscose Staple 30×30 / 68×64 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "4288881e-7d83-4be4-abd2-08a8aa769296",
+      "id": "4288881e-7d83-4be4-abd2-08a8aa769296",
+      "code": "GRG-0040",
+      "name": "Viscose Tissue 1×1 / 1×1 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "be4412b1-4457-40d8-a79f-580e9bbdd3d0",
+      "id": "be4412b1-4457-40d8-a79f-580e9bbdd3d0",
+      "code": "GRG-0041",
+      "name": "Viscose Twill 30×30 / 92×64 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "id": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "code": "GRG-0042",
+      "name": "Viscose Crepe 30×30 / 68×46 / 71\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "678b5aae-8a85-48ba-ab6b-23040bb67ca0",
+      "id": "678b5aae-8a85-48ba-ab6b-23040bb67ca0",
+      "code": "GRG-0044",
+      "name": "Georgette 60X60 / 200X200 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "ad36b25d-f712-4c00-8e13-ebd6ec099bfc",
+      "id": "ad36b25d-f712-4c00-8e13-ebd6ec099bfc",
+      "code": "GRG-0045",
+      "name": "Cotton Voile-80*72 70X80 / 86X66 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "253b8c5b-d98f-45f0-a37d-63298fc3717c",
+      "id": "253b8c5b-d98f-45f0-a37d-63298fc3717c",
+      "code": "GRG-0046",
+      "name": "Poly Moss 1000X1000 / 1000X1000 / 63\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "236c728c-5215-4fda-9e4f-1774f8441280",
+      "id": "236c728c-5215-4fda-9e4f-1774f8441280",
+      "code": "GRG-0047",
+      "name": "Pink Net 1X1 / 1X1 / 57\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "6d788205-bc80-43cf-b4b9-3f389f237788",
+      "id": "6d788205-bc80-43cf-b4b9-3f389f237788",
+      "code": "GRG-0048",
+      "name": "Poly satin 1X1 / 1X1 / 56\""
+    },
+    {
+      "type": "GREIGE",
+      "masterId": "85c74fbc-e142-43a4-b0c0-8580a94e9462",
+      "id": "85c74fbc-e142-43a4-b0c0-8580a94e9462",
+      "code": "GRG-0049",
+      "name": "Cotton Flex 2/40*20 / 56X44 / 63\""
+    }
+  ]
+}

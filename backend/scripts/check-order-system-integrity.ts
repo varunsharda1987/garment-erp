@@ -32,10 +32,12 @@
  * D22 receipts on a split PO that name no delivery place     [GRN create requires one]
  * D23 active processors with no processing unit              (WH-JW code collision, until 26-Sep)
  * D24 label lots not on exactly one materials row / size of another label (label stock per size)
+ * D25 materials rows whose name/code differs from their master (renames never synced, until 27-Sep)
  */
 
 import { PrismaClient } from '@prisma/client';
 import { productionBlockingValidationService } from '../src/services/productionBlockingValidation.service';
+import { findMirrorDrift } from './repair-material-mirror-names';
 
 const prisma = new PrismaClient();
 const JSON_OUT = process.argv.includes('--json');
@@ -452,6 +454,29 @@ async function main() {
           OR (SELECT count(*) FROM materials m
                WHERE m."labelId" = s."labelId" AND m."sizeVariantId" IS NOT DISTINCT FROM s."sizeVariantId") <> 1
        ORDER BY l."labelCode"`
+  );
+
+  // ---- Materials registry ---------------------------------------------------------------
+
+  // materials.id === master.id, and the materials row's name/code is what POs, the printed PO/GRN,
+  // MRP and stock show. A master rename reached it only when the edit changed the name, so 45 greige
+  // and 13 lace mirrors read an old name (26-Sep audit; 10 of 13 POs). Also counts a label's size rows
+  // and a thread's pack rows that do not read "<name> - Size L" / "<name> - Cone 3-ply". Repair:
+  // scripts/repair-material-mirror-names.ts (a placeholder master name must be fixed on the master).
+  await run(
+    'D25',
+    'Materials rows whose name/code differs from their master (same id; + label size / thread pack rows)',
+    findMirrorDrift(prisma).then(({ drift }) =>
+      drift.map((d) => ({
+        type: d.type,
+        code: d.code,
+        status: d.status,
+        materials_name: d.base ? d.base.name : '(same)',
+        master_name: d.name,
+        materials_code: d.base && d.base.code !== d.code ? d.base.code : null,
+        stale_size_pack_rows: d.derived.length,
+      }))
+    )
   );
 
   // ---- Output ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@
  *  - supplier filter → the base row and every size row, each size row naming its size;
  *  - supplier + TRIMS types (the PO form's TRIMS category, which has no LABEL) → the same;
  *  - another supplier's label is not offered;
+ *  - a label with NO supplier is offered for every supplier on a Trims / General PO, never on a Greige one;
  *  - a material linked through material_suppliers is still offered (the existing path);
  *  - Assign Vendors suggests the label's supplier for every size (vendor-suggestion.service).
  */
@@ -32,15 +33,22 @@ let supplierId: string;
 let otherSupplierId: string;
 let labelId: string;
 let otherLabelId: string;
+let freeLabelId: string;
 let linkedMaterialId: string;
 const variantIds: string[] = [];
 
-async function makeLabel(code: string, supplier: string, sizes: string[]): Promise<{ id: string; variants: string[] }> {
+async function makeLabel(
+  code: string,
+  supplier: string | null,
+  sizes: string[]
+): Promise<{ id: string; variants: string[] }> {
   const categoryId = (await prisma.material_categories.findFirstOrThrow({ select: { id: true } })).id;
   const label = await prisma.label_master.create({
     data: { labelCode: code, labelName: `${code} Main Cum Size Label`, pricePerPiece: 0.6 },
   });
-  await prisma.label_suppliers.create({ data: { labelId: label.id, supplierId: supplier, isPreferred: true } });
+  if (supplier) {
+    await prisma.label_suppliers.create({ data: { labelId: label.id, supplierId: supplier, isPreferred: true } });
+  }
   await prisma.materials.create({
     data: {
       id: label.id,
@@ -94,6 +102,10 @@ beforeAll(async () => {
   const other = await makeLabel(`${RUN}-OTH`, otherSupplierId, ['S']);
   otherLabelId = other.id;
   variantIds.push(...other.variants);
+  // A label nobody has been set up to make yet (Liva Tag, 2026-09-26)
+  const free = await makeLabel(`${RUN}-FREE`, null, ['S']);
+  freeLabelId = free.id;
+  variantIds.push(...free.variants);
 
   // A plain material linked the old way, through material_suppliers
   const categoryId = (await prisma.material_categories.findFirstOrThrow({ select: { id: true } })).id;
@@ -112,7 +124,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  const labelIds = [labelId, otherLabelId].filter(Boolean).map((id) => only(id));
+  const labelIds = [labelId, otherLabelId, freeLabelId].filter(Boolean).map((id) => only(id));
   await prisma.material_suppliers.deleteMany({ where: { materialId: only(linkedMaterialId) } });
   await prisma.materials.deleteMany({
     where: { id: { in: [...labelIds, ...variantIds.map((id) => only(id)), only(linkedMaterialId)] } },
@@ -138,7 +150,18 @@ describe('PO material picker — label suppliers', () => {
   it('offers the base row and every size of a label linked only through label_suppliers', async () => {
     const rows = await pickerCodes({ supplierId });
     const codes = rows.map((r) => r.code).sort();
-    expect(codes).toEqual([`${RUN}-GEN`, `${RUN}-LBL`, `${RUN}-LBL-L`, `${RUN}-LBL-M`, `${RUN}-LBL-S`].sort());
+    expect(codes).toEqual(
+      [
+        `${RUN}-GEN`,
+        `${RUN}-LBL`,
+        `${RUN}-LBL-L`,
+        `${RUN}-LBL-M`,
+        `${RUN}-LBL-S`,
+        // the label with no supplier yet — any supplier may make it
+        `${RUN}-FREE`,
+        `${RUN}-FREE-S`,
+      ].sort()
+    );
     // each size row names its size, so the form can build the size grid
     for (const size of SIZES) {
       expect(rows.find((r) => r.code === `${RUN}-LBL-${size}`)?.labelSizeVariant?.size).toBe(size);
@@ -157,6 +180,20 @@ describe('PO material picker — label suppliers', () => {
     const codes = (await pickerCodes({ supplierId })).map((r) => r.code);
     expect(codes).not.toContain(`${RUN}-OTH`);
     expect(codes).not.toContain(`${RUN}-OTH-S`);
+  });
+
+  it('offers a label with no supplier yet to every supplier on a Trims PO, but not on a Greige PO', async () => {
+    for (const s of [supplierId, otherSupplierId]) {
+      const codes = (await pickerCodes({ supplierId: s, materialTypes: TRIMS_TYPES })).map((r) => r.code);
+      expect(codes).toContain(`${RUN}-FREE`);
+      expect(codes).toContain(`${RUN}-FREE-S`);
+    }
+    const greige = (await pickerCodes({ supplierId, materialTypes: 'GREIGE' })).map((r) => r.code);
+    expect(greige).not.toContain(`${RUN}-FREE`);
+    expect(greige).not.toContain(`${RUN}-FREE-S`);
+    // a label set up for supplier B stays with B, even on a Trims PO
+    const trimsA = (await pickerCodes({ supplierId, materialTypes: TRIMS_TYPES })).map((r) => r.code);
+    expect(trimsA).not.toContain(`${RUN}-OTH`);
   });
 
   it("suggests the label's supplier for every size, with high confidence (Assign Vendors)", async () => {

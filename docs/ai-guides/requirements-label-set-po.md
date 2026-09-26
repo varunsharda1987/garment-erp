@@ -67,6 +67,6 @@ For each style you order its labels together — main-cum-size, traceability, wa
 ## Validation traps
 - Only rows with status **PO Required** or **Partially from Stock** can be ticked. Rows already on a PO, received or cancelled have no box.
 - A row that reads **All sizes — waiting for the size split** (status **Size Split Pending**) cannot be ordered yet: the order has no size breakup. Add the sizes to the order first; MRP then makes one row per size.
-- **Manual PO** with rows of different vendors (or **Not Assigned**) shows "Preferred vendors in this selection: …" and leaves the supplier for you to pick. A label with no vendor (such as a Liva tag with no supplier on its Label page) needs one set with **Assign Vendors**, or add the supplier on the label's page.
+- **Manual PO** with rows of different vendors (or **Not Assigned**) shows "Preferred vendors in this selection: …" and leaves the supplier for you to pick. A label with no vendor (such as a Liva tag with no supplier on its Label page) can still be ordered: tick it, click **Manual PO** and choose the supplier there. **Bulk Generate POs** needs a vendor on every row — set one with **Assign Vendors**, or add the supplier on the label's page so MRP picks it up next time.
 - This view shows up to 500 requirements at a time — narrow it by order, style or search when the summary line says "showing first 500 of …".
 - Thread cannot be ordered from here; order it from Purchase Orders, in cones / tubes.

@@ -200,10 +200,22 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   // for these two (a March sync linked one arbitrary size row per label), so a sized label offered
   // only its XS row on the PO form (2026-09-26). The label_master path matches the base row AND every
   // size row, since each carries labelId. Neither type is in the PO form's TRIMS type list.
+  //
+  // A label or packaging item with NO supplier on its page yet is offered for every supplier, so the PO
+  // chooses who makes it (owner, 2026-09-26: Liva Tag had no supplier and could not be put on any PO).
+  // One set up for a supplier stays with its own suppliers. Only on a Trims PO or an unfiltered (General)
+  // one — the categories labels go on — never on a Greige or Fabric PO.
+  const onTrimsPo = materialTypes.length === 0 || materialTypes.includes('TRIMS');
   const supplierLinked: Prisma.materialsWhereInput[] = [
     { suppliers: { some: { supplierId, isActive: true } } },
     { label_master: { labelSuppliers: { some: { supplierId, isActive: true } } } },
     { packaging_master: { packaging_suppliers: { some: { supplierId, isActive: true } } } },
+    ...(onTrimsPo
+      ? [
+          { label_master: { is: { isActive: true, labelSuppliers: { none: { isActive: true } } } } },
+          { packaging_master: { is: { isActive: true, packaging_suppliers: { none: { isActive: true } } } } },
+        ]
+      : []),
   ];
   if (supplierId && materialTypes.length > 0) {
     whereClause.OR = [...supplierLinked, { materialType: { in: materialTypes as any[] } }];

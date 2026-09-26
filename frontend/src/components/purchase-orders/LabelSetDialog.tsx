@@ -308,6 +308,11 @@ export function LabelSetDialog({
                                 {l.name} · {l.quantityPerGarment}/garment{l.extraPercent ? ` +${l.extraPercent}%` : ''}
                               </div>
                               {!ok && <div className="text-xs text-warning">{unavailableReason(l)}</div>}
+                              {ok && l.supplierLinks.length === 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  No supplier on its Label page yet — bought from {supplierName || 'this supplier'}
+                                </div>
+                              )}
                               {ok && l.orderSizesMissing.length > 0 && (
                                 <div className="text-xs text-warning">
                                   No {l.orderSizesMissing.join(', ')} size for this label — the order has{' '}

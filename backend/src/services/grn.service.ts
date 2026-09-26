@@ -3,7 +3,15 @@
  * Business logic for goods receiving operations with stock integration
  */
 
-import { GRNStatus, PurchaseOrderStatus, Prisma, MovementType, Unit } from '@prisma/client';
+import {
+  GRNStatus,
+  PurchaseOrderStatus,
+  Prisma,
+  MovementType,
+  Unit,
+  ThreadPackagingType,
+  ThreadPly,
+} from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
   CreateGRNDTO,
@@ -23,7 +31,14 @@ import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
-import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import {
+  ensureMaterialRecord,
+  ensureThreadPackMaterialRecord,
+  syncStockLevelQuantity,
+  threadLotMaterialId,
+} from './helpers/material-sync.helper';
+import { threadPackUnit } from './helpers/thread-pack.helper';
+import threadStockService from './thread-stock.service';
 import {
   setJwoStatus,
   setJwoStatusMany,
@@ -134,6 +149,7 @@ function grnLineStock(item: {
   purchase_order_items?: {
     unitPrice: Prisma.Decimal | number | string;
     stockUnitsPerUnit?: Prisma.Decimal | number | string | null;
+    threadPackagingType?: ThreadPackagingType | null;
   } | null;
 }): { qty: number; unit: Unit; rate: number } {
   const poQty = grnLineActualQty(item as Parameters<typeof grnLineActualQty>[0]).toNumber();
@@ -141,11 +157,48 @@ function grnLineStock(item: {
   const factor =
     item.purchase_order_items?.stockUnitsPerUnit != null ? Number(item.purchase_order_items.stockUnitsPerUnit) : null;
   if (!factor || factor === 1) return { qty: poQty, unit: item.unit as Unit, rate: poRate };
+  // A box of thread holds cones or tubes (its pack); a gross / dozen holds pieces
+  const pack = item.purchase_order_items?.threadPackagingType;
   return {
     qty: toStockQty(poQty, factor),
-    unit: COUNT_UNIT_FACTORS[item.unit as Unit]?.of ?? (item.unit as Unit),
+    unit: pack ? threadPackUnit(pack) : (COUNT_UNIT_FACTORS[item.unit as Unit]?.of ?? (item.unit as Unit)),
     rate: stockRate(poRate, factor),
   };
+}
+
+type PackedLine = {
+  purchase_order_items?: { threadPackagingType?: ThreadPackagingType | null; threadPly?: ThreadPly | null } | null;
+};
+
+/**
+ * A thread line ordered in BOXES of a pack (2026-09-26 — the server writes the pack on the PO line): the pack,
+ * else null. Such a line is booked on its PACK row in cones / tubes, whatever the PO's category — cones and
+ * tubes are separate stock items, never added together.
+ */
+function threadPackOf(item: PackedLine): { packagingType: ThreadPackagingType; ply: ThreadPly | null } | null {
+  const packagingType = item.purchase_order_items?.threadPackagingType;
+  return packagingType ? { packagingType, ply: item.purchase_order_items?.threadPly ?? null } : null;
+}
+
+/**
+ * Whether a line's stock_levels is booked in the generic loop — every trim line (receivesViaStockLevels) and
+ * every packed thread line (on its pack row) — rather than by its category's own lot branch. Approval and
+ * reversal share it.
+ */
+function lineBooksStockLevelsInLoop(poCategory: string | null | undefined, item: PackedLine): boolean {
+  return !!threadPackOf(item) || receivesViaStockLevels(poCategory);
+}
+
+/** The materials row a line's stock is booked on: a packed thread line's PACK row, else the line's material. */
+async function grnLineStockMaterialId(
+  tx: Prisma.TransactionClient,
+  item: PackedLine & { materialId: string }
+): Promise<string> {
+  const pack = threadPackOf(item);
+  if (!pack) return item.materialId;
+  const material = await tx.materials.findUnique({ where: { id: item.materialId }, select: { threadId: true } });
+  if (!material?.threadId) return item.materialId;
+  return ensureThreadPackMaterialRecord(material.threadId, pack.packagingType, pack.ply, tx);
 }
 
 class GRNService {
@@ -1521,12 +1574,14 @@ class GRNService {
           return approved; // Skip normal stock_movements/stock_levels
         }
 
-        // Categories with their own lot branch (greige, fabric, lace, thread) sync stock_levels there; every
-        // other category books stock_levels HERE, once, and its trim lots in createSpecializedStockInTx.
-        const bookStockLevelsHere = receivesViaStockLevels(po?.poCategory);
-
+        // Categories with their own lot branch (greige, fabric, lace, unpacked thread) sync stock_levels there;
+        // every other line — trims, and thread ordered in a pack (on its PACK row) — books stock_levels HERE,
+        // once, and its lot in createSpecializedStockInTx.
         // Create stock movements and update stock levels for accepted items
         for (const item of grn.grn_items) {
+          const bookStockLevelsHere = lineBooksStockLevelsInLoop(po?.poCategory, item);
+          // A packed thread line's stock is its pack row (Cone 3-ply…), in cones / tubes; every other line's, its own
+          const stockMaterialId = await grnLineStockMaterialId(tx, item);
           // ACTUAL metres (counted × L/100 when the line has a fold length) — the PO unit; value and GST.
           const acceptedQty = grnLineActualQty(item).toNumber();
           const folded = hasFold(item.foldLengthCm);
@@ -1547,7 +1602,7 @@ class GRNService {
               data: {
                 id: randomUUID(),
                 movementType: MovementType.STOCK_IN,
-                materialId: item.materialId,
+                materialId: stockMaterialId,
                 warehouseId: targetWarehouseId,
                 supplierId: grn.supplierId, // Direct supplier reference
                 quantity: stock.qty,
@@ -1572,10 +1627,10 @@ class GRNService {
             // with its stock_levels write lost
             if (bookStockLevelsHere) {
               await tx.stock_levels.upsert({
-                where: { materialId_warehouseId: { materialId: item.materialId, warehouseId: targetWarehouseId } },
+                where: { materialId_warehouseId: { materialId: stockMaterialId, warehouseId: targetWarehouseId } },
                 create: {
                   id: randomUUID(),
-                  materialId: item.materialId,
+                  materialId: stockMaterialId,
                   warehouseId: targetWarehouseId,
                   quantity: stock.qty,
                   unit: stock.unit,
@@ -1618,7 +1673,7 @@ class GRNService {
               data: {
                 id: randomUUID(),
                 movementType: MovementType.ADJUSTMENT_OUT,
-                materialId: item.materialId,
+                materialId: stockMaterialId,
                 warehouseId: targetWarehouseId,
                 supplierId: grn.supplierId, // Direct supplier reference
                 quantity: rejectedStock.qty,
@@ -2191,122 +2246,59 @@ class GRNService {
       }
     }
 
-    // ===== THREAD =====
-    if (po.poCategory === 'THREAD') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
+    // ===== THREAD — one lot per receipt line =====
+    // A line ordered in boxes of a pack (2026-09-26) becomes a lot of THAT pack — packing and ply from the PO
+    // LINE, never the thread master — in cones / tubes (boxes × box size), on any PO category; its stock_levels
+    // was booked on the pack row in the generic loop. An unpacked line on a THREAD PO (none since the PO
+    // writers require a pack) makes an unpacked lot on the thread's base row. One lot per GRN line (grnItemId):
+    // the old (thread, PO, packing, ply) key made a second receipt on the same PO line fail.
+    for (const item of grn.grn_items) {
+      const pack = threadPackOf(item);
+      if (!pack && po.poCategory !== 'THREAD') continue;
+      const stock = grnLineStock(item);
+      if (!(stock.qty > 0)) continue;
 
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          select: {
-            threadId: true,
-            thread_master: {
-              select: {
-                id: true,
-                threadCode: true,
-                threadName: true,
-                ply: true,
-                packagingType: true,
-                materialComposition: true,
-                color: true,
-                colorId: true,
-                colorMaster: { select: { colorName: true } },
-              },
-            },
-          },
-        });
-
-        if (!material?.threadId || !material.thread_master) {
-          logInfo(
-            `GRN item ${item.id}: material ${item.materialId} has no thread link, skipping thread_stock creation`
-          );
-          continue;
-        }
-
-        const thread = material.thread_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // Determine unit from PO item or thread master
-        const poUnit = item.purchase_order_items?.unit || 'SPOOL';
-        const packagingType = thread.packagingType || 'SPOOL';
-
-        // Calculate derived quantities from packaging specs
-        let metersAvailable: number | null = null;
-        let boxesAvailable: number | null = null;
-
-        const spec = await tx.thread_packaging_specs.findFirst({
-          where: { ply: thread.ply || undefined, packagingType: packagingType, isActive: true },
-        });
-
-        if (spec) {
-          metersAvailable = acceptedQty * Number(spec.metersPerUnit);
-          boxesAvailable = spec.unitsPerBox > 0 ? acceptedQty / spec.unitsPerBox : null;
-        }
-
-        await tx.thread_stock.create({
-          data: {
-            threadId: thread.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
-            unit: poUnit,
-            metersAvailable,
-            boxesAvailable,
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
-            ply: thread.ply,
-            packagingType: thread.packagingType,
-            materialComposition: thread.materialComposition,
-            colorName: thread.colorMaster?.colorName || thread.color || null,
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            procurementId: grn.poId || undefined,
-            createdById: userId,
-          },
-        });
-
-        // Create stock transaction
-        const stockEntry = await tx.thread_stock.findFirst({
-          where: { threadId: thread.id, procurementId: grn.poId },
-          orderBy: { createdAt: 'desc' },
-        });
-
-        if (stockEntry) {
-          await tx.thread_stock_transaction.create({
-            data: {
-              stockId: stockEntry.id,
-              transactionType: 'STOCK_IN',
-              quantity: acceptedQty,
-              balanceAfter: acceptedQty,
-              referenceType: 'GRN',
-              referenceId: grn.id,
-              notes: `GRN ${grn.grnNumber} - ${thread.threadCode}`,
-              performedById: userId,
-            },
-          });
-        }
-
-        // Update linked thread requirements status to RECEIVED
-        if (item.purchase_order_items?.id) {
-          await tx.order_thread_requirements.updateMany({
-            where: { poItemId: item.purchase_order_items.id },
-            data: { status: 'RECEIVED' },
-          });
-        }
-
-        // Ensure materials record + sync stock_levels
-        await ensureMaterialRecord(thread.id, 'THREAD', tx);
-        await syncStockLevelQuantity(thread.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(
-          `Auto-created thread_stock from THREAD GRN ${grn.grnNumber}: ${acceptedQty} ${poUnit} of threadId=${thread.id}`,
-          { grnId: grn.id, threadId: thread.id, quantity: acceptedQty, meters: metersAvailable }
-        );
+      const material = await tx.materials.findUnique({
+        where: { id: item.materialId },
+        select: { threadId: true },
+      });
+      if (!material?.threadId) {
+        logInfo(`GRN item ${item.id}: material ${item.materialId} has no thread link, skipping thread_stock creation`);
+        continue;
       }
+
+      const lot = await threadStockService.createThreadStock(
+        {
+          threadId: material.threadId,
+          pack: pack ?? { packagingType: null, ply: null },
+          quantity: stock.qty,
+          purchaseCost: stock.rate,
+          warehouseId,
+          sourceType: 'GRN',
+          grnItemId: item.id,
+          grnId: grn.id,
+          procurementId: grn.poId ?? undefined,
+          receivedDate: grn.receivingDate ? new Date(grn.receivingDate) : new Date(),
+          skipMaterialSync: lineBooksStockLevelsInLoop(po.poCategory, item),
+          tx,
+        },
+        userId
+      );
+
+      // Update linked thread requirements status to RECEIVED
+      if (item.purchase_order_items?.id) {
+        await tx.order_thread_requirements.updateMany({
+          where: { poItemId: item.purchase_order_items.id },
+          data: { status: 'RECEIVED' },
+        });
+      }
+
+      logInfo(`Thread lot from GRN ${grn.grnNumber}: ${stock.qty} ${stock.unit} of threadId=${material.threadId}`, {
+        grnId: grn.id,
+        lotId: lot.id,
+        packagingType: pack?.packagingType ?? null,
+        ply: pack?.ply ?? null,
+      });
     }
 
     // ===== TRIMS — every category without its own lot branch (TRIMS, GENERAL, BUTTON, LABEL …) =====
@@ -2316,7 +2308,8 @@ class GRNService {
     // and labels as TRIMS — so no trim receipt ever reached a lot table, a stock screen or MRP netting.
     if (receivesViaStockLevels(po.poCategory)) {
       for (const item of grn.grn_items) {
-        if (!item.materialId) continue;
+        // A packed thread line got its lot in the thread block above
+        if (!item.materialId || threadPackOf(item)) continue;
         const stock = grnLineStock(item);
         if (!(stock.qty > 0)) continue;
         await routeToSpecializedStock(
@@ -2752,7 +2745,8 @@ class GRNService {
               data: {
                 id: randomUUID(),
                 movementType: MovementType.STOCK_OUT,
-                materialId: item.materialId,
+                // The row approval booked it on — a packed thread line's pack row
+                materialId: await grnLineStockMaterialId(tx, item),
                 warehouseId: warehouseId,
                 supplierId: grn.supplierId,
                 quantity: stockQty,
@@ -3789,11 +3783,20 @@ class GRNService {
 
     const poCategory = po.poCategory;
 
+    // Thread — every packed line (any category) and every line of a THREAD PO: its own lot, found by grnItemId
+    for (const item of grn.grn_items) {
+      if (threadPackOf(item) || (poCategory === 'THREAD' && item.materials?.threadId)) {
+        await this.reverseThreadLotInTx(tx, grn, item, userId, warehouseId, reason);
+      }
+    }
+    if (poCategory === 'THREAD') return;
+
     // Every category approval booked through the generic loop (the SAME predicate): take back each trim line's
     // lot — refused once any of it has been issued — then its stock_levels, in the stock units approval booked.
     // TRIMS was missing here before 2026-09-26, so reversing a trims receipt never took stock_levels back.
     if (receivesViaStockLevels(poCategory)) {
       for (const item of grn.grn_items) {
+        if (threadPackOf(item)) continue; // reversed above, on its pack row
         const stockQty = item.stockQuantity != null ? Number(item.stockQuantity) : grnLineStock(item).qty;
         if (!(stockQty > 0)) continue;
         const lot = item.materials ? trimLotOf(item.materials) : null;
@@ -3996,54 +3999,74 @@ class GRNService {
           });
         }
       }
-
-      // THREAD - reverse thread_stock
-      if (poCategory === 'THREAD' && material?.thread_master) {
-        const threadId = material.thread_master.id;
-        const threadStock = await tx.thread_stock.findFirst({
-          where: {
-            threadId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (threadStock) {
-          const newAvailable = Number(threadStock.quantityAvailable) - acceptedQty;
-          if (newAvailable <= 0) {
-            await tx.thread_stock.delete({ where: { id: threadStock.id } });
-          } else {
-            await tx.thread_stock.update({
-              where: { id: threadStock.id },
-              data: { quantityAvailable: newAvailable },
-            });
-          }
-
-          // Create reversal transaction
-          await tx.thread_stock_transaction.create({
-            data: {
-              stockId: threadStock.id,
-              transactionType: 'ADJUSTMENT_OUT',
-              quantity: -acceptedQty,
-              balanceAfter: Math.max(0, newAvailable),
-              referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
-              referenceId: grn.id,
-              notes: `GRN ${grn.grnNumber} reversed - ${reason}`,
-              performedById: userId,
-            },
-          });
-
-          await syncStockLevelQuantity(threadId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed thread_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            threadId,
-          });
-        }
-      }
     }
+  }
+
+  /**
+   * Take back the thread lot ONE receipt line made (grnItemId, since 2026-09-26; an older lot by the PO / warehouse
+   * heuristic) and its stock_levels on the lot's own row — its pack row, or the base row when unpacked. Refused
+   * once any of the lot has been used: those cones / tubes must come back first.
+   */
+  private async reverseThreadLotInTx(
+    tx: Prisma.TransactionClient,
+    grn: any,
+    item: any,
+    userId: string,
+    warehouseId: string,
+    reason: string
+  ): Promise<void> {
+    const stockQty = item.stockQuantity != null ? Number(item.stockQuantity) : grnLineStock(item).qty;
+    if (!(stockQty > 0)) return;
+    const linked = await tx.thread_stock.findUnique({ where: { grnItemId: item.id } });
+    const lot =
+      linked ??
+      (item.materials?.threadId
+        ? await tx.thread_stock.findFirst({
+            where: {
+              threadId: item.materials.threadId,
+              grnItemId: null,
+              warehouseId,
+              procurementId: grn.poId,
+              quantityAvailable: { gte: stockQty },
+            },
+            orderBy: { receivedDate: 'desc' },
+          })
+        : null);
+    if (!lot) {
+      logWarn(`GRN ${grn.grnNumber} reversal: no thread lot found for line ${item.id} — nothing to take back`);
+      return;
+    }
+    if (linked && !isQtyZero(Number(linked.quantityConsumed))) {
+      throw new BusinessError(
+        `Cannot reverse GRN ${grn.grnNumber}: ${Number(linked.quantityConsumed)} of its thread lot has already been ` +
+          `used. Take those back first, then reverse.`,
+        { reason: 'GRN_LOT_ALREADY_USED', lotId: linked.id, used: Number(linked.quantityConsumed) }
+      );
+    }
+
+    const reverseQty = linked ? Number(linked.quantityAvailable) : stockQty;
+    const remaining = Math.max(0, Number(lot.quantityAvailable) - reverseQty);
+    const newAvailable = isQtyZero(remaining) ? 0 : remaining;
+    // Zeroed, not deleted: its transactions (and any challan naming it) keep pointing at it
+    await tx.thread_stock.update({
+      where: { id: lot.id },
+      data: { quantityAvailable: newAvailable, ...(newAvailable === 0 ? { status: 'EXHAUSTED' as const } : {}) },
+    });
+    await tx.thread_stock_transaction.create({
+      data: {
+        stockId: lot.id,
+        transactionType: 'ADJUSTMENT_OUT',
+        quantity: -reverseQty,
+        balanceAfter: newAvailable,
+        referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
+        referenceId: grn.id,
+        notes: `GRN ${grn.grnNumber} reversed - ${reason}`,
+        performedById: userId,
+      },
+    });
+    await syncStockLevelQuantity(await threadLotMaterialId(lot, tx), -reverseQty, warehouseId, undefined, tx);
+
+    logInfo(`Reversed thread lot from GRN ${grn.grnNumber}: ${reverseQty}`, { grnId: grn.id, lotId: lot.id });
   }
 
   // BUG-GRN6 fix: Reverse Processing PO specific records

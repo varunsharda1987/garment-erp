@@ -16,7 +16,7 @@
  * stockMovement.service.ts to maintain data consistency across all 11 material types.
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma, TransactionReferenceType } from '@prisma/client';
 import prisma from '../../config/database';
 import greigeStockService from '../greige-stock.service';
 import { createLaceStock } from '../laceStock.service';
@@ -27,7 +27,8 @@ import { systemSettingsService } from '../system-settings.service';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
 import { getQualityGradeOrDefault } from '../../constants/stock.constants';
 import { foldActual } from '../../utils/fold-length';
-import { isQtyZero, snapToLimit } from '../../utils/quantity';
+import { isQtyZero, qtyExceeds, snapToLimit } from '../../utils/quantity';
+import { BusinessError } from '../../errors';
 
 export interface StockInRoutingData {
   materialId: string;
@@ -113,6 +114,9 @@ export async function routeToSpecializedStock(
   tx?: any,
   options: StockInRoutingOptions = {}
 ): Promise<{ routed: boolean; stockType?: string; stockId?: string }> {
+  // Every write here belongs to ONE transaction with the caller's stock_levels + movement: join the caller's,
+  // or open one — a lot written without its ledger row (or the reverse) is never left behind
+  if (!tx) return prisma.$transaction((own) => routeToSpecializedStock(data, own, options));
   // Actual metres at the fold length (identity when there is none). The greige lot converts itself.
   const actualQty = foldActual(data.quantity, data.foldLengthCm).toNumber();
   const client = tx || prisma;
@@ -289,11 +293,39 @@ export async function routeToSpecializedStock(
     logInfo(`[StockRouting] Material ${data.materialId} is generic - no specialized routing needed`);
     return { routed: false };
   } catch (error) {
-    if (options.strict) throw error;
+    // Never swallowed (2026-09-26): the caller's transaction must roll back, or it commits stock_levels and a
+    // movement with no lot behind them — and the page must see why the receipt failed
     logError(`[StockRouting] Failed to route stock for material ${data.materialId}:`, error);
-    // Don't throw - routing failure shouldn't block the primary stock movement
-    return { routed: false };
+    throw error;
   }
+}
+
+/**
+ * A lot ledger row's reference type (the TransactionReferenceType enum) for a stock-out's free-text reference.
+ * The FIFO loops used to write `referenceType || 'STOCK_OUT'` — not an enum value, so Prisma refused the audit row
+ * AFTER the first lot was decremented, the catch below swallowed it, and a stock-out spanning two lots stopped at
+ * the first while stock_levels took the full quantity (found by thread-stock-per-pack.test, 2026-09-26).
+ */
+function lotReferenceType(reference: string | undefined): TransactionReferenceType {
+  return reference && (Object.values(TransactionReferenceType) as string[]).includes(reference)
+    ? (reference as TransactionReferenceType)
+    : TransactionReferenceType.MANUAL;
+}
+
+/**
+ * A lot-backed material's stock-out must be drawn from its lots in full. When the lots at that warehouse hold less
+ * than asked, stock_levels and the lots already disagree: refuse, so the caller's transaction rolls back — the FIFO
+ * loops used to take what the lots had and return as if done, while stock_levels dropped by the whole quantity.
+ */
+function refuseUncoveredStockOut(remainingQty: number, data: StockOutRoutingData, lotKind: string): void {
+  if (!qtyExceeds(remainingQty, 0)) return;
+  const round = (x: number) => Math.round(x * 1000) / 1000;
+  const inLots = round(data.quantity - remainingQty);
+  throw new BusinessError(
+    `Only ${inLots} of the ${round(data.quantity)} asked for is in this material's ${lotKind} lots at that ` +
+      `warehouse — its stock level and its lots disagree. Nothing was taken out; check its Material Ledger first.`,
+    { reason: 'STOCK_LOTS_SHORT', materialId: data.materialId, asked: data.quantity, inLots }
+  );
 }
 
 export interface StockOutRoutingData {
@@ -318,7 +350,9 @@ export async function routeFromSpecializedStock(
   data: StockOutRoutingData,
   tx?: any
 ): Promise<{ routed: boolean; stockType?: string; deductedRecords?: Array<{ stockId: string; quantity: number }> }> {
-  const client = tx || prisma;
+  // Lot decrements and their audit rows commit together with the caller's stock_levels + movement, or not at all
+  if (!tx) return prisma.$transaction((own) => routeFromSpecializedStock(data, own));
+  const client = tx;
 
   try {
     // Fetch material with all FK fields
@@ -389,7 +423,7 @@ export async function routeFromSpecializedStock(
             transactionType: 'CONSUMPTION',
             quantity: new Prisma.Decimal(-deductQty),
             balanceAfter: new Prisma.Decimal(available - deductQty),
-            referenceType: data.referenceType || 'STOCK_OUT',
+            referenceType: lotReferenceType(data.referenceType),
             referenceId: data.referenceId,
             notes: 'Deducted via stock movement',
             performedById: data.performedById,
@@ -400,6 +434,7 @@ export async function routeFromSpecializedStock(
         remainingQty -= deductQty;
       }
 
+      refuseUncoveredStockOut(remainingQty, data, 'greige');
       if (deductedRecords.length > 0) {
         // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
@@ -438,6 +473,7 @@ export async function routeFromSpecializedStock(
         remainingQty -= deductQty;
       }
 
+      refuseUncoveredStockOut(remainingQty, data, 'fabric');
       if (deductedRecords.length > 0) {
         // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
@@ -479,7 +515,7 @@ export async function routeFromSpecializedStock(
             transactionType: 'CONSUMPTION',
             quantity: -deductQty,
             balanceAfter: available - deductQty,
-            referenceType: data.referenceType || 'STOCK_OUT',
+            referenceType: lotReferenceType(data.referenceType),
             referenceId: data.referenceId,
             notes: 'Deducted via stock movement',
             performedById: data.performedById,
@@ -490,6 +526,7 @@ export async function routeFromSpecializedStock(
         remainingQty -= deductQty;
       }
 
+      refuseUncoveredStockOut(remainingQty, data, 'lace');
       if (deductedRecords.length > 0) {
         // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
@@ -534,7 +571,7 @@ export async function routeFromSpecializedStock(
             transactionType: 'CONSUMPTION',
             quantity: -deductQty,
             balanceAfter: available - deductQty,
-            referenceType: data.referenceType || 'STOCK_OUT',
+            referenceType: lotReferenceType(data.referenceType),
             referenceId: data.referenceId,
             notes: 'Deducted via stock movement',
             performedById: data.performedById,
@@ -545,6 +582,7 @@ export async function routeFromSpecializedStock(
         remainingQty -= deductQty;
       }
 
+      refuseUncoveredStockOut(remainingQty, data, 'thread');
       if (deductedRecords.length > 0) {
         // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
@@ -590,6 +628,7 @@ export async function routeFromSpecializedStock(
           remainingQty -= deductQty;
         }
 
+        refuseUncoveredStockOut(remainingQty, data, 'trim');
         if (deductedRecords.length > 0) {
           // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
           const totalDeducted = data.quantity - remainingQty;
@@ -605,8 +644,10 @@ export async function routeFromSpecializedStock(
     );
     return { routed: false };
   } catch (error) {
+    // Never swallowed (2026-09-26). It was: a lot decremented, its audit row refused (an invalid reference type),
+    // the error caught here — and the caller's transaction COMMITTED the half-done stock-out: one lot drawn,
+    // stock_levels down by the full quantity, no ledger row. Rethrowing rolls every write back and shows the page.
     logError(`[StockRouting] Failed to route stock OUT for material ${data.materialId}:`, error);
-    // Don't throw - routing failure shouldn't block the primary stock movement
-    return { routed: false };
+    throw error;
   }
 }

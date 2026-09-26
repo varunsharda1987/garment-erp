@@ -1039,18 +1039,18 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderList.tsx": "5697924bba3f",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "3a1ac22f0bb4",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "2807b35f97c7",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "b8fc1825d1cb",
       "frontend/src/types/purchaseOrder.types.ts": "1e3b031c5928",
       "backend/src/schemas/purchaseOrder.schema.ts": "8ca4625c9654",
       "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
       "frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx": "127c69d8cc71",
-      "backend/src/controllers/material.controller.ts": "dd8cec337a77",
+      "backend/src/controllers/material.controller.ts": "5d8997de4579",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e"
     },
-    "contentHash": "b882f22bbc89",
-    "generatedAt": "2026-09-26T09:13:42.659Z"
+    "contentHash": "f381b5bd5915",
+    "generatedAt": "2026-09-26T12:16:30.313Z"
   },
   "quotation-convert": {
     "sources": {
@@ -1457,11 +1457,11 @@
       "backend/src/schemas/workOrder.schema.ts": "3b06f5653c89",
       "backend/src/routes/workOrder.routes.ts": "1542e89d0d56",
       "backend/src/services/workOrder.service.ts": "1533c85fdfce",
-      "backend/src/services/helpers/material-sync.helper.ts": "c125567b2af0",
+      "backend/src/services/helpers/material-sync.helper.ts": "06ceb8981893",
       "backend/src/services/productionBlockingValidation.service.ts": "5c701bf13264"
     },
     "contentHash": "666ea640eace",
-    "generatedAt": "2026-09-26T09:13:42.668Z"
+    "generatedAt": "2026-09-26T12:16:30.583Z"
   },
   "zipper-create": {
     "sources": {

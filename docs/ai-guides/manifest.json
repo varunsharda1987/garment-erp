@@ -71,12 +71,12 @@
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/CADPlanningPage.tsx": "3c143bc81b4e",
-      "frontend/src/pages/CADPlanningList.tsx": "3b3de982ce65",
+      "frontend/src/pages/CADPlanningList.tsx": "2b84e3715e5d",
       "frontend/src/components/cad/CADSpreadsheetTable.tsx": "9edc25314075",
       "frontend/src/components/cad/StockSummaryBanner.tsx": "9585beb1e33a"
     },
-    "contentHash": "f5ef76f1b2cc",
-    "generatedAt": "2026-09-25T13:01:05.798Z"
+    "contentHash": "af595f734d3c",
+    "generatedAt": "2026-09-26T06:25:24.392Z"
   },
   "catalogue-generate": {
     "sources": {

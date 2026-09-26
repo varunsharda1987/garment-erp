@@ -61,6 +61,7 @@ import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLim
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
+import { purchaseUnitFor, purchaseUnitPrices, toPurchaseLine, toStockQty } from './helpers/purchase-unit.helper';
 import {
   LABEL_LINE_MATERIAL_INCLUDE,
   LABEL_LINE_MATERIAL_SELECT,
@@ -3736,6 +3737,8 @@ export async function generatePOFromRequirements(
     fabricWidth?: number | null;
     /** What the line is for, e.g. "Main Cum Size Label Black (XS)" — shown on the PO, GRN and print */
     componentName?: string | null;
+    /** Stock units in one line unit when bought in a purchase unit (buttons: GROSS = 144 pieces) */
+    stockUnitsPerUnit?: number | null;
   }
 
   const poItems: POItemData[] = [];
@@ -3834,6 +3837,29 @@ export async function generatePOFromRequirements(
         ...getEnrichedFields(req),
       });
     }
+  }
+
+  // Buttons / snap buttons are bought by the GROSS (owner, 2026-09-26): each line — summed in PIECES above —
+  // becomes whole gross (rounded up after consolidation) at the rate per gross. A wizard quantity or price
+  // override is already in gross (the preview showed gross) and is kept as typed.
+  const purchaseRates = await purchaseUnitPrices(
+    poItems.map((i) => i.materialId),
+    supplierId
+  );
+  const reqByIdForUnits = new Map(requirements.map((r) => [r.id, r]));
+  for (const item of poItems) {
+    const purchase = purchaseUnitFor(item.material?.materialType);
+    if (!purchase) continue;
+    const firstReq = reqByIdForUnits.get(item.requirementIds[0]);
+    const key = firstReq ? buildGroupKey(firstReq) : item.materialId;
+    Object.assign(
+      item,
+      toPurchaseLine(item, purchase, {
+        quantityOverride: (itemQuantities as any)?.[key] ?? (itemQuantities as any)?.[item.materialId],
+        priceOverride: itemPrices?.[key] ?? itemPrices?.[item.materialId],
+        purchaseUnitPrice: purchaseRates.get(item.materialId),
+      })
+    );
   }
 
   // Qty-rate audit 2026-08-24: PROCESSING items re-resolve the slab rate at their FINAL
@@ -4415,6 +4441,7 @@ export async function generatePOFromRequirements(
           materialId: item.materialId,
           orderedQuantity: item.quantity,
           unit: item.unit as Unit,
+          stockUnitsPerUnit: item.stockUnitsPerUnit ?? null,
           unitPrice: item.unitPrice,
           totalPrice: item.lineTotal,
           printingType: item.printingType || null,
@@ -4444,13 +4471,16 @@ export async function generatePOFromRequirements(
         totalShortfall += shortfall;
       }
 
+      // A link is in the REQUIREMENT's unit (pieces): 16 gross covers 2,304 pieces. The remainder check,
+      // PO cancel and short-close below all compare links with requirements — pieces with pieces.
+      const itemStockQty = toStockQty(item.quantity, item.stockUnitsPerUnit);
       for (const reqId of item.requirementIds) {
         // Allocate proportionally: each requirement gets its share based on its shortfall
         const reqShortfall = reqShortfalls.get(reqId) || 0;
         const allocatedQty =
           totalShortfall > 0
-            ? (reqShortfall / totalShortfall) * item.quantity
-            : item.quantity / item.requirementIds.length; // Fallback to equal split
+            ? (reqShortfall / totalShortfall) * itemStockQty
+            : itemStockQty / item.requirementIds.length; // Fallback to equal split
 
         await tx.requirement_po_links.create({
           data: {
@@ -5920,6 +5950,12 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       }
     }
 
+    // Rates per gross for the buttons in this preview (supplier's, else the master's)
+    const previewPurchaseRates = await purchaseUnitPrices(
+      Array.from(materialGroups.values()).map((g) => g.materialId),
+      supplierId
+    );
+
     // Build preview items
     const items: POPreviewItem[] = [];
     let subtotal = 0;
@@ -5967,8 +6003,22 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       // MRP-05: honour the prices/quantities the user edited in the review step, exactly as
       // generatePOFromRequirements does (same groupKey-then-materialId lookup order). Without
       // this the preview showed resolved rates while the created PO used the edited ones.
-      const effectiveUnitPrice = itemPrices?.[groupKey] ?? itemPrices?.[mg.materialId] ?? unitPrice;
-      const effectiveQuantity = itemQuantities?.[groupKey] ?? itemQuantities?.[mg.materialId] ?? mg.quantity;
+      let effectiveUnitPrice = itemPrices?.[groupKey] ?? itemPrices?.[mg.materialId] ?? unitPrice;
+      let effectiveQuantity = itemQuantities?.[groupKey] ?? itemQuantities?.[mg.materialId] ?? mg.quantity;
+      let lineUnit = mg.unit;
+      // Buttons by the GROSS — the same conversion generatePOFromRequirements applies (toPurchaseLine), so the
+      // quantities and prices this preview shows (and the wizard echoes back as edits) are already in gross
+      const purchase = purchaseUnitFor(matType);
+      if (purchase) {
+        const line = toPurchaseLine({ quantity: mg.quantity, unitPrice }, purchase, {
+          quantityOverride: itemQuantities?.[groupKey] ?? itemQuantities?.[mg.materialId],
+          priceOverride: itemPrices?.[groupKey] ?? itemPrices?.[mg.materialId],
+          purchaseUnitPrice: previewPurchaseRates.get(mg.materialId),
+        });
+        effectiveQuantity = line.quantity;
+        effectiveUnitPrice = line.unitPrice;
+        lineUnit = line.unit;
+      }
 
       const priceRequired = effectiveUnitPrice === 0;
       if (priceRequired) hasZeroPriceItems = true;
@@ -5998,7 +6048,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         hsnCode: mat?.hsnCode || null,
         gstRate,
         quantity: effectiveQuantity,
-        unit: mg.unit,
+        unit: lineUnit,
         unitPrice: effectiveUnitPrice,
         lineTotal,
         cgstRate,

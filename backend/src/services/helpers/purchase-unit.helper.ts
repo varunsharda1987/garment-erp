@@ -98,6 +98,69 @@ export async function resolvePoLineUnits(
   });
 }
 
+/**
+ * The rate per purchase unit a supplier charges for each material bought in one (buttons, snap buttons):
+ * the supplier's own price per gross, else the master's. Materials with neither are absent — the caller then
+ * converts its per-piece rate (× 144).
+ */
+export async function purchaseUnitPrices(
+  materialIds: ReadonlyArray<string>,
+  supplierId: string | null | undefined,
+  tx?: Prisma.TransactionClient
+): Promise<Map<string, number>> {
+  const client = tx ?? prisma;
+  const materials = await client.materials.findMany({
+    where: { id: { in: Array.from(new Set(materialIds)) }, materialType: { in: ['BUTTON', 'SNAP_BUTTON'] } },
+    select: {
+      id: true,
+      buttonId: true,
+      button_master: { select: { pricePerGross: true } },
+      snap_button_master: { select: { pricePerGross: true } },
+    },
+  });
+  const buttonIds = materials.map((m) => m.buttonId).filter((id): id is string => !!id);
+  const supplierPrices =
+    supplierId && buttonIds.length
+      ? await client.button_suppliers.findMany({
+          where: { supplierId, buttonId: { in: buttonIds }, pricePerGross: { not: null } },
+          select: { buttonId: true, pricePerGross: true },
+        })
+      : [];
+  const bySupplier = new Map(supplierPrices.map((s) => [s.buttonId, Number(s.pricePerGross)]));
+  const out = new Map<string, number>();
+  for (const m of materials) {
+    const price =
+      (m.buttonId ? bySupplier.get(m.buttonId) : undefined) ??
+      (m.button_master?.pricePerGross != null ? Number(m.button_master.pricePerGross) : undefined) ??
+      (m.snap_button_master?.pricePerGross != null ? Number(m.snap_button_master.pricePerGross) : undefined);
+    if (price != null) out.set(m.id, price);
+  }
+  return out;
+}
+
+/**
+ * A requirement-built PO line in STOCK units (2,300 pcs at ₹0.125) → its PURCHASE unit (16 gross at ₹18).
+ * Quantity rounds UP to whole units AFTER consolidation. A wizard override is already in the purchase unit
+ * (the preview showed gross) and is never converted again — that would be a second ×144.
+ */
+export function toPurchaseLine(
+  line: { quantity: number; unitPrice: number },
+  purchase: PurchaseUnit,
+  opts: { quantityOverride?: number | null; priceOverride?: number | null; purchaseUnitPrice?: number | null }
+): { quantity: number; unit: Unit; unitPrice: number; stockUnitsPerUnit: number } {
+  const quantity =
+    opts.quantityOverride != null
+      ? Number(opts.quantityOverride)
+      : toPurchaseQty(line.quantity, purchase.stockUnitsPerUnit);
+  const unitPrice =
+    opts.priceOverride != null
+      ? Number(opts.priceOverride)
+      : opts.purchaseUnitPrice != null
+        ? opts.purchaseUnitPrice
+        : Math.round(line.unitPrice * purchase.stockUnitsPerUnit * 100) / 100;
+  return { quantity, unit: purchase.unit, unitPrice, stockUnitsPerUnit: purchase.stockUnitsPerUnit };
+}
+
 /** A rate per purchase unit → per stock unit, to 4 decimals (₹18 / gross → ₹0.125 / piece). */
 export function stockRate(purchaseRate: number, stockUnitsPerUnit: number | null | undefined): number {
   const factor = stockUnitsPerUnit && stockUnitsPerUnit > 0 ? stockUnitsPerUnit : 1;

@@ -523,12 +523,12 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
       "frontend/src/pages/GRNDetail.tsx": "05cddae6d872",
-      "backend/src/schemas/grn.schema.ts": "de0aa8c7bee1",
-      "backend/src/services/grn.service.ts": "1b94c01bdae5",
+      "backend/src/schemas/grn.schema.ts": "c2b010eff8d6",
+      "backend/src/services/grn.service.ts": "9066066863df",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "08960ca2f0bc"
     },
     "contentHash": "e987ae1fc038",
-    "generatedAt": "2026-09-26T08:33:45.812Z"
+    "generatedAt": "2026-09-26T10:52:56.877Z"
   },
   "grn-create": {
     "sources": {
@@ -539,14 +539,14 @@
       "frontend/src/pages/GRNForm.tsx": "772f26caf541",
       "frontend/src/pages/GRNDetail.tsx": "05cddae6d872",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "b8fc1825d1cb",
-      "backend/src/schemas/grn.schema.ts": "de0aa8c7bee1",
-      "backend/src/services/grn.service.ts": "1b94c01bdae5",
+      "backend/src/schemas/grn.schema.ts": "c2b010eff8d6",
+      "backend/src/services/grn.service.ts": "9066066863df",
       "backend/src/services/purchaseOrder.service.ts": "47e9a50532b4",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "08960ca2f0bc"
     },
     "contentHash": "dc72c799e894",
-    "generatedAt": "2026-09-26T08:33:45.959Z"
+    "generatedAt": "2026-09-26T10:52:57.080Z"
   },
   "gst-reports": {
     "sources": {
@@ -652,24 +652,26 @@
       "frontend/src/pages/PrintingList.tsx": "36643ecc9d08",
       "frontend/src/pages/JobWorkOrderDetail.tsx": "97453fc95e1a",
       "frontend/src/pages/JobWorkOrderList.tsx": "24f6d25002a0",
-      "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "0fc339db89dd",
+      "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "110c673d3d57",
       "frontend/src/components/job-work/ReturnFromProcessorDialog.tsx": "562ae8e9f4cf",
       "frontend/src/components/job-work/ReceiptDetailRows.tsx": "6d4b67b49302",
       "backend/src/services/helpers/jwo-return-unprocessed.helper.ts": "a79034ee3582",
       "frontend/src/components/WarehouseCombobox.tsx": "937ff6b14213",
-      "frontend/src/services/jobWorkOrder.service.ts": "a1dca1aa4d85",
+      "frontend/src/services/jobWorkOrder.service.ts": "509684252d22",
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
       "frontend/src/pages/GRNDetail.tsx": "05cddae6d872",
       "backend/src/schemas/jobWorkOrder.schema.ts": "62b84c3a0193",
-      "backend/src/schemas/grn.schema.ts": "de0aa8c7bee1",
+      "backend/src/schemas/grn.schema.ts": "c2b010eff8d6",
       "backend/src/routes/grn.routes.ts": "ffecf209c4c8",
       "backend/src/controllers/job-work-order.controller.ts": "b9ad40be48d7",
-      "backend/src/services/grn.service.ts": "1b94c01bdae5",
+      "backend/src/services/grn.service.ts": "9066066863df",
       "backend/src/services/helpers/jwo-arriving-material.helper.ts": "622bf8d344ab",
-      "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c"
+      "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c",
+      "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
+      "backend/src/controllers/grn.controller.ts": "e9e5f5133756"
     },
-    "contentHash": "6c01d13c239d",
-    "generatedAt": "2026-09-26T10:27:49.180Z"
+    "contentHash": "b331d29dd4b2",
+    "generatedAt": "2026-09-26T10:52:57.118Z"
   },
   "lab-dip-approve": {
     "sources": {
@@ -1214,10 +1216,10 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/StockInForm.tsx": "0336128415da",
       "frontend/src/pages/StockMovementList.tsx": "494ff50f1e07",
-      "backend/src/services/helpers/held-stock-doors.helper.ts": "a885c3e8b8d3"
+      "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990"
     },
     "contentHash": "42796624941d",
-    "generatedAt": "2026-09-26T10:27:49.189Z"
+    "generatedAt": "2026-09-26T10:52:57.128Z"
   },
   "stock-levels-view": {
     "sources": {
@@ -1527,10 +1529,11 @@
       "frontend/src/pages/StockInForm.tsx": "0336128415da",
       "frontend/src/pages/JobWorkOrderDetail.tsx": "97453fc95e1a",
       "frontend/src/components/job-work/MoveHeldStockDialog.tsx": "c87e39dee0d9",
-      "backend/src/services/helpers/held-stock-doors.helper.ts": "a885c3e8b8d3",
+      "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "110c673d3d57",
+      "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
       "backend/src/schemas/stockMovement.schema.ts": "c25341352d67"
     },
-    "contentHash": "3e949d974b09",
-    "generatedAt": "2026-09-26T10:27:49.142Z"
+    "contentHash": "3e7957426e5c",
+    "generatedAt": "2026-09-26T10:52:57.092Z"
   }
 }

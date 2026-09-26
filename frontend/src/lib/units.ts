@@ -173,6 +173,31 @@ export const UNIT_OPTIONS: ReadonlyArray<{ value: Unit; label: string }> = (Obje
   }
 );
 
+/**
+ * Units that are a fixed count of another. A supplier sells buttons by the GROSS while we count them
+ * in pieces: a purchase quantity × `per` = stock units. The ONE home of these numbers.
+ */
+export const COUNT_UNIT_FACTORS: Readonly<Partial<Record<Unit, { of: Unit; per: number }>>> = {
+  DOZEN: { of: 'PIECE', per: 12 },
+  GROSS: { of: 'PIECE', per: 144 },
+};
+
+/** Material types BOUGHT in another unit than they are counted in (owner, 2026-09-26). */
+const PURCHASE_UNIT_BY_MATERIAL_TYPE: Readonly<Record<string, Unit>> = {
+  BUTTON: 'GROSS',
+  SNAP_BUTTON: 'GROSS',
+};
+
+/**
+ * The unit a material type is ordered and inwarded in, and how many stock units one holds — buttons and
+ * snap buttons are counted per piece but bought by the gross (144). Null = bought in the unit it is counted in.
+ */
+export function purchaseUnitOf(materialType: string | null | undefined): { unit: Unit; per: number } | null {
+  const unit = materialType ? PURCHASE_UNIT_BY_MATERIAL_TYPE[String(materialType).toUpperCase()] : undefined;
+  const factor = unit ? COUNT_UNIT_FACTORS[unit] : undefined;
+  return unit && factor ? { unit, per: factor.per } : null;
+}
+
 // ── Job work bridge ─────────────────────────────────────────────────────────────────────────────
 // job_work_orders.uom holds short codes (MTR / PCS / KG / TRIP) — the only vocabulary the JWO
 // schema accepts. These two functions are the ONLY conversions between it and the enum.

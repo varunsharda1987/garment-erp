@@ -17,6 +17,8 @@ import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { toDateInputValue } from '../utils/date';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { qtyExceeds, snapToLimit } from '../utils/quantity';
+import { COUNT_UNIT_FACTORS, unitShort } from '../utils/units';
+import { stockRate, toStockQty } from './helpers/purchase-unit.helper';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -218,13 +220,44 @@ class StockMovementService {
   }
 
   /**
+   * A Stock In typed in a fixed-count unit (GROSS, DOZEN) of a material counted in pieces is booked in
+   * PIECES — quantity × 144, rate ÷ 144. Until 2026-09-26 "10 GROSS" booked 10 pieces at the gross rate.
+   * Anything else comes back as typed. `purchaseNote` ("2 gross = 288 pcs") goes on the movement's remarks.
+   */
+  private async inStockUnit(
+    tx: Prisma.TransactionClient,
+    materialId: string,
+    quantity: Decimal,
+    unit: Unit,
+    rate?: Decimal
+  ): Promise<{ quantity: Decimal; unit: Unit; rate?: Decimal; purchaseNote: string | null }> {
+    const factor = COUNT_UNIT_FACTORS[unit];
+    if (!factor) return { quantity, unit, rate, purchaseNote: null };
+    const material = await tx.materials.findUnique({ where: { id: materialId }, select: { unit: true } });
+    if (!material || material.unit !== factor.of) return { quantity, unit, rate, purchaseNote: null };
+    const pieces = toStockQty(Number(quantity), factor.per);
+    return {
+      quantity: new Decimal(pieces),
+      unit: material.unit,
+      rate: rate != null ? new Decimal(stockRate(Number(rate), factor.per)) : rate,
+      purchaseNote: `${Number(quantity)} ${unitShort(unit)} = ${pieces} ${unitShort(material.unit)}`,
+    };
+  }
+
+  /**
    * Create stock in movement (GRN, Purchase, etc.)
    * @param outerTx optional parent transaction — pass it when calling from inside another $transaction
    * (e.g. receiveChallan) so this write joins that tx instead of opening a second connection on the
    * global client and escaping the parent's rollback (bug-hunt procurement-3; same pattern as createStockOut).
    */
-  async createStockIn(data: CreateStockMovementDTO, outerTx?: Prisma.TransactionClient) {
+  async createStockIn(input: CreateStockMovementDTO, outerTx?: Prisma.TransactionClient) {
     const run = async (tx: Prisma.TransactionClient) => {
+      // Typed in gross / dozen of something counted in pieces → booked in pieces (never "10 GROSS" as 10 pcs)
+      const data = {
+        ...input,
+        ...(await this.inStockUnit(tx, input.materialId, input.quantity, input.unit, input.rate)),
+      };
+      if (data.purchaseNote) data.remarks = [data.purchaseNote, input.remarks].filter(Boolean).join(' | ');
       // `quantity` is the COUNTED figure when a fold length is given; stock takes the ACTUAL metres.
       const nominalQty = data.quantity;
       const folded = hasFold(data.foldLengthCm);
@@ -326,7 +359,13 @@ class StockMovementService {
     return await prisma.$transaction(async (tx) => {
       const movements = [];
 
-      for (const item of data.items) {
+      for (const typed of data.items) {
+        // Typed in gross / dozen of something counted in pieces → booked in pieces
+        const item = {
+          ...typed,
+          ...(await this.inStockUnit(tx, typed.materialId, typed.quantity, typed.unit, typed.rate)),
+        };
+        if (item.purchaseNote) item.remarks = [item.purchaseNote, typed.remarks].filter(Boolean).join(' | ');
         // `quantity` is the COUNTED figure when a fold length is given; stock takes the ACTUAL metres.
         const nominalQty = item.quantity;
         const folded = hasFold(item.foldLengthCm);

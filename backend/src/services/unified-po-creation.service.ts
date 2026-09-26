@@ -19,6 +19,7 @@ import { POCategory, POSource, PurchaseOrderStatus, ServiceType, Unit, Prisma } 
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
+import { resolvePoLineUnits, toStockQty } from './helpers/purchase-unit.helper';
 
 // ============================================
 // Types & Interfaces
@@ -535,9 +536,13 @@ export async function createUnifiedPO(
       materialId: string | null;
       serviceType: ServiceType | null;
       orderedQuantity: Prisma.Decimal;
+      stockUnitsPerUnit: Prisma.Decimal | null;
     }> = [];
 
-    for (const item of input.items) {
+    // Unit + stock units per unit decided here (buttons by the gross = 144), never by the body
+    const lineUnits = await resolvePoLineUnits(input.items, tx);
+
+    for (const [i, item] of input.items.entries()) {
       const totalPrice = item.orderedQuantity * item.unitPrice;
 
       const poItem = await tx.purchase_order_items.create({
@@ -549,7 +554,8 @@ export async function createUnifiedPO(
           serviceDescription: item.serviceDescription || null,
           orderedQuantity: item.orderedQuantity,
           receivedQuantity: 0,
-          unit: item.unit,
+          unit: lineUnits[i].unit,
+          stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
           unitPrice: item.unitPrice,
           totalPrice,
           remarks: item.remarks,
@@ -561,6 +567,7 @@ export async function createUnifiedPO(
         materialId: poItem.materialId,
         serviceType: poItem.serviceType,
         orderedQuantity: poItem.orderedQuantity,
+        stockUnitsPerUnit: poItem.stockUnitsPerUnit,
       });
     }
 
@@ -601,14 +608,18 @@ export async function createUnifiedPO(
               quantityLinked: Number(link.quantityLinked),
             });
 
-            // Also create legacy link in requirement_po_links for backward compatibility
+            // Also create legacy link in requirement_po_links for backward compatibility. A link is in the
+            // REQUIREMENT's unit (pieces) — the PO line may be in gross, so convert.
             await tx.requirement_po_links.create({
               data: {
                 id: randomUUID(),
                 requirementId: reqId,
                 purchaseOrderId: po.id,
                 purchaseOrderItemId: matchingItem.id,
-                allocatedQuantity: Number(matchingItem.orderedQuantity),
+                allocatedQuantity: toStockQty(
+                  Number(matchingItem.orderedQuantity),
+                  matchingItem.stockUnitsPerUnit ? Number(matchingItem.stockUnitsPerUnit) : null
+                ),
               },
             });
           }

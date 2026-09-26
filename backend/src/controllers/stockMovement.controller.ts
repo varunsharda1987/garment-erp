@@ -137,7 +137,8 @@ export const createStockIn = async (req: Request, res: Response) => {
     const fkField = ITEM_TYPE_TO_FK[itemType];
     if (fkField) {
       const material = await prisma.materials.findFirst({
-        where: { [fkField]: itemId },
+        // A label's base row — its size rows share the labelId
+        where: { [fkField]: itemId, ...(fkField === 'labelId' ? { sizeVariantId: null } : {}) },
         select: { id: true },
       });
       if (material) {
@@ -231,7 +232,8 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
       const fkField = ITEM_TYPE_TO_FK[item.itemType];
       if (fkField) {
         const material = await prisma.materials.findFirst({
-          where: { [fkField]: item.itemId },
+          // A label's base row — its size rows share the labelId
+          where: { [fkField]: item.itemId, ...(fkField === 'labelId' ? { sizeVariantId: null } : {}) },
           select: { id: true },
         });
         if (material) {
@@ -309,7 +311,8 @@ export const createStockOut = async (req: Request, res: Response) => {
     const fkField = ITEM_TYPE_TO_FK[itemType];
     if (fkField) {
       const material = await prisma.materials.findFirst({
-        where: { [fkField]: itemId },
+        // A label's base row — its size rows share the labelId
+        where: { [fkField]: itemId, ...(fkField === 'labelId' ? { sizeVariantId: null } : {}) },
         select: { id: true },
       });
       if (material) {

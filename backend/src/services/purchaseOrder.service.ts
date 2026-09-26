@@ -32,6 +32,7 @@ import { isReceiptComplete } from './helpers/receipt-split.helper';
 import { BusinessError, NotFoundError } from '../errors';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
+import { resolvePoLineUnits } from './helpers/purchase-unit.helper';
 import { applySearch } from '../utils/search-filter';
 import {
   applyDeliveryPlan,
@@ -145,8 +146,11 @@ class PurchaseOrderService {
     let poTotalSgst = 0;
     let poTotalIgst = 0;
 
+    // The line's unit + stock units per unit (buttons by the gross = 144) — decided here, never by the body
+    const lineUnits = await resolvePoLineUnits(data.items);
+
     const itemsWithTotals = await Promise.all(
-      data.items.map(async (item) => {
+      data.items.map(async (item, i) => {
         const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
         subtotal += totalPrice;
 
@@ -170,7 +174,8 @@ class PurchaseOrderService {
           serviceDescription: item.serviceDescription || null,
           orderedQuantity: item.orderedQuantity,
           receivedQuantity: 0,
-          unit: item.unit,
+          unit: lineUnits[i].unit,
+          stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
           unitPrice: item.unitPrice,
           totalPrice,
           hsnCode: gst.hsnCode,
@@ -534,7 +539,13 @@ class PurchaseOrderService {
           let poTotalSgst = 0;
           let poTotalIgst = 0;
 
-          for (const { item, existingId } of resolved) {
+          // Every kept or new line re-derives its unit + factor (a line added on edit got no factor before)
+          const lineUnits = await resolvePoLineUnits(
+            resolved.map((r) => r.item),
+            tx
+          );
+
+          for (const [i, { item, existingId }] of resolved.entries()) {
             const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
             subtotal += totalPrice;
 
@@ -558,7 +569,8 @@ class PurchaseOrderService {
               serviceType: (item.serviceType as ServiceType) || null,
               serviceDescription: item.serviceDescription || null,
               orderedQuantity: item.orderedQuantity,
-              unit: item.unit,
+              unit: lineUnits[i].unit,
+              stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
               unitPrice: item.unitPrice,
               totalPrice,
               hsnCode: gst.hsnCode,
@@ -746,6 +758,7 @@ class PurchaseOrderService {
     }
 
     const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
+    const [lineUnit] = await resolvePoLineUnits([item]);
 
     // Calculate GST for this item
     const { isInterstate } = await gstService.isInterstatePO(existingPO.supplierId);
@@ -767,7 +780,8 @@ class PurchaseOrderService {
           serviceDescription: item.serviceDescription || null,
           orderedQuantity: item.orderedQuantity,
           receivedQuantity: 0,
-          unit: item.unit,
+          unit: lineUnit.unit,
+          stockUnitsPerUnit: lineUnit.stockUnitsPerUnit,
           unitPrice: item.unitPrice,
           totalPrice,
           hsnCode: gst.hsnCode,
@@ -842,6 +856,10 @@ class PurchaseOrderService {
     const orderedQuantity = data.orderedQuantity ?? Number(existingItem.orderedQuantity);
     const unitPrice = data.unitPrice ?? Number(existingItem.unitPrice);
     const totalPrice = this.calculateItemTotal(orderedQuantity, unitPrice);
+    // A unit change re-derives the factor with it (the old factor must never outlive its unit)
+    const [lineUnit] = await resolvePoLineUnits([
+      { materialId: existingItem.materialId, unit: data.unit ?? existingItem.unit },
+    ]);
 
     // Recalculate GST if price changed
     const { isInterstate } = await gstService.isInterstatePO(existingPO.supplierId);
@@ -858,7 +876,8 @@ class PurchaseOrderService {
         where: { id: itemId },
         data: {
           orderedQuantity: data.orderedQuantity,
-          unit: data.unit,
+          unit: lineUnit.unit,
+          stockUnitsPerUnit: lineUnit.stockUnitsPerUnit,
           unitPrice: data.unitPrice,
           totalPrice,
           gstRate: gst.gstRate,

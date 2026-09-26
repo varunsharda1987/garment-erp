@@ -37,9 +37,10 @@ export async function ensureMaterialRecord(masterId: string, masterType: string,
   // deadlock, and any create would commit outside the caller's transaction (bug-hunt T1-1).
   const client = tx || prisma;
 
-  // Check if materials record already exists
+  // Check if materials record already exists. `sizeVariantId: null` — a label's SIZE rows carry the same
+  // labelId, so an unfiltered lookup returned a size row for the base label (created before the base).
   const existing = await client.materials.findFirst({
-    where: { [config.fkField]: masterId },
+    where: { [config.fkField]: masterId, sizeVariantId: null },
     select: { id: true },
   });
   if (existing) return existing.id;
@@ -69,13 +70,28 @@ export async function ensureMaterialRecord(masterId: string, masterType: string,
     if (err.code === 'P2002') {
       // Race condition — record was just created by another process
       const retried = await client.materials.findFirst({
-        where: { [config.fkField]: masterId },
+        where: { [config.fkField]: masterId, sizeVariantId: null },
         select: { id: true },
       });
       if (retried) return retried.id;
     }
     throw err;
   }
+}
+
+/**
+ * The materials row of ONE label size (same-id convention: its id is the size variant's id), created
+ * when missing. A sized label's stock is booked on this row, never on the base label row.
+ */
+export async function ensureLabelSizeMaterialRecord(sizeVariantId: string, tx?: any): Promise<string> {
+  const client = tx || prisma;
+  const variant = await client.label_size_variants.findUnique({
+    where: { id: sizeVariantId },
+    select: { id: true, size: true, label: { select: { id: true, labelCode: true, labelName: true } } },
+  });
+  if (!variant) throw new Error(`Label size "${sizeVariantId}" does not exist`);
+  const material = await materialService.createFromLabelSizeVariant(variant.label, variant, tx);
+  return material.id;
 }
 
 /**
@@ -266,10 +282,26 @@ export async function syncMasterToMaterials(
     if (updates.name) updateData.name = updates.name;
     if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
+    // Only the master's own row: a label's SIZE rows share its labelId and keep their own code/name
     const result = await client.materials.updateMany({
-      where: { [config.fkField]: masterId },
+      where: { [config.fkField]: masterId, sizeVariantId: null },
       data: updateData,
     });
+
+    // A renamed label renames its size rows as "<name> - Size <size>" (their codes carry the size already)
+    if (masterType === 'LABEL' && updates.name) {
+      const sizes = await client.materials.findMany({
+        where: { labelId: masterId, NOT: { sizeVariantId: null } },
+        select: { id: true, label_size_variant: { select: { size: true } } },
+      });
+      for (const s of sizes) {
+        if (!s.label_size_variant) continue;
+        await client.materials.update({
+          where: { id: s.id },
+          data: { name: `${updates.name} - Size ${s.label_size_variant.size}` },
+        });
+      }
+    }
 
     if (result.count > 0) {
       logInfo(

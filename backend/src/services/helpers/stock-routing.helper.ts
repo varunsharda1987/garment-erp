@@ -22,8 +22,7 @@ import greigeStockService from '../greige-stock.service';
 import { createLaceStock } from '../laceStock.service';
 import threadStockService from '../thread-stock.service';
 import trimStockService, { TrimType } from '../trim-stock.service';
-import { logInfo, logError } from '../../utils/logger';
-import { syncStockLevelQuantity } from './material-sync.helper';
+import { logInfo, logError, logWarn } from '../../utils/logger';
 import { systemSettingsService } from '../system-settings.service';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
 import { getQualityGradeOrDefault } from '../../constants/stock.constants';
@@ -46,6 +45,49 @@ export interface StockInRoutingData {
   lotNumber?: string;
   qualityGrade?: string;
   performedById: string;
+  /** GRN receipts: who supplied it and which PO — a GRN reversal finds its lot by the PO */
+  supplierId?: string;
+  procurementId?: string;
+  /** The lot's unit (the stock unit — pieces for buttons bought by the gross) */
+  unit?: string;
+  sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT' | 'IMPORT';
+}
+
+export interface StockInRoutingOptions {
+  /** Rethrow instead of logging — a GRN must not approve with its lot silently missing */
+  strict?: boolean;
+  /** Only trim lots (the GRN's generic path) — greige/fabric/lace/thread have their own GRN branches */
+  trimsOnly?: boolean;
+}
+
+type TrimFk = 'buttonId' | 'zipperId' | 'elasticId' | 'labelId' | 'packagingId' | 'machinePartId' | 'otherMaterialId';
+
+/** The ONE list of trim lot tables — which materials FK puts a lot in which table. */
+export const TRIM_LOT_TABLES: ReadonlyArray<{ fkField: TrimFk; table: string; trimType: TrimType }> = [
+  { fkField: 'buttonId', table: 'button_stock', trimType: 'BUTTON' },
+  { fkField: 'zipperId', table: 'zipper_stock', trimType: 'ZIPPER' },
+  { fkField: 'elasticId', table: 'elastic_stock', trimType: 'ELASTIC' },
+  { fkField: 'labelId', table: 'label_stock', trimType: 'LABEL' },
+  { fkField: 'packagingId', table: 'packaging_stock', trimType: 'PACKAGING' },
+  { fkField: 'machinePartId', table: 'machine_part_stock', trimType: 'MACHINE_PART' },
+  { fkField: 'otherMaterialId', table: 'other_material_stock', trimType: 'OTHER_MATERIAL' },
+];
+
+/** The trim lot table a material's stock lives in (with its master id and label size), or null. */
+export function trimLotOf(
+  material: Partial<Record<TrimFk, string | null>> & { sizeVariantId?: string | null }
+): { fkField: TrimFk; table: string; trimType: TrimType; masterId: string; sizeVariantId: string | null } | null {
+  for (const entry of TRIM_LOT_TABLES) {
+    const masterId = material[entry.fkField];
+    if (masterId) {
+      return {
+        ...entry,
+        masterId,
+        sizeVariantId: entry.trimType === 'LABEL' ? (material.sizeVariantId ?? null) : null,
+      };
+    }
+  }
+  return null;
 }
 
 /**
@@ -68,7 +110,8 @@ export interface StockInRoutingData {
  */
 export async function routeToSpecializedStock(
   data: StockInRoutingData,
-  tx?: any
+  tx?: any,
+  options: StockInRoutingOptions = {}
 ): Promise<{ routed: boolean; stockType?: string; stockId?: string }> {
   // Actual metres at the fold length (identity when there is none). The greige lot converts itself.
   const actualQty = foldActual(data.quantity, data.foldLengthCm).toNumber();
@@ -94,13 +137,25 @@ export async function routeToSpecializedStock(
         packagingId: true,
         machinePartId: true,
         otherMaterialId: true,
+        sizeVariantId: true,
         greige_master: { select: { greigeWidth: true } },
         fabric_master: { select: { actualWidth: true } },
       },
     });
 
     if (!material) {
+      if (options.strict) throw new Error(`Material ${data.materialId} not found`);
       logError(`[StockRouting] Material not found: ${data.materialId}`);
+      return { routed: false };
+    }
+
+    // The GRN's generic path books trims only; a greige/fabric/lace/thread line on a TRIMS/GENERAL PO keeps
+    // today's stock_levels-only behaviour — a lot with no link back to the receipt could not be reversed.
+    if (options.trimsOnly && (material.greigeId || material.fabricId || material.laceId || material.threadId)) {
+      logWarn(
+        `[StockRouting] ${data.materialId} is greige/fabric/lace/thread received on a trims/general PO — ` +
+          `booked in stock_levels only, no lot`
+      );
       return { routed: false };
     }
 
@@ -197,45 +252,39 @@ export async function routeToSpecializedStock(
       return { routed: true, stockType: 'THREAD', stockId: stock.id };
     }
 
-    // Trim types - all handled by trimStockService
-    const trimMapping: Array<{ fkField: keyof typeof material; trimType: TrimType }> = [
-      { fkField: 'buttonId', trimType: 'BUTTON' },
-      { fkField: 'zipperId', trimType: 'ZIPPER' },
-      { fkField: 'elasticId', trimType: 'ELASTIC' },
-      { fkField: 'labelId', trimType: 'LABEL' },
-      { fkField: 'packagingId', trimType: 'PACKAGING' },
-      { fkField: 'machinePartId', trimType: 'MACHINE_PART' },
-      { fkField: 'otherMaterialId', trimType: 'OTHER_MATERIAL' },
-    ];
-
-    for (const { fkField, trimType } of trimMapping) {
-      const masterId = material[fkField];
-      if (masterId) {
-        const stock = await trimStockService.createTrimStock(
-          {
-            trimType,
-            masterId: masterId as string,
-            quantity: actualQty,
-            purchaseCost: data.rate,
-            warehouseId: data.warehouseId,
-            sourceType: 'MANUAL',
-            batchNumber: data.batchNumber,
-            lotNumber: data.lotNumber,
-            qualityGrade: data.qualityGrade,
-            skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
-            tx: client, // Pass transaction context so records are part of parent transaction
-          },
-          data.performedById
-        );
-        logInfo(`[StockRouting] Routed to ${trimType.toLowerCase()}_stock: ${stock.id}, qty: ${actualQty}`);
-        return { routed: true, stockType: trimType, stockId: stock.id };
-      }
+    // Trim types - all handled by trimStockService (a sized label's lot carries its size)
+    const lot = trimLotOf(material);
+    if (lot) {
+      const stock = await trimStockService.createTrimStock(
+        {
+          trimType: lot.trimType,
+          masterId: lot.masterId,
+          sizeVariantId: lot.sizeVariantId,
+          quantity: actualQty,
+          unit: data.unit,
+          purchaseCost: data.rate,
+          warehouseId: data.warehouseId,
+          supplierId: data.supplierId,
+          procurementId: data.procurementId,
+          sourceType: data.sourceType || 'MANUAL',
+          receivedDate: data.receivedDate,
+          batchNumber: data.batchNumber,
+          lotNumber: data.lotNumber,
+          qualityGrade: data.qualityGrade,
+          skipMaterialSync: true, // Parent (createStockIn / the GRN) already handles material/stock_levels sync
+          tx: client, // Pass transaction context so records are part of parent transaction
+        },
+        data.performedById
+      );
+      logInfo(`[StockRouting] Routed to ${lot.table}: ${stock.id}, qty: ${actualQty}`);
+      return { routed: true, stockType: lot.trimType, stockId: stock.id };
     }
 
     // No specialized FK found - generic material, stock_levels is sufficient
     logInfo(`[StockRouting] Material ${data.materialId} is generic - no specialized routing needed`);
     return { routed: false };
   } catch (error) {
+    if (options.strict) throw error;
     logError(`[StockRouting] Failed to route stock for material ${data.materialId}:`, error);
     // Don't throw - routing failure shouldn't block the primary stock movement
     return { routed: false };
@@ -283,6 +332,7 @@ export async function routeFromSpecializedStock(
         packagingId: true,
         machinePartId: true,
         otherMaterialId: true,
+        sizeVariantId: true,
       },
     });
 
@@ -344,9 +394,8 @@ export async function routeFromSpecializedStock(
       }
 
       if (deductedRecords.length > 0) {
-        // BUG-INV3 fix: sync processor consumption to stock_levels
+        // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
-        await syncStockLevelQuantity(data.materialId, -totalDeducted, data.warehouseId, undefined, client);
         logInfo(`[StockRouting] Deducted ${totalDeducted} from greige_stock (${deductedRecords.length} records)`);
         return { routed: true, stockType: 'GREIGE', deductedRecords };
       }
@@ -383,9 +432,8 @@ export async function routeFromSpecializedStock(
       }
 
       if (deductedRecords.length > 0) {
-        // BUG-INV3 fix: sync processor consumption to stock_levels
+        // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
-        await syncStockLevelQuantity(data.materialId, -totalDeducted, data.warehouseId, undefined, client);
         logInfo(`[StockRouting] Deducted ${totalDeducted} from fabric_stock (${deductedRecords.length} records)`);
         return { routed: true, stockType: 'FABRIC', deductedRecords };
       }
@@ -436,9 +484,8 @@ export async function routeFromSpecializedStock(
       }
 
       if (deductedRecords.length > 0) {
-        // BUG-INV3 fix: sync processor consumption to stock_levels
+        // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
-        await syncStockLevelQuantity(data.materialId, -totalDeducted, data.warehouseId, undefined, client);
         logInfo(`[StockRouting] Deducted ${totalDeducted} from lace_stock (${deductedRecords.length} records)`);
         return { routed: true, stockType: 'LACE', deductedRecords };
       }
@@ -489,9 +536,8 @@ export async function routeFromSpecializedStock(
       }
 
       if (deductedRecords.length > 0) {
-        // BUG-INV3 fix: sync processor consumption to stock_levels
+        // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
         const totalDeducted = data.quantity - remainingQty;
-        await syncStockLevelQuantity(data.materialId, -totalDeducted, data.warehouseId, undefined, client);
         logInfo(`[StockRouting] Deducted ${totalDeducted} from thread_stock (${deductedRecords.length} records)`);
         return { routed: true, stockType: 'THREAD', deductedRecords };
       }
@@ -499,24 +545,16 @@ export async function routeFromSpecializedStock(
 
     // Trim types - handle button, zipper, elastic, label, packaging, machine_part, other_material
     // BUG-BTN5 fix: Uses Prisma atomic operations (decrement/increment) for safe decimal arithmetic
-    const trimMapping: Array<{ fkField: keyof typeof material; table: string; trimType: string }> = [
-      { fkField: 'buttonId', table: 'button_stock', trimType: 'BUTTON' },
-      { fkField: 'zipperId', table: 'zipper_stock', trimType: 'ZIPPER' },
-      { fkField: 'elasticId', table: 'elastic_stock', trimType: 'ELASTIC' },
-      { fkField: 'labelId', table: 'label_stock', trimType: 'LABEL' },
-      { fkField: 'packagingId', table: 'packaging_stock', trimType: 'PACKAGING' },
-      { fkField: 'machinePartId', table: 'machine_part_stock', trimType: 'MACHINE_PART' },
-      { fkField: 'otherMaterialId', table: 'other_material_stock', trimType: 'OTHER_MATERIAL' },
-    ];
-
-    for (const { fkField, table, trimType } of trimMapping) {
-      const masterId = material[fkField];
-      if (masterId) {
-        // Find available trim stock records (FIFO by receivedDate)
-        const masterIdField = fkField; // e.g., buttonId, zipperId, etc.
+    const lot = trimLotOf(material);
+    if (lot) {
+      const { fkField: masterIdField, table, trimType, masterId } = lot;
+      {
+        // Find available trim stock records (FIFO by receivedDate). A label draws only lots of ITS size
+        // (a size row takes that size; the base row takes unsized lots).
         const stocks = await (client as any)[table].findMany({
           where: {
             [masterIdField]: masterId,
+            ...(trimType === 'LABEL' ? { sizeVariantId: lot.sizeVariantId } : {}),
             quantityAvailable: { gt: 0 },
             ...(data.warehouseId && { warehouseId: data.warehouseId }),
           },
@@ -543,9 +581,8 @@ export async function routeFromSpecializedStock(
         }
 
         if (deductedRecords.length > 0) {
-          // BUG-INV3 fix: sync processor consumption to stock_levels
+          // stock_levels is the CALLER's (decreaseStockInTx) — syncing it here too took it out twice (2026-09-26)
           const totalDeducted = data.quantity - remainingQty;
-          await syncStockLevelQuantity(data.materialId, -totalDeducted, data.warehouseId, undefined, client);
           logInfo(`[StockRouting] Deducted ${totalDeducted} from ${table} (${deductedRecords.length} records)`);
           return { routed: true, stockType: trimType, deductedRecords };
         }

@@ -54,7 +54,10 @@ import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from '
 import { resolveReceiptDeliveryPoint } from './helpers/po-delivery-plan.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyExceeds } from '../utils/quantity';
-import { normalizeUnit } from '../utils/units';
+import { COUNT_UNIT_FACTORS, normalizeUnit, unitShort } from '../utils/units';
+import { stockRate, toStockQty } from './helpers/purchase-unit.helper';
+import { routeToSpecializedStock, trimLotOf } from './helpers/stock-routing.helper';
+import trimStockService from './trim-stock.service';
 import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
 import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
 import { challanDestination } from './helpers/lot-location.helper';
@@ -102,6 +105,46 @@ interface DirectDelivery {
   processorName: string;
   supplierName: string;
   warehouseId: string;
+}
+
+/**
+ * Categories whose receipt books its lots in its OWN branch (greige, fabric, lace, thread) or is PROCESSING.
+ * Every other category — TRIMS (how MRP and the PO form file buttons and labels), GENERAL, BUTTON, LABEL … —
+ * books stock_levels in the generic loop and each trim line's lot through routeToSpecializedStock. Approval
+ * and reversal share this ONE predicate (2026-09-26: a TRIMS receipt used to book stock_levels only, so no
+ * stock screen or MRP netting ever saw it, and its reversal never took stock_levels back).
+ */
+const OWN_LOT_BRANCH_CATEGORIES = new Set(['GREIGE', 'FABRIC', 'LACE', 'GREIGE_LACE', 'THREAD', 'PROCESSING']);
+function receivesViaStockLevels(poCategory: string | null | undefined): boolean {
+  return !OWN_LOT_BRANCH_CATEGORIES.has(poCategory ?? '');
+}
+
+/**
+ * What ONE accepted GRN line puts into stock: the accepted actual quantity × the PO line's stock units per
+ * unit (16 gross → 2,304 pieces), in the stock unit, at the rate per stock unit (₹18 / gross → ₹0.125 / pc).
+ * The GRN line itself stays in the PO's unit — its value, GST and the PO's received counter.
+ * Not `grnLineActualQty`: that one feeds GRN value and GST and must stay in the PO unit.
+ */
+function grnLineStock(item: {
+  unit: string;
+  acceptedQuantity: Prisma.Decimal | number | string;
+  actualQuantity?: Prisma.Decimal | number | string | null;
+  foldLengthCm?: Prisma.Decimal | number | string | null;
+  purchase_order_items?: {
+    unitPrice: Prisma.Decimal | number | string;
+    stockUnitsPerUnit?: Prisma.Decimal | number | string | null;
+  } | null;
+}): { qty: number; unit: Unit; rate: number } {
+  const poQty = grnLineActualQty(item as Parameters<typeof grnLineActualQty>[0]).toNumber();
+  const poRate = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+  const factor =
+    item.purchase_order_items?.stockUnitsPerUnit != null ? Number(item.purchase_order_items.stockUnitsPerUnit) : null;
+  if (!factor || factor === 1) return { qty: poQty, unit: item.unit as Unit, rate: poRate };
+  return {
+    qty: toStockQty(poQty, factor),
+    unit: COUNT_UNIT_FACTORS[item.unit as Unit]?.of ?? (item.unit as Unit),
+    rate: stockRate(poRate, factor),
+  };
 }
 
 class GRNService {
@@ -1455,35 +1498,26 @@ class GRNService {
           return approved; // Skip normal stock_movements/stock_levels
         }
 
-        // PO categories that have specialized stock tables - their stock_levels
-        // are managed by the specialized flow (greige_stock, fabric_stock, etc.)
-        // to avoid double-incrementing stock_levels
-        const specializedCategories = [
-          'GREIGE',
-          'FABRIC',
-          'LACE',
-          'GREIGE_LACE',
-          'THREAD',
-          'BUTTON',
-          'ZIPPER',
-          'ELASTIC',
-          'LABEL',
-          'PACKAGING',
-          'MACHINE_PART',
-          'OTHER_MATERIAL',
-        ];
-        const hasSpecializedHandling = specializedCategories.includes(po?.poCategory || '');
+        // Categories with their own lot branch (greige, fabric, lace, thread) sync stock_levels there; every
+        // other category books stock_levels HERE, once, and its trim lots in createSpecializedStockInTx.
+        const bookStockLevelsHere = receivesViaStockLevels(po?.poCategory);
 
         // Create stock movements and update stock levels for accepted items
         for (const item of grn.grn_items) {
-          // ACTUAL metres (counted × L/100 when the line has a fold length) — what enters stock.
+          // ACTUAL metres (counted × L/100 when the line has a fold length) — the PO unit; value and GST.
           const acceptedQty = grnLineActualQty(item).toNumber();
           const folded = hasFold(item.foldLengthCm);
           if (acceptedQty > 0) {
             // Get unit price from PO item for stock valuation
             const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
+            // Value is what was bought: PO quantity × PO rate (16 gross × ₹18), never stock qty × stock rate
             const totalValue = roundToCent(multiplyCurrency(acceptedQty, unitPrice)).toNumber();
+            // What enters STOCK: 16 gross → 2,304 pieces at ₹0.125 (a line bought in its own unit: unchanged)
+            const stock = grnLineStock(item);
+            const inPurchaseUnit = stock.unit !== item.unit;
+
+            // Recorded on the line so a reversal takes back exactly this, never a recomputation
+            await tx.grn_items.update({ where: { id: item.id }, data: { stockQuantity: stock.qty } });
 
             // Create stock movement record (audit trail - always created)
             await tx.stock_movements.create({
@@ -1493,60 +1527,48 @@ class GRNService {
                 materialId: item.materialId,
                 warehouseId: targetWarehouseId,
                 supplierId: grn.supplierId, // Direct supplier reference
-                quantity: acceptedQty,
-                unit: item.unit,
+                quantity: stock.qty,
+                unit: stock.unit,
                 referenceType: 'GRN',
                 referenceId: grn.id,
                 referenceNumber: grn.grnNumber,
-                rate: unitPrice,
+                rate: stock.rate,
                 value: totalValue,
                 foldLengthCm: folded ? item.foldLengthCm : null,
                 remarks: folded
                   ? `Stock received from GRN ${grn.grnNumber} — counted ${Number(item.acceptedQuantity)} @ L=${Number(item.foldLengthCm)}`
-                  : `Stock received from GRN ${grn.grnNumber}`,
+                  : inPurchaseUnit
+                    ? `Stock received from GRN ${grn.grnNumber} — ${acceptedQty} ${unitShort(item.unit)} = ${stock.qty} ${unitShort(stock.unit)}`
+                    : `Stock received from GRN ${grn.grnNumber}`,
                 performedById: userId,
                 movementDate: new Date(),
               },
             });
 
-            // Update stock_levels only for POs WITHOUT specialized handling
-            // (GREIGE, FABRIC, LACE, THREAD have their own *_stock tables that sync to stock_levels)
-            if (!hasSpecializedHandling) {
-              const existingStock = await tx.stock_levels.findFirst({
-                where: {
+            // Inline, not syncStockLevelQuantity: that helper swallows errors, and a receipt must not approve
+            // with its stock_levels write lost
+            if (bookStockLevelsHere) {
+              await tx.stock_levels.upsert({
+                where: { materialId_warehouseId: { materialId: item.materialId, warehouseId: targetWarehouseId } },
+                create: {
+                  id: randomUUID(),
                   materialId: item.materialId,
                   warehouseId: targetWarehouseId,
+                  quantity: stock.qty,
+                  unit: stock.unit,
+                  minLevel: 0,
+                  reorderLevel: 0,
                 },
+                update: { quantity: { increment: stock.qty }, lastUpdated: new Date() },
               });
-
-              if (existingStock) {
-                await tx.stock_levels.update({
-                  where: { id: existingStock.id },
-                  data: {
-                    quantity: { increment: acceptedQty },
-                    lastUpdated: new Date(),
-                  },
-                });
-              } else {
-                await tx.stock_levels.create({
-                  data: {
-                    id: randomUUID(),
-                    materialId: item.materialId,
-                    warehouseId: targetWarehouseId,
-                    quantity: acceptedQty,
-                    unit: item.unit,
-                    minLevel: 0,
-                    reorderLevel: 0,
-                  },
-                });
-              }
             }
 
             // MRP received-qty update, now ATOMIC with the approval — updateReceivedQuantity is tx-aware and
             // no longer opens a nested tx, so running it on `tx` closes the over-procurement gap (a committed
             // receipt MRP never saw → duplicate PO) without the second-connection/deadlock risk (F4 #12).
+            // In STOCK units: requirement links count pieces even when the PO line is in gross.
             if (item.poItemId) {
-              await mrpService.updateReceivedQuantity(item.poItemId, acceptedQty, tx);
+              await mrpService.updateReceivedQuantity(item.poItemId, stock.qty, tx);
             }
           }
 
@@ -1561,12 +1583,14 @@ class GRNService {
             ? toNumber(subtractCurrency(foldActual(item.receivedQuantity, item.foldLengthCm), acceptedQty))
             : Number(item.rejectedQuantity || 0);
           if (rejectedQty > 0) {
+            // The PO's counter is in the PO unit (gross); the movement is in stock units like every movement
             if (item.poItemId) {
               await tx.purchase_order_items.update({
                 where: { id: item.poItemId },
                 data: { receivedQuantity: { decrement: rejectedQty } },
               });
             }
+            const rejectedStock = grnLineStock({ ...item, acceptedQuantity: rejectedQty, foldLengthCm: null });
             await tx.stock_movements.create({
               data: {
                 id: randomUUID(),
@@ -1574,12 +1598,12 @@ class GRNService {
                 materialId: item.materialId,
                 warehouseId: targetWarehouseId,
                 supplierId: grn.supplierId, // Direct supplier reference
-                quantity: rejectedQty,
-                unit: item.unit,
+                quantity: rejectedStock.qty,
+                unit: rejectedStock.unit,
                 referenceType: 'GRN_REJECTION',
                 referenceId: grn.id,
                 referenceNumber: grn.grnNumber,
-                rate: item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0,
+                rate: rejectedStock.rate,
                 value: roundToCent(
                   multiplyCurrency(
                     rejectedQty,
@@ -2262,338 +2286,31 @@ class GRNService {
       }
     }
 
-    // ===== BUTTON =====
-    if (po.poCategory === 'BUTTON') {
+    // ===== TRIMS — every category without its own lot branch (TRIMS, GENERAL, BUTTON, LABEL …) =====
+    // One path for all seven trim lot tables: each line routes by ITS material (a sized label lands on its
+    // size), in stock units (16 gross → 2,304 pcs). stock_levels was booked once in the generic loop. Before
+    // 2026-09-26 seven hand-written branches keyed on the PO CATEGORY, and MRP and the PO form file buttons
+    // and labels as TRIMS — so no trim receipt ever reached a lot table, a stock screen or MRP netting.
+    if (receivesViaStockLevels(po.poCategory)) {
       for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { button_master: true },
-        });
-
-        if (!material?.buttonId || !material.button_master) {
-          logInfo(`GRN item ${item.id}: no button link, skipping button_stock`);
-          continue;
-        }
-
-        const button = material.button_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-BTN5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors
-        await tx.button_stock.create({
-          data: {
-            buttonId: button.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'pieces',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
+        if (!item.materialId) continue;
+        const stock = grnLineStock(item);
+        if (!(stock.qty > 0)) continue;
+        await routeToSpecializedStock(
+          {
+            materialId: item.materialId,
+            quantity: stock.qty,
+            unit: stock.unit,
+            rate: stock.rate,
+            warehouseId,
+            supplierId: grn.supplierId ?? undefined,
+            procurementId: grn.poId ?? undefined,
+            receivedDate: grn.receivingDate ?? undefined,
             sourceType: 'GRN',
-            procurementId: grn.poId,
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
+            performedById: userId,
           },
-        });
-
-        await ensureMaterialRecord(button.id, 'BUTTON', tx);
-        await syncStockLevelQuantity(button.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(`Auto-created button_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${button.buttonCode}`);
-      }
-    }
-
-    // ===== ZIPPER =====
-    if (po.poCategory === 'ZIPPER') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { zipper_master: true },
-        });
-
-        if (!material?.zipperId || !material.zipper_master) {
-          logInfo(`GRN item ${item.id}: no zipper link, skipping zipper_stock`);
-          continue;
-        }
-
-        const zipper = material.zipper_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-LBL5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors (same pattern as button/label)
-        await tx.zipper_stock.create({
-          data: {
-            zipperId: zipper.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'pieces',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
-            sourceType: 'GRN',
-            procurementId: grn.poId,
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
-          },
-        });
-
-        await ensureMaterialRecord(zipper.id, 'ZIPPER', tx);
-        await syncStockLevelQuantity(zipper.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(`Auto-created zipper_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${zipper.zipperCode}`);
-      }
-    }
-
-    // ===== ELASTIC =====
-    if (po.poCategory === 'ELASTIC') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { elastic_master: true },
-        });
-
-        if (!material?.elasticId || !material.elastic_master) {
-          logInfo(`GRN item ${item.id}: no elastic link, skipping elastic_stock`);
-          continue;
-        }
-
-        const elastic = material.elastic_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-LBL5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors (same pattern as button/label)
-        await tx.elastic_stock.create({
-          data: {
-            elasticId: elastic.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'meters',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
-            sourceType: 'GRN',
-            procurementId: grn.poId,
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
-          },
-        });
-
-        await ensureMaterialRecord(elastic.id, 'ELASTIC', tx);
-        await syncStockLevelQuantity(elastic.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(`Auto-created elastic_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${elastic.elasticCode}`);
-      }
-    }
-
-    // ===== LABEL =====
-    if (po.poCategory === 'LABEL') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { label_master: true },
-        });
-
-        if (!material?.labelId || !material.label_master) {
-          logInfo(`GRN item ${item.id}: no label link, skipping label_stock`);
-          continue;
-        }
-
-        const label = material.label_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-LBL5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors
-        await tx.label_stock.create({
-          data: {
-            labelId: label.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'pieces',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
-            sourceType: 'GRN',
-            procurementId: grn.poId,
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
-          },
-        });
-
-        await ensureMaterialRecord(label.id, 'LABEL', tx);
-        await syncStockLevelQuantity(label.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(`Auto-created label_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${label.labelCode}`);
-      }
-    }
-
-    // ===== PACKAGING =====
-    if (po.poCategory === 'PACKAGING') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { packaging_master: true },
-        });
-
-        if (!material?.packagingId || !material.packaging_master) {
-          logInfo(`GRN item ${item.id}: no packaging link, skipping packaging_stock`);
-          continue;
-        }
-
-        const packaging = material.packaging_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-PKG5 fix: Use Prisma.Decimal for stock values to avoid floating point errors
-        await tx.packaging_stock.create({
-          data: {
-            packagingId: packaging.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'pieces',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
-            sourceType: 'GRN',
-            procurementId: grn.poId,
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
-          },
-        });
-
-        await ensureMaterialRecord(packaging.id, 'PACKAGING', tx);
-        await syncStockLevelQuantity(packaging.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(`Auto-created packaging_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${packaging.packagingCode}`);
-      }
-    }
-
-    // ===== MACHINE_PART =====
-    if (po.poCategory === 'MACHINE_PART') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { machine_part_master: true },
-        });
-
-        if (!material?.machinePartId || !material.machine_part_master) {
-          logInfo(`GRN item ${item.id}: no machine part link, skipping machine_part_stock`);
-          continue;
-        }
-
-        const machinePart = material.machine_part_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-MCH5 fix: Use Prisma.Decimal for stock values to avoid floating point errors
-        await tx.machine_part_stock.create({
-          data: {
-            machinePartId: machinePart.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'pieces',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
-            sourceType: 'GRN',
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
-          },
-        });
-
-        await ensureMaterialRecord(machinePart.id, 'MACHINE_PART', tx);
-        await syncStockLevelQuantity(machinePart.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(`Auto-created machine_part_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${machinePart.partCode}`);
-      }
-    }
-
-    // ===== OTHER_MATERIAL =====
-    if (po.poCategory === 'OTHER_MATERIAL') {
-      for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (acceptedQty <= 0) continue;
-
-        const material = await tx.materials.findUnique({
-          where: { id: item.materialId },
-          include: { other_material_master: true },
-        });
-
-        if (!material?.otherMaterialId || !material.other_material_master) {
-          logInfo(`GRN item ${item.id}: no other material link, skipping other_material_stock`);
-          continue;
-        }
-
-        const otherMaterial = material.other_material_master;
-        const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-
-        // BUG-OTH5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors
-        await tx.other_material_stock.create({
-          data: {
-            otherMaterialId: otherMaterial.id,
-            quantityAvailable: new Prisma.Decimal(acceptedQty),
-            quantityReserved: new Prisma.Decimal(0),
-            quantityConsumed: new Prisma.Decimal(0),
-            unit: item.unit || 'pieces',
-            purchaseCost: new Prisma.Decimal(unitPrice),
-            weightedAvgCost: new Prisma.Decimal(unitPrice),
-            supplierId: grn.supplierId,
-            sourceType: 'GRN',
-            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
-            status: 'AVAILABLE',
-            stockType: 'PLANNED_STOCK',
-            receivedDate: grn.receivingDate || new Date(),
-            warehouseId: warehouseId,
-            createdById: userId,
-          },
-        });
-
-        await ensureMaterialRecord(otherMaterial.id, 'OTHER_MATERIAL', tx);
-        await syncStockLevelQuantity(otherMaterial.id, acceptedQty, warehouseId, undefined, tx);
-
-        logInfo(
-          `Auto-created other_material_stock from GRN ${grn.grnNumber}: ${acceptedQty} of ${otherMaterial.materialCode}`
+          tx,
+          { strict: true, trimsOnly: true }
         );
       }
     }
@@ -2605,14 +2322,15 @@ class GRNService {
     const LOT_CATEGORIES = new Set(['GREIGE', 'FABRIC', 'LACE', 'GREIGE_LACE']);
     if (!LOT_CATEGORIES.has(po.poCategory ?? '')) {
       for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
-        if (!(acceptedQty > 0)) continue;
+        // The challan moves STOCK: 16 gross of buttons travel as 2,304 pieces at the per-piece rate
+        const stock = grnLineStock(item);
+        if (!(stock.qty > 0)) continue;
         directLines.push({
           itemType: 'TRIM',
           materialId: item.materialId,
-          quantity: acceptedQty,
-          unit: normalizeUnit(item.unit) ?? Unit.PIECE,
-          rate: item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0,
+          quantity: stock.qty,
+          unit: normalizeUnit(stock.unit) ?? Unit.PIECE,
+          rate: stock.rate,
           description: item.materials?.name ?? 'Trim',
         });
       }
@@ -2981,8 +2699,11 @@ class GRNService {
         // 2. Process each GRN item for reversal
         for (const item of grn.grn_items) {
           const acceptedQty = grnLineActualQty(item).toNumber();
+          // What approval booked into stock — recorded on the line since 2026-09-26; older lines recompute
+          const stock = grnLineStock(item);
+          const stockQty = item.stockQuantity != null ? Number(item.stockQuantity) : stock.qty;
 
-          // 2a. Revert PO item received quantities
+          // 2a. Revert PO item received quantities (the PO unit — gross)
           if (item.poItemId && acceptedQty > 0) {
             await tx.purchase_order_items.update({
               where: { id: item.poItemId },
@@ -2991,8 +2712,8 @@ class GRNService {
               },
             });
 
-            // 2b. Revert MRP received quantity
-            await mrpService.updateReceivedQuantity(item.poItemId, -acceptedQty, tx);
+            // 2b. Revert MRP received quantity (stock units — requirement links count pieces)
+            await mrpService.updateReceivedQuantity(item.poItemId, -stockQty, tx);
           }
 
           // 2c. Create reverse stock movement for audit trail. Not for a job-work return: it wrote no
@@ -3011,12 +2732,12 @@ class GRNService {
                 materialId: item.materialId,
                 warehouseId: warehouseId,
                 supplierId: grn.supplierId,
-                quantity: acceptedQty,
-                unit: item.unit,
+                quantity: stockQty,
+                unit: stock.unit,
                 referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
                 referenceId: grn.id,
                 referenceNumber: grn.grnNumber,
-                rate: unitPrice,
+                rate: stock.rate,
                 value: totalValue,
                 remarks: `Stock reversed from GRN ${grn.grnNumber} - Reason: ${reason}`,
                 performedById: userId,
@@ -4045,15 +3766,29 @@ class GRNService {
 
     const poCategory = po.poCategory;
 
-    // Categories that use stock_levels directly (non-specialized)
-    const nonSpecializedCategories = ['GENERAL', 'CONSUMABLE', 'SAMPLE'];
-    if (!poCategory || nonSpecializedCategories.includes(poCategory)) {
-      // Reverse stock_levels for non-specialized categories
+    // Every category approval booked through the generic loop (the SAME predicate): take back each trim line's
+    // lot — refused once any of it has been issued — then its stock_levels, in the stock units approval booked.
+    // TRIMS was missing here before 2026-09-26, so reversing a trims receipt never took stock_levels back.
+    if (receivesViaStockLevels(poCategory)) {
       for (const item of grn.grn_items) {
-        const acceptedQty = grnLineActualQty(item).toNumber();
-        if (acceptedQty > 0) {
-          await syncStockLevelQuantity(item.materialId, -acceptedQty, warehouseId, undefined, tx);
+        const stockQty = item.stockQuantity != null ? Number(item.stockQuantity) : grnLineStock(item).qty;
+        if (!(stockQty > 0)) continue;
+        const lot = item.materials ? trimLotOf(item.materials) : null;
+        if (lot) {
+          await trimStockService.reverseGrnReceiptLot(
+            {
+              trimType: lot.trimType,
+              masterId: lot.masterId,
+              sizeVariantId: lot.sizeVariantId,
+              warehouseId,
+              procurementId: grn.poId ?? null,
+              quantity: stockQty,
+              grnNumber: grn.grnNumber,
+            },
+            tx
+          );
         }
+        await syncStockLevelQuantity(item.materialId, -stockQty, warehouseId, undefined, tx);
       }
       return;
     }
@@ -4282,243 +4017,6 @@ class GRNService {
           logInfo(`Reversed thread_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
             grnId: grn.id,
             threadId,
-          });
-        }
-      }
-
-      // BUTTON - reverse button_stock
-      // BUG-BTN5 fix: Use Prisma.Decimal for proper decimal arithmetic
-      if (poCategory === 'BUTTON' && material?.button_master) {
-        const buttonId = material.button_master.id;
-        const buttonStock = await tx.button_stock.findFirst({
-          where: {
-            buttonId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (buttonStock) {
-          const currentAvailable = new Prisma.Decimal(buttonStock.quantityAvailable.toString());
-          const newAvailable = currentAvailable.minus(new Prisma.Decimal(acceptedQty));
-          if (newAvailable.lte(0)) {
-            await tx.button_stock.delete({ where: { id: buttonStock.id } });
-          } else {
-            await tx.button_stock.update({
-              where: { id: buttonStock.id },
-              data: { quantityAvailable: newAvailable },
-            });
-          }
-
-          await syncStockLevelQuantity(buttonId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed button_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            buttonId,
-          });
-        }
-      }
-
-      // ZIPPER - reverse zipper_stock
-      if (poCategory === 'ZIPPER' && material?.zipper_master) {
-        const zipperId = material.zipper_master.id;
-        const zipperStock = await tx.zipper_stock.findFirst({
-          where: {
-            zipperId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (zipperStock) {
-          // BUG-ZIP5 fix: use decimal.js for precision
-          const newAvailable = toNumber(subtractCurrency(zipperStock.quantityAvailable, acceptedQty));
-          if (newAvailable <= 0) {
-            await tx.zipper_stock.delete({ where: { id: zipperStock.id } });
-          } else {
-            await tx.zipper_stock.update({
-              where: { id: zipperStock.id },
-              data: { quantityAvailable: newAvailable },
-            });
-          }
-
-          await syncStockLevelQuantity(zipperId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed zipper_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            zipperId,
-          });
-        }
-      }
-
-      // ELASTIC - reverse elastic_stock
-      if (poCategory === 'ELASTIC' && material?.elastic_master) {
-        const elasticId = material.elastic_master.id;
-        const elasticStock = await tx.elastic_stock.findFirst({
-          where: {
-            elasticId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (elasticStock) {
-          const newAvailable = Number(elasticStock.quantityAvailable) - acceptedQty;
-          if (newAvailable <= 0) {
-            await tx.elastic_stock.delete({ where: { id: elasticStock.id } });
-          } else {
-            await tx.elastic_stock.update({
-              where: { id: elasticStock.id },
-              data: { quantityAvailable: newAvailable },
-            });
-          }
-
-          await syncStockLevelQuantity(elasticId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed elastic_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            elasticId,
-          });
-        }
-      }
-
-      // LABEL - reverse label_stock
-      if (poCategory === 'LABEL' && material?.label_master) {
-        const labelId = material.label_master.id;
-        const labelStock = await tx.label_stock.findFirst({
-          where: {
-            labelId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (labelStock) {
-          const newAvailable = Number(labelStock.quantityAvailable) - acceptedQty;
-          if (newAvailable <= 0) {
-            await tx.label_stock.delete({ where: { id: labelStock.id } });
-          } else {
-            await tx.label_stock.update({
-              where: { id: labelStock.id },
-              data: { quantityAvailable: newAvailable },
-            });
-          }
-
-          await syncStockLevelQuantity(labelId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed label_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            labelId,
-          });
-        }
-      }
-
-      // PACKAGING - reverse packaging_stock
-      if (poCategory === 'PACKAGING' && material?.packaging_master) {
-        const packagingId = material.packaging_master.id;
-        const packagingStock = await tx.packaging_stock.findFirst({
-          where: {
-            packagingId,
-            warehouseId,
-            procurementId: grn.poId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (packagingStock) {
-          // BUG-PKG5 fix: Use decimal arithmetic to avoid floating point errors
-          const newAvailable = subtractCurrency(packagingStock.quantityAvailable, acceptedQty);
-          if (newAvailable.lte(0)) {
-            await tx.packaging_stock.delete({ where: { id: packagingStock.id } });
-          } else {
-            await tx.packaging_stock.update({
-              where: { id: packagingStock.id },
-              data: { quantityAvailable: new Prisma.Decimal(toNumber(newAvailable)) },
-            });
-          }
-
-          await syncStockLevelQuantity(packagingId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed packaging_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            packagingId,
-          });
-        }
-      }
-
-      // MACHINE_PART - reverse machine_part_stock
-      // BUG-MCH5 fix: Use atomic decrement operations for thread safety and precision
-      if (poCategory === 'MACHINE_PART' && material?.machine_part_master) {
-        const machinePartId = material.machine_part_master.id;
-        const machinePartStock = await tx.machine_part_stock.findFirst({
-          where: {
-            machinePartId,
-            warehouseId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (machinePartStock) {
-          const currentAvailable = Number(machinePartStock.quantityAvailable);
-          if (currentAvailable - acceptedQty <= 0) {
-            // Delete if resulting quantity would be zero or less
-            await tx.machine_part_stock.delete({ where: { id: machinePartStock.id } });
-          } else {
-            // Use atomic decrement for thread safety and precision
-            await tx.machine_part_stock.update({
-              where: { id: machinePartStock.id },
-              data: { quantityAvailable: { decrement: acceptedQty } },
-            });
-          }
-
-          await syncStockLevelQuantity(machinePartId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed machine_part_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            machinePartId,
-          });
-        }
-      }
-
-      // OTHER_MATERIAL - reverse other_material_stock
-      if (poCategory === 'OTHER_MATERIAL' && material?.other_material_master) {
-        const otherMaterialId = material.other_material_master.id;
-        const otherMaterialStock = await tx.other_material_stock.findFirst({
-          where: {
-            otherMaterialId,
-            warehouseId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
-
-        if (otherMaterialStock) {
-          // BUG-OTH5 fix: Use decimal arithmetic to avoid floating point errors
-          const newAvailable = subtractCurrency(otherMaterialStock.quantityAvailable, acceptedQty);
-          if (newAvailable.lte(0)) {
-            await tx.other_material_stock.delete({ where: { id: otherMaterialStock.id } });
-          } else {
-            await tx.other_material_stock.update({
-              where: { id: otherMaterialStock.id },
-              data: { quantityAvailable: new Prisma.Decimal(toNumber(newAvailable)) },
-            });
-          }
-
-          await syncStockLevelQuantity(otherMaterialId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed other_material_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
-            grnId: grn.id,
-            otherMaterialId,
           });
         }
       }

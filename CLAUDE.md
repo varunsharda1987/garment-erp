@@ -140,6 +140,7 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 | "The result of processing" | `finishedFabricId` / `processedFabricId` / `createdFabricId` / `resultFabricStockId` — four names, one meaning | |
 | Where a PO delivers | `purchase_orders.deliveryLocationId` — ONE place, empty = "to be advised"; on a split PO it only MIRRORS point 1 | `po_delivery_points` + `po_delivery_point_lines` — the split plan. Read and write through `helpers/po-delivery-plan.helper.ts` (2026-09-26) |
 | Where a receipt went | `goods_receiving_notes.warehouseId` — the ACTUAL place, stock is booked there | `goods_receiving_notes.poDeliveryPointId` — the PLANNED place on a split PO. They differ when goods landed elsewhere (warned, allowed) |
+| A label's stock | `label_stock.labelId` (the label) | `label_stock.sizeVariantId` (the SIZE — NULL = unsized stock). `derived_stock_view` puts each lot on exactly ONE materials row: the size row, else the base row (2026-09-26 — before, a label lot showed on the base AND every size row). A trim receipt reaches its lot table by the LINE's material (`routeToSpecializedStock` → `trimLotOf`), never by the PO category; `receivesViaStockLevels()` in `grn.service.ts` is the one predicate approval and reversal share |
 | Which processor holds a lot | `greige_stock.processorId` (DIRECT / TRANSFER lots) | the lot's warehouse when it is a JOB_WORK unit (`warehouses.supplierId`). Lace and fabric have ONLY the warehouse. Read via `lot-location.helper` (`greigeHolderId`, `resolveLotLocation`, `laceCountsForPlanning`) |
 
 `fabricId` on BOM lines and cost-sheet lines is **null by design** (0/82, 0/64): at design time the
@@ -417,9 +418,16 @@ MR2608-0111 asked for 2,300 PIECES of a metre fusing. Every style save recreates
 data fix alone came undone on the next save. Repaired by `backend/scripts/repair-line-units.ts`
 (its dry run is the invariant sweep: 0 rows).
 
-- **Consumption unit ≠ purchase unit.** Buttons are consumed per PIECE but bought by the GROSS;
-  thread is bought in cones/tubes and converted by box size (`thread-conversion.service.ts`). PO
-  lines are NOT governed by this rule — purchase-unit conversion at PO time is not built yet.
+- **Consumption unit ≠ purchase unit.** Buttons and snap buttons are consumed per PIECE but ordered and
+  inwarded by the GROSS (`purchaseUnitOf` + `COUNT_UNIT_FACTORS` in the unit registry). The PO line and
+  GRN line stay in the PURCHASE unit (quantity, rate, value, GST, the PO's received counter);
+  requirements, requirement links and stock are in the STOCK unit. The server writes
+  `purchase_order_items.stockUnitsPerUnit` on EVERY PO writer (`resolvePoLineUnits`,
+  `services/helpers/purchase-unit.helper.ts` — a button line not in GROSS is refused), and the ONLY
+  conversions are `grnLineStock()` in `grn.service.ts` (saved on the line as `grn_items.stockQuantity`, so a
+  reversal takes back exactly that) and the link writers. Never put the factor into `grnLineActualQty` — it
+  feeds GRN value and GST. Stock In converts GROSS/DOZEN to pieces. Rates per stock unit are 4 dp
+  (₹18 / gross = ₹0.125 / piece). Thread (cones/tubes → boxes) is not built yet.
 - **THREAD is the exception**: its lines keep `'lot'` (qty 1 per garment — the quantity counts
   garments, not cones). Thread costing is not designed yet; do not "fix" thread units unasked.
 - **A used material's unit is locked.** `PUT /api/materials/:id` refuses a unit change (409) once

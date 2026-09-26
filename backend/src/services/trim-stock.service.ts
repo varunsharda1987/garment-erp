@@ -11,8 +11,14 @@
 import { Prisma, StockStatus } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError } from '../utils/logger';
-import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import {
+  ensureLabelSizeMaterialRecord,
+  ensureMaterialRecord,
+  syncStockLevelQuantity,
+} from './helpers/material-sync.helper';
 import { normalizeUnit } from '../utils/units';
+import { isQtyZero, QTY_EPSILON } from '../utils/quantity';
+import { BusinessError } from '../errors';
 
 export type TrimType = 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING' | 'MACHINE_PART' | 'OTHER_MATERIAL';
 
@@ -31,8 +37,23 @@ export interface CreateTrimStockDTO {
   qualityGrade?: string;
   receivedDate?: Date;
   sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT' | 'IMPORT';
+  /** LABEL only: the size this lot is (must belong to that label). Null/absent = unsized stock. */
+  sizeVariantId?: string | null;
+  /** The PO a GRN lot came from — a GRN reversal finds its lot by it */
+  procurementId?: string | null;
   skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
   tx?: any; // Transaction client - use this instead of global prisma when provided
+}
+
+export interface ReverseGrnLotDTO {
+  trimType: TrimType;
+  masterId: string;
+  warehouseId: string | null;
+  procurementId: string | null;
+  sizeVariantId?: string | null;
+  /** Stock units to take back — what the approval booked */
+  quantity: number;
+  grnNumber: string;
 }
 
 export interface TrimStockItem {
@@ -144,6 +165,16 @@ class TrimStockService {
       if (!master) {
         throw new Error(`${data.trimType} master with ID ${data.masterId} not found`);
       }
+      const sizeVariantId = data.trimType === 'LABEL' ? data.sizeVariantId || null : null;
+      if (sizeVariantId) {
+        const variant = await tx.label_size_variants.findUnique({
+          where: { id: sizeVariantId },
+          select: { labelId: true, size: true },
+        });
+        if (!variant || variant.labelId !== data.masterId) {
+          throw new Error(`Size ${sizeVariantId} does not belong to label ${master[config.masterCodeField]}`);
+        }
+      }
 
       // Create stock entry using the appropriate table
       // BUG-BTN5 fix: Use Prisma.Decimal for all monetary values to avoid floating point errors
@@ -156,6 +187,8 @@ class TrimStockService {
         unit: data.unit || config.defaultUnit,
         purchaseCost: new Prisma.Decimal(cost), // BUG-BTN5 fix: Decimal storage
         weightedAvgCost: new Prisma.Decimal(cost), // BUG-BTN5 fix: Decimal storage
+        ...(data.trimType === 'LABEL' ? { sizeVariantId } : {}),
+        procurementId: data.procurementId || null,
         supplierId: data.supplierId || null,
         batchNumber: data.batchNumber || null,
         lotNumber: data.lotNumber || null,
@@ -178,7 +211,10 @@ class TrimStockService {
       // Ensure materials record exists + sync stock_levels (on this tx)
       // Skip when called from stock routing (parent already handles this)
       if (!data.skipMaterialSync) {
-        const materialId = await ensureMaterialRecord(data.masterId, data.trimType, tx);
+        // A sized label's stock lands on its SIZE row, never the base label row
+        const materialId = sizeVariantId
+          ? await ensureLabelSizeMaterialRecord(sizeVariantId, tx)
+          : await ensureMaterialRecord(data.masterId, data.trimType, tx);
         // Trim stock tables store 'pieces' / 'meters'; stock_levels takes the enum. An unreadable unit
         // passes undefined so the helper records the material's own unit instead of a bad string.
         const unitForStockLevel = normalizeUnit(stockData.unit) ?? undefined;
@@ -204,6 +240,46 @@ class TrimStockService {
       throw new Error(
         `Failed to create ${data.trimType.toLowerCase()} stock: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
+    }
+  }
+
+  /**
+   * Take a GRN's trim lot back out on reversal: the lot that receipt created (same master, warehouse, PO,
+   * sourceType GRN and label size) must still hold the whole quantity. A lot some of which has been issued
+   * cannot be un-received — like greige and lace, the reversal is refused. A lot reaching zero is deleted.
+   * The CALLER owns stock_levels (syncStockLevelQuantity), the same contract as receiving.
+   */
+  async reverseGrnReceiptLot(data: ReverseGrnLotDTO, tx: any): Promise<void> {
+    const config = TRIM_CONFIG[data.trimType];
+    if (!config) throw new Error(`Unknown trim type: ${data.trimType}`);
+    const where = {
+      [config.masterIdField]: data.masterId,
+      warehouseId: data.warehouseId,
+      procurementId: data.procurementId,
+      sourceType: 'GRN',
+      ...(data.trimType === 'LABEL' ? { sizeVariantId: data.sizeVariantId ?? null } : {}),
+    };
+    const lot = await tx[config.table].findFirst({
+      where: { ...where, quantityAvailable: { gte: data.quantity - QTY_EPSILON } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!lot) {
+      const any = await tx[config.table].findFirst({ where, orderBy: { createdAt: 'desc' } });
+      throw new BusinessError(
+        `Cannot reverse GRN ${data.grnNumber}: ${any ? `only ${Number(any.quantityAvailable)} of its ${data.quantity}` : 'its'} ` +
+          `${data.trimType.toLowerCase()} stock is still in store — the rest has already been used. Take it back first ` +
+          `(cancel or return the issue), then reverse.`,
+        { reason: 'GRN_LOT_ALREADY_USED', lotId: any?.id ?? null }
+      );
+    }
+    const left = Number(lot.quantityAvailable) - data.quantity;
+    if (isQtyZero(left)) {
+      await tx[config.table].delete({ where: { id: lot.id } });
+    } else {
+      await tx[config.table].update({
+        where: { id: lot.id },
+        data: { quantityAvailable: new Prisma.Decimal(left) },
+      });
     }
   }
 

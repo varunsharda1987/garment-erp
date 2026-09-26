@@ -327,6 +327,7 @@ export const getAllLabel = async (req: Request, res: Response) => {
         },
       },
       materials: {
+        where: { sizeVariantId: null }, // the label's base row — its size rows share the labelId
         select: { id: true, code: true, unit: true },
       },
       labelSuppliers: {
@@ -435,6 +436,7 @@ export const getLabelById = async (req: Request, res: Response) => {
         },
       },
       materials: {
+        where: { sizeVariantId: null }, // the label's base row — its size rows share the labelId
         select: { id: true, code: true, unit: true },
       },
       labelSuppliers: {
@@ -676,6 +678,7 @@ export const updateLabel = async (req: Request, res: Response) => {
         },
       },
       materials: {
+        where: { sizeVariantId: null }, // the label's base row — its size rows share the labelId
         select: { id: true, code: true, unit: true },
       },
       labelSuppliers: {

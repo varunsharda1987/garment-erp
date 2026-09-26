@@ -31,6 +31,7 @@
  * D21 split PO lines whose delivery places do not add up to the line (po-delivery-plan.helper)
  * D22 receipts on a split PO that name no delivery place     [GRN create requires one]
  * D23 active processors with no processing unit              (WH-JW code collision, until 26-Sep)
+ * D24 label lots not on exactly one materials row / size of another label (label stock per size)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -433,6 +434,24 @@ async function main() {
              'FINISHING_CONTRACTOR','STITCHING_CONTRACTOR','WASHING','DORI_PIPING_CONTRACTOR']::"SupplierCategory"[]
          AND NOT EXISTS (SELECT 1 FROM warehouses w WHERE w."supplierId" = s.id AND w."warehouseType" = 'JOB_WORK')
        ORDER BY s.name`
+  );
+
+  // Label stock per size (2026-09-26): each label lot lands on exactly ONE materials row — its size row, else the
+  // base row — and a size lot's size belongs to that label. Before, every lot showed on base + every size row.
+  await run(
+    'D24',
+    'Label lots not on exactly one materials row, or whose size belongs to another label',
+    prisma.$queryRaw`
+      SELECT l."labelCode", s.id AS lot, s."sizeVariantId" AS size_id, v."labelId" AS size_label,
+             (SELECT count(*)::int FROM materials m
+               WHERE m."labelId" = s."labelId" AND m."sizeVariantId" IS NOT DISTINCT FROM s."sizeVariantId") AS rows_matched
+        FROM label_stock s
+        JOIN label_master l ON l.id = s."labelId"
+        LEFT JOIN label_size_variants v ON v.id = s."sizeVariantId"
+       WHERE (s."sizeVariantId" IS NOT NULL AND v."labelId" IS DISTINCT FROM s."labelId")
+          OR (SELECT count(*) FROM materials m
+               WHERE m."labelId" = s."labelId" AND m."sizeVariantId" IS NOT DISTINCT FROM s."sizeVariantId") <> 1
+       ORDER BY l."labelCode"`
   );
 
   // ---- Output ---------------------------------------------------------------------------

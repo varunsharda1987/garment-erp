@@ -29,6 +29,7 @@ import { normalizeId, isUUID } from '../utils/id-helper';
 import { applySearch } from '../utils/search-filter';
 import type { Unit } from '../schemas/generated/prisma-enums';
 import { materialUsage } from '../services/helpers/material-unit.helper';
+import { purchaseUnitFor } from '../services/helpers/purchase-unit.helper';
 import { unitLabel } from '../utils/units';
 
 // ============================================
@@ -291,6 +292,13 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
         button_master: {
           select: {
             pricePerPiece: true,
+            pricePerGross: true,
+          },
+        },
+        snap_button_master: {
+          select: {
+            pricePerPiece: true,
+            pricePerGross: true,
           },
         },
         thread_master: {
@@ -342,10 +350,27 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
                       ? Number(material.packaging_master.pricePerPiece)
                       : null;
 
+    // Bought in another unit than it is counted in (buttons / snap buttons by the gross): what a PO line is in,
+    // and its rate — the master's price per gross, else its price per piece × 144
+    const purchase = purchaseUnitFor(material.materialType);
+    const trimMaster = material.button_master ?? material.snap_button_master ?? null;
+    const perPiece =
+      trimMaster?.pricePerPiece != null ? Number(trimMaster.pricePerPiece) : costPerUnit != null ? costPerUnit : null;
+    const purchaseUnitPrice = purchase
+      ? trimMaster?.pricePerGross != null
+        ? Number(trimMaster.pricePerGross)
+        : perPiece != null
+          ? Math.round(perPiece * purchase.stockUnitsPerUnit * 100) / 100
+          : null
+      : null;
+
     return {
       ...material,
       reorderLevel: material.reorderLevel ? Number(material.reorderLevel) : null,
       costPerUnit, // Add costPerUnit to the response
+      purchaseUnit: purchase?.unit ?? null,
+      stockUnitsPerPurchaseUnit: purchase?.stockUnitsPerUnit ?? null,
+      purchaseUnitPrice,
       customer, // Add customer to the response
       // Clean up - remove master table objects from response
       label_master: undefined,
@@ -354,6 +379,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       greige_master: undefined,
       lace_master: undefined,
       button_master: undefined,
+      snap_button_master: undefined,
       thread_master: undefined,
       zipper_master: undefined,
       elastic_master: undefined,

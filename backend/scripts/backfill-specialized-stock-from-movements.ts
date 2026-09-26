@@ -363,6 +363,9 @@ async function backfillSpecializedStock() {
         stats.created['ELASTIC'] = (stats.created['ELASTIC'] || 0) + 1;
         console.log(`  CREATED: elastic_stock for ${material.code} (${qty})`);
       } else if (material.labelId) {
+        // STALE since 2026-09-26: label_stock now has sizeVariantId — a SIZE row's lot must carry its size
+        // (derived_stock_view puts each lot on exactly one materials row). This section writes no size; fix it
+        // before running it against sized labels.
         const existing = await prisma.label_stock.findFirst({
           where: {
             labelId: material.labelId,

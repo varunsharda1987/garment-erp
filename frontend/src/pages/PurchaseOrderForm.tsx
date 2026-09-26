@@ -1,4 +1,4 @@
-import { unitShort } from '@/lib/units';
+import { COUNT_UNIT_FACTORS, purchaseUnitOf, unitShort } from '@/lib/units';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -178,6 +178,10 @@ interface Material {
   materialType: string;
   unit: string | null;
   costPerUnit: number | null;
+  /** Bought in another unit than it is counted in (buttons by the gross) — and that unit's rate */
+  purchaseUnit?: string | null;
+  stockUnitsPerPurchaseUnit?: number | null;
+  purchaseUnitPrice?: number | null;
   hsnCode?: string | null;
   gstRate?: number | null;
   // A label with sizes arrives as its base row (id === labelId) plus one row per size
@@ -296,6 +300,23 @@ function createProcessingItem(row: CADSpreadsheetRow, calculatedQty: number | nu
 
 function createTrimItem(bomItem: StyleBOMEntry, calculatedQty: number | null): POItemForm {
   const price = parseFloat(bomItem.unitPrice) || 0;
+  // A BOM counts buttons per piece; they are ordered by the gross — whole gross, rounded up
+  const purchase = purchaseUnitOf(bomItem.materialType);
+  if (purchase) {
+    const gross = calculatedQty ? Math.ceil(calculatedQty / purchase.per - 1e-9) : 0;
+    const grossRate = Math.round(price * purchase.per * 100) / 100;
+    return {
+      tempId: Date.now().toString(),
+      materialId: undefined, // BOM entry doesn't have materialId, only materialCode
+      materialCode: bomItem.materialCode || undefined,
+      materialName: bomItem.materialName || 'Material',
+      orderedQuantity: String(gross),
+      unit: purchase.unit,
+      unitPrice: String(grossRate),
+      totalPrice: gross * grossRate,
+      remarks: calculatedQty ? `${Math.ceil(calculatedQty)} pcs needed` : '',
+    };
+  }
   const qty = calculatedQty || 0;
   return {
     tempId: Date.now().toString(),
@@ -852,17 +873,21 @@ export default function PurchaseOrderForm() {
   // ============================================
 
   // generateId, not crypto.randomUUID: the team opens the ERP over plain-HTTP LAN, where randomUUID is absent
-  const materialLine = (material: Material, qty: number): POItemForm => ({
-    tempId: generateId(),
-    materialId: material.id,
-    materialCode: material.code,
-    materialName: material.name,
-    orderedQuantity: String(qty),
-    unit: (material.unit as Unit) || 'PIECE',
-    unitPrice: String(material.costPerUnit || 0),
-    totalPrice: qty * (material.costPerUnit || 0),
-    remarks: '',
-  });
+  // A button is ordered by the gross at its rate per gross; anything else in the unit it is counted in
+  const materialLine = (material: Material, qty: number): POItemForm => {
+    const rate = material.purchaseUnit ? (material.purchaseUnitPrice ?? 0) : (material.costPerUnit ?? 0);
+    return {
+      tempId: generateId(),
+      materialId: material.id,
+      materialCode: material.code,
+      materialName: material.name,
+      orderedQuantity: String(qty),
+      unit: ((material.purchaseUnit || material.unit) as Unit) || 'PIECE',
+      unitPrice: String(rate),
+      totalPrice: qty * rate,
+      remarks: '',
+    };
+  };
 
   const addMaterialItem = (material: Material) => {
     setItems([...items, materialLine(material, 1)]);
@@ -2130,6 +2155,16 @@ export default function PurchaseOrderForm() {
                         <Badge variant="secondary" className="font-medium">
                           {unitShort(item.unit)}
                         </Badge>
+                        {/* Bought by the gross / dozen, counted in pieces: show what the order means in stock */}
+                        {COUNT_UNIT_FACTORS[item.unit] && Number(item.orderedQuantity) > 0 && (
+                          <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+                            ={' '}
+                            {formatQuantity(
+                              Math.round(Number(item.orderedQuantity) * COUNT_UNIT_FACTORS[item.unit]!.per),
+                              COUNT_UNIT_FACTORS[item.unit]!.of
+                            )}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Input

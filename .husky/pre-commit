@@ -1,3 +1,7 @@
+# Refuse to commit files ANOTHER Claude terminal edited and has not committed (shared folder).
+# First, before lint-staged rewrites anything. See scripts/hooks/session-claims.js.
+node scripts/hooks/session-claims.js check
+
 npx lint-staged
 
 # Smart Check - automatically detects what you changed and runs relevant checks

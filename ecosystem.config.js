@@ -1,16 +1,19 @@
 /**
  * PM2 Ecosystem Configuration for Garment ERP
  *
- * Two apps:
- *   - garment-erp-api: Backend API on port 5000
- *   - garment-erp-web: Static server on port 3000 (serves frontend + proxies /api)
+ * Three apps:
+ *   - garment-erp-api:      Backend API on port 5000
+ *   - garment-erp-web:      Static server on port 3000 (serves frontend + proxies /api)
+ *   - garment-erp-deployer: ships each commit on main, one deploy at a time (scripts/ship/)
+ *
+ * The PM2 daemon is SHARED with other businesses: never `pm2 stop all` / `restart all` /
+ * `reload all` / `kill`. Name the app (`--only garment-erp-deployer`), and restart the api/web
+ * only through C:\Users\NEW\ops\pm2-safe-restart.js.
  *
  * Usage:
- *   pm2 start ecosystem.config.js
- *   pm2 stop all
- *   pm2 restart all
- *   pm2 logs
- *   pm2 monit
+ *   pm2 start ecosystem.config.js --only garment-erp-deployer
+ *   pm2 logs garment-erp-api
+ *   npm run ship:status
  */
 
 module.exports = {
@@ -55,14 +58,19 @@ module.exports = {
       min_uptime: 10000,
       exp_backoff_restart_delay: 100,
     },
+    // The ONLY thing that puts code live. Replaced garment-erp-watcher (2026-09-26), which rebuilt
+    // and restarted the live app on every file SAVE in this shared folder — so every Claude
+    // terminal's half-typed edits went live within seconds. See scripts/ship/deployer.js.
     {
-      name: 'garment-erp-watcher',
-      cwd: './server',
-      script: 'dev-watcher.js',
+      name: 'garment-erp-deployer',
+      cwd: '.',
+      script: 'scripts/ship/deployer.js',
       autorestart: true,
-      max_restarts: 3,
-      // Watcher is optional - if it fails, don't keep retrying
-      min_uptime: 5000,
+      max_restarts: 5,
+      min_uptime: 10000,
+      // A deploy stops/starts the api and web through pm2-safe-restart; give it time to finish
+      // the current step if PM2 ever stops the deployer itself.
+      kill_timeout: 8000,
     },
   ],
 };

@@ -31,11 +31,11 @@ import { warehouseService } from '@/services/warehouse.service';
 import { getAllStyles } from '@/services/style.service';
 import { getAllOrders } from '@/services/order.service';
 import { cadPlanningService } from '@/services/cad-planning.service';
-import { getStyleBOM } from '@/services/style-material-bom.service';
+import { getStyleBOM, getStyleLabelSet } from '@/services/style-material-bom.service';
 import { greigeService } from '@/services/fabricGreigeService';
 import type { GreigeMaster } from '@/types/fabric-greige.types';
 import type { CADTableData, CADSpreadsheetRow } from '@/types/cad-planning.types';
-import type { StyleBOMResponse, StyleBOMEntry } from '@/types/style-material-bom.types';
+import type { StyleBOMResponse, StyleBOMEntry, StyleLabelSet } from '@/types/style-material-bom.types';
 import {
   createPurchaseOrder,
   getPurchaseOrderById,
@@ -63,16 +63,34 @@ import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
 import type { GreigeForRateCard, PrintingTypeV2 } from '@/types/processorRateCardV2.types';
-import { Trash2, Plus, Send, Save, ArrowLeft, Lock, X, Info, Eye, Check, FileText, Building2 } from 'lucide-react';
+import {
+  Trash2,
+  Plus,
+  Send,
+  Save,
+  ArrowLeft,
+  Lock,
+  X,
+  Info,
+  Eye,
+  Check,
+  FileText,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Warehouse } from '@/types/inventory.types';
 import { formatQuantity } from '@/lib/formatters';
 import { foldCounted, hasFold } from '@/lib/fold-length';
-import { compareSizes } from '@/utils/sku-generator';
+import { indexSizedLabels, labelDisplay, mergeLabelQuantities, sizeOf } from '@/lib/label-materials';
+import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
+import { formLineLabelKey } from '@/lib/label-line-keys';
 import { generateId } from '@/lib/utils';
 import { LabelSizeQtyDialog } from '@/components/purchase-orders/LabelSizeQtyDialog';
+import { LabelSetDialog, type LabelSetSelection } from '@/components/purchase-orders/LabelSetDialog';
 
 /**
  * Which GST heads apply: IGST for an out-of-state supplier, CGST+SGST for one in our own state.
@@ -218,6 +236,11 @@ interface POItemForm {
   // Greige / fabric: the weaver this line is bought from, when known (Phase 1b)
   weaverId?: string;
   weaverName?: string;
+  // A label line: its label and size — a label's sizes show under one heading (lib/label-lines)
+  labelId?: string;
+  labelCode?: string;
+  labelName?: string;
+  size?: string | null;
 }
 
 // ============================================
@@ -390,6 +413,12 @@ export default function PurchaseOrderForm() {
   const [materialDisplayLimit, setMaterialDisplayLimit] = useState(50);
   // The sized label whose size grid is open (its labelId)
   const [sizeGridLabelId, setSizeGridLabelId] = useState<string | null>(null);
+  // Label groups folded shut in the lines table (open by default)
+  const [collapsedLabels, setCollapsedLabels] = useState<Set<string>>(new Set());
+  // The linked style's labels (with the linked order's sizes) — ordered together through the label set dialog
+  const [styleLabelSet, setStyleLabelSet] = useState<StyleLabelSet | null>(null);
+  const [labelSetOpen, setLabelSetOpen] = useState(false);
+  const [labelSetOnly, setLabelSetOnly] = useState<string[] | null>(null);
 
   // AbortController for cancelling stale fetch requests
   const fetchAbortControllerRef = useRef<AbortController | null>(null);
@@ -532,6 +561,21 @@ export default function PurchaseOrderForm() {
     };
     fetchBOMData();
   }, [styleId, token]);
+
+  const currentLabelSet = styleId && styleLabelSet?.styleId === styleId ? styleLabelSet : null;
+
+  // The style's label set — with the linked order's garments per size when an order is linked.
+  // Only a set for the CURRENT style is shown (`currentLabelSet` below), so a stale one needs no reset here.
+  useEffect(() => {
+    if (!styleId || !token) return;
+    let cancelled = false;
+    getStyleLabelSet(styleId, orderId || undefined)
+      .then((set) => !cancelled && setStyleLabelSet(set))
+      .catch(() => !cancelled && setStyleLabelSet(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [styleId, orderId, token]);
 
   // Fetch orders (for traceability) - only when authenticated
   useEffect(() => {
@@ -716,6 +760,10 @@ export default function PurchaseOrderForm() {
           foldLengthCm: item.foldLengthCm != null ? String(item.foldLengthCm) : '',
           weaverId: item.weaverId ?? '',
           weaverName: item.weaver?.name ?? '',
+          labelId: item.materials?.labelMaster?.id,
+          labelCode: item.materials?.labelMaster?.labelCode,
+          labelName: item.materials?.labelMaster?.labelName,
+          size: item.materials?.labelSizeVariant?.size ?? null,
         }));
         setItems(loadedItems);
         // A split PO opens with its places, each line's share keyed on the line's tempId
@@ -833,40 +881,7 @@ export default function PurchaseOrderForm() {
 
   // Each size of a label is its own material (LBL-0004-XS …), so a PO buys a sized label as one line per
   // size. The picker offers the label ONCE and opens a size grid instead of listing seven rows.
-  const sizeRowsByLabel = new Map<string, Material[]>();
-  for (const m of materials) {
-    if (m.labelId && m.sizeVariantId && m.labelSizeVariant?.size) {
-      sizeRowsByLabel.set(m.labelId, [...(sizeRowsByLabel.get(m.labelId) ?? []), m]);
-    }
-  }
-  for (const rows of sizeRowsByLabel.values()) {
-    rows.sort((a, b) => compareSizes(a.labelSizeVariant!.size, b.labelSizeVariant!.size));
-  }
-  const sizedRowsOf = (m: Material) => (m.labelId ? sizeRowsByLabel.get(m.labelId) : undefined);
-
-  // What the picker lists: every material, except a sized label's rows collapse into one entry — its
-  // base row when loaded, else its first size row.
-  const pickerMaterials: Material[] = [];
-  const offeredLabels = new Set<string>();
-  for (const m of materials) {
-    const sized = sizedRowsOf(m);
-    if (!sized) {
-      pickerMaterials.push(m);
-    } else if (!offeredLabels.has(m.labelId!)) {
-      offeredLabels.add(m.labelId!);
-      pickerMaterials.push(materials.find((x) => x.id === m.labelId) ?? sized[0]);
-    }
-  }
-
-  // A sized label's own code and name (a size row's are "LBL-0004-XS" / "… - Size XS" or "… (XS)")
-  const labelDisplay = (m: Material) => {
-    const size = m.sizeVariantId ? m.labelSizeVariant?.size : undefined;
-    if (!size) return { code: m.code, name: m.name };
-    return {
-      code: m.code.endsWith(`-${size}`) ? m.code.slice(0, -(size.length + 1)) : m.code,
-      name: m.name.replace(/ - Size .+$/, '').replace(/ \([^)]+\)$/, ''),
-    };
-  };
+  const { sizeRowsByLabel, sizedRowsOf, pickerMaterials } = indexSizedLabels(materials);
 
   // ============================================
   // Material item management
@@ -876,11 +891,16 @@ export default function PurchaseOrderForm() {
   // A button is ordered by the gross at its rate per gross; anything else in the unit it is counted in
   const materialLine = (material: Material, qty: number): POItemForm => {
     const rate = material.purchaseUnit ? (material.purchaseUnitPrice ?? 0) : (material.costPerUnit ?? 0);
+    const label = material.labelId ? labelDisplay(material) : null;
     return {
       tempId: generateId(),
       materialId: material.id,
       materialCode: material.code,
       materialName: material.name,
+      labelId: material.labelId ?? undefined,
+      labelCode: label?.code,
+      labelName: label?.name,
+      size: sizeOf(material),
       orderedQuantity: String(qty),
       unit: ((material.purchaseUnit || material.unit) as Unit) || 'PIECE',
       unitPrice: String(rate),
@@ -917,28 +937,348 @@ export default function PurchaseOrderForm() {
   // Apply the size grid: update the sizes already on the PO, add the new ones (in size order), and drop a
   // size's line when its quantity is 0. A size never ends up on two lines.
   const applySizeGrid = (sizeRows: Material[], qtyByMaterialId: Record<string, number>) => {
-    setItems((prev) => {
-      const next: POItemForm[] = [];
-      const kept = new Set<string>();
-      for (const item of prev) {
-        const row = sizeRows.find((r) => r.id === item.materialId);
-        if (!row) {
-          next.push(item);
-          continue;
-        }
-        const qty = qtyByMaterialId[row.id] ?? 0;
-        if (kept.has(row.id) || qty <= 0) continue;
-        kept.add(row.id);
-        next.push({ ...item, orderedQuantity: String(qty), totalPrice: qty * (parseFloat(item.unitPrice) || 0) });
+    setItems((prev) =>
+      mergeLabelQuantities(
+        prev,
+        sizeRows,
+        qtyByMaterialId,
+        (item, qty) => ({ ...item, orderedQuantity: String(qty), totalPrice: qty * (parseFloat(item.unitPrice) || 0) }),
+        (row, qty) => materialLine(row, qty)
+      )
+    );
+    setSizeGridLabelId(null);
+  };
+
+  // ============================================
+  // The style's label set (Materials Required → Labels)
+  // ============================================
+
+  // Labels go on a Trims PO. An empty or still-empty other category is switched; one with lines is not touched.
+  const openLabelSet = (onlyLabelIds: string[] | null) => {
+    if (poCategory !== 'TRIMS' && poCategory !== 'GENERAL') {
+      if (items.length > 0) {
+        handleApiError(
+          new Error('Labels go on a Trims PO — this PO already has other lines. Start a new PO for the labels.'),
+          'Cannot add labels here'
+        );
+        return;
       }
-      for (const row of sizeRows) {
-        const qty = qtyByMaterialId[row.id] ?? 0;
-        if (kept.has(row.id) || qty <= 0) continue;
-        next.push(materialLine(row, qty));
-      }
+      handleCategoryChange('TRIMS');
+    }
+    setLabelSetOnly(onlyLabelIds);
+    setLabelSetOpen(true);
+  };
+
+  const applyLabelSet = (selections: LabelSetSelection[]) => {
+    setItems((prev) =>
+      selections.reduce(
+        (lines, sel) =>
+          mergeLabelQuantities(
+            lines,
+            sel.rows,
+            sel.qtyByMaterialId,
+            (item, qty) => ({
+              ...item,
+              orderedQuantity: String(qty),
+              totalPrice: qty * (parseFloat(item.unitPrice) || 0),
+            }),
+            (row, qty) => materialLine(row as Material, qty)
+          ),
+        prev
+      )
+    );
+    setLabelSetOpen(false);
+  };
+
+  // ============================================
+  // Lines table rows (a label's sizes sit under one heading — lib/label-lines)
+  // ============================================
+
+  // Columns before Quantity: the material, plus processing notes / fold L + weaver when shown
+  const leadColumns = 1 + (isProcessing ? 1 : 0) + (poCategory === 'GREIGE' || poCategory === 'FABRIC' ? 2 : 0);
+
+  const toggleLabelCollapsed = (labelId: string) =>
+    setCollapsedLabels((prev) => {
+      const next = new Set(prev);
+      if (next.has(labelId)) next.delete(labelId);
+      else next.add(labelId);
       return next;
     });
-    setSizeGridLabelId(null);
+
+  const renderItemRow = (item: POItemForm, size?: string | null) => (
+    <TableRow key={item.tempId}>
+      <TableCell>
+        {isProcessing ? (
+          <div>
+            <div className="font-medium">{item.materialCode}</div>
+            <div className="text-sm text-muted-foreground">{item.materialName}</div>
+          </div>
+        ) : isService ? (
+          <Input
+            value={item.serviceDescription || ''}
+            onChange={(e) => updateItem(item.tempId, 'serviceDescription', e.target.value)}
+            placeholder={`${PO_CATEGORY_LABELS[poCategory] || 'Service'} description...`}
+            className="w-full"
+          />
+        ) : (
+          <div>
+            {size !== undefined ? (
+              <div className="pl-6">
+                <div className="font-medium">{size ? `Size ${size}` : 'All sizes'}</div>
+                <div className="text-xs text-muted-foreground">{item.materialCode}</div>
+              </div>
+            ) : (
+              <>
+                <div className="font-medium">{item.materialCode}</div>
+                <div className="text-sm text-muted-foreground">{item.materialName}</div>
+              </>
+            )}
+          </div>
+        )}
+      </TableCell>
+      {isProcessing && (
+        <TableCell>
+          <Input
+            value={item.serviceDescription || ''}
+            onChange={(e) => updateItem(item.tempId, 'serviceDescription', e.target.value)}
+            placeholder="Processing notes..."
+            className="w-full"
+          />
+        </TableCell>
+      )}
+      {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
+        <TableCell>
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            value={item.foldLengthCm || ''}
+            onChange={(e) => updateItem(item.tempId, 'foldLengthCm', e.target.value)}
+            placeholder="L"
+            className="w-full"
+          />
+        </TableCell>
+      )}
+      {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
+        <TableCell>
+          {/* Optional here — often known only at dispatch; the GRN records the weaver that came. */}
+          <WeaverCombobox
+            value={item.weaverId || ''}
+            selectedName={item.weaverName}
+            placeholder="Weaver (optional)"
+            onValueChange={(weaverId, weaver) =>
+              setItems((prev) =>
+                prev.map((row) =>
+                  row.tempId === item.tempId
+                    ? { ...row, weaverId, weaverName: weaver?.name ?? (weaverId ? row.weaverName : '') }
+                    : row
+                )
+              )
+            }
+            className="w-full"
+          />
+        </TableCell>
+      )}
+      <TableCell>
+        <Input
+          type="number"
+          min="0"
+          step="0.001"
+          value={item.orderedQuantity}
+          onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
+          className="w-full"
+        />
+        {/* PO quantities are ACTUAL metres; the GRN converts what the mill counts at L. */}
+        {(poCategory === 'GREIGE' || poCategory === 'FABRIC') &&
+          hasFold(item.foldLengthCm) &&
+          Number(item.orderedQuantity) > 0 && (
+            <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+              actual · = {formatQuantity(foldCounted(item.orderedQuantity, item.foldLengthCm), item.unit)} counted @ L=
+              {Number(item.foldLengthCm)}
+            </div>
+          )}
+      </TableCell>
+      <TableCell>
+        <Badge variant="secondary" className="font-medium">
+          {unitShort(item.unit)}
+        </Badge>
+        {/* Bought by the gross / dozen, counted in pieces: show what the order means in stock */}
+        {COUNT_UNIT_FACTORS[item.unit] && Number(item.orderedQuantity) > 0 && (
+          <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
+            ={' '}
+            {formatQuantity(
+              Math.round(Number(item.orderedQuantity) * COUNT_UNIT_FACTORS[item.unit]!.per),
+              COUNT_UNIT_FACTORS[item.unit]!.of
+            )}
+          </div>
+        )}
+      </TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          value={item.unitPrice}
+          onChange={(e) => updateItem(item.tempId, 'unitPrice', e.target.value)}
+          className="w-full"
+        />
+      </TableCell>
+      <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
+      <TableCell>
+        <Input
+          type="number"
+          min="0"
+          max="28"
+          step="0.5"
+          value={item.gstRate ?? 5}
+          onChange={(e) => updateItem(item.tempId, 'gstRate', parseFloat(e.target.value) || 5)}
+          className="w-full text-right"
+        />
+      </TableCell>
+      <TableCell className="text-right text-muted-foreground">
+        {formatCurrency((item.totalPrice * (item.gstRate ?? 5)) / 100)}
+      </TableCell>
+      <TableCell className="text-right font-medium">
+        {formatCurrency(item.totalPrice + (item.totalPrice * (item.gstRate ?? 5)) / 100)}
+      </TableCell>
+      <TableCell>
+        <Input
+          value={item.remarks}
+          onChange={(e) => updateItem(item.tempId, 'remarks', e.target.value)}
+          placeholder="Notes"
+          className="w-full"
+        />
+      </TableCell>
+      <TableCell>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => removeItem(item.tempId)}
+          className="text-destructive hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+
+  /** A label's heading: its sizes' totals; Edit sizes reopens the size box, Remove label drops every size line */
+  const renderLabelHeadingRow = (group: LabelGroup<POItemForm>) => {
+    const lines = group.rows.map((r) => r.line);
+    const same = <T,>(pick: (l: POItemForm) => T): T | null =>
+      lines.every((l) => pick(l) === pick(lines[0])) ? pick(lines[0]) : null;
+    const qty = sumRows(group.rows, (l) => parseFloat(l.orderedQuantity) || 0);
+    const amount = sumRows(group.rows, (l) => l.totalPrice);
+    const tax = sumRows(group.rows, (l) => (l.totalPrice * (l.gstRate ?? 5)) / 100);
+    const unit = same((l) => l.unit);
+    const rate = same((l) => parseFloat(l.unitPrice) || 0);
+    const gst = same((l) => l.gstRate ?? 5);
+    const collapsed = collapsedLabels.has(group.labelId);
+    return (
+      <TableRow key={group.key} className="bg-muted/40">
+        <TableCell colSpan={leadColumns}>
+          <button
+            type="button"
+            className="flex items-center gap-2 text-left"
+            onClick={() => toggleLabelCollapsed(group.labelId)}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronDown className="h-4 w-4 shrink-0" />}
+            <div>
+              <div className="font-medium">{group.code}</div>
+              <div className="text-sm text-muted-foreground">
+                {group.name} · {group.rows.length} {group.rows.length === 1 ? 'size' : 'sizes'}
+              </div>
+            </div>
+          </button>
+        </TableCell>
+        <TableCell className="font-medium">{qty.toLocaleString()}</TableCell>
+        <TableCell>{unit ? unitShort(unit) : '—'}</TableCell>
+        <TableCell>{rate != null ? formatCurrency(rate) : '—'}</TableCell>
+        <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
+        <TableCell className="text-right">{gst != null ? `${gst}%` : '—'}</TableCell>
+        <TableCell className="text-right text-muted-foreground">{formatCurrency(tax)}</TableCell>
+        <TableCell className="text-right font-medium">{formatCurrency(amount + tax)}</TableCell>
+        <TableCell colSpan={2}>
+          <div className="flex justify-end gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!sizeRowsByLabel.has(group.labelId)}
+              title={
+                sizeRowsByLabel.has(group.labelId) ? undefined : 'This supplier is not linked to the label on its page'
+              }
+              onClick={() => setSizeGridLabelId(group.labelId)}
+            >
+              Edit sizes
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setItems((prev) => prev.filter((l) => l.labelId !== group.labelId))}
+            >
+              Remove label
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const renderPreviewRow = (item: POItemForm, size?: string | null) => {
+    const amount = item.totalPrice;
+    const gstRate = item.gstRate || 5; // Default 5% for textiles
+    const taxAmount = (amount * gstRate) / 100;
+    return (
+      <TableRow key={item.tempId}>
+        <TableCell>
+          {size !== undefined ? (
+            <div className="pl-6">
+              <p className="font-medium">{size ? `Size ${size}` : 'All sizes'}</p>
+              <p className="text-xs text-muted-foreground">{item.materialCode}</p>
+            </div>
+          ) : (
+            <div>
+              <p className="font-medium">{item.materialCode || item.serviceType}</p>
+              <p className="text-xs text-muted-foreground">{item.materialName || item.serviceDescription}</p>
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-muted-foreground">{item.hsnCode || '-'}</TableCell>
+        <TableCell className="text-right">{item.orderedQuantity}</TableCell>
+        <TableCell>{unitShort(item.unit)}</TableCell>
+        <TableCell className="text-right">{formatCurrency(parseFloat(item.unitPrice) || 0)}</TableCell>
+        <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
+        <TableCell className="text-right">{gstRate}%</TableCell>
+        <TableCell className="text-right">{formatCurrency(taxAmount)}</TableCell>
+        <TableCell className="text-right font-medium">{formatCurrency(amount + taxAmount)}</TableCell>
+      </TableRow>
+    );
+  };
+
+  const renderPreviewHeadingRow = (group: LabelGroup<POItemForm>) => {
+    const amount = sumRows(group.rows, (l) => l.totalPrice);
+    const tax = sumRows(group.rows, (l) => (l.totalPrice * (l.gstRate || 5)) / 100);
+    return (
+      <TableRow key={group.key} className="bg-muted/40">
+        <TableCell colSpan={2}>
+          <p className="font-medium">{group.code}</p>
+          <p className="text-xs text-muted-foreground">
+            {group.name} · {group.rows.length} {group.rows.length === 1 ? 'size' : 'sizes'}
+          </p>
+        </TableCell>
+        <TableCell className="text-right font-medium">
+          {sumRows(group.rows, (l) => parseFloat(l.orderedQuantity) || 0).toLocaleString()}
+        </TableCell>
+        <TableCell colSpan={2} />
+        <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
+        <TableCell />
+        <TableCell className="text-right">{formatCurrency(tax)}</TableCell>
+        <TableCell className="text-right font-medium">{formatCurrency(amount + tax)}</TableCell>
+      </TableRow>
+    );
   };
 
   // ============================================
@@ -1626,10 +1966,11 @@ export default function PurchaseOrderForm() {
                 {/* Trims & Accessories Section */}
                 {styleBOMData &&
                   (() => {
+                    // Labels have their own section below (ordered as a set, size by size)
                     const allTrims = [
                       ...styleBOMData.materialBOM.garmentTrims,
                       ...styleBOMData.materialBOM.valueAdditions,
-                    ];
+                    ].filter((i) => !i.labelId);
                     if (allTrims.length === 0) return null;
 
                     return (
@@ -1684,52 +2025,98 @@ export default function PurchaseOrderForm() {
                     );
                   })()}
 
+                {/* Labels Section — the style's label set, ordered together or one label at a time */}
+                {currentLabelSet && currentLabelSet.labels.length > 0 && (
+                  <div className="p-3 border rounded-lg">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <span className="text-lg">🏷️</span> Labels
+                        <Badge variant="secondary" className="text-xs">
+                          {currentLabelSet.labels.length} labels
+                        </Badge>
+                        {currentLabelSet.order && (
+                          <span className="text-xs text-muted-foreground">
+                            sizes from {currentLabelSet.order.orderNumber}
+                          </span>
+                        )}
+                      </h4>
+                      <Button size="sm" onClick={() => openLabelSet(null)}>
+                        Order label set…
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {currentLabelSet.labels.map((l) => (
+                        <div
+                          key={l.labelId}
+                          className="p-2 bg-muted/30 rounded border flex items-center justify-between gap-4"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{l.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {l.code} | {l.quantityPerGarment}/garment
+                              {l.sizes.length > 0 ? ` · ${l.sizes.length} sizes` : ''} ·{' '}
+                              {l.supplierLinks.length > 0
+                                ? l.supplierLinks.map((sl) => sl.supplierName).join(', ')
+                                : 'no supplier on its Label page'}
+                            </p>
+                          </div>
+                          <Button variant="outline" size="sm" onClick={() => openLabelSet([l.labelId])}>
+                            {l.sizes.length > 0 ? 'Sizes…' : 'Add'}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Packaging Section */}
-                {styleBOMData && styleBOMData.materialBOM.packaging.length > 0 && (
+                {styleBOMData && styleBOMData.materialBOM.packaging.filter((i) => !i.labelId).length > 0 && (
                   <div className="p-3 border rounded-lg">
                     <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                       <span className="text-lg">📦</span> Packaging
                       <Badge variant="secondary" className="text-xs">
-                        {styleBOMData.materialBOM.packaging.length} items
+                        {styleBOMData.materialBOM.packaging.filter((i) => !i.labelId).length} items
                       </Badge>
                     </h4>
                     <div className="space-y-2">
-                      {styleBOMData.materialBOM.packaging.map((item: StyleBOMEntry) => {
-                        const qtyPerGarment = parseFloat(item.quantityPerGarment) || 0;
-                        const calculatedQty =
-                          quantityMode === 'order' && orderQuantity > 0
-                            ? (orderQuantity * qtyPerGarment).toFixed(0)
-                            : null;
+                      {styleBOMData.materialBOM.packaging
+                        .filter((i) => !i.labelId)
+                        .map((item: StyleBOMEntry) => {
+                          const qtyPerGarment = parseFloat(item.quantityPerGarment) || 0;
+                          const calculatedQty =
+                            quantityMode === 'order' && orderQuantity > 0
+                              ? (orderQuantity * qtyPerGarment).toFixed(0)
+                              : null;
 
-                        return (
-                          <div
-                            key={item.id}
-                            className="p-2 bg-muted/30 rounded border flex items-center justify-between gap-4"
-                          >
-                            <div className="flex-1">
-                              <p className="font-medium text-sm">{item.materialName}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {item.materialCode} | {qtyPerGarment} {unitShort(item.unit)}/garment
-                                {calculatedQty && (
-                                  <span className="ml-2 text-primary font-medium">
-                                    → {calculatedQty} {unitShort(item.unit)} needed
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const qtyNum = calculatedQty ? parseFloat(calculatedQty) : null;
-                                handleMaterialPOClick('GENERAL', createTrimItem(item, qtyNum), item.materialName);
-                              }}
+                          return (
+                            <div
+                              key={item.id}
+                              className="p-2 bg-muted/30 rounded border flex items-center justify-between gap-4"
                             >
-                              GENERAL PO
-                            </Button>
-                          </div>
-                        );
-                      })}
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{item.materialName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.materialCode} | {qtyPerGarment} {unitShort(item.unit)}/garment
+                                  {calculatedQty && (
+                                    <span className="ml-2 text-primary font-medium">
+                                      → {calculatedQty} {unitShort(item.unit)} needed
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const qtyNum = calculatedQty ? parseFloat(calculatedQty) : null;
+                                  handleMaterialPOClick('GENERAL', createTrimItem(item, qtyNum), item.materialName);
+                                }}
+                              >
+                                GENERAL PO
+                              </Button>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -2066,154 +2453,15 @@ export default function PurchaseOrderForm() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.tempId}>
-                      <TableCell>
-                        {isProcessing ? (
-                          <div>
-                            <div className="font-medium">{item.materialCode}</div>
-                            <div className="text-sm text-muted-foreground">{item.materialName}</div>
-                          </div>
-                        ) : isService ? (
-                          <Input
-                            value={item.serviceDescription || ''}
-                            onChange={(e) => updateItem(item.tempId, 'serviceDescription', e.target.value)}
-                            placeholder={`${PO_CATEGORY_LABELS[poCategory] || 'Service'} description...`}
-                            className="w-full"
-                          />
-                        ) : (
-                          <div>
-                            <div className="font-medium">{item.materialCode}</div>
-                            <div className="text-sm text-muted-foreground">{item.materialName}</div>
-                          </div>
-                        )}
-                      </TableCell>
-                      {isProcessing && (
-                        <TableCell>
-                          <Input
-                            value={item.serviceDescription || ''}
-                            onChange={(e) => updateItem(item.tempId, 'serviceDescription', e.target.value)}
-                            placeholder="Processing notes..."
-                            className="w-full"
-                          />
-                        </TableCell>
-                      )}
-                      {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.foldLengthCm || ''}
-                            onChange={(e) => updateItem(item.tempId, 'foldLengthCm', e.target.value)}
-                            placeholder="L"
-                            className="w-full"
-                          />
-                        </TableCell>
-                      )}
-                      {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
-                        <TableCell>
-                          {/* Optional here — often known only at dispatch; the GRN records the weaver that came. */}
-                          <WeaverCombobox
-                            value={item.weaverId || ''}
-                            selectedName={item.weaverName}
-                            placeholder="Weaver (optional)"
-                            onValueChange={(weaverId, weaver) =>
-                              setItems((prev) =>
-                                prev.map((row) =>
-                                  row.tempId === item.tempId
-                                    ? { ...row, weaverId, weaverName: weaver?.name ?? (weaverId ? row.weaverName : '') }
-                                    : row
-                                )
-                              )
-                            }
-                            className="w-full"
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.001"
-                          value={item.orderedQuantity}
-                          onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
-                          className="w-full"
-                        />
-                        {/* PO quantities are ACTUAL metres; the GRN converts what the mill counts at L. */}
-                        {(poCategory === 'GREIGE' || poCategory === 'FABRIC') &&
-                          hasFold(item.foldLengthCm) &&
-                          Number(item.orderedQuantity) > 0 && (
-                            <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
-                              actual · ={' '}
-                              {formatQuantity(foldCounted(item.orderedQuantity, item.foldLengthCm), item.unit)} counted
-                              @ L={Number(item.foldLengthCm)}
-                            </div>
-                          )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="font-medium">
-                          {unitShort(item.unit)}
-                        </Badge>
-                        {/* Bought by the gross / dozen, counted in pieces: show what the order means in stock */}
-                        {COUNT_UNIT_FACTORS[item.unit] && Number(item.orderedQuantity) > 0 && (
-                          <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
-                            ={' '}
-                            {formatQuantity(
-                              Math.round(Number(item.orderedQuantity) * COUNT_UNIT_FACTORS[item.unit]!.per),
-                              COUNT_UNIT_FACTORS[item.unit]!.of
-                            )}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(item.tempId, 'unitPrice', e.target.value)}
-                          className="w-full"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="28"
-                          step="0.5"
-                          value={item.gstRate ?? 5}
-                          onChange={(e) => updateItem(item.tempId, 'gstRate', parseFloat(e.target.value) || 5)}
-                          className="w-full text-right"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {formatCurrency((item.totalPrice * (item.gstRate ?? 5)) / 100)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(item.totalPrice + (item.totalPrice * (item.gstRate ?? 5)) / 100)}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={item.remarks}
-                          onChange={(e) => updateItem(item.tempId, 'remarks', e.target.value)}
-                          placeholder="Notes"
-                          className="w-full"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem(item.tempId)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {/* A label bought in sizes: a heading with its totals (collapsible), its sizes beneath */}
+                  {groupLabelLines(items, formLineLabelKey).flatMap((g) =>
+                    g.kind === 'single'
+                      ? [renderItemRow(g.line)]
+                      : [
+                          renderLabelHeadingRow(g),
+                          ...(collapsedLabels.has(g.labelId) ? [] : g.rows.map((r) => renderItemRow(r.line, r.size))),
+                        ]
+                  )}
                 </TableBody>
               </Table>
             )}
@@ -2568,32 +2816,11 @@ export default function PurchaseOrderForm() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item) => {
-                    const amount = item.totalPrice;
-                    const gstRate = item.gstRate || 5; // Default 5% for textiles
-                    const taxAmount = (amount * gstRate) / 100;
-                    const totalWithTax = amount + taxAmount;
-                    return (
-                      <TableRow key={item.tempId}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{item.materialCode || item.serviceType}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.materialName || item.serviceDescription}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{item.hsnCode || '-'}</TableCell>
-                        <TableCell className="text-right">{item.orderedQuantity}</TableCell>
-                        <TableCell>{unitShort(item.unit)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(parseFloat(item.unitPrice) || 0)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
-                        <TableCell className="text-right">{gstRate}%</TableCell>
-                        <TableCell className="text-right">{formatCurrency(taxAmount)}</TableCell>
-                        <TableCell className="text-right font-medium">{formatCurrency(totalWithTax)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {groupLabelLines(items, formLineLabelKey).flatMap((g) =>
+                    g.kind === 'single'
+                      ? [renderPreviewRow(g.line)]
+                      : [renderPreviewHeadingRow(g), ...g.rows.map((r) => renderPreviewRow(r.line, r.size))]
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -2812,6 +3039,26 @@ export default function PurchaseOrderForm() {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* The style's label set — every label, every size, on one PO */}
+      {labelSetOpen && currentLabelSet && (
+        <LabelSetDialog
+          key={`${currentLabelSet.styleId}-${labelSetOnly?.join(',') ?? 'all'}-${supplierId}`}
+          open={labelSetOpen}
+          onOpenChange={setLabelSetOpen}
+          labelSet={currentLabelSet}
+          onlyLabelIds={labelSetOnly}
+          supplierId={supplierId}
+          supplierName={selectedSupplier?.name}
+          materials={materials}
+          materialsLoading={isLoadingMaterials}
+          existingQty={Object.fromEntries(
+            items.filter((i) => i.materialId).map((i) => [i.materialId!, parseFloat(i.orderedQuantity) || 0])
+          )}
+          onChooseSupplier={(id) => handleSupplierChange(id)}
+          onApply={applyLabelSet}
+        />
       )}
 
       {/* Size grid for a label with sizes — one PO line per size filled in */}

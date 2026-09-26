@@ -544,6 +544,22 @@ class GreigeStockService {
     await tx.greige_stock.updateMany({ where: { id: { in: stockIds } }, data: { sourceChallanId: challanId } });
   }
 
+  /**
+   * Book lots that already sit in a processor's unit as HELD by that processor (sourceType DIRECT) —
+   * the one-time conversion of greige received into a unit before such deliveries were booked this
+   * way (scripts/backfill-direct-delivery.ts). The lot does not move: it was on the ledger at the unit
+   * before and stays there (derived_stock_view counts both), so no quantity changes and no sync.
+   * Only lots with no holder yet are touched.
+   */
+  async bookHeldAtProcessor(stockIds: string[], processorId: string, tx: TransactionClient): Promise<number> {
+    if (stockIds.length === 0) return 0;
+    const { count } = await tx.greige_stock.updateMany({
+      where: { id: { in: stockIds }, processorId: null },
+      data: { processorId, sourceType: 'DIRECT' },
+    });
+    return count;
+  }
+
   async consumeGreigeStock(
     stockId: string,
     quantity: number,

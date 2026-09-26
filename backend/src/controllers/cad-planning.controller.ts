@@ -26,6 +26,7 @@ import { syncBomFabricId } from '../services/order-bom.service';
 import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
+import { resolveLiveGreigeRates, greigeRateProvenance } from '../services/helpers/greige-live-rate.helper';
 import { applySearch } from '../utils/search-filter';
 import {
   applyCadListFilters,
@@ -3431,54 +3432,24 @@ export async function updateCADTableRow(req: Request, res: Response) {
   if (shouldAutoTriggerCosting) {
     try {
       {
-        // Get greige cost from procurement or greige master
-        const greigeForCosting = await prisma.greige_master.findUnique({
-          where: { id: updatedCad.greigeId! },
-          include: {
-            fabricProcurements: {
-              where: {
-                procurementType: 'GREIGE',
-                status: { in: ['RECEIVED', 'PROCESSING', 'COMPLETED'] },
-              },
-              orderBy: { purchaseDate: 'desc' },
-              take: 1,
-              select: { ratePerUnit: true, purchaseDate: true },
-            },
-          },
-        });
+        // The live greige rate — the same lookup Fabric Costing shows (greige-live-rate.helper):
+        // the newest placed PO or receipt, else the greige master default
+        const live = (await resolveLiveGreigeRates([updatedCad.greigeId])).get(updatedCad.greigeId!);
 
-        if (greigeForCosting) {
-          const latestProcurement = greigeForCosting.fabricProcurements?.[0];
-          const latestProcurementRate = latestProcurement?.ratePerUnit;
-
-          // Determine rate source and value
-          let greigeCostPerMeter: number | null = null;
-          let rateSource: 'PROCUREMENT' | 'GREIGE_MASTER' | null = null;
-          let rateSourceDate: Date | null = null;
-
-          if (latestProcurementRate) {
-            greigeCostPerMeter = Number(latestProcurementRate);
-            rateSource = 'PROCUREMENT';
-            rateSourceDate = latestProcurement?.purchaseDate || new Date();
-          } else if (greigeForCosting.costPerMeter) {
-            greigeCostPerMeter = Number(greigeForCosting.costPerMeter);
-            rateSource = 'GREIGE_MASTER';
-            rateSourceDate = greigeForCosting.updatedAt;
-          }
-
-          // If we have greige cost, update the CAD record with costing data
-          if (greigeCostPerMeter !== null && rateSource !== null) {
+        if (live) {
+          const greigeCostPerMeter = live.rate;
+          const rateSource = live.source;
+          const rateSourceDate = live.date;
+          {
             await prisma.fabric_width_cad.update({
               where: { id: rowId },
               data: {
                 greigeCostPerMeter,
-                greigeRateSource: rateSource,
-                greigeRateSourceDate: rateSourceDate,
-                greigeRateManualOverride: null, // Clear any previous override
-                greigeRateOverrideReason: null,
-                // costInputMode intentionally not written here — see the manual-override
-                // branch above; 'AUTO_CALCULATED' is not a legal CostInputMode.
-              } as any,
+                // Seeded from the live rate, so it is labelled with that source and document
+                ...greigeRateProvenance({ rate: greigeCostPerMeter, live, userId: req.user?.userId ?? null }),
+                // costInputMode intentionally not written here — 'AUTO_CALCULATED' is not a legal
+                // CostInputMode.
+              },
             });
             autoCalculatedCost = {
               totalCostPerMeter: greigeCostPerMeter,

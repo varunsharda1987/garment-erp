@@ -299,3 +299,39 @@ describe('saving a greige rate', () => {
     expect(row.greigeRateManualOverride).toBeNull();
   });
 });
+
+describe('CAD Planning seeds a new row with the same live rate', () => {
+  it('saving an uncosted CAD row stamps ₹67 labelled with the PO — the lookup Fabric Costing uses', async () => {
+    const row = await prisma.fabric_width_cad.create({
+      data: {
+        id: randomUUID(),
+        styleFabricId: slotId,
+        greigeId,
+        componentName: `${RUN} seed`,
+        purpose: 'COSTING',
+        purposeEnum: 'COSTING',
+        cutableWidth: 50,
+        cadMeters: 4.35,
+        approvalStatus: 'PENDING',
+      },
+    });
+    await prisma.cad_size_breakdown.createMany({
+      data: ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ cadId: row.id, sizeName, quantity: 1 })),
+    });
+    try {
+      await request(app)
+        .put(`/api/cad-planning/${styleId}/row/${row.id}`)
+        .set(authHeader)
+        .send({ printDirection: 'TWO_WAY' })
+        .expect(200);
+      const seeded = await prisma.fabric_width_cad.findUniqueOrThrow({ where: { id: row.id } });
+      expect(Number(seeded.greigeCostPerMeter)).toBe(67);
+      expect(seeded.greigeRateSource).toBe('PURCHASE_ORDER');
+      expect(seeded.greigeRateSourceRef).toBe(sentPoNumber);
+      expect(seeded.totalCostPerMeter).toBeNull(); // seeded, not costed
+    } finally {
+      await prisma.cad_size_breakdown.deleteMany({ where: { cadId: row.id } });
+      await prisma.fabric_width_cad.delete({ where: { id: row.id } });
+    }
+  });
+});

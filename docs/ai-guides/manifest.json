@@ -49,38 +49,42 @@
   "cad-approve": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/CADPlanningPage.tsx": "8cefd7cc2de4",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "8f9bb4b32d26",
-      "frontend/src/components/cad/CadInUseNotice.tsx": "52cd3f3f7454",
-      "frontend/src/components/cad/CadHistoryDialog.tsx": "8a3815bf02ce"
+      "frontend/src/pages/CADPlanningPage.tsx": "9a39869cce17",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d8c00c33f83f",
+      "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
+      "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "7feafad3712e"
     },
-    "contentHash": "7a3e4bb394b0",
-    "generatedAt": "2026-09-26T14:13:42.048Z"
+    "contentHash": "ca32bae1f756",
+    "generatedAt": "2026-09-26T16:59:55.709Z"
   },
   "cad-costing": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/FabricCostingPage.tsx": "146e6ad42832",
       "frontend/src/utils/greigeRate.ts": "cee473a71c54",
-      "frontend/src/pages/CADPlanningPage.tsx": "8cefd7cc2de4",
+      "frontend/src/pages/CADPlanningPage.tsx": "9a39869cce17",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d8c00c33f83f",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "7feafad3712e",
       "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": "243289ebc165",
       "frontend/src/pages/ProcessorRateCardPage.tsx": "5e21d69ce863"
     },
-    "contentHash": "62c4f9bf6dc9",
-    "generatedAt": "2026-09-26T14:13:42.204Z"
+    "contentHash": "405e373bc077",
+    "generatedAt": "2026-09-26T16:59:55.852Z"
   },
   "cad-planning-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/CADPlanningPage.tsx": "8cefd7cc2de4",
+      "frontend/src/pages/CADPlanningPage.tsx": "9a39869cce17",
       "frontend/src/pages/CADPlanningList.tsx": "2b84e3715e5d",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "8f9bb4b32d26",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d8c00c33f83f",
       "frontend/src/components/cad/StockSummaryBanner.tsx": "9585beb1e33a",
-      "frontend/src/components/cad/CadInUseNotice.tsx": "52cd3f3f7454",
-      "frontend/src/components/cad/CadHistoryDialog.tsx": "8a3815bf02ce"
+      "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
+      "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "7feafad3712e"
     },
-    "contentHash": "617446c83319",
-    "generatedAt": "2026-09-26T14:13:42.214Z"
+    "contentHash": "0eb2c6e39ae3",
+    "generatedAt": "2026-09-26T16:59:55.860Z"
   },
   "catalogue-generate": {
     "sources": {
@@ -171,7 +175,8 @@
       "frontend/src/pages/CostSheetList.tsx": "6798f26a5473",
       "frontend/src/pages/CostSheetForm.tsx": "f10bcabf5fc2",
       "frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx": "0cbd69cc2bec",
-      "frontend/src/pages/CostSheetDetail.tsx": "8191a2c56646",
+      "frontend/src/pages/CostSheetDetail.tsx": "0c3928b3429a",
+      "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "13bacb11d9fc",
       "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "55edbaaaaba1",
       "frontend/src/components/cost-sheet/LaceCostingRow.tsx": "1032ac5b41f1",
@@ -182,8 +187,8 @@
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234",
       "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e"
     },
-    "contentHash": "9c2c5e0a3708",
-    "generatedAt": "2026-09-26T10:49:33.042Z"
+    "contentHash": "217a1642c4b7",
+    "generatedAt": "2026-09-26T16:59:55.871Z"
   },
   "credit-note-create": {
     "sources": {
@@ -1560,15 +1565,49 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "dbaa74014afe",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "8cdf36ca4da3",
       "frontend/src/components/requirements/OrderStyleLabelView.tsx": "ed23ea8c0e1c",
       "frontend/src/components/requirements/order-style-groups.ts": "27b2524a3a72",
       "frontend/src/components/BulkPOGenerationDialog.tsx": "7e6d008d495f",
-      "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "52b912365131",
+      "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "2dbef8936f1d",
       "frontend/src/lib/label-lines.ts": "169c3b0c5007",
-      "backend/src/schemas/mrp.schema.ts": "e52a94414157"
+      "backend/src/schemas/mrp.schema.ts": "79484133ea84"
     },
-    "contentHash": "f1ecefb347db",
-    "generatedAt": "2026-09-26T16:08:41.165Z"
+    "contentHash": "e0418f205e64",
+    "generatedAt": "2026-09-26T16:59:55.885Z"
+  },
+  "cad-correct": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "e20d92cdd59b",
+      "frontend/src/pages/CADPlanningPage.tsx": "9a39869cce17",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d8c00c33f83f",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "7feafad3712e",
+      "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
+      "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
+      "frontend/src/pages/CostSheetList.tsx": "6798f26a5473",
+      "frontend/src/pages/CostSheetDetail.tsx": "0c3928b3429a",
+      "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "13bacb11d9fc",
+      "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
+      "backend/src/services/cad-correction.service.ts": "6bd7b8e9a785",
+      "backend/src/schemas/cadPlanning.schema.ts": "dd179855f273"
+    },
+    "contentHash": "4cba1262b635",
+    "generatedAt": "2026-09-26T16:59:55.844Z"
+  },
+  "requirements-extra-decision": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "e20d92cdd59b",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/App.tsx": "0a8b3e8b7696",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "8cdf36ca4da3",
+      "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
+      "frontend/src/types/mrp.types.ts": "5e45ab69d56f",
+      "frontend/src/components/OrderWorkflowTracker.tsx": "5c1835f3ebaa",
+      "frontend/src/pages/OrderDetail.tsx": "4a1228612469",
+      "backend/src/services/helpers/requirement-reconcile.helper.ts": "b75c9967df32",
+      "backend/src/schemas/mrp.schema.ts": "79484133ea84"
+    },
+    "contentHash": "c87e7bd3ffa3",
+    "generatedAt": "2026-09-26T16:59:55.879Z"
   }
 }

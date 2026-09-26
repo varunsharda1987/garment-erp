@@ -1022,6 +1022,7 @@ model grn_items {
   greige_stock          greige_stock[]        @relation("GreigeStockGrnItem")
   fabric_stock          fabric_stock[]        @relation("FabricStockGrnItem")
   lace_stock            lace_stock[]          @relation("LaceStockGrnItem")
+  thread_stock          thread_stock[]        @relation("ThreadStockGrnItem")
   weaver                weavers?              @relation("GRNItemWeaver", fields: [weaverId], references: [id])
 
   @@index([grnId])
@@ -1251,11 +1252,18 @@ model materials {
   // Postgres NULLs stay distinct, so the many null rows are fine) — this is what prevents the
   // FAB-RAW phantom / split-ledger class from ever recurring (bug-hunt: materials integrity).
   // labelId is intentionally NOT unique: labels legitimately have one materials row per size.
+  // threadId likewise (2026-09-26): a thread has its base row plus one row per PACK it is stocked in —
+  // Cone 2-ply / Cone 3-ply / Tube 3-ply are separate stock items (owner). Partial unique indexes in
+  // migration 20260926190000 keep ONE base row per thread and ONE row per (thread, packing, ply).
   greigeId                        String?                             @unique
   fabricId                        String?                             @unique
   laceId                          String?                             @unique
   buttonId                        String?                             @unique
-  threadId                        String?                             @unique
+  threadId                        String?
+  /// Thread PACK rows only: the packing and ply this stock item is (NULL on the thread's base row). A thread
+  /// bought as cones and as tubes is stocked as separate items, never cones + tubes added together.
+  threadPackagingType             ThreadPackagingType?
+  threadPly                       ThreadPly?
   zipperId                        String?                             @unique
   elasticId                       String?                             @unique
   labelId                         String?
@@ -8640,6 +8648,8 @@ model thread_stock {
 
   // Source tracking
   procurementId     String? // Purchase order reference
+  /// The GRN line this lot was received on — ONE lot per GRN line, so a reversal takes back exactly its own lot
+  grnItemId         String? @unique
   supplierLotNumber String? // Supplier batch/lot number
 
   // Quantity tracking (primary unit: spools or cones)
@@ -8683,13 +8693,13 @@ model thread_stock {
 
   // Relations
   threadMaster  thread_master               @relation(fields: [threadId], references: [id])
+  grnItem       grn_items?                  @relation("ThreadStockGrnItem", fields: [grnItemId], references: [id])
   warehouse     warehouses?                 @relation("ThreadStockWarehouse", fields: [warehouseId], references: [id])
   createdBy     users?                      @relation("thread_stock_creator", fields: [createdById], references: [id])
   transactions  thread_stock_transaction[]
   challanItems  challan_items[]
   jwoComponents job_work_order_components[] @relation("JWOComponentThreadStock")
 
-  @@unique([threadId, procurementId, packagingType, ply])
   @@index([threadId, status])
   @@index([warehouseId])
   @@index([status])

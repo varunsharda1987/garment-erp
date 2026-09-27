@@ -183,12 +183,12 @@
       "backend/src/controllers/style-costing-calc.controller.ts": "dcb354b02642",
       "backend/src/controllers/style-costing.utils.ts": "3726b391f930",
       "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
-      "backend/src/controllers/lace.controller.ts": "d39342fa739b",
+      "backend/src/controllers/lace.controller.ts": "e7788333b98d",
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234",
       "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e"
     },
     "contentHash": "217a1642c4b7",
-    "generatedAt": "2026-09-26T17:58:46.037Z"
+    "generatedAt": "2026-09-27T04:54:36.477Z"
   },
   "credit-note-create": {
     "sources": {
@@ -736,11 +736,12 @@
       "frontend/src/components/SupplierCombobox.tsx": "7113afec968b",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "55edbaaaaba1",
-      "frontend/src/components/JobWorkOrderCreateDialog.tsx": "c9b7d13b774f",
-      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5"
+      "frontend/src/components/JobWorkOrderCreateDialog.tsx": "afdd83c7b4c8",
+      "backend/src/schemas/trimMasters.schema.ts": "93bf459db544",
+      "backend/src/services/helpers/lace-name.helper.ts": "878c205bab58"
     },
-    "contentHash": "bf95b47b2961",
-    "generatedAt": "2026-09-23T06:17:36.147Z"
+    "contentHash": "468153846d9a",
+    "generatedAt": "2026-09-27T04:54:36.665Z"
   },
   "lace-defect-create": {
     "sources": {

@@ -35,7 +35,13 @@ import { BASE_MATERIAL_ROW, MASTER_CONFIG } from '../src/services/helpers/master
 import { syncMasterToMaterials } from '../src/services/helpers/material-sync.helper';
 import { threadPackCode, threadPackLabel } from '../src/services/helpers/thread-pack.helper';
 
-const SNAPSHOT = path.join(__dirname, 'repair-material-mirror-names-snapshot.json');
+// One snapshot per run and type set, never overwritten: a later --types run must not erase an earlier undo record
+function snapshotPath(types: string[] | null): string {
+  const base = path.join(__dirname, `repair-material-mirror-names-snapshot-${types ? types.join('-') : 'ALL'}`);
+  let file = `${base}.json`;
+  for (let n = 2; fs.existsSync(file); n++) file = `${base}-${n}.json`;
+  return file;
+}
 
 /**
  * A name nobody chose: blank, a bare "?" / "-" / "null" / "undefined", or the dangling "→ ?" the
@@ -260,6 +266,7 @@ Limited to: ${onlyTypes.join(', ')}`);
   }
   if (fixes.length === 0) return;
 
+  const SNAPSHOT = snapshotPath(onlyTypes);
   fs.writeFileSync(
     SNAPSHOT,
     JSON.stringify(

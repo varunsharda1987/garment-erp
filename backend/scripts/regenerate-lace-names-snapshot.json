@@ -1,0 +1,132 @@
+{
+  "takenAt": "2026-09-27T04:52:27.926Z",
+  "note": "lace_master.laceName and materials.name before regenerate-lace-names --apply",
+  "rows": [
+    {
+      "id": "155ce47c-6211-438e-81ea-da38d59fd774",
+      "laceCode": "LACE-0001",
+      "laceName": "LACE-0001 | Schiffli Lace | Unspecified",
+      "materialsName": "Schiffli Lace Lace"
+    },
+    {
+      "id": "e1e3d65f-86f8-4cfe-83f2-f57025fe23b1",
+      "laceCode": "LACE-0002",
+      "laceName": "LACE-0002 | Gota Lace | 100% Polyster | 0.5\" | Gold",
+      "materialsName": "Triangle 100% Polyster Lace 0.5\""
+    },
+    {
+      "id": "ce2cf1d7-12d7-4f62-b60a-332ad0df275d",
+      "laceCode": "LACE-0004",
+      "laceName": "LACE-0004 | Poly Lace | 100% Polyster | 0.25\" | White",
+      "materialsName": "White Scallop 100% Polyster Lace 0.25\""
+    },
+    {
+      "id": "a21e7691-d213-47c8-9eb6-0094c6570b84",
+      "laceCode": "LACE-0005",
+      "laceName": "LACE-0005 | Cotton Lace | 100% Cotton | 0.25\" | Unspecified",
+      "materialsName": "Ladder 100% Cotton Lace 0.25\""
+    },
+    {
+      "id": "2e457a45-9bf1-4e8a-8afa-4773e8714c78",
+      "laceCode": "LACE-0006",
+      "laceName": "LACE-0006 | Organza Lace | 100% Nylon | 1.5\" | White",
+      "materialsName": "White Scallop 100% Nylon Lace 1.5\""
+    },
+    {
+      "id": "bd304956-cf09-4d90-82cd-8bc5e5411962",
+      "laceCode": "LACE-0007",
+      "laceName": "LACE-0007 | 451-Lace | 100% Polyster | 2\" | Golden",
+      "materialsName": "Golden Scallop 100% Polyster Lace 2\""
+    },
+    {
+      "id": "4af54590-0f71-4737-a897-895088f73b56",
+      "laceCode": "LACE-0008",
+      "laceName": "LACE-0008 | Mirror Lace | 100% Polyster | 0.25\" | Golden",
+      "materialsName": "Golden 451 Mirror 100% Polyster Lace 0.25\""
+    },
+    {
+      "id": "c067dd38-ff92-42f6-a6fd-05ec051f9e62",
+      "laceCode": "LACE-0009",
+      "laceName": "LACE-0009 | Schiffli | 100% Cotton | 1\" | GREIGE",
+      "materialsName": "Schiffli Greige Test"
+    },
+    {
+      "id": "707d9ab0-2cde-49d9-a516-201432514f10",
+      "laceCode": "LACE-0010",
+      "laceName": "LACE-0010 | Schiffli | 100% Cotton | 1\" | Red | LACE-0009 → ?",
+      "materialsName": "Schiffli Red"
+    },
+    {
+      "id": "a742b4c7-75ac-4c60-8a65-ca3accdd4dab",
+      "laceCode": "LACE-0011",
+      "laceName": "LACE-0011 | Cotton Lace | 100% Cotton | 0.25\" | GREIGE",
+      "materialsName": "Kingri 100% Cotton Lace 0.25\""
+    },
+    {
+      "id": "b9178f67-3c4a-4266-9769-928d3937a9d4",
+      "laceCode": "LACE-0012",
+      "laceName": "LACE-0012 | Lace | 0.25\" | White",
+      "materialsName": "White Lace 0.25\""
+    },
+    {
+      "id": "29292ca1-a6f6-4cee-816c-857d5807f227",
+      "laceCode": "LACE-0013",
+      "laceName": "LACE-0013 | Big flower lace | Cotton | 1.5\" | White",
+      "materialsName": "Big flower lace"
+    },
+    {
+      "id": "a3925488-589e-4b2c-9961-897fd98d20eb",
+      "laceCode": "LACE-0014",
+      "laceName": "LACE-0014 | Sequence | Zari | 0.75\" | Silver",
+      "materialsName": "LACE-0014 | Sequence | Zari | 0.75\" | Silver"
+    },
+    {
+      "id": "fd549803-a09b-44ec-ab56-558651a85854",
+      "laceCode": "LACE-0015",
+      "laceName": "LACE-0015 | Zari kingri lace | zari dori lace | 0.75\" | Silver",
+      "materialsName": "LACE-0015 | Zari kingri lace | zari dori lace | 0.75\" | Silver"
+    },
+    {
+      "id": "8edada35-0dab-4170-b830-4fdd09cffa32",
+      "laceCode": "LACE-0018",
+      "laceName": "LACE-0018 | Silver frinze lace |  frinze lace | 1\" | Silver",
+      "materialsName": "LACE-0018 | Silver frinze lace |  frinze lace | 1\" | Silver"
+    },
+    {
+      "id": "bb4e8d39-97ab-4220-919b-0fb41dc5537d",
+      "laceCode": "LACE-0031",
+      "laceName": "LACE-0031 | Organza Lace | Nylon | 0.75\" | Off White",
+      "materialsName": "LACE-0031 | Organza Lace | Nylon | 0.75\" | Off White"
+    },
+    {
+      "id": "193857aa-e9d7-48cc-9f15-fd0710c33b42",
+      "laceCode": "LACE-0032",
+      "laceName": "LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden",
+      "materialsName": "LACE-0032 | Golden Zari Lace | Zari | 0.5\" | Golden"
+    },
+    {
+      "id": "9fc1a112-2cea-49b4-bd61-e6619ef23802",
+      "laceCode": "LACE-0033",
+      "laceName": "LACE-0033 | Sequence Golden Zari Lace | Sequence Zari | 0.5\" | Golden ",
+      "materialsName": "LACE-0033 | Sequence Golden Zari Lace | Sequence Zari | 0.5\" | Golden "
+    },
+    {
+      "id": "7209cf43-dde7-4f4d-bf3e-eeb04d2f562d",
+      "laceCode": "LACE-0045",
+      "laceName": "LACE-0045 | Organza Lace | Nylon | 3\" | Off White",
+      "materialsName": "LACE-0045 | Organza Lace | Nylon | 3\" | Off White"
+    },
+    {
+      "id": "5dc66d98-e21a-4246-9a8d-f1414af87fdf",
+      "laceCode": "LACE-0046",
+      "laceName": "LACE-0046 | Kingree Lace | Cotton  | 0.25\" | Off White",
+      "materialsName": "LACE-0046 | Kingree Lace | Cotton  | 0.25\" | Off White"
+    },
+    {
+      "id": "324a1439-fefd-43ab-b834-722e06854eac",
+      "laceCode": "LACE-0047",
+      "laceName": "LACE-0047 | Organza Lace | Nylon | 1\" | Off White",
+      "materialsName": "LACE-0047 | Organza Lace | Nylon | 1\" | Off White"
+    }
+  ]
+}

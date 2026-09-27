@@ -1,0 +1,230 @@
+{
+  "takenAt": "2026-09-27T04:46:32.985Z",
+  "note": "materials rows before repair-material-mirror-names --apply (id, code, name)",
+  "rows": [
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "3a1874a5-c91c-4238-abb1-c9ad930aedb4",
+      "code": "LBL-0005-XS",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "63ebd042-306c-4cff-9223-e3fdc28e4251",
+      "code": "LBL-0005-S",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "f4cf4ae3-61ef-4697-b158-febdee03c4d3",
+      "code": "LBL-0005-M",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "f3070202-b9e4-428e-ad44-ec7a7790aa29",
+      "code": "LBL-0005-L",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "0dc71e05-1f62-4427-a80a-f731ca403da7",
+      "code": "LBL-0005-XL",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "19b1343f-3f97-44c9-9a59-9b83782037ec",
+      "code": "LBL-0005-XXL",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "derived": true,
+      "id": "7bee0b4d-3ed1-4130-a994-90b069398d32",
+      "code": "LBL-0005-XXXL",
+      "name": "Traceability Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "3a7e8467-0e90-48d3-8b03-57ae9b6fb49d",
+      "code": "LBL-0007-S",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "1de0a88e-8dbd-49c7-aa87-946b36d9578a",
+      "code": "LBL-0007-M",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "e25c709f-231f-46bb-ad54-5f428da69a99",
+      "code": "LBL-0007-L",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "3ecb89ce-e3f2-4d7c-bd16-038439e50061",
+      "code": "LBL-0007-XL",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "95437fc4-b789-4986-b9f5-673805be5a09",
+      "code": "LBL-0007-XXL",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "f6e347d5-c79d-4a19-b3ca-311146634fb9",
+      "code": "LBL-0007-XS",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "derived": true,
+      "id": "f965856d-f6f4-4197-943d-deced21fe251",
+      "code": "LBL-0007-XXXL",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "329385ef-fa4c-4e9e-ba7f-dd9598bc46d2",
+      "code": "LBL-0008-XS",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "2fe3d308-dac2-4cbf-a065-59b3d900af70",
+      "code": "LBL-0008-S",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "8ec2138d-e348-4cf6-9d5a-c57f7bc3c6bb",
+      "code": "LBL-0008-M",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "5f1d8e3a-f3a7-437b-ab5b-516e800495ac",
+      "code": "LBL-0008-L",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "fdfb6877-ad60-40d3-a033-f5c5722abc59",
+      "code": "LBL-0008-XL",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "a3476283-fd9a-4829-9053-fc6abe64213c",
+      "code": "LBL-0008-XXL",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "derived": true,
+      "id": "a6e92564-20f9-4196-8490-47e7d9241d5f",
+      "code": "LBL-0008-XXXL",
+      "name": "Price Tag"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "e66b540d-8bd9-4a82-8080-f34db3a6efa6",
+      "code": "LBL-0013-XS",
+      "name": "Size Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "0fbd3ef5-e38f-4bcb-9d6f-bf20119ea98f",
+      "code": "LBL-0013-S",
+      "name": "Size Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "a32a8e40-9598-4992-b92d-25497efeb578",
+      "code": "LBL-0013-M",
+      "name": "Size Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "ad954ab5-caf8-487c-a5cd-5f4c1c22f768",
+      "code": "LBL-0013-L",
+      "name": "Size Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "ce9bcc01-4ae1-4123-8f18-3328bb1a3e55",
+      "code": "LBL-0013-XL",
+      "name": "Size Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "3bb34fe5-f127-4468-aa21-32fe74e565c7",
+      "code": "LBL-0013-XXL",
+      "name": "Size Label"
+    },
+    {
+      "type": "LABEL",
+      "masterId": "3f7505e4-6790-44d0-b484-d7eb615627e3",
+      "derived": true,
+      "id": "24c3f267-f370-4b3a-9151-7a57232c62e4",
+      "code": "LBL-0013-XXXL",
+      "name": "Size Label"
+    }
+  ]
+}

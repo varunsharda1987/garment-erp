@@ -5,7 +5,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { createLaceStock } from '../services/laceStock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { generateLaceName } from '../services/helpers/lace-name.helper';
 import { deleteLaceImageFile } from '../middleware/upload.middleware';
 import { logInfo } from '../utils/logger';
 import { applySearch } from '../utils/search-filter';
@@ -17,65 +17,6 @@ interface LaceSupplierInput {
   isActive?: boolean;
   notes?: string;
   pricePerMeter?: number | string;
-}
-
-/**
- * Generates lace name following the consistent naming convention:
- * - GREIGE:    {laceCode} | {laceType} | {composition} | {width}" | GREIGE
- * - READY:     {laceCode} | {laceType} | {composition} | {width}" | {color}
- * - PROCESSED: {laceCode} | {laceType} | {composition} | {width}" | {color} | {sourceGreigeCode} → {styleCode}
- */
-async function generateLaceName(lace: {
-  laceCode: string;
-  laceType?: string | null;
-  composition?: string | null;
-  width?: number | null;
-  color?: string | null;
-  isGreige: boolean;
-  sourceGreigeLaceCode?: string | null;
-  processedForStyleCode?: string | null;
-}): Promise<string> {
-  const parts: string[] = [lace.laceCode];
-
-  // Add laceType (use 'Lace' as fallback)
-  parts.push(lace.laceType || 'Lace');
-
-  // Add composition if present
-  if (lace.composition) {
-    parts.push(lace.composition);
-  }
-
-  // Add width if present
-  if (lace.width) {
-    parts.push(`${lace.width}"`);
-  }
-
-  // Type-specific suffix
-  if (lace.isGreige) {
-    parts.push('GREIGE');
-  } else if (lace.sourceGreigeLaceCode) {
-    // Processed lace
-    parts.push(lace.color || 'Unspecified');
-    if (lace.processedForStyleCode) {
-      const style = await prisma.styles.findFirst({
-        where: { styleCode: lace.processedForStyleCode },
-        select: { buyerStyleRef: true },
-      });
-      const styleCodeDisplay = style
-        ? formatStyleCodeWithRef(lace.processedForStyleCode, style.buyerStyleRef)
-        : lace.processedForStyleCode;
-      parts.push(`${lace.sourceGreigeLaceCode} → ${styleCodeDisplay}`);
-    } else {
-      // No style yet (e.g. a dyed variant created from the cost sheet). Printing "→ ?" here
-      // baked a dangling placeholder into the stored name forever.
-      parts.push(`from ${lace.sourceGreigeLaceCode}`);
-    }
-  } else {
-    // Ready lace
-    parts.push(lace.color || 'Unspecified');
-  }
-
-  return parts.join(' | ');
 }
 
 /**
@@ -156,6 +97,7 @@ export const createLace = async (req: Request, res: Response) => {
     finalLaceName = await generateLaceName({
       laceCode,
       laceType: laceType || null,
+      design: design || null,
       composition: composition || null,
       width: width ? parseFloat(width) : null,
       color: isGreige ? null : color || null,
@@ -382,6 +324,7 @@ export const createDyedLaceVariant = async (req: Request, res: Response) => {
   const finalLaceName = await generateLaceName({
     laceCode,
     laceType: greige.laceType,
+    design: greige.design,
     composition: greige.composition,
     width: greige.width ? Number(greige.width) : null,
     color: normalisedColor,
@@ -875,6 +818,7 @@ export const updateLace = async (req: Request, res: Response) => {
     finalLaceName = await generateLaceName({
       laceCode: existing.laceCode,
       laceType: finalLaceType || null,
+      design: design !== undefined ? design || null : existing.design,
       composition: finalComposition || null,
       width: finalWidth,
       color: existing.isGreige ? null : finalColor || null,

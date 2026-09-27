@@ -63,6 +63,7 @@ sources:
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
   - frontend/src/components/JobWorkOrderCreateDialog.tsx
   - backend/src/schemas/trimMasters.schema.ts
+  - backend/src/services/helpers/lace-name.helper.ts
 route: /materials/lace/new
 ---
 
@@ -75,7 +76,7 @@ route: /materials/lace/new
 5. Choose **Lace Nature**. This is the most important choice on the page:
    - **Ready-to-Use (Finished)** — coloured lace that goes straight into production.
    - **Raw/Greige** — uncoloured lace that must be dyed first.
-6. Leave **Lace Name** empty and it is built automatically from buyer code, colour, design, composition and width. Type a name only if you want to override it.
+6. Leave **Lace Name** empty and it is built automatically as *code | type | design | composition | width | colour* — for example "LACE-0004 | Poly Lace | Scallop | 100% Polyster | 0.25\" | White" (a greige lace ends in GREIGE). Fill **Design** so the name says it. Type a name only if you want to override it; a typed name is kept as typed.
 7. Pick a **Lace Type** from the dropdown. If your type is not listed you can add it from the same dropdown.
 8. Enter **Width (inches)**. It must be a positive number.
 9. For **Ready-to-Use (Finished)** lace, pick a **Color** from the colour master. There is an **add a new color** link under the field if it is missing.
@@ -85,7 +86,7 @@ route: /materials/lace/new
 13. Fill **Composition**, **Design** and **Buyer Code** if known. All are optional.
 14. Under **Suppliers**, click **Add Supplier**. On each row select the **Supplier** (only suppliers tagged with the **Lace Supplier** category are listed), then fill **Price/Meter (₹)** and **Notes** if known. Tick **Preferred Supplier** and **Active** as needed — the first row you add is ticked as preferred automatically. Use the bin icon to remove a row.
 15. Add a **Supplier Reference Code** under **Reference Codes** if the supplier uses their own SKU.
-16. Under **Style Associations**, use **Associated Styles** to select the styles that use this lace. The first style picked is treated as the primary one and goes into the auto-generated name.
+16. Under **Style Associations**, use **Associated Styles** to select the styles that use this lace. The first style picked is treated as the primary one. (A style appears in the name only on a dyed lace made for that style.)
 17. Under **Additional Information**, add a **Description** if useful.
 18. To attach a photo, scroll to **Lace Image** and click the box that says **Click to upload lace image**. JPG, PNG or WEBP files up to 5MB are accepted. On the preview, the upload button replaces the photo and the ✕ button removes it.
 19. Click **Create Lace**. You return to the lace list, where the **Type** column shows **Greige**, **Ready**, or **Processed** (a finished lace linked to a source greige, with the greige code shown under it).

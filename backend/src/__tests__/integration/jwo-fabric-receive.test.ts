@@ -146,6 +146,7 @@ afterAll(async () => {
   const grnIds = (
     await prisma.goods_receiving_notes.findMany({ where: { jobWorkOrderId: { in: jwoIds } }, select: { id: true } })
   ).map((g) => g.id);
+  await prisma.audit_logs.deleteMany({ where: { entityId: { in: grnIds } } }); // "Add invoice" audit rows
   await prisma.grn_items.deleteMany({ where: { grnId: { in: grnIds } } });
   await prisma.goods_receiving_notes.deleteMany({ where: { id: { in: grnIds } } });
   const challanIds = (
@@ -207,12 +208,39 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(res.body.message).toMatch(/fabric/i);
   });
 
+  it('refuses a return with neither the processor’s invoice nor "Invoice not received yet" — before anything is minted', async () => {
+    const bare = await request(app)
+      .post('/api/grn/jwo/receive')
+      .set(authHeader)
+      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: RECEIVE_QTY, receivedDate: RECEIVED_ON, warehouseId });
+    expect(bare.status).toBe(422);
+    expect(bare.body.details?.reason).toBe('GRN_INVOICE_REQUIRED');
+    expect(bare.body.message).toMatch(/Invoice not received yet/);
+
+    const undated = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      jobWorkOrderId: jwoId,
+      qtyReceivedMeters: RECEIVE_QTY,
+      receivedDate: RECEIVED_ON,
+      warehouseId,
+      invoiceNumber: 'PINV-1',
+    });
+    expect(undated.status).toBe(422);
+    expect(undated.body.details?.reason).toBe('GRN_INVOICE_DATE_REQUIRED');
+
+    // Refused before the mint: no receipt, and the job still has no finished fabric
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: jwoId } })).toBe(0);
+    expect((await prisma.job_work_orders.findUnique({ where: { id: jwoId } }))!.finishedFabricId).toBeNull();
+  });
+
   it('T0-A: one action accepts the fabricId-null job — mints the finished fabric and books it into stock', async () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
         jobWorkOrderId: jwoId,
+        // The processor's bill came with the goods — stored on the receipt, trimmed
+        invoiceNumber: ` ${RUN}-PINV `,
+        invoiceDate: RECEIVED_ON,
         qtyReceivedMeters: RECEIVE_QTY,
         // 900 thans at L=100 (no fold loss) — the job should carry these, as it does on the Dyeing page.
         // (foldLengthCm is Decimal(5,2) on every table: max 999.99 cm.)
@@ -231,6 +259,9 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(res.body.data.status).toBe('ACCEPTED');
     // The date the user gave is the receipt's date, not the moment of the click.
     expect(String(res.body.data.receivingDate).slice(0, 10)).toBe(RECEIVED_ON);
+    const filed = await prisma.goods_receiving_notes.findUniqueOrThrow({ where: { id: grnId } });
+    expect(filed.invoiceNumber).toBe(`${RUN}-PINV`);
+    expect(filed.invoiceDate!.toISOString().slice(0, 10)).toBe(RECEIVED_ON);
     // The split is returned so the dialog can name the consequence the moment it commits.
     expect(res.body.lossSplit).toBeDefined();
 
@@ -305,7 +336,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: 100, warehouseId });
+      .send({ jobWorkOrderId: jwoId, invoiceToFollow: true, qtyReceivedMeters: 100, warehouseId });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/already been received/i);
     expect(await prisma.fabric_master.count({ where: { greigeId } })).toBe(mastersBefore);
@@ -355,7 +386,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: orphanJwoId, qtyReceivedMeters: 500, warehouseId });
+      .send({ jobWorkOrderId: orphanJwoId, invoiceToFollow: true, qtyReceivedMeters: 500, warehouseId });
 
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/no greige lineage/i);
@@ -418,7 +449,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const viaGrn = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: gapJwoId, qtyReceivedMeters: 500, warehouseId });
+      .send({ jobWorkOrderId: gapJwoId, invoiceToFollow: true, qtyReceivedMeters: 500, warehouseId });
     expect(viaGrn.status).toBe(201);
     // Booked. The job carries whichever master the identity ladder resolved — it may mint a
     // properly-identified finished fabric from jwo.fabric's greige rather than reuse fabricId
@@ -494,7 +525,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: zeroJwoId, warehouseId }); // no metres, no than × fold
+      .send({ jobWorkOrderId: zeroJwoId, invoiceToFollow: true, warehouseId }); // no metres, no than × fold
 
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/quantity/i);
@@ -509,7 +540,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo')
       .set(authHeader)
-      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: 10, warehouseId });
+      .send({ jobWorkOrderId: jwoId, invoiceToFollow: true, qtyReceivedMeters: 10, warehouseId });
     expect(res.status).toBe(410);
     expect(res.body.message).toMatch(/Receive from processor/);
   });
@@ -549,7 +580,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       const res = await request(app)
         .post('/api/grn/jwo/receive')
         .set(authHeader)
-        .send({ jobWorkOrderId: atomicJwoId, qtyReceivedMeters: 500, warehouseId });
+        .send({ jobWorkOrderId: atomicJwoId, invoiceToFollow: true, qtyReceivedMeters: 500, warehouseId });
       expect(res.status).toBeGreaterThanOrEqual(400);
     } finally {
       spy.mockRestore();
@@ -571,6 +602,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .set(authHeader)
       .send({
         jobWorkOrderId: baleJwoId,
+        invoiceToFollow: true,
         entryMode: 'BALE_WISE',
         details: [
           { detailType: 'THAN', baleNumber: 1, sequenceNo: 1, meters: 168 },
@@ -597,7 +629,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: countJwoId, qtyReceivedMeters: 500, thanCount: 12, foldLengthCm: 100, warehouseId });
+      .send({
+        jobWorkOrderId: countJwoId,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 500,
+        thanCount: 12,
+        foldLengthCm: 100,
+        warehouseId,
+      });
     expect(res.status).toBe(201);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: countJwoId } });
     expect(Number(jwo!.qtyReceivedMeters)).toBe(500); // not 12 × 100 / 100
@@ -613,7 +652,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: earlyJwoId, qtyReceivedMeters: 450, receivedDate: '2026-08-27', warehouseId });
+      .send({
+        jobWorkOrderId: earlyJwoId,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 450,
+        receivedDate: '2026-08-27',
+        warehouseId,
+      });
     expect(res.status).toBe(422);
     expect(res.body.message).toMatch(/27-Aug-2026 is before the day the greige was sent \(19-Sep-2026\)/);
     expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: earlyJwoId } })).toBe(0);
@@ -628,6 +673,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     // Part 1 — more to come.
     const part1 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
       jobWorkOrderId: partsJwoId,
+      invoiceToFollow: true,
       qtyReceivedMeters: 300,
       thanCount: 3,
       isFinal: false,
@@ -662,6 +708,9 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     // it closes without the short-close confirmation (the short cases are pinned further down).
     const part2 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
       jobWorkOrderId: partsJwoId,
+      // This delivery came with the processor's bill; part 1 came without it (ticked above)
+      invoiceNumber: 'PINV-497',
+      invoiceDate: '2026-09-19',
       qtyReceivedMeters: 190,
       thanCount: 2,
       isFinal: true,
@@ -699,11 +748,34 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(page.status).toBe(200);
     expect(page.body.data.receivingGRNs.map((r: { id: string }) => r.id)).toEqual([grn1, grn2]);
 
+    // Each receipt carries the bill it came with — part 1's is to follow (2026-09-28)
+    const invoicesOf = (body: { data: { receivingGRNs: Array<{ invoiceNumber: string | null }> } }) =>
+      body.data.receivingGRNs.map((r) => r.invoiceNumber);
+    expect(invoicesOf(page.body)).toEqual([null, 'PINV-497']);
+
+    // The bill that followed is added on the receipt; the job's Close pre-fills from both
+    const noDate = await request(app)
+      .patch(`/api/grn/${grn1}/invoice`)
+      .set(authHeader)
+      .send({ invoiceNumber: 'PINV-489' });
+    expect(noDate.status).toBe(400);
+    const added = await request(app)
+      .patch(`/api/grn/${grn1}/invoice`)
+      .set(authHeader)
+      .send({ invoiceNumber: ' PINV-489 ', invoiceDate: '2026-09-19' });
+    expect(added.status).toBe(200);
+    const billed = await prisma.goods_receiving_notes.findUniqueOrThrow({ where: { id: grn1 } });
+    expect(billed.invoiceNumber).toBe('PINV-489');
+    expect(billed.invoiceDate!.toISOString().slice(0, 10)).toBe('2026-09-19');
+    expect(await prisma.audit_logs.count({ where: { entityId: grn1 } })).toBeGreaterThan(0);
+    const after = await request(app).get(`/api/job-work-orders/${partsJwoId}`).set(authHeader);
+    expect(invoicesOf(after.body)).toEqual(['PINV-489', 'PINV-497']);
+
     // A third receipt is refused — the job has been received in full.
     const third = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: partsJwoId, qtyReceivedMeters: 10, warehouseId });
+      .send({ jobWorkOrderId: partsJwoId, invoiceToFollow: true, qtyReceivedMeters: 10, warehouseId });
     expect(third.status).toBe(422);
     expect(third.body.message).toMatch(/already been received/i);
 
@@ -720,6 +792,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .set(authHeader)
       .send({ reason: 'Second delivery counted twice' });
     expect(r2.status).toBe(200);
+    // A reversed receipt is no longer billed — its invoice cannot be added or changed
+    const deadBill = await request(app)
+      .patch(`/api/grn/${grn2}/invoice`)
+      .set(authHeader)
+      .send({ invoiceNumber: 'PINV-X', invoiceDate: '2026-09-19' });
+    expect(deadBill.status).toBe(422);
+    expect(deadBill.body.details?.reason).toBe('GRN_INVOICE_NOT_LIVE');
     expect(await prisma.fabric_stock.findUnique({ where: { id: lot2Id } })).toBeNull();
     expect(await prisma.fabric_stock.findUnique({ where: { id: lot1Id } })).not.toBeNull(); // the sibling stays
     let jwo = await prisma.job_work_orders.findUnique({ where: { id } });
@@ -738,7 +817,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const again = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: id, qtyReceivedMeters: 190, isFinal: true, warehouseId });
+      .send({ jobWorkOrderId: id, invoiceToFollow: true, qtyReceivedMeters: 190, isFinal: true, warehouseId });
     expect(again.status).toBe(201);
     jwo = await prisma.job_work_orders.findUnique({ where: { id } });
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
@@ -779,13 +858,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const first = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: capJwoId, qtyReceivedMeters: 300, isFinal: false, warehouseId });
+      .send({ jobWorkOrderId: capJwoId, invoiceToFollow: true, qtyReceivedMeters: 300, isFinal: false, warehouseId });
     expect(first.status).toBe(201);
 
     const tooMuch = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: capJwoId, qtyReceivedMeters: 400, isFinal: true, warehouseId });
+      .send({ jobWorkOrderId: capJwoId, invoiceToFollow: true, qtyReceivedMeters: 400, isFinal: true, warehouseId });
     expect(tooMuch.status).toBe(422);
     expect(tooMuch.body.message).toMatch(/300\.00 MTR already received/);
 
@@ -816,7 +895,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       request(app)
         .post('/api/grn/jwo/receive')
         .set(authHeader)
-        .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 490, thanCount: 5, isFinal: true, warehouseId });
+        .send({
+          jobWorkOrderId: jobId,
+          invoiceToFollow: true,
+          qtyReceivedMeters: 490,
+          thanCount: 5,
+          isFinal: true,
+          warehouseId,
+        });
 
     const results = await Promise.all([press(), press(), press()]);
 
@@ -852,7 +938,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       request(app)
         .post('/api/grn/jwo/receive')
         .set(authHeader)
-        .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 300, isFinal: false, warehouseId });
+        .send({ jobWorkOrderId: jobId, invoiceToFollow: true, qtyReceivedMeters: 300, isFinal: false, warehouseId });
 
     const results = await Promise.all([press(), press()]);
 
@@ -873,7 +959,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const received = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 490, isFinal: true, warehouseId });
+      .send({ jobWorkOrderId: jobId, invoiceToFollow: true, qtyReceivedMeters: 490, isFinal: true, warehouseId });
     expect(received.status).toBe(201);
     const grnId = received.body.data.id as string;
 
@@ -898,7 +984,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       request(app)
         .post('/api/grn/jwo/receive')
         .set(authHeader)
-        .send({ jobWorkOrderId: jobId, qtyReceivedMeters: 200, isFinal: false, warehouseId, submissionKey });
+        .send({
+          jobWorkOrderId: jobId,
+          invoiceToFollow: true,
+          qtyReceivedMeters: 200,
+          isFinal: false,
+          warehouseId,
+          submissionKey,
+        });
 
     const results = await Promise.all([press(), press(), press()]);
 
@@ -919,6 +1012,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .set(authHeader)
       .send({
         jobWorkOrderId: jobId,
+        invoiceToFollow: true,
         qtyReceivedMeters: 200,
         isFinal: false,
         warehouseId,
@@ -935,12 +1029,26 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const first = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: jobA, qtyReceivedMeters: 200, isFinal: false, warehouseId, submissionKey });
+      .send({
+        jobWorkOrderId: jobA,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 200,
+        isFinal: false,
+        warehouseId,
+        submissionKey,
+      });
     expect(first.status).toBe(201);
     const other = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: jobB, qtyReceivedMeters: 200, isFinal: false, warehouseId, submissionKey });
+      .send({
+        jobWorkOrderId: jobB,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 200,
+        isFinal: false,
+        warehouseId,
+        submissionKey,
+      });
     expect(other.status).toBe(422);
     expect((await receiptTrail(jobB)).receipts).toBe(0);
   });
@@ -974,7 +1082,12 @@ describe('receiving dyed fabric on a job work order GRN', () => {
   it('refuses a final receipt that leaves the total short beyond the tolerance unless the short close is confirmed', async () => {
     const shortJwoId = await raiseAtProcessorJob(); // 500 expected, 3 % tolerance → anything under 485 is a short close
 
-    const unconfirmed = await receive({ jobWorkOrderId: shortJwoId, qtyReceivedMeters: 300, isFinal: true });
+    const unconfirmed = await receive({
+      jobWorkOrderId: shortJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 300,
+      isFinal: true,
+    });
     expect(unconfirmed.status).toBe(422);
     expect(unconfirmed.body.error).toBe('BUSINESS_ERROR');
     expect(unconfirmed.body.details?.reason).toBe('SHORT_CLOSE_UNCONFIRMED');
@@ -989,13 +1102,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
     // The stale-client shape — no isFinal at all, which the server defaults to "final" — is refused
     // the same way. This is the door the owner's first receipt may have come through.
-    const stale = await receive({ jobWorkOrderId: shortJwoId, qtyReceivedMeters: 300 });
+    const stale = await receive({ jobWorkOrderId: shortJwoId, invoiceToFollow: true, qtyReceivedMeters: 300 });
     expect(stale.status).toBe(422);
     expect(stale.body.details?.reason).toBe('SHORT_CLOSE_UNCONFIRMED');
 
     // Said out loud → goes through, and the loss is booked against the processor.
     const confirmed = await receive({
       jobWorkOrderId: shortJwoId,
+      invoiceToFollow: true,
       qtyReceivedMeters: 300,
       isFinal: true,
       shortCloseConfirmed: true,
@@ -1011,20 +1125,30 @@ describe('receiving dyed fabric on a job work order GRN', () => {
   it('asks nothing when the total is within tolerance, when the receipt is a part, or when the final part completes the total', async () => {
     // Within the 3 % allowance: an ordinary shrinkage variance, no confirmation.
     const withinJwoId = await raiseAtProcessorJob();
-    const within = await receive({ jobWorkOrderId: withinJwoId, qtyReceivedMeters: 490, isFinal: true });
+    const within = await receive({
+      jobWorkOrderId: withinJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 490,
+      isFinal: true,
+    });
     expect(within.status).toBe(201);
     expect((await prisma.job_work_orders.findUnique({ where: { id: withinJwoId } }))!.jwoStatus).toBe('STOCK_UPDATED');
 
     // A part is never a short close — more is coming by definition.
     const partsJwoId = await raiseAtProcessorJob();
-    const part = await receive({ jobWorkOrderId: partsJwoId, qtyReceivedMeters: 300, isFinal: false });
+    const part = await receive({
+      jobWorkOrderId: partsJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 300,
+      isFinal: false,
+    });
     expect(part.status).toBe(201);
     expect((await prisma.job_work_orders.findUnique({ where: { id: partsJwoId } }))!.jwoStatus).toBe(
       'PARTIALLY_RECEIVED'
     );
 
     // The final part that completes the total closes without a flag, isFinal omitted or not.
-    const completing = await receive({ jobWorkOrderId: partsJwoId, qtyReceivedMeters: 200 });
+    const completing = await receive({ jobWorkOrderId: partsJwoId, invoiceToFollow: true, qtyReceivedMeters: 200 });
     expect(completing.status).toBe(201);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: partsJwoId } });
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
@@ -1046,6 +1170,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const jobId = await raiseAtProcessorJob();
     const part = await receive({
       jobWorkOrderId: jobId,
+      invoiceToFollow: true,
       qtyReceivedMeters: 300,
       isFinal: false,
       receivedDate: '2026-09-18',
@@ -1092,7 +1217,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     // Closed means closed: no further receipt. (Close Order's debit-note gate is a hard block only for
     // PO-backed jobs — a PO-less job closes with a warning — so it is not asserted here; the abnormal
     // loss it would warn about is on the row.)
-    const late = await receive({ jobWorkOrderId: jobId, qtyReceivedMeters: 50 });
+    const late = await receive({ jobWorkOrderId: jobId, invoiceToFollow: true, qtyReceivedMeters: 50 });
     expect(late.status).toBe(422);
     expect(late.body.message).toMatch(/already been received/i);
 
@@ -1110,7 +1235,12 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
   it('closes a part-received job that is within tolerance without asking', async () => {
     const jobId = await raiseAtProcessorJob();
-    const part = await receive({ jobWorkOrderId: jobId, qtyReceivedMeters: 490, isFinal: false });
+    const part = await receive({
+      jobWorkOrderId: jobId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 490,
+      isFinal: false,
+    });
     expect(part.status).toBe(201);
     const closed = await closeShort(jobId, {});
     expect(closed.status).toBe(200);

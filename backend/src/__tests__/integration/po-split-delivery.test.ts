@@ -57,6 +57,7 @@ const receive = (poId: string, poItemId: string, qty: number, extra: Record<stri
   grnService.createGRN(
     {
       poId,
+      invoiceToFollow: true,
       receivingDate: new Date(),
       items: [
         {

@@ -327,6 +327,9 @@ describe('the first cut: from greige to a cutting batch', () => {
         receivedWidthInches: RECEIVED_WIDTH,
         warehouseId,
         receivedChallan: `${RUN}-VCH`,
+        // What the Receive dialog posts: the processor's invoice number and date (2026-09-28)
+        invoiceNumber: `${RUN}-PINV`,
+        invoiceDate: new Date().toISOString().slice(0, 10), // allow-date-format (wire format)
         processingQC: { qualityGrade: 'A' },
       });
     expectStatus(res, (s) => s === 201);

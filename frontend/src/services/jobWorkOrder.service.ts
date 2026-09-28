@@ -148,6 +148,11 @@ export interface ReceiveToStockPayload {
   foldLengthCm?: number;
   receivedWidthInches?: number;
   receivedChallan?: string;
+  /** The processor's bill for this delivery (YYYY-MM-DD date) — required unless invoiceToFollow */
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  /** "Invoice not received yet" — the bill follows; add it on the receipt later */
+  invoiceToFollow?: boolean;
   /** The day the goods came back — becomes the receipt date, the job's receivedDate and the inward challan date. */
   receivedDate: string;
   /** Our store — or, with deliveredToProcessor, the next processor's "… - Processing Unit" */

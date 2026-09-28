@@ -17,6 +17,7 @@ import {
   rejectGRN,
   reverseGRN, // BUG-GRN6 fix
   updateDetailLabels,
+  updateGRNInvoice,
 } from '../controllers/grn.controller';
 import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -30,6 +31,7 @@ import {
   grnQuerySchema,
   updateDetailLabelsSchema,
   grnItemIdParamSchema,
+  updateGRNInvoiceSchema,
 } from '../schemas/grn.schema';
 import { idParamSchema, poIdParamSchema } from '../schemas/common.schema';
 
@@ -160,6 +162,18 @@ router.patch(
   validateParams(grnItemIdParamSchema),
   validateBody(updateDetailLabelsSchema),
   asyncHandler(updateDetailLabels)
+);
+
+/**
+ * @route   PATCH /api/grn/:id/invoice
+ * @desc    Add (or correct) the invoice a live receipt came on — the bill that followed the goods
+ * @access  Private (grn write permission) — moves nothing; audit-logged
+ */
+router.patch(
+  '/:id/invoice',
+  validateParams(idParamSchema),
+  validateBody(updateGRNInvoiceSchema),
+  asyncHandler(updateGRNInvoice)
 );
 
 export default router;

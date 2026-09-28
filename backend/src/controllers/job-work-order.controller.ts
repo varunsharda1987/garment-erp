@@ -123,6 +123,9 @@ const jwoInclude = {
       id: true,
       grnNumber: true,
       receivingDate: true,
+      // The processor's bill for THAT delivery — Close pre-fills the job's invoice from these
+      invoiceNumber: true,
+      invoiceDate: true,
       grn_items: { select: { acceptedQuantity: true, receivedWidthInches: true, thanCount: true } },
     },
     orderBy: { receivingDate: 'asc' as const },

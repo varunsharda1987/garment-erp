@@ -186,6 +186,7 @@ describe('receiving dyed lace on a job work order GRN', () => {
       .set(authHeader)
       .send({
         jobWorkOrderId: jwoId,
+        invoiceToFollow: true,
         qtyReceivedMeters: RECEIVE_QTY,
         warehouseId,
         receivedChallan: `${RUN}-VCH`,

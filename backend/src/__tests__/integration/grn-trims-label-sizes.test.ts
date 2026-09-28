@@ -68,6 +68,7 @@ async function receive(lines: Array<{ materialId: string; qty: number; unit: 'PI
   const grn = await grnService.createGRN(
     {
       poId: po.id,
+      invoiceToFollow: true,
       warehouseId: wh1,
       items: poItems.map((pi) => ({
         poItemId: pi.id,

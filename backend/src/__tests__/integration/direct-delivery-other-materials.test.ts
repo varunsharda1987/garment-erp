@@ -85,6 +85,7 @@ async function receiveInto(
   const grn = await grnService.createGRN(
     {
       poId,
+      invoiceToFollow: true,
       warehouseId: unitA,
       receivingDate: RECEIVED_ON,
       items: [

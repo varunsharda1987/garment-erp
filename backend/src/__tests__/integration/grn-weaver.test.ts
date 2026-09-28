@@ -9,6 +9,7 @@
 import { randomUUID } from 'crypto';
 import { prisma, createTestUser } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
+import greigeStockService from '../../services/greige-stock.service';
 import { weaverService, weaverNameKey } from '../../services/weaver.service';
 import { lineageFromParts, weaverLabel } from '../../services/helpers/weaver-lineage.helper';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
@@ -123,6 +124,7 @@ afterAll(async () => {
   await prisma.stock_movements.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_transactions.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_levels.deleteMany({ where: { materialId: only(materialId) } });
+  await prisma.audit_logs.deleteMany({ where: { userId: only(userId) } }); // "Add invoice" audit rows
   for (const id of poIds) {
     await prisma.goods_receiving_notes.deleteMany({ where: { poId: only(id) } });
     await prisma.purchase_order_items.deleteMany({ where: { poId: only(id) } });
@@ -155,14 +157,17 @@ describe('weaver on the purchase and the lot', () => {
 
   it('refuses a greige receipt that neither names a weaver nor says it is not known', async () => {
     const { poId, poItemId } = await makePo(null);
-    await expect(grnService.createGRN({ poId, warehouseId, items: [line(poItemId, 400)] }, userId)).rejects.toThrow(
-      /Weaver not known/
-    );
+    await expect(
+      grnService.createGRN({ poId, invoiceToFollow: true, warehouseId, items: [line(poItemId, 400)] }, userId)
+    ).rejects.toThrow(/Weaver not known/);
   });
 
   it("inherits the PO line's weaver, and the lot carries it", async () => {
     const { poId, poItemId } = await makePo(weaverA);
-    const grn = await grnService.createGRN({ poId, warehouseId, items: [line(poItemId, 600)] }, userId);
+    const grn = await grnService.createGRN(
+      { poId, invoiceToFollow: true, warehouseId, items: [line(poItemId, 600)] },
+      userId
+    );
     const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId: grn.id } });
     expect(item.weaverId).toBe(weaverA);
 
@@ -174,7 +179,7 @@ describe('weaver on the purchase and the lot', () => {
   it('records the weaver that actually came when it differs from the PO line', async () => {
     const { poId, poItemId } = await makePo(weaverA);
     const grn = await grnService.createGRN(
-      { poId, warehouseId, items: [line(poItemId, 300, { weaverId: weaverB })] },
+      { poId, invoiceToFollow: true, warehouseId, items: [line(poItemId, 300, { weaverId: weaverB })] },
       userId
     );
     await grnService.approveGRN(grn.id, userId, warehouseId);
@@ -186,7 +191,7 @@ describe('weaver on the purchase and the lot', () => {
   it('accepts "Weaver not known" out loud, and leaves the lot without one', async () => {
     const { poId, poItemId } = await makePo(null);
     const grn = await grnService.createGRN(
-      { poId, warehouseId, items: [line(poItemId, 200, { weaverNotKnown: true })] },
+      { poId, invoiceToFollow: true, warehouseId, items: [line(poItemId, 200, { weaverNotKnown: true })] },
       userId
     );
     const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId: grn.id } });
@@ -217,5 +222,61 @@ describe('weaver on the purchase and the lot', () => {
       ['B', 40],
     ]);
     expect(weaverLabel(null, mixed.weaverMix)).toBe('Mixed: A 60%, B 40%');
+  });
+});
+
+describe('the invoice the goods came on (2026-09-28)', () => {
+  const reasonOf = async (p: Promise<unknown>) =>
+    p.then(
+      () => undefined,
+      (e: { details?: { reason?: string } }) => e.details?.reason
+    );
+
+  it("refuses a receipt with neither the supplier's invoice nor the tick — nothing is filed", async () => {
+    const { poId, poItemId } = await makePo(weaverA);
+    expect(await reasonOf(grnService.createGRN({ poId, warehouseId, items: [line(poItemId, 100)] }, userId))).toBe(
+      'GRN_INVOICE_REQUIRED'
+    );
+    expect(
+      await reasonOf(
+        grnService.createGRN({ poId, warehouseId, invoiceNumber: 'INV-1051', items: [line(poItemId, 100)] }, userId)
+      )
+    ).toBe('GRN_INVOICE_DATE_REQUIRED');
+    expect(await prisma.goods_receiving_notes.count({ where: { poId } })).toBe(0);
+  });
+
+  it('files the invoice trimmed with its date', async () => {
+    const { poId, poItemId } = await makePo(weaverA);
+    const grn = await grnService.createGRN(
+      { poId, warehouseId, invoiceNumber: '  INV-1051 ', invoiceDate: '2026-08-20', items: [line(poItemId, 100)] },
+      userId
+    );
+    const filed = await prisma.goods_receiving_notes.findUniqueOrThrow({ where: { id: grn.id } });
+    expect(filed.invoiceNumber).toBe('INV-1051');
+    expect(filed.invoiceDate!.toISOString().slice(0, 10)).toBe('2026-08-20');
+  });
+
+  it('files "Invoice not received yet"; the lot shows it to follow, then the bill added later — never a copy', async () => {
+    const { poId, poItemId } = await makePo(weaverA);
+    const grn = await grnService.createGRN(
+      { poId, warehouseId, invoiceToFollow: true, items: [line(poItemId, 250)] },
+      userId
+    );
+    const filed = await prisma.goods_receiving_notes.findUniqueOrThrow({ where: { id: grn.id } });
+    expect(filed.invoiceNumber).toBeNull();
+    expect(filed.invoiceDate).toBeNull();
+
+    await grnService.approveGRN(grn.id, userId, warehouseId);
+    const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId: grn.id } });
+    const lot = await prisma.greige_stock.findFirstOrThrow({ where: { grnItemId: item.id } });
+    const listed = async () =>
+      (await greigeStockService.getGreigeStock({ greigeId, minQuantity: 0 })).find((l) => l.id === lot.id)!;
+    expect(await listed()).toMatchObject({ invoiceNumber: null, invoiceToFollow: true, invoiceGrnId: grn.id });
+
+    await grnService.updateInvoice(grn.id, { invoiceNumber: 'INV-2002', invoiceDate: new Date('2026-09-28') }, userId);
+    expect(await listed()).toMatchObject({ invoiceNumber: 'INV-2002', invoiceToFollow: false });
+    // Read through the receipt: the lot's own column is untouched
+    expect((await prisma.greige_stock.findUniqueOrThrow({ where: { id: lot.id } })).invoiceNumber).toBeNull();
+    expect(await prisma.audit_logs.count({ where: { entityType: 'GRN', entityId: grn.id } })).toBe(1);
   });
 });

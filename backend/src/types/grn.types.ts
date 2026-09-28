@@ -118,6 +118,8 @@ export interface CreateGRNDTO {
   receivingDate?: Date | string;
   invoiceNumber?: string | null;
   invoiceDate?: Date | string | null;
+  /** "Invoice not received yet" — without it a receipt needs the invoice number and date */
+  invoiceToFollow?: boolean;
   transportDetails?: string | null;
   remarks?: string | null;
   items: GRNItemDTO[];

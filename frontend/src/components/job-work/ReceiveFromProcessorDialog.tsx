@@ -87,6 +87,10 @@ export default function ReceiveFromProcessorDialog({
   const [foldLengthCm, setFoldLengthCm] = useState<number>(0);
   const [widthInches, setWidthInches] = useState<number>(0);
   const [challanRef, setChallanRef] = useState('');
+  // The processor's bill for THIS delivery — or "Invoice not received yet" (2026-09-28)
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [invoiceToFollow, setInvoiceToFollow] = useState(false);
   const [warehouseId, setWarehouseId] = useState('');
   // Delivered straight to another processor (Phase 4d): `warehouseId` is then that processor's unit
   const [toProcessor, setToProcessor] = useState(false);
@@ -140,6 +144,9 @@ export default function ReceiveFromProcessorDialog({
       setFoldLengthCm(0);
       setWidthInches(0);
       setChallanRef('');
+      setInvoiceNumber('');
+      setInvoiceDate('');
+      setInvoiceToFollow(false);
       setWarehouseId('');
       setToProcessor(false);
       setVehicle('');
@@ -216,6 +223,9 @@ export default function ReceiveFromProcessorDialog({
         foldLengthCm: foldLengthCm > 0 ? foldLengthCm : undefined,
         receivedWidthInches: widthInches > 0 ? widthInches : undefined,
         receivedChallan: challanRef.trim() || undefined,
+        ...(invoiceToFollow
+          ? { invoiceToFollow: true }
+          : { invoiceNumber: invoiceNumber.trim() || undefined, invoiceDate: invoiceDate || undefined }),
         receivedDate,
         warehouseId,
         ...(toProcessor ? { deliveredToProcessor: true, vehicleNumber: vehicle.trim() || undefined } : {}),
@@ -319,8 +329,15 @@ export default function ReceiveFromProcessorDialog({
   // A return cannot be dated before the greige went out — the server refuses it too.
   const sentDay = jwo?.sentDate ? jwo.sentDate.slice(0, 10) : undefined;
   const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
+  // The processor's invoice number and date — or the tick that it has not come yet
+  const invoiceReady = invoiceToFollow || (!!invoiceNumber.trim() && !!invoiceDate);
   const canSubmit =
-    effectiveQty > 0 && !!warehouseId && !!receivedDate && !dateBeforeSend && !receiveMutation.isPending;
+    effectiveQty > 0 &&
+    !!warehouseId &&
+    !!receivedDate &&
+    !dateBeforeSend &&
+    invoiceReady &&
+    !receiveMutation.isPending;
 
   // A final delivery that leaves the total short beyond the tolerance is a SHORT CLOSE: it is asked
   // about, in words, before anything is sent. The server refuses it anyway if the question was skipped.
@@ -543,6 +560,59 @@ export default function ReceiveFromProcessorDialog({
               <Label htmlFor="rfp-challan">Their challan no.</Label>
               <Input id="rfp-challan" value={challanRef} onChange={(e) => setChallanRef(e.target.value)} />
             </div>
+          </div>
+
+          {/* The processor's bill for this delivery — every inward records its invoice (2026-09-28) */}
+          <div className="space-y-2 rounded-md border p-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="rfp-invoice">Processor&apos;s invoice no.{invoiceToFollow ? '' : ' *'}</Label>
+                <Input
+                  id="rfp-invoice"
+                  value={invoiceNumber}
+                  maxLength={100}
+                  disabled={invoiceToFollow}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rfp-invoice-date">Invoice date{invoiceToFollow ? '' : ' *'}</Label>
+                <Input
+                  id="rfp-invoice-date"
+                  type="date"
+                  value={invoiceDate}
+                  max={today}
+                  disabled={invoiceToFollow}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={invoiceToFollow}
+                onCheckedChange={(v) => {
+                  const ticked = v === true;
+                  setInvoiceToFollow(ticked);
+                  if (ticked) {
+                    setInvoiceNumber('');
+                    setInvoiceDate('');
+                  }
+                }}
+              />
+              Invoice not received yet
+            </label>
+            {invoiceToFollow ? (
+              <p className="text-xs text-muted-foreground">
+                {processorName}&apos;s bill will follow — add it on the receipt (Add invoice), or type it when you close
+                the job.
+              </p>
+            ) : (
+              !invoiceReady && (
+                <p className="text-xs text-muted-foreground">
+                  Enter {processorName}&apos;s invoice number and date, or tick &quot;Invoice not received yet&quot;.
+                </p>
+              )
+            )}
           </div>
 
           <div className="flex items-start gap-3 rounded-md border p-3">

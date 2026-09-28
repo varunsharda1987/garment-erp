@@ -27,6 +27,7 @@ import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 import { loadMaterialDetails, materialDetailLine, type MaterialDetails } from '../helpers/material-detail.helper';
+import { isInvoiceOpenStatus } from '../helpers/receipt-invoice.helper';
 
 const grnDocInclude = {
   suppliers: {
@@ -208,10 +209,13 @@ export function transformGrn(
   const receiver = userName(grn.users_goods_receiving_notes_receivedByIdTousers);
   const approver = userName(grn.users_goods_receiving_notes_approvedByIdTousers);
 
-  // Vendor's own document covering the inward movement (their challan/invoice no.)
+  // The supplier's / processor's invoice the goods came on — "To follow" on a live receipt filed with
+  // "Invoice not received yet" (2026-09-28)
   const vendorDocRef = grn.invoiceNumber
     ? `${grn.invoiceNumber}${grn.invoiceDate ? ` · ${fmtDate(grn.invoiceDate)}` : ''}`
-    : EM_DASH;
+    : isInvoiceOpenStatus(grn.status)
+      ? 'To follow'
+      : EM_DASH;
 
   // Item-level totals (shared by both shapes). The *Sum figures are ACTUAL metres (the counted figure
   // converted at the line's fold length) — what stock, the job and the value run on. The counted
@@ -397,7 +401,8 @@ export function transformGrn(
     supplierName: grn.suppliers.name,
     supplierGstin,
     processLabel,
-    vendorDocLabel: isJobWork ? 'Inward Challan' : 'Supplier Invoice',
+    // A job-work return's invoice slot holds the processor's bill (their challan no. is in the remarks)
+    vendorDocLabel: isJobWork ? 'Processor Invoice' : 'Supplier Invoice',
     vendorDocRef,
     receiptDate: fmtDate(grn.receivingDate),
     issuedOn,

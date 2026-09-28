@@ -171,6 +171,7 @@ beforeAll(async () => {
 
   const part1 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
     jobWorkOrderId: jwoA,
+    invoiceToFollow: true,
     qtyReceivedMeters: PART_1,
     receivedDate: PART_1_ON,
     warehouseId,
@@ -182,6 +183,7 @@ beforeAll(async () => {
 
   const part2 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
     jobWorkOrderId: jwoA,
+    invoiceToFollow: true,
     qtyReceivedMeters: PART_2,
     receivedDate: PART_2_ON,
     warehouseId,

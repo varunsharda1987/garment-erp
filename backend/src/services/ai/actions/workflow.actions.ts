@@ -11,6 +11,7 @@ import { z } from 'zod';
 import type { ActionDefinition, Payload, ActionContext, StepResult } from '../ai-action-types';
 import { internalFetch, resolveEntity } from '../ai-action-types';
 import { UnitEnum } from '../../../schemas/generated/prisma-enums';
+import { formatDate, parseDMY, toDateInputValue } from '../../../utils/date';
 
 // ── Style ────────────────────────────────────────────────────────────────────
 // customerName is a free-text column on styles, NOT a foreign key — no resolution needed.
@@ -454,12 +455,17 @@ const createWorkOrdersFromOrder: ActionDefinition = {
 const grnTool = z.object({
   poNumber: z.string().min(1),
   invoiceNumber: z.string().max(100).optional(),
+  invoiceDate: z.string().max(40).optional(),
+  invoiceNotReceived: z.boolean().optional(),
   remarks: z.string().max(500).optional(),
 });
 
 const grnExec = z.object({
   poId: z.string().min(1),
   invoiceNumber: z.string().max(100).optional(),
+  // YYYY-MM-DD — the GRN takes the supplier's invoice number AND date, or "Invoice not received yet"
+  invoiceDate: z.string().optional(),
+  invoiceToFollow: z.boolean().optional(),
   remarks: z.string().max(500).optional(),
   items: z
     .array(
@@ -502,7 +508,12 @@ const receiveGrnFull: ActionDefinition = {
         type: 'object',
         properties: {
           poNumber: { type: 'string', description: 'The purchase order number' },
-          invoiceNumber: { type: 'string', description: "Supplier's invoice number, if given" },
+          invoiceNumber: { type: 'string', description: "Supplier's invoice number" },
+          invoiceDate: { type: 'string', description: "The invoice's date, e.g. 28-Sep-2026" },
+          invoiceNotReceived: {
+            type: 'boolean',
+            description: 'true when the user says the goods came without a bill (invoice not received yet)',
+          },
           remarks: { type: 'string' },
         },
         required: ['poNumber'],
@@ -519,11 +530,40 @@ const receiveGrnFull: ActionDefinition = {
     });
     if (!po.ok) return { ok: false, question: po.question };
 
-    const { poNumber, ...rest } = payload;
+    // Every receipt records the supplier's invoice — or says it has not come yet (2026-09-28)
+    const { poNumber, invoiceNotReceived, invoiceNumber, invoiceDate, ...rest } = payload;
+    const number = typeof invoiceNumber === 'string' ? invoiceNumber.trim() : '';
+    const toFollow = invoiceNotReceived === true && !number;
+    if (!number && !toFollow) {
+      return {
+        ok: false,
+        question:
+          "What is the supplier's invoice number and its date? If the goods came without a bill, say " +
+          '"invoice not received yet" — it can be added later on the GRN page.',
+      };
+    }
+    let dated = '';
+    if (number) {
+      const raw = typeof invoiceDate === 'string' ? invoiceDate.trim() : '';
+      const parsed = raw ? (parseDMY(raw) ?? (/^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(raw) : null)) : null;
+      if (!parsed || Number.isNaN(parsed.getTime())) {
+        return { ok: false, question: `What is the date of invoice ${number}? (e.g. 28-Sep-2026)` };
+      }
+      dated = toDateInputValue(parsed);
+    }
     return {
       ok: true,
-      payload: { ...rest, poId: po.entity.id },
-      displayLines: [`Purchase order: ${po.entity.display}`],
+      payload: {
+        ...rest,
+        poId: po.entity.id,
+        ...(number ? { invoiceNumber: number, invoiceDate: dated } : { invoiceToFollow: true }),
+      },
+      displayLines: [
+        `Purchase order: ${po.entity.display}`,
+        number
+          ? `Invoice: ${number} dated ${formatDate(dated)}`
+          : 'Invoice: not received yet — add it on the GRN page when it arrives',
+      ],
     };
   },
   // Build the item lines from what is actually still pending on the PO

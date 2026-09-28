@@ -145,6 +145,7 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 | "The result of processing" | `finishedFabricId` / `processedFabricId` / `createdFabricId` / `resultFabricStockId` — four names, one meaning | |
 | Where a PO delivers | `purchase_orders.deliveryLocationId` — ONE place, empty = "to be advised"; on a split PO it only MIRRORS point 1 | `po_delivery_points` + `po_delivery_point_lines` — the split plan. Read and write through `helpers/po-delivery-plan.helper.ts` (2026-09-26) |
 | Where a receipt went | `goods_receiving_notes.warehouseId` — the ACTUAL place, stock is booked there | `goods_receiving_notes.poDeliveryPointId` — the PLANNED place on a split PO. They differ when goods landed elsewhere (warned, allowed) |
+| The invoice goods came on | `goods_receiving_notes.invoiceNumber`/`invoiceDate` — THIS delivery's bill (the supplier's, or the processor's on a job-work return). NULL on a live receipt = "Invoice not received yet" (the only way to file one without it since 2026-09-28, `helpers/receipt-invoice.helper.ts`); added later by `PATCH /api/grn/:id/invoice`. Lots read it through their receipt (`greigeLotInvoice`), never a copy | `job_work_orders.invoiceNumber` — the WHOLE job's bill, confirmed at Close (pre-filled from its receipts). `greige_stock` / `fabric_procurement` invoice columns hold only what a hand entry typed |
 | A label's stock | `label_stock.labelId` (the label) | `label_stock.sizeVariantId` (the SIZE — NULL = unsized stock). `derived_stock_view` puts each lot on exactly ONE materials row: the size row, else the base row (2026-09-26 — before, a label lot showed on the base AND every size row). A trim receipt reaches its lot table by the LINE's material (`routeToSpecializedStock` → `trimLotOf`), never by the PO category; `receivesViaStockLevels()` in `grn.service.ts` is the one predicate approval and reversal share |
 | A thread's stock | `thread_stock.threadId` + `packagingType`/`ply` (the lot's PACK) | `materials` pack rows: `threadPackagingType`/`threadPly` set (NULL on the thread's base row; `materials.threadId` is NOT unique — partial unique indexes keep one base row and one row per pack). `derived_stock_view` puts a lot on the row whose pack matches; every stock_levels write for a lot goes through `threadLotMaterialId`. Find a master's base row with `BASE_MATERIAL_ROW` (`master-config.ts`), never a bare `findFirst({ where: { threadId } })`. Cones and tubes are never added together (2026-09-26) |
 | Which processor holds a lot | `greige_stock.processorId` (DIRECT / TRANSFER lots) | the lot's warehouse when it is a JOB_WORK unit (`warehouses.supplierId`). Lace and fabric have ONLY the warehouse. Read via `lot-location.helper` (`greigeHolderId`, `resolveLotLocation`, `laceCountsForPlanning`) |
@@ -487,6 +488,19 @@ Enforced by the *quantity exact compare* smart-check (`// allow-exact-qty` for a
 value). Tests: `unit/quantity.test.ts`, `integration/mrp-allocate-stock-dust.test.ts`,
 `integration/lace-issue-note-dust.test.ts`.
 
+
+## Colour is optional (one rule)
+
+A style makes ONE colour (its Primary Color) and most styles have none. The colour of a size line is
+settled by **`backend/src/services/helpers/sku-colour.helper.ts`**: its own colour, else the style's
+only colour, else BLANK (null); a style with several colours must choose. Sizes, production runs,
+stitching, finishing, packing, finished-goods stock, delivery notes and ASNs all accept a blank colour
+(owner, 2026-09-28 — until then a style with no colour could not be sized from its sale order or
+stitched). Key SKUs with `skuKey`, match stock with `stockColourMatches` / `stockColourWhere`
+(blank-colour stock serves any colour of its style), book finished goods ONLY through
+`addFinishedGoods` (`helpers/finished-goods.helper.ts`). The colour unique indexes on the SKU / FG
+tables are **NULLS NOT DISTINCT** (raw SQL, migration `20260928170000`) — Prisma cannot express it,
+**do not drop or recreate them**. Walk it: `integration/colourless-style-chain.test.ts`.
 
 ## CRITICAL: Keep the AI Assistant's Guides in Sync (MANDATORY)
 

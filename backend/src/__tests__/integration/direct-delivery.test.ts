@@ -26,6 +26,7 @@ import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
+import greigeStockService from '../../services/greige-stock.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 import { jobWorkStatutoryService } from '../../services/job-work-statutory.service';
 import { getProcessorStatement } from '../../services/processor-statement.service';
@@ -101,6 +102,8 @@ async function receiveInto(
   const grn = await grnService.createGRN(
     {
       poId,
+      invoiceNumber: `${RUN}-INV`,
+      invoiceDate: RECEIVED_ON,
       warehouseId: unit,
       receivingDate: RECEIVED_ON,
       items: [
@@ -708,6 +711,12 @@ describe('bring to store — goods a processor holds come back into our store (P
     const storeLot = await prisma.greige_stock.findFirstOrThrow({ where: { sourceChallanId: challan.id } });
     expect(storeLot).toMatchObject({ warehouseId: storeId, processorId: null, sourceType: 'PROCESSOR_RETURN' });
     expect(Number(storeLot.quantityAvailable)).toBe(400);
+    // A lot brought back shows the invoice its cloth came on — read through the origin lot's receipt
+    // (same procurement), never copied (2026-09-28)
+    const listedStoreLot = (await greigeStockService.getGreigeStock({ greigeId, minQuantity: 0 })).find(
+      (l) => l.id === storeLot.id
+    );
+    expect(listedStoreLot).toMatchObject({ invoiceNumber: `${RUN}-INV` });
     expect(await onHandAt(unitB)).toBeCloseTo(unitBefore - 400, 2);
     expect(await onHandAt(storeId)).toBeCloseTo(storeBefore + 400, 2);
 
@@ -870,7 +879,14 @@ describe('processed goods delivered straight to the next processor (Phase 4d)', 
     request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: jwo, qtyReceivedMeters: 376, receivedDate: today, isFinal: true, ...body });
+      .send({
+        jobWorkOrderId: jwo,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 376,
+        receivedDate: today,
+        isFinal: true,
+        ...body,
+      });
 
   beforeAll(async () => {
     // Greige held at dyer A, drawn where it lies by A's dyeing job

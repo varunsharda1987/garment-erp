@@ -19,6 +19,7 @@ import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '..
 import { BusinessError, NotFoundError } from '../errors';
 import { createAuditLog } from './audit.service';
 import { fmtQty } from './document-data/format';
+import { GREIGE_LOT_INVOICE_INCLUDE, greigeLotInvoice } from './helpers/receipt-invoice.helper';
 
 // Than tags are 3 dp and counted; a lot is 2 dp and actual. A pick that empties every than may differ
 // from what the lot holds by the half-cents each earlier issue rounded away.
@@ -105,8 +106,14 @@ export interface GreigeStockItem {
   rollNumbers?: string | null;
   qualityGrade: string;
   receivedDate: Date;
+  /** The invoice the lot came on — read through its receipt (greigeLotInvoice), never copied */
   invoiceNumber?: string | null;
   invoiceDate?: Date | null;
+  /** The receipt that invoice belongs to (the page links "To follow" to it) */
+  invoiceGrnId?: string | null;
+  invoiceGrnNumber?: string | null;
+  /** The lot came on a live receipt whose bill has not been recorded yet */
+  invoiceToFollow?: boolean;
   agingDays: number;
   status: string;
   stockType: string;
@@ -395,6 +402,8 @@ class GreigeStockService {
             },
           },
           weaver: { select: { id: true, name: true } }, // Phase 1b: the lot's weaver
+          // The invoice the lot came on: its receipt, or the origin lot's (a lot split off another)
+          ...GREIGE_LOT_INVOICE_INCLUDE,
         },
         orderBy: { receivedDate: 'desc' },
       });
@@ -437,6 +446,8 @@ class GreigeStockService {
           thanCount: stock.thanCount,
           weaverId: stock.weaverId,
           weaver: stock.weaver,
+          // It was never mapped — the Greige Stock "Invoice#" column read blank for every lot (2026-09-28)
+          ...greigeLotInvoice(stock),
           ...(piecesByLot ? { pieces: piecesByLot.get(stock.id) ?? { total: 0, left: 0, bales: 0, kind: null } } : {}),
         };
       });

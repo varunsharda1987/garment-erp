@@ -79,6 +79,9 @@ export const createGRNSchema = z
     receivingDate: z.string().optional(),
     invoiceNumber: z.string().max(100, 'Invoice number must not exceed 100 characters').trim().optional().nullable(),
     invoiceDate: z.string().optional().nullable(),
+    // "Invoice not received yet": the goods came on a delivery challan, the bill follows. Without it a
+    // receipt must carry the invoice number and date (receipt-invoice.helper, 2026-09-28).
+    invoiceToFollow: z.boolean().optional(),
     transportDetails: z
       .string()
       .max(500, 'Transport details must not exceed 500 characters')
@@ -119,6 +122,8 @@ export const receiveJwoToStockSchema = z.object({
   receivedDate: z.string().optional().nullable(),
   invoiceNumber: z.string().max(100).trim().optional().nullable(),
   invoiceDate: z.string().optional().nullable(),
+  // "Invoice not received yet" — the processor's bill follows (receipt-invoice.helper, 2026-09-28)
+  invoiceToFollow: z.boolean().optional(),
   // Required up front: the stock lot is written in the same call.
   warehouseId: z.string().uuid('Invalid warehouse ID'),
   // Phase 4d: the processor delivered the finished goods straight to ANOTHER processor, whose unit is
@@ -256,3 +261,18 @@ export const updateDetailLabelsSchema = z.object({
 export const grnItemIdParamSchema = z.object({
   itemId: z.string().min(1, 'GRN line ID is required'),
 });
+
+/**
+ * Add (or correct) the invoice a receipt came on — the bill that followed the goods
+ * PATCH /api/grn/:id/invoice
+ */
+export const updateGRNInvoiceSchema = z.object({
+  invoiceNumber: z
+    .string({ error: 'Enter the invoice number' })
+    .trim()
+    .min(1, 'Enter the invoice number')
+    .max(100, 'Invoice number must not exceed 100 characters'),
+  invoiceDate: z.coerce.date({ error: 'Enter the invoice date' }),
+});
+
+export type UpdateGRNInvoiceInput = z.infer<typeof updateGRNInvoiceSchema>;

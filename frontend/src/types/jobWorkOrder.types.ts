@@ -195,6 +195,9 @@ export interface JobWorkOrder {
     id: string;
     grnNumber: string;
     receivingDate: string;
+    /** The processor's bill for that delivery — null = "To follow" */
+    invoiceNumber?: string | null;
+    invoiceDate?: string | null;
     items?: Array<{ acceptedQuantity: number; receivedWidthInches?: number | null; thanCount?: number | null }>;
   }>;
 }

@@ -17,6 +17,7 @@ import type {
   ReceivingSummary,
   ProcessingQCData,
   ProcessingContext,
+  UpdateGRNInvoiceRequest,
 } from '../types/grn.types';
 
 const BASE_URL = '/grn';
@@ -144,6 +145,21 @@ export const updateGRNDetailLabels = async (
   return data.data;
 };
 
+/**
+ * Add (or correct) the invoice a live receipt came on — the bill that followed the goods.
+ */
+export const updateGRNInvoice = async (
+  id: string,
+  request: UpdateGRNInvoiceRequest
+): Promise<Pick<GRN, 'id' | 'grnNumber' | 'invoiceNumber' | 'invoiceDate' | 'status'>> => {
+  const { data } = await api.patch<{
+    success: boolean;
+    data: Pick<GRN, 'id' | 'grnNumber' | 'invoiceNumber' | 'invoiceDate' | 'status'>;
+    message?: string;
+  }>(`${BASE_URL}/${id}/invoice`, request);
+  return data.data;
+};
+
 // ============================================
 // Export all functions as default object
 // ============================================
@@ -159,4 +175,5 @@ export default {
   rejectGRN,
   getProcessingContext,
   updateGRNDetailLabels,
+  updateGRNInvoice,
 };

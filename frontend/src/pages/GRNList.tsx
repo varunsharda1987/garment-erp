@@ -15,6 +15,7 @@ import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
 import { PackageOpen, Eye } from 'lucide-react';
 import { formatDate } from '@/lib/date';
+import { isInvoiceToFollow } from '@/lib/receipt-invoice';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
 import { foldActual, hasFold } from '@/lib/fold-length';
@@ -285,7 +286,19 @@ export default function GRNList() {
     {
       key: 'invoiceNumber',
       header: 'Invoice #',
-      render: (grn) => <div className="text-sm text-foreground">{grn.invoiceNumber || '-'}</div>,
+      render: (grn) =>
+        grn.invoiceNumber ? (
+          <div className="text-sm text-foreground">
+            {grn.invoiceNumber}
+            {grn.invoiceDate && <div className="text-xs text-muted-foreground">{formatDate(grn.invoiceDate)}</div>}
+          </div>
+        ) : isInvoiceToFollow(grn) ? (
+          <div className="text-sm text-amber-700" title="Received without the bill — add it on the GRN">
+            To follow
+          </div>
+        ) : (
+          <div className="text-sm text-foreground">-</div>
+        ),
     },
     {
       key: 'status',

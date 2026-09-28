@@ -10,6 +10,7 @@
 import { z } from 'zod';
 import { formNumber } from '../../schemas/common.schema';
 import { createPackagingSchema, createThreadSchema, createZipperSchema } from '../../schemas/trimMasters.schema';
+import { createGRNSchema, receiveJwoToStockSchema, updateGRNInvoiceSchema } from '../../schemas/grn.schema';
 
 const SUPPLIER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -132,5 +133,49 @@ describe('zipper create — exact ZipperForm payload', () => {
     });
     expect(r.success).toBe(true);
     if (r.success) expect(r.data.suppliers?.[0].pricePerPiece).toBeNull();
+  });
+});
+
+describe('the invoice a receipt came on — exact payloads (2026-09-28)', () => {
+  it('Add invoice: takes the number and the date input value, refuses either missing', () => {
+    const ok = updateGRNInvoiceSchema.safeParse({ invoiceNumber: ' INV-1 ', invoiceDate: '2026-09-28' });
+    expect(ok.success).toBe(true);
+    if (ok.success) {
+      expect(ok.data.invoiceNumber).toBe('INV-1');
+      expect(ok.data.invoiceDate).toBeInstanceOf(Date);
+    }
+    const noNumber = updateGRNInvoiceSchema.safeParse({ invoiceNumber: '', invoiceDate: '2026-09-28' });
+    expect(noNumber.success).toBe(false);
+    if (!noNumber.success) expect(noNumber.error.issues[0].message).toBe('Enter the invoice number');
+    const noDate = updateGRNInvoiceSchema.safeParse({ invoiceNumber: 'INV-1' });
+    expect(noDate.success).toBe(false);
+    if (!noDate.success) expect(noDate.error.issues[0].message).toBe('Enter the invoice date');
+  });
+
+  it('keeps "Invoice not received yet" on a GRN and on a job-work return', () => {
+    const grn = createGRNSchema.safeParse({
+      poId: 'po-1',
+      invoiceToFollow: true,
+      items: [
+        {
+          poItemId: 'pi-1',
+          materialId: 'm-1',
+          receivedQuantity: 1,
+          acceptedQuantity: 1,
+          rejectedQuantity: 0,
+          unit: 'METER',
+        },
+      ],
+    });
+    expect(grn.success).toBe(true);
+    if (grn.success) expect(grn.data.invoiceToFollow).toBe(true);
+    const back = receiveJwoToStockSchema.safeParse({
+      jobWorkOrderId: '11111111-1111-4111-8111-111111111111',
+      warehouseId: '22222222-2222-4222-8222-222222222222',
+      qtyReceivedMeters: '100',
+      invoiceToFollow: true,
+    });
+    expect(back.success).toBe(true);
+    if (back.success) expect(back.data.invoiceToFollow).toBe(true);
   });
 });

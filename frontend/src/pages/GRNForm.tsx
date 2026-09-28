@@ -141,6 +141,8 @@ export default function GRNForm() {
   const [receivingDate, setReceivingDate] = useState(toDateInputValue(new Date()));
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
+  // "Invoice not received yet": the goods came on a delivery challan, the bill follows (2026-09-28)
+  const [invoiceToFollow, setInvoiceToFollow] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [items, setItems] = useState<GRNItemForm[]>([]);
   const [poSearch, setPoSearch] = useState('');
@@ -430,6 +432,18 @@ export default function GRNForm() {
       handleApiError(new Error('Please enter receiving date'), 'Validation Error');
       return false;
     }
+    // Every receipt records the supplier's invoice — or says it has not come yet (the server insists too)
+    if (!invoiceToFollow && !invoiceNumber.trim()) {
+      handleApiError(
+        new Error(`Enter the supplier's invoice number — or tick "Invoice not received yet".`),
+        'Validation Error'
+      );
+      return false;
+    }
+    if (!invoiceToFollow && !invoiceDate) {
+      handleApiError(new Error(`Enter the date of invoice ${invoiceNumber.trim()}.`), 'Validation Error');
+      return false;
+    }
 
     const hasReceivedItems = items.some((item) => parseFloat(item.receivedQuantity) > 0);
     if (!hasReceivedItems) {
@@ -542,8 +556,9 @@ export default function GRNForm() {
         warehouseId,
         poDeliveryPointId: deliveryPointId || null,
         receivingDate,
-        invoiceNumber: invoiceNumber || undefined,
-        invoiceDate: invoiceDate || undefined,
+        ...(invoiceToFollow
+          ? { invoiceToFollow: true }
+          : { invoiceNumber: invoiceNumber.trim() || undefined, invoiceDate: invoiceDate || undefined }),
         remarks: remarks || undefined,
         items: grnItems,
       };
@@ -844,6 +859,18 @@ export default function GRNForm() {
             </div>
           )}
         </div>
+
+        {/* Greige as one total keeps no piece list — say what that costs at issue (warn, never block) */}
+        {selectedPO?.poCategory === 'GREIGE' && item.entryMode === 'TOTAL_METERS' && !item.receivedAsReadyFabric && (
+          <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning-muted p-2 text-xs text-warning">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              Total Meters keeps no bale, than or roll list — when this greige is issued to a dyer or printer there will
+              be nothing to tick, and it goes by quantity until its pieces are recorded (Inventory → Greige Stock →
+              Record bales &amp; thans). Choose Than-wise, Bale-wise or Roll-wise to list them now.
+            </span>
+          </div>
+        )}
 
         {/* THAN_WISE details */}
         {item.entryMode === 'THAN_WISE' && (
@@ -1322,29 +1349,52 @@ export default function GRNForm() {
       {/* Invoice Details */}
       <Card>
         <CardHeader>
-          <CardTitle>Invoice Details (Optional)</CardTitle>
+          <CardTitle>Invoice Details</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="invoiceNumber">Invoice Number</Label>
+              <Label htmlFor="invoiceNumber">Invoice Number{invoiceToFollow ? '' : ' *'}</Label>
               <Input
                 id="invoiceNumber"
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
                 placeholder="Enter invoice number"
+                maxLength={100}
+                disabled={invoiceToFollow}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="invoiceDate">Invoice Date</Label>
+              <Label htmlFor="invoiceDate">Invoice Date{invoiceToFollow ? '' : ' *'}</Label>
               <Input
                 id="invoiceDate"
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
+                disabled={invoiceToFollow}
               />
             </div>
           </div>
+          <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Checkbox
+              checked={invoiceToFollow}
+              onCheckedChange={(checked) => {
+                const ticked = checked === true;
+                setInvoiceToFollow(ticked);
+                if (ticked) {
+                  setInvoiceNumber('');
+                  setInvoiceDate('');
+                }
+              }}
+            />
+            Invoice not received yet
+          </label>
+          {invoiceToFollow && (
+            <p className="text-xs text-muted-foreground">
+              The goods came on a delivery challan — the bill will follow. Add it on the GRN page (Add invoice) when it
+              arrives.
+            </p>
+          )}
         </CardContent>
       </Card>
 

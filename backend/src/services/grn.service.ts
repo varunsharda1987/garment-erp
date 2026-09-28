@@ -100,6 +100,8 @@ import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
 import { applySearch } from '../utils/search-filter';
 import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER, toLabelLine } from './helpers/label-line.helper';
 import { loadMaterialDetails } from './helpers/material-detail.helper';
+import { isInvoiceOpenStatus, resolveReceiptInvoice } from './helpers/receipt-invoice.helper';
+import { createAuditLog } from './audit.service';
 
 /**
  * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
@@ -429,6 +431,10 @@ class GRNService {
       })),
     });
 
+    // The supplier's invoice number + date, or "Invoice not received yet" (2026-09-28) — after every
+    // other refusal and before anything is written
+    const invoice = resolveReceiptInvoice(data, 'supplier');
+
     const grnNumber = await this.generateGRNNumber();
 
     // PROCESSING PO: validate the linked job work order BEFORE booking anything (bug-hunt
@@ -480,8 +486,8 @@ class GRNService {
             warehouseId: delivery.warehouseId, // Target warehouse for received goods (the ACTUAL place)
             poDeliveryPointId: delivery.poDeliveryPointId, // the PLANNED place on a split PO
             receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
-            invoiceNumber: data.invoiceNumber || null,
-            invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
+            invoiceNumber: invoice.invoiceNumber,
+            invoiceDate: invoice.invoiceDate,
             status: GRNStatus.PENDING_QC,
             remarks: data.remarks || null,
             receivedById: userId,
@@ -671,7 +677,7 @@ class GRNService {
               receivedWidthInches: receivedWidthInches,
               receivedDate: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
               receivedChallan: receivedChallan || null,
-              invoiceNumber: data.invoiceNumber || null,
+              invoiceNumber: invoice.invoiceNumber,
               actualShrinkage: actualShrinkage,
               widthVariance: widthVariance,
               thanCount: thanCount || null,
@@ -942,6 +948,44 @@ class GRNService {
       where: { grnItemId },
       orderBy: [{ baleNumber: 'asc' }, { sequenceNo: 'asc' }],
     });
+  }
+
+  /**
+   * Add — or correct — the invoice a receipt came on: the bill that followed goods received with "Invoice
+   * not received yet" (2026-09-28). A live receipt only: a reversed or rejected one is no longer billed.
+   * Moves nothing; the lots show it at once because they read it through the receipt (greigeLotInvoice).
+   */
+  async updateInvoice(id: string, input: { invoiceNumber: string; invoiceDate: Date }, userId: string) {
+    const grn = await prisma.goods_receiving_notes.findUnique({
+      where: { id },
+      select: { id: true, grnNumber: true, status: true, invoiceNumber: true, invoiceDate: true },
+    });
+    if (!grn) throw new NotFoundError('GRN', id);
+    if (!isInvoiceOpenStatus(grn.status)) {
+      throw new BusinessError(
+        `${grn.grnNumber} is ${String(grn.status).toLowerCase().replace(/_/g, ' ')} — its invoice can no longer be changed.`,
+        { reason: 'GRN_INVOICE_NOT_LIVE' }
+      );
+    }
+    const invoice = resolveReceiptInvoice(input, 'supplier');
+    const updated = await prisma.goods_receiving_notes.update({
+      where: { id },
+      data: {
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
+      },
+      select: { id: true, grnNumber: true, invoiceNumber: true, invoiceDate: true, status: true },
+    });
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entityType: 'GRN',
+      entityId: id,
+      oldValues: { invoiceNumber: grn.invoiceNumber, invoiceDate: grn.invoiceDate },
+      newValues: { invoiceNumber: updated.invoiceNumber, invoiceDate: updated.invoiceDate },
+    });
+    logInfo(`Invoice ${updated.invoiceNumber} recorded on ${updated.grnNumber}`, { grnId: id, userId });
+    return updated;
   }
 
   async getGRNById(id: string) {
@@ -2873,8 +2917,11 @@ class GRNService {
       receivedChallan?: string;
       /** The date the goods came back — becomes the GRN date, the job's receivedDate and the inward challan date. */
       receivedDate?: string | null;
-      invoiceNumber?: string;
-      invoiceDate?: string;
+      /** The processor's bill for THIS delivery — required with its date unless invoiceToFollow */
+      invoiceNumber?: string | null;
+      invoiceDate?: string | null;
+      /** "Invoice not received yet" — the processor's bill follows (receipt-invoice.helper) */
+      invoiceToFollow?: boolean;
       warehouseId?: string;
       /**
        * false = one delivery of several: the job goes PARTIALLY_RECEIVED and stays receivable.
@@ -3061,6 +3108,11 @@ class GRNService {
       }
     }
 
+    // The processor's invoice number + date, or "Invoice not received yet" (2026-09-28) — after the
+    // quantity, date, cap and short-close refusals and BEFORE the finished-fabric mint, so a refusal
+    // writes nothing
+    const invoice = resolveReceiptInvoice(data, 'processor');
+
     // grn_items.materialId is required, and it must name the material ARRIVING — the dyed lace
     // variant, or the finished fabric — never the greige or fabric that was SENT (the sent material
     // already left stock at issue). resolveOrMintJwoArrivingMaterial is the same authority approval
@@ -3090,8 +3142,8 @@ class GRNService {
         supplierId: jwo.processorId,
         warehouseId: data.warehouseId || null,
         receivingDate: data.receivedDate ? new Date(data.receivedDate) : new Date(),
-        invoiceNumber: data.invoiceNumber || null,
-        invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceDate: invoice.invoiceDate,
         status: opts?.acceptedBy ? GRNStatus.ACCEPTED : GRNStatus.PENDING_QC,
         approvedById: opts?.acceptedBy ?? null,
         remarks:

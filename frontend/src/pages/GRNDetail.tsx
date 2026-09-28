@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { getGRNById, approveGRN, rejectGRN, updateGRNDetailLabels } from '@/services/grn.service';
+import { getGRNById, approveGRN, rejectGRN, updateGRNDetailLabels, updateGRNInvoice } from '@/services/grn.service';
+import { usePermissions } from '@/hooks/usePermissions';
+import { INVOICE_OPEN_STATUSES } from '@/lib/receipt-invoice';
 import { openPDF } from '@/lib/document-utils';
 import type { GRN, GRNItem, GRNItemDetail, GRNStatus, ProcessingQCData } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
@@ -39,7 +41,7 @@ import {
   Tag,
 } from 'lucide-react';
 import type { PendingCuttingInfo } from '@/services/grn.service';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { foldActual, hasFold } from '@/lib/fold-length';
 import { formatCurrency } from '@/lib/currency';
 import { materialDetailLine } from '@/lib/material-detail';
@@ -113,6 +115,35 @@ export default function GRNDetail() {
       setError(handleApiError(err, 'Failed to fetch GRN', false));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Add / correct the invoice a live receipt came on — the bill that followed the goods
+  const { can } = usePermissions();
+  const canWriteGrn = can('grn');
+  const invoiceLive = !!grn && (INVOICE_OPEN_STATUSES as readonly string[]).includes(grn.status);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
+  const [invoiceDraft, setInvoiceDraft] = useState({ number: '', date: '' });
+  const [isSavingInvoice, setIsSavingInvoice] = useState(false);
+  const openInvoiceDialog = () => {
+    setInvoiceDraft({
+      number: grn?.invoiceNumber ?? '',
+      date: grn?.invoiceDate ? toDateInputValue(grn.invoiceDate) : '',
+    });
+    setInvoiceDialogOpen(true);
+  };
+  const saveInvoice = async () => {
+    if (!grn) return;
+    try {
+      setIsSavingInvoice(true);
+      await updateGRNInvoice(grn.id, { invoiceNumber: invoiceDraft.number.trim(), invoiceDate: invoiceDraft.date });
+      handleApiSuccess('Invoice saved', `${invoiceDraft.number.trim()} recorded on ${grn.grnNumber}`);
+      setInvoiceDialogOpen(false);
+      await fetchGRN();
+    } catch (err) {
+      handleApiError(err, 'Could not save the invoice');
+    } finally {
+      setIsSavingInvoice(false);
     }
   };
 
@@ -489,25 +520,46 @@ export default function GRNDetail() {
             </div>
           </div>
 
-          {/* Invoice Details */}
-          {(grn.invoiceNumber || grn.invoiceDate) && (
-            <div className="mt-6 pt-4 border-t">
-              <h4 className="font-medium mb-2 flex items-center gap-2">
+          {/* The invoice the goods came on — or "to follow", with the way to add it (2026-09-28) */}
+          <div className="mt-6 pt-4 border-t">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h4 className="font-medium flex items-center gap-2">
                 <FileText className="h-4 w-4" />
-                Invoice Details
+                {grn.jobWorkOrderId ? 'Processor’s invoice' : 'Invoice Details'}
               </h4>
+              {invoiceLive && grn.invoiceNumber && canWriteGrn && (
+                <Button variant="ghost" size="sm" onClick={openInvoiceDialog}>
+                  Edit
+                </Button>
+              )}
+            </div>
+            {grn.invoiceNumber ? (
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Invoice Number:</span>
-                  <p className="font-medium">{grn.invoiceNumber || '-'}</p>
+                  <p className="font-medium">{grn.invoiceNumber}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Invoice Date:</span>
                   <p>{formatDate(grn.invoiceDate)}</p>
                 </div>
               </div>
-            </div>
-          )}
+            ) : invoiceLive ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                <span>
+                  Invoice to follow — this delivery came without the {grn.jobWorkOrderId ? 'processor’s' : 'supplier’s'}{' '}
+                  bill.
+                </span>
+                {canWriteGrn && (
+                  <Button size="sm" variant="outline" onClick={openInvoiceDialog}>
+                    Add invoice
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No invoice recorded.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -1004,6 +1056,55 @@ export default function GRNDetail() {
             </Button>
             <Button onClick={handleSaveLabels} disabled={isSavingLabels}>
               {isSavingLabels ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add / edit the invoice — the bill that followed the goods (2026-09-28) */}
+      <Dialog
+        open={invoiceDialogOpen}
+        onOpenChange={(open) => !open && !isSavingInvoice && setInvoiceDialogOpen(false)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{grn.invoiceNumber ? 'Edit invoice' : 'Add invoice'}</DialogTitle>
+            <DialogDescription>
+              The {grn.jobWorkOrderId ? 'processor’s' : 'supplier’s'} bill for {grn.grnNumber}. Nothing in stock
+              changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="grn-invoice-number">Invoice Number *</Label>
+              <Input
+                id="grn-invoice-number"
+                value={invoiceDraft.number}
+                maxLength={100}
+                onChange={(e) => setInvoiceDraft((d) => ({ ...d, number: e.target.value }))}
+                disabled={isSavingInvoice}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="grn-invoice-date">Invoice Date *</Label>
+              <Input
+                id="grn-invoice-date"
+                type="date"
+                value={invoiceDraft.date}
+                onChange={(e) => setInvoiceDraft((d) => ({ ...d, date: e.target.value }))}
+                disabled={isSavingInvoice}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInvoiceDialogOpen(false)} disabled={isSavingInvoice}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void saveInvoice()}
+              disabled={isSavingInvoice || !invoiceDraft.number.trim() || !invoiceDraft.date}
+            >
+              {isSavingInvoice ? 'Saving…' : 'Save invoice'}
             </Button>
           </DialogFooter>
         </DialogContent>

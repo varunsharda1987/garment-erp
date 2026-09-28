@@ -83,6 +83,7 @@ async function receive(poId: string, boxes: Record<string, number>) {
   const grn = await grnService.createGRN(
     {
       poId,
+      invoiceToFollow: true,
       warehouseId: wh1,
       items: Object.entries(boxes).map(([poItemId, qty]) => ({
         poItemId,

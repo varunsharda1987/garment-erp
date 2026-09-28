@@ -60,6 +60,7 @@ async function receiveAndApprove(qty: number): Promise<{ grnId: string; grnItemI
   const grn = await grnService.createGRN(
     {
       poId,
+      invoiceToFollow: true,
       warehouseId,
       items: [
         {

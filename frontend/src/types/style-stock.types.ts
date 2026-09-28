@@ -181,8 +181,14 @@ export interface GreigeStockDetail {
   rollNumbers: string | null;
   qualityGrade: string;
   receivedDate: string;
+  /** The invoice the lot came on — read through its receipt by the server */
   invoiceNumber: string | null;
   invoiceDate: string | null;
+  /** The receipt that invoice belongs to ("To follow" links to it) */
+  invoiceGrnId?: string | null;
+  invoiceGrnNumber?: string | null;
+  /** Came on a live receipt whose bill is not recorded yet */
+  invoiceToFollow?: boolean;
   agingDays: number;
   status: string;
   stockType: string;

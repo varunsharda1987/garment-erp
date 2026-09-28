@@ -733,7 +733,24 @@ export default function GreigeAvailableStock() {
                                             {entry.receivedDate ? formatDate(new Date(entry.receivedDate)) : '-'}
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground">
-                                            {entry.invoiceNumber || '-'}
+                                            {entry.invoiceNumber ? (
+                                              <span
+                                                title={entry.invoiceDate ? formatDate(entry.invoiceDate) : undefined}
+                                              >
+                                                {entry.invoiceNumber}
+                                              </span>
+                                            ) : entry.invoiceToFollow && entry.invoiceGrnId ? (
+                                              <Link
+                                                to={`/procurement/grn/${entry.invoiceGrnId}`}
+                                                className="text-amber-700 underline underline-offset-2"
+                                                title={`The bill for ${entry.invoiceGrnNumber ?? 'this receipt'} has not been recorded yet`}
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                To follow
+                                              </Link>
+                                            ) : (
+                                              '-'
+                                            )}
                                           </td>
                                           <td className="px-3 py-2 text-center">
                                             {getAgeBadge(entry.agingDays, agingThreshold)}

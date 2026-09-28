@@ -8,7 +8,7 @@ import { grnService } from '../services/grn.service';
 import { GRNStatus } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
 import { CreateGRNDTO, GRNFilters, ProcessingQCData } from '../types/grn.types';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { systemSettingsService } from '../services/system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
@@ -528,5 +528,23 @@ export const updateDetailLabels = async (req: Request, res: Response) => {
     success: true,
     data: details,
     message: 'Bale and than numbers saved',
+  });
+};
+
+/**
+ * @route PATCH /api/grn/:id/invoice
+ * @desc Add (or correct) the invoice a receipt came on — the bill that followed the goods (2026-09-28)
+ * @access Private (grn write permission)
+ */
+export const updateGRNInvoice = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new UnauthorizedError();
+  const { id } = req.params;
+  const { invoiceNumber, invoiceDate } = req.body;
+  const grn = await grnService.updateInvoice(id, { invoiceNumber, invoiceDate }, userId);
+  res.json({
+    success: true,
+    data: grn,
+    message: `Invoice ${grn.invoiceNumber} recorded on ${grn.grnNumber}`,
   });
 };

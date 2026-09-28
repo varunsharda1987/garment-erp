@@ -142,6 +142,7 @@ describe('greige received at L=98', () => {
     const grn = await grnService.createGRN(
       {
         poId,
+        invoiceToFollow: true,
         warehouseId,
         items: [
           {
@@ -257,6 +258,7 @@ describe('a receipt a few centimetres short of the PO (under-receipt tolerance)'
     await grnService.createGRN(
       {
         poId: po2Id,
+        invoiceToFollow: true,
         warehouseId,
         items: [
           {
@@ -312,6 +314,7 @@ describe('greige received roll-wise', () => {
     const grn = await grnService.createGRN(
       {
         poId: po3Id,
+        invoiceToFollow: true,
         warehouseId,
         items: [
           {

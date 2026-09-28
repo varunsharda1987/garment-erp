@@ -297,10 +297,18 @@ export interface CreateGRNRequest {
   receivingDate?: string;
   invoiceNumber?: string;
   invoiceDate?: string;
+  /** "Invoice not received yet" — without it the invoice number and date are required */
+  invoiceToFollow?: boolean;
   transportDetails?: string;
   remarks?: string;
   items: CreateGRNItemRequest[];
   processingData?: ProcessingReceiveData;
+}
+
+/** PATCH /grn/:id/invoice — the bill that followed the goods (YYYY-MM-DD date) */
+export interface UpdateGRNInvoiceRequest {
+  invoiceNumber: string;
+  invoiceDate: string;
 }
 
 export interface RejectGRNRequest {

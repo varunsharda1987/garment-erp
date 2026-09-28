@@ -445,6 +445,10 @@ export default function JobWorkOrderDetail() {
   // Only pieces on the lot's list when this job took its cloth can be the ones it took — a count made
   // afterwards ("Record bales & thans") lists what stayed on the rack. The server refuses the rest.
   const recordLotThans = piecesListedBy(recordLotAllThans, recordLot?.takenAt);
+  // The processor's bills its return receipts were filed with — Close pre-fills from them (oldest first)
+  const receiptInvoices = [
+    ...new Set((jwo?.receivingGRNs ?? []).map((r) => r.invoiceNumber?.trim()).filter((n): n is string => !!n)),
+  ];
   // Rolls or thans, in the job's own words
   const recordWord =
     thanRecordPending.length > 0 && thanRecordPending.every((lot) => lot.pieceKind === 'ROLL') ? 'rolls' : 'thans';
@@ -1361,7 +1365,8 @@ export default function JobWorkOrderDetail() {
                     className="w-full"
                     variant="secondary"
                     onClick={() => {
-                      setCloseInvoiceNumber(jwo.invoiceNumber || '');
+                      // The job's bill, else what its return receipts were billed on (oldest first)
+                      setCloseInvoiceNumber(jwo.invoiceNumber || receiptInvoices.join(', '));
                       setCloseDialogOpen(true);
                     }}
                   >
@@ -1425,6 +1430,8 @@ export default function JobWorkOrderDetail() {
                     </Label>
                     {receipts.map((r) => {
                       const qty = r.items?.[0]?.acceptedQuantity;
+                      // undefined = an old payload without it; null = the processor's bill is to follow
+                      const invoice = 'invoiceNumber' in r ? r.invoiceNumber : undefined;
                       return (
                         <Button
                           key={r.id}
@@ -1439,6 +1446,8 @@ export default function JobWorkOrderDetail() {
                           <span className="text-xs text-muted-foreground">
                             {qty != null ? `${Number(qty).toFixed(2)} ${unitShort(jwo.uom)}` : ''}
                             {r.receivingDate ? ` · ${formatDate(new Date(r.receivingDate))}` : ''}
+                            {invoice ? ` · Inv ${invoice}` : ''}
+                            {invoice === null && <span className="text-amber-700"> · invoice to follow</span>}
                           </span>
                         </Button>
                       );
@@ -1976,6 +1985,14 @@ export default function JobWorkOrderDetail() {
                 onChange={(e) => setCloseInvoiceNumber(e.target.value)}
                 placeholder="e.g. INV-2026-0412"
               />
+              {!jwo.invoiceNumber &&
+                receiptInvoices.length > 0 &&
+                closeInvoiceNumber === receiptInvoices.join(', ') && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Filled in from the return receipts — change it if {jwo.processor?.name ?? 'the processor'} billed
+                    the job on another invoice.
+                  </p>
+                )}
             </div>
           </div>
 

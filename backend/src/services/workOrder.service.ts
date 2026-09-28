@@ -18,6 +18,12 @@ import { formatDate, toDateInputValue } from '../utils/date';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import { getDefaultWarehouseId } from './helpers/material-sync.helper';
 import { lockOrder, syncOrderStatus } from './helpers/order-status.helper';
+import {
+  actualCostWithCmt,
+  costBeforeMarkup,
+  valueLossPercentOf,
+  type CostBuildUp,
+} from './helpers/order-costing.helper';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -1284,19 +1290,21 @@ class WorkOrderService {
     });
 
     if (existingCosting) {
-      // Update with actual cost — decimal math through utils/currency (bug-hunt production-21)
-      const currentActual = Number(existingCosting.actualCostPerPiece) || 0;
+      // Actual = the estimated COST (before markup) with the estimated CMT swapped for this run's real
+      // CMT — always from the estimate, never from the stored actual: that started at a never-set 0
+      // (the first finished run read ≈ ₹0, −100 %), and re-running subtracted the CMT twice
+      // (order-costing.helper, 2026-09-28).
+      const snapshot = existingCosting.costingSnapshot as CostBuildUp | null;
       const estimatedCmt = Number(existingCosting.cmtTotal) || 0;
-
-      // New actual = (current actual - estimated CMT) + actual CMT
-      const newActualPerPiece = toNumber(
-        // .toString(): subtractCurrency returns Decimal; addCurrency accepts string|number (lossless via string)
-        roundToCent(addCurrency(subtractCurrency(currentActual, estimatedCmt).toString(), cmtResult.perPieceCost))
+      const estimatedCost = Number(existingCosting.estimatedCostPerPiece) || costBeforeMarkup(snapshot);
+      const newActualPerPiece = actualCostWithCmt(
+        estimatedCost,
+        estimatedCmt,
+        cmtResult.perPieceCost,
+        valueLossPercentOf(snapshot)
       );
 
       // Calculate variance
-      const estimatedCost =
-        Number(existingCosting.estimatedCostPerPiece) || Number(existingCosting.totalCostPerPiece) || 0;
       const varianceAmount = toNumber(roundToCent(subtractCurrency(newActualPerPiece, estimatedCost)));
       const variancePercent =
         estimatedCost > 0 ? toNumber(roundToCent(divideCurrency(varianceAmount, estimatedCost).times(100))) : 0;

@@ -640,6 +640,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
         return {
           workOrderId: runId,
           issued: lots.reduce((sum, l) => sum + l.issued, 0),
+          returned: lots.reduce((sum, l) => sum + l.returned, 0),
           atCutting: lots.reduce((sum, l) => sum + l.atCutting, 0),
           consumed: lots.reduce((sum, l) => sum + l.consumed, 0),
         };

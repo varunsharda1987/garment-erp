@@ -60,6 +60,7 @@ import { queryKeys } from '@/hooks/useQuery';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { isQtyZero } from '@/lib/quantity';
 import { getErrorMessage, handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 
 const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
@@ -605,9 +606,11 @@ export default function OrderDetail() {
 
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                       <Stage icon={<Scissors className="h-4 w-4" />} label="Fabric issued">
-                        {fabric && fabric.issued > 0 ? (
+                        {fabric && !isQtyZero(fabric.issued - fabric.returned) ? (
                           <>
-                            {formatQuantity(fabric.issued, 'METER')}
+                            {/* Net of returns: a deleted batch's fabric goes back to the store and is issued
+                                again — WO2609-0087 read "3,408 m" for 1,704 m (2026-09-28) */}
+                            {formatQuantity(fabric.issued - fabric.returned, 'METER')}
                             {fabric.atCutting > 0 && (
                               <div className="text-xs text-muted-foreground">
                                 {formatQuantity(fabric.atCutting, 'METER')} still at Cutting
@@ -988,9 +991,21 @@ function Stage({ label, icon, children }: { label: string; icon?: ReactNode; chi
   );
 }
 
-/** The costed cost per piece and its parts — every part, so they add up to the total. */
+/**
+ * The costed build-up per piece: the parts, value loss, markup and the price. The cost sheet stores
+ * its PRICE as "totalCostPerPiece" (122.64 = 104.56 + 2 % loss + 15 % markup for ESSKY085LS), so the
+ * page used to label the price "Total cost". Cost and markup now show separately.
+ */
 function CostingDetails({ costing }: { costing: OrderItemCosting | null | undefined }) {
   if (!costing) return null;
+  const snap = (costing.costingSnapshot ?? {}) as Record<string, unknown>;
+  const n = (v: unknown) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+  const valueLoss = n(snap.valueLossAmount);
+  const valueLossPct = n(snap.valueLossPercent);
+  const markup = n(snap.markupAmount);
+  const markupPct = n(snap.markupPercent);
+  const price = Number(costing.totalCostPerPiece);
+  const cost = costing.estimatedCostPerPiece != null ? Number(costing.estimatedCostPerPiece) : null;
   const parts: Array<[string, number]> = [
     ['Fabric', costing.fabricTotal],
     ['Trims', costing.trimsTotal],
@@ -1021,16 +1036,33 @@ function CostingDetails({ costing }: { costing: OrderItemCosting | null | undefi
               <div className="font-medium">{formatCurrency(value)}</div>
             </div>
           ))}
+        {valueLoss != null && valueLoss !== 0 && (
+          <div>
+            <div className="text-muted-foreground">Value loss{valueLossPct != null ? ` ${valueLossPct}%` : ''}</div>
+            <div className="font-medium">{formatCurrency(valueLoss)}</div>
+          </div>
+        )}
+        {cost != null && cost !== price && (
+          <div>
+            <div className="text-muted-foreground">Cost</div>
+            <div className="font-semibold">{formatCurrency(cost)}</div>
+          </div>
+        )}
+        {markup != null && markup !== 0 && (
+          <div>
+            <div className="text-muted-foreground">Markup{markupPct != null ? ` ${markupPct}%` : ''}</div>
+            <div className="font-medium">{formatCurrency(markup)}</div>
+          </div>
+        )}
         <div>
-          <div className="text-muted-foreground">Total cost</div>
-          <div className="font-semibold">{formatCurrency(costing.totalCostPerPiece)}</div>
+          <div className="text-muted-foreground">{cost != null && cost !== price ? 'Price' : 'Total'}</div>
+          <div className="font-semibold">{formatCurrency(price)}</div>
         </div>
       </div>
       {costing.actualCostPerPiece != null && (
         <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-4 text-sm">
           <span>
-            Actual {formatCurrency(costing.actualCostPerPiece)} / pc against{' '}
-            {formatCurrency(costing.estimatedCostPerPiece ?? costing.totalCostPerPiece)}
+            Actual cost {formatCurrency(costing.actualCostPerPiece)} / pc against {formatCurrency(cost ?? price)} costed
           </span>
           {variance != null && (
             <Badge variant={Number(variance) > 0 ? 'destructive' : 'secondary'} className="flex items-center gap-1">

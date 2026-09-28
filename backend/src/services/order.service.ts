@@ -16,6 +16,7 @@ import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { releaseReservations } from './helpers/stock-reservation.helper';
 import { getRunFabricPosition } from './helpers/run-fabric.helper';
+import { costBeforeMarkup } from './helpers/order-costing.helper';
 import { fmtQty } from './document-data/format';
 import { isQtyZero } from '../utils/quantity';
 
@@ -462,7 +463,8 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
             costingSnapshot: costingSnapshot as any,
             snapshotCreatedAt: new Date(),
             originalCostSheetVersion: costSheet.version,
-            estimatedCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
+            // COST before markup (subtotal + value loss) — totalCostPerPiece is the sheet's PRICE
+            estimatedCostPerPiece: costBeforeMarkup(costSheet),
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any,
         });

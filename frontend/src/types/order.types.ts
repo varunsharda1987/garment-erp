@@ -226,8 +226,11 @@ export interface Order {
     totalAmount: number | string;
     invoiceDate: string;
   }>;
-  /** Fabric per production run: issued to Cutting, still there, and consumed by finished batches (metres) */
-  runFabric?: Array<{ workOrderId: string; issued: number; atCutting: number; consumed: number }>;
+  /**
+   * Fabric per production run (metres): every issue to Cutting, every return from it, what is still
+   * there, and what finished batches consumed. Net issued = issued − returned.
+   */
+  runFabric?: Array<{ workOrderId: string; issued: number; returned: number; atCutting: number; consumed: number }>;
   /** Make-to-order origin: the HOK B2B sale order this production order fulfils */
   saleOrder?: {
     id: string;

@@ -5,8 +5,157 @@
  */
 
 import { randomUUID } from 'crypto';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { BusinessError, NotFoundError } from '../../errors';
+
+/**
+ * What a new version does with EVERY cost-sheet column: 'carry' copies the source's value, 'fresh' belongs
+ * to this version alone (set in createCostSheetVersionTx, else the column default). The `satisfies` makes a
+ * new column a type error until someone decides. The hand-kept copy list this replaced dropped whatever it
+ * did not name, and a dropped `purpose` fell to its default COSTING: ESSKY091LS v2 (25-Aug) lost Raw
+ * Material and its ₹290 closed cost, and the 28-Sep CAD correction copied that into v3.
+ */
+export const VERSION_COLUMNS = {
+  // identity, lineage and audit of THIS version
+  id: 'fresh',
+  version: 'fresh',
+  versionDate: 'fresh',
+  versionReason: 'fresh',
+  costVariancePercent: 'fresh',
+  notes: 'fresh',
+  createdAt: 'fresh',
+  updatedAt: 'fresh',
+  createdById: 'fresh',
+  supersededById: 'fresh',
+  lockedForOrders: 'fresh',
+  copiedFromCostingId: 'fresh',
+  // approvals — a version starts PENDING
+  approvalStatus: 'fresh',
+  isApproved: 'fresh',
+  approvedAt: 'fresh',
+  approvedById: 'fresh',
+  rejectionNotes: 'fresh',
+  closedCostApprovedAt: 'fresh',
+  closedCostApprovedById: 'fresh',
+  // procurement actuals and variance are recorded against one version
+  fabricActual: 'fresh',
+  trimsActual: 'fresh',
+  cmtActual: 'fresh',
+  embroideryActual: 'fresh',
+  accessoriesActual: 'fresh',
+  totalActual: 'fresh',
+  fabricVariance: 'fresh',
+  fabricVariancePercent: 'fresh',
+  trimsVariance: 'fresh',
+  trimsVariancePercent: 'fresh',
+  cmtVariance: 'fresh',
+  cmtVariancePercent: 'fresh',
+  embroideryVariance: 'fresh',
+  embroideryVariancePercent: 'fresh',
+  accessoriesVariance: 'fresh',
+  accessoriesVariancePercent: 'fresh',
+  totalVariance: 'fresh',
+  totalVariancePercent: 'fresh',
+  varianceStatus: 'fresh',
+  varianceApprovedBy: 'fresh',
+  varianceApprovedAt: 'fresh',
+  varianceNotes: 'fresh',
+
+  // what the sheet IS — the same sheet re-issued
+  styleId: 'carry',
+  purpose: 'carry',
+  orderId: 'carry',
+  orderItemId: 'carry',
+  widthCombinationHash: 'carry',
+  widthCombinationDescription: 'carry',
+  numberOfComponents: 'carry',
+  category: 'carry',
+  subCategory: 'carry',
+  closedCost: 'carry',
+  closedCostCurrency: 'carry',
+  closedCostNotes: 'carry',
+  // lines and totals
+  fabricDetails: 'carry',
+  fabricTotal: 'carry',
+  trimsDetails: 'carry',
+  trimsTotal: 'carry',
+  embroideryDetails: 'carry',
+  embroideryTotal: 'carry',
+  accessoriesDetails: 'carry',
+  accessoriesTotal: 'carry',
+  laceTotal: 'carry',
+  cuttingCost: 'carry',
+  stitchingCost: 'carry',
+  finishingCost: 'carry',
+  buttonAttachmentCost: 'carry',
+  handworkCmtCost: 'carry',
+  cmtTotal: 'carry',
+  cmtCost: 'carry',
+  valueLossPercent: 'carry',
+  valueLossAmount: 'carry',
+  markupPercent: 'carry',
+  markupAmount: 'carry',
+  subtotal: 'carry',
+  totalProductCost: 'carry',
+  totalMaterialCost: 'carry',
+  printingCost: 'carry',
+  totalProcessingCost: 'carry',
+  checkingCost: 'carry',
+  totalProductionCost: 'carry',
+  profitMargin: 'carry',
+  totalCostPerPiece: 'carry',
+  sellingPricePerPiece: 'carry',
+  fabricCost: 'carry',
+  trimsCost: 'carry',
+  embroideryWork: 'carry',
+  handWork: 'carry',
+  smockingCost: 'carry',
+  dyeingCost: 'carry',
+  washingCost: 'carry',
+  otherProcessingCost: 'carry',
+  packagingCost: 'carry',
+  accessoriesCost: 'carry',
+  otherMaterialCost: 'carry',
+  factoryOverhead: 'carry',
+  adminOverhead: 'carry',
+  transportCost: 'carry',
+  otherOverheads: 'carry',
+  profitAmount: 'carry',
+  cadFabricConsumption: 'carry',
+  cadUnit: 'carry',
+  cadWastagePercent: 'carry',
+  // budgets and buffers
+  fabricBudget: 'carry',
+  trimsBudget: 'carry',
+  cmtBudget: 'carry',
+  embroideryBudget: 'carry',
+  accessoriesBudget: 'carry',
+  totalBudget: 'carry',
+  fabricBufferPercent: 'carry',
+  trimsBufferPercent: 'carry',
+  cmtBufferPercent: 'carry',
+  embroideryBufferPercent: 'carry',
+  accessoriesBufferPercent: 'carry',
+} as const satisfies Record<Prisma.Style_costingScalarFieldEnum, 'carry' | 'fresh'>;
+
+// Prisma refuses a bare null for a Json column; a missing value leaves it NULL
+const JSON_COLUMNS = new Set(
+  Prisma.dmmf.datamodel.models
+    .find((m) => m.name === 'style_costing')!
+    .fields.filter((f) => f.type === 'Json')
+    .map((f) => f.name)
+);
+
+function carriedColumns(source: Record<string, unknown>): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+  for (const [column, rule] of Object.entries(VERSION_COLUMNS)) {
+    if (rule !== 'carry') continue;
+    const value = source[column];
+    if (value === null && JSON_COLUMNS.has(column)) continue;
+    data[column] = value;
+  }
+  return data;
+}
 
 /**
  * Copy the four relational item tables (fabric/trim/accessory/lace) from one cost
@@ -50,8 +199,7 @@ export async function copyCostSheetItemTables(
 
 /**
  * Clone an APPROVED cost sheet into a new PENDING version and supersede the source, in the caller's
- * transaction. The new version keeps the source's purpose, closed cost and budgets (ESSKY091LS v2,
- * 2026-08-25); its approvals start empty.
+ * transaction. Every 'carry' column in VERSION_COLUMNS is copied; its approvals start empty.
  */
 export async function createCostSheetVersionTx(
   tx: Prisma.TransactionClient,
@@ -84,106 +232,13 @@ export async function createCostSheetVersionTx(
 
   const created = await tx.style_costing.create({
     data: {
+      ...(carriedColumns(sourceCostSheet) as Prisma.style_costingUncheckedCreateInput),
       id: newVersionId,
-      styleId: sourceCostSheet.styleId,
-
-      // Versioning fields
       version: newVersionNumber,
       versionDate: new Date(),
       versionReason,
       costVariancePercent: 0, // Will be calculated when values are changed
-
-      // Copy all cost data from source
-      numberOfComponents: sourceCostSheet.numberOfComponents,
-      category: sourceCostSheet.category,
-      subCategory: sourceCostSheet.subCategory,
-      fabricDetails: sourceCostSheet.fabricDetails || undefined,
-      fabricTotal: sourceCostSheet.fabricTotal,
-      trimsDetails: sourceCostSheet.trimsDetails || undefined,
-      trimsTotal: sourceCostSheet.trimsTotal,
-      cuttingCost: sourceCostSheet.cuttingCost,
-      stitchingCost: sourceCostSheet.stitchingCost,
-      finishingCost: sourceCostSheet.finishingCost,
-      buttonAttachmentCost: sourceCostSheet.buttonAttachmentCost,
-      handworkCmtCost: sourceCostSheet.handworkCmtCost,
-      cmtTotal: sourceCostSheet.cmtTotal,
-      embroideryDetails: sourceCostSheet.embroideryDetails || undefined,
-      embroideryTotal: sourceCostSheet.embroideryTotal,
-      accessoriesDetails: sourceCostSheet.accessoriesDetails || undefined,
-      accessoriesTotal: sourceCostSheet.accessoriesTotal,
-      // Lace items are cloned relationally by copyCostSheetItemTables; without this the
-      // column stays at its 0 default while the copied subtotal already includes lace
-      laceTotal: sourceCostSheet.laceTotal,
-      valueLossPercent: sourceCostSheet.valueLossPercent,
-      valueLossAmount: sourceCostSheet.valueLossAmount,
-      markupPercent: sourceCostSheet.markupPercent,
-      markupAmount: sourceCostSheet.markupAmount,
-      subtotal: sourceCostSheet.subtotal,
-      totalProductCost: sourceCostSheet.totalProductCost,
-
-      // Additional fields
-      totalMaterialCost: sourceCostSheet.totalMaterialCost,
-      printingCost: sourceCostSheet.printingCost,
-      totalProcessingCost: sourceCostSheet.totalProcessingCost,
-      checkingCost: sourceCostSheet.checkingCost,
-      totalProductionCost: sourceCostSheet.totalProductionCost,
-      profitMargin: sourceCostSheet.profitMargin,
-      totalCostPerPiece: sourceCostSheet.totalCostPerPiece,
-      sellingPricePerPiece: sourceCostSheet.sellingPricePerPiece,
-      cmtCost: sourceCostSheet.cmtCost,
-      fabricCost: sourceCostSheet.fabricCost,
-      trimsCost: sourceCostSheet.trimsCost,
-      embroideryWork: sourceCostSheet.embroideryWork,
-      handWork: sourceCostSheet.handWork,
-      dyeingCost: sourceCostSheet.dyeingCost,
-      washingCost: sourceCostSheet.washingCost,
-      otherProcessingCost: sourceCostSheet.otherProcessingCost,
-      packagingCost: sourceCostSheet.packagingCost,
-      accessoriesCost: sourceCostSheet.accessoriesCost,
-      otherMaterialCost: sourceCostSheet.otherMaterialCost,
-      factoryOverhead: sourceCostSheet.factoryOverhead,
-      adminOverhead: sourceCostSheet.adminOverhead,
-      transportCost: sourceCostSheet.transportCost,
-      otherOverheads: sourceCostSheet.otherOverheads,
-      profitAmount: sourceCostSheet.profitAmount,
-      cadFabricConsumption: sourceCostSheet.cadFabricConsumption,
-      cadUnit: sourceCostSheet.cadUnit,
-      cadWastagePercent: sourceCostSheet.cadWastagePercent,
-      smockingCost: sourceCostSheet.smockingCost,
-
-      // A version is the same sheet re-issued: it keeps its mode, its agreed customer price and
-      // its budgets. Leaving these out made every new version a COSTING sheet with no closed
-      // cost (ESSKY091LS v2, 2026-08-25: RAW_MATERIAL_CALCULATION → COSTING, ₹290 dropped).
-      // Approvals (closedCostApprovedAt/ById) are deliberately NOT copied — v2 starts PENDING.
-      purpose: sourceCostSheet.purpose,
-      closedCost: sourceCostSheet.closedCost,
-      closedCostCurrency: sourceCostSheet.closedCostCurrency,
-      closedCostNotes: sourceCostSheet.closedCostNotes,
-      fabricBudget: sourceCostSheet.fabricBudget,
-      trimsBudget: sourceCostSheet.trimsBudget,
-      cmtBudget: sourceCostSheet.cmtBudget,
-      embroideryBudget: sourceCostSheet.embroideryBudget,
-      accessoriesBudget: sourceCostSheet.accessoriesBudget,
-      totalBudget: sourceCostSheet.totalBudget,
-      fabricBufferPercent: sourceCostSheet.fabricBufferPercent,
-      trimsBufferPercent: sourceCostSheet.trimsBufferPercent,
-      cmtBufferPercent: sourceCostSheet.cmtBufferPercent,
-      embroideryBufferPercent: sourceCostSheet.embroideryBufferPercent,
-      accessoriesBufferPercent: sourceCostSheet.accessoriesBufferPercent,
-      orderId: sourceCostSheet.orderId,
-      orderItemId: sourceCostSheet.orderItemId,
-
-      // Note: widthCombinationHash and widthCombinationDescription are copied if they exist
-      // These fields use @map in Prisma schema, so we access them conditionally
-      ...((sourceCostSheet as any).widthCombinationHash && {
-        widthCombinationHash: (sourceCostSheet as any).widthCombinationHash,
-      }),
-      ...((sourceCostSheet as any).widthCombinationDescription && {
-        widthCombinationDescription: (sourceCostSheet as any).widthCombinationDescription,
-      }),
       notes: `Versioned from v${sourceCostSheet.version}. Reason: ${versionReason}`,
-
-      // New version starts as PENDING
       approvalStatus: 'PENDING',
       isApproved: false,
       createdById: args.userId,

@@ -36,6 +36,7 @@
  * D26 production orders whose status is not what their runs / delivery notes say (nothing moved it, until 28-Sep)
  * D27 linked order items with no sizes while the sale order lists them (link refused colourless styles, until 28-Sep)
  * D28 size-wise labels planned orderable with no size       (planned before 29-Aug, or sizes no variant matches)
+ * D29 cost sheet versions that changed mode or lost the closed cost of the version they replace (until 23-Sep)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -536,6 +537,28 @@ async function main() {
          AND o."isActive" AND o.status::text NOT IN ('CANCELLED', 'SPLIT', 'COMPLETED', 'DISPATCHED')
          AND EXISTS (SELECT 1 FROM label_size_variants v WHERE v."labelId" = m."labelId" AND v."isActive")
        ORDER BY o."orderNumber", mr."requirementNumber"`
+  );
+
+  // ---- Cost sheet versions ------------------------------------------------------------------
+
+  // A new version is the same sheet re-issued (cost-sheet-version.helper VERSION_COLUMNS). Until 23-Sep
+  // it dropped purpose + closed cost, so ESSKY091LS v2 fell to COSTING with no closed cost and order BOMs,
+  // greige send-out and PO pre-fill (Raw Material only) could not use it. A version's mode never changes
+  // on edit. Repair: scripts/repair-essky091ls-purpose.ts (the pattern for any new row here).
+  await run(
+    'D29',
+    'Cost sheet versions whose mode differs from, or that lost the closed cost of, the version they replace',
+    prisma.$queryRaw`
+      SELECT s."styleCode" AS style, prev.version AS from_version, prev.purpose::text AS from_purpose,
+             prev.closed_cost::float AS from_closed_cost, nxt.version AS to_version,
+             nxt.purpose::text AS to_purpose, nxt.closed_cost::float AS to_closed_cost,
+             nxt."approvalStatus"::text AS to_status
+        FROM style_costing prev
+        JOIN style_costing nxt ON nxt.id = prev."supersededById"
+        JOIN styles s ON s.id = prev."styleId"
+       WHERE nxt.purpose <> prev.purpose
+          OR (prev.closed_cost IS NOT NULL AND nxt.closed_cost IS NULL)
+       ORDER BY s."styleCode", prev.version`
   );
 
   // ---- Output ---------------------------------------------------------------------------

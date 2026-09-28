@@ -16,6 +16,7 @@ import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
+import { VERSION_COLUMNS } from '../../services/helpers/cost-sheet-version.helper';
 
 const RUN = `CSV${Date.now().toString(36).toUpperCase()}`;
 
@@ -124,6 +125,58 @@ describe('POST /api/style-costing/:id/create-version', () => {
 
     const oldV1 = await prisma.style_costing.findUnique({ where: { id: v1.id } });
     expect(oldV1!.supersededById).toBe(newId);
+  });
+
+  // The hand-kept copy list dropped any column it did not name; VERSION_COLUMNS names every column
+  it('carries every column VERSION_COLUMNS marks carry, and starts the approvals afresh', async () => {
+    const src = await prisma.style_costing.create({
+      data: {
+        id: sheetId('all'),
+        styleId,
+        createdById: testUserId,
+        purpose: 'RAW_MATERIAL_CALCULATION',
+        version: 20,
+        isApproved: true,
+        approvalStatus: 'APPROVED',
+        approvedAt: new Date(),
+        approvedById: testUserId,
+        closedCost: 290,
+        closedCostCurrency: 'USD',
+        closedCostApprovedAt: new Date(),
+        closedCostApprovedById: testUserId,
+        fabricDetails: [fabricLine(52)], // trimsDetails left NULL: a null Json column is carried too
+        markupPercent: 9,
+        valueLossPercent: 1,
+        cadUnit: 'm',
+        totalBudget: 250,
+        widthCombinationHash: '52',
+      },
+    });
+
+    const res = await request(app)
+      .post(`/api/style-costing/${src.id}/create-version`)
+      .set(authHeader)
+      .send({ versionReason: `${RUN} every column` })
+      .expect(201);
+    const copy = await prisma.style_costing.findUniqueOrThrow({ where: { id: res.body.data.id } });
+
+    const plain = (v: unknown) => (v !== null && typeof v === 'object' && 'toFixed' in v ? String(v) : v);
+    const source = src as unknown as Record<string, unknown>;
+    const version = copy as unknown as Record<string, unknown>;
+    for (const [column, rule] of Object.entries(VERSION_COLUMNS)) {
+      if (rule === 'carry') expect([column, plain(version[column])]).toEqual([column, plain(source[column])]);
+    }
+    expect(copy).toMatchObject({
+      purpose: 'RAW_MATERIAL_CALCULATION',
+      approvalStatus: 'PENDING',
+      isApproved: false,
+      approvedAt: null,
+      approvedById: null,
+      closedCostApprovedAt: null,
+      closedCostApprovedById: null,
+      supersededById: null,
+      lockedForOrders: false,
+    });
   });
 });
 

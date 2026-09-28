@@ -44,7 +44,7 @@ When a greige lot is issued to a dyer or printer, the Issue screens let you tick
 
 ## Where to see which lots have a list
 1. Open **Inventory → Greige Stock** in the sidebar. The page shows **Generic Greige Stock**.
-2. Click a greige's row to expand it. Each lot shows a **Pieces** column: **No list**, "25 rolls", "64 of 109 thans left · 7 bales", or "All 25 rolls gone".
+2. Click a greige's row to expand it. Each lot shows a **Pieces** column: **No list**, "25 rolls", "64 of 109 thans left · 7 bales", or "All 25 rolls gone". A lot counted at a fold length also shows **L (cm)** and **Counted @ L** beside **Qty Avail (actual)**: the counted figure is what its than tags add up to (actual × 100/L), so type tag metres against that, not against the actual.
 
 ## Record the pieces on hand
 1. On a lot with **No list** (or whose list is used up), click the **Record bales & thans** button (list-with-ticks icon) in its Actions. The same dialog opens from the line "… has no bale, than or roll list — it goes by quantity" on the **Issue to Processor**, **Dispatch to Processor** and **Send to Mill** screens.

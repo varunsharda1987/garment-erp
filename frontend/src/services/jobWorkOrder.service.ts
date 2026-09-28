@@ -182,6 +182,33 @@ export interface ThanRecord {
   siblings?: Array<{ jwoId: string; jobWorkNumber: string; lots: ThanRecordLot[] }>;
 }
 
+/**
+ * GET /api/job-work-orders/:id/fabric-piece-record — the FINISHED-fabric lot a job took and how much of it is named
+ * by roll / than. `lot` is null when the job took no fabric lot, or has not taken its cloth yet.
+ */
+export interface FabricPieceRecord {
+  jobWorkNumber: string;
+  jwoStatus: string;
+  lot: {
+    fabricStockLotId: string;
+    /** "FAB-ESSKY075LS-001 · GRN2609-1228" */
+    lotLabel: string;
+    foldLengthCm: number | null;
+    /** ACTUAL metres the job took from the lot */
+    takenActual: number;
+    /** Pieces already named against the job, COUNTED and ACTUAL */
+    recordedCounted: number;
+    recordedActual: number;
+    /** false = the lot listed no pieces when the job took its cloth — nothing to name */
+    lotHasPieces: boolean;
+    /** Of those, how many still read on the rack — 0 = nothing left to name */
+    piecesLeft: number;
+    /** When the job took its cloth (ISO) — only pieces listed by then can be named */
+    takenAt: string;
+    pieceKind: GreigePieceKind;
+  } | null;
+}
+
 /** POST /api/job-work-orders/:id/record-thans */
 export interface RecordThansPayload {
   lots: Array<{ greigeStockLotId: string; details: IssueDetailInput[] }>;
@@ -269,6 +296,11 @@ export interface IssueJwoPayload {
   greigeStockLotId?: string;
   lots?: IssueLotInput[];
   fabricStockLotId?: string;
+  /**
+   * A fabric-lot job (embroidery on a dyed roll): the rolls / thans that go, COUNTED metres. The lot gives up what
+   * they come to — within 1% of the order — and they are marked issued to the job. None = the order's quantity.
+   */
+  fabricDetails?: FabricPiecePick[];
   vehicleNumber?: string;
   acknowledgeWidthMismatch?: boolean;
 }
@@ -663,6 +695,21 @@ export const jobWorkOrderService = {
     payload: RecordThansPayload
   ): Promise<{ jobWorkNumber: string; lots: ThanRecordLot[] }> {
     const response = await api.post(`${BASE_URL}/${id}/record-thans`, payload);
+    return response.data.data;
+  },
+
+  /** Record rolls sent on a job that took a FINISHED-fabric lot by quantity: which of the lot is already named. */
+  async getFabricPieceRecord(id: string): Promise<FabricPieceRecord> {
+    const response = await api.get(`${BASE_URL}/${id}/fabric-piece-record`);
+    return response.data.data;
+  },
+
+  /**
+   * Name the rolls / thans of the job's fabric lot that left by quantity. Marks them issued; the lot's stock is not
+   * moved again. Refused (422) for a piece listed after the job took its cloth, or picks beyond what it took (+1%).
+   */
+  async recordFabricPieces(id: string, payload: { details: FabricPiecePick[] }): Promise<FabricPieceRecord> {
+    const response = await api.post(`${BASE_URL}/${id}/record-fabric-pieces`, payload);
     return response.data.data;
   },
 

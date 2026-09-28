@@ -22,6 +22,7 @@ import {
   issueWithDetailsSchema,
   recordThansSchema,
   recordThansBatchSchema,
+  recordFabricPiecesSchema,
   receiveJwoSchema,
   cancelJwoSchema,
   dispatchJwoSchema,
@@ -97,6 +98,13 @@ router.post(
   '/:id/record-thans',
   validateBody(recordThansSchema),
   jobWorkOrderController.recordThans.bind(jobWorkOrderController)
+);
+// The same for a FINISHED-fabric lot's rolls / thans (embroidery on a dyed roll)
+router.get('/:id/fabric-piece-record', jobWorkOrderController.fabricPieceRecordStatus.bind(jobWorkOrderController));
+router.post(
+  '/:id/record-fabric-pieces',
+  validateBody(recordFabricPiecesSchema),
+  jobWorkOrderController.recordFabricPieces.bind(jobWorkOrderController)
 );
 // Issue with bale/than detail selection (for processor dispatch)
 router.post(

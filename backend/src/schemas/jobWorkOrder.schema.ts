@@ -205,6 +205,12 @@ const issueLotItemSchema = z
     message: 'Each lot row needs exactly one of greigeStockLotId or laceStockLotId',
   });
 
+/** One picked roll / than of a FINISHED-fabric lot (fabric_stock_details) — COUNTED metres, a part piece allowed. */
+export const fabricPiecePickSchema = z.object({
+  fabricStockDetailId: z.string().uuid(),
+  metersToIssue: z.number().positive('metersToIssue must be positive'),
+});
+
 export const issueJwoSchema = z.object({
   sentDate: z.coerce.date().optional(),
   greigeStockLotId: z.string().optional().nullable(),
@@ -215,6 +221,9 @@ export const issueJwoSchema = z.object({
   lots: z.array(issueLotItemSchema).optional(),
   // Phase 5b: fabric-roll issue source (EMBROIDERY) — consumes a fabric_stock lot instead of greige
   fabricStockLotId: z.string().optional().nullable(),
+  // The rolls / thans of that fabric lot that go (COUNTED metres, 2026-09-28): the lot gives up what they come
+  // to — within ±1% of the order — and they are marked issued to this job; none = the order's quantity
+  fabricDetails: z.array(fabricPiecePickSchema).max(2000).optional(),
   challanNumber: z.string().max(100).trim().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),
   // Width guard override: issue although the lot's greige width differs beyond tolerance
@@ -301,12 +310,6 @@ export const thanPickSchema = z.object({
   metersToIssue: z.number().positive('metersToIssue must be positive'),
 });
 
-/** One picked roll / than of a FINISHED-fabric lot (fabric_stock_details) — COUNTED metres, a part piece allowed. */
-export const fabricPiecePickSchema = z.object({
-  fabricStockDetailId: z.string().uuid(),
-  metersToIssue: z.number().positive('metersToIssue must be positive'),
-});
-
 export const issueWithDetailsSchema = z.object({
   sentDate: z.coerce.date().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),
@@ -343,6 +346,14 @@ export const recordThansSchema = z.object({
       })
     )
     .min(1, 'At least one lot is required'),
+});
+
+/**
+ * POST /api/job-work-orders/:id/record-fabric-pieces — name the rolls / thans of the job's FINISHED-fabric lot
+ * that went on a job issued by quantity. Marks them issued; never moves lot stock again.
+ */
+export const recordFabricPiecesSchema = z.object({
+  details: z.array(fabricPiecePickSchema).min(1, 'Pick at least one roll / than').max(2000),
 });
 
 /** Several jobs' thans recorded together (fitted on their total — same processor, same day). */

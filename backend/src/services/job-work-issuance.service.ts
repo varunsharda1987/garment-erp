@@ -40,7 +40,15 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { formatDate, formatDateTime, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
-import { settleLotBack, settleLotOut } from './fabric-lot-pieces.service';
+import {
+  fabricLotLabel,
+  markPiecesOut,
+  pickActualQty,
+  settleLotBack,
+  settleLotOut,
+  type FabricPiecePick,
+} from './fabric-lot-pieces.service';
+import { BusinessError } from '../errors';
 
 type Tx = Prisma.TransactionClient;
 
@@ -91,6 +99,12 @@ export interface IssueJwoOptions {
    * quantity in `lots` must be the picks' ACTUAL metres (thanPickActualQty).
    */
   thanPicks?: Record<string, IssueDetailInput[]>;
+  /**
+   * Named rolls / thans of the finished-fabric lot (fabricStockLotId), COUNTED metres (2026-09-28). The lot then
+   * gives up what they come to at its fold (pickActualQty) — within ±1% of the order — and the pieces are
+   * marked issued to this job and its challan. Without picks the lot gives up the order's quantity.
+   */
+  fabricPicks?: FabricPiecePick[];
 }
 
 export interface IssueJwoResult {
@@ -216,6 +230,12 @@ export interface ValidateIssueResult {
     quantityAvailable: Prisma.Decimal;
     warehouseId: string | null;
     receivedDate?: Date | null;
+    /** ACTUAL metres the lot gives up: the named pieces' metres, else the order's quantity */
+    issueQty: number;
+    /** The named rolls / thans (COUNTED), when the issue names them */
+    picks?: FabricPiecePick[];
+    /** The fold the lot's pieces are counted at — the challan prints the counted figure beside the actual */
+    foldLengthCm?: Prisma.Decimal | null;
     /**
      * Ready fabric in this job's processor's unit — delivered straight there under a Rule 45 challan
      * (Phase 4a): the job draws it where it lies, with no new challan.
@@ -595,9 +615,23 @@ export async function validateIssue(
         quantityAvailable: true,
         warehouseId: true,
         receivedDate: true,
+        foldLengthCm: true,
         warehouse: { select: LOT_WAREHOUSE_SELECT },
       },
     });
+    // Named rolls / thans decide what the lot gives up — within ±1% of the order (the greige rule); a pick of a
+    // piece that has gone is a blocker, not a crash
+    let fabricPick: { actual: number } | null = null;
+    if (row && (opts.fabricPicks?.length ?? 0) > 0) {
+      try {
+        fabricPick = await pickActualQty(prisma, row.id, opts.fabricPicks!);
+      } catch (err) {
+        if (!(err instanceof BusinessError)) throw err;
+        blockers.push({ code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH, message: err.message });
+      }
+    }
+    const orderQty = Number(jwo.qtySentMeters);
+    const fabricTakeQty = fabricPick?.actual ?? orderQty;
     const fabricLocation = row ? resolveLotLocation({ warehouse: row.warehouse }, jwo.processorId) : null;
     // Ready fabric delivered straight to a processor (Phase 2) is DRAWN where it lies by that processor's
     // job (Phase 4a), under the Rule 45 challan that already covers it — never put on a dispatch challan
@@ -625,10 +659,20 @@ export async function validateIssue(
         code: ISSUE_ERROR_CODES.LOT_HELD_WITHOUT_CHALLAN,
         message: `This fabric lot is at ${fabricLocation.holderName ?? 'the processor'} but no challan covers it — it cannot be allocated undocumented.`,
       });
-    } else if (qtyExceeds(jwo.qtySentMeters, row.quantityAvailable)) {
+    } else if (qtyExceeds(fabricTakeQty, row.quantityAvailable)) {
       blockers.push({
         code: ISSUE_ERROR_CODES.INSUFFICIENT_FABRIC_STOCK,
-        message: `Insufficient fabric stock in the selected lot for ${Number(jwo.qtySentMeters)}m.`,
+        message: fabricPick
+          ? `The picked rolls / thans come to ${fabricTakeQty} m, more than the ${Number(row.quantityAvailable)} m the lot holds — its list is out of step. Untick some, or Check rolls & thans on the Fabric Stock page.`
+          : `Insufficient fabric stock in the selected lot for ${orderQty}m.`,
+      });
+    } else if (
+      fabricPick &&
+      qtyExceeds(Math.abs(fabricTakeQty - orderQty), (orderQty * THAN_PICK_TOLERANCE_PCT) / 100)
+    ) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
+        message: `The picked rolls / thans come to ${fabricTakeQty} ${jwo.uom}, more than ${THAN_PICK_TOLERANCE_PCT}% away from the order's ${orderQty} ${jwo.uom}.`,
       });
     } else if (row.receivedDate && sentOnFabric < toDateInputValue(row.receivedDate)) {
       blockers.push(
@@ -650,6 +694,9 @@ export async function validateIssue(
         receivedDate: row.receivedDate,
         heldHere: fabricLocation?.category === 'AT_THIS_PROCESSOR',
         coveringChallanNumber,
+        issueQty: fabricTakeQty,
+        ...(fabricPick ? { picks: opts.fabricPicks } : {}),
+        foldLengthCm: row.foldLengthCm,
       };
     }
   }
@@ -830,7 +877,11 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
       itemType: fabricLotRow ? 'FABRIC' : isMeters ? 'FABRIC' : 'GARMENT',
       fabricId: jwo.fabricId || undefined,
       fabricStockId: fabricLotRow?.id ?? undefined,
-      quantity: Number(jwo.qtySentMeters),
+      // ACTUAL metres the lot gives up (the named rolls' when picked); its fold rides along for the counted figure
+      quantity: fabricLotRow ? fabricLotRow.issueQty : Number(jwo.qtySentMeters),
+      ...(fabricLotRow && hasFold(fabricLotRow.foldLengthCm)
+        ? { foldLengthCm: Number(fabricLotRow.foldLengthCm) }
+        : {}),
       unit,
       description,
       jobWorkOrderId: jwo.id,
@@ -996,8 +1047,9 @@ async function issueOneWithinTx(
     }
   }
   if (lots.length === 0 && fabricLotRow) {
-    // Phase 5b fabric-roll source (EMBROIDERY) — guarded decrement + ledger + sync
-    const qty = Number(jwo.qtySentMeters);
+    // Phase 5b fabric-roll source (EMBROIDERY) — guarded decrement + ledger + sync. The metres are the named
+    // rolls' / thans' (validateIssue took them from pickActualQty), else the order's quantity.
+    const qty = fabricLotRow.issueQty;
     const deducted = await tx.fabric_stock.updateMany({
       where: { id: fabricLotRow.id, quantityAvailable: { gte: qty } },
       data: { quantityAvailable: { decrement: qty }, needsEmbroidery: false },
@@ -1039,9 +1091,10 @@ async function issueOneWithinTx(
       await syncStockLevelQuantity(materialId, -qty, lotRow.warehouseId ?? undefined, 'METER', tx);
     }
     // The lot's rolls / thans go with its metres — to this job, on the challan it travels on (none when drawn
-    // where it lies). No picks yet (Phase 2): a job that empties the lot takes its whole list.
+    // where it lies): the ones named, or, with none named, the whole list when the job empties the lot.
     await settleLotOut(tx, {
       lotId: fabricLotRow.id,
+      picks: fabricLotRow.picks ?? null,
       userId: opts.userId,
       jobWorkOrderId: jwo.id,
       challanId: challan?.id ?? null,
@@ -1144,7 +1197,7 @@ async function issueOneWithinTx(
     [l.material_requirements.id, l.material_requirements.linkedRequirementId].filter((id): id is string => !!id)
   );
   if (reqIds.length > 0) {
-    const fabricIssued = lots.length === 0 && fabricLotRow ? Number(jwo.qtySentMeters) : 0;
+    const fabricIssued = lots.length === 0 && fabricLotRow ? fabricLotRow.issueQty : 0;
     const issuedQty =
       lots.reduce((sum, l) => sum + l.qty, 0) + laceLots.reduce((sum, l) => sum + l.qty, 0) + fabricIssued;
     const issuedLotIds = [
@@ -1794,11 +1847,24 @@ export async function unissueForCancel(
   }
 
   if (greigeLots.length === 0 && jwo.fabricStockLotId) {
-    // Fabric-roll source (EMBROIDERY) — credit back, ledger, sync (moved from the controller)
+    // Fabric-roll source (EMBROIDERY) — credit back, ledger, sync (moved from the controller). Exactly what the
+    // issue took off the lot (its ledger row): with named rolls / thans that is their metres, which may differ
+    // from the order's quantity by up to 1%.
+    const sentRow = await tx.fabric_stock_transaction.findFirst({
+      where: {
+        stockId: jwo.fabricStockLotId,
+        transactionType: 'EMBROIDERY_SEND_OUT',
+        referenceType: 'JOB_WORK_ORDER',
+        referenceId: jwo.id,
+      },
+      select: { quantity: true },
+      orderBy: { transactionDate: 'desc' },
+    });
+    const fabricQty = sentRow ? Number(sentRow.quantity) : totalQty;
     await tx.fabric_stock.update({
       where: { id: jwo.fabricStockLotId },
       data: {
-        quantityAvailable: { increment: totalQty },
+        quantityAvailable: { increment: fabricQty },
         ...(jwo.processType === 'EMBROIDERY' ? { needsEmbroidery: true } : {}),
       },
     });
@@ -1812,12 +1878,12 @@ export async function unissueForCancel(
       data: {
         stockId: jwo.fabricStockLotId,
         transactionType: 'EMBROIDERY_CANCELLED',
-        quantity: new Prisma.Decimal(totalQty),
+        quantity: new Prisma.Decimal(fabricQty),
         referenceType: 'JOB_WORK_ORDER',
         referenceId: jwo.id,
         costPerUnit: new Prisma.Decimal(wac),
         weightedAvgCost: new Prisma.Decimal(wac),
-        totalValue: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(totalQty, wac)))),
+        totalValue: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(fabricQty, wac)))),
         balanceAfter: new Prisma.Decimal(balanceAfter),
         valueAfter: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(balanceAfter, wac)))),
         notes: `Job work cancelled — ${jwo.jobWorkNumber}`,
@@ -1826,7 +1892,7 @@ export async function unissueForCancel(
     });
     if (lotRow?.fabricId) {
       const materialId = await ensureMaterialRecord(lotRow.fabricId, 'FABRIC', tx);
-      await syncStockLevelQuantity(materialId, totalQty, lotRow.warehouseId ?? undefined, 'METER', tx);
+      await syncStockLevelQuantity(materialId, fabricQty, lotRow.warehouseId ?? undefined, 'METER', tx);
     }
     // The rolls / thans the job took come back as they went (the rows are stamped, never deleted)
     await settleLotBack(tx, { lotId: jwo.fabricStockLotId, scope: { jobWorkOrderId: jwo.id }, mode: 'ALL' });
@@ -2229,4 +2295,180 @@ async function recordThansWithinTx(
   const after = await getThanRecordStatus(jwoId, tx);
   logInfo(`[Issuance] Recorded ${lots.reduce((n, l) => n + l.details.length, 0)} than(s) on ${after.jobWorkNumber}`);
   return { jobWorkNumber: after.jobWorkNumber, lots: after.lots };
+}
+
+// ============================================================================
+// Record rolls / thans on a FABRIC-lot job issued by quantity (2026-09-28)
+// ============================================================================
+// A job that draws a finished-fabric lot (embroidery on a dyed roll) may leave by plain quantity: the lot's
+// metres move but its rolls / thans still read on the rack, so the list goes out of step. These name,
+// afterwards, which pieces went — marking them issued to the job and its challan without moving the lot again.
+
+export interface FabricPieceRecordStatus {
+  jobWorkNumber: string;
+  jwoStatus: string;
+  /** Null when the job takes no fabric lot, or has not taken its cloth yet */
+  lot: {
+    fabricStockLotId: string;
+    lotLabel: string;
+    foldLengthCm: number | null;
+    /** ACTUAL metres the job took from the lot */
+    takenActual: number;
+    /** Pieces already named against the job, COUNTED and ACTUAL */
+    recordedCounted: number;
+    recordedActual: number;
+    /** Did the lot list pieces WHEN THE JOB TOOK ITS CLOTH — pieces counted later were still on the rack */
+    lotHasPieces: boolean;
+    /** Of those, how many still read on the rack — 0 = nothing left to name (the job took them all by name) */
+    piecesLeft: number;
+    /** When the job took its cloth: its ledger row on the lot, else its challan, else its send date */
+    takenAt: Date;
+    pieceKind: GreigePieceKind;
+  } | null;
+}
+
+export async function getFabricPieceRecordStatus(
+  jwoId: string,
+  client: Tx | typeof prisma = prisma
+): Promise<FabricPieceRecordStatus> {
+  const jwo = await client.job_work_orders.findUnique({
+    where: { id: jwoId },
+    select: {
+      jobWorkNumber: true,
+      jwoStatus: true,
+      fabricStockLotId: true,
+      qtySentMeters: true,
+      sentDate: true,
+      createdAt: true,
+      outwardChallan: { select: { createdAt: true } },
+    },
+  });
+  if (!jwo) throw new JobWorkOrderError('NOT_FOUND', `Job work order ${jwoId} not found`);
+  const base = { jobWorkNumber: jwo.jobWorkNumber, jwoStatus: jwo.jwoStatus };
+  if (!jwo.fabricStockLotId || !(ISSUED_JOB_STATUSES as readonly string[]).includes(jwo.jwoStatus)) {
+    return { ...base, lot: null };
+  }
+  const lotId = jwo.fabricStockLotId;
+  const [lot, sent, listedThen, recorded] = await Promise.all([
+    client.fabric_stock.findUnique({
+      where: { id: lotId },
+      select: {
+        id: true,
+        foldLengthCm: true,
+        fabricMaster: { select: { fabricCode: true } },
+        grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
+      },
+    }),
+    client.fabric_stock_transaction.findFirst({
+      where: {
+        stockId: lotId,
+        transactionType: 'EMBROIDERY_SEND_OUT',
+        referenceType: 'JOB_WORK_ORDER',
+        referenceId: jwoId,
+      },
+      orderBy: { transactionDate: 'asc' },
+      select: { transactionDate: true, quantity: true },
+    }),
+    // takenAt is only known after `sent` — listed-by is filtered below
+    client.fabric_stock_details.findMany({
+      where: { fabricStockId: lotId },
+      select: { createdAt: true, detailType: true, metersRemaining: true },
+    }),
+    client.fabric_issue_details.aggregate({
+      where: { jobWorkOrderId: jwoId, piece: { fabricStockId: lotId } },
+      _sum: { metersIssued: true },
+    }),
+  ]);
+  if (!lot) return { ...base, lot: null };
+  const takenAt = sent?.transactionDate ?? jwo.outwardChallan?.createdAt ?? jwo.sentDate ?? jwo.createdAt;
+  const piecesThen = listedThen.filter((p) => p.createdAt <= takenAt);
+  const recordedCounted = Number(recorded._sum.metersIssued ?? 0);
+  return {
+    ...base,
+    lot: {
+      fabricStockLotId: lotId,
+      lotLabel: fabricLotLabel(lot),
+      foldLengthCm: lot.foldLengthCm != null ? Number(lot.foldLengthCm) : null,
+      takenActual: sent ? Number(sent.quantity) : Number(jwo.qtySentMeters),
+      recordedCounted,
+      recordedActual: foldActual(recordedCounted, lot.foldLengthCm).toNumber(),
+      lotHasPieces: piecesThen.length > 0,
+      piecesLeft: piecesThen.filter((p) => !isQtyZero(Number(p.metersRemaining))).length,
+      takenAt,
+      pieceKind: pieceKindOf(piecesThen.map((p) => p.detailType)),
+    },
+  };
+}
+
+/**
+ * Name the rolls / thans that left on a fabric-lot job issued by quantity. Marks them issued to the job and
+ * its outward challan (dated when the job took its cloth); the lot's metres are NOT moved again. Refused for a
+ * piece listed after the job took its cloth, or when the pieces named would come to more than it took (+1%).
+ */
+export async function recordFabricPiecesForJob(
+  jwoId: string,
+  details: FabricPiecePick[],
+  userId: string
+): Promise<FabricPieceRecordStatus> {
+  return prisma.$transaction(
+    async (tx) => {
+      const status = await getFabricPieceRecordStatus(jwoId, tx);
+      const s = status.lot;
+      if (!s) {
+        throw new JobWorkOrderError(
+          'JOB_NOT_ISSUED',
+          `${status.jobWorkNumber} has not taken cloth from a fabric lot yet — pick the rolls on the Issue dialog instead.`
+        );
+      }
+      if (!s.lotHasPieces) {
+        throw new JobWorkOrderError(
+          'THAN_RECORD_INVALID',
+          `${s.lotLabel} had no roll / than list when ${status.jobWorkNumber} took its cloth — there is nothing to record against this job.`
+        );
+      }
+      const late = await tx.fabric_stock_details.findFirst({
+        where: { id: { in: details.map((d) => d.fabricStockDetailId) }, createdAt: { gt: s.takenAt } },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true, detailType: true, thanNo: true, sequenceNo: true },
+      });
+      if (late) {
+        throw new JobWorkOrderError(
+          'THAN_RECORD_INVALID',
+          `${late.detailType === 'ROLL' ? 'Roll' : 'Than'} ${late.thanNo ?? late.sequenceNo} was put on ${s.lotLabel}'s ` +
+            `list on ${formatDateTime(late.createdAt)}, after ${status.jobWorkNumber} took its cloth ` +
+            `(${formatDateTime(s.takenAt)}) — it was still on the rack, so it cannot have gone on this job.`
+        );
+      }
+      const pickedCounted = details.reduce((sum, d) => sum + d.metersToIssue, 0);
+      const afterActual = foldActual(s.recordedCounted + pickedCounted, s.foldLengthCm).toNumber();
+      if (qtyExceeds(afterActual, (s.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100)) {
+        throw new JobWorkOrderError(
+          'THAN_RECORD_INVALID',
+          `These pieces come to ${afterActual} m actual with what is already recorded, but ${status.jobWorkNumber} ` +
+            `took only ${s.takenActual} m from ${s.lotLabel}.`
+        );
+      }
+      const jwo = await tx.job_work_orders.findUnique({ where: { id: jwoId }, select: { outwardChallanId: true } });
+      try {
+        await markPiecesOut(tx, {
+          lotId: s.fabricStockLotId,
+          picks: details,
+          userId,
+          jobWorkOrderId: jwoId,
+          challanId: jwo?.outwardChallanId ?? null,
+          issuedAt: s.takenAt,
+        });
+      } catch (error) {
+        // A piece already gone, named twice or not on the lot — the user's to fix, not a 500
+        if (error instanceof BusinessError) {
+          throw new JobWorkOrderError('THAN_RECORD_INVALID', `${status.jobWorkNumber}: ${error.message}`);
+        }
+        throw error;
+      }
+      const after = await getFabricPieceRecordStatus(jwoId, tx);
+      logInfo(`[Issuance] Recorded ${details.length} roll(s) / than(s) on ${after.jobWorkNumber}`);
+      return after;
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
 }

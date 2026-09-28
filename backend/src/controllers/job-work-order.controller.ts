@@ -21,6 +21,8 @@ import {
   issueJobWorkOrderWithDetails,
   getThanRecordStatus,
   recordThansForJob,
+  getFabricPieceRecordStatus,
+  recordFabricPiecesForJob,
   recordThansForJobs,
   getSameTripThanSiblings,
   validateIssue,
@@ -1205,6 +1207,7 @@ class JobWorkOrderController {
         challanNumber,
         vehicleNumber,
         acknowledgeWidthMismatch,
+        fabricDetails,
       } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
@@ -1222,6 +1225,8 @@ class JobWorkOrderController {
         challanNumber,
         vehicleNumber,
         acknowledgeWidthMismatch,
+        // A fabric-lot job naming its rolls / thans: the lot gives up what they come to (fabric-lot-pieces)
+        fabricPicks: fabricDetails,
       });
 
       const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
@@ -2160,6 +2165,51 @@ class JobWorkOrderController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to record thans',
+      });
+    }
+  }
+
+  /**
+   * GET /api/job-work-orders/:id/fabric-piece-record
+   * The finished-fabric lot this job took and how much of it is already named by roll / than — drives the
+   * job page's "Record rolls sent" action. `lot` is null when the job took no fabric lot (or nothing yet).
+   */
+  async fabricPieceRecordStatus(req: Request, res: Response) {
+    try {
+      const data = await getFabricPieceRecordStatus(req.params.id);
+      res.json({ success: true, data });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError && error.code === 'NOT_FOUND') {
+        return res.status(404).json({ success: false, message: error.message });
+      }
+      logger.error('Error reading fabric piece record status:', error);
+      res.status(500).json({ success: false, message: 'Failed to read which rolls / thans are recorded' });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/:id/record-fabric-pieces
+   * Name the rolls / thans of the job's fabric lot that left on a job issued by quantity. Marks them issued;
+   * lot stock is not moved.
+   */
+  async recordFabricPieces(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+      const data = await recordFabricPiecesForJob(req.params.id, req.body.details, userId);
+      res.json({ success: true, data, message: `Rolls / thans recorded on ${data.jobWorkNumber}` });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError) {
+        return res
+          .status(error.code === 'NOT_FOUND' ? 404 : 422)
+          .json({ success: false, code: error.code, message: error.message });
+      }
+      logger.error('Error recording fabric rolls / thans:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to record rolls / thans',
       });
     }
   }

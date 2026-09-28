@@ -52,22 +52,27 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrder.service';
+import { fabricStockService } from '@/services/fabricStockService';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import ReceiveFromProcessorDialog from '@/components/job-work/ReceiveFromProcessorDialog';
 import ReturnFromProcessorDialog from '@/components/job-work/ReturnFromProcessorDialog';
 import MoveHeldStockDialog, { type MoveLot } from '@/components/job-work/MoveHeldStockDialog';
 import {
+  autoPickThans,
   bestFitThansForJobs,
   checkSentDate,
   earliestSentDate,
   evaluateLotRows,
+  fabricPicksPayload,
   groupLotsForIssue,
   issueMovement,
   fitParts,
   lotHasThans,
+  noListNote,
   picksPayload,
   piecesListedBy,
   rowHasPicks,
+  thanPickActual,
   thanPickErrors,
   THAN_PICK_TOLERANCE_PCT,
   totalDetailMeters,
@@ -141,6 +146,7 @@ const ISSUED_JOB_STATUSES = [
  */
 const DETAILED_ISSUE_ERROR_CODES = [
   'INSUFFICIENT_GREIGE',
+  'INSUFFICIENT_FABRIC_STOCK',
   'LOT_GREIGE_MISMATCH',
   'LOT_GREIGE_MIXED',
   'LOT_DUPLICATE',
@@ -194,6 +200,15 @@ export default function JobWorkOrderDetail() {
   // "Best fit for all jobs": the thans fitted to the OTHER same-trip jobs, keyed by their job id
   const [recordGroupPicks, setRecordGroupPicks] = useState<Record<string, SelectedDetail[]>>({});
   const [recordGroupNote, setRecordGroupNote] = useState<string | null>(null);
+  // A fabric-lot job (embroidery on a dyed roll): its lot's rolls / thans on the Issue dialog — pre-picked for the
+  // job's metres until the operator changes them
+  const [issueFabricPickState, setIssueFabricPickState] = useState<{ touched: boolean; picks: SelectedDetail[] }>({
+    touched: false,
+    picks: [],
+  });
+  // Record rolls sent — the same as Record thans sent, for a job that took a fabric lot by quantity
+  const [recordFabricOpen, setRecordFabricOpen] = useState(false);
+  const [recordFabricPicks, setRecordFabricPicks] = useState<SelectedDetail[]>([]);
 
   const {
     data: jwo,
@@ -328,6 +343,30 @@ export default function JobWorkOrderDetail() {
     });
   }, [issueDialogOpen, issuePreview]);
 
+  // A fabric-lot job: the lot's rolls / thans (the Fabric Stock page's key, so a Check there refreshes this). The
+  // ticked pieces decide the metres the lot gives up — the server refuses more than 1% away from the order. Pre-picked
+  // ("Pick thans for me") for the job's metres; a list that is out of step is not trusted to pre-pick.
+  const issueFabricLotId = issueDialogOpen ? (jwo?.fabricStockLotId ?? '') : '';
+  const { data: issueLotPieces } = useQuery({
+    queryKey: ['fabric-lot-pieces', issueFabricLotId],
+    queryFn: () => fabricStockService.getPieces(issueFabricLotId),
+    enabled: !!issueFabricLotId,
+    staleTime: 0,
+  });
+  const issueFabricTarget = issuePreview?.requiredQty ?? jwo?.qtySentMeters ?? 0;
+  const issueLotLists = !!issueFabricLotId && (issueLotPieces?.details.length ?? 0) > 0;
+  const issueFabricPicks = issueFabricPickState.touched
+    ? issueFabricPickState.picks
+    : issueLotPieces && issueLotLists && issueLotPieces.listState !== 'OUT_OF_STEP'
+      ? autoPickThans(issueLotPieces, issueFabricTarget)
+      : [];
+  const issueByPieces = issueLotLists && issueFabricPicks.length > 0;
+  const issueFabricActual = issueByPieces ? thanPickActual(issueFabricPicks, issueLotPieces) : 0;
+  const issueFabricPickErrors = issueByPieces && thanPickErrors(issueFabricPicks, issueLotPieces);
+  const issueFabricOff =
+    issueByPieces &&
+    qtyExceeds(Math.abs(issueFabricActual - issueFabricTarget), (issueFabricTarget * THAN_PICK_TOLERANCE_PCT) / 100);
+
   const issueMutation = useMutation({
     mutationFn: () => {
       const filledRows = issueRows.filter((row) => row.lotId && parseFloat(row.qty) > 0);
@@ -354,12 +393,14 @@ export default function JobWorkOrderDetail() {
                   }
             ),
           })
-          .then((result) => ({ ...result, thansUnrecorded }));
+          .then((result) => ({ ...result, thansUnrecorded, fabricUnrecorded: false }));
       }
       const payload: IssueJwoPayload = {
         sentDate: issueSentDate || undefined,
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
+        // A fabric-lot job naming its rolls / thans — the lot gives up what they come to
+        ...(issueByPieces ? { fabricDetails: fabricPicksPayload(issueFabricPicks) } : {}),
       };
       // A lace job always sends lots[], single row included: the order header has no lace-lot
       // pointer to fall back on, so the row IS the only statement of which lot leaves.
@@ -381,11 +422,16 @@ export default function JobWorkOrderDetail() {
           qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
         }));
       }
-      return jobWorkOrderService.issue(id!, payload).then((result) => ({ ...result, thansUnrecorded }));
+      // A listed fabric lot that went by quantity leaves its rolls / thans unnamed — say so, as for greige
+      const fabricUnrecorded = issueLotLists && !issueByPieces;
+      return jobWorkOrderService
+        .issue(id!, payload)
+        .then((result) => ({ ...result, thansUnrecorded, fabricUnrecorded }));
     },
     onSuccess: (result) => {
       setIssueDialogOpen(false);
       setIssueRows([{ lotId: '', qty: '' }]);
+      setIssueFabricPickState({ touched: false, picks: [] });
       setIssueWidthAcknowledged(false);
       setIssueVehicle('');
       // Virtual issuance (stock already at processor) vs physical dispatch
@@ -394,7 +440,12 @@ export default function JobWorkOrderDetail() {
             description: 'Thans not recorded — you can record them later from the job (Record thans sent).',
             duration: 8000,
           }
-        : undefined;
+        : result.fabricUnrecorded
+          ? {
+              description: 'Rolls / thans not recorded — you can record them later from the job (Record rolls sent).',
+              duration: 8000,
+            }
+          : undefined;
       // Cloth already at the processor is drawn where it lies under the challan that covers it
       const drawn = result.drawnAt
         ? `allocated at ${result.drawnAt}${result.coveringChallans ? ` under challan ${result.coveringChallans}` : ''}`
@@ -413,6 +464,8 @@ export default function JobWorkOrderDetail() {
       queryClient.invalidateQueries({ queryKey: ['jwo-issue-preview', id] });
       queryClient.invalidateQueries({ queryKey: ['jwo-than-record', id] });
       queryClient.invalidateQueries({ queryKey: ['greige-lot-thans'] });
+      queryClient.invalidateQueries({ queryKey: ['jwo-fabric-piece-record', id] });
+      queryClient.invalidateQueries({ queryKey: ['fabric-lot-pieces'] });
     },
     onError: (err: any) => {
       const code = err.response?.data?.code;
@@ -549,6 +602,57 @@ export default function JobWorkOrderDetail() {
     onError: (err: unknown) => {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast.error(message || 'Could not record the thans', { duration: 8000 });
+    },
+  });
+
+  // Record rolls sent: the fabric lot this issued job took, and how much of it is named by roll / than
+  const fabricRecordEnabled = !!id && !!jwo?.fabricStockLotId && ISSUED_JOB_STATUSES.includes(jwo.jwoStatus);
+  const { data: fabricRecord } = useQuery({
+    queryKey: ['jwo-fabric-piece-record', id],
+    queryFn: () => jobWorkOrderService.getFabricPieceRecord(id!),
+    enabled: fabricRecordEnabled,
+  });
+  const fabricRecordLot =
+    fabricRecord?.lot?.lotHasPieces &&
+    fabricRecord.lot.piecesLeft > 0 &&
+    qtyExceeds(fabricRecord.lot.takenActual, fabricRecord.lot.recordedActual)
+      ? fabricRecord.lot
+      : null;
+  const { data: fabricRecordAllPieces, isLoading: fabricRecordPiecesLoading } = useQuery({
+    queryKey: ['fabric-lot-pieces', fabricRecordLot?.fabricStockLotId],
+    queryFn: () => fabricStockService.getPieces(fabricRecordLot!.fabricStockLotId),
+    enabled: recordFabricOpen && !!fabricRecordLot,
+    staleTime: 0,
+  });
+  // Only pieces on the list when the job took its cloth — the server refuses the rest
+  const fabricRecordPieces = piecesListedBy(fabricRecordAllPieces, fabricRecordLot?.takenAt);
+  const fabricRecordWord =
+    fabricRecordLot?.pieceKind === 'ROLL' ? 'rolls' : fabricRecordLot?.pieceKind === 'THAN' ? 'thans' : 'rolls / thans';
+  const fabricRecordTarget = fabricRecordLot
+    ? qtyRemaining(fabricRecordLot.takenActual, fabricRecordLot.recordedActual)
+    : 0;
+  // The server's own check: everything named on the job, converted once, must not exceed what it took (+1%)
+  const fabricRecordAfter = fabricRecordLot
+    ? foldActual(fabricRecordLot.recordedCounted + totalDetailMeters(recordFabricPicks), fabricRecordLot.foldLengthCm)
+    : 0;
+  const fabricRecordOver =
+    !!fabricRecordLot &&
+    qtyExceeds(fabricRecordAfter, (fabricRecordLot.takenActual * (100 + THAN_PICK_TOLERANCE_PCT)) / 100);
+  const fabricRecordErrors = thanPickErrors(recordFabricPicks, fabricRecordPieces);
+
+  const recordFabricMutation = useMutation({
+    mutationFn: () => jobWorkOrderService.recordFabricPieces(id!, { details: fabricPicksPayload(recordFabricPicks) }),
+    onSuccess: (result) => {
+      toast.success(`Rolls / thans recorded on ${result.jobWorkNumber}`);
+      setRecordFabricOpen(false);
+      setRecordFabricPicks([]);
+      queryClient.invalidateQueries({ queryKey: ['jwo-fabric-piece-record', id] });
+      queryClient.invalidateQueries({ queryKey: ['fabric-lot-pieces'] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+    },
+    onError: (err: unknown) => {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      toast.error(message || 'Could not record the rolls / thans', { duration: 8000 });
     },
   });
 
@@ -780,7 +884,7 @@ export default function JobWorkOrderDetail() {
   // A lace job is in the same boat as a greige one: it exists to send material out.
   const issueAllowsNoLot = !issuesGreige && !issuesLace && !issuesFromFabricRoll;
   const issueSelectionValid = issuesFromFabricRoll
-    ? true
+    ? !issueFabricPickErrors && !issueFabricOff
     : issueAllowsNoLot && issueNoLotChosen
       ? true
       : issueRowsComplete &&
@@ -1314,7 +1418,13 @@ export default function JobWorkOrderDetail() {
               )}
 
               {currentStatus === 'APPROVED' && (
-                <Button className="w-full" onClick={() => setIssueDialogOpen(true)}>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setIssueFabricPickState({ touched: false, picks: [] });
+                    setIssueDialogOpen(true);
+                  }}
+                >
                   <Send className="mr-2 h-4 w-4" />
                   Issue to Processor
                 </Button>
@@ -1356,6 +1466,32 @@ export default function JobWorkOrderDetail() {
                     Returned unprocessed
                   </Button>
                 )}
+
+              {/* A fabric-lot job issued by quantity left its rolls / thans unnamed — the same, for its lot */}
+              {fabricRecordLot && (
+                <div className="space-y-1">
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => {
+                      setRecordFabricPicks([]);
+                      setRecordFabricOpen(true);
+                    }}
+                  >
+                    <ListChecks className="mr-2 h-4 w-4" />
+                    Record {fabricRecordWord} sent
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {formatQuantity(fabricRecordLot.recordedActual, jwo.uom)} of{' '}
+                    {formatQuantity(fabricRecordLot.takenActual, jwo.uom)} recorded by{' '}
+                    {fabricRecordLot.pieceKind === 'ROLL'
+                      ? 'roll'
+                      : fabricRecordLot.pieceKind === 'THAN'
+                        ? 'than'
+                        : 'piece'}
+                  </p>
+                </div>
+              )}
 
               {/* A job issued by quantity left its thans unnamed — name them now so the godown list is right */}
               {thanRecordPending.length > 0 && (
@@ -1645,12 +1781,58 @@ export default function JobWorkOrderDetail() {
             )}
 
             {issuesFromFabricRoll ? (
-              <Alert>
-                <AlertDescription>
-                  This order issues from its selected fabric lot ({jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}{' '}
-                  will be consumed{jwo.processType === 'EMBROIDERY' ? ' for embroidery' : ''}).
-                </AlertDescription>
-              </Alert>
+              <div className="space-y-3">
+                <Alert>
+                  <AlertDescription>
+                    This order issues from its selected fabric lot (
+                    {issueByPieces
+                      ? formatQuantity(issueFabricActual, jwo.uom)
+                      : `${jwo.qtySentMeters.toFixed(2)} ${unitShort(jwo.uom)}`}{' '}
+                    will be consumed{jwo.processType === 'EMBROIDERY' ? ' for embroidery' : ''}).
+                  </AlertDescription>
+                </Alert>
+                {/* The lot's rolls / thans: tick the ones that go — they decide the metres the lot gives up */}
+                {issueLotPieces && (
+                  <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+                    {issueLotLists ? (
+                      <>
+                        {issueLotPieces.listState === 'OUT_OF_STEP' && (
+                          <p className="text-xs text-warning">
+                            The lot&apos;s roll / than list is out of step —{' '}
+                            {formatQuantity(issueLotPieces.listActual ?? 0, jwo.uom)} listed,{' '}
+                            {formatQuantity(issueLotPieces.totalAvailable, jwo.uom)} on hand. Nothing was ticked for
+                            you: tick what goes, or send by quantity and Check rolls &amp; thans on the Fabric Stock
+                            page.
+                          </p>
+                        )}
+                        <ThanPicker
+                          lotThans={issueLotPieces}
+                          selected={issueFabricPicks}
+                          onChange={(picks) => setIssueFabricPickState({ touched: true, picks })}
+                          targetActual={issueFabricTarget}
+                          uom={jwo.uom}
+                          disabled={issueMutation.isPending}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {issueByPieces
+                            ? `The ticked pieces come to ${formatQuantity(issueFabricActual, jwo.uom)} — the lot gives up that much, and it must be within ${THAN_PICK_TOLERANCE_PCT}% of the order.`
+                            : "Nothing ticked — the order's quantity goes without naming rolls / thans (you can record them later from the job)."}
+                        </p>
+                        {issueFabricOff && (
+                          <p className="text-xs text-red-600">
+                            The ticked pieces come to {formatQuantity(issueFabricActual, jwo.uom)}, more than{' '}
+                            {THAN_PICK_TOLERANCE_PCT}% away from the order&apos;s{' '}
+                            {formatQuantity(issueFabricTarget, jwo.uom)} — tick more or fewer, or send a part of the
+                            last one.
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">{noListNote(issueLotPieces, jwo.uom)}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : issuePreviewLoading ? (
               <Skeleton className="h-24 w-full" />
             ) : issuePreviewFailed ? (
@@ -1840,6 +2022,72 @@ export default function JobWorkOrderDetail() {
                 : issueNothingTravels
                   ? `Allocate at ${issueProcessorName}`
                   : 'Issue & Create Challan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record rolls sent — the rolls / thans of a fabric lot that left on a job issued by quantity */}
+      <Dialog open={recordFabricOpen} onOpenChange={setRecordFabricOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Record {fabricRecordWord} sent</DialogTitle>
+            <DialogDescription>
+              {jwo.jobWorkNumber} went out by quantity. Tick the {fabricRecordWord} that went — this only updates the
+              lot&apos;s list; the lot&apos;s stock already moved when the job was issued. Pieces counted after the job
+              left are not offered: they were still on the rack.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {fabricRecordLot && (
+              <p className="text-sm">
+                {fabricRecordLot.lotLabel}: the job took {formatQuantity(fabricRecordLot.takenActual, jwo.uom)};{' '}
+                {formatQuantity(fabricRecordLot.recordedActual, jwo.uom)} already recorded.
+              </p>
+            )}
+
+            {fabricRecordPiecesLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : fabricRecordPieces ? (
+              <div className="rounded-md border bg-muted/30 p-3">
+                <ThanPicker
+                  lotThans={fabricRecordPieces}
+                  selected={recordFabricPicks}
+                  onChange={setRecordFabricPicks}
+                  targetActual={fabricRecordTarget}
+                  uom={jwo.uom}
+                  disabled={recordFabricMutation.isPending}
+                  snapToLot={false}
+                />
+              </div>
+            ) : null}
+
+            {fabricRecordOver && fabricRecordLot && (
+              <p className="text-xs text-red-600">
+                These pieces come to more than the job took from the lot ({formatQuantity(fabricRecordAfter, jwo.uom)}{' '}
+                against {formatQuantity(fabricRecordLot.takenActual, jwo.uom)} actual) — untick some or send a part of
+                the last one.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecordFabricOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => recordFabricMutation.mutate()}
+              disabled={
+                recordFabricMutation.isPending ||
+                !fabricRecordLot ||
+                fabricPicksPayload(recordFabricPicks).length === 0 ||
+                fabricRecordErrors ||
+                fabricRecordOver
+              }
+            >
+              <ListChecks className="mr-2 h-4 w-4" />
+              {recordFabricMutation.isPending ? 'Recording…' : `Record ${fabricRecordWord} sent`}
             </Button>
           </DialogFooter>
         </DialogContent>

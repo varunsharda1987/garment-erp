@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { getSystemSettingByKey } from '../services/system-settings.service';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { formatQuantity } from '@/lib/formatters';
+import { foldCounted, hasFold } from '@/lib/fold-length';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 
 const PAGE_SIZE = 25;
@@ -82,6 +83,8 @@ export default function GreigeAvailableStock() {
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [expandedRowData, setExpandedRowData] = useState<Record<string, GreigeStockDetail[]>>({});
+  // Fold length L: a lot counted at an L shows its L and the counted figure its tags add up to, beside the actual
+  const anyLotFolded = (greigeId: string) => (expandedRowData[greigeId] || []).some((e) => hasFold(e.foldLengthCm));
   const [loadingExpanded, setLoadingExpanded] = useState<Set<string>>(new Set());
 
   // Edit dialog
@@ -679,7 +682,15 @@ export default function GreigeAvailableStock() {
                                   <table className="w-full text-sm">
                                     <thead>
                                       <tr className="text-xs text-muted-foreground uppercase border-b">
-                                        <th className="px-3 py-2 text-right">Qty Avail</th>
+                                        <th className="px-3 py-2 text-right">
+                                          {anyLotFolded(stock.greigeId) ? 'Qty Avail (actual)' : 'Qty Avail'}
+                                        </th>
+                                        {anyLotFolded(stock.greigeId) && (
+                                          <>
+                                            <th className="px-3 py-2 text-center">L (cm)</th>
+                                            <th className="px-3 py-2 text-right">Counted @ L</th>
+                                          </>
+                                        )}
                                         <th className="px-3 py-2 text-right">Qty Reserved</th>
                                         <th className="px-3 py-2 text-center">Width</th>
                                         <th className="px-3 py-2 text-right">Cost/m</th>
@@ -703,6 +714,19 @@ export default function GreigeAvailableStock() {
                                           <td className="px-3 py-2 text-right font-medium text-success">
                                             {entry.quantityAvailable.toFixed(2)}
                                           </td>
+                                          {anyLotFolded(stock.greigeId) && (
+                                            <>
+                                              <td className="px-3 py-2 text-center">
+                                                {hasFold(entry.foldLengthCm) ? Number(entry.foldLengthCm) : '—'}
+                                              </td>
+                                              {/* What the lot's than tags add up to: actual × 100/L */}
+                                              <td className="px-3 py-2 text-right font-medium text-info">
+                                                {hasFold(entry.foldLengthCm)
+                                                  ? foldCounted(entry.quantityAvailable, entry.foldLengthCm).toFixed(2)
+                                                  : '—'}
+                                              </td>
+                                            </>
+                                          )}
                                           <td className="px-3 py-2 text-right text-primary">
                                             {entry.quantityReserved > 0 ? entry.quantityReserved.toFixed(2) : '-'}
                                           </td>

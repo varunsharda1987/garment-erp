@@ -201,6 +201,8 @@ export interface GreigeStockDetail {
   sourceChallan: { id: string; challanNumber: string; challanDate: string } | null;
   weaverId?: string | null; // Phase 1b: whose cloth this lot is
   weaver?: { id: string; name: string } | null;
+  /** The fold length L its pieces were counted at; quantities above are ACTUAL metres. Null = no fold */
+  foldLengthCm?: number | null;
   /** The lot's bale / than / roll list at a glance (Greige Stock page) */
   pieces?: GreigeLotPieces;
 }

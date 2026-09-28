@@ -106,15 +106,13 @@ export function AccessorySelector({
 
   const loadLabels = async () => {
     try {
-      // Load hangtags and price tags for accessories (not sewn-in labels which are in TrimSelector)
-      // We need to make two calls and combine results
+      // Every label is an accessory — sewn-in, hangtag and price tag (owner 2026-09-28). This used to load only
+      // hangtags and price tags, pointing sewn-in labels at the Trims tab, which never listed them: a sewn-in
+      // label could reach a style only through a buyer's preset.
       // If customerId is provided, filter by customer (backend will return customer-specific + generic)
-      const [hangtagResponse, priceTagResponse] = await Promise.all([
-        getAllLabels({ limit: 100, labelCategory: 'HANGTAG', customerId }),
-        getAllLabels({ limit: 100, labelCategory: 'PRICE_TAG', customerId }),
-      ]);
+      const response = await getAllLabels({ limit: 100, customerId });
 
-      const allLabels = [...hangtagResponse.data, ...priceTagResponse.data];
+      const allLabels = response.data;
       setLabels(
         allLabels.map((l: LabelType) => ({
           id: l.id,

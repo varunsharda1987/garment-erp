@@ -27,6 +27,22 @@ interface MaterialFormProps {
   mode?: 'create' | 'edit';
 }
 
+// A material's HSN is 6 digits (8 allowed) — the 4-digit heading alone does not say what the item is.
+// Same rule as the API (backend material-hsn.helper MATERIAL_HSN_PATTERN).
+const MATERIAL_HSN_PATTERN = /^\d{6}(\d{2})?$/;
+const MATERIAL_HSN_MESSAGE = 'HSN code must be 6 digits (8 allowed)';
+
+/** The HSN list's GST rate for one exact code, or null when the code is not on the list. */
+async function lookupHsnRate(code: string): Promise<number | null> {
+  try {
+    const results = await searchHSNSACMasters({ search: code, type: 'HSN', limit: 5 });
+    const match = results.find((r) => r.code === code);
+    return match ? Number(match.defaultGstRate) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -47,7 +63,12 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [hsnResults, setHsnResults] = useState<HSNSACSearchResult[]>([]);
   const [hsnDropdownOpen, setHsnDropdownOpen] = useState(false);
   const [selectedGstRate, setSelectedGstRate] = useState('');
+  // The chosen code's GST rate on the HSN list (null = not looked up / not on the list)
+  const [hsnRate, setHsnRate] = useState<number | null>(null);
+  const [hsnTouched, setHsnTouched] = useState(false);
   const hsnDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hsnTrimmed = hsnSearch.trim();
+  const hsnInvalid = hsnTrimmed !== '' && !MATERIAL_HSN_PATTERN.test(hsnTrimmed);
 
   const {
     register,
@@ -62,8 +83,10 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
       return;
     }
     try {
-      const results = await searchHSNSACMasters({ search: query, type: 'HSN', limit: 10 });
-      setHsnResults(results);
+      // Only full 6 / 8-digit codes can go on a material — the list also holds 4-digit headings, so ask
+      // for more and keep the first ten that qualify
+      const results = await searchHSNSACMasters({ search: query, type: 'HSN', limit: 50 });
+      setHsnResults(results.filter((r) => MATERIAL_HSN_PATTERN.test(r.code)).slice(0, 10));
       setHsnDropdownOpen(true);
     } catch {
       setHsnResults([]);
@@ -74,23 +97,34 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     (value: string) => {
       setHsnSearch(value);
       setValue('hsnCode', value);
+      const typed = hsnResults.find((r) => r.code === value.trim());
+      setHsnRate(typed ? Number(typed.defaultGstRate) : null);
       if (hsnDebounceRef.current) clearTimeout(hsnDebounceRef.current);
       hsnDebounceRef.current = setTimeout(() => searchHSN(value), 300);
     },
-    [searchHSN, setValue]
+    [searchHSN, setValue, hsnResults]
   );
 
+  // Picking a code shows its rate beside it; the GST box stays on "Auto (from HSN)" unless changed, so the
+  // material follows the HSN list rather than a copy of its rate
   const selectHsnCode = useCallback(
     (item: HSNSACSearchResult) => {
       setHsnSearch(item.code);
       setValue('hsnCode', item.code);
-      const rate = String(Number(item.defaultGstRate));
-      setValue('gstRate', rate);
-      setSelectedGstRate(rate);
+      setHsnRate(Number(item.defaultGstRate));
       setHsnDropdownOpen(false);
     },
     [setValue]
   );
+
+  const handleHsnBlur = useCallback(() => {
+    setTimeout(() => setHsnDropdownOpen(false), 200);
+    setHsnTouched(true);
+    const code = hsnSearch.trim();
+    if (hsnRate == null && MATERIAL_HSN_PATTERN.test(code)) {
+      lookupHsnRate(code).then((rate) => setHsnRate(rate));
+    }
+  }, [hsnSearch, hsnRate]);
 
   const isNewMaterial = mode === 'create' || !id;
 
@@ -165,6 +199,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
           setValue('reorderLevel', material.reorderLevel?.toString() || '');
           setValue('hsnCode', material.hsnCode || '');
           setHsnSearch(material.hsnCode || '');
+          if (material.hsnCode) lookupHsnRate(material.hsnCode).then((rate) => setHsnRate(rate));
           const gstRateStr = material.gstRate?.toString() || '';
           setValue('gstRate', gstRateStr);
           setSelectedGstRate(gstRateStr);
@@ -241,13 +276,21 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
         return;
       }
 
+      if (hsnInvalid) {
+        setHsnTouched(true);
+        setError(MATERIAL_HSN_MESSAGE);
+        setIsLoading(false);
+        return;
+      }
+
       const payload: CreateMaterialRequest = {
         ...data,
         categoryId: selectedCategoryId,
         unit: selectedUnit as Unit,
         suppliers: materialSuppliers.length > 0 ? materialSuppliers : undefined,
         reorderLevel: data.reorderLevel ? Number(data.reorderLevel) : undefined,
-        hsnCode: data.hsnCode || undefined,
+        // Blank = the server fills it from the material type
+        hsnCode: hsnTrimmed || undefined,
         gstRate: data.gstRate ? Number(data.gstRate) : undefined,
         categoryData:
           Object.keys(categoryData).length > 0
@@ -549,17 +592,30 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
               <h3 className="text-lg font-semibold mb-4 text-foreground">Tax Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="relative">
-                  <Label htmlFor="hsnCode">HSN Code</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="hsnCode">HSN Code</Label>
+                    {hsnRate != null && !hsnInvalid && (
+                      <span className="text-xs font-medium text-info">GST {hsnRate}% for this code</span>
+                    )}
+                  </div>
                   <Input
                     id="hsnCode"
                     value={hsnSearch}
                     onChange={(e) => handleHsnSearchChange(e.target.value)}
                     onFocus={() => hsnSearch.length >= 2 && setHsnDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setHsnDropdownOpen(false), 200)}
-                    placeholder="Search HSN code..."
+                    onBlur={handleHsnBlur}
+                    placeholder="Type the 6-digit code, or search by name"
                     autoComplete="off"
+                    aria-invalid={hsnTouched && hsnInvalid}
+                    className={hsnTouched && hsnInvalid ? 'border-destructive' : undefined}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Type to search HSN codes from master data</p>
+                  {hsnTouched && hsnInvalid ? (
+                    <p className="text-xs text-destructive mt-1">{MATERIAL_HSN_MESSAGE}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Filled automatically from the material type — change it if your supplier's bill says otherwise.
+                    </p>
+                  )}
                   {hsnDropdownOpen && hsnResults.length > 0 && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">
                       {hsnResults.map((item) => (
@@ -604,7 +660,9 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                     </SelectContent>
                   </Select>
                   <input type="hidden" {...register('gstRate')} />
-                  <p className="text-xs text-muted-foreground mt-1">Auto-filled from HSN code, or select manually</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Auto takes the HSN code's rate — pick one only if this item is taxed differently
+                  </p>
                 </div>
               </div>
             </div>

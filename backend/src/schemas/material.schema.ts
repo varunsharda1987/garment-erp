@@ -1,5 +1,15 @@
 import { z } from 'zod';
 import { UnitEnum } from './generated/prisma-enums';
+import { MATERIAL_HSN_PATTERN } from '../services/helpers/material-hsn.helper';
+
+/**
+ * A material's HSN code: 6 digits (8 allowed) — the 4-digit heading alone does not say what the item is.
+ * Blank = none: the server fills it from the material type. PO lines take the same rule.
+ */
+export const materialHsnCodeSchema = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+  z.string().trim().regex(MATERIAL_HSN_PATTERN, 'HSN code must be 6 digits (8 allowed)').nullish()
+);
 
 /**
  * Supplier relationship schema for materials
@@ -35,7 +45,7 @@ export const createMaterialSchema = z.object({
   unit: UnitEnum,
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
-  hsnCode: z.string().trim().optional(),
+  hsnCode: materialHsnCodeSchema,
   gstRate: z.union([z.number(), z.string().transform((val) => (val ? parseFloat(val) : undefined))]).optional(),
   minimumStock: z.number().nonnegative('Minimum stock must be non-negative').optional(),
   reorderLevel: z
@@ -72,7 +82,7 @@ export const updateMaterialSchema = z.object({
   unit: UnitEnum.optional(),
   description: z.string().trim().optional(),
   specifications: z.string().trim().optional(),
-  hsnCode: z.string().trim().optional(),
+  hsnCode: materialHsnCodeSchema,
   gstRate: z.union([z.number(), z.string().transform((val) => (val ? parseFloat(val) : undefined))]).optional(),
   minimumStock: z.number().nonnegative('Minimum stock must be non-negative').optional(),
   reorderLevel: z

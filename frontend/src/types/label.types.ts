@@ -10,7 +10,7 @@ export const LABEL_CATEGORIES: { value: LabelCategory; label: string; descriptio
   {
     value: 'SEWN_IN',
     label: 'Sewn-in Label',
-    description: 'Care labels, size labels sewn into garment (used in Trims)',
+    description: 'Care labels, size labels sewn into garment (used in Accessories)',
   },
   { value: 'HANGTAG', label: 'Hangtag', description: 'Removable hangtags attached for retail (used in Accessories)' },
   { value: 'PRICE_TAG', label: 'Price Tag', description: 'Price tags (used in Accessories)' },

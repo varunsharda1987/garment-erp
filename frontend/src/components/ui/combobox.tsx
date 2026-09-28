@@ -10,6 +10,8 @@ export interface ComboboxOption {
   value: string;
   label: string;
   searchText?: string; // Additional text to search by (won't be displayed)
+  /** A muted second line under the label (who it is for, its spec, its rate) — also matched by the search */
+  description?: string;
 }
 
 interface ComboboxProps {
@@ -117,7 +119,7 @@ export function Combobox({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.searchText || option.label}
+                  value={[option.searchText || option.label, option.description].filter(Boolean).join(' ')}
                   onSelect={() => {
                     const next = option.value === value ? '' : option.value;
                     if (next) setKnownOption(option);
@@ -126,7 +128,14 @@ export function Combobox({
                   }}
                 >
                   <Check className={cn('mr-2 h-4 w-4', value === option.value ? 'opacity-100' : 'opacity-0')} />
-                  {option.label}
+                  {option.description ? (
+                    <span className="flex min-w-0 flex-col">
+                      <span>{option.label}</span>
+                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                    </span>
+                  ) : (
+                    option.label
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -11,6 +11,7 @@ import { UnitEnum, flexMaterialId, formNumber, formNumberRequired } from './comm
 import { POCategoryEnum, ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
 import { isQtyZero } from '../utils/quantity';
 import { CREATABLE_PO_CATEGORIES, PO_SORT_FIELDS, isPoDateAfterToday } from '../types/purchaseOrder.types';
+import { materialHsnCodeSchema } from './material.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -84,7 +85,7 @@ export const purchaseOrderItemSchema = z.object({
   // The line's GST % as typed (0 is a rate); absent / blank = the material's. The HSN it is billed
   // under; absent / blank = the material's own. The form's GST box was never sent (2026-09-28).
   gstRate: formNumber(z.number().min(0, 'GST cannot be negative').max(28, 'GST cannot be above 28%')),
-  hsnCode: z.string().trim().max(20, 'HSN code is at most 20 characters').nullish(),
+  hsnCode: materialHsnCodeSchema,
   remarks: z.string().max(500).nullish(),
   foldLengthCm: z.number().positive().max(999.99).nullish(), // "L" - fold length in cm
   // The weaver this line is bought from, when known at ordering (Phase 1b) — the GRN line records the
@@ -137,7 +138,7 @@ export const updatePurchaseOrderItemSchema = z.object({
   threadPly: ThreadPlyEnum.nullish(),
   // Absent = the line keeps the rate / HSN it was saved with; null = back to the material's
   gstRate: formNumber(z.number().min(0, 'GST cannot be negative').max(28, 'GST cannot be above 28%')),
-  hsnCode: z.string().trim().max(20, 'HSN code is at most 20 characters').nullish(),
+  hsnCode: materialHsnCodeSchema,
 });
 
 // ============================================================================

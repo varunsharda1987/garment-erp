@@ -333,8 +333,10 @@ export const getMasterDataSummary = async (req: Request, res: Response) => {
           },
         ],
       },
+      // Heading only — labels + packaging are Accessories everywhere (the Style Form's split). The key
+      // stays packagingLabels: the All Masters page and its types read it.
       packagingLabels: {
-        category: 'Packaging & Labels',
+        category: 'Accessories',
         totalCount: labelsTotal + packagingTotal,
         activeCount: labelsActive + packagingActive,
         masters: [

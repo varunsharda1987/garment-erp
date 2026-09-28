@@ -105,7 +105,7 @@ function SupplierPicker({
         !initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading suppliers...') : placeholder
       }
       searchPlaceholder="Search by code, name, contact..."
-      emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} suppliers found.` : 'No suppliers found.'}
+      emptyText={categoryFilter ? 'No suppliers found for this category.' : 'No suppliers found.'}
       disabled={disabled}
       className={className}
       onOpenChange={(open) => {

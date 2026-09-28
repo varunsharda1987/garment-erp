@@ -679,10 +679,10 @@ export default function StyleDetail() {
                 </CardContent>
               </Card>
 
-              {/* Section 3: Packaging */}
+              {/* Section 3: Accessories — labels + packaging, the Style Form's Accessories tab */}
               <Card>
                 <CardHeader className="bg-success-muted border-b">
-                  <CardTitle className="text-success">Packaging Materials</CardTitle>
+                  <CardTitle className="text-success">Accessories</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4">
                   {(() => {
@@ -745,7 +745,7 @@ export default function StyleDetail() {
                         </div>
                       );
                     }
-                    return <p className="text-muted-foreground text-center py-6">No packaging materials added</p>;
+                    return <p className="text-muted-foreground text-center py-6">No accessories added</p>;
                   })()}
                 </CardContent>
               </Card>

@@ -838,10 +838,10 @@ export default function BulkPOGenerationDialog({
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    Generate {previewData.length}{' '}
+                    {/* A supplier gets one PO per category (lace and buttons are two), so POs are not counted here */}
                     {isJobWork
-                      ? `Job Work Order${previewData.length !== 1 ? 's' : ''}`
-                      : `PO${previewData.length !== 1 ? 's' : ''}`}
+                      ? `Generate ${previewData.length} Job Work Order${previewData.length !== 1 ? 's' : ''}`
+                      : `Generate POs for ${previewData.length} supplier${previewData.length !== 1 ? 's' : ''}`}
                   </>
                 )}
               </Button>

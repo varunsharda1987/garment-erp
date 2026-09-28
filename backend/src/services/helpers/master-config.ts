@@ -130,15 +130,16 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     categoryId: 'CAT-OTHER',
     categoryName: 'Other',
   },
-  // Extended trims (units mirror generic-trim.controller TRIM_CONFIGS defaults)
+  // Extended trims (units mirror generic-trim.controller TRIM_CONFIGS defaults). Their category is Trims —
+  // "Accessories" means a style's labels + packaging everywhere (owner 2026-09-28, the Style Form's definition).
   HOOK_EYE: {
     table: 'hook_eye_master',
     codeField: 'hookEyeCode',
     nameField: 'hookEyeName',
     fkField: 'hookEyeId',
     unit: 'PAIR',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   SNAP_BUTTON: {
     table: 'snap_button_master',
@@ -146,8 +147,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'snapButtonName',
     fkField: 'snapButtonId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   BUCKLE: {
     table: 'buckle_master',
@@ -155,8 +156,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'buckleName',
     fkField: 'buckleId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   BELT: {
     table: 'belt_master',
@@ -164,8 +165,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'beltName',
     fkField: 'beltId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   VELCRO: {
     table: 'velcro_master',
@@ -173,8 +174,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'velcroName',
     fkField: 'velcroId',
     unit: 'METER',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   DRAWSTRING: {
     table: 'drawstring_master',
@@ -182,8 +183,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'drawstringName',
     fkField: 'drawstringId',
     unit: 'METER',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   RIBBON: {
     table: 'ribbon_master',
@@ -191,8 +192,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'ribbonName',
     fkField: 'ribbonId',
     unit: 'METER',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   SEQUIN: {
     table: 'sequin_master',
@@ -200,8 +201,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'sequinName',
     fkField: 'sequinId',
     unit: 'METER',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   BEAD: {
     table: 'bead_master',
@@ -209,8 +210,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'beadName',
     fkField: 'beadId',
     unit: 'PACK',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   MOTIF: {
     table: 'motif_master',
@@ -218,8 +219,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'motifName',
     fkField: 'motifId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   INTERLINING: {
     table: 'interlining_master',
@@ -227,8 +228,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'interliningName',
     fkField: 'interliningId',
     unit: 'METER',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   PADDING: {
     table: 'padding_master',
@@ -236,8 +237,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'paddingName',
     fkField: 'paddingId',
     unit: 'PAIR',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   OTHER_FASTENER: {
     table: 'other_fastener_master',
@@ -245,8 +246,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'otherFastenerName',
     fkField: 'otherFastenerId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   OTHER_TAPE: {
     table: 'other_tape_master',
@@ -254,8 +255,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'otherTapeName',
     fkField: 'otherTapeId',
     unit: 'METER',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   OTHER_DECORATIVE: {
     table: 'other_decorative_master',
@@ -263,8 +264,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'otherDecorativeName',
     fkField: 'otherDecorativeId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
   OTHER_FUNCTIONAL: {
     table: 'other_functional_master',
@@ -272,8 +273,8 @@ export const MASTER_CONFIG: Record<string, MasterTypeConfig> = {
     nameField: 'otherFunctionalName',
     fkField: 'otherFunctionalId',
     unit: 'PIECE',
-    categoryId: 'CAT-ACCESSORIES',
-    categoryName: 'Accessories',
+    categoryId: 'CAT-TRIMS',
+    categoryName: 'Trims',
   },
 };
 

@@ -306,7 +306,7 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
   // The same creatable list the manual PO schema (ManualPOCategoryEnum) reads.
   const categorySourceMap: Record<POSource, POCategory[]> = {
     MANUAL: CREATABLE_PO_CATEGORIES,
-    COST_SHEET: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE'] as POCategory[],
+    COST_SHEET: ['FABRIC', 'GREIGE', 'TRIMS', 'ACCESSORIES', 'LACE', 'GREIGE_LACE'] as POCategory[],
     MRP: CREATABLE_PO_CATEGORIES,
     SERVICE_REQUIREMENT: [], // retired — service work is a Job Work Order
     PRODUCTION_RUN: [], // retired — service work is a Job Work Order
@@ -811,13 +811,14 @@ export function mapMaterialTypeToPOCategory(materialType: string): POCategory {
     LACE: 'LACE',
     GREIGE_LACE: 'GREIGE_LACE',
     BUTTON: 'TRIMS',
-    // Thread, packaging and machine parts have their own categories (po-line-category.helper) — a
-    // Trims PO refuses thread, whose receipt books its own lots
+    // Thread, accessories and machine parts have their own categories (po-line-category.helper) — a
+    // Trims PO refuses thread, whose receipt books its own lots, and labels + packaging, which the
+    // Style Form calls Accessories
     THREAD: 'THREAD',
     ELASTIC: 'TRIMS',
-    LABEL: 'TRIMS',
+    LABEL: 'ACCESSORIES',
     ZIPPER: 'TRIMS',
-    PACKAGING: 'PACKAGING',
+    PACKAGING: 'ACCESSORIES',
     MACHINE_PART: 'MACHINE_PART',
     INTERLINING: 'TRIMS',
     TAPE: 'TRIMS',

@@ -13,7 +13,8 @@ import type {
 } from '../types/material.types';
 
 /**
- * Get all materials with pagination and filters
+ * Get all materials with pagination and filters. Each item also carries its type master's `buyerBrand` and
+ * `spec` (the PO form's pickers show them under the name).
  */
 export const getAllMaterials = async (params?: {
   page?: number;

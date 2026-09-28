@@ -59,7 +59,8 @@ export async function ensureMaterialRecord(masterId: string, masterType: string,
     );
   }
 
-  // Create materials record (handles P2002 race condition)
+  // Create materials record (handles P2002 race condition). createFromMaster also fills its HSN
+  // (fillMaterialHsnIfBlank, on this same client) — only when it really creates the row.
   try {
     const material = await materialService.createFromMaster(
       { id: master.id, code: master[config.codeField], name: master[config.nameField] },

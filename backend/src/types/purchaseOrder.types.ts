@@ -25,29 +25,33 @@ export { PurchaseOrderStatus, POSource };
  * The frontend keeps its own copy (MATERIAL_PO_CATEGORIES in frontend/src/types/purchaseOrder.types.ts);
  * `__tests__/unit/po-material-categories.test.ts` fails when the two differ. THREAD was missing here
  * until 2026-09-27, so a thread PO would have been listed but never counted on the stat cards.
- * PACKAGING and MACHINE_PART joined 2026-09-28 — one category per supplier category, so packaging and
- * machine-part suppliers can be picked at all (General last). Which materials each takes:
+ * MACHINE_PART joined 2026-09-28 — one category per supplier category, so machine-part suppliers can be
+ * picked at all (General last). ACCESSORIES (2026-09-28) = a style's labels + packaging, as the Style Form's
+ * Accessories tab defines them — one meaning system-wide, so Trims no longer takes them and PACKAGING left
+ * the page (it is still creatable by API, for history). Which materials each takes:
  * helpers/po-line-category.helper.ts.
  */
 export const MATERIAL_PO_CATEGORIES: POCategory[] = [
   POCategory.FABRIC,
   POCategory.GREIGE,
   POCategory.TRIMS,
+  POCategory.ACCESSORIES,
   POCategory.THREAD,
   POCategory.LACE,
   POCategory.GREIGE_LACE,
-  POCategory.PACKAGING,
   POCategory.MACHINE_PART,
   POCategory.GENERAL,
 ];
 
 /**
  * Every category a purchase order may be CREATED with (manual form, API, MRP): the page's material
- * categories plus the specific trim categories the schema still carries. Materials only — Phase 5a
- * retired service/processing POs. ManualPOCategoryEnum and unified PO creation both read this list.
+ * categories plus the specific ones the schema still carries (PACKAGING, and the per-trim ones).
+ * Materials only — Phase 5a retired service/processing POs. ManualPOCategoryEnum and unified PO
+ * creation both read this list.
  */
 export const CREATABLE_PO_CATEGORIES: POCategory[] = [
   ...MATERIAL_PO_CATEGORIES,
+  POCategory.PACKAGING,
   POCategory.BUTTON,
   POCategory.ZIPPER,
   POCategory.ELASTIC,

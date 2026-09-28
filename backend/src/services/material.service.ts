@@ -13,6 +13,7 @@ import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
 import { threadPackCode, threadPackLabel, threadPackUnit } from './helpers/thread-pack.helper';
 import type { ThreadPackagingType, ThreadPly } from '../schemas/generated/prisma-enums';
 import { applySearch } from '../utils/search-filter';
+import { fillMaterialHsnIfBlank, isMaterialHsn } from './helpers/material-hsn.helper';
 
 // ============================================
 // Types
@@ -125,6 +126,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
    */
   async createWithSuppliers(data: CreateMaterialDTO): Promise<materials> {
     logDebug('Creating material with suppliers', { code: data.code });
+    this.assertMaterialHsn(data.hsnCode);
 
     // Check if material code already exists (only among active materials)
     const existingMaterial = await this.prisma.materials.findFirst({
@@ -208,8 +210,18 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       },
     });
 
+    // Every material carries an HSN from the day it is made — none typed = the one its type proposes
+    if (!material.hsnCode) material.hsnCode = await fillMaterialHsnIfBlank(material.id);
+
     logInfo('Material created successfully', { id: material.id, code: data.code });
     return this.transformMaterial(material) as materials;
+  }
+
+  /** A material's HSN is 6 digits (8 allowed); blank = none sent. The route's Zod schema says the same. */
+  private assertMaterialHsn(hsnCode: string | null | undefined): void {
+    if (hsnCode?.trim() && !isMaterialHsn(hsnCode.trim())) {
+      throw new ValidationError('HSN code must be 6 digits (8 allowed)');
+    }
   }
 
   // ============================================
@@ -357,6 +369,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
    */
   async updateWithSuppliers(id: string, data: UpdateMaterialDTO): Promise<materials> {
     logDebug('Updating material', { id });
+    this.assertMaterialHsn(data.hsnCode);
 
     const existingMaterial = await this.prisma.materials.findUnique({
       where: { id },
@@ -452,6 +465,9 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
         },
       },
     });
+
+    // Cleared, or never had one: back to the code its type proposes
+    if (!material.hsnCode) material.hsnCode = await fillMaterialHsnIfBlank(material.id);
 
     logInfo('Material updated successfully', { id });
     return this.transformMaterial(material) as materials;
@@ -867,6 +883,10 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       },
     });
 
+    // Every master's material carries an HSN from the moment it exists (owner, 2026-09-28). Every
+    // ensureMaterialRecord create comes through here, so the fill lives here, in the caller's transaction.
+    material.hsnCode = await fillMaterialHsnIfBlank(material.id, tx);
+
     logInfo(`Created materials record from ${type} master`, { id: material.id, code: material.code });
     return material;
   }
@@ -906,6 +926,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       },
     });
 
+    material.hsnCode = await fillMaterialHsnIfBlank(material.id, tx);
+
     logInfo(`Created materials record for label size variant`, { id: material.id, code: material.code });
     return material;
   }
@@ -943,6 +965,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
         threadPly: ply,
       },
     });
+
+    material.hsnCode = await fillMaterialHsnIfBlank(material.id, tx);
 
     logInfo(`Created materials record for thread pack`, { id: material.id, code: material.code });
     return material;

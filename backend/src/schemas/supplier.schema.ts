@@ -35,6 +35,17 @@ export const SupplierCategoryEnum = z.enum([
   'OTHER_SERVICES',
 ]);
 
+/** One value of the list filter: a supplier category, or 'PROCESSOR' (every processing category) */
+export const SupplierCategoryFilterEnum = z.union([SupplierCategoryEnum, z.literal('PROCESSOR')]);
+
+/** "TRIMS_SUPPLIER, PACKAGING_SUPPLIER" → ['TRIMS_SUPPLIER', 'PACKAGING_SUPPLIER'] (blanks dropped) */
+export function supplierCategoryFilterList(value: string): string[] {
+  return value
+    .split(',')
+    .map((c) => c.trim())
+    .filter(Boolean);
+}
+
 // IFSC Code validation (4 letters + 0 + 6 alphanumeric)
 const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
@@ -178,13 +189,19 @@ export const supplierQuerySchema = z.object({
     .pipe(z.number().int().min(1).max(1000)),
   search: z.string().optional(),
   /**
-   * Filter by a single category (returns suppliers that have it), OR by the meta-category
-   * 'PROCESSOR', which `supplier.service.ts` expands to every processing category (dyeing,
-   * embroidery, CMT, washing, …). That branch has existed in the service since the job-work
-   * consolidation but was unreachable over HTTP: this schema rejected the value before the
-   * service ever saw it, so the picker 400'd. Not a Prisma enum member — hence the union.
+   * Filter by category: one, or a comma list meaning ANY of them ("TRIMS_SUPPLIER,PACKAGING_SUPPLIER"
+   * — an Accessories PO takes labels, whose makers are tagged Trims suppliers, and packaging). Each
+   * may be the meta-category 'PROCESSOR', which `supplier.service.ts` expands to every processing
+   * category (dyeing, embroidery, CMT, washing, …). Not a Prisma enum member — hence the union.
+   * Validated here, split in the service (the controller reads the raw string).
    */
-  category: z.union([SupplierCategoryEnum, z.literal('PROCESSOR')]).optional(),
+  category: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || supplierCategoryFilterList(val).every((c) => SupplierCategoryFilterEnum.safeParse(c).success),
+      { message: 'category must be supplier categories (or PROCESSOR), comma-separated' }
+    ),
   rating: z
     .string()
     .optional()

@@ -117,7 +117,7 @@ export default function StockDashboard() {
         <StatCard
           title="Total Inventory Value"
           value={formatCurrencyWhole(totalInventoryValue)}
-          description="Fabric + Greige + Trims"
+          description="Fabric + Greige + Trims & Accessories"
           icon={TrendingUp}
           iconColor="text-info"
           iconBgColor="bg-info-muted"
@@ -126,7 +126,7 @@ export default function StockDashboard() {
         <StatCard
           title="Total Materials"
           value={totalMaterials.toString()}
-          description={`${fabricSummary?.totalItems || 0} Fabric + ${greigeSummary?.totalItems || 0} Greige + ${totalTrimItems} Trims`}
+          description={`${fabricSummary?.totalItems || 0} Fabric + ${greigeSummary?.totalItems || 0} Greige + ${totalTrimItems} Trims & Accessories`}
           icon={Package}
           iconColor="text-success"
           iconBgColor="bg-success-muted"
@@ -341,11 +341,11 @@ export default function StockDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {/* Low Stock Trims */}
+                {/* Low stock from Stock Levels — a label or polybag is an accessory, so name its own type */}
                 {lowStockItems.slice(0, 3).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Badge variant="outline">Trim</Badge>
+                      <Badge variant="outline">{formatMaterialType(item.materials?.materialType ?? '')}</Badge>
                     </TableCell>
                     <TableCell className="font-medium">{item.materials?.code}</TableCell>
                     <TableCell>{item.materials?.name}</TableCell>

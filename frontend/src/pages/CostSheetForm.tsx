@@ -67,6 +67,10 @@ import { useDefaultSettings } from '../hooks/useDefaultSettings';
 // marker in CAD Planning — and a Raw Material Calculation sheet is what orders and production run on.
 type CostSheetMode = 'COSTING' | 'RAW_MATERIAL_CALCULATION';
 
+// Labels and packaging are Accessories, never trims (the Style Form's split), so the Trims Details
+// type list leaves them out — they are costed in Accessories Details.
+const ACCESSORY_TRIM_TYPES = new Set(['LABEL', 'PACKAGING']);
+
 const CostSheetForm = () => {
   // Lace wastage comes from the system defaults registry, never a literal.
   const { laceWastagePercent } = useDefaultSettings();
@@ -2584,8 +2588,13 @@ const CostSheetForm = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {/* Not Lace: lace is costed in its own Lace Details section — a lace trim row had
-                          no picker, and costing it here too would count it twice */}
-                      {ALL_TRIM_TYPES.filter((t) => t.value !== 'LACE').map((t) => (
+                          no picker, and costing it here too would count it twice. Not Label / Packaging:
+                          they are Accessories (Accessories Details below), not trims — kept only on a row
+                          that already has one, so its type still shows */}
+                      {ALL_TRIM_TYPES.filter(
+                        (t) =>
+                          t.value !== 'LACE' && (!ACCESSORY_TRIM_TYPES.has(t.value) || t.value === trim.materialType)
+                      ).map((t) => (
                         <SelectItem key={t.value} value={t.value}>
                           {t.label}
                         </SelectItem>

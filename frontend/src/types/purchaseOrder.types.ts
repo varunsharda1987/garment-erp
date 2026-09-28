@@ -87,17 +87,18 @@ export const POSourceColors: Record<POSource, string> = {
 // are kept for backward compatibility with existing records.
 export type POGroup = 'all' | 'material';
 
-// Material categories only - all new POs must be one of these. One per supplier category (Packaging and
-// Machine Parts suppliers had no PO category until 2026-09-28), General last. The backend keeps the same list
+// Material categories only - all new POs must be one of these, General last. Trims and Accessories split as the
+// Style Form splits them (owner, 2026-09-28): Accessories = labels + packaging, Trims = every other trim. Packaging
+// is no longer offered on its own (no PO used it). The backend keeps the same list
 // (`po-material-categories.test.ts` fails when they differ).
 export const MATERIAL_PO_CATEGORIES = [
   'FABRIC',
   'GREIGE',
   'TRIMS',
+  'ACCESSORIES',
   'THREAD',
   'LACE',
   'GREIGE_LACE',
-  'PACKAGING',
   'MACHINE_PART',
   'GENERAL',
 ] as const;
@@ -126,12 +127,14 @@ export const PO_GROUP_LABELS: Record<POGroup, string> = {
 };
 
 // Every POCategory value has a label and a colour (`satisfies` refuses a missing one), so no screen prints a
-// raw enum. BUTTON … OTHER_MATERIAL are old specific-trim categories a PO can still carry.
+// raw enum. BUTTON … OTHER_MATERIAL are old specific-trim categories a PO can still carry (PACKAGING and LABEL
+// too — labels and packaging are bought on an Accessories PO now).
 export const PO_CATEGORY_LABELS: Record<string, string> = {
   FABRIC: 'Fabric',
   GREIGE: 'Greige',
   PROCESSING: 'Processing',
   TRIMS: 'Trims',
+  ACCESSORIES: 'Accessories',
   THREAD: 'Thread',
   LACE: 'Lace',
   GREIGE_LACE: 'Greige Lace',
@@ -159,6 +162,7 @@ export const PO_CATEGORY_COLORS: Record<string, string> = {
   GREIGE: 'bg-stone-100 text-stone-800',
   PROCESSING: 'bg-accent/10 text-accent',
   TRIMS: 'bg-cyan-100 text-cyan-800',
+  ACCESSORIES: 'bg-orange-100 text-orange-800',
   THREAD: 'bg-indigo-100 text-indigo-800',
   LACE: 'bg-pink-100 text-pink-800',
   GREIGE_LACE: 'bg-warning/10 text-warning',

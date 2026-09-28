@@ -117,6 +117,7 @@ export async function resolveRate(context: RateResolutionContext): Promise<RateR
     case 'LACE_PROCESSING':
       return resolveProcessingRate(context);
     case 'TRIMS':
+    case 'ACCESSORIES': // labels + packaging were Trims lines until 2026-09-28 — same rate lookup
       return resolveTrimsRate(context);
     case 'LACE':
     case 'GREIGE_LACE':

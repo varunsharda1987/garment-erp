@@ -47,12 +47,16 @@ async function level(materialId: string, warehouseId = wh1): Promise<number> {
   return Number(l?.quantity ?? 0);
 }
 
-/** A TRIMS PO through the real service (it decides the unit + factor), received and approved. */
+/**
+ * A PO through the real service (it decides the unit + factor), received and approved. GENERAL: these receipts
+ * mix labels and a button, and since 2026-09-28 a label goes on Accessories, a button on Trims — General takes
+ * both, and books a trim's lot by the same path.
+ */
 async function receive(lines: Array<{ materialId: string; qty: number; unit: 'PIECE' | 'GROSS'; rate: number }>) {
   const po = await purchaseOrderService.createPurchaseOrder(
     {
       supplierId,
-      poCategory: 'TRIMS',
+      poCategory: 'GENERAL',
       expectedDeliveryDate: new Date(Date.now() + 7 * 86400000),
       items: lines.map((l) => ({ materialId: l.materialId, orderedQuantity: l.qty, unit: l.unit, unitPrice: l.rate })),
     } as never,

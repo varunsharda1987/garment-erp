@@ -13,6 +13,7 @@ import { prisma, createTestUser } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
 import { generatePOFromRequirements, previewPOsFromRequirements } from '../../services/mrp.service';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
+import { loadMaterialHsnFacts, proposeMaterialHsn } from '../../services/helpers/material-hsn.helper';
 
 const RUN = `MBG${Date.now().toString(36).toUpperCase()}`;
 
@@ -88,6 +89,20 @@ afterAll(async () => {
     }
   }
   await prisma.$disconnect();
+});
+
+// Every material carries an HSN from the moment it is made (owner, 2026-09-28) — the master's materials row
+// gets the code its type proposes, when that code is on the HSN list. Until the 6-digit codes are seeded
+// (scripts/fill-material-hsn.ts) the row may stay blank; it is never a 4-digit heading.
+describe('a new master material carries its HSN', () => {
+  it('the button made by ensureMaterialRecord has the 6-digit code its type proposes (or none off the list)', async () => {
+    const row = await prisma.materials.findUniqueOrThrow({ where: { id: buttonId }, select: { hsnCode: true } });
+    const facts = (await loadMaterialHsnFacts([buttonId])).get(buttonId)!;
+    const { code } = proposeMaterialHsn(facts);
+    const onList = code ? await prisma.hsn_sac_masters.count({ where: { code, isActive: true } }) : 0;
+    expect(row.hsnCode).toBe(onList ? code : null);
+    if (row.hsnCode !== null) expect(row.hsnCode).toMatch(/^\d{6}(\d{2})?$/);
+  });
 });
 
 describe('MRP orders buttons by the gross', () => {

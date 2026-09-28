@@ -300,7 +300,8 @@ export const MaterialTypeLabels: Record<MaterialType, string> = {
   [MaterialType.OTHER_MATERIAL]: 'Other Material',
 };
 
-// Material type categories for UI grouping
+// Material type categories for UI grouping. Labels and packaging are Accessories, never trims — the
+// Style Form's own split (tab 3 Trims & Materials, tab 4 Accessories).
 export const MaterialTypeCategories = {
   'Trim Masters': [
     MaterialType.LACE,
@@ -308,8 +309,8 @@ export const MaterialTypeCategories = {
     MaterialType.THREAD,
     MaterialType.ZIPPER,
     MaterialType.ELASTIC,
-    MaterialType.LABEL,
   ],
+  Accessories: [MaterialType.LABEL, MaterialType.PACKAGING],
   Fasteners: [
     MaterialType.HOOK_EYE,
     MaterialType.SNAP_BUTTON,
@@ -327,7 +328,6 @@ export const MaterialTypeCategories = {
   Structural: [MaterialType.INTERLINING, MaterialType.PADDING],
   Fabric: [MaterialType.FABRIC, MaterialType.GREIGE],
   Other: [
-    MaterialType.PACKAGING,
     MaterialType.MACHINE_PART,
     MaterialType.OTHER_FASTENER,
     MaterialType.OTHER_TAPE,

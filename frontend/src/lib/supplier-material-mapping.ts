@@ -152,9 +152,9 @@ export function getSupplierMaterialLabel(supplierCategories: SupplierCategory[])
     return labels[allowedTypes[0]];
   }
 
-  // Multiple types - summarize
+  // Multiple types - summarize. A Trims supplier also makes labels, but labels are Accessories, not trims.
   if (supplierCategories.includes('TRIMS_SUPPLIER')) {
-    return 'Trims (Buttons, Zippers, Elastics, Labels, etc.)';
+    return 'Trims (Buttons, Zippers, Elastics, etc.) and Labels';
   }
 
   return `${allowedTypes.length} material types`;

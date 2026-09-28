@@ -452,6 +452,8 @@ export interface POGenerationResponse {
       poNumber: string;
       totalAmount: number;
     } | null;
+    /** Every PO made — one per category (lace and buttons from one supplier are two POs); purchaseOrder is the first */
+    purchaseOrders?: Array<{ id: string; poNumber: string; totalAmount: number }>;
     jobWorkOrder?: {
       id: string;
       jobWorkNumber: string;

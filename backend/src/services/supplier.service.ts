@@ -12,6 +12,7 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { gstService } from './gst.service';
 import warehouseService from './warehouse.service';
 import { syncProcessingUnitAddress } from './helpers/processing-unit-address.helper';
+import { supplierCategoryFilterList } from '../schemas/supplier.schema';
 
 // ============================================
 // Constants
@@ -379,23 +380,13 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
     const additionalFilters: AdditionalFilters = {};
 
     if (options.category) {
-      // PROCESSOR is a meta-category matching all processing-related suppliers
-      if (options.category === 'PROCESSOR') {
-        const processorCategories = [
-          'DYEING_PRINTING',
-          'EMBROIDERY',
-          'HAND_WORK',
-          'SMOCKING',
-          'CMT_UNIT',
-          'FINISHING_CONTRACTOR',
-          'STITCHING_CONTRACTOR',
-          'WASHING',
-          'DORI_PIPING_CONTRACTOR',
-        ];
-        additionalFilters.supplierCategories = { hasSome: processorCategories };
-      } else {
-        // Use 'has' to check if the array contains the specified category
-        additionalFilters.supplierCategories = { has: options.category };
+      // One category or a comma list = suppliers with ANY of them (an Accessories PO asks for Trims and
+      // Packaging suppliers). PROCESSOR is a meta-category matching all processing-related suppliers.
+      const categories = supplierCategoryFilterList(options.category).flatMap((c) =>
+        c === 'PROCESSOR' ? PROCESSOR_CATEGORIES : [c as SupplierCategory]
+      );
+      if (categories.length > 0) {
+        additionalFilters.supplierCategories = { hasSome: Array.from(new Set(categories)) };
       }
     }
 

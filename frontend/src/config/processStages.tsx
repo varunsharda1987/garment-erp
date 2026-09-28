@@ -71,9 +71,9 @@ export const processStages: ProcessStage[] = [
     title: 'Style Creation',
     icon: <Shirt className="h-5 w-5" />,
     category: 'pre-production',
-    description: 'Create complete product specifications with fabrics, trims, and packaging',
+    description: 'Create complete product specifications with fabrics, trims, and accessories (labels + packaging)',
     purpose:
-      'Capture all product specifications - the foundation for everything that follows. Define style details, components, fabrics, trims, value additions, and packaging.',
+      'Capture all product specifications - the foundation for everything that follows. Define style details, components, fabrics, trims, value additions, and accessories (labels + packaging).',
     prerequisites: [
       {
         condition: 'Customers configured',
@@ -124,9 +124,9 @@ export const processStages: ProcessStage[] = [
       'numberOfComponents',
     ],
     tips: [
-      'Use the 5-tab workflow: Basic Details, Fabrics & Components, Trims, Value Additions, Packaging',
+      'Use the 4-tab workflow: Basic Info, Fabrics, Trims & Materials, Accessories (labels + packaging)',
       'Style code is buyer-provided, internal code is auto-generated',
-      'Configure customer accessory presets to auto-populate common trims',
+      "Configure customer accessory presets to auto-populate a buyer's labels and packaging",
     ],
   },
   {
@@ -959,7 +959,7 @@ export const masterDataItems: MasterDataItem[] = [
     path: '/materials/label',
     icon: <Tag className="h-4 w-4" />,
     phase: 'masters',
-    description: 'Configure labels with size variants',
+    description: 'Accessories: configure labels with size variants',
     priority: 12,
   },
   {
@@ -968,7 +968,7 @@ export const masterDataItems: MasterDataItem[] = [
     path: '/materials/packaging',
     icon: <Box className="h-4 w-4" />,
     phase: 'masters',
-    description: 'Define packaging materials (polybags, cartons, hangers)',
+    description: 'Accessories: define packaging materials (polybags, cartons, hangers)',
     priority: 13,
   },
   {

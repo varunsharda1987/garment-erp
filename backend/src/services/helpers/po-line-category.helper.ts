@@ -7,8 +7,11 @@
  * not theirs, so a button on a Lace PO, or a greige with no greige master on a Greige PO, was received
  * and booked NOTHING — no lot, no stock level, and nothing said so (PO form bug hunt #4, 2026-09-28).
  * Every other category books through stock_levels and reaches a trim's lot by the LINE's material, so
- * Trims and General take anything that is not one of those four (labels and packaging included — MRP
- * files them on a Trims PO).
+ * General takes anything that is not one of those four.
+ *
+ * Accessories = labels + packaging, Trims = every other trim, as the Style Form defines them (tab 3
+ * "Trims & Materials", tab 4 "Accessories"). Owner, 2026-09-28: "it has to be same system wide … style
+ * form correctly defines it". So a label goes on an Accessories PO (MRP files it there), never a Trims one.
  *
  * Service lines (serviceType, no material) are not checked here. Categories the rule does not cover —
  * the retired processing / service ones, which no PO can be created with any more — are not checked.
@@ -32,8 +35,13 @@ export interface PoLineMaterialFacts {
 
 /** The four types whose receipt books its lot in its own GRN branch — never on a Trims / General PO. */
 const OWN_LOT_TYPES = new Set(['GREIGE', 'FABRIC', 'LACE', 'THREAD']);
+/** What the Style Form calls Accessories (its tab 4) */
+const ACCESSORY_TYPES = ['LABEL', 'PACKAGING'];
+/** Not trims: the accessories, and machine parts (not garment material at all) */
+const NOT_TRIM_TYPES = new Set([...ACCESSORY_TYPES, 'MACHINE_PART']);
 
 const notOwnLot = (m: PoLineMaterialFacts) => !OWN_LOT_TYPES.has(m.materialType ?? '');
+const isTrim = (m: PoLineMaterialFacts) => notOwnLot(m) && !NOT_TRIM_TYPES.has(m.materialType ?? '');
 const ofType =
   (...types: string[]) =>
   (m: PoLineMaterialFacts) =>
@@ -46,11 +54,12 @@ const CATEGORY_RULE: Partial<Record<POCategory, (m: PoLineMaterialFacts) => bool
   LACE: (m) => m.materialType === 'LACE' && m.laceIsGreige === false,
   GREIGE_LACE: (m) => m.materialType === 'LACE' && m.laceIsGreige === true,
   THREAD: ofType('THREAD'),
-  PACKAGING: ofType('PACKAGING'),
+  ACCESSORIES: ofType(...ACCESSORY_TYPES),
   MACHINE_PART: ofType('MACHINE_PART'),
-  TRIMS: notOwnLot,
+  TRIMS: isTrim,
   GENERAL: notOwnLot,
-  // The specific trim categories the schema still carries (creatable by API, not offered on the page)
+  // The specific categories the schema still carries (creatable by API, not offered on the page)
+  PACKAGING: ofType('PACKAGING'),
   BUTTON: ofType('BUTTON', 'SNAP_BUTTON'),
   ZIPPER: ofType('ZIPPER'),
   ELASTIC: ofType('ELASTIC'),
@@ -63,6 +72,7 @@ const CATEGORY_LABEL: Partial<Record<POCategory, string>> = {
   FABRIC: 'Fabric',
   GREIGE: 'Greige',
   TRIMS: 'Trims',
+  ACCESSORIES: 'Accessories',
   THREAD: 'Thread',
   LACE: 'Lace',
   GREIGE_LACE: 'Greige Lace',
@@ -94,6 +104,9 @@ export function allowedPoCategories(m: PoLineMaterialFacts): POCategory[] {
   return pageFirst.filter((c) => CATEGORY_RULE[c]!(m));
 }
 
+/** "a" or "an" before a word — "an elastic", "an Accessories PO" */
+const article = (word: string) => (/^[aeiou]/i.test(word) ? 'an' : 'a');
+
 /** "a button", "an elastic", "a greige lace", "a greige with no greige master" */
 function describeMaterial(m: PoLineMaterialFacts): string {
   const type = m.materialType ?? 'material';
@@ -106,7 +119,7 @@ function describeMaterial(m: PoLineMaterialFacts): string {
     (type === 'FABRIC' && !m.hasFabricMaster) ||
     (type === 'LACE' && m.laceIsGreige === null);
   if (missingMaster) word += ` with no ${type.toLowerCase()} master`;
-  return `${/^[aeiou]/.test(word) ? 'an' : 'a'} ${word}`;
+  return `${article(word)} ${word}`;
 }
 
 /**
@@ -123,9 +136,10 @@ export function wrongCategoryMessage(
   // Name the page's categories it CAN go on; the API-only trim categories would only confuse
   const onPage = allowedPoCategories(material).filter((c) => MATERIAL_PO_CATEGORIES.includes(c));
   if (onPage.length === 0) {
-    return `${who} — link it to its master before ordering it (it cannot go on a ${label} PO or any other).`;
+    return `${who} — link it to its master before ordering it (it cannot go on ${article(label)} ${label} PO or any other).`;
   }
-  return `${who} — it goes on a ${onPage.map((c) => CATEGORY_LABEL[c]).join(', ')} PO, not a ${label} PO.`;
+  const goesOn = onPage.map((c) => CATEGORY_LABEL[c]).join(', ');
+  return `${who} — it goes on ${article(goesOn)} ${goesOn} PO, not ${article(label)} ${label} PO.`;
 }
 
 /** The rule's facts for these materials, in ONE query. A missing id is simply absent. */

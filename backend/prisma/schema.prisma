@@ -9943,6 +9943,8 @@ enum POCategory {
   GREIGE
   PROCESSING
   TRIMS // Generic trims (legacy, prefer specific type below)
+  /// A style's labels + packaging — Style Form tab 4
+  ACCESSORIES
   THREAD // Thread procurement (cones/spools)
   LACE // Ready lace procurement
   GREIGE_LACE // Greige lace procurement

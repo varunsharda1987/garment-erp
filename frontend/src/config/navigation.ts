@@ -326,6 +326,7 @@ export const NAV_GROUPS: NavGroup[] = [
         keywords: [
           'labels',
           'packaging',
+          'accessories',
           'trims',
           'masters hub',
           'material masters',
@@ -506,14 +507,14 @@ export const SEARCH_ONLY_ITEMS: FlatNavItem[] = [
     permission: 'stockMovements',
     keywords: ['correction', 'adjust', 'write off', 'shrinkage'],
   },
-  // Linked from All Masters (/master-data) — Packaging & Labels category
+  // Linked from All Masters (/master-data) — Accessories category (labels + packaging, as on the Style Form)
   {
     title: 'Labels',
     path: '/materials/label',
     group: 'Materials & Masters',
     iconName: 'Tag',
     permission: 'trimMasters',
-    keywords: ['label master', 'care label', 'brand label', 'tags'],
+    keywords: ['label master', 'care label', 'brand label', 'tags', 'accessories'],
   },
   {
     title: 'Packaging',
@@ -521,7 +522,7 @@ export const SEARCH_ONLY_ITEMS: FlatNavItem[] = [
     group: 'Materials & Masters',
     iconName: 'Box',
     permission: 'trimMasters',
-    keywords: ['packing', 'polybag', 'carton', 'packaging master'],
+    keywords: ['packing', 'polybag', 'carton', 'packaging master', 'accessories'],
   },
   // Linked from Users (/users)
   {

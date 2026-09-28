@@ -376,7 +376,7 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Sewn-in labels appear in Trims; Hangtags/Price tags appear in Accessories
+                    Every label — sewn-in, hangtag or price tag — is an Accessory, not a trim
                   </p>
                 </div>
 

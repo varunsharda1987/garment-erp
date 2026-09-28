@@ -39,14 +39,16 @@ const linked = (materialType: string, over: Partial<PoLineMaterialFacts> = {}): 
 
 /** The contract, written out: what each page category takes */
 const OWN_LOT = ['GREIGE', 'FABRIC', 'LACE', 'THREAD'];
+/** The Style Form's Accessories tab: labels + packaging */
+const ACCESSORIES = ['LABEL', 'PACKAGING'];
 const TAKES: Record<string, (type: string) => boolean> = {
   FABRIC: (t) => t === 'FABRIC',
   GREIGE: (t) => t === 'GREIGE',
-  TRIMS: (t) => !OWN_LOT.includes(t),
+  TRIMS: (t) => !OWN_LOT.includes(t) && !ACCESSORIES.includes(t) && t !== 'MACHINE_PART',
+  ACCESSORIES: (t) => ACCESSORIES.includes(t),
   THREAD: (t) => t === 'THREAD',
   LACE: (t) => t === 'LACE', // finished lace (linked() makes lace finished)
   GREIGE_LACE: () => false, // no finished lace ever goes on it
-  PACKAGING: (t) => t === 'PACKAGING',
   MACHINE_PART: (t) => t === 'MACHINE_PART',
   GENERAL: (t) => !OWN_LOT.includes(t),
 };
@@ -65,10 +67,23 @@ describe('PO line category rule', () => {
     }
   });
 
-  it('keeps labels and packaging on Trims — MRP files them there', () => {
-    expect(fitsPoCategory('TRIMS', linked('LABEL'))).toBe(true);
-    expect(fitsPoCategory('TRIMS', linked('PACKAGING'))).toBe(true);
+  it('puts labels and packaging on Accessories, never Trims — as the Style Form does', () => {
+    expect(fitsPoCategory('ACCESSORIES', linked('LABEL'))).toBe(true);
+    expect(fitsPoCategory('ACCESSORIES', linked('PACKAGING'))).toBe(true);
+    expect(fitsPoCategory('TRIMS', linked('LABEL'))).toBe(false);
+    expect(fitsPoCategory('TRIMS', linked('PACKAGING'))).toBe(false);
+    expect(fitsPoCategory('ACCESSORIES', linked('BUTTON'))).toBe(false);
+    // The API-only categories keep their one type
+    expect(fitsPoCategory('PACKAGING', linked('PACKAGING'))).toBe(true);
     expect(fitsPoCategory('PACKAGING', linked('LABEL'))).toBe(false);
+    expect(fitsPoCategory('LABEL', linked('LABEL'))).toBe(true);
+  });
+
+  it('MRP files a label or a packaging on Accessories — the first category it may go on', () => {
+    expect(allowedPoCategories(linked('LABEL'))[0]).toBe('ACCESSORIES');
+    expect(allowedPoCategories(linked('PACKAGING'))[0]).toBe('ACCESSORIES');
+    expect(allowedPoCategories(linked('BUTTON'))[0]).toBe('TRIMS');
+    expect(allowedPoCategories(linked('MACHINE_PART'))[0]).toBe('MACHINE_PART');
   });
 
   it('greige lace goes on Greige Lace only; finished lace on Lace only', () => {
@@ -85,7 +100,7 @@ describe('PO line category rule', () => {
 
   it('lists the page categories first, in the page order', () => {
     expect(allowedPoCategories(linked('BUTTON')).slice(0, 2)).toEqual(['TRIMS', 'GENERAL']);
-    expect(allowedPoCategories(linked('PACKAGING')).slice(0, 3)).toEqual(['TRIMS', 'PACKAGING', 'GENERAL']);
+    expect(allowedPoCategories(linked('PACKAGING')).slice(0, 3)).toEqual(['ACCESSORIES', 'GENERAL', 'PACKAGING']);
   });
 
   it('does not check a PO with no category, or a retired processing / service one', () => {
@@ -100,6 +115,14 @@ describe('PO line category rule', () => {
       'BTN-0003 Shell Button is a button — it goes on a Trims, General PO, not a Lace PO.'
     );
     expect(wrongCategoryMessage('TRIMS', button)).toBeNull();
+    expect(wrongCategoryMessage('ACCESSORIES', button)).toBe(
+      'BTN-0003 Shell Button is a button — it goes on a Trims, General PO, not an Accessories PO.'
+    );
+
+    const label = { code: 'LBL-0001', name: 'Main Label', ...linked('LABEL') };
+    expect(wrongCategoryMessage('TRIMS', label)).toBe(
+      'LBL-0001 Main Label is a label — it goes on an Accessories, General PO, not a Trims PO.'
+    );
 
     const orphan = { code: 'GRG-0002', name: 'Loose Greige', ...linked('GREIGE', { hasGreigeMaster: false }) };
     expect(wrongCategoryMessage('GREIGE', orphan)).toMatch(/GRG-0002 Loose Greige is a greige with no greige master/);

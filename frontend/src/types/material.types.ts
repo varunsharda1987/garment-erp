@@ -156,6 +156,16 @@ export interface Material {
    * rate for its HSN code; null when it has neither (the PO form then assumes 5% and says so).
    */
   defaultGstRate?: number | null;
+  /**
+   * GET /materials (list) only — who the item is made for, from its type master: customer · brand
+   * ("Kasya · Nihsamah"); null when the master carries neither.
+   */
+  buyerBrand?: string | null;
+  /**
+   * GET /materials (list) only — what tells it apart from its neighbours, from its type master: a label's
+   * category · type · material · colour · size, a carton's type · size · material · thickness… null when blank.
+   */
+  spec?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

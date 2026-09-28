@@ -40,20 +40,26 @@ describe('PO material categories', () => {
     expect(MATERIAL_PO_CATEGORIES).toContain('THREAD');
   });
 
-  it('offer one category per supplier category — Packaging and Machine Parts too, General last', () => {
-    // 7 packaging and 2 machine-part suppliers could not be picked on any PO until 2026-09-28
+  it('split Trims and Accessories as the Style Form does — Machine Parts too, General last', () => {
+    // 2 machine-part suppliers could not be picked on any PO until 2026-09-28. Accessories = labels +
+    // packaging (Style Form tab 4); PACKAGING left the page for it (0 POs used it) but stays creatable.
     expect(MATERIAL_PO_CATEGORIES).toEqual([
       'FABRIC',
       'GREIGE',
       'TRIMS',
+      'ACCESSORIES',
       'THREAD',
       'LACE',
       'GREIGE_LACE',
-      'PACKAGING',
       'MACHINE_PART',
       'GENERAL',
     ]);
     expect(frontendMaterialCategories()).toEqual([...MATERIAL_PO_CATEGORIES]);
+  });
+
+  it('keep PACKAGING creatable by API — a PO made with it stays valid', () => {
+    expect(CREATABLE_PO_CATEGORIES).toContain('PACKAGING');
+    expect(ManualPOCategoryEnum.safeParse('PACKAGING').success).toBe(true);
   });
 
   it('list each creatable category once', () => {

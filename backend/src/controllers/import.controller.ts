@@ -9,6 +9,7 @@ import { cleanupTempFile } from '../middleware/upload.middleware';
 import { randomUUID } from 'crypto';
 import { MASTER_CONFIG } from '../services/helpers/master-config';
 import { materialService } from '../services/material.service';
+import { fillMaterialHsnIfBlank, isMaterialHsn } from '../services/helpers/material-hsn.helper';
 
 /**
  * Helper: Safely get string value from unknown type
@@ -612,17 +613,26 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             categoryId = cat.id;
           }
 
-          await tx.materials.create({
+          // A material's HSN is 6 digits (8 allowed); a blank one is filled from the material type below
+          const rowHsn = getStringValue(row.hsnCode);
+          if (rowHsn && !isMaterialHsn(rowHsn)) {
+            throw new ValidationError(`${getStringValue(row.code)}: HSN code must be 6 digits (8 allowed)`);
+          }
+
+          const created = await tx.materials.create({
             data: {
               ...rowData,
               id: randomUUID(),
               code: getStringValue(row.code),
               name: getStringValue(row.name),
               unit: getStringValue(row.unit),
+              ...(row.hsnCode !== undefined && { hsnCode: rowHsn || null }),
               categoryId,
               isActive: true,
             } as unknown as Prisma.materialsCreateInput,
+            select: { id: true },
           });
+          await fillMaterialHsnIfBlank(created.id, tx);
           count++;
         }
         break;

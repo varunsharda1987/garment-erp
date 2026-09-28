@@ -69,8 +69,15 @@ import { NOT_ORDERED, reconcileRequirementLineage } from './helpers/requirement-
 import { createAuditLog } from './audit.service';
 import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
+import { fillMaterialHsnIfBlank } from './helpers/material-hsn.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
 import { purchaseUnitFor, purchaseUnitPrices, toPurchaseLine, toStockQty } from './helpers/purchase-unit.helper';
+import {
+  allowedPoCategories,
+  assertPoLinesFitCategory,
+  loadPoLineMaterials,
+  wrongCategoryMessage,
+} from './helpers/po-line-category.helper';
 import {
   LABEL_LINE_MATERIAL_INCLUDE,
   LABEL_LINE_MATERIAL_SELECT,
@@ -626,6 +633,8 @@ async function ensureMaterialForLabelSizeVariant(sizeVariantId: string): Promise
         isActive: true,
       },
     });
+    // A new material carries its HSN code from the start (owner, 2026-09-28) — the one writer, blank rows only
+    await fillMaterialHsnIfBlank(material.id);
     console.log(
       `[MRP] Auto-created materials record for label size variant: ${variant.label.labelCode}-${variant.size}`
     );
@@ -760,67 +769,37 @@ function buildGroupKey(req: {
 }
 
 /**
- * Determine POCategory from material types in a PO
- * Uses the majority material type to set category
+ * Which PO each requirement goes on: the page's first category its material fits, by the one PO line rule
+ * (po-line-category.helper) — one query. Refuses, before anything is written, a requirement whose material fits
+ * none (a greige, fabric or lace with no master): a receipt could book it nowhere.
  */
-function determinePOCategoryFromMaterials(materials: Array<{ materialType: string | null }>): POCategory {
-  const typeMapping: Record<string, POCategory> = {
-    // Fabric types
-    FABRIC: POCategory.FABRIC,
-    GREIGE: POCategory.GREIGE,
-    // Lace types
-    LACE: POCategory.LACE,
-    GREIGE_LACE: POCategory.GREIGE_LACE,
-    // Trim types (all map to TRIMS)
-    BUTTON: POCategory.TRIMS,
-    THREAD: POCategory.THREAD,
-    ELASTIC: POCategory.TRIMS,
-    LABEL: POCategory.TRIMS,
-    ZIPPER: POCategory.TRIMS,
-    PACKAGING: POCategory.TRIMS,
-    INTERLINING: POCategory.TRIMS,
-    TAPE: POCategory.TRIMS,
-    CORD: POCategory.TRIMS,
-    HOOK_EYE: POCategory.TRIMS,
-    SNAP_BUTTON: POCategory.TRIMS,
-    BUCKLE: POCategory.TRIMS,
-    BELT: POCategory.TRIMS,
-    VELCRO: POCategory.TRIMS,
-    DRAWSTRING: POCategory.TRIMS,
-    RIBBON: POCategory.TRIMS,
-    SEQUIN: POCategory.TRIMS,
-    BEAD: POCategory.TRIMS,
-    MOTIF: POCategory.TRIMS,
-    PADDING: POCategory.TRIMS,
-    OTHER_FASTENER: POCategory.TRIMS,
-    OTHER_TAPE: POCategory.TRIMS,
-    OTHER_DECORATIVE: POCategory.TRIMS,
-    OTHER_FUNCTIONAL: POCategory.TRIMS,
-    OTHER_MATERIAL: POCategory.TRIMS,
-    TRIMS: POCategory.TRIMS,
-    ACCESSORIES: POCategory.TRIMS,
-    GENERIC: POCategory.TRIMS,
-    OTHER: POCategory.TRIMS,
-  };
-
-  // Count material types
-  const typeCounts = new Map<POCategory, number>();
-  for (const mat of materials) {
-    const category = typeMapping[mat.materialType || ''] || POCategory.GENERAL;
-    typeCounts.set(category, (typeCounts.get(category) || 0) + 1);
-  }
-
-  // Return the most common category
-  let maxCount = 0;
-  let dominantCategory: POCategory = POCategory.GENERAL;
-  for (const [category, count] of typeCounts) {
-    if (count > maxCount) {
-      maxCount = count;
-      dominantCategory = category;
+async function poCategoryByRequirement(
+  requirements: ReadonlyArray<{ id: string; requirementNumber: string; materialId: string }>
+): Promise<Map<string, POCategory>> {
+  const materials = await loadPoLineMaterials(requirements.map((r) => r.materialId));
+  const out = new Map<string, POCategory>();
+  const refused: Array<{ materialId: string; message: string }> = [];
+  for (const req of requirements) {
+    const material = materials.get(req.materialId);
+    const category = material ? (allowedPoCategories(material)[0] ?? null) : null;
+    if (category) {
+      out.set(req.id, category);
+      continue;
     }
+    const why = material ? wrongCategoryMessage(material.materialType, material) : null;
+    refused.push({
+      materialId: req.materialId,
+      message: `${req.requirementNumber}: ${why ?? 'its material was not found'}`,
+    });
   }
-
-  return dominantCategory;
+  if (refused.length > 0) {
+    const more = refused.length > 1 ? ` (and ${refused.length - 1} more)` : '';
+    throw new BusinessError(`${refused[0].message}${more}`, {
+      code: 'PO_LINE_WRONG_CATEGORY',
+      materialIds: refused.map((r) => r.materialId),
+    });
+  }
+  return out;
 }
 
 /**
@@ -3570,6 +3549,8 @@ export async function generatePOFromRequirements(
 ): Promise<{
   // Phase 4c: PROCESSING requirements return a jobWorkOrder and purchaseOrder: null
   purchaseOrder: { id: string; poNumber: string; totalAmount: number } | null;
+  /** Every PO raised — more than one when the selected materials go on different PO categories (lace + buttons) */
+  purchaseOrders?: Array<{ id: string; poNumber: string; totalAmount: number }>;
   jobWorkOrder?: { id: string; jobWorkNumber: string; totalAmount: number };
   /** Every job raised — more than one when the selected lines carry different rates */
   jobWorkOrders?: Array<{ id: string; jobWorkNumber: string; totalAmount: number }>;
@@ -3717,6 +3698,10 @@ export async function generatePOFromRequirements(
         `Purchase Order — select one type at a time.`
     );
   }
+
+  // The PO category each material requirement goes on (PROCESSING ones have none — they raise a job work
+  // order). A material that fits no category is refused here, before anything is priced or written.
+  const categoryOf = await poCategoryByRequirement(requirements.filter((r) => r.requirementType !== 'PROCESSING'));
 
   // Look up supplier prices from material_suppliers (UUID-based)
   const materialIds = [...new Set(requirements.map((r) => r.materialId))];
@@ -4033,14 +4018,33 @@ export async function generatePOFromRequirements(
     }
   }
 
-  // Determine PO category from material types (material POs only — PROCESSING
-  // requirements return early below with a JWO and never reach the PO create)
-  const materialTypes = requirements.map((req) => ({
-    materialType: req.materials?.materialType || null,
-  }));
-  const poCategory = determinePOCategoryFromMaterials(materialTypes);
-  // Greige (or greige lace — a LACE PO) is delivered straight to the dyer that processes it: one dyer → its
-  // unit; several dyers → one delivery point each (4f); a requirement with no dyer yet → "to be advised".
+  // One PO per category. The GRN books a line by its PO's category, and a greige, fabric, lace or thread PO
+  // books only its own material (po-line-category.helper): the majority vote this used to take put 2 laces +
+  // 1 button on one Lace PO whose button booked nothing on receipt, and a greige lace on a Lace PO. Split the
+  // selection by the category each material goes on and raise each group through this same path — after the
+  // checks above, so a refused selection still writes nothing.
+  const byCategory = new Map<POCategory, string[]>();
+  for (const req of requirements) {
+    const category = categoryOf.get(req.id);
+    if (category) byCategory.set(category, [...(byCategory.get(category) ?? []), req.id]);
+  }
+  if (byCategory.size > 1) {
+    const results = [];
+    for (const ids of byCategory.values()) {
+      results.push(await generatePOFromRequirements({ ...data, requirementIds: ids }, userId));
+    }
+    const purchaseOrders = results.flatMap((r) => r.purchaseOrders ?? (r.purchaseOrder ? [r.purchaseOrder] : []));
+    return {
+      purchaseOrder: purchaseOrders[0] ?? null,
+      purchaseOrders,
+      linkedRequirements: results.reduce((sum, r) => sum + r.linkedRequirements, 0),
+      totalItems: results.reduce((sum, r) => sum + r.totalItems, 0),
+    };
+  }
+  // The one category this PO goes on (none for PROCESSING — those return below with a job work order)
+  const poCategory = [...byCategory.keys()][0] ?? null;
+  // Greige (or greige lace — a GREIGE_LACE PO) is delivered straight to the dyer that processes it: one dyer →
+  // its unit; several dyers → one delivery point each (4f); a requirement with no dyer yet → "to be advised".
   // The PO page can change it.
   const requirementUnits =
     poCategory === POCategory.GREIGE || poCategory === POCategory.GREIGE_LACE || poCategory === POCategory.LACE
@@ -4428,6 +4432,9 @@ export async function generatePOFromRequirements(
 
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
+    // Every line belongs on this PO's category — the rule every PO writer shares
+    await assertPoLinesFitCategory(poCategory, poItems, tx);
+
     // Atomic sequence inside the creating tx (bug-hunt procurement-9: generateCode was
     // read-max+1 on a separate PrismaClient with a silent timestamp fallback)
     const poNumber = await generateAtomicPONumberInTx(tx);
@@ -4723,12 +4730,14 @@ export async function generatePOFromRequirements(
     return { po, linkedCount, itemCount: itemsWithGst.length };
   });
 
+  const purchaseOrder = {
+    id: result.po.id,
+    poNumber: result.po.poNumber,
+    totalAmount: Number(result.po.totalAmount || 0),
+  };
   return {
-    purchaseOrder: {
-      id: result.po.id,
-      poNumber: result.po.poNumber,
-      totalAmount: Number(result.po.totalAmount || 0),
-    },
+    purchaseOrder,
+    purchaseOrders: [purchaseOrder],
     linkedRequirements: result.linkedCount,
     totalItems: result.itemCount,
   };
@@ -5528,7 +5537,7 @@ export async function groupRequirementsBySupplier(requirementIds: string[]): Pro
 
 /**
  * Generate multiple Purchase Orders from grouped requirements
- * Creates one PO per supplier in a single transaction
+ * One PO per supplier and PO category (job work: one per rate), each in its own transaction
  */
 export async function generatePOsBySupplier(
   groups: Array<{
@@ -5599,12 +5608,14 @@ export async function generatePOsBySupplier(
           totalAmount: jwo.totalAmount ?? 0,
         });
       }
-      if (result.purchaseOrder) {
+      // More than one PO when the supplier's materials go on different PO categories (lace + buttons)
+      const supplierPOs = result.purchaseOrders ?? (result.purchaseOrder ? [result.purchaseOrder] : []);
+      for (const po of supplierPOs) {
         purchaseOrders.push({
-          id: result.purchaseOrder.id,
-          poNumber: result.purchaseOrder.poNumber,
+          id: po.id,
+          poNumber: po.poNumber,
           supplierId: group.supplierId,
-          totalAmount: result.purchaseOrder.totalAmount ?? 0,
+          totalAmount: po.totalAmount ?? 0,
         });
       }
 
@@ -5612,7 +5623,7 @@ export async function generatePOsBySupplier(
 
       console.log('[MRP] Document generated for supplier', {
         supplierId: group.supplierId,
-        document: result.purchaseOrder?.poNumber ?? result.jobWorkNumber,
+        document: supplierPOs.length > 0 ? supplierPOs.map((po) => po.poNumber).join(', ') : result.jobWorkNumber,
         requirements: result.linkedRequirements,
       });
     } catch (error) {

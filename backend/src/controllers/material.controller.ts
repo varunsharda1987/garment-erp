@@ -28,10 +28,12 @@ import { NotFoundError, ValidationError, ConflictError } from '../errors';
 import { normalizeId, isUUID } from '../utils/id-helper';
 import { applySearch } from '../utils/search-filter';
 import type { Unit } from '../schemas/generated/prisma-enums';
+import { attachMaterialDetails } from '../services/helpers/material-detail.helper';
 import { materialUsage } from '../services/helpers/material-unit.helper';
 import { purchaseUnitFor } from '../services/helpers/purchase-unit.helper';
 import { gstService } from '../services/gst.service';
 import { unitLabel } from '../utils/units';
+import { fillMaterialHsnIfBlank } from '../services/helpers/material-hsn.helper';
 
 // ============================================
 // Types for Material Controller
@@ -134,6 +136,9 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
     },
   });
 
+  // Every material carries an HSN from the day it is made — none typed = the one its type proposes
+  if (!material.hsnCode) material.hsnCode = await fillMaterialHsnIfBlank(material.id);
+
   res.status(201).json({
     data: material,
     message: 'Material created successfully',
@@ -204,22 +209,29 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   //
   // A label or packaging item with NO supplier on its page yet is offered for every supplier, so the PO
   // chooses who makes it (owner, 2026-09-26: Liva Tag had no supplier and could not be put on any PO).
-  // One set up for a supplier stays with its own suppliers. Only on a Trims PO or an unfiltered (General)
-  // one — the categories labels go on — never on a Greige or Fabric PO.
-  const onTrimsPo = materialTypes.length === 0 || materialTypes.includes('TRIMS');
+  // One set up for a supplier stays with its own suppliers. Labels and packaging are ACCESSORIES (owner
+  // 2026-09-28: the Style Form's definition, system-wide), so only a PO that takes them — Accessories,
+  // General, or an unfiltered list — offers them; a Trims PO no longer does.
+  const ACCESSORY_TYPES = ['LABEL', 'PACKAGING'];
+  const takesAccessories = materialTypes.length === 0 || materialTypes.some((t) => ACCESSORY_TYPES.includes(t));
   const supplierLinked: Prisma.materialsWhereInput[] = [
     { suppliers: { some: { supplierId, isActive: true } } },
-    { label_master: { labelSuppliers: { some: { supplierId, isActive: true } } } },
-    { packaging_master: { packaging_suppliers: { some: { supplierId, isActive: true } } } },
-    ...(onTrimsPo
+    ...(takesAccessories
       ? [
+          { label_master: { labelSuppliers: { some: { supplierId, isActive: true } } } },
+          { packaging_master: { packaging_suppliers: { some: { supplierId, isActive: true } } } },
           { label_master: { is: { isActive: true, labelSuppliers: { none: { isActive: true } } } } },
           { packaging_master: { is: { isActive: true, packaging_suppliers: { none: { isActive: true } } } } },
         ]
       : []),
   ];
+  // Accessories come by supplier (its own + the unassigned), never "every label there is"
+  const otherTypes = materialTypes.filter((t) => !ACCESSORY_TYPES.includes(t));
   if (supplierId && materialTypes.length > 0) {
-    whereClause.OR = [...supplierLinked, { materialType: { in: materialTypes as any[] } }];
+    whereClause.OR = [...supplierLinked, ...(otherTypes.length ? [{ materialType: { in: otherTypes as any[] } }] : [])];
+    // Only what this PO's category can take (po-line-category.helper refuses the rest) — a supplier's
+    // greige no longer shows on its Lace PO
+    whereClause.materialType = { in: materialTypes as any[] };
   } else if (supplierId) {
     whereClause.OR = supplierLinked;
   } else if (materialTypes.length > 0) {
@@ -428,7 +440,8 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   });
 
   res.json({
-    data: transformedMaterials,
+    // Quick Add's second line: buyer / brand and the master's own facts (size, material, colour…)
+    data: await attachMaterialDetails(transformedMaterials),
     pagination: {
       page,
       limit,
@@ -662,6 +675,9 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
       },
     },
   });
+
+  // Cleared, or never had one: back to the code its type proposes
+  if (!material.hsnCode) material.hsnCode = await fillMaterialHsnIfBlank(material.id);
 
   res.json({
     data: material,

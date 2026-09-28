@@ -4,6 +4,7 @@ import {
   normalizeUnit,
   purchaseUnitOf,
   unitHeader,
+  unitPer,
   unitShort,
   unitWord,
 } from '@/lib/units';
@@ -182,10 +183,11 @@ const PO_CATEGORY_TO_SUPPLIER_CATEGORY: Record<string, string | undefined> = {
   FABRIC: 'FABRIC_SUPPLIER',
   GREIGE: 'GREIGE_SUPPLIER',
   TRIMS: 'TRIMS_SUPPLIER',
+  // Label makers are tagged Trims suppliers, carton makers Packaging — either sells accessories (any-of list)
+  ACCESSORIES: 'TRIMS_SUPPLIER,PACKAGING_SUPPLIER',
   THREAD: 'THREAD_SUPPLIER',
   LACE: 'LACE_SUPPLIER',
   GREIGE_LACE: 'LACE_SUPPLIER',
-  PACKAGING: 'PACKAGING_SUPPLIER',
   MACHINE_PART: 'MACHINE_PARTS_SUPPLIER',
   PROCESSING: 'DYEING_PRINTING',
   LACE_PROCESSING: 'DYEING_PRINTING',
@@ -216,15 +218,14 @@ const PO_CATEGORY_TO_SERVICE_TYPE: Record<string, string> = {
 // PO Category → Material Types mapping — the server's rule for which materials a category takes
 // (po-line-category.helper). Used to show materials matching the PO category type (OR-combined with supplier filter).
 // Greige, fabric, lace and thread each have their own lot branch on the GRN, so only their own category takes
-// them; Trims and General take anything else.
+// them; General takes anything else. Trims and Accessories split as the Style Form splits them (owner,
+// 2026-09-28): labels and packaging are Accessories, every other trim is Trims.
 const OWN_LOT_MATERIAL_TYPES: readonly string[] = ['GREIGE', 'FABRIC', 'LACE', 'THREAD'];
 const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
   GREIGE: ['GREIGE'],
   FABRIC: ['FABRIC'],
-  // Labels go on a Trims PO; packaging has its own category (a Trims PO still takes it — MRP files it there)
   TRIMS: [
     'TRIMS',
-    'LABEL',
     'BUTTON',
     'ZIPPER',
     'ELASTIC',
@@ -245,10 +246,10 @@ const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
     'OTHER_DECORATIVE',
     'OTHER_FUNCTIONAL',
   ],
+  ACCESSORIES: ['LABEL', 'PACKAGING'],
   THREAD: ['THREAD'],
   LACE: ['LACE'],
   GREIGE_LACE: ['LACE'],
-  PACKAGING: ['PACKAGING'],
   MACHINE_PART: ['MACHINE_PART'],
   // Every type a General PO takes — so it really lists them all, not just the supplier's linked ones
   GENERAL: Object.values(MaterialType).filter((t) => !OWN_LOT_MATERIAL_TYPES.includes(t)),
@@ -261,12 +262,14 @@ const PO_CATEGORY_LACE_KIND: Record<string, 'GREIGE' | 'FINISHED' | undefined> =
 };
 
 /**
- * The PO category a style's BOM line is bought on (the server's rule): lace on Lace, thread on Thread, packaging
- * on Packaging, greige on Greige, fabric on Fabric, every other trim on Trims. A greige lace goes on Greige Lace.
+ * The PO category a style's BOM line is bought on (the server's rule): lace on Lace, thread on Thread, labels and
+ * packaging on Accessories, greige on Greige, fabric on Fabric, every other trim on Trims. A greige lace goes on
+ * Greige Lace.
  */
 function poCategoryForMaterialType(materialType: string, laceKind?: 'GREIGE' | 'FINISHED' | null): string {
   if (materialType === 'LACE' && laceKind === 'GREIGE') return 'GREIGE_LACE';
-  if (['LACE', 'THREAD', 'PACKAGING', 'GREIGE', 'FABRIC'].includes(materialType)) return materialType;
+  if (['LACE', 'THREAD', 'GREIGE', 'FABRIC'].includes(materialType)) return materialType;
+  if (materialType === 'LABEL' || materialType === 'PACKAGING') return 'ACCESSORIES';
   return 'TRIMS';
 }
 
@@ -293,6 +296,9 @@ interface Material {
   gstRate?: number | null;
   /** The material's GST rate — its own, else its HSN's; null = no HSN on file */
   defaultGstRate?: number | null;
+  /** From its type master: who it is made for ("Kasya · Nihsamah") and what tells it apart (Hang tag · Paper…) */
+  buyerBrand?: string | null;
+  spec?: string | null;
   // A label with sizes arrives as its base row (id === labelId) plus one row per size
   labelId?: string | null;
   sizeVariantId?: string | null;
@@ -382,6 +388,19 @@ function taxOf(
     gstRate: material.defaultGstRate != null ? Number(material.defaultGstRate) : DEFAULT_GST_RATE,
     gstAssumed: material.defaultGstRate == null,
   };
+}
+
+/**
+ * A picker row's second line: who it is for · what tells it apart · the rate a line starts at, per the unit it is
+ * bought in ("₹18.00 / gross" for a button) — so two "Hang Tag" rows, or a Kasya and a Nihsamah carton, can be
+ * told apart before one is added.
+ */
+function materialDetail(material: Material): string {
+  const rate = material.purchaseUnit ? material.purchaseUnitPrice : material.costPerUnit;
+  const unit = material.purchaseUnit || material.unit;
+  return [material.buyerBrand, material.spec, rate ? `${formatCurrency(rate)} / ${unitPer(unit)}` : null]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 /** A line's GST — its own rate on its own amount. Every total on the page adds these up; none averages rates. */
@@ -1292,17 +1311,18 @@ export default function PurchaseOrderForm() {
   // The style's label set (Materials Required → Labels)
   // ============================================
 
-  // Labels go on a Trims PO. An empty or still-empty other category is switched; one with lines is not touched.
+  // Labels go on an Accessories PO (a style's labels + packaging, as on the Style Form). An empty other category is switched; one with
+  // lines is not touched.
   const openLabelSet = (onlyLabelIds: string[] | null) => {
-    if (poCategory !== 'TRIMS' && poCategory !== 'GENERAL') {
+    if (poCategory !== 'ACCESSORIES') {
       if (items.length > 0) {
         handleApiError(
-          new Error('Labels go on a Trims PO — this PO already has other lines. Start a new PO for the labels.'),
+          new Error('Labels go on an Accessories PO — this PO already has other lines. Start a new PO for the labels.'),
           'Cannot add labels here'
         );
         return;
       }
-      handleCategoryChange('TRIMS');
+      handleCategoryChange('ACCESSORIES');
     }
     setLabelSetOnly(onlyLabelIds);
     setLabelSetOpen(true);
@@ -2188,22 +2208,23 @@ export default function PurchaseOrderForm() {
     setDuplicateResult(null);
   };
 
+  // Found by code, name, buyer / brand or spec — typing "Kasya" or "carton" finds them
   const filteredMaterials = pickerMaterials.filter((m) => {
     const { code, name } = labelDisplay(m);
-    return (
-      code.toLowerCase().includes(materialSearch.toLowerCase()) ||
-      name.toLowerCase().includes(materialSearch.toLowerCase())
-    );
+    const search = materialSearch.toLowerCase();
+    return [code, name, m.buyerBrand, m.spec].some((text) => text?.toLowerCase().includes(search));
   });
 
-  // Material options for Quick Add Combobox (a sized label is one option, "· 7 sizes")
+  // Material options for Quick Add Combobox (a sized label is one option, "· 7 sizes"); the second line says who
+  // it is for, its spec and its rate
   const materialOptions: ComboboxOption[] = pickerMaterials.map((m) => {
     const { code, name } = labelDisplay(m);
     const sized = sizedRowsOf(m);
     return {
       value: m.id,
       label: `${code} - ${name}${sized ? ` · ${sized.length} sizes` : ''}`,
-      searchText: `${code} ${name} ${m.materialType || ''}`,
+      description: materialDetail(m) || undefined,
+      searchText: `${code} ${name} ${m.materialType || ''} ${m.buyerBrand || ''} ${m.spec || ''}`,
     };
   });
 
@@ -2239,11 +2260,9 @@ export default function PurchaseOrderForm() {
   const shortcutBlockedOn = (category: string) =>
     isEditMode && category !== poCategory ? (PO_CATEGORY_LABELS[poCategory] ?? poCategory) : null;
   const shortcutLabel = (category: string) => `${(PO_CATEGORY_LABELS[category] ?? category).toUpperCase()} PO`;
-  // Labels go on a Trims (or General) PO
+  // Labels go on an Accessories PO
   const labelsBlockedOn =
-    isEditMode && poCategory !== 'TRIMS' && poCategory !== 'GENERAL'
-      ? (PO_CATEGORY_LABELS[poCategory] ?? poCategory)
-      : null;
+    isEditMode && poCategory !== 'ACCESSORIES' ? (PO_CATEGORY_LABELS[poCategory] ?? poCategory) : null;
 
   // The split places, in order, with their names — for the Delivery Details card and the preview
   const splitPlaces = splitPoints
@@ -2561,10 +2580,10 @@ export default function PurchaseOrderForm() {
                   );
                 })()}
 
-                {/* Trims Section — the style's trims (its Trims & Materials tab); labels and packaging have their own */}
+                {/* Trims Section — the style's trims (its Trims & Materials tab); labels and packaging are Accessories */}
                 {styleBOMData &&
                   (() => {
-                    // Labels have their own section below (ordered as a set, size by size)
+                    // Labels are in the Accessories section below (ordered as a set, size by size)
                     const allTrims = [
                       ...styleBOMData.materialBOM.garmentTrims,
                       ...styleBOMData.materialBOM.valueAdditions,
@@ -2618,72 +2637,64 @@ export default function PurchaseOrderForm() {
                     );
                   })()}
 
-                {/* Labels Section — the style's label set, ordered together or one label at a time */}
-                {currentLabelSet && currentLabelSet.labels.length > 0 && (
-                  <div className="p-3 border rounded-lg">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <span className="text-lg">🏷️</span> Labels
-                        <Badge variant="secondary" className="text-xs">
-                          {currentLabelSet.labels.length} labels
-                        </Badge>
-                        {currentLabelSet.order && (
-                          <span className="text-xs text-muted-foreground">
-                            sizes from {currentLabelSet.order.orderNumber}
-                          </span>
-                        )}
-                      </h4>
-                      <StyleShortcut
-                        variant="default"
-                        blockedOn={labelsBlockedOn}
-                        target={PO_CATEGORY_LABELS.LABEL}
-                        onClick={() => openLabelSet(null)}
-                      >
-                        Order label set…
-                      </StyleShortcut>
-                    </div>
-                    <div className="space-y-2">
-                      {currentLabelSet.labels.map((l) => (
-                        <div
-                          key={l.labelId}
-                          className="p-2 bg-muted/30 rounded border flex items-center justify-between gap-4"
-                        >
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{l.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {l.code} | {l.quantityPerGarment}/garment
-                              {l.sizes.length > 0 ? ` · ${l.sizes.length} sizes` : ''} ·{' '}
-                              {l.supplierLinks.length > 0
-                                ? l.supplierLinks.map((sl) => sl.supplierName).join(', ')
-                                : 'no supplier on its Label page'}
-                            </p>
-                          </div>
-                          <StyleShortcut
-                            blockedOn={labelsBlockedOn}
-                            target={PO_CATEGORY_LABELS.LABEL}
-                            onClick={() => openLabelSet([l.labelId])}
-                          >
-                            {l.sizes.length > 0 ? 'Sizes…' : 'Add'}
-                          </StyleShortcut>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Accessories Section — the style's Accessories tab: its labels (ordered together as a set, or one
+                    label at a time), then its packaging. Both go on an Accessories PO. */}
+                {(() => {
+                  const labels = currentLabelSet?.labels ?? [];
+                  const packaging = styleBOMData ? styleBOMData.materialBOM.packaging.filter((i) => !i.labelId) : [];
+                  if (labels.length === 0 && packaging.length === 0) return null;
 
-                {/* Packaging Section */}
-                {styleBOMData && styleBOMData.materialBOM.packaging.filter((i) => !i.labelId).length > 0 && (
-                  <div className="p-3 border rounded-lg">
-                    <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                      <span className="text-lg">📦</span> Packaging
-                      <Badge variant="secondary" className="text-xs">
-                        {styleBOMData.materialBOM.packaging.filter((i) => !i.labelId).length} items
-                      </Badge>
-                    </h4>
-                    <div className="space-y-2">
-                      {styleBOMData.materialBOM.packaging
-                        .filter((i) => !i.labelId)
-                        .map((item: StyleBOMEntry) => {
+                  return (
+                    <div className="p-3 border rounded-lg">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <h4 className="text-sm font-medium flex items-center gap-2">
+                          <span className="text-lg">🏷️</span> Accessories
+                          <Badge variant="secondary" className="text-xs">
+                            {labels.length + packaging.length} items
+                          </Badge>
+                          {labels.length > 0 && currentLabelSet?.order && (
+                            <span className="text-xs text-muted-foreground">
+                              label sizes from {currentLabelSet.order.orderNumber}
+                            </span>
+                          )}
+                        </h4>
+                        {labels.length > 0 && (
+                          <StyleShortcut
+                            variant="default"
+                            blockedOn={labelsBlockedOn}
+                            target={PO_CATEGORY_LABELS.ACCESSORIES}
+                            onClick={() => openLabelSet(null)}
+                          >
+                            Order label set…
+                          </StyleShortcut>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        {labels.map((l) => (
+                          <div
+                            key={l.labelId}
+                            className="p-2 bg-muted/30 rounded border flex items-center justify-between gap-4"
+                          >
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">{l.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {l.code} | {l.quantityPerGarment}/garment
+                                {l.sizes.length > 0 ? ` · ${l.sizes.length} sizes` : ''} ·{' '}
+                                {l.supplierLinks.length > 0
+                                  ? l.supplierLinks.map((sl) => sl.supplierName).join(', ')
+                                  : 'no supplier on its Label page'}
+                              </p>
+                            </div>
+                            <StyleShortcut
+                              blockedOn={labelsBlockedOn}
+                              target={PO_CATEGORY_LABELS.ACCESSORIES}
+                              onClick={() => openLabelSet([l.labelId])}
+                            >
+                              {l.sizes.length > 0 ? 'Sizes…' : 'Add'}
+                            </StyleShortcut>
+                          </div>
+                        ))}
+                        {packaging.map((item: StyleBOMEntry) => {
                           const qtyPerGarment = parseFloat(item.quantityPerGarment) || 0;
                           const needed = bomNeeded(item);
                           const category = poCategoryForMaterialType(item.materialType, item.laceKind);
@@ -2714,9 +2725,10 @@ export default function PurchaseOrderForm() {
                             </div>
                           );
                         })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* No materials found */}
                 {!styleCADData?.cadRows?.length && !styleBOMData?.materialBOM && (
@@ -2774,6 +2786,10 @@ export default function PurchaseOrderForm() {
                         {PO_CATEGORY_LABELS[cat] || cat}
                       </SelectItem>
                     ))}
+                    {/* A saved PO keeps a category no longer offered (Packaging, before Accessories) — still named */}
+                    {isEditMode && poCategory && !PO_GROUP_CATEGORIES.material.includes(poCategory) && (
+                      <SelectItem value={poCategory}>{PO_CATEGORY_LABELS[poCategory] ?? poCategory}</SelectItem>
+                    )}
                   </SelectGroup>
                 </SelectContent>
               </Select>
@@ -2788,8 +2804,8 @@ export default function PurchaseOrderForm() {
                 placeholder={poCategory ? 'Select a supplier...' : 'Select a category first...'}
                 disabled={!poCategory}
                 categoryFilter={PO_CATEGORY_TO_SUPPLIER_CATEGORY[poCategory]}
-                // The PO's own supplier shows even when it is outside this category's list (an MRP Trims PO from
-                // a packaging supplier)
+                // The PO's own supplier shows even when it is outside this category's list (an older Trims PO of
+                // cartons from a packaging supplier)
                 selectedSupplier={selectedSupplier}
               />
             </div>
@@ -3582,6 +3598,7 @@ export default function PurchaseOrderForm() {
                       {filteredMaterials.slice(0, materialDisplayLimit).map((material) => {
                         const { code, name } = labelDisplay(material);
                         const sized = sizedRowsOf(material);
+                        const detail = materialDetail(material);
                         const added = sized
                           ? items.some((i) => sized.some((r) => r.id === i.materialId))
                           : items.some((i) => i.materialId === material.id);
@@ -3593,6 +3610,7 @@ export default function PurchaseOrderForm() {
                               {sized && (
                                 <span className="ml-1 text-xs text-muted-foreground">· {sized.length} sizes</span>
                               )}
+                              {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
                             </TableCell>
                             <TableCell>{material.materialType}</TableCell>
                             <TableCell>{unitShort(material.unit || '-')}</TableCell>

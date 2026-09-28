@@ -8,9 +8,9 @@
  *
  * Asserts, on tagged fixtures linked through `label_suppliers` ONLY:
  *  - supplier filter → the base row and every size row, each size row naming its size;
- *  - supplier + TRIMS types (the PO form's TRIMS category, which has no LABEL) → the same;
+ *  - supplier + ACCESSORIES types (labels + packaging, owner 2026-09-28) → the same; a Trims PO offers no label;
  *  - another supplier's label is not offered;
- *  - a label with NO supplier is offered for every supplier on a Trims / General PO, never on a Greige one;
+ *  - a label with NO supplier is offered for every supplier on an Accessories / General PO, never on a Trims or Greige one;
  *  - a material linked through material_suppliers is still offered (the existing path);
  *  - Assign Vendors suggests the label's supplier for every size (vendor-suggestion.service).
  */
@@ -24,8 +24,9 @@ import { suggestVendorForMaterial } from '../../services/vendor-suggestion.servi
 
 const RUN = `MPLS${Date.now().toString(36).toUpperCase()}`;
 const SIZES = ['S', 'M', 'L'];
-// The PO form's TRIMS category types (PurchaseOrderForm.tsx) — LABEL is deliberately not among them
+// The PO form's category types (PurchaseOrderForm.tsx): labels + packaging are Accessories, not trims
 const TRIMS_TYPES = 'TRIMS,BUTTON,ZIPPER,ELASTIC';
+const ACCESSORY_TYPES = 'LABEL,PACKAGING';
 
 let authHeader: Record<string, string>;
 let testUserId: string;
@@ -169,11 +170,15 @@ describe('PO material picker — label suppliers', () => {
     expect(rows.find((r) => r.code === `${RUN}-LBL`)?.labelSizeVariant ?? null).toBeNull();
   });
 
-  it('offers them too in the TRIMS category, whose type list has no LABEL', async () => {
-    const codes = (await pickerCodes({ supplierId, materialTypes: TRIMS_TYPES })).map((r) => r.code);
-    for (const code of [`${RUN}-LBL`, ...SIZES.map((s) => `${RUN}-LBL-${s}`), `${RUN}-GEN`]) {
+  it('offers them in the ACCESSORIES category, and a Trims PO offers no label at all', async () => {
+    const codes = (await pickerCodes({ supplierId, materialTypes: ACCESSORY_TYPES })).map((r) => r.code);
+    for (const code of [`${RUN}-LBL`, ...SIZES.map((s) => `${RUN}-LBL-${s}`)]) {
       expect(codes).toContain(code);
     }
+    // Only what the category takes — the supplier's generic item is not a label either
+    expect(codes).not.toContain(`${RUN}-GEN`);
+    const trims = (await pickerCodes({ supplierId, materialTypes: TRIMS_TYPES })).map((r) => r.code);
+    expect(trims.filter((c) => c.startsWith(`${RUN}-LBL`) || c.startsWith(`${RUN}-FREE`))).toEqual([]);
   });
 
   it("does not offer another supplier's label", async () => {
@@ -182,18 +187,18 @@ describe('PO material picker — label suppliers', () => {
     expect(codes).not.toContain(`${RUN}-OTH-S`);
   });
 
-  it('offers a label with no supplier yet to every supplier on a Trims PO, but not on a Greige PO', async () => {
+  it('offers a label with no supplier yet to every supplier on an Accessories PO, but not on a Greige PO', async () => {
     for (const s of [supplierId, otherSupplierId]) {
-      const codes = (await pickerCodes({ supplierId: s, materialTypes: TRIMS_TYPES })).map((r) => r.code);
+      const codes = (await pickerCodes({ supplierId: s, materialTypes: ACCESSORY_TYPES })).map((r) => r.code);
       expect(codes).toContain(`${RUN}-FREE`);
       expect(codes).toContain(`${RUN}-FREE-S`);
     }
     const greige = (await pickerCodes({ supplierId, materialTypes: 'GREIGE' })).map((r) => r.code);
     expect(greige).not.toContain(`${RUN}-FREE`);
     expect(greige).not.toContain(`${RUN}-FREE-S`);
-    // a label set up for supplier B stays with B, even on a Trims PO
-    const trimsA = (await pickerCodes({ supplierId, materialTypes: TRIMS_TYPES })).map((r) => r.code);
-    expect(trimsA).not.toContain(`${RUN}-OTH`);
+    // a label set up for supplier B stays with B, even on an Accessories PO
+    const accessoriesA = (await pickerCodes({ supplierId, materialTypes: ACCESSORY_TYPES })).map((r) => r.code);
+    expect(accessoriesA).not.toContain(`${RUN}-OTH`);
   });
 
   it("suggests the label's supplier for every size, with high confidence (Assign Vendors)", async () => {

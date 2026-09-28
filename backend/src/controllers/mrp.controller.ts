@@ -242,8 +242,13 @@ export const generatePO = async (req: Request, res: Response): Promise<void> => 
     success: true,
     data: result,
     // Phase 4c: PROCESSING requirements produce a Job Work Order instead of a PO
+    // One PO per category: lace and buttons from one supplier are two POs
     message: result.purchaseOrder
-      ? `Purchase Order ${result.purchaseOrder.poNumber} created with ${result.totalItems} items`
+      ? `${(result.purchaseOrders ?? [result.purchaseOrder]).length > 1 ? 'Purchase Orders' : 'Purchase Order'} ${(
+          result.purchaseOrders ?? [result.purchaseOrder]
+        )
+          .map((po) => po.poNumber)
+          .join(', ')} created with ${result.totalItems} items`
       : `Job Work Order ${result.jobWorkNumber} created covering ${result.linkedRequirements} requirement(s)`,
   });
 };

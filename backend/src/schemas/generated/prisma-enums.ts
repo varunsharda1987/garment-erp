@@ -212,6 +212,7 @@ export const POCategoryEnum = z.enum([
   'GREIGE',
   'PROCESSING',
   'TRIMS',
+  'ACCESSORIES',
   'THREAD',
   'LACE',
   'GREIGE_LACE',

@@ -28,7 +28,7 @@ let sizeMId: string;
 let sizeLId: string;
 let sizeB1Id: string;
 let costingId: string;
-let colourAId: string; // style A's one colour — production needs it (a colourless run makes no finished goods)
+let colourAId: string; // style A's one colour — its sizes take it (sku-colour.helper)
 
 let soId: string; // main SO (style A, 2 sizes)
 let so2Id: string; // cost-sheet-gate SO (style B)
@@ -299,6 +299,37 @@ describe('Sale Order → start production (make-to-order)', () => {
       .send({ expectedDeliveryDate: '2026-12-01' })
       .expect(400);
     expect(res.body.message || res.body.error?.message).toContain(`${RUN}B`);
+  });
+
+  // Colour is optional (owner, 2026-09-28): style B has no colour at all. Start Production used to
+  // refuse it ("has no colour yet — set the style's Primary Color first"); now its sizes go blank-coloured.
+  it('starts production for a style with no colour, its sizes blank-coloured', async () => {
+    const sheet = await prisma.style_costing.create({
+      data: {
+        id: randomUUID(),
+        styleId: styleBId,
+        createdById: testUserId,
+        purpose: 'RAW_MATERIAL_CALCULATION',
+        approvalStatus: 'APPROVED',
+        isApproved: true,
+      },
+    });
+    try {
+      const res = await request(app)
+        .post(`/api/sale-orders/${so2Id}/start-production`)
+        .set(authHeader)
+        .send({ expectedDeliveryDate: '2026-12-01' })
+        .expect(201);
+      const items = await prisma.order_items.findMany({
+        where: { orderId: res.body.data.id },
+        include: { order_item_breakup: true },
+      });
+      expect(items).toHaveLength(1);
+      expect(items[0].order_item_breakup).toHaveLength(1);
+      expect(items[0].order_item_breakup[0]).toMatchObject({ sizeId: sizeB1Id, quantity: 3, colorId: null });
+    } finally {
+      await prisma.style_costing.deleteMany({ where: { id: only(sheet.id) } });
+    }
   });
 });
 

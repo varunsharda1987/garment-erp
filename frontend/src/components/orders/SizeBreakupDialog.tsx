@@ -77,8 +77,8 @@ export function SizeBreakupDialog({
         const styleAny = style as unknown as { sizeOptions?: SizeOption[]; colorOptions?: ColorOption[] };
         const styleSizes = (styleAny.sizeOptions ?? []).filter((s) => s.id);
         setSizes(styleSizes);
-        // Sizes are saved WITH the style's colour: a size line without one reaches cutting but
-        // stitching output refuses it, so the goods never become finished stock (2026-09-24).
+        // Sizes carry the style's colour when it has one; a style with none saves them without —
+        // colour is optional (owner, 2026-09-28). Several colours: the user picks which.
         const styleColours = (styleAny.colorOptions ?? []).filter((c) => c.id);
         setColours(styleColours);
         const savedColour = initialBreakup?.find((b) => b.colorId)?.colorId;
@@ -133,7 +133,7 @@ export function SizeBreakupDialog({
       notify.error('Enter a quantity for at least one size');
       return;
     }
-    if (colours.length > 0 && !colorId) {
+    if (colours.length > 1 && !colorId) {
       notify.error('Choose the colour for these sizes');
       return;
     }
@@ -236,13 +236,7 @@ export function SizeBreakupDialog({
             </div>
 
             {colours.length === 0 ? (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  This style has no colour yet. Set the style&apos;s Primary Color first — production needs a colour for
-                  every size.
-                </AlertDescription>
-              </Alert>
+              <p className="text-xs text-muted-foreground">This style has no colour — sizes are saved without one.</p>
             ) : (
               <div className="space-y-1">
                 <Label htmlFor="size-breakup-colour" className="text-xs">
@@ -283,7 +277,7 @@ export function SizeBreakupDialog({
           ) : (
             <Button
               onClick={() => save(false)}
-              disabled={saving || sizes.length === 0 || enteredTotal === 0 || colours.length === 0 || !colorId}
+              disabled={saving || sizes.length === 0 || enteredTotal === 0 || (colours.length > 0 && !colorId)}
             >
               {saving ? 'Saving…' : 'Save Size Breakdown'}
             </Button>

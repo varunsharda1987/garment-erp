@@ -13,7 +13,8 @@ import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { deleteBuyerPoDocumentFile } from '../middleware/upload.middleware';
-import { colourForSaleOrderLine } from './helpers/sale-order-dispatch.helper';
+import { resolveSizeLineColours, skuKey } from './helpers/sku-colour.helper';
+import { saleOrderSizeSplit } from './helpers/sale-order-sizes.helper';
 import { formatDate, toDateInputValue } from '../utils/date';
 
 /** A date as the IST calendar day it falls on, so two dates compare by day, never by clock time. */
@@ -948,14 +949,14 @@ export class SaleOrderService {
       );
     }
 
-    // Every size line needs a colour: a colourless run can be cut but never records stitching output.
-    // A line ordered without one takes the style's only colour (all 7 ESSKY sale orders, 2026-09).
-    const lineColour = new Map<string, string>();
+    // The colour rule (sku-colour.helper): a line ordered without a colour takes the style's only
+    // colour (all 7 ESSKY sale orders, 2026-09); a style with none is produced blank-coloured — colour
+    // is optional (owner, 2026-09-28) — and a several-colour style must name it on the sale order line.
+    const lineColour = new Map<string, string | null>();
     for (const group of byStyle.values()) {
-      for (const item of group) {
-        if ((toProduce.get(item.id) ?? 0) <= 0) continue;
-        lineColour.set(item.id, await colourForSaleOrderLine(prisma, { ...item, styleCode: item.style?.styleCode }));
-      }
+      const lines = group.filter((item) => (toProduce.get(item.id) ?? 0) > 0);
+      const settled = await resolveSizeLineColours(prisma, group[0].styleId, lines, group[0].style?.styleCode);
+      settled.forEach((item) => lineColour.set(item.id, item.colorId));
     }
 
     const orderItems: OrderItemInput[] = [...byStyle.values()].map((group) => {
@@ -965,8 +966,8 @@ export class SaleOrderService {
       for (const item of group) {
         const quantity = toProduce.get(item.id) ?? 0;
         if (quantity <= 0) continue;
-        const colorId = lineColour.get(item.id)!;
-        const key = `${colorId}|${item.sizeId!}`;
+        const colorId = lineColour.get(item.id) ?? null;
+        const key = skuKey(colorId, item.sizeId);
         const entry = breakupMap.get(key);
         if (entry) {
           entry.quantity += quantity;
@@ -1325,21 +1326,11 @@ export class SaleOrderService {
     }
     logInfo(`[SO link] ${order.orderNumber} linked to ${so.saleOrderNumber}`);
 
-    // The buyer PO's colour/size split, per sizeless order item — the production order makes the
-    // PO exactly (owner decision 2026-09-24; the buyer's +5 % allowance is cut via Extra % at cutting)
-    const toSize = order.order_items
-      .filter((i) => i.order_item_breakup.length === 0)
-      .map((i) => {
-        const byKey = new Map<string, { colorId: string | null; sizeId: string; quantity: number }>();
-        for (const l of so.items.filter((x) => x.styleId === i.styleId && x.sizeId)) {
-          const key = `${l.colorId ?? ''}|${l.sizeId}`;
-          const entry = byKey.get(key);
-          if (entry) entry.quantity += l.quantity;
-          else byKey.set(key, { colorId: l.colorId ?? null, sizeId: l.sizeId as string, quantity: l.quantity });
-        }
-        return { orderItemId: i.id, breakup: [...byKey.values()] };
-      })
-      .filter((x) => x.breakup.length > 0);
+    // The buyer PO's colour/size split, per sizeless order item (sale-order-sizes.helper)
+    const toSize = saleOrderSizeSplit(
+      so.items,
+      order.order_items.map((i) => ({ id: i.id, styleId: i.styleId, sized: i.order_item_breakup.length > 0 }))
+    );
 
     return { orderId: order.id, orderNumber: order.orderNumber, saleOrderNumber: so.saleOrderNumber, toSize };
   }

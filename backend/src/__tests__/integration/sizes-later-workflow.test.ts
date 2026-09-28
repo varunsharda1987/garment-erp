@@ -52,7 +52,7 @@ beforeAll(async () => {
     data: { id: randomUUID(), styleCode: `${RUN}S`, styleName: `${RUN} Style`, createdById: userId },
   });
   styleId = style.id;
-  // One colour: a size breakdown with no colour takes it (a colourless run cannot record stitching output)
+  // One colour: a size breakdown with no colour takes it (sku-colour.helper)
   await prisma.color_options.create({ data: { id: randomUUID(), styleId, colorName: 'Black' } });
 
   for (const s of SIZES) {
@@ -312,5 +312,104 @@ describe('sizes-later workflow', () => {
 
     const item = await prisma.order_items.findUnique({ where: { id: orderItemId } });
     expect(item!.totalQuantity).toBe(300);
+  });
+});
+
+/**
+ * Colour is optional (owner, 2026-09-28). A style with NO colour used to be refused a size breakdown
+ * ("This style has no colour yet"), so Link to Production Order copied no sizes for six Easybuy orders
+ * and their labels sat in Size Split Pending. Now its sizes save blank-coloured; a style with SEVERAL
+ * colours still has to say which.
+ */
+describe('size breakdown colour rule', () => {
+  const made: { styleIds: string[]; orderIds: string[] } = { styleIds: [], orderIds: [] };
+
+  async function sizelessOrder(tag: string, colours: string[]) {
+    const style = await prisma.styles.create({
+      data: { id: randomUUID(), styleCode: `${RUN}${tag}`, styleName: `${RUN} ${tag}`, createdById: userId },
+    });
+    made.styleIds.push(style.id);
+    const colourIds: string[] = [];
+    for (const colorName of colours) {
+      colourIds.push(
+        (await prisma.color_options.create({ data: { id: randomUUID(), styleId: style.id, colorName } })).id
+      );
+    }
+    const sizes: string[] = [];
+    for (const s of SIZES) {
+      sizes.push(
+        (await prisma.size_options.create({ data: { id: randomUUID(), styleId: style.id, sizeName: s, sizeCode: s } }))
+          .id
+      );
+    }
+    const order = await prisma.orders.create({
+      data: {
+        id: randomUUID(),
+        orderNumber: `${RUN}${tag}ORD`,
+        customerId,
+        expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+        totalQuantity: ORDER_QTY,
+        totalAmount: 6000,
+        createdById: userId,
+      },
+    });
+    made.orderIds.push(order.id);
+    const item = await prisma.order_items.create({
+      data: {
+        id: randomUUID(),
+        orderId: order.id,
+        styleId: style.id,
+        totalQuantity: ORDER_QTY,
+        unitPrice: 10,
+        totalPrice: 6000,
+      },
+    });
+    return { orderId: order.id, orderItemId: item.id, sizes, colourIds };
+  }
+
+  afterAll(async () => {
+    await prisma.material_requirements.deleteMany({ where: { orderId: { in: made.orderIds } } });
+    await prisma.work_order_breakup.deleteMany({ where: { work_orders: { orderId: { in: made.orderIds } } } });
+    await prisma.production_tracking.deleteMany({ where: { work_orders: { orderId: { in: made.orderIds } } } });
+    await prisma.work_orders.deleteMany({ where: { orderId: { in: made.orderIds } } });
+    await prisma.orders.deleteMany({ where: { id: { in: made.orderIds.map(only) } } }); // cascades items + breakup
+    await prisma.size_options.deleteMany({ where: { styleId: { in: made.styleIds } } });
+    await prisma.color_options.deleteMany({ where: { styleId: { in: made.styleIds } } });
+    await prisma.styles.deleteMany({ where: { id: { in: made.styleIds.map(only) } } });
+  });
+
+  it('saves the sizes of a style with no colour, blank-coloured', async () => {
+    const o = await sizelessOrder('NC', []);
+    const per = ORDER_QTY / SIZES.length;
+    await request(app)
+      .put(`/api/orders/${o.orderId}/items/${o.orderItemId}/size-breakup`)
+      .set(authHeader)
+      .send({ breakup: o.sizes.map((id) => ({ colorId: null, sizeId: id, quantity: per })) })
+      .expect(200);
+
+    const rows = await prisma.order_item_breakup.findMany({ where: { orderItemId: o.orderItemId } });
+    expect(rows).toHaveLength(SIZES.length);
+    expect(rows.every((r) => r.colorId === null)).toBe(true);
+    expect(rows.reduce((sum, r) => sum + r.quantity, 0)).toBe(ORDER_QTY);
+  });
+
+  it('still asks which colour when the style comes in several', async () => {
+    const o = await sizelessOrder('MC', ['Black', 'Beige']);
+    const res = await request(app)
+      .put(`/api/orders/${o.orderId}/items/${o.orderItemId}/size-breakup`)
+      .set(authHeader)
+      .send({ breakup: o.sizes.map((id) => ({ colorId: null, sizeId: id, quantity: ORDER_QTY / SIZES.length })) })
+      .expect(400);
+    expect(res.body.message).toMatch(/2 colours/);
+    expect(await prisma.order_item_breakup.count({ where: { orderItemId: o.orderItemId } })).toBe(0);
+
+    // Naming the colour is enough
+    await request(app)
+      .put(`/api/orders/${o.orderId}/items/${o.orderItemId}/size-breakup`)
+      .set(authHeader)
+      .send({
+        breakup: o.sizes.map((id) => ({ colorId: o.colourIds[1], sizeId: id, quantity: ORDER_QTY / SIZES.length })),
+      })
+      .expect(200);
   });
 });

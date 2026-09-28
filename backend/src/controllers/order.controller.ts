@@ -21,6 +21,7 @@ import {
 } from '../services/helpers/order-status.helper';
 import { getRunFabricPosition } from '../services/helpers/run-fabric.helper';
 import { orderRequirementBuckets } from '../services/helpers/order-requirements.helper';
+import { resolveSizeLineColours } from '../services/helpers/sku-colour.helper';
 
 // ============================================
 // Types for Order Controller
@@ -1352,29 +1353,11 @@ export async function applyOrderItemSizeBreakup(params: {
     throw new ValidationError('Provide at least one size with a quantity greater than zero.');
   }
 
-  // Every size line needs the style's colour. The Add Size Breakdown dialog sent null, the run
-  // inherited it, and stitching output (colour required) then refused — so no finished goods, no
-  // allocation to the buyer's Black/Beige lines, no dispatch (Easybuy orders, 2026-09-24). A
-  // one-colour style fills it in; a several-colour style must say which; a foreign colour is refused.
-  const styleColours = await prisma.color_options.findMany({
-    where: { styleId: orderItem.styleId },
-    select: { id: true, colorName: true },
-  });
-  const allowedColours = new Set(styleColours.map((c) => c.id));
-  const withColour = sizesOnly.map((b) => ({
-    ...b,
-    colorId: b.colorId ?? (styleColours.length === 1 ? styleColours[0].id : null),
-  }));
-  if (withColour.some((b) => !b.colorId)) {
-    throw new ValidationError(
-      styleColours.length === 0
-        ? "This style has no colour yet — set the style's Primary Color, then enter the sizes."
-        : `This style comes in ${styleColours.length} colours (${styleColours.map((c) => c.colorName).join(', ')}) — choose the colour for each size.`
-    );
-  }
-  if (withColour.some((b) => !allowedColours.has(b.colorId as string))) {
-    throw new ValidationError("One or more sizes carry a colour that is not this style's colour.");
-  }
+  // The colour rule (sku-colour.helper): a one-colour style fills it in, a several-colour style must
+  // say which, a foreign colour is refused — and a style with NO colour keeps its sizes blank-coloured.
+  // Until 2026-09-28 that last case was refused, so Link to Production Order copied no sizes for six
+  // Easybuy orders and their size-wise labels sat in "Size Split Pending" (owner: colour is optional).
+  const withColour = await resolveSizeLineColours(prisma, orderItem.styleId, sizesOnly);
   const cleaned = dedupeBreakup(withColour);
 
   // Every size must belong to this style, or the breakup silently plans for sizes the style

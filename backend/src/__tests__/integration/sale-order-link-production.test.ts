@@ -8,8 +8,9 @@
  *  - Start Production refuses while an unlinked production order plans the style, naming it;
  *  - Link to Production Order links it and copies the PO's sizes WITH colour (the production order
  *    makes the PO exactly), creating the production run;
- *  - a size breakdown with no colour takes the style's only colour (a colourless run cannot record
- *    stitching output, so it never becomes finished goods);
+ *  - a size breakdown with no colour takes the style's only colour;
+ *  - a style with NO colour still gets the PO's sizes, blank-coloured — colour is optional (owner,
+ *    2026-09-28); until then the link copied nothing and the labels sat in Size Split Pending;
  *  - Amend Quantities (admin only) corrects a CONFIRMED order's split, never below what is allocated,
  *    and the linked production order + its pending run follow.
  *
@@ -281,6 +282,91 @@ describe('a sale order meets the production order raised before it', () => {
       .send({ breakup: SIZES.map(([name, quantity]) => ({ colorId: null, sizeId: sizeIds[name], quantity })) })
       .expect(200);
     expect(res.body.data.breakup.every((b: { colorId: string }) => b.colorId === colourId)).toBe(true);
+  });
+
+  it('links a style with no colour: the PO sizes are copied blank-coloured and the run is made', async () => {
+    const plainStyleId = randomUUID();
+    const plainOrderId = randomUUID();
+    const plainItemId = randomUUID();
+    let plainSoId: string | undefined;
+    await prisma.styles.create({
+      data: { id: plainStyleId, styleCode: `${RUN}N`, styleName: `${RUN} No-colour Top`, createdById: userId },
+    });
+    try {
+      const plainSizes: Record<string, string> = {};
+      for (const [name] of SIZES) {
+        plainSizes[name] = (
+          await prisma.size_options.create({
+            data: { id: randomUUID(), styleId: plainStyleId, sizeName: name, sizeCode: name },
+          })
+        ).id;
+      }
+      await prisma.orders.create({
+        data: {
+          id: plainOrderId,
+          orderNumber: `${RUN}ORDN`,
+          customerId,
+          expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+          totalQuantity: PO_TOTAL,
+          totalAmount: 10 * PO_TOTAL,
+          createdById: userId,
+        },
+      });
+      await prisma.order_items.create({
+        data: {
+          id: plainItemId,
+          orderId: plainOrderId,
+          styleId: plainStyleId,
+          totalQuantity: PO_TOTAL,
+          unitPrice: 10,
+          totalPrice: 10 * PO_TOTAL,
+        },
+      });
+      // The buyer's PO for it: sizes, no colour (all 7 ESSKY sale orders were taken like that)
+      const so = await request(app)
+        .post('/api/sale-orders')
+        .set(authHeader)
+        .send({
+          customerId,
+          items: SIZES.map(([name, quantity]) => ({
+            styleId: plainStyleId,
+            sizeId: plainSizes[name],
+            quantity,
+            unitPrice: 200,
+          })),
+        })
+        .expect(201);
+      plainSoId = so.body.data.id as string;
+      await prisma.sale_orders.update({
+        where: { id: plainSoId },
+        data: { status: 'CONFIRMED', expectedShipDate: SHIP_DATE },
+      });
+
+      const res = await request(app)
+        .post(`/api/sale-orders/${plainSoId}/link-production-order`)
+        .set(authHeader)
+        .send({ orderId: plainOrderId })
+        .expect(200);
+      expect(res.body.message).not.toMatch(/no colour/);
+
+      const breakup = await prisma.order_item_breakup.findMany({ where: { orderItemId: plainItemId } });
+      expect(breakup).toHaveLength(SIZES.length);
+      expect(breakup.every((b) => b.colorId === null)).toBe(true);
+      expect(breakup.reduce((sum, b) => sum + b.quantity, 0)).toBe(PO_TOTAL);
+      expect(await prisma.work_orders.count({ where: { orderId: plainOrderId } })).toBe(1);
+    } finally {
+      await prisma.work_order_breakup.deleteMany({ where: { work_orders: { orderId: plainOrderId } } });
+      await prisma.production_tracking.deleteMany({ where: { work_orders: { orderId: plainOrderId } } });
+      await prisma.work_orders.deleteMany({ where: { orderId: plainOrderId } });
+      await prisma.material_requirements.deleteMany({ where: { orderId: plainOrderId } });
+      await prisma.orders.deleteMany({ where: { id: only(plainOrderId) } }); // cascades items + breakup
+      if (plainSoId) {
+        await prisma.sale_order_items.deleteMany({ where: { saleOrderId: only(plainSoId) } });
+        await prisma.sale_orders.deleteMany({ where: { id: only(plainSoId) } });
+      }
+      await prisma.size_options.deleteMany({ where: { styleId: only(plainStyleId) } });
+      await prisma.styles.deleteMany({ where: { id: only(plainStyleId) } });
+    }
   });
 
   describe('Amend Quantities', () => {

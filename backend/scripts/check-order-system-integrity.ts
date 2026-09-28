@@ -34,12 +34,15 @@
  * D24 label lots not on exactly one materials row / size of another label (label stock per size)
  * D25 materials rows whose name/code differs from their master (renames never synced, until 27-Sep)
  * D26 production orders whose status is not what their runs / delivery notes say (nothing moved it, until 28-Sep)
+ * D27 linked order items with no sizes while the sale order lists them (link refused colourless styles, until 28-Sep)
+ * D28 size-wise labels planned orderable with no size       (planned before 29-Aug, or sizes no variant matches)
  */
 
 import { PrismaClient } from '@prisma/client';
 import { productionBlockingValidationService } from '../src/services/productionBlockingValidation.service';
 import { findMirrorDrift } from './repair-material-mirror-names';
 import { findOrderStatusDrift } from '../src/services/helpers/order-status.helper';
+import { findSizelessLinkedItems } from '../src/services/helpers/sale-order-sizes.helper';
 
 const prisma = new PrismaClient();
 const JSON_OUT = process.argv.includes('--json');
@@ -493,6 +496,46 @@ async function main() {
     findOrderStatusDrift(prisma).then((drift) =>
       drift.map((d) => ({ order: d.orderNumber, stored: d.stored, derived: d.derived, reason: d.reason }))
     )
+  );
+
+  // ---- Sizes from the sale order ----------------------------------------------------------
+
+  // MRP reads only the production order's own sizes. Link to Production Order copies the buyer PO's
+  // split, but until 28-Sep it refused a style with no colour, so six Easybuy orders stayed sizeless
+  // while their sale orders listed every size (labels "Size Split Pending"). Colour is optional now
+  // (sku-colour.helper). Repair: scripts/apply-sale-order-sizes.ts.
+  await run(
+    'D27',
+    'Linked production-order items with no sizes while the sale order lists sizes for the style',
+    findSizelessLinkedItems(prisma).then((items) =>
+      items.map((i) => ({
+        order: i.orderNumber,
+        style: i.styleCode,
+        sale_order: i.saleOrderNumber,
+        order_qty: i.orderQuantity,
+        sale_order_qty: i.split.reduce((sum, b) => sum + b.quantity, 0),
+      }))
+    )
+  );
+
+  // A label with size variants is bought per size (MRP makes one requirement per size, or ONE
+  // SIZE_PENDING row while the order has no sizes). A requirement on the label's BASE row that can be
+  // ordered buys labels with no size on them: rows planned before the size-pending rule (29-Aug —
+  // ESSKY087/090/091/092LS, MR2608-0112..0130), or an order whose sizes no variant matches.
+  await run(
+    'D28',
+    'Size-wise labels planned orderable with no size (base label row, label has size variants)',
+    prisma.$queryRaw`
+      SELECT o."orderNumber" AS order, mr."requirementNumber" AS requirement, m.code AS label,
+             mr.status::text AS status, mr."totalRequired" AS qty
+        FROM material_requirements mr
+        JOIN materials m ON m.id = mr."materialId"
+        JOIN orders o ON o.id = mr."orderId"
+       WHERE m."labelId" IS NOT NULL AND m."sizeVariantId" IS NULL
+         AND mr.status::text IN ('PENDING', 'PO_REQUIRED', 'PARTIAL_STOCK')
+         AND o."isActive" AND o.status::text NOT IN ('CANCELLED', 'SPLIT', 'COMPLETED', 'DISPATCHED')
+         AND EXISTS (SELECT 1 FROM label_size_variants v WHERE v."labelId" = m."labelId" AND v."isActive")
+       ORDER BY o."orderNumber", mr."requirementNumber"`
   );
 
   // ---- Output ---------------------------------------------------------------------------

@@ -5,8 +5,48 @@
  */
 
 import { randomUUID } from 'crypto';
-import { Prisma } from '@prisma/client';
-import { BusinessError, NotFoundError } from '../../errors';
+import { Prisma, PrismaClient } from '@prisma/client';
+import prisma from '../../config/database';
+import { BusinessError, ConflictError, NotFoundError } from '../../errors';
+import { formatDate } from '../../utils/date';
+
+/**
+ * A replaced version is history: nothing edits, approves, rejects, revokes, deletes, re-versions or builds
+ * an order BOM from it. ESSKY092LS v1 (28-Sep) was revoked minutes after its order moved to v2 — the
+ * revoke wiped who had approved it — and a New Version from an old sheet would leave two live sheets.
+ * Throws COST_SHEET_REPLACED naming the live version; a live (or unknown) sheet passes.
+ */
+export async function assertCostSheetIsLive(
+  id: string,
+  db: PrismaClient | Prisma.TransactionClient = prisma
+): Promise<void> {
+  const sheet = await db.style_costing.findUnique({
+    where: { id },
+    select: { version: true, supersededById: true, styles: { select: { styleCode: true } } },
+  });
+  if (!sheet?.supersededById) return;
+
+  // Walk to the live end of the chain; the first step is the version that replaced this one
+  const chain: Array<{ id: string; version: number; versionDate: Date }> = [];
+  let nextId: string | null = sheet.supersededById;
+  while (nextId && chain.length < 100) {
+    const found: { id: string; version: number; versionDate: Date; supersededById: string | null } | null =
+      await db.style_costing.findUnique({
+        where: { id: nextId },
+        select: { id: true, version: true, versionDate: true, supersededById: true },
+      });
+    if (!found) break;
+    chain.push(found);
+    nextId = found.supersededById;
+  }
+  const replacedOn = chain[0] ? ` on ${formatDate(chain[0].versionDate)}` : '';
+  const live = chain[chain.length - 1];
+  throw new ConflictError(
+    `${sheet.styles.styleCode} cost sheet v${sheet.version} was replaced${replacedOn} and is kept as history. ` +
+      (live ? `Open v${live.version} to make changes.` : 'Open the current version to make changes.'),
+    { code: 'COST_SHEET_REPLACED', liveCostSheetId: live?.id ?? null, liveVersion: live?.version ?? null }
+  );
+}
 
 /**
  * What a new version does with EVERY cost-sheet column: 'carry' copies the source's value, 'fresh' belongs
@@ -210,6 +250,7 @@ export async function createCostSheetVersionTx(
   if (!sourceCostSheet) {
     throw new NotFoundError('Cost sheet', sourceId);
   }
+  await assertCostSheetIsLive(sourceId, tx);
   // Only approved cost sheets can be versioned
   const isApproved = sourceCostSheet.approvalStatus === 'APPROVED' || sourceCostSheet.isApproved;
   if (!isApproved) {

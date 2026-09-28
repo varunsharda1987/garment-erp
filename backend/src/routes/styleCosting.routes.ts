@@ -53,8 +53,17 @@ import {
   bulkAddLaceItemsSchema,
   calculateLaceOptionsSchema,
 } from '../schemas/styleCosting.schema';
+import { assertCostSheetIsLive } from '../services/helpers/cost-sheet-version.helper';
 
 const router = express.Router();
+
+// A replaced version is history: every write to it is refused, naming the live version
+// (New Version and the order BOM refuse it in their services too — cost-sheet-version.helper)
+const refuseReplacedVersion = (param: 'id' | 'costingId') =>
+  asyncHandler(async (req, _res, next) => {
+    await assertCostSheetIsLive(req.params[param]);
+    next();
+  });
 
 // ============================================================================
 // COST SHEET ROUTES
@@ -130,6 +139,7 @@ router.put(
   authenticateToken,
   requirePermission('costSheets'),
   validateParams(costSheetIdAsIdParamSchema),
+  refuseReplacedVersion('id'),
   validateBody(UpdateCostSheetSchema),
   asyncHandler(updateCostSheet)
 );
@@ -144,6 +154,7 @@ router.patch(
   authenticateToken,
   requireAdmin(), // Admin only for cost sheet approval
   validateParams(costSheetIdAsIdParamSchema),
+  refuseReplacedVersion('id'),
   validateBody(approveCostSheetSchema),
   asyncHandler(approveCostSheet)
 );
@@ -158,6 +169,7 @@ router.delete(
   authenticateToken,
   requirePermission('costSheets'),
   validateParams(costSheetIdAsIdParamSchema),
+  refuseReplacedVersion('id'),
   asyncHandler(deleteCostSheet)
 );
 
@@ -266,6 +278,7 @@ router.post(
   authenticateToken,
   requirePermission('costSheets'),
   validateParams(costingIdParamSchema),
+  refuseReplacedVersion('costingId'),
   validateBody(addLaceItemSchema),
   asyncHandler(addLaceItem)
 );
@@ -280,6 +293,7 @@ router.post(
   authenticateToken,
   requirePermission('costSheets'),
   validateParams(costingIdParamSchema),
+  refuseReplacedVersion('costingId'),
   validateBody(bulkAddLaceItemsSchema),
   asyncHandler(bulkAddLaceItemsController)
 );
@@ -332,6 +346,7 @@ router.put(
   authenticateToken,
   requirePermission('costSheets'),
   validateParams(costingAndItemIdParamSchema),
+  refuseReplacedVersion('costingId'),
   validateBody(updateLaceItemSchema),
   asyncHandler(updateLaceItemController)
 );
@@ -346,6 +361,7 @@ router.delete(
   authenticateToken,
   requirePermission('costSheets'),
   validateParams(costingAndItemIdParamSchema),
+  refuseReplacedVersion('costingId'),
   asyncHandler(deleteLaceItem)
 );
 

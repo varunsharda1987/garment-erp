@@ -21,6 +21,7 @@ import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { divideByShrinkage, toNumber, toCurrency, roundToCent } from '../utils/currency';
 import { releaseReservations } from './helpers/stock-reservation.helper';
 import { resolvePreviousItems } from './helpers/bom-lineage.helper';
+import { assertCostSheetIsLive } from './helpers/cost-sheet-version.helper';
 import { SearchFilter } from '../types/prisma.types';
 import { GENERIC_TRIM_FK_FIELDS } from '../schemas/orderBom.schema';
 import { v4 as uuidv4 } from 'uuid';
@@ -390,6 +391,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     if (!costSheet) {
       throw new NotFoundError('Cost Sheet', input.costSheetId);
     }
+
+    // An old version stays APPROVED as history; an order is never built on its replaced figures
+    await assertCostSheetIsLive(input.costSheetId);
 
     if (costSheet.approvalStatus !== 'APPROVED') {
       throw new BusinessError('Cost Sheet must be approved before creating Order BOM');

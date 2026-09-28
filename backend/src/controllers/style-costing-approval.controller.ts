@@ -7,6 +7,7 @@ import { UnauthorizedError, NotFoundError, ValidationError, BusinessError, Confl
 import { getCostSheetOrderDependents, consumerOrderNumbers } from '../services/helpers/cad-costing-provenance.helper';
 import { copyCostSheetItemTables, createCostSheetVersionTx } from '../services/helpers/cost-sheet-version.helper';
 import { onCostSheetApproved, onCostSheetRejected } from '../services/cad-correction.service';
+import { createAuditLog } from '../services/audit.service';
 import type { Prisma } from '@prisma/client';
 
 // ============================================================================
@@ -137,6 +138,29 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
         },
       },
     },
+  });
+
+  // Who approved / rejected / revoked, and what it replaced: a revoke wipes approvedBy/At on the row
+  // itself, so without this nothing records who had approved it (ESSKY092LS v1, 28-Sep)
+  await createAuditLog({
+    userId,
+    action: approvalStatus === 'APPROVED' ? 'APPROVE' : approvalStatus === 'REJECTED' ? 'REJECT' : 'UPDATE',
+    entityType: 'COST_SHEET',
+    entityId: id,
+    oldValues: {
+      approvalStatus: costSheet.approvalStatus,
+      approvedById: costSheet.approvedById,
+      approvedAt: costSheet.approvedAt,
+    },
+    newValues: {
+      approvalStatus,
+      ...(approvalStatus === 'PENDING' ? { change: 'Approval revoked' } : {}),
+      ...(updateData.rejectionNotes ? { rejectionNotes: updateData.rejectionNotes } : {}),
+      styleCode: updatedCostSheet.styles?.styleCode ?? null,
+      purpose: costSheet.purpose,
+      version: costSheet.version,
+    },
+    ipAddress: req.ip ?? null,
   });
 
   // A CAD correction's cost-sheet version: approving it carries the correction to the CAD row, its fabric

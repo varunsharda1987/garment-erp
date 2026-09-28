@@ -1,72 +1,119 @@
-import { useState } from 'react';
+/**
+ * The order page — where the order is, and what is stopping it (rebuilt 2026-09-28).
+ *
+ * The page it replaces was not used: every number on it was wrong for every order. The status never
+ * moved; an 8-step waterfall stopped at "1 of 8" (MRP waited for a LOCKED BOM the team never locks,
+ * GRN read a field the API never sent, Processing was hard-coded); "PO Generated" counted cancelled
+ * lines; a run being cut read 0 %. Now each card reads its fact from the one place that owns it:
+ *   status            orders.status, derived from runs + delivery notes (order-status.helper)
+ *   what's stopping   the cutting gate itself (validateOrderItemForStage via /manufacturing/pipeline)
+ *   materials         one bucket per live requirement line (order-requirements.helper)
+ *   production        each run's cutting / stitching / finishing summaries + its fabric (run-fabric.helper)
+ *   dispatch          notes and invoices of the order OR its sale order
+ * Nothing waterfalls: a run can be cutting while trims are still on order, which is how the floor works.
+ */
+import { useState, type ReactNode } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useDetailQuery, queryKeys } from '@/hooks/useQuery';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import {
-  Eye,
-  Split,
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Package,
   Factory,
+  FileText,
+  Truck,
+  Scissors,
+  Split,
+  Eye,
+  ExternalLink,
+  Calculator,
+  ArrowRight,
+  Wrench,
   TrendingUp,
   TrendingDown,
   Minus,
-  DollarSign,
-  Calculator,
-  AlertCircle,
-  Package,
-  ExternalLink,
-  ArrowRight,
-  Wrench,
-  ClipboardList,
-  FileText,
-  Truck,
 } from 'lucide-react';
 import { getOrderById, createWorkOrdersForOrder } from '../services/order.service';
-import { getAllPurchaseOrders } from '../services/purchaseOrder.service';
-import { MATERIAL_PO_CATEGORIES } from '../types/purchaseOrder.types';
 import workOrderService from '../services/workOrder.service';
-import { getInvoices } from '../services/invoice.service';
-import { deliveryNoteService } from '../services/dispatch.service';
-import { InvoiceStatusLabels } from '../types/invoice.types';
-import type { Invoice } from '../types/invoice.types';
-import { DeliveryStatusLabels } from '../types/dispatch.types';
-import type { DeliveryNote } from '../types/dispatch.types';
-import {
-  getByOrderId as getOrderBOM,
-  createFromCostSheet as createOrderBOMFromCostSheet,
-  calculateMRPStandalone,
-} from '../services/orderBom.service';
-import { getStatusBadgeColor } from '../services/orderBom.service';
-import { useToast } from '@/hooks/use-toast';
-import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
-import { getOrderRequirementsSummary } from '../services/mrp.service';
+import { manufacturingAlertsService, type PipelineBlocker } from '../services/manufacturingAlerts.service';
+import { cuttingSummaryService } from '../services/cutting.service';
+import { stitchingSummaryService } from '../services/stitching.service';
+import { finishingSummaryService } from '../services/finishing.service';
 import { getOrderServiceRequirementsSummary } from '../services/serviceRequirement.service';
-import type { OrderRequirementsSummary } from '../types/mrp.types';
-import type { OrderServiceRequirementsSummary } from '../types/serviceRequirement.types';
-import type { OrderBOM } from '../types/orderBom.types';
-import type { Order, OrderItemCosting } from '../types/order.types';
-import { OrderStatusLabels, PriorityLabels } from '../types/order.types';
+import { InvoiceStatusLabels } from '../types/invoice.types';
+import type { InvoiceStatus } from '../types/invoice.types';
+import { DeliveryStatusLabels } from '../types/dispatch.types';
+import type { DeliveryStatus } from '../types/dispatch.types';
+import type { Order, OrderItemCosting, OrderStatus, RequirementBuckets } from '../types/order.types';
+import { OrderStatusLabels } from '../types/order.types';
 import type { WorkOrder } from '../types/production.types';
 import SplitProductionModal from '../components/SplitProductionModal';
-import { formatCurrency } from '@/lib/currency';
-import { OrderWorkflowTracker, buildWorkflowSteps } from '../components/OrderWorkflowTracker';
-import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
-import { logError } from '../lib/logger';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { SizeBreakupDialog } from '@/components/orders/SizeBreakupDialog';
 import CancelOrderDialog from '@/components/orders/CancelOrderDialog';
-import { formatDate } from '@/lib/date';
-import { qtyExceeds } from '@/lib/quantity';
+import { useCreateOrderBom } from '@/hooks/useCreateOrderBom';
+import { queryKeys } from '@/hooks/useQuery';
+import { formatCurrency } from '@/lib/currency';
+import { formatQuantity } from '@/lib/formatters';
+import { formatDate, toDateInputValue } from '@/lib/date';
+import { getErrorMessage, handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+
+const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
+  PENDING: 'bg-warning-muted text-warning',
+  IN_PRODUCTION: 'bg-info-muted text-info',
+  COMPLETED: 'bg-success-muted text-success',
+  DISPATCHED: 'bg-success-muted text-success',
+  CANCELLED: 'bg-destructive/10 text-destructive',
+  SPLIT: 'bg-muted text-foreground',
+};
+
+const RUN_STATUS_STYLE: Record<string, string> = {
+  PENDING: 'bg-warning-muted text-warning',
+  IN_PRODUCTION: 'bg-info-muted text-info',
+  COMPLETED: 'bg-success-muted text-success',
+  DISPATCHED: 'bg-accent/10 text-accent',
+  CANCELLED: 'bg-destructive/10 text-destructive',
+  SPLIT: 'bg-muted text-foreground',
+};
+
+const CLOSED: OrderStatus[] = ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'];
+
+/** Days from today (IST calendar) to the date; negative when it has passed. */
+function daysUntil(date: string | null | undefined): number | null {
+  if (!date) return null;
+  const today = Date.parse(toDateInputValue(new Date()));
+  const due = Date.parse(toDateInputValue(date));
+  return Number.isNaN(due) ? null : Math.round((due - today) / 86_400_000);
+}
+
+/** Where each blocker is fixed. */
+function blockerLink(
+  blocker: PipelineBlocker,
+  order: Order,
+  styleId: string | null
+): { label: string; to: string } | null {
+  if (blocker.type.endsWith('_SAMPLE_NOT_APPROVED') || blocker.type === 'SAMPLE_LAB_NOT_PASSED') {
+    return styleId ? { label: 'Open the style', to: `/styles/${styleId}` } : { label: 'Open samples', to: '/samples' };
+  }
+  if (blocker.type === 'FPT_NOT_PASSED') return { label: 'Fabric tests', to: '/fabric-physical-tests' };
+  if (blocker.type === 'GPT_NOT_PASSED') return { label: 'Garment tests', to: '/garment-physical-tests' };
+  if (blocker.type === 'MATERIAL_SHORTAGE') {
+    return { label: 'Requirements', to: `/procurement/requirements?tab=material&orderId=${order.id}` };
+  }
+  if (blocker.type === 'PRODUCTION_CAD_MISSING') return { label: 'CAD Planning', to: '/cad-planning' };
+  return null;
+}
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [cancelOpen, setCancelOpen] = useState(false);
-
-  // Sizes-later workflow: which order item is having its size breakdown entered
+  const [splitRun, setSplitRun] = useState<WorkOrder | null>(null);
   const [sizeBreakupItem, setSizeBreakupItem] = useState<{
     initialBreakup?: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
     orderItemId: string;
@@ -74,7 +121,69 @@ export default function OrderDetail() {
     currentTotal: number;
   } | null>(null);
 
-  // MRP-49: explicit production scheduling (was a hidden side effect of BOM approval).
+  const { createBom, creatingOrderId, dialog: createBomDialog } = useCreateOrderBom();
+
+  // Everything this page shows moves together: one refresh after any action on it.
+  const refreshOrder = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.workOrders.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.mrp.all });
+    queryClient.invalidateQueries({ queryKey: ['manufacturing', 'pipeline'] });
+    queryClient.invalidateQueries({ queryKey: ['order-page-run'] });
+  };
+
+  const {
+    data: order,
+    isLoading,
+    error: orderError,
+  } = useQuery({
+    queryKey: queryKeys.orders.detail(id || ''),
+    queryFn: () => getOrderById(id!),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+  });
+
+  const { data: allRuns = [], error: runsError } = useQuery({
+    queryKey: queryKeys.workOrders.forOrder(id || ''),
+    queryFn: () => workOrderService.getByOrderId(id!),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+  });
+  const runs = allRuns.filter((wo) => wo.status !== 'CANCELLED');
+
+  const orderOpen = !!order && !CLOSED.includes(order.status);
+  const { data: pipeline, error: pipelineError } = useQuery({
+    queryKey: ['manufacturing', 'pipeline', 'order', id],
+    queryFn: () => manufacturingAlertsService.getPipelineForOrder(id!),
+    enabled: !!id && orderOpen,
+    staleTime: 30 * 1000,
+  });
+
+  // Each started run's progress, from the stage pages' own per-run summaries
+  const startedRuns = runs.filter((wo) => wo.status !== 'PENDING' || wo.completedQuantity > 0);
+  const runProgress = useQueries({
+    queries: startedRuns.map((wo) => ({
+      queryKey: ['order-page-run', wo.id],
+      queryFn: async () => {
+        const [cutting, stitching, finishing] = await Promise.all([
+          cuttingSummaryService.getSummaryByWorkOrder(wo.id),
+          stitchingSummaryService.getSummaryByWorkOrder(wo.id),
+          finishingSummaryService.getSummaryByWorkOrder(wo.id),
+        ]);
+        return { cutting, stitching, finishing };
+      },
+      staleTime: 30 * 1000,
+    })),
+  });
+  const progressOf = (runId: string) => runProgress[startedRuns.findIndex((wo) => wo.id === runId)]?.data;
+
+  const { data: serviceSummary } = useQuery({
+    queryKey: queryKeys.serviceRequirements.forOrder(id || ''),
+    queryFn: () => getOrderServiceRequirementsSummary(id!),
+    enabled: !!id && runs.length > 0,
+    staleTime: 30 * 1000,
+  });
+
   const createWorkOrdersMutation = useMutation({
     mutationFn: () => createWorkOrdersForOrder(id!),
     onSuccess: (result) => {
@@ -84,420 +193,14 @@ export default function OrderDetail() {
           `${result.created.length} created, ${result.failed.length} could not be created`
         );
       } else if (result.created.length === 0) {
-        handleApiSuccess('Nothing to create', 'Every order item already has a work order.');
+        handleApiSuccess('Nothing to create', 'Every order line already has a production run.');
       } else {
-        handleApiSuccess('Work Orders Created', `${result.created.length} work order(s) created.`);
+        handleApiSuccess('Production run created', `${result.created.join(', ')} created.`);
       }
-      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+      refreshOrder();
     },
-    onError: (err) => handleApiError(err, 'Failed to create work orders'),
+    onError: (err) => handleApiError(err, 'Failed to create production runs'),
   });
-
-  // Modal state
-  const [splitModalOpen, setSplitModalOpen] = useState(false);
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
-
-  // Action loading states
-  const [creatingBom, setCreatingBom] = useState(false);
-  const [calculatingMrp, setCalculatingMrp] = useState(false);
-
-  // Toast notifications
-  const { toast } = useToast();
-
-  // React Query: Fetch order (cached)
-  const {
-    data: order,
-    isLoading,
-    error: orderError,
-    refetch: _refetchOrder, // eslint-disable-line @typescript-eslint/no-unused-vars
-  } = useDetailQuery<Order>(
-    queryKeys.orders.detail(id || ''),
-    () => getOrderById(id!),
-    { enabled: !!id, staleTime: 60 * 1000 } // 1 minute
-  );
-
-  // React Query: Fetch work orders (cached)
-  // BUG-ORD14: Use consistent queryKeys.workOrders.forOrder pattern
-  const {
-    data: workOrders = [],
-    isLoading: workOrdersLoading,
-    refetch: refetchWorkOrders,
-  } = useDetailQuery<WorkOrder[]>(queryKeys.workOrders.forOrder(id || ''), () => workOrderService.getByOrderId(id!), {
-    enabled: !!id,
-    staleTime: 60 * 1000,
-  });
-
-  // React Query: Fetch order BOM (cached)
-  // BUG-ORD14: Use queryKeys.boms.forOrder (not forStyle - id is orderId)
-  const {
-    data: orderBom,
-    isLoading: bomLoading,
-    refetch: refetchOrderBOM,
-  } = useDetailQuery<OrderBOM | null>(
-    queryKeys.boms.forOrder(id || ''),
-    async () => {
-      try {
-        return await getOrderBOM(id!);
-      } catch {
-        return null;
-      }
-    },
-    { enabled: !!id, staleTime: 60 * 1000 }
-  );
-
-  // Determine if MRP should be fetched
-  const shouldFetchMRP = !!id && !!orderBom && (orderBom.status === 'APPROVED' || orderBom.status === 'LOCKED');
-
-  // React Query: Fetch MRP summary (conditional)
-  // BUG-ORD14: Use consistent queryKeys.mrp.forOrder pattern
-  const {
-    data: mrpSummary,
-    isLoading: mrpLoading,
-    refetch: _refetchMRPSummary, // eslint-disable-line @typescript-eslint/no-unused-vars
-  } = useDetailQuery<OrderRequirementsSummary | null>(
-    queryKeys.mrp.forOrder(id || ''),
-    async () => {
-      try {
-        return await getOrderRequirementsSummary(id!);
-      } catch {
-        return null;
-      }
-    },
-    { enabled: shouldFetchMRP, staleTime: 60 * 1000 }
-  );
-
-  // Determine if Service summary should be fetched (when work orders exist)
-  const shouldFetchServiceSummary = !!id && workOrders.length > 0;
-
-  // React Query: Fetch Service Requirements summary (conditional)
-  // BUG-ORD14: Use consistent queryKeys.serviceRequirements.forOrder pattern
-  const {
-    data: serviceSummary,
-    isLoading: serviceLoading,
-    refetch: _refetchServiceSummary, // eslint-disable-line @typescript-eslint/no-unused-vars
-  } = useDetailQuery<OrderServiceRequirementsSummary | null>(
-    queryKeys.serviceRequirements.forOrder(id || ''),
-    async () => {
-      try {
-        return await getOrderServiceRequirementsSummary(id!);
-      } catch {
-        return null;
-      }
-    },
-    { enabled: shouldFetchServiceSummary, staleTime: 60 * 1000 }
-  );
-
-  // React Query: Downstream invoices for this order (billing surfacing)
-  const { data: invoices = [] } = useDetailQuery<Invoice[]>(
-    [...queryKeys.orders.detail(id || ''), 'invoices'],
-    async () => {
-      try {
-        const res = await getInvoices({ orderId: id!, limit: 100 });
-        return res.data;
-      } catch {
-        return [];
-      }
-    },
-    { enabled: !!id, staleTime: 60 * 1000 }
-  );
-
-  // React Query: how many POs buy for this order — the workflow tracker offers "View POs" only when there are
-  // some. One row is enough: the count is the pagination total. Under purchaseOrders.all, so any PO change
-  // refreshes it.
-  const { data: orderPoCount = 0 } = useDetailQuery<number>(
-    [...queryKeys.purchaseOrders.all, 'order-count', id || ''],
-    async () => {
-      try {
-        // Material categories only — the same set the Purchase Orders list (where View POs lands) shows
-        const res = await getAllPurchaseOrders({ orderId: id!, poCategories: [...MATERIAL_PO_CATEGORIES], limit: 1 });
-        return res.pagination?.total ?? 0;
-      } catch {
-        return 0;
-      }
-    },
-    { enabled: !!id, staleTime: 60 * 1000 }
-  );
-
-  // React Query: Downstream delivery notes for this order (dispatch surfacing)
-  const { data: deliveryNotes = [] } = useDetailQuery<DeliveryNote[]>(
-    [...queryKeys.orders.detail(id || ''), 'delivery-notes'],
-    async () => {
-      try {
-        const res = await deliveryNoteService.getAll({ orderId: id!, limit: 100 });
-        return res.data;
-      } catch {
-        return [];
-      }
-    },
-    { enabled: !!id, staleTime: 60 * 1000 }
-  );
-
-  // Error message
-  const error = orderError?.message || null;
-
-  // Refresh all data - available for future use
-  // const refreshAll = useCallback(() => {
-  //   refetchOrder();
-  //   refetchWorkOrders();
-  //   refetchOrderBOM();
-  //   if (shouldFetchMRP) refetchMRPSummary();
-  // }, [refetchOrder, refetchWorkOrders, refetchOrderBOM, refetchMRPSummary, shouldFetchMRP]);
-
-  const handleSplitClick = (wo: WorkOrder) => {
-    setSelectedWorkOrder(wo);
-    setSplitModalOpen(true);
-  };
-
-  const handleSplitComplete = () => {
-    setSplitModalOpen(false);
-    setSelectedWorkOrder(null);
-    refetchWorkOrders(); // Refresh the list
-  };
-
-  // Create Order BOM from approved cost sheet
-  const handleCreateBOM = async () => {
-    if (!order || !order.orderItems?.[0]) {
-      handleApiError(new Error('No order items found'), 'Cannot create BOM');
-      return;
-    }
-
-    const orderItem = order.orderItems[0];
-
-    try {
-      setCreatingBom(true);
-
-      // Find approved cost sheet for this style WITH purpose filter
-      const costSheets = await getCostSheetVersionsByStyle(orderItem.styleId);
-
-      const approvedCostSheet = costSheets.find(
-        (cs) =>
-          (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
-          (['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] as string[]).includes(cs.purpose)
-      );
-
-      if (!approvedCostSheet) {
-        handleApiError(
-          new Error('No approved cost sheet found'),
-          'Please approve a RAW_MATERIAL_CALCULATION or PRODUCTION cost sheet first'
-        );
-        return;
-      }
-
-      // Validate cost sheet ID before sending
-      if (!approvedCostSheet.id) {
-        handleApiError(new Error('Cost sheet ID is missing'), 'Cost sheet data is invalid - ID is missing');
-        console.error('Cost sheet missing ID:', approvedCostSheet);
-        return;
-      }
-
-      await createOrderBOMFromCostSheet(order.id, {
-        styleId: orderItem.styleId,
-        costSheetId: approvedCostSheet.id,
-      });
-
-      handleApiSuccess('Order BOM Created', 'BOM has been created. Please review and approve it.');
-      refetchOrderBOM(); // Refresh BOM data
-    } catch (err) {
-      handleApiError(err, 'Failed to create Order BOM');
-      logError('Failed to create Order BOM:', err);
-    } finally {
-      setCreatingBom(false);
-    }
-  };
-
-  // Navigate to Order BOM detail for review
-  const handleReviewBOM = () => {
-    if (orderBom) {
-      navigate(`/order-bom/${orderBom.id}`);
-    }
-  };
-
-  // Calculate MRP requirements from Order BOM
-  const handleCalculateMRP = async () => {
-    if (!order) return;
-
-    try {
-      setCalculatingMrp(true);
-      const result = await calculateMRPStandalone(order.id, {
-        styleId: order.orderItems?.[0]?.styleId,
-      });
-      toast({
-        title: 'MRP Calculated',
-        description: `Created ${result.created} requirements, updated ${result.updated}`,
-      });
-      navigate(`/procurement/requirements?tab=material&orderId=${order.id}`);
-    } catch (err) {
-      handleApiError(err, 'Failed to calculate MRP requirements');
-      logError('Failed to calculate MRP:', err);
-    } finally {
-      setCalculatingMrp(false);
-    }
-  };
-
-  // Navigate to MRP requirements page
-  const handleViewMRP = () => {
-    navigate(`/procurement/requirements?tab=material&orderId=${order?.id}`);
-  };
-
-  const calculateProgress = (wo: WorkOrder) => {
-    if (wo.totalQuantity === 0) return 0;
-    return Math.round((wo.completedQuantity / wo.totalQuantity) * 100);
-  };
-
-  const getWorkOrderStatusColor = (status: string) => {
-    switch (status) {
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'IN_PRODUCTION':
-        return 'bg-info-muted text-info';
-      case 'COMPLETED':
-        return 'bg-success-muted text-success';
-      case 'DISPATCHED':
-        return 'bg-accent/10 text-accent';
-      case 'CANCELLED':
-        return 'bg-destructive/10 text-destructive';
-      default:
-        return 'bg-muted text-foreground';
-    }
-  };
-
-  // Note: getStatusBadgeColor is imported from orderBom.service
-
-  const getPriorityBadgeColor = (priority: string) => {
-    switch (priority) {
-      case 'LOW':
-        return 'bg-muted text-foreground';
-      case 'MEDIUM':
-        return 'bg-info-muted text-info';
-      case 'HIGH':
-        return 'bg-orange-100 text-orange-800';
-      case 'URGENT':
-        return 'bg-destructive/10 text-destructive';
-      default:
-        return 'bg-muted text-foreground';
-    }
-  };
-
-  // Render variance badge with icon
-  const renderVarianceBadge = (variancePercent: number | null | undefined) => {
-    if (variancePercent === null || variancePercent === undefined) return null;
-    const percent = Number(variancePercent);
-    if (percent > 0) {
-      return (
-        <Badge variant="destructive" className="flex items-center gap-1">
-          <TrendingUp className="h-3 w-3" />+{percent.toFixed(1)}%
-        </Badge>
-      );
-    } else if (percent < 0) {
-      return (
-        <Badge variant="default" className="flex items-center gap-1 bg-success">
-          <TrendingDown className="h-3 w-3" />
-          {percent.toFixed(1)}%
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="secondary" className="flex items-center gap-1">
-        <Minus className="h-3 w-3" />
-        0%
-      </Badge>
-    );
-  };
-
-  // Render costing details for an order item
-  const renderCostingDetails = (costing: OrderItemCosting | null | undefined) => {
-    if (!costing) return null;
-
-    const hasVariance = costing.costVariancePercent !== null && costing.costVariancePercent !== undefined;
-    const hasActualCost = costing.actualCostPerPiece !== null && costing.actualCostPerPiece !== undefined;
-
-    return (
-      <div className="mt-4 p-4 bg-muted rounded-lg border">
-        <div className="flex items-center gap-2 mb-3">
-          <Calculator className="h-4 w-4 text-muted-foreground" />
-          <h4 className="font-medium text-foreground">Costing Details</h4>
-          {costing.originalCostSheetVersion && (
-            <Badge variant="outline" className="text-xs">
-              v{costing.originalCostSheetVersion}
-            </Badge>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div>
-            <div className="text-muted-foreground">Fabric</div>
-            <div className="font-medium">{formatCurrency(costing.fabricTotal)}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Trims</div>
-            <div className="font-medium">{formatCurrency(costing.trimsTotal)}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">CMT</div>
-            <div className="font-medium">{formatCurrency(costing.cmtTotal)}</div>
-          </div>
-          <div>
-            <div className="text-muted-foreground">Embroidery</div>
-            <div className="font-medium">{formatCurrency(costing.embroideryTotal)}</div>
-          </div>
-        </div>
-
-        {/* Variance Section */}
-        {(hasVariance || hasActualCost) && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 mb-3">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-foreground">Production Variance</span>
-              {hasVariance && renderVarianceBadge(costing.costVariancePercent)}
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="text-muted-foreground">Estimated Cost/Pc</div>
-                <div className="font-medium">
-                  {costing.estimatedCostPerPiece !== null && costing.estimatedCostPerPiece !== undefined
-                    ? formatCurrency(costing.estimatedCostPerPiece)
-                    : '-'}
-                </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Actual Cost/Pc</div>
-                <div
-                  className={`font-medium ${hasVariance && Number(costing.costVariancePercent) > 0 ? 'text-destructive' : hasVariance && Number(costing.costVariancePercent) < 0 ? 'text-success' : ''}`}
-                >
-                  {hasActualCost ? formatCurrency(costing.actualCostPerPiece!) : '-'}
-                </div>
-              </div>
-              <div>
-                <div className="text-muted-foreground">Variance Amount</div>
-                <div
-                  className={`font-medium ${costing.costVarianceAmount && Number(costing.costVarianceAmount) > 0 ? 'text-destructive' : costing.costVarianceAmount && Number(costing.costVarianceAmount) < 0 ? 'text-success' : ''}`}
-                >
-                  {costing.costVarianceAmount !== null && costing.costVarianceAmount !== undefined
-                    ? `${Number(costing.costVarianceAmount) > 0 ? '+' : ''}${formatCurrency(costing.costVarianceAmount)}`
-                    : '-'}
-                </div>
-              </div>
-            </div>
-
-            {costing.varianceCalculatedAt && (
-              <div className="mt-2 text-xs text-muted-foreground">
-                Calculated: {formatDate(new Date(costing.varianceCalculatedAt))}
-              </div>
-            )}
-
-            {!hasActualCost && (
-              <div className="mt-3 flex items-center gap-2 text-xs text-warning bg-warning-muted px-3 py-2 rounded">
-                <AlertCircle className="h-4 w-4" />
-                <span>Actual production costs not yet calculated</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   if (isLoading) {
     return (
@@ -507,12 +210,14 @@ export default function OrderDetail() {
     );
   }
 
-  if (error || !order) {
+  if (orderError || !order) {
     return (
       <div className="container mx-auto py-8 px-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center text-destructive">{error || 'Order not found'}</div>
+            <div className="text-center text-destructive">
+              {orderError ? getErrorMessage(orderError) : 'Order not found'}
+            </div>
             <div className="text-center mt-4">
               <Button onClick={() => navigate('/orders')}>Back to Orders</Button>
             </div>
@@ -522,655 +227,365 @@ export default function OrderDetail() {
     );
   }
 
+  const items = order.orderItems ?? [];
+  const due = daysUntil(order.expectedDeliveryDate);
+  const late = due !== null && due < 0 && order.status !== 'DISPATCHED' && order.status !== 'CANCELLED';
+
+  // Each style's latest active BOM (the API sends every version, newest first)
+  const bomOf = (styleId: string) => (order.orderBoms ?? []).find((b) => b.styleId === styleId && b.isActive !== false);
+  const liveRunFor = (itemId: string) => runs.some((wo) => wo.orderItemId === itemId);
+  const canPlanRun = orderOpen && items.some((item) => (item.breakup?.length ?? 0) > 0 && !liveRunFor(item.id));
+
+  const material = order.requirementsSummary?.material;
+  const processing = order.requirementsSummary?.processing;
+  const shipment = order.shipment;
+  const notes = order.dispatchNotes ?? [];
+  const invoices = order.orderInvoices ?? [];
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-display font-medium">Order Details</h1>
-        <div className="flex gap-2">
-          {/* Document Download Menu */}
-          <DocumentShareMenu documentType="order" documentId={order.id} documentNumber={order.orderNumber} />
+    <div className="container mx-auto py-8 px-4 space-y-6">
+      {/* ── Header ───────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-display font-medium">{order.orderNumber}</h1>
+            <span
+              className={`px-3 py-1 rounded text-sm font-medium ${ORDER_STATUS_STYLE[order.status]}`}
+              title={order.statusReason ?? undefined}
+            >
+              {OrderStatusLabels[order.status]}
+            </span>
+            {order.saleOrder && (
+              <button
+                onClick={() => navigate(`/sale-orders/${order.saleOrder!.id}`)}
+                className="inline-flex items-center rounded border px-2 py-0.5 text-xs font-mono text-muted-foreground hover:bg-muted"
+                title={
+                  order.saleOrder.buyerPoNumber ? `Buyer PO ${order.saleOrder.buyerPoNumber}` : 'Linked sale order'
+                }
+              >
+                SO {order.saleOrder.saleOrderNumber}
+              </button>
+            )}
+          </div>
+          {order.statusReason && order.status !== 'CANCELLED' && (
+            <div className="mt-1 text-sm text-muted-foreground">Status: {order.statusReason}</div>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <DocumentShareMenu
+            documentType="order"
+            documentId={order.id}
+            documentNumber={order.orderNumber}
+            customerPhone={order.customer?.phone ?? undefined}
+          />
           <Button variant="outline" onClick={() => navigate('/orders')}>
             Back to Orders
           </Button>
-          {/* MRP-49: production scheduling is now an explicit action rather than a hidden side
-              effect of approving the BOM. Fabric is routinely bought — and sent for dyeing —
-              weeks before anyone is ready to cut, and neither needs a colour/size breakup. */}
-          <Button
-            variant="outline"
-            onClick={() => createWorkOrdersMutation.mutate()}
-            disabled={createWorkOrdersMutation.isPending}
-          >
-            {createWorkOrdersMutation.isPending ? 'Creating…' : 'Create Work Orders'}
-          </Button>
-          {(order.status === 'PENDING' || order.status === 'IN_PRODUCTION') && (
+          {orderOpen && (
             <Button variant="outline" onClick={() => setCancelOpen(true)}>
               Cancel Order
             </Button>
           )}
-          <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>Edit Order</Button>
+          {(order.status === 'PENDING' || order.status === 'IN_PRODUCTION') && (
+            <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>Edit Order</Button>
+          )}
         </div>
       </div>
 
-      <CancelOrderDialog
-        open={cancelOpen}
-        onOpenChange={setCancelOpen}
-        orderId={order.id}
-        orderNumber={order.orderNumber}
-        onCancelled={() => {
-          queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
-          queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-          queryClient.invalidateQueries({ queryKey: queryKeys.mrp.forOrder(order.id) });
-        }}
-      />
-
-      {/* Order Header */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-3">
-              {order.orderNumber}
-              {order.saleOrder && (
-                <button
-                  onClick={() => navigate(`/sale-orders/${order.saleOrder!.id}`)}
-                  className="inline-flex items-center rounded border px-2 py-0.5 text-xs font-mono font-normal text-muted-foreground hover:bg-muted"
-                  title={
-                    order.saleOrder.buyerPoNumber ? `Buyer PO ${order.saleOrder.buyerPoNumber}` : 'Linked sale order'
-                  }
-                >
-                  SO {order.saleOrder.saleOrderNumber}
-                </button>
-              )}
-            </span>
-            <div className="flex gap-2">
-              <span className={`px-3 py-1 rounded text-sm font-medium ${getPriorityBadgeColor(order.priority)}`}>
-                {PriorityLabels[order.priority]}
-              </span>
-              <span
-                className={`px-3 py-1 rounded text-sm font-medium ${getStatusBadgeColor(
-                  order.status as unknown as Parameters<typeof getStatusBadgeColor>[0]
-                )}`}
+      <Card>
+        <CardContent className="pt-6 grid grid-cols-2 md:grid-cols-5 gap-6">
+          <div>
+            <div className="text-sm text-muted-foreground">Customer</div>
+            <div className="mt-1 font-medium">{order.customer?.name}</div>
+            <div className="text-xs text-muted-foreground">{order.customer?.code}</div>
+          </div>
+          <div>
+            <div className="text-sm text-muted-foreground">Order Date</div>
+            <div className="mt-1">{formatDate(order.orderDate)}</div>
+          </div>
+          <div>
+            <div className="text-sm text-muted-foreground">Delivery Date</div>
+            <div className="mt-1">{formatDate(order.expectedDeliveryDate)}</div>
+            {due !== null && order.status !== 'DISPATCHED' && order.status !== 'CANCELLED' && (
+              <div
+                className={`text-xs font-medium ${late ? 'text-destructive' : due <= 7 ? 'text-warning' : 'text-muted-foreground'}`}
               >
-                {OrderStatusLabels[order.status]}
-              </span>
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Customer</div>
-              <div className="mt-1 text-lg">{order.customer?.name || 'N/A'}</div>
-              <div className="text-sm text-muted-foreground">{order.customer?.code}</div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Order Date</div>
-              <div className="mt-1">{formatDate(new Date(order.orderDate))}</div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Expected Delivery</div>
-              <div className="mt-1">{formatDate(new Date(order.expectedDeliveryDate))}</div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Total Quantity</div>
-              <div className="mt-1 text-lg font-semibold">{order.totalQuantity} pieces</div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Total Amount</div>
-              <div className="mt-1 text-lg font-semibold">
-                {Number(order.totalAmount) > 0 ? (
-                  formatCurrency(order.totalAmount, { decimals: 0 })
-                ) : (
-                  <span className="text-warning bg-warning-muted px-2 py-1 rounded text-sm">Pricing Pending</span>
-                )}
+                {late
+                  ? `${-due} day${due === -1 ? '' : 's'} late`
+                  : due === 0
+                    ? 'due today'
+                    : `due in ${due} day${due === 1 ? '' : 's'}`}
               </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Payment Terms</div>
-              <div className="mt-1">{order.paymentTerms || 'N/A'}</div>
+            )}
+          </div>
+          <div>
+            <div className="text-sm text-muted-foreground">Quantity</div>
+            <div className="mt-1 text-lg font-semibold">{formatQuantity(order.totalQuantity, 'PIECE', 0)}</div>
+            {shipment && shipment.shipped > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {formatQuantity(shipment.shipped, 'PIECE', 0)} shipped
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="text-sm text-muted-foreground">Amount</div>
+            <div className="mt-1 text-lg font-semibold">
+              {Number(order.totalAmount) > 0 ? (
+                formatCurrency(order.totalAmount)
+              ) : (
+                <span className="text-warning bg-warning-muted px-2 py-1 rounded text-sm">Pricing Pending</span>
+              )}
             </div>
           </div>
-
-          {order.shippingAddress && (
-            <div className="mt-6">
-              <div className="text-sm font-medium text-muted-foreground">Shipping Address</div>
-              <div className="mt-1">{order.shippingAddress}</div>
-            </div>
-          )}
-
-          {order.remarks && (
-            <div className="mt-6">
-              <div className="text-sm font-medium text-muted-foreground">Remarks</div>
-              <div className="mt-1">{order.remarks}</div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Production Workflow Tracker - P5.1: Extended to show full pipeline */}
-      <OrderWorkflowTracker
-        steps={buildWorkflowSteps(
-          {
-            order: {
-              id: order.id,
-              orderNumber: order.orderNumber,
-              totalQuantity: order.totalQuantity,
-              expectedDeliveryDate: order.expectedDeliveryDate,
-            },
-            orderBom: orderBom
-              ? {
-                  id: orderBom.id,
-                  version: orderBom.version,
-                  status: orderBom.status,
-                }
-              : null,
-            mrpSummary: mrpSummary
-              ? {
-                  totalRequirements: mrpSummary.totalRequirements,
-                  requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
-                  requirementsAwaitingSizes: mrpSummary.requirementsAwaitingSizes,
-                  requirementsAwaitingDecision: mrpSummary.requirementsAwaitingDecision,
-                  hasShortfall: qtyExceeds(mrpSummary.totalShortfall, 0),
-                }
-              : null,
-            generatedPOs: orderPoCount,
-            // P5.1: GRN status - derive from MRP received counts
-            grnSummary: mrpSummary
-              ? {
-                  totalGRNs: mrpSummary.receivedCount || 0,
-                  pendingGRNs: mrpSummary.totalRequirements - (mrpSummary.receivedCount || 0),
-                  materialsReceived: (mrpSummary.receivedCount || 0) >= mrpSummary.totalRequirements,
-                }
-              : null,
-            // P5.1: Processing - simplified (no external jobs data yet, show as N/A)
-            processingSummary: null,
-            // P5.1: Production status from work orders
-            productionSummary:
-              workOrders.length > 0
-                ? {
-                    totalWorkOrders: workOrders.length,
-                    completedQuantity: workOrders.reduce((sum, wo) => sum + (wo.completedQuantity || 0), 0),
-                    inCutting: workOrders.filter((wo) => wo.status === 'IN_PRODUCTION').length,
-                    inStitching: 0, // Would need detailed stage tracking
-                    inFinishing: 0,
-                  }
-                : null,
-            // P5.1: Dispatch status from delivery notes
-            dispatchSummary:
-              deliveryNotes.length > 0
-                ? {
-                    totalDeliveryNotes: deliveryNotes.length,
-                    dispatchedQuantity: deliveryNotes.reduce(
-                      (sum, dn) => sum + (dn.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0),
-                      0
-                    ),
-                    pendingDispatch:
-                      order.totalQuantity -
-                      deliveryNotes.reduce(
-                        (sum, dn) => sum + (dn.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0),
-                        0
-                      ),
-                  }
-                : null,
-          },
-          {
-            onCreateBOM: handleCreateBOM,
-            onReviewBOM: handleReviewBOM,
-            onCalculateMRP: handleCalculateMRP,
-            onViewMRP: handleViewMRP,
-            onViewPOs: () => navigate(`/procurement/purchase-orders?orderId=${order.id}`),
-            onViewGRNs: () => navigate(`/procurement/grn?orderId=${order.id}`),
-            onViewProcessing: () => navigate(`/manufacturing/job-work?orderId=${order.id}`),
-            onViewProduction: () => navigate(`/production/work-orders?orderId=${order.id}`),
-            onViewDispatch: () => navigate(`/manufacturing/dispatch?orderId=${order.id}`),
-          },
-          {
-            bom: creatingBom,
-            mrp: calculatingMrp,
-          }
-        )}
-      />
-
-      {/* Unified Order Procurement Summary */}
-      {((mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) ||
-        (serviceSummary && serviceSummary.totalServices > 0)) && (
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-primary" />
-                Order Procurement Summary
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {mrpLoading || serviceLoading ? (
-              <div className="text-center py-4 text-muted-foreground">Loading procurement data...</div>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Materials Section (Blue) */}
-                {mrpSummary && (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') && (
-                  <div className="bg-info-muted border border-info/20 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-info flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        Materials (MRP)
-                      </h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-info border-info/30 hover:bg-info-muted"
-                        onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${id}`)}
-                      >
-                        View <ArrowRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
-                        <div className="text-2xl font-bold text-info">{mrpSummary.totalRequirements}</div>
-                        <div className="text-xs text-info">Total</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
-                        <div className="text-2xl font-bold text-primary">{mrpSummary.requirementsNeedingPO}</div>
-                        <div className="text-xs text-orange-500">Pending PO</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
-                        <div className="text-2xl font-bold text-success">
-                          {mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO}
-                        </div>
-                        <div className="text-xs text-success">PO Generated</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 text-center border border-info/15">
-                        <div className="text-2xl font-bold text-destructive">
-                          {qtyExceeds(mrpSummary.totalShortfall, 0) ? mrpSummary.requirementsNeedingPO : 0}
-                        </div>
-                        <div className="text-xs text-destructive">With Shortfall</div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    {mrpSummary.totalRequirements > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-info">Progress</span>
-                          <span className="font-medium text-info">
-                            {Math.round(
-                              ((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) /
-                                mrpSummary.totalRequirements) *
-                                100
-                            )}
-                            %
-                          </span>
-                        </div>
-                        <div className="w-full bg-info-muted rounded-full h-2">
-                          <div
-                            className="bg-info h-2 rounded-full transition-all"
-                            style={{
-                              width: `${((mrpSummary.totalRequirements - mrpSummary.requirementsNeedingPO) / mrpSummary.totalRequirements) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Services Section (Purple) */}
-                {serviceSummary && serviceSummary.totalServices > 0 && (
-                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-accent flex items-center gap-2">
-                        <Wrench className="h-5 w-5" />
-                        Services
-                      </h3>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-accent border-accent/25 hover:bg-accent/10"
-                        onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${id}`)}
-                      >
-                        View <ArrowRight className="h-4 w-4 ml-1" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mb-4">
-                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
-                        <div className="text-2xl font-bold text-accent">{serviceSummary.totalServices}</div>
-                        <div className="text-xs text-accent">Total</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
-                        <div className="text-2xl font-bold text-primary">{serviceSummary.pendingServices}</div>
-                        <div className="text-xs text-orange-500">Pending</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
-                        <div className="text-2xl font-bold text-info">{serviceSummary.poGenerated}</div>
-                        <div className="text-xs text-info">JWO Created</div>
-                      </div>
-                      <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
-                        <div className="text-2xl font-bold text-success">{serviceSummary.completed}</div>
-                        <div className="text-xs text-success">Completed</div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    {serviceSummary.totalServices > 0 && (
-                      <div>
-                        <div className="flex items-center justify-between text-sm mb-1">
-                          <span className="text-accent">Progress</span>
-                          <span className="font-medium text-accent">
-                            {Math.round(
-                              ((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) *
-                                100
-                            )}
-                            %
-                          </span>
-                        </div>
-                        <div className="w-full bg-accent/10 rounded-full h-2">
-                          <div
-                            className="bg-accent h-2 rounded-full transition-all"
-                            style={{
-                              width: `${((serviceSummary.poGenerated + serviceSummary.completed) / serviceSummary.totalServices) * 100}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Work Order Count */}
-                    <div className="mt-3 text-xs text-accent text-center">
-                      Across {serviceSummary.workOrderCount} work order{serviceSummary.workOrderCount !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-                )}
-
-                {/* Placeholder when only materials or only services */}
-                {mrpSummary &&
-                  (orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED') &&
-                  (!serviceSummary || serviceSummary.totalServices === 0) && (
-                    <div className="bg-muted border border-border rounded-lg p-4 flex flex-col items-center justify-center text-center">
-                      <Wrench className="h-10 w-10 text-gray-300 mb-2" />
-                      <div className="text-muted-foreground font-medium">No Service Requirements</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Calculate services from Work Orders to track service POs
-                      </div>
-                    </div>
-                  )}
-
-                {serviceSummary &&
-                  serviceSummary.totalServices > 0 &&
-                  (!mrpSummary || !(orderBom?.status === 'APPROVED' || orderBom?.status === 'LOCKED')) && (
-                    <div className="bg-muted border border-border rounded-lg p-4 flex flex-col items-center justify-center text-center">
-                      <Package className="h-10 w-10 text-gray-300 mb-2" />
-                      <div className="text-muted-foreground font-medium">No Material Requirements</div>
-                      <div className="text-xs text-muted-foreground mt-1">Approve Order BOM to track material POs</div>
-                    </div>
-                  )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Order Items */}
+      {/* ── What's stopping it ──────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Order Items</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-warning" />
+            What&apos;s stopping it
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          {order.orderItems && order.orderItems.length > 0 ? (
-            <div className="space-y-6">
-              {order.orderItems.map((item, index) => (
-                <div key={item.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-4">
+        <CardContent className="space-y-3">
+          {order.status === 'CANCELLED' ? (
+            <div className="text-muted-foreground">This order is cancelled.</div>
+          ) : !orderOpen ? (
+            <div className="flex items-center gap-2 text-success">
+              <CheckCircle2 className="h-5 w-5" /> Production is finished
+              {order.status === 'DISPATCHED' ? ' and shipped' : ''}.
+            </div>
+          ) : pipelineError ? (
+            <div className="text-destructive text-sm">Could not check the order: {getErrorMessage(pipelineError)}</div>
+          ) : (
+            items.map((item) => {
+              const line = pipeline?.orders.find((o) => o.orderItemId === item.id);
+              const hasSizes = (item.breakup?.length ?? 0) > 0;
+              const bom = bomOf(item.styleId);
+              const label = item.style?.styleCode ?? 'Line';
+              if (liveRunFor(item.id)) {
+                const itemRuns = runs.filter((wo) => wo.orderItemId === item.id);
+                return (
+                  <div key={item.id} className="flex items-start gap-2">
+                    <Factory className="h-5 w-5 text-info mt-0.5" />
                     <div>
-                      <h3 className="font-semibold text-lg">Item #{index + 1}</h3>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {item.style?.styleCode}
-                        {item.style?.buyerStyleRef && ` (${item.style.buyerStyleRef})`}
-                        {' - '}
-                        {item.style?.styleName}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-muted-foreground">Quantity</div>
-                      <div className="text-lg font-semibold">{item.totalQuantity} pieces</div>
+                      <span className="font-medium">{label}</span> — production run{itemRuns.length > 1 ? 's' : ''}{' '}
+                      {itemRuns
+                        .map((wo) => `${wo.workOrderNumber} (${wo.status.replace(/_/g, ' ').toLowerCase()})`)
+                        .join(', ')}
+                      . See Production below.
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <div className="text-sm text-muted-foreground">Unit Price</div>
-                      <div>
-                        {Number(item.unitPrice) > 0 ? (
-                          formatCurrency(item.unitPrice)
-                        ) : (
-                          <span className="text-warning text-sm">Not set</span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Total Price</div>
-                      <div className="font-semibold">
-                        {Number(item.totalPrice) > 0 ? (
-                          formatCurrency(item.totalPrice, { decimals: 0 })
-                        ) : (
-                          <span className="text-warning text-sm">Pending</span>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-muted-foreground">Delivery Date</div>
-                      <div>
-                        {item.deliveryDate
-                          ? formatDate(new Date(item.deliveryDate))
-                          : order.expectedDeliveryDate
-                            ? formatDate(new Date(order.expectedDeliveryDate))
-                            : 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {item.itemDescription && (
-                    <div className="mb-4">
-                      <div className="text-sm text-muted-foreground">Description</div>
-                      <div>{item.itemDescription}</div>
-                    </div>
-                  )}
-
-                  {/* Quantity Breakup */}
-                  {item.breakup && item.breakup.length > 0 ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm font-medium text-foreground">Quantity Breakup</div>
-                        {/* Also reachable once a split EXISTS — otherwise a wrong split entered
-                            here could never be corrected without deleting the order. */}
+                );
+              }
+              const blockers = line?.blockers ?? [];
+              return (
+                <div key={item.id} className="rounded-lg border p-3">
+                  <div className="font-medium mb-2">{label}</div>
+                  <ul className="space-y-2 text-sm">
+                    {!bom && (
+                      <li className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-destructive" />
+                        No BOM yet.
                         <Button
-                          variant="outline"
                           size="sm"
+                          variant="outline"
+                          disabled={creatingOrderId === order.id}
+                          onClick={() =>
+                            void createBom({ orderId: order.id, styleId: item.styleId, orderItemId: item.id })
+                          }
+                        >
+                          {creatingOrderId === order.id ? 'Creating…' : 'Create BOM'}
+                        </Button>
+                      </li>
+                    )}
+                    {bom?.status === 'DRAFT' && (
+                      <li className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-warning" />
+                        BOM v{bom.version} is a draft — review and approve it.
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/order-bom/${bom.id}`)}>
+                          Review BOM
+                        </Button>
+                      </li>
+                    )}
+                    {!hasSizes && (
+                      <li className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-warning" />
+                        Size breakdown not given — the production run is planned once the sizes are in.
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() =>
                             setSizeBreakupItem({
                               orderItemId: item.id,
                               styleId: item.styleId,
                               currentTotal: item.totalQuantity,
-                              initialBreakup: (item.breakup ?? []).map((b) => ({
-                                colorId: b.colorId,
-                                sizeId: b.sizeId,
-                                quantity: b.quantity,
-                              })),
                             })
                           }
                         >
-                          Edit Size Breakdown
+                          Add Size Breakdown
                         </Button>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full border text-sm">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="border px-4 py-2 text-left">Color</th>
-                              <th className="border px-4 py-2 text-left">Size</th>
-                              <th className="border px-4 py-2 text-right">Quantity</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {item.breakup.map((breakup, idx) => (
-                              <tr key={idx} className="hover:bg-muted">
-                                <td className="border px-4 py-2">
-                                  {breakup.colorOptions?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
-                                </td>
-                                <td className="border px-4 py-2">{breakup.sizeOptions?.sizeName || 'N/A'}</td>
-                                <td className="border px-4 py-2 text-right font-medium">{breakup.quantity}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot className="bg-muted font-semibold">
-                            <tr>
-                              <td colSpan={2} className="border px-4 py-2 text-right">
-                                Total:
-                              </td>
-                              <td className="border px-4 py-2 text-right">
-                                {item.breakup.reduce((sum, b) => sum + b.quantity, 0)}
-                              </td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-info-muted border border-info/20 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="h-5 w-5 text-info flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <div className="font-medium text-info">Size breakdown not specified</div>
-                          <p className="text-sm text-info mt-1">
-                            This order was created with total quantity only ({item.totalQuantity} pcs). Add the sizes
-                            here whenever they are confirmed.
-                          </p>
-                          <p className="text-xs text-info mt-2">
-                            Note: Size-independent materials (fabric, greige, processing, most trims) can still be
-                            procured without size breakdown. Size-wise labels are planned at their full quantity and
-                            become orderable once the sizes are entered.
-                          </p>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="mt-3 text-info border-info/30 hover:bg-info-muted"
-                            onClick={() =>
-                              setSizeBreakupItem({
-                                orderItemId: item.id,
-                                styleId: item.styleId,
-                                currentTotal: item.totalQuantity,
-                              })
-                            }
-                          >
-                            Add Size Breakdown
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Costing Details with Production Variance */}
-                  {renderCostingDetails(item.orderItemCosting)}
+                      </li>
+                    )}
+                    {blockers.map((b, i) => {
+                      const link = blockerLink(b, order, item.styleId);
+                      return (
+                        <li key={i} className="flex items-center gap-2">
+                          <AlertCircle
+                            className={`h-4 w-4 ${b.severity === 'CRITICAL' ? 'text-destructive' : 'text-warning'}`}
+                          />
+                          <span>{b.message}</span>
+                          {link && (
+                            <Button size="sm" variant="ghost" onClick={() => navigate(link.to)}>
+                              {link.label} <ArrowRight className="h-3 w-3 ml-1" />
+                            </Button>
+                          )}
+                        </li>
+                      );
+                    })}
+                    {pipeline && blockers.length === 0 && bom && bom.status !== 'DRAFT' && hasSizes && (
+                      <li className="flex items-center gap-2 text-success">
+                        <CheckCircle2 className="h-4 w-4" /> Ready to cut — plan the production run.
+                        <Button
+                          size="sm"
+                          onClick={() => createWorkOrdersMutation.mutate()}
+                          disabled={createWorkOrdersMutation.isPending}
+                        >
+                          {createWorkOrdersMutation.isPending ? 'Creating…' : 'Create Production Run'}
+                        </Button>
+                      </li>
+                    )}
+                    {!pipeline && <li className="text-muted-foreground">Checking…</li>}
+                  </ul>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">No items found for this order</div>
+              );
+            })
           )}
         </CardContent>
       </Card>
 
-      {/* Order BOM Section */}
-      <Card className="mt-6">
+      {/* ── Materials ───────────────────────────────────────────────────────── */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Order BOM
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Materials
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/procurement/requirements?tab=material&orderId=${order.id}`)}
+            >
+              Open Requirements <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          {bomLoading ? (
-            <div className="text-center py-4 text-muted-foreground">Loading BOM...</div>
-          ) : orderBom ? (
-            <div className="border rounded-lg p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <span className="font-semibold">
-                      {orderBom.style?.styleCode}
-                      {orderBom.style?.buyerStyleRef && ` (${orderBom.style.buyerStyleRef})`}
-                      {' - '}
-                      {orderBom.style?.styleName}
-                    </span>
-                    <Badge variant="outline">v{orderBom.version}</Badge>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(orderBom.status)}`}
-                    >
-                      {orderBom.status}
-                    </span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {orderBom.items?.length || 0} items | Total:{' '}
-                    {orderBom.totalMaterialCost ? `${Number(orderBom.totalMaterialCost).toFixed(2)}` : 'N/A'}
-                  </div>
+        <CardContent className="space-y-4">
+          {!material || material.live + (processing?.live ?? 0) === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No requirements yet — they are worked out when the order&apos;s BOM is approved.
+            </div>
+          ) : (
+            <>
+              <RequirementRow title="Materials to buy" buckets={material} />
+              {processing && processing.live > 0 && (
+                <RequirementRow
+                  title="Processing (dyeing / printing)"
+                  buckets={processing}
+                  onOpen={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${order.id}`)}
+                />
+              )}
+            </>
+          )}
+          {serviceSummary && serviceSummary.totalServices > 0 && (
+            <div className="rounded-lg border p-3 text-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="font-medium flex items-center gap-2">
+                  <Wrench className="h-4 w-4" /> Services on the production runs
                 </div>
-                <Button variant="outline" size="sm" onClick={() => navigate(`/order-bom/${orderBom.id}`)}>
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  View Details
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/procurement/requirements?tab=outsourced&orderId=${order.id}`)}
+                >
+                  Open <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
               </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <div className="text-muted-foreground">No Order BOM found</div>
-              <div className="text-sm text-muted-foreground mt-1">Create an Order BOM from an approved Cost Sheet</div>
+              <div className="flex flex-wrap gap-4">
+                <span>To assign: {serviceSummary.pendingServices}</span>
+                <span>Job work created: {serviceSummary.poGenerated}</span>
+                <span>Completed: {serviceSummary.completed}</span>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Production Runs Section */}
-      <Card className="mt-6">
+      {/* ── Production ──────────────────────────────────────────────────────── */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Factory className="h-5 w-5" />
-            Production Runs
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Factory className="h-5 w-5" />
+              Production
+            </CardTitle>
+            {canPlanRun && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => createWorkOrdersMutation.mutate()}
+                disabled={createWorkOrdersMutation.isPending}
+              >
+                {createWorkOrdersMutation.isPending ? 'Creating…' : 'Create Production Run'}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          {workOrdersLoading ? (
-            <div className="text-center py-4 text-muted-foreground">Loading production runs...</div>
-          ) : workOrders.length > 0 ? (
+          {runsError ? (
+            <div className="text-destructive text-sm">
+              Could not load the production runs: {getErrorMessage(runsError)}
+            </div>
+          ) : runs.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No production run yet. One is planned per order line once its sizes are in — see What&apos;s stopping it.
+            </div>
+          ) : (
             <div className="space-y-4">
-              {workOrders.map((wo) => {
-                const progress = calculateProgress(wo);
+              {runs.map((wo) => {
+                const progress = progressOf(wo.id);
+                const fabric = order.runFabric?.find((f) => f.workOrderId === wo.id);
+                const cut = progress?.cutting.totalPcsCut ?? 0;
+                const stitched = progress?.stitching.totalCompleted ?? 0;
+                const finished = progress?.finishing.totalFinished ?? 0;
+                const pct =
+                  wo.totalQuantity > 0 ? Math.min(100, Math.round((wo.completedQuantity / wo.totalQuantity) * 100)) : 0;
                 return (
-                  <div key={wo.id} className="border rounded-lg p-4 hover:border-gray-400 transition-colors">
-                    <div className="flex justify-between items-start mb-3">
+                  <div key={wo.id} className="border rounded-lg p-4">
+                    <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-semibold text-lg">{wo.workOrderNumber}</h4>
                           <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${getWorkOrderStatusColor(wo.status)}`}
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${RUN_STATUS_STYLE[wo.status] ?? ''}`}
                           >
                             {wo.status.replace(/_/g, ' ')}
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {wo.style?.styleCode}
-                          {wo.style?.buyerStyleRef && ` (${wo.style.buyerStyleRef})`}
-                          {' - '}
-                          {wo.style?.styleName}
+                          {wo.style?.styleCode} · planned {formatDate(wo.plannedStartDate)} →{' '}
+                          {formatDate(wo.plannedEndDate)}
+                          {wo.warehouse?.warehouseName ? ` · ${wo.warehouse.warehouseName}` : ''}
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        {wo.status === 'PENDING' && wo.totalQuantity > 1 && (
+                        {wo.status === 'PENDING' && wo.totalQuantity > 1 && (wo.breakup?.length ?? 0) > 0 && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleSplitClick(wo)}
+                            onClick={() => setSplitRun(wo)}
                             title="Split for partial dispatch"
                           >
                             <Split className="h-4 w-4 mr-1" />
@@ -1188,139 +603,260 @@ export default function OrderDetail() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <div className="text-muted-foreground">Location</div>
-                        <div className="font-medium">
-                          {wo.warehouse?.warehouseName || <span className="text-warning">Not Assigned</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Quantity</div>
-                        <div className="font-medium">
-                          {wo.completedQuantity} / {wo.totalQuantity} pcs
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Planned Start</div>
-                        <div className="font-medium">{formatDate(new Date(wo.plannedStartDate))}</div>
-                      </div>
-                      <div>
-                        <div className="text-muted-foreground">Planned End</div>
-                        <div className="font-medium">{formatDate(new Date(wo.plannedEndDate))}</div>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Progress</span>
-                        <span>{progress}%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${progress === 100 ? 'bg-success' : 'bg-info'}`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+                      <Stage icon={<Scissors className="h-4 w-4" />} label="Fabric issued">
+                        {fabric && fabric.issued > 0 ? (
+                          <>
+                            {formatQuantity(fabric.issued, 'METER')}
+                            {fabric.atCutting > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatQuantity(fabric.atCutting, 'METER')} still at Cutting
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          '—'
+                        )}
+                      </Stage>
+                      <Stage label="Cut">
+                        {progress
+                          ? `${formatQuantity(cut, 'PIECE', 0)} of ${formatQuantity(wo.totalQuantity, 'PIECE', 0)}`
+                          : '—'}
+                      </Stage>
+                      <Stage label="Stitched">{progress ? formatQuantity(stitched, 'PIECE', 0) : '—'}</Stage>
+                      <Stage label="Finished">{progress ? formatQuantity(finished, 'PIECE', 0) : '—'}</Stage>
+                      <Stage label="Completed">
+                        {formatQuantity(wo.completedQuantity, 'PIECE', 0)} ({pct}%)
+                      </Stage>
                     </div>
                   </div>
                 );
               })}
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <Factory className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <div className="text-muted-foreground">No production runs found for this order</div>
-              <div className="text-sm text-muted-foreground mt-1">
-                Production runs are auto-created when orders are saved
-              </div>
-            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Billing & Dispatch Summary */}
-      <Card className="mt-6">
+      {/* ── Items & sizes ───────────────────────────────────────────────────── */}
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Billing & Dispatch
-          </CardTitle>
+          <CardTitle className="text-lg">Items &amp; Sizes</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Invoices */}
-            <div>
-              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
-                <DollarSign className="h-4 w-4" />
-                Invoices
-                <Badge variant="secondary">{invoices.length}</Badge>
-              </div>
-              {invoices.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No invoices created for this order yet</div>
-              ) : (
-                <div className="space-y-2">
-                  {invoices.map((inv) => (
-                    <button
-                      key={inv.id}
-                      onClick={() => navigate(`/invoices/${inv.id}`)}
-                      className="w-full flex items-center justify-between rounded-md border p-2 text-sm hover:border-gray-400 transition-colors"
-                    >
-                      <span className="font-medium text-primary">{inv.invoiceNumber}</span>
-                      <span className="flex items-center gap-2">
-                        <span className="text-muted-foreground">{formatCurrency(inv.totalAmount)}</span>
-                        <Badge variant="outline">{InvoiceStatusLabels[inv.status]}</Badge>
-                      </span>
-                    </button>
-                  ))}
+        <CardContent className="space-y-6">
+          {items.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">No items found for this order</div>
+          )}
+          {items.map((item) => (
+            <div key={item.id} className="border rounded-lg p-4">
+              <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
+                <div>
+                  <h3 className="font-semibold text-lg">
+                    {item.style?.styleCode}
+                    {item.style?.buyerStyleRef && item.style.buyerStyleRef !== item.style.styleCode && (
+                      <span className="text-muted-foreground font-normal"> ({item.style.buyerStyleRef})</span>
+                    )}
+                  </h3>
+                  <div className="text-sm text-muted-foreground">{item.style?.styleName}</div>
                 </div>
-              )}
-            </div>
+                <div className="text-right">
+                  <div className="text-lg font-semibold">{formatQuantity(item.totalQuantity, 'PIECE', 0)}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {Number(item.unitPrice) > 0
+                      ? `${formatCurrency(item.unitPrice)} / pc · ${formatCurrency(item.totalPrice)}`
+                      : 'Price not set'}
+                  </div>
+                </div>
+              </div>
 
-            {/* Delivery Notes */}
-            <div>
-              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
-                <Truck className="h-4 w-4" />
-                Delivery Notes
-                <Badge variant="secondary">{deliveryNotes.length}</Badge>
-              </div>
-              {deliveryNotes.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No delivery notes created for this order yet</div>
+              {item.breakup && item.breakup.length > 0 ? (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium text-foreground">Size breakdown</div>
+                    {orderOpen && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setSizeBreakupItem({
+                            orderItemId: item.id,
+                            styleId: item.styleId,
+                            currentTotal: item.totalQuantity,
+                            initialBreakup: (item.breakup ?? []).map((b) => ({
+                              colorId: b.colorId,
+                              sizeId: b.sizeId,
+                              quantity: b.quantity,
+                            })),
+                          })
+                        }
+                      >
+                        Edit Size Breakdown
+                      </Button>
+                    )}
+                  </div>
+                  <SizeGrid breakup={item.breakup} />
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {deliveryNotes.map((dn) => (
-                    <button
-                      key={dn.id}
-                      onClick={() => navigate(`/manufacturing/dispatch/delivery/${dn.id}`)}
-                      className="w-full flex items-center justify-between rounded-md border p-2 text-sm hover:border-gray-400 transition-colors"
-                    >
-                      <span className="font-medium text-primary">{dn.deliveryNumber}</span>
-                      <Badge variant="outline">{DeliveryStatusLabels[dn.status]}</Badge>
-                    </button>
-                  ))}
+                <div className="text-sm text-muted-foreground">
+                  Size breakdown not given yet (ordered as {item.totalQuantity} pcs). Fabric, greige, processing and
+                  most trims can be bought without it; size-wise labels wait for it.
                 </div>
               )}
+
+              <CostingDetails costing={item.orderItemCosting} />
             </div>
-          </div>
+          ))}
         </CardContent>
       </Card>
 
-      {/* Split Production Modal */}
-      {selectedWorkOrder && (
+      {/* ── BOM ─────────────────────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Order BOM
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {items.map((item) => {
+            const bom = bomOf(item.styleId);
+            return (
+              <div key={item.id} className="border rounded-lg p-4 flex flex-wrap justify-between items-center gap-3">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-semibold">{item.style?.styleCode}</span>
+                    {bom && <Badge variant="outline">v{bom.version}</Badge>}
+                    {bom && <Badge variant={bom.status === 'DRAFT' ? 'secondary' : 'default'}>{bom.status}</Badge>}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {bom
+                      ? `${bom._count?.items ?? 0} lines · material cost ${bom.totalMaterialCost != null ? formatCurrency(bom.totalMaterialCost) : '—'}`
+                      : 'No BOM yet — it is built from the style’s approved raw-material cost sheet.'}
+                  </div>
+                </div>
+                {bom ? (
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/order-bom/${bom.id}`)}>
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {bom.status === 'DRAFT' ? 'Review BOM' : 'View BOM'}
+                  </Button>
+                ) : (
+                  orderOpen && (
+                    <Button
+                      size="sm"
+                      disabled={creatingOrderId === order.id}
+                      onClick={() => void createBom({ orderId: order.id, styleId: item.styleId, orderItemId: item.id })}
+                    >
+                      {creatingOrderId === order.id ? 'Creating…' : 'Create BOM'}
+                    </Button>
+                  )
+                )}
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      {/* ── Dispatch & billing (once there is something to show) ─────────────── */}
+      {(notes.length > 0 || invoices.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Dispatch &amp; Billing
+              {shipment && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  · {formatQuantity(shipment.shipped, 'PIECE', 0)} of {formatQuantity(shipment.ordered, 'PIECE', 0)}{' '}
+                  shipped
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
+                  <Truck className="h-4 w-4" />
+                  Delivery Notes <Badge variant="secondary">{notes.length}</Badge>
+                </div>
+                {notes.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">None yet</div>
+                ) : (
+                  <div className="space-y-2">
+                    {notes.map((dn) => (
+                      <button
+                        key={dn.id}
+                        onClick={() => navigate(`/manufacturing/dispatch/delivery/${dn.id}`)}
+                        className="w-full flex items-center justify-between rounded-md border p-2 text-sm hover:border-gray-400 transition-colors"
+                      >
+                        <span className={`font-medium text-primary ${dn.status === 'CANCELLED' ? 'line-through' : ''}`}>
+                          {dn.deliveryNumber}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">
+                            {formatDate(dn.deliveryDate)} · {formatQuantity(dn.quantity, 'PIECE', 0)}
+                          </span>
+                          <Badge variant="outline">
+                            {DeliveryStatusLabels[dn.status as DeliveryStatus] ?? dn.status}
+                          </Badge>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  Invoices <Badge variant="secondary">{invoices.length}</Badge>
+                </div>
+                {invoices.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">None yet</div>
+                ) : (
+                  <div className="space-y-2">
+                    {invoices.map((inv) => (
+                      <button
+                        key={inv.id}
+                        onClick={() => navigate(`/invoices/${inv.id}`)}
+                        className="w-full flex items-center justify-between rounded-md border p-2 text-sm hover:border-gray-400 transition-colors"
+                      >
+                        <span className="font-medium text-primary">{inv.invoiceNumber}</span>
+                        <span className="flex items-center gap-2">
+                          <span className="text-muted-foreground">{formatCurrency(inv.totalAmount)}</span>
+                          <Badge variant="outline">
+                            {InvoiceStatusLabels[inv.status as InvoiceStatus] ?? inv.status}
+                          </Badge>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
+      <CancelOrderDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        orderId={order.id}
+        orderNumber={order.orderNumber}
+        onCancelled={refreshOrder}
+      />
+
+      {splitRun && (
         <SplitProductionModal
-          isOpen={splitModalOpen}
-          onClose={() => {
-            setSplitModalOpen(false);
-            setSelectedWorkOrder(null);
+          isOpen={splitRun != null}
+          onClose={() => setSplitRun(null)}
+          workOrder={splitRun}
+          onSplitComplete={() => {
+            setSplitRun(null);
+            refreshOrder();
           }}
-          workOrder={selectedWorkOrder}
-          onSplitComplete={handleSplitComplete}
         />
       )}
 
-      {/* Sizes-later workflow: fill in the size split after the order was created without it */}
-      {sizeBreakupItem && order && (
+      {sizeBreakupItem && (
         <SizeBreakupDialog
           open={!!sizeBreakupItem}
           onOpenChange={(open) => !open && setSizeBreakupItem(null)}
@@ -1331,13 +867,185 @@ export default function OrderDetail() {
           initialBreakup={sizeBreakupItem.initialBreakup}
           onSaved={() => {
             setSizeBreakupItem(null);
-            // Saving the breakup also rewrites requirements and work orders server-side, so
-            // every dependent view must refetch — not just the order.
-            queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
-            queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-            queryClient.invalidateQueries({ queryKey: queryKeys.mrp.forOrder(order.id) });
+            // Saving the breakup also rewrites requirements and production runs server-side
+            refreshOrder();
           }}
         />
+      )}
+
+      {createBomDialog}
+    </div>
+  );
+}
+
+/** Colour × size grid of an order line's breakup (one row per colour — normally one: a style has one colour). */
+function SizeGrid({ breakup }: { breakup: NonNullable<Order['orderItems']>[number]['breakup'] }) {
+  const sizes: Array<{ id: string; name: string }> = [];
+  const colours: Array<{ id: string; name: string }> = [];
+  for (const b of breakup) {
+    if (!sizes.some((s) => s.id === b.sizeId)) sizes.push({ id: b.sizeId, name: b.sizeOptions?.sizeName || '—' });
+    const colourId = b.colorId ?? '';
+    if (!colours.some((c) => c.id === colourId)) colours.push({ id: colourId, name: b.colorOptions?.colorName || '—' });
+  }
+  const qty = (colourId: string, sizeId: string) =>
+    breakup
+      .filter((b) => (b.colorId ?? '') === colourId && b.sizeId === sizeId)
+      .reduce((sum, b) => sum + b.quantity, 0);
+  return (
+    <div className="overflow-x-auto">
+      <table className="min-w-full border text-sm">
+        <thead className="bg-muted">
+          <tr>
+            <th className="border px-4 py-2 text-left">Colour</th>
+            {sizes.map((s) => (
+              <th key={s.id} className="border px-4 py-2 text-right">
+                {s.name}
+              </th>
+            ))}
+            <th className="border px-4 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {colours.map((c) => (
+            <tr key={c.id}>
+              <td className="border px-4 py-2">{c.name}</td>
+              {sizes.map((s) => (
+                <td key={s.id} className="border px-4 py-2 text-right font-medium">
+                  {qty(c.id, s.id) || ''}
+                </td>
+              ))}
+              <td className="border px-4 py-2 text-right font-semibold">
+                {sizes.reduce((sum, s) => sum + qty(c.id, s.id), 0)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** One requirement type's lines, each in exactly one bucket. */
+function RequirementRow({
+  title,
+  buckets,
+  onOpen,
+}: {
+  title: string;
+  buckets: RequirementBuckets;
+  onOpen?: () => void;
+}) {
+  const inHandOrComing = buckets.onOrder + buckets.received + buckets.fromStock;
+  const pct = buckets.live > 0 ? Math.round((inHandOrComing / buckets.live) * 100) : 0;
+  const tiles: Array<[string, number, string]> = [
+    ['To order', buckets.toOrder, buckets.toOrder > 0 ? 'text-destructive' : 'text-muted-foreground'],
+    ['On order', buckets.onOrder, 'text-info'],
+    ['Received', buckets.received, 'text-success'],
+    ['From stock', buckets.fromStock, 'text-success'],
+  ];
+  if (buckets.waitingSizes > 0) tiles.push(['Waiting for sizes', buckets.waitingSizes, 'text-warning']);
+  if (buckets.needDecision > 0) tiles.push(['Needs a decision', buckets.needDecision, 'text-warning']);
+  if (buckets.notChecked > 0) tiles.push(['Not checked', buckets.notChecked, 'text-muted-foreground']);
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="flex items-center justify-between mb-2 text-sm">
+        <span className="font-medium">
+          {title} — {buckets.live} line{buckets.live === 1 ? '' : 's'}
+        </span>
+        <span className="flex items-center gap-2 text-muted-foreground">
+          {pct}% ordered or in hand
+          {onOpen && (
+            <Button variant="ghost" size="sm" onClick={onOpen}>
+              Open <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
+          )}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+        {tiles.map(([label, count, tone]) => (
+          <div key={label} className="bg-card rounded-md border p-2 text-center">
+            <div className={`text-xl font-bold ${tone}`}>{count}</div>
+            <div className="text-xs text-muted-foreground">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="w-full bg-muted rounded-full h-1.5 mt-3">
+        <div className="bg-info h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Stage({ label, icon, children }: { label: string; icon?: ReactNode; children: ReactNode }) {
+  return (
+    <div>
+      <div className="text-muted-foreground flex items-center gap-1">
+        {icon}
+        {label}
+      </div>
+      <div className="font-medium">{children}</div>
+    </div>
+  );
+}
+
+/** The costed cost per piece and its parts — every part, so they add up to the total. */
+function CostingDetails({ costing }: { costing: OrderItemCosting | null | undefined }) {
+  if (!costing) return null;
+  const parts: Array<[string, number]> = [
+    ['Fabric', costing.fabricTotal],
+    ['Trims', costing.trimsTotal],
+    ['Accessories', costing.accessoriesTotal],
+    ['Processing', costing.processingTotal],
+    ['Embroidery', costing.embroideryTotal],
+    ['CMT', costing.cmtTotal],
+    ['Overheads', costing.overheadsTotal],
+  ];
+  const variance = costing.costVariancePercent;
+  return (
+    <div className="mt-4 p-4 bg-muted rounded-lg border">
+      <div className="flex items-center gap-2 mb-3">
+        <Calculator className="h-4 w-4 text-muted-foreground" />
+        <h4 className="font-medium text-foreground">Costing (per piece)</h4>
+        {costing.originalCostSheetVersion && (
+          <Badge variant="outline" className="text-xs">
+            cost sheet v{costing.originalCostSheetVersion}
+          </Badge>
+        )}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 text-sm">
+        {parts
+          .filter(([, value]) => Number(value) !== 0)
+          .map(([label, value]) => (
+            <div key={label}>
+              <div className="text-muted-foreground">{label}</div>
+              <div className="font-medium">{formatCurrency(value)}</div>
+            </div>
+          ))}
+        <div>
+          <div className="text-muted-foreground">Total cost</div>
+          <div className="font-semibold">{formatCurrency(costing.totalCostPerPiece)}</div>
+        </div>
+      </div>
+      {costing.actualCostPerPiece != null && (
+        <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-4 text-sm">
+          <span>
+            Actual {formatCurrency(costing.actualCostPerPiece)} / pc against{' '}
+            {formatCurrency(costing.estimatedCostPerPiece ?? costing.totalCostPerPiece)}
+          </span>
+          {variance != null && (
+            <Badge variant={Number(variance) > 0 ? 'destructive' : 'secondary'} className="flex items-center gap-1">
+              {Number(variance) > 0 ? (
+                <TrendingUp className="h-3 w-3" />
+              ) : Number(variance) < 0 ? (
+                <TrendingDown className="h-3 w-3" />
+              ) : (
+                <Minus className="h-3 w-3" />
+              )}
+              {Number(variance) > 0 ? '+' : ''}
+              {Number(variance).toFixed(1)}%
+            </Badge>
+          )}
+        </div>
       )}
     </div>
   );

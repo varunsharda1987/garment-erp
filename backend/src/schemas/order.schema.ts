@@ -49,7 +49,10 @@ export const createOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
   orderDate: z.coerce.date().optional(),
   expectedDeliveryDate: z.coerce.date(), // Required; renamed from deliveryDate to match frontend
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  // Optional, NO default: updateOrderSchema is this schema .partial(), and a .default() survives
+  // .partial() — every PUT that omitted priority silently reset HIGH/URGENT to MEDIUM (found by
+  // garment-erp-ab, 2026-09-28). Create defaults to MEDIUM itself (controller + order.service).
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   totalQuantity: z.number().int().nonnegative().optional(), // Direct total when items have no size breakup
   paymentTerms: z.string().max(100).optional(), // Changed from paymentTermsId (UUID) to string
   shippingAddress: z.string().max(500).optional(),

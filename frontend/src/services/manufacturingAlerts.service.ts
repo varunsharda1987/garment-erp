@@ -169,4 +169,12 @@ export const manufacturingAlertsService = {
     const response = await api.get<{ success: boolean; data: PipelineResponse }>('/manufacturing/pipeline');
     return assertPipelineShape(response.data?.data);
   },
+
+  /** One order's lines against the same gate — the order page's "What's stopping it" card. */
+  async getPipelineForOrder(orderId: string): Promise<PipelineResponse> {
+    const response = await api.get<{ success: boolean; data: PipelineResponse }>('/manufacturing/pipeline', {
+      params: { orderId },
+    });
+    return assertPipelineShape(response.data?.data);
+  },
 };

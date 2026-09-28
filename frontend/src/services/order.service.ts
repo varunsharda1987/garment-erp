@@ -5,7 +5,6 @@ import type {
   OrderListResponse,
   CreateOrderRequest,
   UpdateOrderRequest,
-  UpdateOrderStatusRequest,
   OrderStatisticsResponse,
 } from '../types/order.types';
 
@@ -78,14 +77,6 @@ export const updateOrder = async (id: string, orderData: UpdateOrderRequest): Pr
   // costingInfo rides on the envelope, not on data — dropping it here is why an order could end
   // up with no costing baseline and nothing said.
   return { ...data.data, costingInfo: data.costingInfo };
-};
-
-/**
- * Update order status
- */
-export const updateOrderStatus = async (id: string, statusData: UpdateOrderStatusRequest): Promise<Order> => {
-  const { data } = await api.patch(`/orders/${id}/status`, statusData);
-  return data.data;
 };
 
 export type LaceHandling = 'RELEASE_TO_STOCK' | 'RETURN_TO_SUPPLIER';

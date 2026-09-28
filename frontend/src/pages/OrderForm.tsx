@@ -17,7 +17,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
-import type { Priority, CreateOrderItemBreakup } from '../types/order.types';
+import type { CreateOrderItemBreakup } from '../types/order.types';
 import type { CostSheet } from '../types/costSheet.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
@@ -78,9 +78,10 @@ export default function OrderForm() {
   const [customerId, setCustomerId] = useState('');
   const [orderDate, setOrderDate] = useState(toDateInputValue(new Date()));
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
-  const [priority, setPriority] = useState<Priority>('MEDIUM');
-  const [paymentTerms, setPaymentTerms] = useState('');
-  const [shippingAddress, setShippingAddress] = useState('');
+  // Priority, payment terms and shipping address are no longer asked (owner, 2026-09-28): always
+  // Medium / never filled on all 10 orders; the order-form PDF prints the customer's own payment
+  // terms and ship-to. Remarks has no input either, but keeps the quotation-conversion note and any
+  // remark already stored, so an edit never wipes it.
   const [remarks, setRemarks] = useState('');
 
   // Single style selection (1 style per order)
@@ -161,7 +162,6 @@ export default function OrderForm() {
     basics: true,
     style: true,
     quantity: true,
-    additionalDetails: false,
   });
 
   // Get today's date for default
@@ -214,9 +214,6 @@ export default function OrderForm() {
           const matchedCustomer = customers.find((c) => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase());
           if (matchedCustomer) {
             setCustomerId(matchedCustomer.id);
-            if (matchedCustomer.creditDays) {
-              setPaymentTerms(`Net ${matchedCustomer.creditDays} Days`);
-            }
           }
         }
 
@@ -269,13 +266,9 @@ export default function OrderForm() {
       try {
         const quotation = await getQuotationById(quotationIdParam);
 
-        // Seed customer + payment terms
+        // Seed customer
         if (quotation.customerId) {
           setCustomerId(quotation.customerId);
-          const matchedCustomer = customers.find((c) => c.id === quotation.customerId);
-          if (matchedCustomer?.creditDays) {
-            setPaymentTerms(`Net ${matchedCustomer.creditDays} Days`);
-          }
         }
 
         // Seed the first quoted line's style + unit price (single-style order)
@@ -371,9 +364,6 @@ export default function OrderForm() {
       setCustomerId(order.customerId);
       setOrderDate(order.orderDate?.split('T')[0] || today);
       setExpectedDeliveryDate(order.expectedDeliveryDate.split('T')[0]);
-      setPriority(order.priority);
-      setPaymentTerms(order.paymentTerms || '');
-      setShippingAddress(order.shippingAddress || '');
       setRemarks(order.remarks || '');
 
       // Set total quantity from order even if no items (for orders created without items)
@@ -495,11 +485,6 @@ export default function OrderForm() {
       );
       const hasActiveRequirements = ((order as any).materialRequirements?.length || 0) > 0;
       setHasDownstreamDeps(hasApprovedBoms || hasActiveRequirements);
-
-      // Show additional details if any are filled
-      if (order.paymentTerms || order.shippingAddress || order.remarks) {
-        setExpandedSections((prev) => ({ ...prev, additionalDetails: true }));
-      }
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } } };
       setError(errorObj.response?.data?.message || 'Failed to fetch order');
@@ -565,10 +550,6 @@ export default function OrderForm() {
         const matchedCustomer = customers.find((c) => c.name.toLowerCase() === fullStyle.customerName?.toLowerCase());
         if (matchedCustomer) {
           setCustomerId(matchedCustomer.id);
-          // Also set payment terms if customer has credit days
-          if (matchedCustomer.creditDays) {
-            setPaymentTerms(`Net ${matchedCustomer.creditDays} Days`);
-          }
         }
       }
 
@@ -906,15 +887,6 @@ export default function OrderForm() {
       setUnplacedNote(null);
       beforeFillRef.current = null;
     }
-
-    // Find the selected customer and auto-fill payment terms
-    const customer = customers.find((c) => c.id === selectedCustomerId);
-    if (customer?.creditDays) {
-      // Format credit days as payment terms (e.g., "Net 30 Days")
-      setPaymentTerms(`Net ${customer.creditDays} Days`);
-      // Auto-expand additional details section to show payment terms
-      setExpandedSections((prev) => ({ ...prev, additionalDetails: true }));
-    }
   };
 
   // Update distribution value for a size (used in percentage/ratio mode)
@@ -1132,10 +1104,7 @@ export default function OrderForm() {
         expectedDeliveryDate,
         // The sale order this order is made for (filled from it); never on an edit
         ...(!isEditMode && linkedSaleOrderId ? { saleOrderId: linkedSaleOrderId } : {}),
-        priority,
         totalQuantity: enteredTotalQty, // Pass total quantity even without size breakdown
-        paymentTerms: paymentTerms || undefined,
-        shippingAddress: shippingAddress || undefined,
         remarks: remarks || undefined,
       };
 

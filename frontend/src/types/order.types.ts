@@ -143,6 +143,18 @@ export interface OrderItem {
 // ORDER
 // ============================================
 
+/** How an order's requirement lines stand — each live line in exactly one bucket (order-requirements.helper) */
+export interface RequirementBuckets {
+  live: number;
+  toOrder: number;
+  onOrder: number;
+  received: number;
+  fromStock: number;
+  waitingSizes: number;
+  needDecision: number;
+  notChecked: number;
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
@@ -183,8 +195,39 @@ export interface Order {
     email: string;
   } | null;
   orderItems?: OrderItem[];
-  /** The latest ACTIVE BOM of each style on the order (one entry per style) */
-  orderBoms?: Array<{ id: string; status: string; styleId: string; version: number }>;
+  /**
+   * The list: the latest ACTIVE BOM of each style. The order page: every BOM, newest version first,
+   * with the fields its BOM card shows.
+   */
+  orderBoms?: Array<{
+    id: string;
+    status: string;
+    styleId: string;
+    version: number;
+    isActive?: boolean;
+    totalMaterialCost?: number | string | null;
+    style?: { styleCode: string; styleName: string; buyerStyleRef?: string | null };
+    _count?: { items: number };
+  }>;
+  // ── Order page only (GET /orders/:id) ──
+  /** Live requirement lines, one bucket each (CANCELLED / CONVERTED left out) */
+  requirementsSummary?: { material: RequirementBuckets; processing: RequirementBuckets };
+  /** Why the derived status is what it is — e.g. "WO2609-0087 in production" */
+  statusReason?: string | null;
+  /** Pieces to ship and shipped (net of rejected / short deliveries) — the facts the status reads */
+  shipment?: { ordered: number; shipped: number } | null;
+  /** Delivery notes raised against the order OR its sale order */
+  dispatchNotes?: Array<{ id: string; deliveryNumber: string; status: string; deliveryDate: string; quantity: number }>;
+  /** Invoices raised against the order OR its sale order */
+  orderInvoices?: Array<{
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    totalAmount: number | string;
+    invoiceDate: string;
+  }>;
+  /** Fabric per production run: issued to Cutting, still there, and consumed by finished batches (metres) */
+  runFabric?: Array<{ workOrderId: string; issued: number; atCutting: number; consumed: number }>;
   /** Make-to-order origin: the HOK B2B sale order this production order fulfils */
   saleOrder?: {
     id: string;
@@ -241,14 +284,6 @@ export interface UpdateOrderRequest {
   shippingAddress?: string;
   remarks?: string;
   items?: CreateOrderItem[];
-}
-
-export interface UpdateOrderStatusRequest {
-  status: OrderStatus;
-  reason?: string;
-  // RATE_SLAB_CHANGED acceptance at IN_PRODUCTION confirmation: accept the order-quantity
-  // processor rates (order-scoped; the style costing is never modified)
-  acceptRates?: boolean;
 }
 
 // ============================================

@@ -259,7 +259,7 @@ export async function buildOrderFormDocData(orderId: string): Promise<OrderFormD
     company,
     docNo: order.orderNumber,
     docPill: 'Production authorisation · Not a tax document',
-    statusBanner: `${order.status} · ${order.priority} priority`,
+    statusBanner: String(order.status).replace(/_/g, ' '), // priority is no longer asked (always Medium)
     buyerName: customer.name,
     buyerLegalName: legalName && legalName !== customer.name ? legalName : null,
     buyerGstin: nonBlank(customer.gstNumber) ?? 'URP',

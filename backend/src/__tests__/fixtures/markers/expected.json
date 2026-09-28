@@ -1,0 +1,20 @@
+{
+  "ip00138-pant-s-to-xxl.png": {
+    "status": "READ", "lengthM": 8.29, "widthIn": 52.0, "efficiencyPct": 89.05, "placed": 135, "total": 135, "pieces": 5,
+    "sizes": [
+      { "sizeName": "S", "quantity": 1 }, { "sizeName": "M", "quantity": 1 }, { "sizeName": "L", "quantity": 1 },
+      { "sizeName": "XL", "quantity": 1 }, { "sizeName": "XXL", "quantity": 1 }
+    ]
+  },
+  "roxie-l-x2.jpeg": {
+    "status": "READ", "lengthM": 3.59, "widthIn": 52.0, "efficiencyPct": 68.12, "placed": 26, "total": 26, "pieces": 2,
+    "sizes": [{ "sizeName": "L", "quantity": 2 }]
+  },
+  "bennet-code-in-title.jpeg": {
+    "status": "READ", "lengthM": 3.27, "widthIn": 52.0, "efficiencyPct": 83.19, "placed": 40, "total": 40, "pieces": 5
+  },
+  "partial-4-of-60.jpeg": {
+    "status": "READ", "lengthM": 0.75, "widthIn": 54.0, "efficiencyPct": 75.88, "placed": 4, "total": 60, "pieces": 5
+  },
+  "garment-photo-not-a-marker.jpeg": { "status": "UNREADABLE", "lengthM": null }
+}

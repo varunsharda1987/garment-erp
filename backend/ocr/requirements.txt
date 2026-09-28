@@ -1,0 +1,7 @@
+# CAD marker reader (read_marker.py). Pinned: the reader's output feeds a save-time check, so a silent
+# model or parser change must be a deliberate edit here, followed by setup.ps1 (which runs the self-test).
+rapidocr==3.9.2
+onnxruntime==1.30.0
+opencv-python==5.0.0.93
+numpy==2.5.3
+pypdfium2==4.30.0

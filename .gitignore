@@ -58,6 +58,10 @@ coverage/
 
 # Uploaded files (stored locally, not in git)
 backend/uploads/
+
+# CAD marker reader's Python env + OCR models (made by backend/ocr/setup.ps1)
+backend/ocr/.venv/
+backend/ocr/__pycache__/
 .playwright-mcp/
 
 # WhatsApp Web linked-device sessions (per-user, whatsapp-web.js) — never commit

@@ -73,8 +73,8 @@ route: /inventory/movements/stock-out
    - Click the material type tile to select what you are issuing (Greige Fabric, Finished Fabric, Lace, Buttons, Threads, Zippers, Elastics, Labels, Packaging, Other Materials)
    - Search and select the specific stock item
    - Enter the **Quantity** to issue
-   - For fabric/greige: optionally enter **Than Count** and **Fold Length (cm)**. With a fold length under 100 cm the quantity is read as the counted figure: a blue line shows the actual metres, which is what leaves stock and what the challan's quantity is (the printed challan also shows the counted figure @ L)
-   - The system shows available quantity and warns if you exceed it
+   - For fabric/greige: optionally enter **Than Count** and **Fold Length (cm)**. With a fold length under 100 cm the quantity is read as the counted figure: the **Actual Metres (after L)** box beside it fills itself (it cannot be typed into) with the actual metres, which is what leaves stock and what the challan's quantity is (the printed challan also shows the counted figure @ L)
+   - The system shows available quantity and warns ("Exceeds available") when the actual metres are more than it
 
 9. To add more items, click **+ Add Item** or **+ Add Another** at the bottom.
 

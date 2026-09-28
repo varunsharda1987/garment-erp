@@ -90,7 +90,7 @@ Choose one of two modes:
    - **Lot/Batch Number** - Supplier's lot reference
    - For fabric/greige only:
      - **Than Count** - Number of thans
-     - **Fold Length (cm)** - The fold the quantity was counted at. Type the counted quantity; under 100 cm the **Fold Length Adjustment** box shows the actual metres that go to stock
+     - **Fold Length (cm)** - The fold the quantity was counted at. Type the counted quantity; the **Actual Metres (after L)** box next to it fills itself (it cannot be typed into) with the actual metres that go to stock — counted × L/100 under 100 cm, else the counted figure. With a Rate, the value at actual shows under it
    - For greige only:
      - **Roll Numbers** - Comma-separated roll identifiers (e.g., R001, R002, R003)
 

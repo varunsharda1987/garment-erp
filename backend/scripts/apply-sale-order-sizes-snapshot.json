@@ -1,0 +1,1050 @@
+{
+  "takenAt": "2026-09-28T10:32:55.306Z",
+  "items": [
+    {
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "orderNumber": "ORD2026080027",
+      "saleOrderNumber": "SO2609-0497",
+      "orderItemId": "5a20615d-36e7-40a4-8b26-6892d7a86b58",
+      "styleCode": "ESSKY087LS",
+      "orderQuantity": 2300,
+      "split": [
+        {
+          "colorId": null,
+          "sizeId": "a58dc744-ea6d-4e35-8172-e103f59f9eca",
+          "quantity": 322
+        },
+        {
+          "colorId": null,
+          "sizeId": "ec01ae1e-f6b9-4927-826d-3dd9eb809d5e",
+          "quantity": 483
+        },
+        {
+          "colorId": null,
+          "sizeId": "3286c238-2d89-4143-bcfb-8f47582d141f",
+          "quantity": 506
+        },
+        {
+          "colorId": null,
+          "sizeId": "59fede1f-0030-4296-8d0d-80193a9d55ae",
+          "quantity": 460
+        },
+        {
+          "colorId": null,
+          "sizeId": "919fac76-b275-4db7-89ba-ded30cd4f07c",
+          "quantity": 345
+        },
+        {
+          "colorId": null,
+          "sizeId": "7cc3f5cf-20a9-4295-86f1-a264e88f0e23",
+          "quantity": 184
+        }
+      ]
+    },
+    {
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "orderNumber": "ORD2026080029",
+      "saleOrderNumber": "SO2609-0388",
+      "orderItemId": "edbefb76-4771-494d-97c8-df4a1d2189ab",
+      "styleCode": "ESSKY090LS",
+      "orderQuantity": 2000,
+      "split": [
+        {
+          "colorId": null,
+          "sizeId": "913dd52b-af19-4f15-8335-35d502a4655f",
+          "quantity": 253
+        },
+        {
+          "colorId": null,
+          "sizeId": "bf9a0b5f-2a71-4ecd-89e3-507cd6af4432",
+          "quantity": 269
+        },
+        {
+          "colorId": null,
+          "sizeId": "d926abc0-00e2-483b-a93b-24535d7cb2be",
+          "quantity": 471
+        },
+        {
+          "colorId": null,
+          "sizeId": "f8dddc32-085e-4d2a-9d55-cb3ca7d6c5a4",
+          "quantity": 441
+        },
+        {
+          "colorId": null,
+          "sizeId": "0df4f93e-4b9e-47ff-bfd6-ab6269aa5e49",
+          "quantity": 299
+        },
+        {
+          "colorId": null,
+          "sizeId": "e7f83565-2c9e-4033-94e0-df899f5df538",
+          "quantity": 268
+        }
+      ]
+    },
+    {
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "orderNumber": "ORD2026080030",
+      "saleOrderNumber": "SO2609-0501",
+      "orderItemId": "d02dd25f-c768-473d-90b0-60b6724f917e",
+      "styleCode": "ESSKY091LS",
+      "orderQuantity": 2500,
+      "split": [
+        {
+          "colorId": null,
+          "sizeId": "75b03158-515d-4ea2-9572-2905688fe88d",
+          "quantity": 350
+        },
+        {
+          "colorId": null,
+          "sizeId": "be6e932f-a79a-4457-a673-a48f7870a00b",
+          "quantity": 525
+        },
+        {
+          "colorId": null,
+          "sizeId": "82f4b39c-d29f-404e-b10f-d5568cb101e6",
+          "quantity": 550
+        },
+        {
+          "colorId": null,
+          "sizeId": "13cefea2-e833-44e3-8b23-60d527495958",
+          "quantity": 500
+        },
+        {
+          "colorId": null,
+          "sizeId": "9dec3f1d-b2bc-4330-be90-90f3115d51c3",
+          "quantity": 375
+        },
+        {
+          "colorId": null,
+          "sizeId": "119c67f0-740e-477a-a5e7-e8b95f4f0e1d",
+          "quantity": 200
+        }
+      ]
+    },
+    {
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "orderNumber": "ORD2026080031",
+      "saleOrderNumber": "SO2609-0521",
+      "orderItemId": "13e6a378-ead7-4c28-b588-3623b3293b19",
+      "styleCode": "ESSKY092LS",
+      "orderQuantity": 2500,
+      "split": [
+        {
+          "colorId": null,
+          "sizeId": "386c7b3c-283e-480e-955f-0ef22219e784",
+          "quantity": 350
+        },
+        {
+          "colorId": null,
+          "sizeId": "5104fc47-9b98-4d2e-96dc-2b3fc7e73082",
+          "quantity": 525
+        },
+        {
+          "colorId": null,
+          "sizeId": "ab85faf1-3101-44b8-9a31-b6d544f5b6da",
+          "quantity": 550
+        },
+        {
+          "colorId": null,
+          "sizeId": "7065a57f-b335-40c5-8462-5e682262c995",
+          "quantity": 500
+        },
+        {
+          "colorId": null,
+          "sizeId": "cbbcf658-52af-4b8c-a563-0982bef147b5",
+          "quantity": 375
+        },
+        {
+          "colorId": null,
+          "sizeId": "c2508f6e-03f9-408e-8c55-21da86dc6b66",
+          "quantity": 200
+        }
+      ]
+    },
+    {
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "orderNumber": "ORD2026080032",
+      "saleOrderNumber": "SO2609-0523",
+      "orderItemId": "b6b805da-7157-4fb7-84fd-9fef041c19c0",
+      "styleCode": "ESSKY075LS",
+      "orderQuantity": 2500,
+      "split": [
+        {
+          "colorId": null,
+          "sizeId": "379c7062-e224-4dce-89b8-61e672e75861",
+          "quantity": 350
+        },
+        {
+          "colorId": null,
+          "sizeId": "a7744558-b879-4afc-9b4e-bd239cd42453",
+          "quantity": 525
+        },
+        {
+          "colorId": null,
+          "sizeId": "8a4af703-7417-425b-a1d9-5b9a9751d8b1",
+          "quantity": 550
+        },
+        {
+          "colorId": null,
+          "sizeId": "912f77e9-6ab2-4f6c-aed1-3ab3f39be268",
+          "quantity": 500
+        },
+        {
+          "colorId": null,
+          "sizeId": "d5e24e08-13ab-473e-9a49-d0c92ca0a986",
+          "quantity": 375
+        },
+        {
+          "colorId": null,
+          "sizeId": "f175e1e1-5bb3-4094-a560-a8025c9551e9",
+          "quantity": 200
+        }
+      ]
+    },
+    {
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "orderNumber": "ORD2026080033",
+      "saleOrderNumber": "SO2609-0524",
+      "orderItemId": "b75e69cc-24e9-4330-8419-a9bdb1e1deee",
+      "styleCode": "ESSKY076LS",
+      "orderQuantity": 2500,
+      "split": [
+        {
+          "colorId": null,
+          "sizeId": "690501a0-aaca-485b-85f5-019312ace2ea",
+          "quantity": 350
+        },
+        {
+          "colorId": null,
+          "sizeId": "4c47420c-3369-45da-9c0e-085e58c3a7be",
+          "quantity": 525
+        },
+        {
+          "colorId": null,
+          "sizeId": "52644aba-f982-4dd4-9812-aca63877303d",
+          "quantity": 550
+        },
+        {
+          "colorId": null,
+          "sizeId": "c7a4dc64-0a48-4f83-9eae-e6debed3ecef",
+          "quantity": 500
+        },
+        {
+          "colorId": null,
+          "sizeId": "2bc1390d-4f3c-45b1-8613-bd53bc755fb5",
+          "quantity": 375
+        },
+        {
+          "colorId": null,
+          "sizeId": "41a0dd7c-4447-4ffb-98aa-43bbfe1dbf9b",
+          "quantity": 200
+        }
+      ]
+    }
+  ],
+  "orders": [
+    {
+      "id": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "orderNumber": "ORD2026080032",
+      "status": "PENDING",
+      "totalQuantity": 2500,
+      "totalAmount": "875000"
+    },
+    {
+      "id": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "orderNumber": "ORD2026080033",
+      "status": "PENDING",
+      "totalQuantity": 2500,
+      "totalAmount": "875000"
+    },
+    {
+      "id": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "orderNumber": "ORD2026080027",
+      "status": "PENDING",
+      "totalQuantity": 2300,
+      "totalAmount": "644000"
+    },
+    {
+      "id": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "orderNumber": "ORD2026080029",
+      "status": "PENDING",
+      "totalQuantity": 2000,
+      "totalAmount": "580000"
+    },
+    {
+      "id": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "orderNumber": "ORD2026080030",
+      "status": "PENDING",
+      "totalQuantity": 2500,
+      "totalAmount": "725000"
+    },
+    {
+      "id": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "orderNumber": "ORD2026080031",
+      "status": "PENDING",
+      "totalQuantity": 2500,
+      "totalAmount": "725000"
+    }
+  ],
+  "orderItems": [
+    {
+      "id": "5a20615d-36e7-40a4-8b26-6892d7a86b58",
+      "totalQuantity": 2300,
+      "totalPrice": "644000",
+      "unitPrice": "280"
+    },
+    {
+      "id": "edbefb76-4771-494d-97c8-df4a1d2189ab",
+      "totalQuantity": 2000,
+      "totalPrice": "580000",
+      "unitPrice": "290"
+    },
+    {
+      "id": "d02dd25f-c768-473d-90b0-60b6724f917e",
+      "totalQuantity": 2500,
+      "totalPrice": "725000",
+      "unitPrice": "290"
+    },
+    {
+      "id": "13e6a378-ead7-4c28-b588-3623b3293b19",
+      "totalQuantity": 2500,
+      "totalPrice": "725000",
+      "unitPrice": "290"
+    },
+    {
+      "id": "b6b805da-7157-4fb7-84fd-9fef041c19c0",
+      "totalQuantity": 2500,
+      "totalPrice": "875000",
+      "unitPrice": "350"
+    },
+    {
+      "id": "b75e69cc-24e9-4330-8419-a9bdb1e1deee",
+      "totalQuantity": 2500,
+      "totalPrice": "875000",
+      "unitPrice": "350"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "51083380-fd4f-4469-80e5-0e2b21e6f6a1",
+      "requirementNumber": "MR2608-0110",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "e2f54762-99e1-421d-9186-f7e6ae6b8096",
+      "status": "PO_REQUIRED",
+      "totalRequired": "27600"
+    },
+    {
+      "id": "c7197f40-a1c3-4994-9384-89aa4b8d08a6",
+      "requirementNumber": "MR2608-0116",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2300"
+    },
+    {
+      "id": "4da95d5a-e438-4dac-bf07-b3a0249d73a1",
+      "requirementNumber": "MR2608-0134",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3058.824"
+    },
+    {
+      "id": "717a3882-f7d9-4793-b115-c44a51929644",
+      "requirementNumber": "MR2608-0118",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3271.111"
+    },
+    {
+      "id": "c15fbac6-a5ae-4811-b6e7-7ae5c353d86d",
+      "requirementNumber": "MR2608-0117",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3271.111"
+    },
+    {
+      "id": "39c15ff0-f5d4-4f99-a719-5fd2f8bac4b7",
+      "requirementNumber": "MR2608-0139",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "52be74bd-c6e3-49f0-aac3-0ea69c1103d2",
+      "requirementNumber": "MR2608-0140",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "PO_REQUIRED",
+      "totalRequired": "375"
+    },
+    {
+      "id": "9f1c9bee-014a-4cc1-acc3-6e186b32b06a",
+      "requirementNumber": "MR2608-0112",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2300"
+    },
+    {
+      "id": "c5e82f3c-afc7-4920-940a-634da908ef1c",
+      "requirementNumber": "MR2608-0111",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2300"
+    },
+    {
+      "id": "80bd05a9-d408-4b47-9148-03c46dd31a17",
+      "requirementNumber": "MR2608-0141",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3823.529"
+    },
+    {
+      "id": "86bcce8a-eeba-45c2-9e9c-a30212d24206",
+      "requirementNumber": "MR2608-0142",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3823.529"
+    },
+    {
+      "id": "d0573ffa-9d20-4e72-b3ab-6473261c597e",
+      "requirementNumber": "MR2608-0170",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "RECEIVED",
+      "totalRequired": "3885.87"
+    },
+    {
+      "id": "9c4b0f5b-ea22-4675-9ea6-8e02779611e5",
+      "requirementNumber": "MR2609-0528",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "9cd2e243-8232-4fce-9659-23a3115f3506",
+      "requirementNumber": "MR2609-0529",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "3a9ed055-5bda-4a0f-a108-d1bb313da10e",
+      "requirementNumber": "MR2608-0167",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "e2f54762-99e1-421d-9186-f7e6ae6b8096",
+      "status": "PO_REQUIRED",
+      "totalRequired": "27500"
+    },
+    {
+      "id": "5ef66350-13ae-4be2-a3e4-141585593ef3",
+      "requirementNumber": "MR2608-0168",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "PO_REQUIRED",
+      "totalRequired": "625"
+    },
+    {
+      "id": "0cb31d9b-f9c4-4d34-bd9c-336e11f20c71",
+      "requirementNumber": "MR2608-0169",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "FULFILLED_STOCK",
+      "totalRequired": "3885.87"
+    },
+    {
+      "id": "4c5f0438-ead3-40db-b0fb-87ae5053b2cb",
+      "requirementNumber": "MR2609-0530",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "f78e8593-95e9-4512-a6c4-af30813433fc",
+      "requirementNumber": "MR2609-0531",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "98ae0ec5-c5d3-4c5c-bdfb-f240b67da39d",
+      "requirementNumber": "MR2609-0532",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "72b5c9f9-9caf-4a61-b7c9-681680857c8b",
+      "requirementNumber": "MR2609-0533",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "e2f54762-99e1-421d-9186-f7e6ae6b8096",
+      "status": "PO_REQUIRED",
+      "totalRequired": "30000"
+    },
+    {
+      "id": "9f8e9dc4-85d0-4442-b674-39b39c05147e",
+      "requirementNumber": "MR2609-0527",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "FULFILLED_STOCK",
+      "totalRequired": "4048.913"
+    },
+    {
+      "id": "008d502c-8c49-44a6-af4c-01df02123b9f",
+      "requirementNumber": "MR2609-0534",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "PARTIALLY_RECEIVED",
+      "totalRequired": "4048.913"
+    },
+    {
+      "id": "3171c786-ca81-4ee0-b23e-a216197263aa",
+      "requirementNumber": "MR2608-0131",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2000"
+    },
+    {
+      "id": "2eac9b7e-a2d8-47a1-92a4-f6965f58cf2a",
+      "requirementNumber": "MR2608-0132",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "PO_REQUIRED",
+      "totalRequired": "300"
+    },
+    {
+      "id": "694b52a2-8970-4055-811c-6d950bdc91a1",
+      "requirementNumber": "MR2609-0535",
+      "orderId": "2ec9fe66-12eb-452d-8b46-995b1d1ae01e",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "PO_REQUIRED",
+      "totalRequired": "27.173"
+    },
+    {
+      "id": "5546c686-b165-4961-a100-3f43c8517a4c",
+      "requirementNumber": "MR2608-0145",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "e9dc97b6-89ef-4ff1-a94e-550b6e683b0d",
+      "requirementNumber": "MR2608-0143",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "a36d932e-4b41-4fc1-8691-19565dc44abe",
+      "requirementNumber": "MR2608-0144",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "0e55e403-b93c-4f25-84ef-de98cc30102f",
+      "requirementNumber": "MR2608-0146",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "3831baa5-a798-4327-8b99-c8951de3a32e",
+      "requirementNumber": "MR2608-0147",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "5f03bfe0-a576-4dd6-87a2-ee2e7e298e96",
+      "requirementNumber": "MR2608-0148",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "CANCELLED",
+      "totalRequired": "375"
+    },
+    {
+      "id": "06357547-b9ef-4d9c-9bb7-c96679fd8f06",
+      "requirementNumber": "MR2608-0149",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "CANCELLED",
+      "totalRequired": "3823.529"
+    },
+    {
+      "id": "5b389de4-9226-4005-811f-420820e6bc87",
+      "requirementNumber": "MR2608-0150",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "CANCELLED",
+      "totalRequired": "3823.529"
+    },
+    {
+      "id": "edfdf6b1-1ea5-4cf6-ab4c-6f47dd5fdccb",
+      "requirementNumber": "MR2608-0155",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "7ac5c28d-5d6e-4c3c-a44f-8907597e7ed7",
+      "requirementNumber": "MR2608-0156",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "PO_REQUIRED",
+      "totalRequired": "375"
+    },
+    {
+      "id": "8d94ae7b-73cb-4883-9c3c-0741e85b4548",
+      "requirementNumber": "MR2608-0157",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3823.529"
+    },
+    {
+      "id": "32289370-b8fe-417b-8c77-c4036f4f2c4e",
+      "requirementNumber": "MR2608-0158",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "PO_REQUIRED",
+      "totalRequired": "3823.529"
+    },
+    {
+      "id": "73261929-d6a5-4d16-8a44-15135916451a",
+      "requirementNumber": "MR2608-0133",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "0e9f1bbe-88b0-4d94-9efc-fc6c4f883cb4",
+      "status": "FULFILLED_STOCK",
+      "totalRequired": "3058.824"
+    },
+    {
+      "id": "4ad994aa-ce9a-4aab-a97a-2934b1490c17",
+      "requirementNumber": "MR2608-0159",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "4ae4e4a3-fad3-441b-a516-998110fd24bc",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "ffdeb1ad-4ad4-4fd1-b04c-704068188732",
+      "requirementNumber": "MR2608-0160",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "CANCELLED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "9cab98bb-617d-4df7-b7c4-f64338221a9b",
+      "requirementNumber": "MR2608-0161",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "e2f54762-99e1-421d-9186-f7e6ae6b8096",
+      "status": "CANCELLED",
+      "totalRequired": "27500"
+    },
+    {
+      "id": "7a1c4aeb-1a3a-466b-ba6d-92854cbc2357",
+      "requirementNumber": "MR2608-0162",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "status": "CANCELLED",
+      "totalRequired": "625"
+    },
+    {
+      "id": "644d5a4c-a3dc-4cc0-81c1-b3f5a2f8b588",
+      "requirementNumber": "MR2608-0163",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "CANCELLED",
+      "totalRequired": "3885.87"
+    },
+    {
+      "id": "6cf34236-2652-4af4-9a57-3b2c98b6d0ab",
+      "requirementNumber": "MR2608-0164",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "eb566935-7f38-4a85-bea4-233558448e5c",
+      "status": "CANCELLED",
+      "totalRequired": "3885.87"
+    },
+    {
+      "id": "8a217ce3-d3bd-4213-9889-bc8ab7d605ae",
+      "requirementNumber": "MR2608-0165",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "4ae4e4a3-fad3-441b-a516-998110fd24bc",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "1bc032d4-7435-42fb-ae7b-06a08ed3265c",
+      "requirementNumber": "MR2608-0171",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "3b029bee-82ce-459e-bd1a-fcae3aa746e6",
+      "requirementNumber": "MR2608-0172",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "f12187e4-b13f-4ef1-9fc8-0463a00702de",
+      "requirementNumber": "MR2608-0173",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "9b5c14dc-3cf0-457a-b09e-b8f9a151c1b6",
+      "requirementNumber": "MR2608-0174",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "SIZE_PENDING",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "f85ea65b-8b82-47a6-952c-2cfa7e7d3183",
+      "requirementNumber": "MR2608-0166",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "95819662-8210-4257-991b-c1d04013ecca",
+      "requirementNumber": "MR2608-0175",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "f6e347d5-c79d-4a19-b3ca-311146634fb9",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "48851575-56d4-47d8-a68b-ae534002e960",
+      "requirementNumber": "MR2608-0176",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "3a7e8467-0e90-48d3-8b03-57ae9b6fb49d",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "64250a75-e757-47da-bbcd-0125681a6076",
+      "requirementNumber": "MR2608-0177",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "1de0a88e-8dbd-49c7-aa87-946b36d9578a",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "b18b05b0-e7d5-47cf-a3cd-759215f0d64b",
+      "requirementNumber": "MR2608-0178",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "e25c709f-231f-46bb-ad54-5f428da69a99",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "6881d5ba-af1e-4003-ac7f-8b5addb760f4",
+      "requirementNumber": "MR2608-0179",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "3ecb89ce-e3f2-4d7c-bd16-038439e50061",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "e88542be-765d-4f3f-a645-a5d3e562e7ed",
+      "requirementNumber": "MR2608-0180",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "95437fc4-b789-4986-b9f5-673805be5a09",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "49450e2c-f9c8-4c13-9b8d-1e839130f824",
+      "requirementNumber": "MR2608-0181",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "689365df-8ac2-4526-abec-64e6c9fe602b",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "7c7b58c1-0b95-48b7-985a-f5ae225e8d62",
+      "requirementNumber": "MR2608-0182",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "6eab4178-59f3-4757-a70c-6751bbbee43e",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "1659f579-ff63-42b9-8160-319e2238ce4c",
+      "requirementNumber": "MR2608-0183",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "60c7efe0-80ca-4dd1-ab78-3f05d1f31d09",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "9cba2c00-1bf4-4be3-9077-362a4a7d9052",
+      "requirementNumber": "MR2608-0184",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "57fc1ba5-f4c2-4945-a8de-e6ac21720e05",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "67ee7d6d-b3d1-4082-b4f3-eebf7c6f8c35",
+      "requirementNumber": "MR2608-0185",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "6c749ec3-f6d0-4890-ba53-ec23b8a59d45",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "2a2f80d3-aa81-4b3c-8148-65897ea585e5",
+      "requirementNumber": "MR2608-0186",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "4efa1a13-82d7-4d66-a463-73c23604f569",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "7af4735f-af29-4c74-9edf-515b103b2aa0",
+      "requirementNumber": "MR2608-0187",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "3a1874a5-c91c-4238-abb1-c9ad930aedb4",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "2c13fe3b-6dbb-4dec-aa2d-1953f9814d7e",
+      "requirementNumber": "MR2608-0188",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "63ebd042-306c-4cff-9223-e3fdc28e4251",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "a60a68ee-88fb-4318-83c8-f314fb09949b",
+      "requirementNumber": "MR2608-0189",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "f4cf4ae3-61ef-4697-b158-febdee03c4d3",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "2b48c46f-7d07-486f-9715-1c39d09e1489",
+      "requirementNumber": "MR2608-0190",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "f3070202-b9e4-428e-ad44-ec7a7790aa29",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "db23e7ca-67d4-4899-aba4-5f233ddad227",
+      "requirementNumber": "MR2608-0191",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "0dc71e05-1f62-4427-a80a-f731ca403da7",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "471c3f1b-6fdc-4c09-ba37-b6214eea088b",
+      "requirementNumber": "MR2608-0192",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "19b1343f-3f97-44c9-9a59-9b83782037ec",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "160fdf2a-84c7-43b0-8fd6-48e601031f7f",
+      "requirementNumber": "MR2608-0193",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "c14e0660-13ee-4dd5-8f9e-1542ae0a9dc5",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "d00bb931-52a5-48e4-9a27-f0234f826962",
+      "requirementNumber": "MR2608-0194",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "4e1adda1-cd3d-41bf-a454-aab5e9c05721",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "3d586c6e-b1fe-4356-b736-6910d8dc3523",
+      "requirementNumber": "MR2608-0195",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "6df9d394-e05c-4973-bed7-4febd8f63cfd",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "04a67993-3c62-4f0d-be3b-50dedba90f98",
+      "requirementNumber": "MR2608-0196",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "64c7aed4-4f7c-43a9-9b31-f9c1cef8380b",
+      "status": "CANCELLED",
+      "totalRequired": "417"
+    },
+    {
+      "id": "3cf0a90e-3554-4fb7-bb47-1b7d34a6037e",
+      "requirementNumber": "MR2608-0197",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "609938ef-8046-4cba-9c45-e5f9e7b8d157",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "f1c562c7-e5c7-478a-8a16-56899e3ef601",
+      "requirementNumber": "MR2608-0198",
+      "orderId": "cf74fa58-8fab-4260-ac1d-d0659bd749bf",
+      "materialId": "bf88ddc3-529f-41f2-b54b-44f6c0cc9eab",
+      "status": "CANCELLED",
+      "totalRequired": "416"
+    },
+    {
+      "id": "ca878621-fd98-488d-9fe1-55ee1357e8bf",
+      "requirementNumber": "MR2608-0113",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2300"
+    },
+    {
+      "id": "a725571d-241b-47d5-ae83-c3c30f8b1ee8",
+      "requirementNumber": "MR2608-0114",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2300"
+    },
+    {
+      "id": "59d31b9d-b566-45cd-92b8-334564c36e7b",
+      "requirementNumber": "MR2608-0115",
+      "orderId": "d269253b-970a-4ed6-9b9a-ed3ee99d5d9d",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2300"
+    },
+    {
+      "id": "70b8ed9c-672d-4ff0-8c86-677657500f00",
+      "requirementNumber": "MR2608-0127",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2000"
+    },
+    {
+      "id": "838a39bc-8376-4fdb-aa8e-6f89d44a4821",
+      "requirementNumber": "MR2608-0128",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2000"
+    },
+    {
+      "id": "a9934d17-40e7-4e58-baa2-64de98aaef07",
+      "requirementNumber": "MR2608-0129",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2000"
+    },
+    {
+      "id": "67b610c9-f7ef-4791-aeee-be4689f4097f",
+      "requirementNumber": "MR2608-0130",
+      "orderId": "12b14b17-44ef-42b8-9f59-1a38be941c2a",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2000"
+    },
+    {
+      "id": "27af3453-8b7e-4d2b-86d6-f783ba2ff25f",
+      "requirementNumber": "MR2608-0135",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "55d37744-1f76-413e-a5da-da6a6eff4eab",
+      "requirementNumber": "MR2608-0136",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "fb6a1119-8b43-436d-95d3-1b2c1a7ba7ce",
+      "requirementNumber": "MR2608-0137",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "be599f01-3854-4092-9e5b-50f74452469b",
+      "requirementNumber": "MR2608-0138",
+      "orderId": "9a70cfcd-312e-4cb5-b8de-79e9de2ab4b8",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "2d86fc88-1042-4055-988a-92025dbfea52",
+      "requirementNumber": "MR2608-0151",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "8f0fc589-7c0c-486c-9d65-0dd648f00314",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "915ce2a6-1a2b-4886-8fbf-4c0ad9b707be",
+      "requirementNumber": "MR2608-0152",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "c742acb8-5586-4af0-9fbe-5caef12f2abd",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "8744e756-bab1-404b-b61e-fae511583d10",
+      "requirementNumber": "MR2608-0153",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "f72ff416-c100-49f9-a094-8142d2761d15",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    },
+    {
+      "id": "b6c2ab51-d507-4f04-9e69-defd2fba8754",
+      "requirementNumber": "MR2608-0154",
+      "orderId": "163c161e-ce9a-4c11-8140-dbc0fd9163b6",
+      "materialId": "5448f19b-a3ab-47e1-878c-bdedc5c3569a",
+      "status": "PO_REQUIRED",
+      "totalRequired": "2500"
+    }
+  ],
+  "workOrders": []
+}

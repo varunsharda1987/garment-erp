@@ -79,9 +79,9 @@ Finished goods stock is created automatically when:
 
 ## Pagination
 
-- Results show **20 items per page**.
-- Use **Previous** / **Next** buttons to navigate pages.
-- The status bar shows "Showing X to Y of Z items".
+- Results show **20 items per page**; change it with **Rows per page** (20, 50 or 100) at the bottom.
+- Move between pages with the page numbers, or the arrow buttons for first, previous, next and last page.
+- The bottom line reads "Showing X to Y of Z items".
 
 ## Traps
 

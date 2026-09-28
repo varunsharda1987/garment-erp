@@ -739,6 +739,70 @@ export async function movePiecesToLot(tx: Tx, fromLotId: string, toLotId: string
   return moved.count;
 }
 
+/**
+ * The rolls / thans each lot sent to a cutting batch WHOLE and not yet back — what the completion dialog's
+ * optional "Whole rolls / thans back" ticklist offers (a piece the batch took only part of cannot come back
+ * whole). COUNTED metres. Keyed by fabric_stock id.
+ */
+export async function piecesOutForBatch(
+  db: Db,
+  cuttingBatchId: string,
+  lotIds: string[]
+): Promise<Map<string, Array<Omit<FabricPieceView, 'baleOpen' | 'createdAt'>>>> {
+  const out = new Map<string, Array<Omit<FabricPieceView, 'baleOpen' | 'createdAt'>>>();
+  if (lotIds.length === 0) return out;
+  const rows = await db.fabric_issue_details.findMany({
+    where: { cuttingBatchId, returnedAt: null, piece: { fabricStockId: { in: lotIds } } },
+    select: {
+      metersIssued: true,
+      piece: {
+        select: {
+          id: true,
+          fabricStockId: true,
+          baleNumber: true,
+          sequenceNo: true,
+          meters: true,
+          metersRemaining: true,
+          status: true,
+          baleNo: true,
+          thanNo: true,
+          remarks: true,
+          detailType: true,
+          source: true,
+        },
+      },
+    },
+  });
+  const issuedByPiece = new Map<string, { piece: (typeof rows)[number]['piece']; issued: number }>();
+  for (const r of rows) {
+    const entry = issuedByPiece.get(r.piece.id) ?? { piece: r.piece, issued: 0 };
+    entry.issued = addCurrency(entry.issued, Number(r.metersIssued)).toNumber();
+    issuedByPiece.set(r.piece.id, entry);
+  }
+  for (const { piece, issued } of issuedByPiece.values()) {
+    if (!qtyAtLeast(issued, piece.meters)) continue; // only part of it went to this batch
+    const list = out.get(piece.fabricStockId) ?? [];
+    list.push({
+      id: piece.id,
+      baleNumber: piece.baleNumber,
+      sequenceNo: piece.sequenceNo,
+      meters: Number(piece.meters),
+      metersRemaining: Number(piece.metersRemaining),
+      status: piece.status,
+      baleNo: piece.baleNo,
+      thanNo: piece.thanNo,
+      remarks: piece.remarks,
+      detailType: piece.detailType,
+      source: piece.source,
+    });
+    out.set(piece.fabricStockId, list);
+  }
+  for (const list of out.values()) {
+    list.sort((a, b) => (a.baleNumber ?? 1e9) - (b.baleNumber ?? 1e9) || a.sequenceNo - b.sequenceNo);
+  }
+  return out;
+}
+
 /** Has any piece of this lot ever left it? (A receipt whose lot's pieces went cannot be reversed.) */
 export async function lotPiecesEverIssued(db: Db, lotId: string): Promise<number> {
   return db.fabric_issue_details.count({ where: { piece: { fabricStockId: lotId } } });

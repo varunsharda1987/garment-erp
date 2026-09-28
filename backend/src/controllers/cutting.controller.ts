@@ -30,6 +30,8 @@ import { batchFabricAtCutting, batchIssuedFabric, getRunFabricPosition } from '.
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
 import { notInProcessorUnitWhere } from '../services/helpers/lot-location.helper';
+import { piecesOutForBatch } from '../services/fabric-lot-pieces.service';
+import { isQtyZero, qtyRemaining } from '../utils/quantity';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -60,9 +62,12 @@ async function returnBatchFabricToStore(
   const challan = await createFabricReturnChallan({
     workOrderId: batch.workOrderId,
     cuttingBatchId: batch.id,
+    cuttingBatchNumber: batch.batchNumber,
     issuedById: userId,
     items,
     remarks: `Fabric returned to store — cutting batch ${batch.batchNumber} ${why}`,
+    // Nothing was laid: every roll / than the batch took goes back on its lot's list as it went
+    piecesBack: 'ALL',
   });
   logInfo(`[Cutting] ${batch.batchNumber} ${why}: fabric returned on ${challan.challanNumber}`);
   return items.map((i) => ({ fabricStockId: i.fabricStockId, quantityRestored: i.quantity }));
@@ -86,6 +91,8 @@ export const getAllCuttingBatches = async (req: Request, res: Response) => {
       'workOrder.styles.styleCode',
       'workOrder.styles.buyerStyleRef',
       'workOrder.styles.styleName',
+      // The list shows a Component column
+      'component.componentName',
     ]);
   }
 
@@ -794,12 +801,27 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // (run-fabric.helper.ts) — not the run's gross issue, which every batch on the run used to claim
   const issuedMap = await batchIssuedFabric(existing.id, existing.workOrderId);
 
-  // Build a map of fabricStockId -> returned quantity from request
+  // P6.1.3: Block completion if no fabric was ever issued (prevents silent production without material tracking).
+  // Checked BEFORE any return is booked: the return challan commits on its own, so a refusal after it left the
+  // lot credited and a retry credited it again.
+  const legacyFabricConsumed = Number(existing.fabricConsumed) || 0;
+  const issuedForBatch = existing.additionalFabrics.reduce((sum, f) => sum + (issuedMap.get(f.fabricStockId) || 0), 0);
+  if (isQtyZero(issuedForBatch) && legacyFabricConsumed === 0) {
+    throw new ValidationError(
+      'Cannot complete batch: No fabric issue recorded. Issue the fabric for this batch from the production run — Fabric Issuance → Issue to Cutting — then complete it.'
+    );
+  }
+
+  // Build a map of fabricStockId -> returned quantity from request, and the rolls / thans ticked as back whole
   const returnMap = new Map<string, number>();
+  const wholeMap = new Map<string, string[]>();
   if (fabricReturns && Array.isArray(fabricReturns)) {
     for (const ret of fabricReturns) {
       if (ret.fabricStockId && ret.returnedQuantity > 0) {
         returnMap.set(ret.fabricStockId, ret.returnedQuantity);
+        if (Array.isArray(ret.wholePieceIds) && ret.wholePieceIds.length > 0) {
+          wholeMap.set(ret.fabricStockId, ret.wholePieceIds);
+        }
       }
     }
   }
@@ -814,14 +836,20 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
         fabricStockId,
         quantity,
         description: `Return: ${fabricName} from batch ${existing.batchNumber}`,
+        wholePieceIds: wholeMap.get(fabricStockId),
       };
     });
 
+    // The return names its batch (run-fabric.helper reads it; returnChallanId still links it below). The rolls
+    // ticked as back whole come back whole, and the rest of each lot's metres as ONE end piece (owner 2026-09-28).
     const returnChallan = await createFabricReturnChallan({
       workOrderId: existing.workOrderId,
+      cuttingBatchId: existing.id,
+      cuttingBatchNumber: existing.batchNumber,
       issuedById: req.user?.userId || existing.createdById,
       items: returnItems,
       remarks: `Fabric return from cutting batch ${existing.batchNumber} completion`,
+      piecesBack: 'END',
     });
     returnChallanId = returnChallan.id;
   }
@@ -851,14 +879,6 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // BUG-CUT5 fix: Use decimal.js for precision in cutting calculations
   // Total actual consumption
   const totalActualConsumption = Math.max(0, toNumber(subtractCurrency(totalFabricIssued, totalFabricReturned)));
-
-  // P6.1.3: Block completion if no fabric was ever issued (prevents silent production without material tracking)
-  const legacyFabricConsumed = Number(existing.fabricConsumed) || 0;
-  if (totalFabricIssued === 0 && legacyFabricConsumed === 0) {
-    throw new ValidationError(
-      'Cannot complete batch: No fabric issue recorded. Issue the fabric for this batch from the production run — Fabric Issuance → Issue to Cutting — then complete it.'
-    );
-  }
 
   // If no challans found (legacy), fall back to lay-based fabricConsumed
   const consumptionForAvg = totalFabricIssued > 0 ? totalActualConsumption : legacyFabricConsumed;
@@ -1043,6 +1063,13 @@ export const getIssuedFabric = async (req: Request, res: Response) => {
 
   // Issued for this batch, less returns (run-fabric.helper.ts)
   const issuedMap = await batchIssuedFabric(batch.id, batch.workOrderId);
+  // The rolls / thans each lot sent to this batch whole and still out — the completion dialog's optional
+  // "Whole rolls / thans back" ticklist (fabric-lot-pieces.service)
+  const piecesOut = await piecesOutForBatch(
+    prisma,
+    batch.id,
+    batch.additionalFabrics.map((bf) => bf.fabricStockId)
+  );
 
   const result = batch.additionalFabrics.map((bf) => {
     const issuedQty = issuedMap.get(bf.fabricStockId) || 0;
@@ -1052,10 +1079,13 @@ export const getIssuedFabric = async (req: Request, res: Response) => {
       cuttingBatchFabricId: bf.id,
       fabricName: bf.fabricStock?.fabricMaster?.fabricName || 'Unknown',
       fabricCode: bf.fabricStock?.fabricMaster?.fabricCode || '',
-      rollNumbers: (bf.fabricStock as any)?.rollNumbers || '',
+      rollNumbers: bf.fabricStock?.rollNumbers || '',
       issuedQty,
       consumedInLays,
-      balance: Math.max(0, issuedQty - consumedInLays),
+      // Lay metres are real numbers: a plain subtraction pre-filled 479.70000000000005 (quantity rule)
+      balance: qtyRemaining(issuedQty, consumedInLays),
+      foldLengthCm: bf.fabricStock?.foldLengthCm != null ? Number(bf.fabricStock.foldLengthCm) : null,
+      piecesOut: piecesOut.get(bf.fabricStockId) ?? [],
     };
   });
 

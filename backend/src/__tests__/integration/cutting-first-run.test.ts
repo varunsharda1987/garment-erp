@@ -75,9 +75,27 @@ const CAD_AVERAGE = CAD_METERS / PIECES_PER_MARKER;
 const RUN_QTY = 100; // 50 S + 50 M
 const ISSUE_METERS = 200; // floor(200 / 1.5) = 133 cuttable ≥ 100
 // Phase 7h: the first lay on the remaining 2-piece batch — 2 layers × 1.5 m, 1 pc of S per layer
-const LAY_ISSUE_METERS = 10;
+// Two whole thans for the second batch: one is cut into, the other comes back whole at completion
+const LAY_ISSUE_METERS = 200;
+/** The dyer returns the job than by than: 9 thans of 100 m (no fold) = RECEIVE_QTY, and the lot keeps them */
+const THANS = 9;
+const THAN_METRES = RECEIVE_QTY / THANS;
 const LAY_LAYERS = 2;
 const LAY_LENGTH = 1.5;
+
+/** The received lot's thans, in order, with where each went */
+const thansOf = () =>
+  prisma.fabric_stock_details.findMany({
+    where: { fabricStockId },
+    orderBy: { sequenceNo: 'asc' },
+    include: { issues: { orderBy: { issuedAt: 'asc' } } },
+  });
+/** What Fabric Issuance posts for a listed lot: the ticked thans, whole (COUNTED metres) */
+const pickThans = async (n: number) =>
+  (await thansOf())
+    .filter((t) => t.status === 'AVAILABLE')
+    .slice(0, n)
+    .map((t) => ({ fabricStockDetailId: t.id, metersToIssue: Number(t.metersRemaining) }));
 
 beforeAll(async () => {
   const user = await createTestUser({
@@ -325,7 +343,15 @@ describe('the first cut: from greige to a cutting batch', () => {
       .set(authHeader)
       .send({
         jobWorkOrderId: jwoId,
-        qtyReceivedMeters: RECEIVE_QTY,
+        // Than-wise, with the processor's tags — the lot keeps this list and cutting picks from it
+        entryMode: 'THAN_WISE',
+        details: Array.from({ length: THANS }, (_, i) => ({
+          detailType: 'THAN',
+          baleNumber: null,
+          sequenceNo: i + 1,
+          meters: THAN_METRES,
+          thanNo: `T-${i + 1}`,
+        })),
         receivedWidthInches: RECEIVED_WIDTH,
         warehouseId,
         receivedChallan: `${RUN}-VCH`,
@@ -348,6 +374,11 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(Number(lots[0].quantityAvailable)).toBe(RECEIVE_QTY);
     expect(lots[0].status).toBe('AVAILABLE');
     expect(lots[0].qualityGrade).toBe('A'); // the QC dialog's grade landed on the lot
+    // …and keeps the processor's thans, tags and all (fabric-lot-pieces.service copyReceiptPieces)
+    const pieces = await thansOf();
+    expect(pieces).toHaveLength(THANS);
+    expect(pieces.map((p) => p.thanNo)).toEqual(Array.from({ length: THANS }, (_, i) => `T-${i + 1}`));
+    expect(pieces.every((p) => p.status === 'AVAILABLE' && p.source === 'RECEIPT')).toBe(true);
   });
 
   it('phase 7a: a stock job leaves the style unlinked — allocate-to-style fills the slot', async () => {
@@ -535,6 +566,10 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(ours).toBeTruthy();
     const lotIds = (ours.lots ?? []).map((l: any) => l.lotId ?? l.id);
     expect(lotIds).toContain(fabricStockId);
+    // The panel knows the lot lists its thans, so it opens the picker for it
+    const ourLot = ours.lots.find((l: any) => l.lotId === fabricStockId);
+    expect(ourLot.pieces).toMatchObject({ total: THANS, left: THANS, kind: 'THAN' });
+    expect(ourLot.listState).toBe('IN_STEP');
 
     // Owner rule 2026-09-24: fabric is issued FOR a cutting batch (deleting the batch returns it)
     const refused = await request(app)
@@ -620,11 +655,21 @@ describe('the first cut: from greige to a cutting batch', () => {
   });
 
   it('phase 7e: the whole lot is issued for the batch — the run still has its fabric (at Cutting)', async () => {
+    // As Fabric Issuance posts a lot that lists thans: the ticked thans ride along, and the server takes the
+    // quantity from them (2 thans × 100 m = ISSUE_METERS)
     const issued = await request(app)
       .post(`/api/work-orders/${workOrderId}/issue-fabric`)
       .set(authHeader)
       .send({
-        lots: [{ fabricStockId, fabricId: finishedFabricId, quantity: ISSUE_METERS, description: 'first cut' }],
+        lots: [
+          {
+            fabricStockId,
+            fabricId: finishedFabricId,
+            quantity: ISSUE_METERS,
+            description: 'first cut',
+            details: await pickThans(ISSUE_METERS / THAN_METRES),
+          },
+        ],
       });
     expectStatus(issued, (s) => s < 300);
     const rest = await request(app)
@@ -632,10 +677,20 @@ describe('the first cut: from greige to a cutting batch', () => {
       .set(authHeader)
       .send({
         lots: [
-          { fabricStockId, fabricId: finishedFabricId, quantity: RECEIVE_QTY - ISSUE_METERS, description: 'rest' },
+          {
+            fabricStockId,
+            fabricId: finishedFabricId,
+            quantity: RECEIVE_QTY - ISSUE_METERS,
+            description: 'rest',
+            details: await pickThans(THANS),
+          },
         ],
       });
     expectStatus(rest, (s) => s < 300);
+    // Every than went to cutting, each on its own challan line, for the batch
+    const out = await thansOf();
+    expect(out.every((t) => t.status === 'CONSUMED' && t.issues.length === 1)).toBe(true);
+    expect(out.every((t) => t.issues[0].cuttingBatchId === cuttingBatchId && t.issues[0].challanItemId)).toBe(true);
 
     // The store is empty — the lot reads EXHAUSTED — and both challans belong to the batch
     const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });
@@ -719,6 +774,10 @@ describe('the first cut: from greige to a cutting batch', () => {
       where: { productionRunId: workOrderId, challanType: 'INTERNAL', fromName: 'Cutting' },
     });
     expect(back?.status).toBe('RECEIVED');
+    // …and exactly the thans it took are back on the lot's list; the issue rows are stamped, not deleted
+    const thans = await thansOf();
+    expect(thans.every((t) => t.status === 'AVAILABLE' && Number(t.metersRemaining) === THAN_METRES)).toBe(true);
+    expect(thans.every((t) => t.issues.length === 1 && t.issues[0].returnChallanId === back?.id)).toBe(true);
 
     // Nothing is left "at Cutting" for the run
     const panel = await request(app).get(`/api/work-orders/${workOrderId}/fabric-issuance-data`).set(authHeader);
@@ -735,7 +794,18 @@ describe('the first cut: from greige to a cutting batch', () => {
     const issued = await request(app)
       .post(`/api/work-orders/${workOrderId}/issue-fabric`)
       .set(authHeader)
-      .send({ lots: [{ fabricStockId, fabricId: finishedFabricId, quantity: LAY_ISSUE_METERS, description: 'lay' }] });
+      .send({
+        cuttingBatchId: secondBatchId,
+        lots: [
+          {
+            fabricStockId,
+            fabricId: finishedFabricId,
+            quantity: LAY_ISSUE_METERS,
+            description: 'lay',
+            details: await pickThans(LAY_ISSUE_METERS / THAN_METRES),
+          },
+        ],
+      });
     expectStatus(issued, (s) => s < 300);
 
     const started = await request(app).post(`/api/cutting/batches/${secondBatchId}/start`).set(authHeader);
@@ -806,10 +876,15 @@ describe('the first cut: from greige to a cutting batch', () => {
 
   it('phase 7h: the batch is completed — with exactly what the batch page sends — and the leftover goes back', async () => {
     const leftover = LAY_ISSUE_METERS - LAY_LENGTH * LAY_LAYERS; // issued − consumed
+    // The dialog offers the thans the batch took whole; one of the two came back untouched
+    const issuedFabric = await request(app).get(`/api/cutting/batches/${secondBatchId}/issued-fabric`).set(authHeader);
+    const lotLine = issuedFabric.body.data.find((l: { fabricStockId: string }) => l.fabricStockId === fabricStockId);
+    expect(lotLine.piecesOut).toHaveLength(LAY_ISSUE_METERS / THAN_METRES);
+    const wholeBack = lotLine.piecesOut[1].id as string;
     const done = await request(app)
       .post(`/api/cutting/batches/${secondBatchId}/complete`)
       .set(authHeader)
-      .send({ fabricReturns: [{ fabricStockId, returnedQuantity: leftover }] });
+      .send({ fabricReturns: [{ fabricStockId, returnedQuantity: leftover, wholePieceIds: [wholeBack] }] });
     expectStatus(done, (s) => s === 200);
     expect(done.body.data.status).toBe('COMPLETED');
     expect(Number(done.body.data.fabricIssued)).toBeCloseTo(LAY_ISSUE_METERS, 2);
@@ -821,5 +896,16 @@ describe('the first cut: from greige to a cutting batch', () => {
     const lot = await prisma.fabric_stock.findUnique({ where: { id: fabricStockId } });
     expect(Number(lot!.quantityAvailable)).toBeCloseTo(RECEIVE_QTY - LAY_LENGTH * LAY_LAYERS, 2);
     expect(lot!.status).toBe('AVAILABLE');
+
+    // The than ticked back whole is on the rack again; the rest came back as ONE end piece; the list is in step
+    const thans = await thansOf();
+    expect(thans.find((t) => t.id === wholeBack)).toMatchObject({ status: 'AVAILABLE' });
+    const batch = await prisma.cutting_batches.findUniqueOrThrow({ where: { id: secondBatchId } });
+    const ends = thans.filter((t) => t.source === 'END');
+    expect(ends).toHaveLength(1);
+    expect(ends[0].remarks).toBe(`End from ${batch.batchNumber}`);
+    expect(Number(ends[0].meters)).toBeCloseTo(leftover - THAN_METRES, 2);
+    const listed = await request(app).get(`/api/stock/${fabricStockId}/pieces`).set(authHeader);
+    expect(listed.body.data.listState).toBe('IN_STEP');
   });
 });

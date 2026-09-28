@@ -37,6 +37,8 @@
  * D27 linked order items with no sizes while the sale order lists them (link refused colourless styles, until 28-Sep)
  * D28 size-wise labels planned orderable with no size       (planned before 29-Aug, or sizes no variant matches)
  * D29 cost sheet versions that changed mode or lost the closed cost of the version they replace (until 23-Sep)
+ * D30 finished-fabric lots whose roll / than list is out of step with their metres (a door took metres
+ *     without naming pieces — fix on the Fabric Stock page with Check / Record rolls & thans; never refused)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -44,6 +46,7 @@ import { productionBlockingValidationService } from '../src/services/productionB
 import { findMirrorDrift } from './repair-material-mirror-names';
 import { findOrderStatusDrift } from '../src/services/helpers/order-status.helper';
 import { findSizelessLinkedItems } from '../src/services/helpers/sale-order-sizes.helper';
+import { lotPiecesSummary } from '../src/services/fabric-lot-pieces.service';
 
 const prisma = new PrismaClient();
 const JSON_OUT = process.argv.includes('--json');
@@ -559,6 +562,38 @@ async function main() {
        WHERE nxt.purpose <> prev.purpose
           OR (prev.closed_cost IS NOT NULL AND nxt.closed_cost IS NULL)
        ORDER BY s."styleCode", prev.version`
+  );
+
+  // ---- Fabric lot rolls & thans -----------------------------------------------------------
+
+  // A lot keeps its roll / than list (fabric-lot-pieces.service, 2026-09-28). Every door that takes a WHOLE
+  // lot takes its whole list; a door that takes part of a lot without naming pieces leaves the list out of
+  // step (listStateOf). Flag, never refuse — the store puts it right with Check rolls & thans.
+  await run(
+    'D30',
+    'Fabric lots whose roll / than list is out of step with their metres (Check rolls & thans on Fabric Stock)',
+    (async () => {
+      const lots = await prisma.fabric_stock.findMany({
+        where: { pieces: { some: {} } },
+        select: {
+          id: true,
+          quantityAvailable: true,
+          foldLengthCm: true,
+          fabricMaster: { select: { fabricCode: true } },
+        },
+      });
+      const summary = await lotPiecesSummary(lots, prisma);
+      return lots
+        .map((l) => ({ l, s: summary.get(l.id)! }))
+        .filter(({ s }) => s.state === 'OUT_OF_STEP' || s.state === 'LIST_EMPTY')
+        .map(({ l, s }) => ({
+          lot: `${l.fabricMaster?.fabricCode ?? 'fabric'} (${l.id.slice(0, 8)})`,
+          on_hand: Number(l.quantityAvailable),
+          listed_actual: s.listActual,
+          pieces_left: s.left,
+          state: s.state,
+        }));
+    })()
   );
 
   // ---- Output ---------------------------------------------------------------------------

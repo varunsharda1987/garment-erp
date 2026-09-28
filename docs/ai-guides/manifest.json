@@ -1555,11 +1555,11 @@
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/document-data/po-ship-to.ts": "a728edc8d87f",
       "backend/src/services/purchaseOrder.service.ts": "9cf46c2d43c5",
-      "backend/src/services/mrp.service.ts": "64b351719622",
+      "backend/src/services/mrp.service.ts": "9d4674e3ac42",
       "frontend/src/pages/ManufacturingControlCenter.tsx": "f61b9e1a2ff0"
     },
     "contentHash": "0584a017178a",
-    "generatedAt": "2026-09-28T05:00:46.697Z"
+    "generatedAt": "2026-09-28T05:42:16.627Z"
   },
   "held-stock-move": {
     "sources": {

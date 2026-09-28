@@ -40,12 +40,14 @@ sources:
   - backend/src/routes/job-work-statutory.routes.ts
   - backend/src/controllers/job-work-statutory.controller.ts
   - backend/src/services/processor-statement.service.ts
+  - backend/src/services/supplier.service.ts
+  - frontend/src/types/supplier.types.ts
 route: /processing/processor-statement
 ---
 
 ## Steps
 1. Open **Manufacturing → Processor Statement** in the sidebar, or click **Processor Statement** on the Job Work Dashboard.
-2. Pick the **Processor** — the list holds dyers, printers, embroidery and other job-work vendors.
+2. Pick the **Processor** — the list holds dyers, printers, embroidery and other job-work vendors. If it reads **No suppliers found for this category.**, the vendor is not tagged with a processing category (Dyeing & Printing, Embroidery, Hand Work, Washing …) in the supplier master.
 3. Set **From** and **To**. It opens on the current month.
 4. Click **Generate**.
 5. Read the four tiles: **Opening with them**, **Sent in period**, **Received back** and **Closing with them**.

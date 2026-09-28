@@ -62,6 +62,12 @@ keywords:
   - tubes per box
   - कोन प्रति बॉक्स
   - ट्यूब प्रति बॉक्स
+  - thread requirement
+  - thread hsn
+  - dhaga ka hsn
+  - thread requirements tab
+  - धागा एचएसएन
+  - धागे की ज़रूरत
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -83,6 +89,11 @@ sources:
   - backend/src/utils/code-generator.ts
   - frontend/src/types/thread.types.ts
   - backend/src/services/thread-conversion.service.ts
+  - backend/src/services/supplier.service.ts
+  - frontend/src/pages/UnifiedRequirementsPage.tsx
+  - backend/src/services/material.service.ts
+  - backend/src/services/helpers/material-hsn.helper.ts
+  - backend/src/services/helpers/po-line-category.helper.ts
 route: /materials/thread/new
 ---
 
@@ -114,7 +125,10 @@ To change it later, open the thread and use **Update Thread**. If you did not ty
 ## Ordering and stock
 - Thread is ordered on a **Thread** purchase order in cones or tubes (see "Raise a Purchase Order"); the PO line is in boxes.
 - Stock is kept per pack: a thread bought as cones and as tubes shows as separate items — for example "… - Cone 3-ply" and "… - Tube 3-ply" — each counted in cones or tubes, never added together.
+- There is no Thread Requirements tab any more. On the Requirements page a thread row cannot be picked for a PO — its hint reads "Order thread from Purchase Orders, in cones / tubes".
+- There is no HSN box on this form. The 6-digit HSN code is filled in automatically when the thread is first saved, from its **Material Composition** (Cotton or Polyester). With no composition chosen it is left blank, so pick one.
 
 ## Traps
 
 - If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
+- If the supplier list reads **No suppliers found for this category.**, no supplier tagged **Thread Supplier** matches (or none exists yet). Tag the supplier with that category in the supplier master first.

@@ -51,6 +51,11 @@ keywords:
   - लेस सप्लायर
   - नई लेस
   - लेस बनाना
+  - lace hsn
+  - lace ka hsn
+  - lace po
+  - greige lace po
+  - लेस एचएसएन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -64,6 +69,11 @@ sources:
   - frontend/src/components/JobWorkOrderCreateDialog.tsx
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/services/helpers/lace-name.helper.ts
+  - backend/src/services/supplier.service.ts
+  - backend/src/services/material.service.ts
+  - backend/src/services/helpers/material-hsn.helper.ts
+  - backend/src/services/helpers/po-line-category.helper.ts
+  - frontend/src/types/purchaseOrder.types.ts
 route: /materials/lace/new
 ---
 
@@ -91,12 +101,17 @@ route: /materials/lace/new
 18. To attach a photo, scroll to **Lace Image** and click the box that says **Click to upload lace image**. JPG, PNG or WEBP files up to 5MB are accepted. On the preview, the upload button replaces the photo and the ✕ button removes it.
 19. Click **Create Lace**. You return to the lace list, where the **Type** column shows **Greige**, **Ready**, or **Processed** (a finished lace linked to a source greige, with the greige code shown under it).
 
+## HSN and buying
+- There is no HSN box on this form. The 6-digit HSN code is filled in automatically when the lace is first saved, chosen from its **Lace Type**, **Design** and **Composition** — fill them so the right code is picked.
+- A **Ready-to-Use (Finished)** lace is bought on a **Lace** purchase order; a **Raw/Greige** lace on a **Greige Lace** purchase order.
+
 ## Traps
 
 - Nothing here except the lace nature choice is strictly enforced, so it is easy to save a thin record. Fill width, type and composition so the auto-generated name is meaningful.
 - If **Price per Meter** is left empty and no supplier price is set, cost sheets show this lace at zero until someone enters a price in the cost sheet's sourcing window. Setting the price here avoids that.
 - A supplier row where no **Supplier** was chosen is dropped silently on save. If the supplier you need is not in the dropdown, tag it with the **Lace Supplier** category in the supplier master first.
 - If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
+- If the supplier list reads **No suppliers found for this category.**, no supplier tagged **Lace Supplier** matches (or none exists yet).
 - When editing an existing lace, do not touch the **Suppliers** section unless you mean to change it. The form only sends supplier rows when that section was opened or edited.
 - On edit, the name refreshes automatically when you change attributes, unless you have typed a name of your own.
 - When editing an existing lace, the ✕ button on the photo removes it from the server immediately — it does not wait for you to click **Update Lace**.

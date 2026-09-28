@@ -33,6 +33,10 @@ keywords:
   - buyer code
   - इलास्टिक सप्लायर
   - सप्लायर जोड़ें
+  - elastic hsn
+  - counted in
+  - elastic ka hsn
+  - इलास्टिक एचएसएन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -45,6 +49,13 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/elastic.controller.ts
+  - backend/src/services/supplier.service.ts
+  - frontend/src/pages/ElasticDetail.tsx
+  - backend/src/services/helpers/master-config.ts
+  - backend/src/services/material.service.ts
+  - backend/src/services/helpers/material-hsn.helper.ts
+  - backend/src/services/helpers/po-line-category.helper.ts
+  - frontend/src/types/purchaseOrder.types.ts
 route: /materials/elastic/new
 ---
 
@@ -72,6 +83,12 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 
 Note: unlike Buttons and Zippers, the Elastic form has **no Style Associations section** — elastic cannot be tagged to styles here. Link it through the style's BOM instead. To edit later, open the elastic from the list, click **Edit**, and press **Update Elastic**; the code never changes.
 
+## Unit, HSN and buying
+- Elastic is counted in metres. After saving, the elastic's page shows **Counted in: Meter**.
+- There is no HSN box on this form. The 6-digit HSN code is filled in automatically when the elastic is first saved, chosen from its **Elastic Type** and **Composition** — fill them so the right code is picked.
+- Elastic is bought on a **Trims** purchase order.
+
 ## Traps
 
 - If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
+- If the supplier list reads **No suppliers found for this category.**, no supplier tagged **Trims Supplier** matches (or none exists yet). Tag the supplier with that category in the supplier master first.

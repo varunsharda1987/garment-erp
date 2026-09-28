@@ -41,6 +41,10 @@ keywords:
   - सप्लायर प्राइस
   - डुप्लीकेट सप्लायर
   - ज़िपर नाम
+  - zipper hsn
+  - counted in
+  - zipper ka hsn
+  - ज़िपर एचएसएन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -61,6 +65,13 @@ sources:
   - backend/src/errors/index.ts
   - backend/src/controllers/zipper.controller.ts
   - backend/src/utils/code-generator.ts
+  - backend/src/services/supplier.service.ts
+  - frontend/src/pages/ZipperDetail.tsx
+  - backend/src/services/helpers/master-config.ts
+  - backend/src/services/material.service.ts
+  - backend/src/services/helpers/material-hsn.helper.ts
+  - backend/src/services/helpers/po-line-category.helper.ts
+  - frontend/src/types/purchaseOrder.types.ts
 route: /materials/zipper/new
 ---
 
@@ -86,6 +97,12 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 
 To edit later, open the zipper from the list and press **Update Zipper**. Trap: on edit the name is NOT rebuilt — if you clear the **Zipper Name** box, the zipper is saved with an empty name. To rename it, type the new name yourself. Supplier rows save on update the same way as on create, with the same one-row-per-supplier rule. The zipper code never changes.
 
+## Unit, HSN and buying
+- A zipper is counted in pieces. After saving, the zipper's page shows **Counted in: Piece**.
+- There is no HSN box on this form. The 6-digit HSN code is filled in automatically when the zipper is first saved, chosen from its **Teeth Type** (metal or nylon/plastic) — fill Teeth Type so the right code is picked.
+- Zippers are bought on a **Trims** purchase order.
+
 ## Traps
 
 - If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
+- If the supplier list reads **No suppliers found for this category.**, no supplier tagged **Trims Supplier** matches (or none exists yet). Tag the supplier with that category in the supplier master first.

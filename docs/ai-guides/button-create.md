@@ -30,6 +30,13 @@ keywords:
   - button me supplier kaise jode
   - बटन सप्लायर
   - सप्लायर जोड़ें
+  - button hsn
+  - button gross
+  - counted in
+  - button ka hsn
+  - button gross me kharidna
+  - बटन एचएसएन
+  - ग्रोस
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -42,6 +49,15 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/button.controller.ts
+  - backend/src/services/supplier.service.ts
+  - frontend/src/pages/ButtonDetail.tsx
+  - backend/src/services/helpers/master-config.ts
+  - backend/src/services/material.service.ts
+  - backend/src/services/helpers/material-hsn.helper.ts
+  - backend/src/services/helpers/po-line-category.helper.ts
+  - backend/src/services/helpers/purchase-unit.helper.ts
+  - frontend/src/types/purchaseOrder.types.ts
+  - backend/src/services/mrp.service.ts
 route: /materials/button/new
 ---
 
@@ -69,6 +85,12 @@ Nothing is mandatory first. But if you want to link a supplier, that supplier mu
 
 To change it later, open the button from the list, click **Edit**, and use **Update Button**. The code can never be changed. On edit, the name keeps rebuilding itself from the attributes until you type your own.
 
+## Unit, HSN and buying
+- A button is counted in pieces. After saving, the button's page shows **Counted in: Piece**.
+- There is no HSN box on this form. The 6-digit HSN code is filled in automatically when the button is first saved, chosen from its **Material** (metal, plastic, shell …) — fill Material so the right code is picked.
+- Buttons are bought on a **Trims** purchase order, by the gross — a button line in any other unit is refused. When Requirements generates the PO, the rate per gross comes from the supplier's **Price/Gross (₹)**, else the button's **Price per Gross (₹)**, so fill the gross prices when you know them.
+
 ## Traps
 
 - If the supplier box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
+- If the supplier list reads **No suppliers found for this category.**, no supplier tagged **Trims Supplier** matches (or none exists yet). Tag the supplier with that category in the supplier master first.

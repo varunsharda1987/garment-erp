@@ -2,11 +2,12 @@ import prisma from '../config/database';
 import { Prisma, SaleOrderStatus, DeliveryStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { multiplyCurrency, divideCurrency, roundToCent, Decimal } from '../utils/currency';
+import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import { orderService, OrderItemInput, OrderPriority } from './order.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
 import { linkedOrderIdOf, lockOrder, syncOrderStatus } from './helpers/order-status.helper';
+import { buyerPoUnitPrice, lineValue } from './helpers/buyer-po-price.helper';
 import { processorRateValidationService } from './processor-rate-validation.service';
 import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
@@ -305,6 +306,42 @@ interface SOQueryParams {
   toDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * Re-price a production order's lines at its sale order's buyer PO prices (per style) and re-total the
+ * order. A style with no priced PO line keeps its price. Returns what changed.
+ */
+export async function priceOrderFromBuyerPo(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  saleOrderId: string
+): Promise<Array<{ orderItemId: string; from: number; to: number }>> {
+  const [items, lines] = await Promise.all([
+    tx.order_items.findMany({
+      where: { orderId },
+      select: { id: true, styleId: true, totalQuantity: true, unitPrice: true },
+    }),
+    tx.sale_order_items.findMany({
+      where: { saleOrderId },
+      select: { styleId: true, quantity: true, unitPrice: true },
+    }),
+  ]);
+  const changed: Array<{ orderItemId: string; from: number; to: number }> = [];
+  for (const item of items) {
+    const po = buyerPoUnitPrice(lines.filter((l) => l.styleId === item.styleId));
+    if (!po || po.unitPrice === Number(item.unitPrice)) continue;
+    await tx.order_items.update({
+      where: { id: item.id },
+      data: { unitPrice: po.unitPrice, totalPrice: lineValue(item.totalQuantity, po.unitPrice) },
+    });
+    changed.push({ orderItemId: item.id, from: Number(item.unitPrice), to: po.unitPrice });
+  }
+  if (changed.length > 0) {
+    const totals = await tx.order_items.aggregate({ where: { orderId }, _sum: { totalPrice: true } });
+    await tx.orders.update({ where: { id: orderId }, data: { totalAmount: totals._sum.totalPrice ?? 0 } });
+  }
+  return changed;
 }
 
 export class SaleOrderService {
@@ -938,22 +975,11 @@ export class SaleOrderService {
         }
       }
 
-      // order_items has a single unitPrice; SO grain is finer. Shared price → use it,
-      // mixed prices → quantity-weighted average (decimal-safe), noted in item remarks.
-      const prices = new Set(group.map((i) => Number(i.unitPrice)));
-      let unitPrice: number;
-      let priceNote: string | undefined;
-      if (prices.size === 1) {
-        unitPrice = [...prices][0];
-      } else {
-        const totalQty = group.reduce((sum, i) => sum + i.quantity, 0);
-        const totalValue = group.reduce(
-          (dec, i) => dec.plus(multiplyCurrency(i.quantity, Number(i.unitPrice))),
-          multiplyCurrency(0, 0)
-        );
-        unitPrice = roundToCent(divideCurrency(totalValue, totalQty)).toNumber();
-        priceNote = `Weighted avg of ${prices.size} SO line prices`;
-      }
+      // The buyer PO price (buyer-po-price.helper): shared price as is, mixed prices → the
+      // quantity-weighted average, noted in item remarks.
+      const po = buyerPoUnitPrice(group.map((i) => ({ quantity: i.quantity, unitPrice: i.unitPrice })));
+      const unitPrice = po?.unitPrice ?? 0;
+      const priceNote = po?.note;
 
       return {
         styleId: group[0].styleId,
@@ -1285,6 +1311,9 @@ export class SaleOrderService {
             data: { plannedEndDate: so.expectedShipDate },
           });
         }
+        // The order's price becomes the buyer PO price of each style (owner, 2026-09-28) — a typed-in
+        // price kept through the link is how nine orders came to read their Total Product Cost
+        await priceOrderFromBuyerPo(tx, orderId, saleOrderId);
         await syncOrderStatus(tx, orderId);
       });
     } catch (err) {

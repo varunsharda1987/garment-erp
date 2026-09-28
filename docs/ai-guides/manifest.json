@@ -1582,16 +1582,17 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "eab951208171",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "22e6431468b6",
-      "frontend/src/components/requirements/order-style-groups.ts": "27b2524a3a72",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "32757a709888",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e90faffc71d9",
+      "frontend/src/components/requirements/order-style-groups.ts": "7be4894e96b9",
+      "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/components/BulkPOGenerationDialog.tsx": "7e6d008d495f",
       "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "2dbef8936f1d",
       "frontend/src/lib/label-lines.ts": "169c3b0c5007",
-      "backend/src/schemas/mrp.schema.ts": "79484133ea84"
+      "backend/src/schemas/mrp.schema.ts": "09d02f5913fa"
     },
-    "contentHash": "e0418f205e64",
-    "generatedAt": "2026-09-26T17:58:46.050Z"
+    "contentHash": "fddf80ce601a",
+    "generatedAt": "2026-09-28T05:53:14.121Z"
   },
   "cad-correct": {
     "sources": {
@@ -1616,27 +1617,46 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "eab951208171",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "32757a709888",
       "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "22e6431468b6",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e90faffc71d9",
+      "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/types/mrp.types.ts": "5e45ab69d56f",
       "frontend/src/components/OrderWorkflowTracker.tsx": "5c1835f3ebaa",
-      "frontend/src/pages/OrderDetail.tsx": "cf370ffca15c",
+      "frontend/src/pages/OrderDetail.tsx": "cb94794cd545",
       "backend/src/services/helpers/requirement-reconcile.helper.ts": "b30fd8899c3b",
-      "backend/src/schemas/mrp.schema.ts": "79484133ea84"
+      "backend/src/schemas/mrp.schema.ts": "09d02f5913fa"
     },
-    "contentHash": "043767979694",
-    "generatedAt": "2026-09-26T19:21:14.065Z"
+    "contentHash": "17a6c9212583",
+    "generatedAt": "2026-09-28T05:53:13.925Z"
   },
   "requirements-use-stock": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "eab951208171",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "32757a709888",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e90faffc71d9",
+      "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
       "frontend/src/types/mrp.types.ts": "5e45ab69d56f",
-      "backend/src/services/mrp.service.ts": "64b351719622",
+      "backend/src/services/mrp.service.ts": "9d4674e3ac42",
       "backend/src/services/helpers/stock-reservation.helper.ts": "d1db0abdf4d4"
     },
-    "contentHash": "56b3efe748a5",
-    "generatedAt": "2026-09-28T05:00:46.918Z"
+    "contentHash": "5c850bb34c4f",
+    "generatedAt": "2026-09-28T05:53:14.130Z"
+  },
+  "requirements-find-filter": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "e20d92cdd59b",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/App.tsx": "0a8b3e8b7696",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "32757a709888",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e90faffc71d9",
+      "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
+      "frontend/src/types/mrp.types.ts": "5e45ab69d56f",
+      "frontend/src/types/material.types.ts": "8a1ecb5323a7",
+      "frontend/src/pages/OrderDetail.tsx": "cb94794cd545",
+      "backend/src/schemas/mrp.schema.ts": "09d02f5913fa"
+    },
+    "contentHash": "77a066e22aa6",
+    "generatedAt": "2026-09-28T05:53:14.110Z"
   }
 }

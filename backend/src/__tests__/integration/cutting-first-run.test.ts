@@ -188,6 +188,8 @@ afterAll(async () => {
   const batchIds = workOrderId
     ? (await prisma.cutting_batches.findMany({ where: { workOrderId }, select: { id: true } })).map((b) => b.id)
     : [];
+  // Issue to stitching's transfer slips (their size lines cascade)
+  await prisma.transfer_slips.deleteMany({ where: { cuttingBatchId: { in: batchIds } } });
   const layIds = (
     await prisma.cutting_lays.findMany({ where: { cuttingBatchId: { in: batchIds } }, select: { id: true } })
   ).map((l) => l.id);
@@ -760,6 +762,35 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(skus.find((s) => s.sizeId === sizeS)!.cutQty).toBe(LAY_LAYERS);
     const batch = await prisma.cutting_batches.findUnique({ where: { id: secondBatchId } });
     expect(Number(batch!.fabricConsumed)).toBeCloseTo(LAY_LENGTH * LAY_LAYERS, 2);
+
+    // The lay the page saves for a batch cut from one fabric carries no per-lot link. The batch page must
+    // still read the lot as cut — its Issue to stitching button follows layCovered — and the lot must carry
+    // the lay's metres, so completion offers back only the true leftover. Until 2026-09-28 both were read
+    // through the legacy link alone: CB-WO2609-0088-003 was held back from stitching after its first lay.
+    const detail = await request(app).get(`/api/cutting/batches/${secondBatchId}`).set(authHeader);
+    expectStatus(detail, (s) => s === 200);
+    expect(detail.body.data.additionalFabrics.length).toBeGreaterThan(0);
+    expect(detail.body.data.additionalFabrics.every((af: { layCovered?: boolean }) => af.layCovered === true)).toBe(
+      true
+    );
+    const issuedFabric = await request(app).get(`/api/cutting/batches/${secondBatchId}/issued-fabric`).set(authHeader);
+    expectStatus(issuedFabric, (s) => s === 200);
+    const lotLine = issuedFabric.body.data.find((l: { fabricStockId: string }) => l.fabricStockId === fabricStockId);
+    expect(lotLine.consumedInLays).toBeCloseTo(LAY_LENGTH * LAY_LAYERS, 2);
+    expect(lotLine.balance).toBeCloseTo(LAY_ISSUE_METERS - LAY_LENGTH * LAY_LAYERS, 2);
+
+    // …and Issue to stitching takes the cut pieces, posted as CuttingDetail.tsx posts them
+    const slip = await request(app)
+      .post(`/api/cutting/batches/${secondBatchId}/issue-to-stitching`)
+      .set(authHeader)
+      .send({
+        issuedToId: dyerId,
+        issueDate: new Date().toISOString().slice(0, 10),
+        remarks: undefined,
+        skuOutputs: [{ colorId: null, sizeId: sizeS, quantity: 1 }],
+      });
+    expectStatus(slip, (s) => s === 201);
+    expect(slip.body.data.totalPieces).toBe(1);
 
     // A two-fabric batch posts per-fabric lengths under the page's name for them, and is accepted.
     const { addCuttingLaySchema } = await import('../../schemas/production.schema');

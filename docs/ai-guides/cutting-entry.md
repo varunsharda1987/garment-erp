@@ -21,6 +21,11 @@ keywords:
   - create batch greyed out
   - CAD approve nahi hua
   - प्रोडक्शन कैड
+  - issue to stitching
+  - not yet cut
+  - no lays recorded
+  - stitching mein bhejna
+  - सिलाई में भेजना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -61,7 +66,8 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 10. In the **Add New Lay** card, fill **Lay Date**, **Number of Layers (plies)** and **Layer Length (meters)**. With more than one fabric you instead fill **Per-Fabric Layer Lengths** — every fabric needs a length.
 11. In the size table, tick each size and enter **Pcs/Layer**. **Total Cut** is calculated for you.
 12. Add **Remarks (optional)** and click **Save Lay**. Repeat for each new lay.
-13. When cutting is finished, click **Complete**, enter **Return to Store (m)** for leftover fabric, and confirm.
+12a. Cut pieces can go to stitching while the batch is still in progress: in the **Issue to Stitching** card click **New Issue**. It opens once every fabric of the batch has at least one lay. Two lots of the same fabric count as one fabric, so one lay covers both. Until then the card says which fabric is "not yet cut".
+13. When cutting is finished, click **Complete**, check **Return to Store (m)** for the leftover fabric, and confirm. Each lot is pre-filled with what was issued less what the lays used. When a fabric came from two lots, the lay metres are shared between them by what each lot sent, so change the figures to what really comes back from each lot.
 
 If a batch is **deleted** before any lay is recorded (or cancelled with no lays), the fabric issued for it goes back to the store automatically on a return challan — the panel lists it as **Returned to store**. Once lays exist, the leftover is returned at **Complete** instead.
 

@@ -160,6 +160,8 @@ export interface CuttingBatch {
     cadWidthUsed: number | null;
     actualWidth: number | null;
     fabricConsumed?: number;
+    /** This lot's fabric has at least one lay (server rule: cutting.utils layCoverage) — gates Issue to stitching */
+    layCovered?: boolean;
     fabricStock?: {
       id: string;
       rollNumbers?: string;

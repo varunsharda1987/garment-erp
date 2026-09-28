@@ -1,6 +1,8 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { nextSeededSequence } from '../utils/seeded-sequence';
+import { isQtyZero } from '../utils/quantity';
+import { batchIssuedFabric } from '../services/helpers/run-fabric.helper';
 
 // ============================================
 // Shared Helper Functions for Cutting Controllers
@@ -223,20 +225,172 @@ export const batchIncludeOptions = {
   },
 };
 
+// ============================================
+// What a lay cut — the ONE reading of the lay ↔ fabric link (2026-09-28)
+// ============================================
+
+/** What the lay rule reads of a lay (what addCuttingLay writes). Spread into any cutting_lays select. */
+export const LAY_COVERAGE_SELECT = {
+  numberOfLayers: true,
+  layerLength: true,
+  cuttingBatchFabricId: true,
+  layFabrics: { select: { cuttingBatchFabricId: true, layerLength: true } },
+} as const;
+
+/** What the lay rule reads of a batch's lots (cutting_batch_fabrics). */
+export const BATCH_FABRIC_COVERAGE_SELECT = {
+  id: true,
+  fabricStockId: true,
+  fabricStock: { select: { fabricId: true } },
+} as const;
+
+type DecimalLike = Prisma.Decimal | number | string | null;
+
+/** A lot on a batch as the lay rule needs it: the cutting_batch_fabrics row, its lot, and the lot's fabric. */
+export interface LayBatchFabric {
+  id: string;
+  fabricStockId: string;
+  /** fabric_stock.fabricId — the lots of one fabric are cut together, in one lay */
+  fabricId: string | null;
+}
+
+export interface LayForCoverage {
+  numberOfLayers: number | null;
+  layerLength: DecimalLike;
+  cuttingBatchFabricId: string | null;
+  layFabrics: Array<{ cuttingBatchFabricId: string; layerLength: DecimalLike }>;
+}
+
+export interface LayCoverage {
+  /** The batch's lots (cutting_batch_fabrics ids) whose FABRIC has at least one lay */
+  coveredBatchFabricIds: Set<string>;
+  /** Metres cut per fabric — each fabric counted once per lay */
+  metresByFabric: Map<string, number>;
+  /** Every lay metre of the batch — cutting_batches.fabricConsumed */
+  totalMetres: number;
+}
+
+export const toLayBatchFabric = (bf: {
+  id: string;
+  fabricStockId: string;
+  fabricStock?: { fabricId?: string | null } | null;
+}): LayBatchFabric => ({ id: bf.id, fabricStockId: bf.fabricStockId, fabricId: bf.fabricStock?.fabricId ?? null });
+
+const fabricKeyOf = (bf: LayBatchFabric): string => bf.fabricId ?? `lot:${bf.fabricStockId}`;
+
+/** True when some fabric has two or more lots on the batch — only then are a fabric's lay metres split. */
+export function hasSharedFabric(batchFabrics: LayBatchFabric[]): boolean {
+  return new Set(batchFabrics.map(fabricKeyOf)).size < batchFabrics.length;
+}
+
+/**
+ * What a batch's lays cut, per FABRIC.
+ *
+ * The lay screen (CuttingDetail) asks for ONE layer length per fabric — the lots of one fabric are merged
+ * into one line — and addCuttingLay saves it as:
+ *  - a batch of 2+ fabrics: a cutting_lay_fabrics row for EVERY lot of each fabric, each carrying that
+ *    fabric's length (one length per fabric, repeated per lot — not one length each);
+ *  - a batch whose lots are all ONE fabric: no link at all — the lay's own layerLength is that fabric's;
+ *  - an old lay: the legacy cuttingBatchFabricId.
+ * Read lot by lot, the first counted a two-lot fabric twice and the second counted no lot at all, so every
+ * batch cut from one fabric read "not yet cut" and Issue to stitching was refused (CB-WO2609-0088-003,
+ * 2026-09-28). The stitching guard, the batch page and recalculateBatchTotals all read lays through this.
+ */
+export function layCoverage(batchFabrics: LayBatchFabric[], lays: LayForCoverage[]): LayCoverage {
+  const byId = new Map(batchFabrics.map((bf) => [bf.id, bf]));
+  const fabricKeys = [...new Set(batchFabrics.map(fabricKeyOf))];
+  const coveredKeys = new Set<string>();
+  const metresByFabric = new Map<string, number>();
+  let totalMetres = 0;
+
+  for (const lay of lays) {
+    const layers = lay.numberOfLayers || 1;
+    // This lay's layer length per fabric
+    const lengths = new Map<string, number>();
+    if (lay.layFabrics.length > 0) {
+      for (const lf of lay.layFabrics) {
+        const bf = byId.get(lf.cuttingBatchFabricId);
+        const key = bf ? fabricKeyOf(bf) : `row:${lf.cuttingBatchFabricId}`;
+        // The rows of one fabric repeat that fabric's length — count it once (the longest, should they differ)
+        lengths.set(key, Math.max(lengths.get(key) ?? 0, Number(lf.layerLength) || 0));
+      }
+    } else {
+      const linked = lay.cuttingBatchFabricId ? byId.get(lay.cuttingBatchFabricId) : undefined;
+      const key = linked ? fabricKeyOf(linked) : fabricKeys.length === 1 ? fabricKeys[0] : null;
+      const length = Number(lay.layerLength) || 0;
+      if (key) lengths.set(key, length);
+      // A batch with no fabric lines (or an unlinked lay among several fabrics): the batch total only
+      else totalMetres += length * layers;
+    }
+    for (const [key, length] of lengths) {
+      coveredKeys.add(key);
+      const metres = length * layers;
+      metresByFabric.set(key, (metresByFabric.get(key) ?? 0) + metres);
+      totalMetres += metres;
+    }
+  }
+
+  const coveredBatchFabricIds = new Set(
+    batchFabrics.filter((bf) => coveredKeys.has(fabricKeyOf(bf))).map((bf) => bf.id)
+  );
+  return { coveredBatchFabricIds, metresByFabric, totalMetres };
+}
+
+/**
+ * A fabric's lay metres per LOT (cutting_batch_fabrics.fabricConsumed). A fabric with one lot on the batch
+ * gets them all — exact. Which of a fabric's lots a lay used is not recorded (they are cut together), so
+ * its metres are split by what each lot sent to this batch (issued less returned; evenly when nothing was
+ * sent), to 2 decimals with the rounding left on the last lot so the lots add up to the fabric exactly.
+ * The split only pre-fills the completion's Return to Store — the store types what really comes back.
+ */
+export function splitFabricMetresByLot(
+  batchFabrics: LayBatchFabric[],
+  metresByFabric: Map<string, number>,
+  sentByLot: Map<string, number>
+): Map<string, number> {
+  const groups = new Map<string, LayBatchFabric[]>();
+  for (const bf of batchFabrics) {
+    const key = fabricKeyOf(bf);
+    groups.set(key, [...(groups.get(key) ?? []), bf]);
+  }
+  const perLot = new Map<string, number>();
+  for (const [key, lots] of groups) {
+    const metres = new Prisma.Decimal(metresByFabric.get(key) ?? 0);
+    const weights = lots.map((bf) => Math.max(0, sentByLot.get(bf.fabricStockId) ?? 0));
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    let given = new Prisma.Decimal(0);
+    lots.forEach((bf, i) => {
+      const share =
+        i === lots.length - 1
+          ? metres.minus(given)
+          : (isQtyZero(totalWeight)
+              ? metres.div(lots.length)
+              : metres.mul(weights[i]).div(totalWeight)
+            ).toDecimalPlaces(2);
+      given = given.plus(share);
+      perLot.set(bf.id, share.toDecimalPlaces(2).toNumber());
+    });
+  }
+  return perLot;
+}
+
 // Helper: recalculate batch totals from all lays
 export async function recalculateBatchTotals(tx: any, batchId: string) {
-  // Fetch all lays with their SKUs and per-fabric records
-  const lays = await tx.cutting_lays.findMany({
-    where: { cuttingBatchId: batchId },
-    select: {
-      id: true,
-      numberOfLayers: true,
-      layerLength: true,
-      cuttingBatchFabricId: true,
-      skuOutputs: { select: { colorId: true, sizeId: true, pieces: true } },
-      layFabrics: { select: { cuttingBatchFabricId: true, layerLength: true } },
-    },
-  });
+  // Fetch all lays with their SKUs and per-fabric records, and the batch's lots
+  const [lays, batch] = await Promise.all([
+    tx.cutting_lays.findMany({
+      where: { cuttingBatchId: batchId },
+      select: {
+        id: true,
+        ...LAY_COVERAGE_SELECT,
+        skuOutputs: { select: { colorId: true, sizeId: true, pieces: true } },
+      },
+    }),
+    tx.cutting_batches.findUnique({
+      where: { id: batchId },
+      select: { workOrderId: true, additionalFabrics: { select: BATCH_FABRIC_COVERAGE_SELECT } },
+    }),
+  ]);
 
   // cutQty per size = SUM(piecesPerLayer * numberOfLayers) across all lays
   // "pieces" in cutting_lay_skus now represents piecesPerLayer
@@ -267,46 +421,22 @@ export async function recalculateBatchTotals(tx: any, batchId: string) {
     });
   }
 
-  // Fabric consumption: use cutting_lay_fabrics if available, fallback to lay.layerLength
-  let totalFabricConsumed = 0;
-  const perFabricConsumed = new Map<string, number>();
-
-  for (const lay of lays) {
-    const layers = lay.numberOfLayers || 1;
-
-    if (lay.layFabrics && lay.layFabrics.length > 0) {
-      // New structure: per-fabric layer lengths
-      for (const lf of lay.layFabrics) {
-        const consumed = Number(lf.layerLength) * layers;
-        totalFabricConsumed += consumed;
-        const prev = perFabricConsumed.get(lf.cuttingBatchFabricId) || 0;
-        perFabricConsumed.set(lf.cuttingBatchFabricId, prev + consumed);
-      }
-    } else {
-      // Legacy: single layerLength on lay
-      const consumed = Number(lay.layerLength) * layers;
-      totalFabricConsumed += consumed;
-      if (lay.cuttingBatchFabricId) {
-        const prev = perFabricConsumed.get(lay.cuttingBatchFabricId) || 0;
-        perFabricConsumed.set(lay.cuttingBatchFabricId, prev + consumed);
-      }
-    }
-  }
+  // Fabric consumption, read through layCoverage: each fabric counted once per lay; a fabric's metres go to
+  // its lots (split by what each sent to this batch when the fabric has several)
+  const batchFabrics: LayBatchFabric[] = (batch?.additionalFabrics ?? []).map(toLayBatchFabric);
+  const coverage = layCoverage(batchFabrics, lays);
+  const sentByLot: Map<string, number> =
+    batch && hasSharedFabric(batchFabrics) ? await batchIssuedFabric(batchId, batch.workOrderId, tx) : new Map();
+  const perLot = splitFabricMetresByLot(batchFabrics, coverage.metresByFabric, sentByLot);
 
   await tx.cutting_batches.update({
     where: { id: batchId },
-    data: { fabricConsumed: totalFabricConsumed },
+    data: { fabricConsumed: coverage.totalMetres },
   });
-
-  // Update per-fabric consumption on cutting_batch_fabrics
-  const allFabrics = await tx.cutting_batch_fabrics.findMany({
-    where: { batchId },
-    select: { id: true },
-  });
-  for (const fabric of allFabrics) {
+  for (const bf of batchFabrics) {
     await tx.cutting_batch_fabrics.update({
-      where: { id: fabric.id },
-      data: { fabricConsumed: perFabricConsumed.get(fabric.id) || 0 },
+      where: { id: bf.id },
+      data: { fabricConsumed: perLot.get(bf.id) ?? 0 },
     });
   }
 }

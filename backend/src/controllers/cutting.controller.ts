@@ -13,6 +13,9 @@ import {
   buildBatchFabricRows,
   dedupeChartEntries,
   splitFabricReservation,
+  LAY_COVERAGE_SELECT,
+  layCoverage,
+  toLayBatchFabric,
 } from './cutting.utils';
 import { countsForPurposeAverage } from '../services/helpers/cad-status.helper';
 import { syncBomFabricId } from '../services/order-bom.service';
@@ -149,7 +152,19 @@ export const getCuttingBatchById = async (req: Request, res: Response) => {
     throw new NotFoundError('CuttingBatch', id);
   }
 
-  res.json({ data: transformCuttingBatch(batch) });
+  // Which of the batch's lots have been cut — the page's Issue to stitching gate reads this, never its own count
+  const lays = await prisma.cutting_lays.findMany({ where: { cuttingBatchId: id }, select: LAY_COVERAGE_SELECT });
+  const { coveredBatchFabricIds } = layCoverage(batch.additionalFabrics.map(toLayBatchFabric), lays);
+
+  res.json({
+    data: transformCuttingBatch({
+      ...batch,
+      additionalFabrics: batch.additionalFabrics.map((af) => ({
+        ...af,
+        layCovered: coveredBatchFabricIds.has(af.id),
+      })),
+    }),
+  });
 };
 
 // ============================================

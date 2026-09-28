@@ -433,7 +433,8 @@ export default function CuttingDetail() {
     const idMap = new Map<string, string[]>(); // deduped af.id → [original af.ids]
     const result: typeof afs = [];
     for (const af of afs) {
-      const key = af.fabricStock?.fabricMaster?.fabricName || af.id;
+      // One fabric = one fabric master — the same grouping the server's lay rule uses (cutting.utils layCoverage)
+      const key = af.fabricStock?.fabricMaster?.id || af.fabricStock?.fabricMaster?.fabricName || af.id;
       const existing = seen.get(key);
       if (existing) {
         // Merge: sum consumed, keep best cadAvg
@@ -459,11 +460,14 @@ export default function CuttingDetail() {
   const isInProgress = batch?.status === 'IN_PROGRESS';
   const isCompleted = batch?.status === 'COMPLETED';
 
-  // Check if all fabrics have at least one lay (for issue-to-stitching guard)
-  const uncutFabrics =
-    batch?.additionalFabrics?.filter((af) => !lays.some((lay) => lay.cuttingBatchFabricId === af.id)) || [];
-  const allFabricsCut =
-    batch?.additionalFabrics && batch.additionalFabrics.length > 0 ? uncutFabrics.length === 0 : true;
+  // Every fabric must have a lay before pieces go to stitching. The server answers per lot (layCovered, from
+  // cutting.utils layCoverage): a lay saved for a batch cut from one fabric carries no per-lot link, so the old
+  // local check (the legacy lay link only) held every such batch back (CB-WO2609-0088-003, 2026-09-28).
+  const uncutFabrics = batch?.additionalFabrics?.filter((af) => af.layCovered === false) || [];
+  const uncutFabricNames = [
+    ...new Set(uncutFabrics.map((af) => af.fabricStock?.fabricMaster?.fabricName || 'Fabric')),
+  ].join(', ');
+  const allFabricsCut = uncutFabrics.length === 0;
 
   if (isLoading) {
     return (
@@ -969,12 +973,7 @@ export default function CuttingDetail() {
               </CardTitle>
               {!showIssueForm && (
                 <div className="flex items-center gap-2">
-                  {!allFabricsCut && (
-                    <span className="text-xs text-destructive">
-                      {uncutFabrics.map((af) => af.fabricStock?.fabricMaster?.fabricName || 'Fabric').join(', ')} not
-                      yet cut
-                    </span>
-                  )}
+                  {!allFabricsCut && <span className="text-xs text-destructive">{uncutFabricNames} not yet cut</span>}
                   <Button size="sm" onClick={handleOpenIssueForm} disabled={!allFabricsCut}>
                     <Package className="h-4 w-4 mr-2" />
                     New Issue

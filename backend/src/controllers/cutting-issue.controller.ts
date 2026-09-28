@@ -3,6 +3,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { LAY_COVERAGE_SELECT, layCoverage, toLayBatchFabric } from './cutting.utils';
 
 // ============================================
 // Atomic slip numbering (TS-YYYYMMDD-NNNN preserved)
@@ -105,7 +106,6 @@ export const issueToStitching = async (req: Request, res: Response) => {
           fabricStock: {
             include: { fabricMaster: { select: { fabricName: true } } },
           },
-          _count: { select: { lays: true } },
         },
       },
     },
@@ -115,11 +115,17 @@ export const issueToStitching = async (req: Request, res: Response) => {
     throw new NotFoundError('CuttingBatch', id);
   }
 
-  // Validate all fabrics have at least one lay before issuing
+  // Every fabric must have a lay before its pieces go to stitching — read through layCoverage. A lay saved for
+  // a batch cut from one fabric carries no per-lot link, and counting only the legacy link refused every such
+  // batch (CB-WO2609-0088-003, 2026-09-28).
   if (batch.additionalFabrics && batch.additionalFabrics.length > 0) {
-    const uncutFabrics = batch.additionalFabrics.filter((af: any) => af._count.lays === 0);
+    const lays = await prisma.cutting_lays.findMany({ where: { cuttingBatchId: id }, select: LAY_COVERAGE_SELECT });
+    const { coveredBatchFabricIds } = layCoverage(batch.additionalFabrics.map(toLayBatchFabric), lays);
+    const uncutFabrics = batch.additionalFabrics.filter((af) => !coveredBatchFabricIds.has(af.id));
     if (uncutFabrics.length > 0) {
-      const names = uncutFabrics.map((af: any) => af.fabricStock?.fabricMaster?.fabricName || 'Unknown').join(', ');
+      const names = [...new Set(uncutFabrics.map((af) => af.fabricStock?.fabricMaster?.fabricName || 'Unknown'))].join(
+        ', '
+      );
       throw new BusinessError(
         `Cannot issue to stitching: ${names} has no lays recorded. All fabrics must be cut before issuing.`
       );

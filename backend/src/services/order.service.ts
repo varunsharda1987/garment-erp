@@ -16,7 +16,7 @@ import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { releaseReservations } from './helpers/stock-reservation.helper';
 import { getRunFabricPosition } from './helpers/run-fabric.helper';
-import { costBeforeMarkup } from './helpers/order-costing.helper';
+import { totalProductCostOf } from './helpers/order-costing.helper';
 import { fmtQty } from './document-data/format';
 import { isQtyZero } from '../utils/quantity';
 
@@ -445,6 +445,8 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
           totalCostPerPiece: costSheet.totalCostPerPiece,
           sellingPricePerPiece: costSheet.sellingPricePerPiece,
           profitMargin: costSheet.profitMargin,
+          // Closed Cost per Piece = the buyer's agreed price, excluding GST
+          closedCost: costSheet.closedCost,
         };
 
         await db.order_item_costing.create({
@@ -463,8 +465,8 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
             costingSnapshot: costingSnapshot as any,
             snapshotCreatedAt: new Date(),
             originalCostSheetVersion: costSheet.version,
-            // COST before markup (subtotal + value loss) — totalCostPerPiece is the sheet's PRICE
-            estimatedCostPerPiece: costBeforeMarkup(costSheet),
+            // The cost sheet's Total Product Cost (order-costing.helper)
+            estimatedCostPerPiece: totalProductCostOf(costSheet),
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           } as any,
         });

@@ -231,6 +231,8 @@ export interface Order {
    * there, and what finished batches consumed. Net issued = issued − returned.
    */
   runFabric?: Array<{ workOrderId: string; issued: number; returned: number; atCutting: number; consumed: number }>;
+  /** Closed Cost per Piece (the buyer's agreed price, excl. GST) of each line's cost sheet, by order-item id */
+  closedCostByItem?: Record<string, number | null>;
   /** Make-to-order origin: the HOK B2B sale order this production order fulfils */
   saleOrder?: {
     id: string;

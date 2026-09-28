@@ -649,6 +649,23 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
   ]);
   const derived = facts ? deriveOrderStatus(facts) : null;
 
+  // Closed Cost per Piece (the buyer's agreed price, excl. GST) of the cost sheet each line was costed
+  // from — new snapshots carry it; older ones name their sheet by id
+  const closedCostByItem: Record<string, number | null> = {};
+  for (const item of order.order_items) {
+    const snap = (item.order_item_costing?.costingSnapshot ?? null) as { id?: string; closedCost?: unknown } | null;
+    const fromSnap = snap?.closedCost;
+    if (fromSnap !== undefined && fromSnap !== null) {
+      closedCostByItem[item.id] = Number(fromSnap);
+      continue;
+    }
+    const sheetId = item.order_item_costing?.baseCostingId ?? snap?.id ?? null;
+    const sheet = sheetId
+      ? await prisma.style_costing.findUnique({ where: { id: sheetId }, select: { closedCost: true } })
+      : null;
+    closedCostByItem[item.id] = sheet?.closedCost != null ? Number(sheet.closedCost) : null;
+  }
+
   res.json({
     data: {
       ...order,
@@ -666,6 +683,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       })),
       orderInvoices,
       runFabric,
+      closedCostByItem,
     },
   });
 };

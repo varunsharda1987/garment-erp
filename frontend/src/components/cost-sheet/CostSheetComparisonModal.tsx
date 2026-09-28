@@ -69,7 +69,9 @@ export default function CostSheetComparisonModal({
 
   // Find lowest and highest cost
   const lowestCost = Math.min(...approvedSheets.map((cs) => cs.totalCostPerPiece || 0));
-  const highestPrice = Math.max(...approvedSheets.map((cs) => cs.sellingPricePerPiece || 0));
+  // The buyer's agreed price is the Closed Cost per Piece (excl. GST). sellingPricePerPiece only
+  // repeats the Total Product Cost, so it is never shown as a price (owner, 2026-09-28).
+  const highestPrice = Math.max(...approvedSheets.map((cs) => Number(cs.closedCost ?? 0)));
 
   const handleSelect = (cs: CostSheet) => {
     onSelectCostSheet(cs);
@@ -285,7 +287,7 @@ export default function CostSheetComparisonModal({
 
                   {/* Total Cost Per Piece */}
                   <tr className="bg-info-muted">
-                    <td className="p-3 border-b text-sm font-bold text-info">Cost Per Piece</td>
+                    <td className="p-3 border-b text-sm font-bold text-info">Total Product Cost</td>
                     {sheetsToCompare.map((cs) => (
                       <td
                         key={cs.id}
@@ -301,17 +303,19 @@ export default function CostSheetComparisonModal({
                     ))}
                   </tr>
 
-                  {/* Selling Price Per Piece */}
+                  {/* Closed Cost per Piece — the buyer's agreed price, excl. GST (what the order is priced at) */}
                   <tr className="bg-success-muted">
-                    <td className="p-3 text-sm font-bold text-success">Selling Price</td>
+                    <td className="p-3 text-sm font-bold text-success">Closed Cost per Piece</td>
                     {sheetsToCompare.map((cs) => (
                       <td
                         key={cs.id}
                         className={`p-3 text-center font-bold text-lg ${
-                          cs.sellingPricePerPiece === highestPrice ? 'text-success bg-success-muted' : 'text-success'
+                          cs.closedCost != null && Number(cs.closedCost) === highestPrice
+                            ? 'text-success bg-success-muted'
+                            : 'text-success'
                         }`}
                       >
-                        {formatCurrency(cs.sellingPricePerPiece)}
+                        {cs.closedCost != null ? formatCurrency(cs.closedCost) : 'not set'}
                       </td>
                     ))}
                   </tr>
@@ -383,7 +387,9 @@ export default function CostSheetComparisonModal({
                       {cs.widthCombinationDescription && (
                         <p className="text-xs text-info truncate">{cs.widthCombinationDescription}</p>
                       )}
-                      <p className="font-medium text-success mt-1">{formatCurrency(cs.sellingPricePerPiece)}</p>
+                      <p className="font-medium text-success mt-1">
+                        {cs.closedCost != null ? `Closed Cost ${formatCurrency(cs.closedCost)}` : 'Closed Cost not set'}
+                      </p>
                     </button>
                   ))}
                 </div>

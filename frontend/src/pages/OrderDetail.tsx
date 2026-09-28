@@ -33,9 +33,6 @@ import {
   Calculator,
   ArrowRight,
   Wrench,
-  TrendingUp,
-  TrendingDown,
-  Minus,
 } from 'lucide-react';
 import { getOrderById, createWorkOrdersForOrder } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
@@ -705,7 +702,7 @@ export default function OrderDetail() {
                 </div>
               )}
 
-              <CostingDetails costing={item.orderItemCosting} />
+              <CostingDetails costing={item.orderItemCosting} closedCost={order.closedCostByItem?.[item.id] ?? null} />
             </div>
           ))}
         </CardContent>
@@ -992,32 +989,53 @@ function Stage({ label, icon, children }: { label: string; icon?: ReactNode; chi
 }
 
 /**
- * The costed build-up per piece: the parts, value loss, markup and the price. The cost sheet stores
- * its PRICE as "totalCostPerPiece" (122.64 = 104.56 + 2 % loss + 15 % markup for ESSKY085LS), so the
- * page used to label the price "Total cost". Cost and markup now show separately.
+ * The line's costing in the COST SHEET'S OWN WORDS (owner, 2026-09-28: a name must mean the same thing
+ * on every page): the totals, Subtotal, Value Loss, Total After Value Loss, Markup, Total Product Cost —
+ * then Closed Cost per Piece (the buyer's agreed price, excl. GST) and the margin between them, worded
+ * as the cost sheet words it. Once production has an actual cost, it is set against the Closed Cost.
  */
-function CostingDetails({ costing }: { costing: OrderItemCosting | null | undefined }) {
+function CostingDetails({
+  costing,
+  closedCost,
+}: {
+  costing: OrderItemCosting | null | undefined;
+  closedCost: number | null;
+}) {
   if (!costing) return null;
   const snap = (costing.costingSnapshot ?? {}) as Record<string, unknown>;
   const n = (v: unknown) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+  const parts: Array<[string, number]> = [
+    ['Fabric Total', Number(costing.fabricTotal)],
+    ['Trims Total', Number(costing.trimsTotal)],
+    ['Accessories Total', Number(costing.accessoriesTotal)],
+    ['Processing Total', Number(costing.processingTotal)],
+    ['Embroidery Total', Number(costing.embroideryTotal)],
+    ['CMT Total', Number(costing.cmtTotal)],
+    ['Overheads Total', Number(costing.overheadsTotal)],
+  ].filter(([, v]) => Number(v) !== 0) as Array<[string, number]>;
+  const subtotal = n(snap.subtotal) ?? parts.reduce((sum, [, v]) => sum + v, 0);
   const valueLoss = n(snap.valueLossAmount);
   const valueLossPct = n(snap.valueLossPercent);
   const markup = n(snap.markupAmount);
   const markupPct = n(snap.markupPercent);
-  const price = Number(costing.totalCostPerPiece);
-  const cost = costing.estimatedCostPerPiece != null ? Number(costing.estimatedCostPerPiece) : null;
-  const parts: Array<[string, number]> = [
-    ['Fabric', costing.fabricTotal],
-    ['Trims', costing.trimsTotal],
-    ['Accessories', costing.accessoriesTotal],
-    ['Processing', costing.processingTotal],
-    ['Embroidery', costing.embroideryTotal],
-    ['CMT', costing.cmtTotal],
-    ['Overheads', costing.overheadsTotal],
-  ];
-  const variance = costing.costVariancePercent;
+  const totalProductCost = Number(costing.estimatedCostPerPiece ?? costing.totalCostPerPiece);
+  const vsClosed = (cost: number) => {
+    if (closedCost == null || closedCost <= 0) return null;
+    const diff = closedCost - cost;
+    return diff >= 0
+      ? `+${formatCurrency(diff)} above calculated cost (${((diff / closedCost) * 100).toFixed(1)}% margin)`
+      : `${formatCurrency(-diff)} below calculated cost (${((-diff / cost) * 100).toFixed(1)}% loss)`;
+  };
+  const Row = ({ label, value, strong, tone }: { label: string; value: string; strong?: boolean; tone?: string }) => (
+    <div className="flex justify-between py-1">
+      <span className={strong ? 'font-semibold' : 'text-muted-foreground'}>{label}</span>
+      <span className={`${strong ? 'font-semibold' : 'font-medium'} ${tone ?? ''}`}>{value}</span>
+    </div>
+  );
+  const plannedMargin = vsClosed(totalProductCost);
+  const actualMargin = costing.actualCostPerPiece != null ? vsClosed(Number(costing.actualCostPerPiece)) : null;
   return (
-    <div className="mt-4 p-4 bg-muted rounded-lg border">
+    <div className="mt-4 p-4 bg-muted rounded-lg border text-sm">
       <div className="flex items-center gap-2 mb-3">
         <Calculator className="h-4 w-4 text-muted-foreground" />
         <h4 className="font-medium text-foreground">Costing (per piece)</h4>
@@ -1027,54 +1045,47 @@ function CostingDetails({ costing }: { costing: OrderItemCosting | null | undefi
           </Badge>
         )}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 text-sm">
-        {parts
-          .filter(([, value]) => Number(value) !== 0)
-          .map(([label, value]) => (
-            <div key={label}>
-              <div className="text-muted-foreground">{label}</div>
-              <div className="font-medium">{formatCurrency(value)}</div>
-            </div>
-          ))}
-        {valueLoss != null && valueLoss !== 0 && (
-          <div>
-            <div className="text-muted-foreground">Value loss{valueLossPct != null ? ` ${valueLossPct}%` : ''}</div>
-            <div className="font-medium">{formatCurrency(valueLoss)}</div>
-          </div>
-        )}
-        {cost != null && cost !== price && (
-          <div>
-            <div className="text-muted-foreground">Cost</div>
-            <div className="font-semibold">{formatCurrency(cost)}</div>
-          </div>
-        )}
-        {markup != null && markup !== 0 && (
-          <div>
-            <div className="text-muted-foreground">Markup{markupPct != null ? ` ${markupPct}%` : ''}</div>
-            <div className="font-medium">{formatCurrency(markup)}</div>
-          </div>
-        )}
+      <div className="grid md:grid-cols-2 gap-x-10">
         <div>
-          <div className="text-muted-foreground">{cost != null && cost !== price ? 'Price' : 'Total'}</div>
-          <div className="font-semibold">{formatCurrency(price)}</div>
+          {parts.map(([label, value]) => (
+            <Row key={label} label={label} value={formatCurrency(value)} />
+          ))}
+          <div className="border-t my-1" />
+          <Row label="Subtotal" value={formatCurrency(subtotal)} strong />
+        </div>
+        <div>
+          {valueLoss != null && (
+            <Row
+              label={`Value Loss${valueLossPct != null ? ` (${valueLossPct}%)` : ''}`}
+              value={`+ ${formatCurrency(valueLoss)}`}
+            />
+          )}
+          {valueLoss != null && <Row label="Total After Value Loss" value={formatCurrency(subtotal + valueLoss)} />}
+          {markup != null && (
+            <Row label={`Markup${markupPct != null ? ` (${markupPct}%)` : ''}`} value={`+ ${formatCurrency(markup)}`} />
+          )}
+          <div className="border-t my-1" />
+          <Row label="Total Product Cost" value={formatCurrency(totalProductCost)} strong />
+          <Row
+            label="Closed Cost per Piece"
+            value={closedCost != null ? formatCurrency(closedCost) : 'not set on the cost sheet'}
+            strong
+          />
+          {plannedMargin && <div className="text-xs text-right text-muted-foreground">{plannedMargin}</div>}
         </div>
       </div>
       {costing.actualCostPerPiece != null && (
-        <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center gap-4 text-sm">
+        <div className="mt-3 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
           <span>
-            Actual cost {formatCurrency(costing.actualCostPerPiece)} / pc against {formatCurrency(cost ?? price)} costed
+            Actual Total Product Cost{' '}
+            <span className="font-semibold">{formatCurrency(costing.actualCostPerPiece)}</span>
+            {closedCost != null ? <> against Closed Cost {formatCurrency(closedCost)}</> : null}
           </span>
-          {variance != null && (
-            <Badge variant={Number(variance) > 0 ? 'destructive' : 'secondary'} className="flex items-center gap-1">
-              {Number(variance) > 0 ? (
-                <TrendingUp className="h-3 w-3" />
-              ) : Number(variance) < 0 ? (
-                <TrendingDown className="h-3 w-3" />
-              ) : (
-                <Minus className="h-3 w-3" />
-              )}
-              {Number(variance) > 0 ? '+' : ''}
-              {Number(variance).toFixed(1)}%
+          {actualMargin && (
+            <Badge
+              variant={Number(costing.actualCostPerPiece) > (closedCost ?? Infinity) ? 'destructive' : 'secondary'}
+            >
+              {actualMargin}
             </Badge>
           )}
         </div>

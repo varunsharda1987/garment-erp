@@ -1,46 +1,42 @@
 /**
- * An order line's cost before markup vs its price (order-costing.helper, 2026-09-28). The estimate
- * used to be the PRICE, and the actual started from 0 — the first finished run would read ≈ ₹0.
+ * An order line's costing in the cost sheet's own terms (order-costing.helper, 2026-09-28). The actual
+ * used to start from a never-set 0 — the first finished run would have read ≈ ₹0.
  */
 
-import { actualCostWithCmt, costBeforeMarkup } from '../../services/helpers/order-costing.helper';
+import { actualTotalProductCost, totalProductCostOf } from '../../services/helpers/order-costing.helper';
 
-// ESSKY085LS, cost sheet v1: parts 104.56, value loss 2 % = 2.09, markup 15 % = 16.00, price 122.64
+// ESSKY085LS, cost sheet v1: subtotal 104.56, Value Loss 2 %, Markup 15 %, Total Product Cost 122.64
 const ESSKY085LS = {
   subtotal: 104.56,
   valueLossAmount: 2.09,
   valueLossPercent: 2,
   markupAmount: 16,
+  markupPercent: 15,
+  totalProductCost: 122.64,
   totalCostPerPiece: 122.64,
+  closedCost: 195,
 };
 
-describe('costBeforeMarkup', () => {
-  it('is subtotal + value loss, not the price', () => {
-    expect(costBeforeMarkup(ESSKY085LS)).toBe(106.65);
-  });
-
-  it('falls back to price − markup when there is no subtotal', () => {
-    expect(costBeforeMarkup({ totalCostPerPiece: 122.64, markupAmount: 16 })).toBe(106.64);
-  });
-
-  it('falls back to the price itself when the sheet has no build-up', () => {
-    expect(costBeforeMarkup({ totalCostPerPiece: 99 })).toBe(99);
-    expect(costBeforeMarkup(null)).toBe(0);
+describe('totalProductCostOf', () => {
+  it('is the cost sheet Total Product Cost', () => {
+    expect(totalProductCostOf(ESSKY085LS)).toBe(122.64);
+    expect(totalProductCostOf({ totalCostPerPiece: 99 })).toBe(99);
+    expect(totalProductCostOf(null)).toBe(0);
   });
 });
 
-describe('actualCostWithCmt', () => {
-  it('swaps the estimated CMT for the real one (with its value loss)', () => {
-    // CMT costed at 50, came in at 52: +2 × 1.02 = +2.04
-    expect(actualCostWithCmt(106.65, 50, 52, 2)).toBe(108.69);
+describe('actualTotalProductCost', () => {
+  it('carries a CMT difference through Value Loss and Markup, as the cost sheet builds it up', () => {
+    // CMT costed at 50, came in at 52: +2 × 1.02 × 1.15 = +2.346 → 124.99
+    expect(actualTotalProductCost(122.64, 50, 52, ESSKY085LS)).toBe(124.99);
   });
 
-  it('is the estimate when the CMT came in as costed — never ≈ 0', () => {
-    expect(actualCostWithCmt(106.65, 50, 50, 2)).toBe(106.65);
+  it('is the Total Product Cost when the CMT came in as costed — never ≈ 0', () => {
+    expect(actualTotalProductCost(122.64, 50, 50, ESSKY085LS)).toBe(122.64);
   });
 
   it('gives the same answer however often it runs (always from the estimate)', () => {
-    const once = actualCostWithCmt(106.65, 50, 48, 2);
-    expect(actualCostWithCmt(106.65, 50, 48, 2)).toBe(once);
+    const once = actualTotalProductCost(122.64, 50, 48, ESSKY085LS);
+    expect(actualTotalProductCost(122.64, 50, 48, ESSKY085LS)).toBe(once);
   });
 });

@@ -18,12 +18,7 @@ import { formatDate, toDateInputValue } from '../utils/date';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import { getDefaultWarehouseId } from './helpers/material-sync.helper';
 import { lockOrder, syncOrderStatus } from './helpers/order-status.helper';
-import {
-  actualCostWithCmt,
-  costBeforeMarkup,
-  valueLossPercentOf,
-  type CostBuildUp,
-} from './helpers/order-costing.helper';
+import { actualTotalProductCost, totalProductCostOf, type CostBuildUp } from './helpers/order-costing.helper';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -1290,19 +1285,14 @@ class WorkOrderService {
     });
 
     if (existingCosting) {
-      // Actual = the estimated COST (before markup) with the estimated CMT swapped for this run's real
-      // CMT — always from the estimate, never from the stored actual: that started at a never-set 0
-      // (the first finished run read ≈ ₹0, −100 %), and re-running subtracted the CMT twice
-      // (order-costing.helper, 2026-09-28).
+      // Actual = the costed Total Product Cost with the costed CMT swapped for this run's real CMT,
+      // carried through Value Loss and Markup as the cost sheet does — always from the estimate, never
+      // from the stored actual: that started at a never-set 0 (the first finished run read ≈ ₹0) and a
+      // re-run subtracted the CMT twice (order-costing.helper, 2026-09-28).
       const snapshot = existingCosting.costingSnapshot as CostBuildUp | null;
       const estimatedCmt = Number(existingCosting.cmtTotal) || 0;
-      const estimatedCost = Number(existingCosting.estimatedCostPerPiece) || costBeforeMarkup(snapshot);
-      const newActualPerPiece = actualCostWithCmt(
-        estimatedCost,
-        estimatedCmt,
-        cmtResult.perPieceCost,
-        valueLossPercentOf(snapshot)
-      );
+      const estimatedCost = Number(existingCosting.estimatedCostPerPiece) || totalProductCostOf(snapshot);
+      const newActualPerPiece = actualTotalProductCost(estimatedCost, estimatedCmt, cmtResult.perPieceCost, snapshot);
 
       // Calculate variance
       const varianceAmount = toNumber(roundToCent(subtractCurrency(newActualPerPiece, estimatedCost)));

@@ -235,7 +235,8 @@ export default function OrderForm() {
         const targetCostSheet = costSheetsData.find((cs) => cs.id === costSheetIdParam);
         if (targetCostSheet) {
           setSelectedCostSheetId(targetCostSheet.id);
-          setUnitPrice(targetCostSheet.sellingPricePerPiece?.toString() || '');
+          // The buyer's agreed price (Closed Cost per Piece, excl. GST) — not the Total Product Cost
+          setUnitPrice(targetCostSheet.closedCost != null ? String(targetCostSheet.closedCost) : '');
           setHasApprovedCostSheet(true);
         }
       } catch (err) {
@@ -662,7 +663,9 @@ export default function OrderForm() {
   // Handle selecting a cost sheet for pricing
   const handleSelectCostSheet = (costSheet: CostSheet) => {
     setSelectedCostSheetId(costSheet.id);
-    setUnitPrice(costSheet.sellingPricePerPiece.toString());
+    // The buyer's agreed price (Closed Cost per Piece, excl. GST). sellingPricePerPiece is the Total
+    // Product Cost — every August order was priced at cost that way (ESSKY085LS ₹122.64 for a ₹195 price).
+    setUnitPrice(costSheet.closedCost != null ? String(costSheet.closedCost) : '');
     setCostSheetDialogOpen(false);
   };
 

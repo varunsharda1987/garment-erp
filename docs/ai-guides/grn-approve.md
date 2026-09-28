@@ -55,6 +55,12 @@ keywords:
   - invoice add karna
   - बिल जोड़ें
   - इनवॉइस बाद में
+  - edit roll numbers
+  - edit than numbers
+  - roll number galat
+  - than number badalna
+  - रोल नंबर
+  - थान नंबर
 sources:
   - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
@@ -100,6 +106,13 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 - Receiving greige can automatically ready the linked processing work.
 - A GRN with a line received at a fold length shows both figures on its page in their own columns: **Received (counted)** and **Accepted (counted)** are the supplier's counted figures, and **Actual accepted (after L)** is the metres booked into stock (e.g. 9,810.78, with "counted × 98/100" under it). On the GRN list, **Qty (counted)** and **Actual (after L)** sit side by side ("@ L=98" under the actual; "—" where no L applies). Approving books the actual metres into stock; the **Rate** and **Value** columns and the printed GRN (its **Actual** column) use the actual metres too.
 - For a **Job work return** there is nothing to do here: the finished fabric lot (or dyed lace lot), the inward challan, the job's shrinkage, than, fold, width and quality, the loss split and the **Stock Updated** status were all written when it was received on the job. Click the job work order in the **PO / JWO** column to see them.
+- A fabric line received than-wise, bale-wise or roll-wise gives its fabric lot the same roll / than list, with the fold it was counted at — on a **Job work return** and on a fabric purchase order alike. Cutting picks from that list, and **Inventory → Fabric Stock** shows it.
+
+## Fix the printed roll / than numbers
+The **Received Items** table lists each line's thans, bales or rolls. To type the numbers printed on them:
+1. Under a greige line, click **Edit bale / than numbers**. Under a fabric line of a **Job work return** or a fabric purchase order, click **Edit roll / than numbers**.
+2. Type each **Than No.** or **Roll No.** (and each bale's **Bale No.** on a bale-wise line) and click **Save**.
+Only the labels change — never the metres, and it works in any status. The stock lot's thans or rolls take the same numbers at once.
 - If fabric was waiting for a production run, a banner appears with **Go to Cutting Chart** or **View Cutting**.
 
 ## The invoice came later — add it
@@ -119,4 +132,4 @@ Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) a
 - An inactive warehouse is rejected. Pick an active one.
 - Reversing a GRN whose thread or trim lot has already been partly used is refused ("… has already been used. Take those back first, then reverse.").
 - Reversing a **Job work return** takes back only that receipt's lot and inward challan. A job received in parts keeps its other parts; its total is recomputed, and if the reversed receipt was the final delivery the job goes back to **Partial Receipt** so the last delivery can be entered again.
-- A **Job work return** cannot be rejected or re-approved here — it is already accepted. If the count was wrong, ask an admin to reverse it: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved.
+- A **Job work return** cannot be rejected or re-approved here — it is already accepted. If the count was wrong, ask an admin to reverse it: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved — including when any of its rolls or thans has gone to cutting, even if it came back ("… its fabric lot has already been used … Take that fabric back first").

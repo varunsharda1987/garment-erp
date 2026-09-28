@@ -46,6 +46,10 @@ keywords:
   - ग्रेज लेस
   - ज़िपर
   - इलास्टिक
+  - accessories
+  - sewn-in label
+  - care label style mein
+  - एक्सेसरीज़
 sources:
   - frontend/src/components/MaterialQuickAddDialog.tsx
   - frontend/src/components/material-quick-add/MaterialTypeSelector.tsx
@@ -71,9 +75,9 @@ sources:
 ## Steps
 
 1. Open **Styles** in the sidebar. Click **+ Create New Style**, or open an existing style and click **Edit**.
-2. For buttons, zippers, threads, elastic, lace and all other trims, go to tab **3. Trims & Materials**. For labels and packaging, go to tab **4. Accessories**.
+2. For buttons, zippers, threads, elastic, lace and all other trims, go to tab **3. Trims & Materials**. For labels and packaging — the style's Accessories — go to tab **4. Accessories**. Every label is listed there: sewn-in labels (care, size, main labels), hangtags and price tags.
 3. Click **Browse & Add Trims** (or **Browse & Add Accessories**). A browse window opens.
-4. Search the browse window first — the item may already exist. Type at least 2 characters in **Search all trims (name, code, color)...** or use the type tabs. Only if it does not exist, click **Create New** at the top right of that window.
+4. Search the browse window first — the item may already exist. In the trims window, type at least 2 characters in **Search all trims (name, code, color)...** or use the type tabs; in the accessories window, pick the **Labels** or **Packaging** tab and type in its search box. Only if it does not exist, click **Create New** at the top right of that window.
 5. The **Add New Material** dialog opens. The tile for the tab you were on is pre-highlighted, but you can pick any type: use **Search material types...** or scroll the category sections (Fasteners & Closures, Threads & Tapes, Decorative, Functional — or Accessories) and click the tile for the type you need.
 6. The dialog changes to **Add New (type)**. Leave **Name** empty and the system builds the name from the details you fill in. Type a name only if you want to override that.
 7. Fill the fields shown for that type — they change per type. Typical ones are Size, Material, Width, Composition, Brand, Length, Holes, and a **Color** box at the bottom. None of these are compulsory, but the more you fill, the better the auto-generated name.

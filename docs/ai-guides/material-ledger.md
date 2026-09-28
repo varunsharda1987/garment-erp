@@ -30,6 +30,10 @@ keywords:
   - cone ledger
   - dhaga ledger
   - धागा लेजर
+  - accessories
+  - label ledger
+  - packaging ledger
+  - एक्सेसरीज़
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -70,5 +74,5 @@ Each row is one movement: **Date**, **Document** (what happened and the GRN, cha
 - **Reserved and Released rows on lace.** Allocating lace to a style moves it out of available stock without it leaving the building, so it shows as *Reserved*; cancelling that allocation shows as *Released*.
 - **A receipt labelled "job work return".** Fabric coming back from a dyer is a receipt from your processor, not a purchase — the party column says so.
 - **A yellow note under a row.** The ledger flags a lot whose receipt disagrees with the paperwork, or one whose movements it cannot fully account for. These are the rows to check first in a stock count.
-- **Trims versus cloth.** Buttons, zippers, labels and packaging are tracked as plain movements, so they have no lot column entries; greige, fabric, lace and thread are tracked lot by lot.
+- **Trims and accessories versus cloth.** Trims (buttons, zippers, elastic …) and accessories (labels and packaging) are tracked as plain movements, so they have no lot column entries and no **Lots available** figure; greige, fabric, lace and thread are tracked lot by lot.
 - **Thread packs.** A thread bought as cones and as tubes is a separate material per pack ("… - Cone 3-ply", "… - Tube 3-ply"). Pick the pack to see its lots — the thread's own name shows only lots received without a pack.

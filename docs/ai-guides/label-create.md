@@ -38,6 +38,10 @@ keywords:
   - supplier nahi jud raha
   - label me supplier kaise jode
   - लेबल सप्लायर
+  - accessories
+  - accessory
+  - एक्सेसरीज़
+  - label trims ya accessories
   - सप्लायर जोड़ें
 sources:
   - frontend/src/config/navigation.ts
@@ -60,13 +64,13 @@ route: /materials/label/new
 ---
 
 ## Before you start
-Labels are NOT under Trims Dashboard — they live under Packaging. To link a supplier, that supplier must exist **with category "Trims Supplier"**. To auto-create size-wise labels, the Size Category must already exist. To link a customer's brand, that brand must already be set up on the customer.
+Every label — sewn-in, hangtag or price tag — is an **Accessory**, not a trim: labels and packaging together are Accessories everywhere (the Style Form's **4. Accessories** tab, the **Accessories** section of All Masters, and an **Accessories** purchase order). So labels are NOT under Trims Dashboard. To link a supplier, that supplier must exist **with category "Trims Supplier"** (label makers are saved as Trims suppliers). To auto-create size-wise labels, the Size Category must already exist. To link a customer's brand, that brand must already be set up on the customer.
 
 ## Steps
 1. Open **Materials & Masters → All Masters** in the sidebar. It sits under the **Configuration** heading, which is collapsed by default — click **Configuration** to expand it.
-2. The page opens as **Master Data**. In the **Packaging & Labels** section, click **Labels**. The page opens as **Label Management**. (Pressing Ctrl+K and typing "Labels" also opens it.)
+2. The page opens as **Master Data**. In the **Accessories** section, click **Labels**. The page opens as **Label Management**. (Pressing Ctrl+K and typing "Labels" also opens it.)
 3. Click **+ Add New Label**.
-4. **Label Category** is the one required choice: **Sewn-in Label (Care/Size Labels)**, **Hangtag**, or **Price Tag**. It starts on Sewn-in Label. The whole form re-titles itself to match — for a hangtag the heading, the field names and the save button all say Hangtag.
+4. **Label Category** is the one required choice: **Sewn-in Label (Care/Size Labels)**, **Hangtag**, or **Price Tag**. It starts on Sewn-in Label. The hint under it reads "Every label — sewn-in, hangtag or price tag — is an Accessory, not a trim". The whole form re-titles itself to match — for a hangtag the heading, the field names and the save button all say Hangtag.
 5. **Label Code** is greyed out and marked **Auto-generated**. The system assigns it on save (LBL-0001, LBL-0002 …). The sample text in the box shows "LBL-000001", but real codes have four digits.
 6. **Label Name**: leave it empty to have it built automatically from Type, Colour, Material and Size. The word "Label" is added only for sewn-in labels, and only when the chosen Type does not already contain it. Type a name only to override.
 7. **Label Type** lists only the types valid for the chosen category. Sewn-in: **Main Label**, **Washcare Label**, **Size Label**, **Main Cum Size Label**, **Brand Label**, **Loop Tag**, **Traceability Label**, **Barcode Label**, **Country of Origin**, **Composition Label**. Hangtag: **Hangtag**, **Brand Hangtag**, **Product Hangtag**, **Disclaimer Tag**, **Liva Tag**, **Eco-Vera Tag**. Price Tag: **Price Tag**. Pick **Other (Custom)** to type your own in the box that appears. Trap: if you change the Category afterwards, an incompatible Type is cleared and must be picked again.
@@ -80,7 +84,7 @@ Labels are NOT under Trims Dashboard — they live under Packaging. To link a su
 15. Optional: enter the **Supplier Reference Code** under **Reference Codes**, and any **Description** notes under **Additional Information**.
 16. Click **Create Label** (or **Create Hangtag** / **Create Price Tag**). You return to the **Label Management** list. **Cancel** returns without saving.
 
-Back on the list, use the **All Categories** filter to see only **Sewn-in Labels**, **Hangtags** or **Price Tags**, and **All Customers** / **Generic Only** to filter by buyer. A label with size variants shows every size on the list in size order (XS, S, M …), each with its stock in brackets — a filled chip means that size has stock. Its own page lists them under **Sizes (N)**: each size is ordered and stocked on its own, and on a purchase order the sizes sit under one heading for the label. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
+Back on the list, use the **All Categories** filter to see only **Sewn-in Labels**, **Hangtags** or **Price Tags**, and **All Customers** / **Generic Only** to filter by buyer. A label with size variants shows every size on the list in size order (XS, S, M …), each with its stock in brackets — a filled chip means that size has stock. Its own page lists them under **Sizes (N)**: each size is ordered and stocked on its own, and on a purchase order (an **Accessories** PO) the sizes sit under one heading for the label. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
 
 ## Traps
 

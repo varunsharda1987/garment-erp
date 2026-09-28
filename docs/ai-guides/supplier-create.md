@@ -20,6 +20,10 @@ keywords:
   - dyer address
   - dyer ka address
   - प्रोसेसिंग यूनिट
+  - accessories supplier
+  - label supplier category
+  - packaging supplier
+  - एक्सेसरीज़
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -44,6 +48,7 @@ route: /suppliers/new
 5. Tick one or more boxes under **Supplier Categories**. This is required — the form shows "At least one category is required" and refuses to save with the message "Please select at least one supplier category".
    - The choices are: Fabric Supplier, Greige Supplier, Trims Supplier, Thread Supplier, Packaging Supplier, Lace Supplier, Dyeing & Printing, Embroidery, Hand Work, Smocking, CMT Unit, Finishing Contractor, Stitching Contractor, Washing, Dori/Piping Contractor, Machine Parts Supplier, Other Services.
    - Tick every category the party actually does. Purchase Orders and Job Work Orders filter suppliers by this list, so a missing tick hides the supplier from that screen later.
+   - A label maker is a **Trims Supplier**; a carton, polybag or hanger maker is a **Packaging Supplier**. Labels and packaging are bought on an **Accessories** PO, which lists both Trims Suppliers and Packaging Suppliers. A **Trims** PO lists only Trims Suppliers.
 6. Under **Contact Details**, fill **Contact Person**, **Phone Number** (10 digits), **Email Address** and **Office Address**.
 7. Under **Billing Location**, pick the **State** first — the **City** dropdown stays locked until a state is chosen. **PIN Code** must be 6 digits and cannot start with 0.
 8. Under **Shipping Location**, tick **Same as Billing** to copy the address. Trap: the copy only happens when billing State, City and PIN Code are all filled. Fill billing first, then tick the box.

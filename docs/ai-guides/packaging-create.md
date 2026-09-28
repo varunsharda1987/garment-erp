@@ -40,6 +40,9 @@ keywords:
   - price per piece
   - supplier row
   - packaging supplier price
+  - accessories
+  - accessory
+  - एक्सेसरीज़
   - सप्लायर प्राइस
   - सप्लायर रेट
 sources:
@@ -66,11 +69,11 @@ route: /materials/packaging/new
 ---
 
 ## Before you start
-Nothing is mandatory first. To link a supplier, that supplier must already exist **and be saved with category "Packaging Supplier"** — only packaging suppliers appear in the dropdown. If you want the system to name the item for you, decide its **Material**, **Packaging Type** and **Size** before saving — the name is built from those three (see step 4).
+Packaging is an **Accessory**: labels and packaging together are Accessories everywhere — the Style Form's **4. Accessories** tab, the **Accessories** section of All Masters, and an **Accessories** purchase order (there is no separate Packaging PO category any more). Nothing is mandatory first. To link a supplier, that supplier must already exist **and be saved with category "Packaging Supplier"** — only packaging suppliers appear in the dropdown. If you want the system to name the item for you, decide its **Material**, **Packaging Type** and **Size** before saving — the name is built from those three (see step 4).
 
 ## Steps
 1. Open **Materials & Masters → All Masters** in the sidebar. It sits under the **Configuration** heading, which is collapsed by default — expand it. The page opens as **Master Data**.
-2. In the **Packaging & Labels** section, click **Packaging**. The list opens as **Packaging Management**. (Shortcut: press Ctrl+K, type "Packaging" and pick it. Typing "Packaging" in the sidebar search box also shows it under **More pages**.)
+2. In the **Accessories** section, click **Packaging**. The list opens as **Packaging Management**. (Shortcut: press Ctrl+K, type "Packaging" and pick it. Typing "Packaging" in the sidebar search box also shows it under **More pages**.)
 3. Click **+ Add New Packaging**. The form opens with the heading **Create New Packaging**; the fields sit under **Packaging Information**.
 4. **Packaging Name** is optional. The box says "Leave empty to auto-generate from attributes", and the hint under it reads: If left empty, the name is built from the attributes as [buyer code] material type size (e.g., "Corrugated Carton Box 12x10"). Leave it blank and the system joins **Material**, **Packaging Type** and **Size** in that order — for example Material "Corrugated", Packaging Type "Carton Box" and Size "12x10" become "Corrugated Carton Box 12x10". (There is no buyer-code box on this form, so the "[buyer code]" part is never added.) If all three are blank, the name becomes "Packaging" plus the new code, for example "Packaging PKG-0001". Type a name only when you want something different, such as "Poly Bag 12x18 inch Transparent".
 5. There is no code box on the create form. The system assigns the code on save (PKG-0001, PKG-0002 …) and shows it as **Packaging Code (Auto-generated)** when you re-open the item.

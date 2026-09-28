@@ -37,6 +37,12 @@ keywords:
   - लेबल्स
   - पूरा सेट
   - lable set
+  - accessories
+  - accessories po
+  - एक्सेसरीज़
+  - एक्सेसरीज़ पीओ
+  - one po per category
+  - do po kyun bane
   - labal
 sources:
   - frontend/src/config/navigation.ts
@@ -50,6 +56,8 @@ sources:
   - frontend/src/components/purchase-orders/LabelSetDialog.tsx
   - frontend/src/lib/label-lines.ts
   - backend/src/schemas/mrp.schema.ts
+  - backend/src/services/mrp.service.ts
+  - backend/src/services/helpers/po-line-category.helper.ts
 route: /procurement/requirements
 ---
 
@@ -68,9 +76,10 @@ For each style you order its labels together — main-cum-size, traceability, wa
    - the box on a size row = just that size.
    When only some of a group are ticked, "3 of 6" shows next to its box. The count at the top right reads "N selected"; **Clear selection** next to it unticks everything.
 7. Order the ticked rows:
-   - **Bulk Generate POs** — makes one PO per vendor. Click **Review Prices & GST** to check the lines (a label's sizes sit under one heading there too), then **Generate**.
-   - **Manual PO** — puts everything ticked on ONE PO for one supplier. When every ticked row has the same vendor (for example NRM Industries for the House of Kasya labels), that vendor is already chosen. Pick the **Expected Delivery Date**, check the preview, and click **Generate PO**.
-8. On the new PO each label shows as one heading row with its sizes beneath, in size order, and each size keeps its own quantity and rate.
+   - **Bulk Generate POs** — makes POs per vendor. Click **Review Prices & GST** to check the lines (a label's sizes sit under one heading there too), then **Generate POs for N suppliers**.
+   - **Manual PO** — puts everything ticked with ONE supplier. When every ticked row has the same vendor (for example NRM Industries for the House of Kasya labels), that vendor is already chosen. Pick the **Expected Delivery Date**, check the preview, and click **Generate PO**.
+   Either way, each vendor gets **one PO per category**: labels and packaging go on an **Accessories** PO, buttons, fusing, interlining and other trims on a **Trims** PO. So ticking a style's labels and its buttons from one vendor makes two POs; the message lists every PO number made.
+8. On the new Accessories PO each label shows as one heading row with its sizes beneath, in size order, and each size keeps its own quantity and rate.
 
 ## Validation traps
 - Only rows with status **PO Required** or **Partially from Stock** can be ticked. Rows already on a PO, received or cancelled have no box.

@@ -34,6 +34,10 @@ keywords:
   - thread receipt
   - cones received
   - धागा प्राप्त
+  - accessories
+  - label packaging stock
+  - accessories stock kahan gaya
+  - एक्सेसरीज़
   - grn cannot be approved
   - po cancelled grn
   - cancelled purchase order
@@ -58,6 +62,7 @@ sources:
   - backend/src/services/purchaseOrder.service.ts
   - backend/src/services/helpers/po-delivery-plan.helper.ts
   - backend/src/services/thread-stock.service.ts
+  - backend/src/services/helpers/stock-routing.helper.ts
 route: /procurement/grn
 ---
 
@@ -72,14 +77,14 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 5. Click **Approve**.
 6. If the GRN has no warehouse yet, the **Select Warehouse to Approve** box appears. Pick **Warehouse *** and click **Approve**.
 7. If the GRN already has a warehouse, confirm on the **Approve GRN** dialog by clicking **Approve**.
-   If the warehouse is a processor's unit (e.g. **Aryan Dyeing - Processing Unit**), a second question appears: **Delivered straight to *<processor>*?** Click **Yes — delivered straight to *<processor>*** only if the supplier really delivered the goods to the processor. The goods are then recorded as ours, **held by that processor**, and one job-work challan dated the receipt day is raised automatically for everything on the receipt — greige, lace, ready fabric or trims. A later greige or lace job at that processor uses it where it lies, with no second challan. If the goods came to our store, click **Go back** and approve into our store instead. The question is skipped when the purchase order already delivers to that processor's unit — its one place, or one of its places when the delivery is split. After approval the GRN page shows the challan under **Job-work challan** (click it to open the challan).
+   If the warehouse is a processor's unit (e.g. **Aryan Dyeing - Processing Unit**), a second question appears: **Delivered straight to *<processor>*?** Click **Yes — delivered straight to *<processor>*** only if the supplier really delivered the goods to the processor. The goods are then recorded as ours, **held by that processor**, and one job-work challan dated the receipt day is raised automatically for everything on the receipt — greige, lace, ready fabric, trims or accessories. A later greige or lace job at that processor uses it where it lies, with no second challan. If the goods came to our store, click **Go back** and approve into our store instead. The question is skipped when the purchase order already delivers to that processor's unit — its one place, or one of its places when the delivery is split. After approval the GRN page shows the challan under **Job-work challan** (click it to open the challan).
 
    If the supplier on the GRN **is** that processor (the dyer sold us the goods and keeps them to process), the question is instead **<processor> sold us this and keeps it to process?** Click **Yes — <processor> keeps it to process** only if that is true. The goods are recorded as ours, held by that processor, and the job-work challan reads "Purchased from you and retained at your premises for job work". This question is always asked, even when the purchase order delivers to that unit. A job at that processor can then use the goods where they lie. Goods bought from a processor and delivered to **our store** still cannot be issued back to that processor on a job.
 8. A GRN badged **Job work return** in the **PO / JWO** column never needs approving: it was filed already **Accepted** by the job's **Receive from processor** action, which recorded the quality and booked the stock in the same step. Only a GRN against an old Processing purchase order still opens the **Approve Processing GRN - Quality Check** dialog: fill **Quality Grade *** (A - Good, B - Minor Defects, Reject), **Color Match**, **Defect Meters**, **Defect Type**, **Actual Rate (per meter)** and **QC Remarks**, pick **Warehouse *** if the GRN has none, then click **Approve & Create Stock**.
 
 ## What approval does
 - GRN status becomes **Accepted** and your name is stamped as approver.
-- Accepted quantity is added to stock: greige goes to greige stock, fabric to fabric stock, lace to lace stock, thread to thread stock, and other materials to Stock Levels for the chosen warehouse. Trims (buttons, zippers, labels, packaging …) also get their own stock lot, so they show on every stock screen; a label that comes in sizes is stocked size by size. A Stock In movement is recorded for the audit trail.
+- Accepted quantity is added to stock: greige goes to greige stock, fabric to fabric stock, lace to lace stock, thread to thread stock, and other materials to Stock Levels for the chosen warehouse. Trims (buttons, zippers, elastic …) and accessories (labels and packaging) also get their own stock lot, so they show on every stock screen; a label that comes in sizes is stocked size by size. A Stock In movement is recorded for the audit trail.
 - Buttons received in gross are stocked in pieces: 16 gross accepted = 2,304 pcs in stock at the price per piece. The GRN and the PO keep showing gross.
 - Thread received in boxes is stocked in cones or tubes: 2 boxes of Cone 3-ply accepted = 20 cones, at the price per cone. Each pack is its own stock item ("… - Cone 3-ply", "… - Tube 3-ply"), never added together. The GRN and the PO keep showing boxes.
 - The PO receiving status is recomputed — it becomes Partially Received or Received.

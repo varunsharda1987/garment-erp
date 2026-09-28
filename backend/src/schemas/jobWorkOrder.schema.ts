@@ -301,6 +301,12 @@ export const thanPickSchema = z.object({
   metersToIssue: z.number().positive('metersToIssue must be positive'),
 });
 
+/** One picked roll / than of a FINISHED-fabric lot (fabric_stock_details) — COUNTED metres, a part piece allowed. */
+export const fabricPiecePickSchema = z.object({
+  fabricStockDetailId: z.string().uuid(),
+  metersToIssue: z.number().positive('metersToIssue must be positive'),
+});
+
 export const issueWithDetailsSchema = z.object({
   sentDate: z.coerce.date().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),

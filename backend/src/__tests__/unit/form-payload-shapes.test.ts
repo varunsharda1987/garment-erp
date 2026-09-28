@@ -11,6 +11,9 @@ import { z } from 'zod';
 import { formNumber } from '../../schemas/common.schema';
 import { createPackagingSchema, createThreadSchema, createZipperSchema } from '../../schemas/trimMasters.schema';
 import { createGRNSchema, receiveJwoToStockSchema, updateGRNInvoiceSchema } from '../../schemas/grn.schema';
+import { issueFabricSchema } from '../../schemas/workOrder.schema';
+import { completeCuttingBatchSchema } from '../../schemas/production.schema';
+import { recordFabricPiecesSchema } from '../../schemas/fabricStock.schema';
 
 const SUPPLIER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -177,5 +180,59 @@ describe('the invoice a receipt came on — exact payloads (2026-09-28)', () => 
     });
     expect(back.success).toBe(true);
     if (back.success) expect(back.data.invoiceToFollow).toBe(true);
+  });
+});
+
+// FabricIssuanceSection, CuttingDetail's completion dialog and the Fabric Stock Record / Check dialog
+describe('fabric rolls & thans — what the issue and cutting screens post (2026-09-28)', () => {
+  const LOT = '33333333-3333-4333-8333-333333333333';
+  const FABRIC = '44444444-4444-4444-8444-444444444444';
+  const PIECE = '55555555-5555-4555-8555-555555555555';
+
+  it('Issue to cutting: a listed lot sends its picks, a lot without a list goes by quantity', () => {
+    const r = issueFabricSchema.safeParse({
+      cuttingBatchId: '66666666-6666-4666-8666-666666666666',
+      lots: [
+        {
+          fabricStockId: LOT,
+          fabricId: FABRIC,
+          quantity: 196,
+          description: 'FAB-X · GRN2609-1228',
+          details: [{ fabricStockDetailId: PIECE, metersToIssue: 100 }],
+        },
+        { fabricStockId: '77777777-7777-4777-8777-777777777777', fabricId: FABRIC, quantity: 400, description: '' },
+      ],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.lots[0].details).toHaveLength(1);
+  });
+
+  it('Issue to cutting: one line per lot', () => {
+    const line = { fabricStockId: LOT, fabricId: FABRIC, quantity: 10, description: '' };
+    expect(issueFabricSchema.safeParse({ lots: [line, line] }).success).toBe(false);
+  });
+
+  it('Complete batch: metres per lot, the whole rolls optional', () => {
+    const r = completeCuttingBatchSchema.safeParse({
+      fabricReturns: [
+        { fabricStockId: LOT, returnedQuantity: 37.5 },
+        { fabricStockId: '77777777-7777-4777-8777-777777777777', returnedQuantity: 233.5, wholePieceIds: [PIECE] },
+      ],
+    });
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.fabricReturns?.[1].wholePieceIds).toEqual([PIECE]);
+  });
+
+  it('Record / Check rolls & thans: keeps and new pieces, never neither', () => {
+    const check = recordFabricPiecesSchema.safeParse({
+      entryMode: 'ROLL_WISE',
+      keepPieceIds: [PIECE],
+      pieces: [{ baleNumber: '', thanNo: 'R-9', meters: '45.50' }],
+    });
+    expect(check.success).toBe(true);
+    if (check.success) expect(check.data.pieces[0]).toMatchObject({ baleNumber: null, meters: 45.5 });
+    expect(recordFabricPiecesSchema.safeParse({ entryMode: 'THAN_WISE', keepPieceIds: [], pieces: [] }).success).toBe(
+      false
+    );
   });
 });

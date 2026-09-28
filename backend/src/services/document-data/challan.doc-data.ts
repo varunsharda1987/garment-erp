@@ -12,6 +12,18 @@ import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
 import { unitHeader } from '../../utils/units';
 import { foldActual, foldCounted, hasFold } from '../../utils/fold-length';
 
+const FABRIC_PIECE_SELECT = {
+  id: true,
+  fabricStockId: true,
+  baleNumber: true,
+  sequenceNo: true,
+  meters: true,
+  baleNo: true,
+  thanNo: true,
+  detailType: true,
+  source: true,
+} satisfies Prisma.fabric_stock_detailsSelect;
+
 const challanDocInclude = {
   items: {
     include: {
@@ -43,6 +55,15 @@ const challanDocInclude = {
       },
     },
   },
+  // A finished-fabric lot's rolls / thans that left on this challan (issue to cutting, a job, a send-out)…
+  fabricIssueDetails: { select: { metersIssued: true, piece: { select: FABRIC_PIECE_SELECT } } },
+  // …and the ones that came back on it (a return from cutting)
+  fabricReturnDetails: {
+    select: { metersIssued: true, metersReturned: true, piece: { select: FABRIC_PIECE_SELECT } },
+  },
+  // The batch a return from cutting came from — its end pieces say "End from <batch>"
+  cuttingBatch: { select: { batchNumber: true } },
+  cuttingBatchReturn: { select: { batchNumber: true } },
 } satisfies Prisma.challansInclude;
 
 type ChallanWithDetails = Prisma.challansGetPayload<{ include: typeof challanDocInclude }>;
@@ -330,13 +351,88 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
             metersIssued: fmtQty(Number(d.metersIssued), 'MTR'),
           }))
         : null,
-    ...(await thanPackingList(
-      challan.id,
-      challan.greigeIssueDetails ?? [],
-      foldedLines === 1 ? Number(challan.items.find((i) => hasFold(i.foldLengthCm))?.foldLengthCm) : null,
-      foldedLines === 1 ? Number(challan.items.find((i) => hasFold(i.foldLengthCm))?.quantity) : null
-    )),
+    ...(await packingListOf(challan, foldedLines)),
   };
+}
+
+/** One piece on the packing list: which lot, the piece, and the COUNTED metres it moved on this challan. */
+interface PackedRow {
+  stock: 'GREIGE' | 'FABRIC';
+  lotId: string;
+  piece: {
+    id: string;
+    baleNumber: number | null;
+    sequenceNo: number;
+    baleNo: string | null;
+    thanNo: string | null;
+    detailType: string;
+  };
+  metres: number;
+  /** A finished-fabric end piece — the metres a cutting batch sent back that were not whole rolls */
+  isEnd?: boolean;
+}
+
+/**
+ * The pieces this challan moved: a greige job's thans, or a finished-fabric lot's rolls / thans issued on it
+ * (to cutting, a job, a send-out) or returned on it (from cutting — the rolls back whole plus the batch's end
+ * piece, marked "(end)").
+ */
+async function packingListOf(
+  challan: ChallanWithDetails,
+  foldedLines: number
+): Promise<Pick<ChallanDocData, 'thanList' | 'thanListTotal' | 'thanListLabels'>> {
+  if (challan.greigeIssueDetails.length > 0) {
+    const folded = challan.items.find((i) => hasFold(i.foldLengthCm));
+    return thanPackingList(
+      challan.id,
+      challan.greigeIssueDetails.map((d) => ({
+        stock: 'GREIGE' as const,
+        lotId: d.greigeStockDetail.greigeStockId,
+        piece: d.greigeStockDetail,
+        metres: Number(d.metersIssued),
+      })),
+      foldedLines === 1 ? Number(folded?.foldLengthCm) : null,
+      foldedLines === 1 ? Number(folded?.quantity) : null,
+      'OUT'
+    );
+  }
+
+  const issued: PackedRow[] = challan.fabricIssueDetails.map((r) => ({
+    stock: 'FABRIC',
+    lotId: r.piece.fabricStockId,
+    piece: r.piece,
+    metres: Number(r.metersIssued),
+  }));
+  const back: PackedRow[] = challan.fabricReturnDetails.map((r) => ({
+    stock: 'FABRIC',
+    lotId: r.piece.fabricStockId,
+    piece: r.piece,
+    metres: Number(r.metersReturned ?? r.metersIssued),
+  }));
+  // A return from cutting also brings the batch's end piece of each lot on it (settleLotBack names it
+  // "End from <batch>"; a batch completes once, so there is one per lot at most)
+  const batchNumber = challan.cuttingBatch?.batchNumber ?? challan.cuttingBatchReturn?.batchNumber ?? null;
+  const returnLots = [...new Set(challan.items.map((i) => i.fabricStockId).filter((id): id is string => !!id))];
+  if (challan.fromName === 'Cutting' && batchNumber && returnLots.length > 0) {
+    const ends = await prisma.fabric_stock_details.findMany({
+      where: { fabricStockId: { in: returnLots }, source: 'END', remarks: `End from ${batchNumber}` },
+      select: FABRIC_PIECE_SELECT,
+    });
+    for (const e of ends) {
+      back.push({ stock: 'FABRIC', lotId: e.fabricStockId, piece: e, metres: Number(e.meters), isEnd: true });
+    }
+  }
+  const rows = issued.length > 0 ? issued : back;
+  if (rows.length === 0) return { thanList: null, thanListTotal: null, thanListLabels: null };
+
+  // The fold the pieces are counted at is the lot's; one fold across the list, or no conversion line
+  const lots = await prisma.fabric_stock.findMany({
+    where: { id: { in: [...new Set(rows.map((r) => r.lotId))] } },
+    select: { foldLengthCm: true },
+  });
+  const folds = new Set(lots.map((l) => (l.foldLengthCm != null ? Number(l.foldLengthCm) : null)));
+  const fold = folds.size === 1 ? [...folds][0] : null;
+  return thanPackingList(challan.id, rows, fold, null, issued.length > 0 ? 'OUT' : 'BACK');
 }
 
 /**
@@ -348,91 +444,151 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
  */
 async function thanPackingList(
   challanId: string,
-  rows: ChallanWithDetails['greigeIssueDetails'],
+  rows: PackedRow[],
   foldLengthCm: number | null,
-  lineQty: number | null
+  lineQty: number | null,
+  /** OUT: the pieces left on this challan; BACK: they came back on it (a return from cutting) */
+  direction: 'OUT' | 'BACK'
 ): Promise<Pick<ChallanDocData, 'thanList' | 'thanListTotal' | 'thanListLabels'>> {
   if (rows.length === 0) return { thanList: null, thanListTotal: null, thanListLabels: null };
-  const rolls = rows.filter((r) => r.greigeStockDetail.detailType === 'ROLL').length;
+  const rolls = rows.filter((r) => r.piece.detailType === 'ROLL').length;
+  const moved = direction === 'BACK' ? 'returned' : 'despatched';
   const thanListLabels =
     rolls === 0
-      ? { group: 'Bale', pieceNo: 'Than no. (tag metres)', count: 'Thans', total: 'Thans despatched' }
+      ? { group: 'Bale', pieceNo: 'Than no. (tag metres)', count: 'Thans', total: `Thans ${moved}` }
       : rolls === rows.length
-        ? { group: 'Rolls', pieceNo: 'Roll No. (tag metres)', count: 'Rolls', total: 'Rolls despatched' }
+        ? { group: 'Rolls', pieceNo: 'Roll No. (tag metres)', count: 'Rolls', total: `Rolls ${moved}` }
         : {
             group: 'Bale / Rolls',
             pieceNo: 'Than / Roll No. (tag metres)',
             count: 'Pieces',
-            total: 'Pieces despatched',
+            total: `Pieces ${moved}`,
           };
 
   type Bale = {
+    stock: PackedRow['stock'];
     lotId: string;
     baleNumber: number | null;
     label: string;
     /** A lot's rolls, listed together (rolls are never baled) */
     isRolls: boolean;
+    /** A fabric lot's end piece back from cutting */
+    isEnd: boolean;
     thans: Array<{ seq: number; text: string }>;
     metres: number;
   };
   const bales = new Map<string, Bale>();
   for (const r of rows) {
-    const d = r.greigeStockDetail;
+    const d = r.piece;
     const isRoll = d.detailType === 'ROLL';
-    // Rolls are never baled: one line per lot. A loose than keeps its own line; a baled than joins its bale.
-    const key = isRoll
-      ? `rolls:${d.greigeStockId}`
-      : d.baleNumber != null
-        ? `${d.greigeStockId}:${d.baleNumber}`
-        : `loose:${d.id}`;
+    // Rolls are never baled: one line per lot. A loose than keeps its own line; a baled than joins its bale; an
+    // end piece stands alone.
+    const key = r.isEnd
+      ? `end:${d.id}`
+      : isRoll
+        ? `rolls:${r.lotId}`
+        : d.baleNumber != null
+          ? `${r.lotId}:${d.baleNumber}`
+          : `loose:${d.id}`;
     const bale = bales.get(key) ?? {
-      lotId: d.greigeStockId,
-      baleNumber: isRoll ? null : d.baleNumber,
-      label: isRoll ? 'Rolls' : (d.baleNo ?? (d.baleNumber != null ? String(d.baleNumber) : 'Loose')),
+      stock: r.stock,
+      lotId: r.lotId,
+      baleNumber: isRoll || r.isEnd ? null : d.baleNumber,
+      label: r.isEnd
+        ? 'End piece'
+        : isRoll
+          ? 'Rolls'
+          : (d.baleNo ?? (d.baleNumber != null ? String(d.baleNumber) : 'Loose')),
       isRolls: isRoll,
+      isEnd: !!r.isEnd,
       thans: [],
       metres: 0,
     };
-    const tag = d.thanNo ?? `${isRoll ? 'R' : 'T'}${d.sequenceNo}`;
-    bale.thans.push({ seq: d.sequenceNo, text: `${tag} (${fmtQty(Number(r.metersIssued), 'MTR')})` });
-    bale.metres += Number(r.metersIssued);
+    const tag = r.isEnd ? 'End' : (d.thanNo ?? `${isRoll ? 'R' : 'T'}${d.sequenceNo}`);
+    bale.thans.push({
+      seq: d.sequenceNo,
+      text: `${tag} (${fmtQty(r.metres, 'MTR')})${r.isEnd ? ' (end)' : ''}`,
+    });
+    bale.metres += r.metres;
     bales.set(key, bale);
   }
 
-  // Where the rest of each bale is: the bale's size, and its thans issued on OTHER challans
-  const baled = [...bales.values()].filter((b) => b.baleNumber != null);
-  const pairs = baled.map((b) => ({ greigeStockId: b.lotId, baleNumber: b.baleNumber as number }));
-  const [sizes, elsewhere] =
-    pairs.length > 0
-      ? await Promise.all([
-          prisma.greige_stock_details.groupBy({
-            by: ['greigeStockId', 'baleNumber'],
-            where: { OR: pairs },
-            _count: { _all: true },
-          }),
-          prisma.greige_issue_details.findMany({
-            where: { challanId: { not: challanId }, greigeStockDetail: { OR: pairs } },
-            select: {
-              greigeStockDetail: { select: { greigeStockId: true, baleNumber: true } },
-              challan: { select: { challanNumber: true } },
-              jobWorkOrder: { select: { jobWorkNumber: true } },
-            },
-          }),
-        ])
-      : [[], []];
+  // Where the rest of each bale is: the bale's size, and its thans issued on OTHER challans — for pieces going
+  // OUT only (a return lists what came back)
+  const baled = direction === 'OUT' ? [...bales.values()].filter((b) => b.baleNumber != null) : [];
+  const greigePairs = baled
+    .filter((b) => b.stock === 'GREIGE')
+    .map((b) => ({ greigeStockId: b.lotId, baleNumber: b.baleNumber as number }));
+  const fabricPairs = baled
+    .filter((b) => b.stock === 'FABRIC')
+    .map((b) => ({ fabricStockId: b.lotId, baleNumber: b.baleNumber as number }));
+  const [greigeSizes, greigeElsewhere, fabricSizes, fabricElsewhere] = await Promise.all([
+    greigePairs.length > 0
+      ? prisma.greige_stock_details.groupBy({
+          by: ['greigeStockId', 'baleNumber'],
+          where: { OR: greigePairs },
+          _count: { _all: true },
+        })
+      : [],
+    greigePairs.length > 0
+      ? prisma.greige_issue_details.findMany({
+          where: { challanId: { not: challanId }, greigeStockDetail: { OR: greigePairs } },
+          select: {
+            greigeStockDetail: { select: { greigeStockId: true, baleNumber: true } },
+            challan: { select: { challanNumber: true } },
+            jobWorkOrder: { select: { jobWorkNumber: true } },
+          },
+        })
+      : [],
+    fabricPairs.length > 0
+      ? prisma.fabric_stock_details.groupBy({
+          by: ['fabricStockId', 'baleNumber'],
+          where: { OR: fabricPairs },
+          _count: { _all: true },
+        })
+      : [],
+    fabricPairs.length > 0
+      ? prisma.fabric_issue_details.findMany({
+          where: { challanId: { not: challanId }, piece: { OR: fabricPairs } },
+          select: {
+            piece: { select: { fabricStockId: true, baleNumber: true } },
+            challan: { select: { challanNumber: true } },
+            cuttingBatch: { select: { batchNumber: true } },
+            jobWorkOrder: { select: { jobWorkNumber: true } },
+          },
+        })
+      : [],
+  ]);
+  // One shape for both stocks: a bale's size, and each of its thans issued elsewhere with the document it went on
+  const sizes = [
+    ...greigeSizes.map((x) => ({ lotId: x.greigeStockId, baleNumber: x.baleNumber, count: x._count._all })),
+    ...fabricSizes.map((x) => ({ lotId: x.fabricStockId, baleNumber: x.baleNumber, count: x._count._all })),
+  ];
+  const elsewhere = [
+    ...greigeElsewhere.map((e) => ({
+      lotId: e.greigeStockDetail.greigeStockId,
+      baleNumber: e.greigeStockDetail.baleNumber,
+      doc: [e.challan?.challanNumber, e.jobWorkOrder?.jobWorkNumber].filter(Boolean).join(' · '),
+    })),
+    ...fabricElsewhere.map((e) => ({
+      lotId: e.piece.fabricStockId,
+      baleNumber: e.piece.baleNumber,
+      doc: [e.challan?.challanNumber, e.cuttingBatch?.batchNumber ?? e.jobWorkOrder?.jobWorkNumber]
+        .filter(Boolean)
+        .join(' · '),
+    })),
+  ];
 
   const note = (b: Bale): string => {
-    if (b.isRolls) return '';
+    if (b.isEnd) return direction === 'BACK' ? 'Left over from cutting' : '';
+    if (b.isRolls || direction === 'BACK') return '';
     if (b.baleNumber == null) return 'Loose than';
-    const size = sizes.find((x) => x.greigeStockId === b.lotId && x.baleNumber === b.baleNumber)?._count._all ?? 0;
+    const size = sizes.find((x) => x.lotId === b.lotId && x.baleNumber === b.baleNumber)?.count ?? 0;
     if (b.thans.length >= size) return 'Full bale';
-    const others = elsewhere.filter(
-      (e) => e.greigeStockDetail.greigeStockId === b.lotId && e.greigeStockDetail.baleNumber === b.baleNumber
-    );
+    const others = elsewhere.filter((e) => e.lotId === b.lotId && e.baleNumber === b.baleNumber);
     const byDoc = new Map<string, number>();
     for (const e of others) {
-      const doc =
-        [e.challan?.challanNumber, e.jobWorkOrder?.jobWorkNumber].filter(Boolean).join(' · ') || 'another issue';
+      const doc = e.doc || 'another issue';
       byDoc.set(doc, (byDoc.get(doc) ?? 0) + 1);
     }
     const parts = [...byDoc.entries()].map(([doc, n]) => `${n} on ${doc}`);
@@ -441,10 +597,13 @@ async function thanPackingList(
     return `Part bale — ${b.thans.length} of ${size} thans; ${parts.join(', ')}`;
   };
 
+  // Bales in number order, then loose thans and rolls, the end piece last
   const list = [...bales.values()].sort(
-    (a, b) => (a.baleNumber ?? Number.MAX_SAFE_INTEGER) - (b.baleNumber ?? Number.MAX_SAFE_INTEGER)
+    (a, b) =>
+      Number(a.isEnd) - Number(b.isEnd) ||
+      (a.baleNumber ?? Number.MAX_SAFE_INTEGER) - (b.baleNumber ?? Number.MAX_SAFE_INTEGER)
   );
-  const totalTag = addCurrency(...rows.map((r) => Number(r.metersIssued))).toNumber();
+  const totalTag = addCurrency(...rows.map((r) => r.metres)).toNumber();
   let actualNote: string | null = null;
   if (foldLengthCm != null && hasFold(foldLengthCm)) {
     const actual = foldActual(totalTag, foldLengthCm).toNumber();

@@ -17,6 +17,8 @@ import {
   adjustStock,
   updateStock,
   deleteStock,
+  getStockPieces,
+  recordStockPieces,
 } from '../controllers/fabric-stock.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -28,6 +30,7 @@ import {
   adjustFabricStockSchema,
   fabricStockQuerySchema,
   fabricStockIdParamSchema,
+  recordFabricPiecesSchema,
 } from '../schemas/fabricStock.schema';
 
 const router = Router();
@@ -45,6 +48,14 @@ router.get('/dashboard', asyncHandler(getStockDashboard));
 router.get('/summary', asyncHandler(getFabricStockSummary));
 router.get('/aging', asyncHandler(getAgingStock));
 router.get('/valuation', asyncHandler(getStockValuation));
+// A lot's rolls & thans (fabric-lot-pieces.service) — read, and Record / Check what is on the rack
+router.get('/:id/pieces', validateParams(fabricStockIdParamSchema), asyncHandler(getStockPieces));
+router.post(
+  '/:id/pieces',
+  validateParams(fabricStockIdParamSchema),
+  validateBody(recordFabricPiecesSchema),
+  asyncHandler(recordStockPieces)
+);
 router.get('/:id', validateParams(fabricStockIdParamSchema), asyncHandler(getStockById));
 
 // Stock operations

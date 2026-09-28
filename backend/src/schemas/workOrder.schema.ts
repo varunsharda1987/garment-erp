@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { flexMaterialId } from './common.schema';
+import { fabricPiecePickSchema } from './jobWorkOrder.schema';
 
 /**
  * Priority Enum - matches Prisma Priority
@@ -159,11 +160,17 @@ export const issueFabricSchema = z.object({
       z.object({
         fabricStockId: z.string().uuid('Invalid fabric stock ID'),
         fabricId: z.string().uuid('Invalid fabric ID'),
+        // ACTUAL metres. With `details` the server takes the quantity from the picked rolls / thans itself.
         quantity: z.number().positive('Quantity must be positive'),
         description: z.string().max(500).optional().default(''),
+        /** The rolls / thans going to cutting (a lot with a list); a lot without one goes whole, by quantity */
+        details: z.array(fabricPiecePickSchema).max(2000).optional(),
       })
     )
-    .min(1, 'At least one fabric lot must be selected'),
+    .min(1, 'At least one fabric lot must be selected')
+    .refine((lots) => new Set(lots.map((l) => l.fabricStockId)).size === lots.length, {
+      message: 'Each fabric lot goes on one line',
+    }),
   /** The cutting batch this fabric is for; optional when the run has exactly one open batch */
   cuttingBatchId: z.string().uuid('Invalid cutting batch ID').optional(),
   remarks: z.string().max(1000).optional(),

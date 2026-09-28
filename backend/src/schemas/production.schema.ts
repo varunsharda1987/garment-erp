@@ -243,6 +243,9 @@ export const completeCuttingBatchSchema = z
             // and the frontend (cutting.types.ts) use; the old 'returnQuantity' meant the validated value
             // never reached the controller and fabric returns were silently 0 (bug-hunt production-2).
             returnedQuantity: z.number().positive('Return quantity must be positive'),
+            // Optional, rare (owner 2026-09-28): the rolls / thans that came back WHOLE. The rest of the metres
+            // comes back as one end piece (fabric-lot-pieces.service settleLotBack).
+            wholePieceIds: z.array(z.string().uuid('Invalid roll / than')).max(2000).optional(),
           })
           .passthrough()
       )

@@ -16,20 +16,25 @@ import { resolveAdminOverride } from '../utils/admin-override';
 import { ChallanType, Unit } from '@prisma/client';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { buildCuttingChartData } from './cutting.controller';
-import { createChallan, issueChallan, cancelChallan } from '../services/challan.service';
+import { createChallan, issueChallan, cancelChallan, type IssueChallanOptions } from '../services/challan.service';
 // Shared prisma singleton — a private `new PrismaClient()` opened a second connection pool
 // (bug-hunt production-26)
 import prisma from '../config/database';
 import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
+import { lotPiecesSummary, pickActualQty, type FabricPiecePick } from '../services/fabric-lot-pieces.service';
+import { notInProcessorUnitWhere } from '../services/helpers/lot-location.helper';
+import { qtyExceeds } from '../utils/quantity';
+import { fmtQty } from '../services/document-data/format';
+import type { IssueFabricInput } from '../schemas/workOrder.schema';
 
 /**
  * Issue a freshly created challan; if issuing fails, cancel the just-created DRAFT challan so it
  * doesn't linger as an orphan (bug-hunt production-26 — createChallan+issueChallan are two separate
  * service transactions).
  */
-async function issueChallanOrCleanup(challanId: string, userId: string) {
+async function issueChallanOrCleanup(challanId: string, userId: string, opts?: IssueChallanOptions) {
   try {
-    return await issueChallan(challanId, userId);
+    return await issueChallan(challanId, userId, opts);
   } catch (err) {
     try {
       await cancelChallan(challanId); // DRAFT-only guarded flip — safe compensation
@@ -434,7 +439,14 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
   const uniqueFabricIds = chartData.fabrics.map((f: any) => f.fabricId).filter(Boolean) as string[];
 
   const availableStockRecords = await prisma.fabric_stock.findMany({
-    where: { fabricId: { in: uniqueFabricIds }, quantityAvailable: { gt: 0 }, status: 'AVAILABLE' },
+    where: {
+      fabricId: { in: uniqueFabricIds },
+      quantityAvailable: { gt: 0 },
+      status: 'AVAILABLE',
+      // A lot lying at a processor's unit is not in our store — the issue would refuse it (as the Cutting Chart
+      // leaves it out)
+      ...notInProcessorUnitWhere(),
+    },
     select: {
       id: true,
       fabricId: true,
@@ -442,9 +454,14 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       cutableWidth: true,
       quantityAvailable: true,
       qualityGrade: true,
+      foldLengthCm: true,
+      fabricMaster: { select: { fabricCode: true } },
+      grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
     },
     orderBy: { receivedDate: 'desc' },
   });
+  // Each lot's roll / than list at a glance — the screen expands a listed lot into its picker
+  const piecesByLot = await lotPiecesSummary(availableStockRecords);
 
   // Group available stock by fabricId
   const availableStockMap = new Map<string, typeof availableStockRecords>();
@@ -458,14 +475,26 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     const stocks = f.fabricId ? availableStockMap.get(f.fabricId) || [] : [];
     return {
       ...f,
-      lots: stocks.map((s: any, idx: number) => ({
-        lotId: s.id,
-        lotNumber: idx + 1,
-        rollNumbers: s.rollNumbers || '',
-        actualWidth: Number(s.cutableWidth),
-        quantityAvailable: Number(s.quantityAvailable),
-        qualityGrade: s.qualityGrade,
-      })),
+      lots: stocks.map((s, idx: number) => {
+        const pieces = piecesByLot.get(s.id);
+        return {
+          lotId: s.id,
+          lotNumber: idx + 1,
+          // "FAB-ESSKY075LS-001 · GRN2609-1228" — how the pickers and notes name the lot
+          lotLabel: `${s.fabricMaster?.fabricCode ?? 'Fabric lot'} · ${
+            s.grnItem?.goods_receiving_notes?.grnNumber ?? `lot ${s.id.slice(0, 8)}`
+          }`,
+          rollNumbers: s.rollNumbers || '',
+          actualWidth: Number(s.cutableWidth),
+          quantityAvailable: Number(s.quantityAvailable),
+          qualityGrade: s.qualityGrade,
+          foldLengthCm: s.foldLengthCm != null ? Number(s.foldLengthCm) : null,
+          // The lot's rolls / thans (fabric-lot-pieces.service): none listed = it goes whole, by quantity
+          pieces: pieces ? { total: pieces.total, left: pieces.left, kind: pieces.kind } : null,
+          listState: pieces?.state ?? 'NO_LIST',
+          listActual: pieces?.listActual ?? 0,
+        };
+      }),
     };
   });
 
@@ -542,12 +571,27 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     };
   });
 
-  // Fabric is issued FOR a cutting batch — the panel offers the run's open batches
-  const openBatches = await prisma.cutting_batches.findMany({
+  // Fabric is issued FOR a cutting batch — the panel offers the run's open batches, each with the metres
+  // the Cutting Chart planned from every lot (its RESERVED allocations) — what "Pick for this batch" fits
+  const openBatchRows = await prisma.cutting_batches.findMany({
     where: { workOrderId: id, isActive: true, status: { in: ['PENDING', 'IN_PROGRESS'] } },
-    select: { id: true, batchNumber: true, status: true },
+    select: {
+      id: true,
+      batchNumber: true,
+      status: true,
+      stockAllocations: {
+        where: { allocationStatus: 'RESERVED' },
+        select: { stockId: true, quantityAllocated: true },
+      },
+    },
     orderBy: { createdAt: 'asc' },
   });
+  const openBatches = openBatchRows.map((b) => ({
+    id: b.id,
+    batchNumber: b.batchNumber,
+    status: b.status,
+    plannedByLot: Object.fromEntries(b.stockAllocations.map((a) => [a.stockId, Number(a.quantityAllocated)])),
+  }));
 
   res.json({
     success: true,
@@ -586,11 +630,7 @@ export const issueFabric = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new UnauthorizedError('User not authenticated');
 
-  const { lots, remarks, cuttingBatchId } = req.body as {
-    lots: Array<{ fabricStockId: string; fabricId: string; quantity: number; description: string }>;
-    remarks?: string;
-    cuttingBatchId?: string;
-  };
+  const { lots, remarks, cuttingBatchId } = req.body as IssueFabricInput;
 
   if (!lots || lots.length === 0) throw new ValidationError('At least one fabric lot must be selected');
 
@@ -622,6 +662,36 @@ export const issueFabric = async (req: Request, res: Response) => {
     );
   }
 
+  // A lot that names its rolls / thans goes by them: its quantity is what the picks come to at the lot's fold
+  // (pickActualQty — never the screen's figure), and the pieces leave with the challan. A lot with no list
+  // goes by its quantity, as before.
+  const fabricPicks: Record<string, FabricPiecePick[]> = {};
+  const lines: Array<{ fabricStockId: string; fabricId: string; quantity: number; description: string }> = [];
+  for (const lot of lots) {
+    if (!lot.details || lot.details.length === 0) {
+      lines.push({ ...lot, description: lot.description ?? '' });
+      continue;
+    }
+    const pick = await pickActualQty(prisma, lot.fabricStockId, lot.details);
+    if (qtyExceeds(pick.actual, pick.onHand)) {
+      throw new BusinessError(
+        `The rolls / thans ticked on ${pick.lotLabel} come to ${fmtQty(pick.actual, 'METER')} m, but the lot holds ` +
+          `${fmtQty(pick.onHand, 'METER')} m — its list is out of step. Untick some, or Check rolls & thans on the ` +
+          `Fabric Stock page.`,
+        { reason: 'PICKS_EXCEED_LOT', fabricStockId: lot.fabricStockId, picked: pick.actual, onHand: pick.onHand }
+      );
+    }
+    if (Math.abs(pick.actual - lot.quantity) > lot.quantity * 0.01) {
+      logWarn('Issue to cutting: the screen quantity differs from the picked rolls by more than 1%', {
+        fabricStockId: lot.fabricStockId,
+        screen: lot.quantity,
+        picked: pick.actual,
+      });
+    }
+    fabricPicks[lot.fabricStockId] = lot.details;
+    lines.push({ ...lot, quantity: pick.actual, description: lot.description ?? '' });
+  }
+
   // Create INTERNAL challan (store → cutting)
   const challan = await createChallan({
     challanType: 'INTERNAL' as ChallanType,
@@ -635,7 +705,7 @@ export const issueFabric = async (req: Request, res: Response) => {
     toName: 'Cutting',
     remarks: remarks || `Fabric issued for ${workOrder.workOrderNumber} — batch ${batch.batchNumber}`,
     issuedById: userId,
-    items: lots.map((lot) => ({
+    items: lines.map((lot) => ({
       itemType: 'FABRIC',
       fabricStockId: lot.fabricStockId,
       fabricId: lot.fabricId,
@@ -645,13 +715,15 @@ export const issueFabric = async (req: Request, res: Response) => {
     })),
   });
 
-  // Immediately issue the challan — deducts from fabric_stock.quantityAvailable
-  const issuedChallan = await issueChallanOrCleanup(challan.id, userId);
+  // Immediately issue the challan — deducts from fabric_stock.quantityAvailable, and the picked rolls / thans
+  // (or, for a lot that goes whole, its whole list) go with it
+  const issuedChallan = await issueChallanOrCleanup(challan.id, userId, { fabricPicks });
 
   logInfo('Fabric issued to cutting via INTERNAL challan', {
     workOrderId: id,
     challanId: challan.id,
     lotCount: lots.length,
+    lotsByPiece: Object.keys(fabricPicks).length,
     userId,
   });
 

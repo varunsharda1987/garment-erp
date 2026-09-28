@@ -102,6 +102,7 @@ import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER, toLabelLine } from './helper
 import { loadMaterialDetails } from './helpers/material-detail.helper';
 import { isInvoiceOpenStatus, resolveReceiptInvoice } from './helpers/receipt-invoice.helper';
 import { createAuditLog } from './audit.service';
+import { copyReceiptPieces, lotPiecesEverIssued } from './fabric-lot-pieces.service';
 
 /**
  * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
@@ -911,7 +912,8 @@ class GRNService {
    * bale number and each than's tag. Until 2026-09-24 GRN could only number bales 1, 2, 3 and
    * thans by position, so what the godown holds could not be matched to what the system lists.
    * Labels only: quantities, grouping (baleNumber) and order (sequenceNo) never change. The
-   * greige lot's than rows (same GRN line → lot, same bale + position) are relabelled too.
+   * greige lot's than rows (same GRN line → lot, same bale + position) are relabelled too, and so
+   * are a finished-fabric lot's pieces (each linked to the receipt piece it was copied from).
    */
   async updateDetailLabels(
     grnItemId: string,
@@ -942,6 +944,8 @@ class GRNService {
             data,
           });
         }
+        // A finished-fabric lot's pieces follow the receipt piece they were copied from (2026-09-28)
+        await tx.fabric_stock_details.updateMany({ where: { grnItemDetailId: d.id }, data });
       }
     });
     return prisma.grn_item_details.findMany({
@@ -2015,8 +2019,13 @@ class GRNService {
                 warehouseId: warehouseId,
                 createdById: userId,
                 weaverId: item.weaverId ?? null, // the weaver whose cloth arrived (Phase 1b)
+                // The receipt line that booked this lot, and the fold its rolls / thans are counted at (2026-09-28)
+                grnItemId: item.id,
+                foldLengthCm: item.foldLengthCm ?? null,
               },
             });
+            // The lot keeps the line's rolls / thans
+            await copyReceiptPieces(tx, { lotId: overrideFabricLot.id, grnItemId: item.id });
 
             // Sync stock_levels for the fabric
             await syncStockLevelQuantity(fabric.id, acceptedQty, warehouseId, undefined, tx);
@@ -2253,8 +2262,14 @@ class GRNService {
             warehouseId: warehouseId,
             createdById: userId,
             weaverId: item.weaverId ?? null, // the weaver whose cloth arrived (Phase 1b)
+            // The receipt line that booked this lot: its reversal takes back THIS lot (2026-09-28)
+            grnItemId: item.id,
+            // The fold its rolls / thans are counted at
+            foldLengthCm: item.foldLengthCm ?? null,
           },
         });
+        // The lot keeps the line's rolls / thans
+        await copyReceiptPieces(tx, { lotId: fabricLot.id, grnItemId: item.id });
 
         // Ensure materials record + sync stock_levels
         await ensureMaterialRecord(fabric.id, 'FABRIC', tx);
@@ -2943,6 +2958,9 @@ class GRNService {
         sequenceNo: number;
         meters: number;
         remarks?: string | null;
+        /** The processor's bale number and the than / roll tag, as printed (display only) */
+        baleNo?: string | null;
+        thanNo?: string | null;
       }>;
       /** The Receive dialog's per-opening key, stored on the receipt (unique) — see receiveJwoToStock. */
       submissionKey?: string | null;
@@ -3018,11 +3036,21 @@ class GRNService {
     const hasDetails = data.details && data.details.length > 0;
     let qtyReceived = data.qtyReceivedMeters || 0;
     let thanCount = data.thanCount ?? null;
+    let rollCount: number | null = null;
+    let baleCount: number | null = null;
 
-    if (hasDetails && (entryMode === 'THAN_WISE' || entryMode === 'BALE_WISE')) {
+    if (hasDetails && (entryMode === 'THAN_WISE' || entryMode === 'BALE_WISE' || entryMode === 'ROLL_WISE')) {
       // Sum meters from detail rows
-      qtyReceived = data.details!.reduce((sum, d) => sum + (d.meters || 0), 0);
-      thanCount = data.details!.length;
+      qtyReceived = addCurrency(...data.details!.map((d) => d.meters || 0)).toNumber();
+      // Rolls are counted as rolls, thans as thans — the lot and the challan say which
+      if (entryMode === 'ROLL_WISE') {
+        rollCount = data.details!.length;
+        thanCount = null;
+      } else {
+        thanCount = data.details!.length;
+        const bales = new Set(data.details!.map((d) => d.baleNumber).filter((b) => b != null));
+        baleCount = bales.size > 0 ? bales.size : null;
+      }
     }
     if (qtyReceived <= 0) {
       throw new BusinessError('Received quantity must be greater than 0');
@@ -3167,20 +3195,25 @@ class GRNService {
               unit: Unit.METER,
               receivedWidthInches: data.receivedWidthInches ?? null,
               thanCount,
+              rollCount,
+              baleCount,
               foldLengthCm: data.foldLengthCm ?? null,
               totalMeters: qtyReceived,
               entryMode,
-              // Detail rows for THAN_WISE / BALE_WISE entry
+              // Detail rows for THAN_WISE / BALE_WISE / ROLL_WISE entry — with the processor's printed bale
+              // number and than / roll tag, which the lot copies (fabric-lot-pieces.service copyReceiptPieces)
               ...(hasDetails
                 ? {
                     grn_item_details: {
                       create: data.details!.map((d, idx) => ({
                         id: randomUUID(),
-                        detailType: d.detailType,
-                        baleNumber: d.baleNumber ?? null,
+                        detailType: entryMode === 'ROLL_WISE' ? 'ROLL' : d.detailType,
+                        baleNumber: entryMode === 'ROLL_WISE' ? null : (d.baleNumber ?? null),
                         sequenceNo: d.sequenceNo ?? idx + 1,
                         meters: new Prisma.Decimal(d.meters),
                         remarks: d.remarks ?? null,
+                        baleNo: entryMode === 'ROLL_WISE' ? null : d.baleNo?.trim() || null,
+                        thanNo: d.thanNo?.trim() || null,
                       })),
                     },
                   }
@@ -3498,7 +3531,7 @@ class GRNService {
       isFabricLotJwo
     );
 
-    await tx.fabric_stock.create({
+    const fabricLot = await tx.fabric_stock.create({
       data: {
         id: randomUUID(),
         fabricId: finishedFabricId,
@@ -3532,10 +3565,19 @@ class GRNService {
         warehouseId: targetWarehouseId,
         // The receipt line this lot came from: reversal takes back THIS lot, never a sibling part's.
         grnItemId: grnItem?.id ?? null,
+        // The fold the processor counted the rolls / thans at (the lot itself is ACTUAL metres)
+        foldLengthCm: grnItem?.foldLengthCm ?? null,
         weaverId: weaverLineage.weaverId,
         weaverMix: (weaverLineage.weaverMix as unknown as Prisma.InputJsonValue) ?? Prisma.DbNull,
       },
+      select: { id: true },
     });
+    // The lot keeps the processor's rolls / thans as typed on this receipt (2026-09-28) — the one-action
+    // receive, the old two-step approve and a lot booked at the next processor's unit all come through here.
+    // A Total Meters receipt copies none: the lot has no list.
+    if (grnItem?.id) {
+      await copyReceiptPieces(tx, { lotId: fabricLot.id, grnItemId: grnItem.id });
+    }
     // Ensure materials record exists for pre-existing fabrics before syncing stock_levels
     await ensureMaterialRecord(finishedFabricId, 'FABRIC', tx);
     await syncStockLevelQuantity(finishedFabricId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
@@ -4021,24 +4063,58 @@ class GRNService {
       // FABRIC - reverse fabric_stock
       if (poCategory === 'FABRIC' && material?.fabric_master) {
         const fabricId = material.fabric_master.id;
-        const fabricStock = await tx.fabric_stock.findFirst({
-          where: {
-            fabricId,
-            warehouseId,
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
-        });
+        // The lot this receipt line booked (grnItemId, since 2026-09-28); older lots by the heuristic, which
+        // never picks another receipt's lot
+        const linkedFabric = await tx.fabric_stock.findFirst({ where: { grnItemId: item.id } });
+        const fabricStock =
+          linkedFabric ??
+          (await tx.fabric_stock.findFirst({
+            where: {
+              fabricId,
+              warehouseId,
+              grnItemId: null,
+              quantityAvailable: { gte: acceptedQty },
+            },
+            orderBy: { receivedDate: 'desc' },
+          }));
 
         if (fabricStock) {
+          // Fabric some of which has already gone out (cutting, a job, a send-out) cannot be un-received — and
+          // deleting its lot would wipe the record of which rolls / thans went where
+          if (linkedFabric) {
+            const piecesOut = await lotPiecesEverIssued(tx, linkedFabric.id);
+            if (
+              !isQtyZero(Number(linkedFabric.quantityConsumed)) ||
+              piecesOut > 0 ||
+              qtyExceeds(acceptedQty, linkedFabric.quantityAvailable)
+            ) {
+              throw new BusinessError(
+                `Cannot reverse GRN ${grn.grnNumber}: its fabric lot has already been used ` +
+                  `(${Number(linkedFabric.quantityAvailable)} m of ${acceptedQty} m left). Take that fabric back ` +
+                  `first (return it from cutting, or cancel the issue), then reverse.`,
+                { reason: 'GRN_LOT_ALREADY_USED', lotId: linkedFabric.id }
+              );
+            }
+          }
           const newAvailable = Number(fabricStock.quantityAvailable) - acceptedQty;
-          if (newAvailable <= 0) {
+          // A lot a challan names (fabric delivered straight to a processor) cannot be deleted — zero it
+          const namedOnChallan = await tx.challan_items.count({ where: { fabricStockId: fabricStock.id } });
+          if (newAvailable <= 0 && namedOnChallan === 0) {
             await tx.fabric_stock.delete({ where: { id: fabricStock.id } });
           } else {
             await tx.fabric_stock.update({
               where: { id: fabricStock.id },
-              data: { quantityAvailable: newAvailable },
+              data: {
+                quantityAvailable: Math.max(0, newAvailable),
+                ...(newAvailable <= 0 ? { status: 'EXHAUSTED' as const } : {}),
+              },
             });
+            // An emptied lot keeps no list: its receipt's pieces go with the receipt (none has ever left)
+            if (newAvailable <= 0) {
+              await tx.fabric_stock_details.deleteMany({
+                where: { fabricStockId: fabricStock.id, issues: { none: {} } },
+              });
+            }
           }
 
           await syncStockLevelQuantity(fabricId, -acceptedQty, warehouseId, undefined, tx);
@@ -4261,6 +4337,17 @@ class GRNService {
 
       for (const stock of fabricStocks) {
         const qty = Number(stock.quantityAvailable);
+        // Fabric already cut or sent on cannot be un-received — and deleting the lot would wipe the record of
+        // which rolls / thans went where (the pieces and their issue rows go with it). Mirrors the lace check.
+        const piecesOut = await lotPiecesEverIssued(tx, stock.id);
+        if (!isQtyZero(Number(stock.quantityConsumed)) || piecesOut > 0) {
+          throw new BusinessError(
+            `Cannot reverse GRN ${grn.grnNumber}: its fabric lot has already been used ` +
+              `(${Number(stock.quantityConsumed)} m consumed${piecesOut > 0 ? `, ${piecesOut} roll / than issue(s)` : ''}). ` +
+              `Take that fabric back first (return it from cutting, or cancel the issue), then reverse.`,
+            { reason: 'GRN_LOT_ALREADY_USED', lotId: stock.id }
+          );
+        }
         await tx.fabric_stock.delete({ where: { id: stock.id } });
         await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, -qty, stock.warehouseId ?? undefined, 'METER', tx);
 

@@ -29,7 +29,10 @@ import type {
   UpdateFabricStockInput,
   TransferFabricStockInput,
   AdjustFabricStockInput,
+  RecordFabricPiecesInput,
 } from '../schemas/fabricStock.schema';
+import { getLotPieces, lotPiecesSummary, recordLotPieces, settleLotOut } from '../services/fabric-lot-pieces.service';
+import { pieceWord } from '../services/helpers/lot-pieces.helper';
 
 // ==================== VALIDATION SCHEMAS ====================
 
@@ -320,6 +323,11 @@ export const listStock = async (req: Request, res: Response) => {
     prisma.fabric_stock.count({ where }),
   ]);
 
+  // Each lot's roll / than list at a glance (three grouped reads for the page, never one per lot)
+  const piecesByLot = await lotPiecesSummary(
+    stocks.map((s) => ({ id: s.id, quantityAvailable: s.quantityAvailable, foldLengthCm: s.foldLengthCm }))
+  );
+
   res.json({
     success: true,
     data: stocks.map((s) => {
@@ -387,6 +395,9 @@ export const listStock = async (req: Request, res: Response) => {
         warehouseLocation: s.warehouseLocation,
         rackNumber: s.rackNumber,
         rollNumbers: s.rollNumbers,
+        // The fold the lot's rolls / thans are counted at, and the list at a glance (fabric-lot-pieces.service)
+        foldLengthCm: s.foldLengthCm != null ? Number(s.foldLengthCm) : null,
+        pieces: piecesByLot.get(s.id) ?? null,
         receivedDate: s.receivedDate,
         agingDays: s.agingDays,
         defectValue: s.defectValue ? Number(s.defectValue) : null,
@@ -1033,62 +1044,76 @@ export const adjustStock = async (req: Request, res: Response) => {
   const data = req.body as AdjustFabricStockInput;
   const userId = req.user?.userId;
 
-  const stock = await prisma.fabric_stock.findUnique({
-    where: { id: data.stockId },
-  });
+  // One transaction: the lot, its ledger row, stock_levels and its roll / than list commit together or not
+  // at all (CLAUDE.md stock rule 5) — until 2026-09-28 these were four separate writes.
+  const { currentQty, newQty } = await prisma.$transaction(async (tx) => {
+    // Lock the lot first: an issue or a count of its rolls waits, so the quantity read below is current
+    await tx.$queryRaw`SELECT "id" FROM "fabric_stock" WHERE "id" = ${data.stockId} FOR UPDATE`;
+    const stock = await tx.fabric_stock.findUnique({
+      where: { id: data.stockId },
+    });
 
-  if (!stock) {
-    throw new NotFoundError('Stock', data.stockId);
-  }
-
-  const currentQty = Number(stock.quantityAvailable);
-  let newQty: number;
-
-  if (data.adjustmentType === 'INCREASE') {
-    newQty = currentQty + data.quantity;
-  } else {
-    if (qtyExceeds(data.quantity, currentQty)) {
-      throw new ValidationError(`Cannot decrease by ${data.quantity}. Only ${currentQty} available`);
+    if (!stock) {
+      throw new NotFoundError('Stock', data.stockId);
     }
-    // Quantity rule (utils/quantity): writing off the whole lot within dust leaves exactly 0.
-    data.quantity = snapToLimit(data.quantity, currentQty);
-    newQty = currentQty - data.quantity;
-  }
 
-  // Update stock
-  const updatedStock = await prisma.fabric_stock.update({
-    where: { id: data.stockId },
-    data: {
-      quantityAvailable: newQty,
-    },
-  });
+    const currentQty = Number(stock.quantityAvailable);
+    let newQty: number;
 
-  // Create transaction
-  await prisma.fabric_stock_transaction.create({
-    data: {
-      stockId: data.stockId,
-      transactionType: data.adjustmentType === 'INCREASE' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
-      quantity: data.quantity,
-      referenceType: 'MANUAL',
-      costPerUnit: Number(stock.weightedAvgCost),
-      weightedAvgCost: Number(stock.weightedAvgCost),
-      totalValue: data.quantity * Number(stock.weightedAvgCost),
-      balanceAfter: newQty,
-      valueAfter: newQty * Number(stock.weightedAvgCost),
-      notes: `${data.reason}${data.notes ? ` - ${data.notes}` : ''}`,
-      createdById: userId,
-    },
-  });
+    if (data.adjustmentType === 'INCREASE') {
+      newQty = currentQty + data.quantity;
+    } else {
+      if (qtyExceeds(data.quantity, currentQty)) {
+        throw new ValidationError(`Cannot decrease by ${data.quantity}. Only ${currentQty} available`);
+      }
+      // Quantity rule (utils/quantity): writing off the whole lot within dust leaves exactly 0.
+      data.quantity = snapToLimit(data.quantity, currentQty);
+      newQty = currentQty - data.quantity;
+    }
 
-  // Sync stock_levels
-  const material = await prisma.materials.findFirst({
-    where: { fabricId: stock.fabricId },
-    select: { id: true },
+    // Update stock
+    await tx.fabric_stock.update({
+      where: { id: data.stockId },
+      data: {
+        quantityAvailable: newQty,
+      },
+    });
+
+    // Create transaction
+    await tx.fabric_stock_transaction.create({
+      data: {
+        stockId: data.stockId,
+        transactionType: data.adjustmentType === 'INCREASE' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+        quantity: data.quantity,
+        referenceType: 'MANUAL',
+        costPerUnit: Number(stock.weightedAvgCost),
+        weightedAvgCost: Number(stock.weightedAvgCost),
+        totalValue: data.quantity * Number(stock.weightedAvgCost),
+        balanceAfter: newQty,
+        valueAfter: newQty * Number(stock.weightedAvgCost),
+        notes: `${data.reason}${data.notes ? ` - ${data.notes}` : ''}`,
+        createdById: userId,
+      },
+    });
+
+    // Sync stock_levels — at the lot's own store
+    const material = await tx.materials.findFirst({
+      where: { fabricId: stock.fabricId },
+      select: { id: true },
+    });
+    if (material) {
+      const change = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
+      await syncStockLevelQuantity(material.id, change, stock.warehouseId ?? undefined, undefined, tx);
+    }
+
+    // A write-off that empties the lot takes its whole roll / than list; a part write-off names no pieces,
+    // so the list goes out of step and the Fabric Stock page offers "Check rolls & thans".
+    if (data.adjustmentType === 'DECREASE') {
+      await settleLotOut(tx, { lotId: stock.id, userId: userId ?? null });
+    }
+
+    return { currentQty, newQty };
   });
-  if (material) {
-    const change = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
-    await syncStockLevelQuantity(material.id, change);
-  }
 
   res.json({
     success: true,
@@ -1318,6 +1343,8 @@ export const deleteStock = async (req: Request, res: Response) => {
           fabric_physical_tests: true,
           fabricCostingItemsAsStockLot: true,
           cadProductionRecords: true,
+          // Rolls / thans that went out and came back keep their history on the lot (fabric_issue_details)
+          pieces: { where: { issues: { some: {} } } },
         },
       },
       embroideryResultOf: {
@@ -1355,6 +1382,9 @@ export const deleteStock = async (req: Request, res: Response) => {
   }
   if (dependencies?._count.cadProductionRecords) {
     blockingDeps.push(`${dependencies._count.cadProductionRecords} CAD production record(s)`);
+  }
+  if (dependencies?._count.pieces) {
+    blockingDeps.push(`${dependencies._count.pieces} roll(s) / than(s) that have been issued`);
   }
 
   // 4. Block deletion if dependencies exist
@@ -1419,6 +1449,31 @@ export const deleteStock = async (req: Request, res: Response) => {
   });
 };
 
+/**
+ * GET /api/stock/:id/pieces
+ * The lot's rolls & thans: what can be picked, whether the list matches the lot, and where each piece went.
+ */
+export const getStockPieces = async (req: Request, res: Response) => {
+  const data = await getLotPieces(req.params.id);
+  res.json({ success: true, data });
+};
+
+/**
+ * POST /api/stock/:id/pieces
+ * "Record rolls & thans" (a lot with no list) / "Check rolls & thans" (tick what is on the rack). Never
+ * changes the lot's metres.
+ */
+export const recordStockPieces = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new ValidationError('A signed-in user is needed to record rolls & thans.');
+  const body = req.body as RecordFabricPiecesInput;
+  const result = await recordLotPieces(req.params.id, body, userId);
+  const message = result.wasCheck
+    ? `List checked — ${result.kept} kept, ${result.dropped} not on the rack, ${result.recorded} added`
+    : `${result.recorded} ${pieceWord(result.detailType, result.recorded)} recorded on ${result.lotLabel}`;
+  res.status(201).json({ success: true, message, data: result });
+};
+
 export default {
   createFabricStock,
   listStock,
@@ -1431,4 +1486,6 @@ export default {
   adjustStock,
   updateStock,
   deleteStock,
+  getStockPieces,
+  recordStockPieces,
 };

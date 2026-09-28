@@ -20,36 +20,18 @@ import { BusinessError, NotFoundError } from '../errors';
 import { createAuditLog } from './audit.service';
 import { fmtQty } from './document-data/format';
 import { GREIGE_LOT_INVOICE_INCLUDE, greigeLotInvoice } from './helpers/receipt-invoice.helper';
+import {
+  THAN_PICK_TOLERANCE_PCT,
+  pieceKindOf,
+  pieceWord,
+  snapWholeList,
+  type GreigePieceKind,
+  type GreigePieceType,
+} from './helpers/lot-pieces.helper';
 
-// Than tags are 3 dp and counted; a lot is 2 dp and actual. A pick that empties every than may differ
-// from what the lot holds by the half-cents each earlier issue rounded away.
-const THAN_ROUNDING_SLACK_M = 0.1;
-
-/**
- * Named whole pieces rarely add up to an exact figure. When an issue names its thans / rolls, the lots
- * may total within this share of the job's metres either way (owner, 2026-09-24: ±1%); a lot's count
- * ("Record bales & thans") must land within it of what the lot holds.
- */
-export const THAN_PICK_TOLERANCE_PCT = 1;
-
-/** A greige piece: a than (folded, usually baled) or a roll. Wording only — the arithmetic is the same. */
-export type GreigePieceType = 'THAN' | 'ROLL';
-
-/** How pieces of one lot are listed: all thans, all rolls, both (two receipts), or none recorded. */
-export type GreigePieceKind = GreigePieceType | 'MIXED' | null;
-
-export function pieceKindOf(types: Iterable<string>): GreigePieceKind {
-  const set = new Set(types);
-  if (set.size === 0) return null;
-  if (set.size > 1) return 'MIXED';
-  return set.has('ROLL') ? 'ROLL' : 'THAN';
-}
-
-/** "than" / "thans" / "roll" / "rolls" / "piece" / "pieces" */
-export function pieceWord(kind: GreigePieceKind, n: number): string {
-  const word = kind === 'ROLL' ? 'roll' : kind === 'MIXED' ? 'piece' : 'than';
-  return n === 1 ? word : `${word}s`;
-}
+// The piece rules live in helpers/lot-pieces.helper.ts (shared with finished-fabric lots since 2026-09-28);
+// re-exported so the callers that import them from here keep working.
+export { THAN_PICK_TOLERANCE_PCT, pieceKindOf, pieceWord, type GreigePieceKind, type GreigePieceType };
 
 // Type for Prisma transaction client (used when operations need to be atomic with caller's transaction)
 type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -120,6 +102,8 @@ export interface GreigeStockItem {
   sourceType?: string | null;
   baleCount?: number | null;
   thanCount?: number | null;
+  /** Fold length L in cm — the lot's quantities are ACTUAL; its thans are counted at L */
+  foldLengthCm?: number | null;
   supplierId?: string | null;
   supplier?: { id: string; name: string; code: string } | null;
   processorId?: string | null;
@@ -444,6 +428,8 @@ class GreigeStockService {
           sourceChallan: stock.sourceChallan,
           baleCount: stock.baleCount,
           thanCount: stock.thanCount,
+          // The lot's fold length L — the page shows the counted figure at L beside the actual quantity
+          foldLengthCm: stock.foldLengthCm != null ? Number(stock.foldLengthCm) : null,
           weaverId: stock.weaverId,
           weaver: stock.weaver,
           // It was never mapped — the Greige Stock "Invoice#" column read blank for every lot (2026-09-28)
@@ -878,10 +864,7 @@ class GreigeStockService {
         const qty = picked.get(t.id);
         return qty != null && qty >= Number(t.metersRemaining) - 0.0005;
       });
-    const available = Number(lot.quantityAvailable);
-    if (emptiesEveryThan && Math.abs(available - actual) <= THAN_ROUNDING_SLACK_M) {
-      actual = available;
-    }
+    actual = snapWholeList(actual, { takesEveryPiece: emptiesEveryThan, onHand: Number(lot.quantityAvailable) });
     return { counted: counted.toNumber(), actual };
   }
 

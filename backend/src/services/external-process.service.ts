@@ -25,6 +25,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { applySearch } from '../utils/search-filter';
 import { qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
+import { settleLotBack, settleLotOut } from './fabric-lot-pieces.service';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -396,6 +397,18 @@ class ExternalProcessService {
         where: { id: sendOut.id },
         data: { outwardChallanId: challan.id },
       });
+
+      // Fabric sent from a lot: its rolls / thans go with the metres, to this job on this challan. No picks yet
+      // (Phase 2) — a send-out that empties the lot takes its whole list (fabric-lot-pieces.service).
+      if (data.sourceType === 'FABRIC_STOCK' && data.fabricStockId) {
+        await settleLotOut(tx, {
+          lotId: data.fabricStockId,
+          userId: data.createdById,
+          jobWorkOrderId: data.jobWorkOrderId,
+          challanId: challan.id,
+          challanItemId: challan.items[0]?.id ?? null,
+        });
+      }
 
       logInfo('Created external process outward challan', {
         challanId: challan.id,
@@ -941,6 +954,15 @@ class ExternalProcessService {
         if (stockRow?.fabricId) {
           const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC');
           await syncStockLevelQuantity(materialId, qty, stockRow.warehouseId ?? undefined, 'METER', tx);
+        }
+        // The rolls / thans this send-out took come back as they went — only this send-out's, by its challan
+        // (one job can back several send-outs)
+        if (sendOut.outwardChallanId) {
+          await settleLotBack(tx, {
+            lotId: sendOut.fabricStockId,
+            scope: { challanId: sendOut.outwardChallanId },
+            mode: 'ALL',
+          });
         }
       }
 

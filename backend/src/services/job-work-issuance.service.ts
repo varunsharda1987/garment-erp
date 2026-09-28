@@ -40,6 +40,7 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { formatDate, formatDateTime, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
+import { settleLotBack, settleLotOut } from './fabric-lot-pieces.service';
 
 type Tx = Prisma.TransactionClient;
 
@@ -889,6 +890,7 @@ type IssuedChallan = {
     id: string;
     greigeStockId: string | null;
     laceStockId: string | null;
+    fabricStockId: string | null;
     jobWorkOrderId: string | null;
   }>;
 };
@@ -1036,6 +1038,17 @@ async function issueOneWithinTx(
       const materialId = await ensureMaterialRecord(lotRow.fabricId, 'FABRIC', tx);
       await syncStockLevelQuantity(materialId, -qty, lotRow.warehouseId ?? undefined, 'METER', tx);
     }
+    // The lot's rolls / thans go with its metres — to this job, on the challan it travels on (none when drawn
+    // where it lies). No picks yet (Phase 2): a job that empties the lot takes its whole list.
+    await settleLotOut(tx, {
+      lotId: fabricLotRow.id,
+      userId: opts.userId,
+      jobWorkOrderId: jwo.id,
+      challanId: challan?.id ?? null,
+      challanItemId:
+        challan?.items.find((it) => it.fabricStockId === fabricLotRow.id && (it.jobWorkOrderId ?? jwo.id) === jwo.id)
+          ?.id ?? null,
+    });
   }
 
   // 4a. LACE COMPONENTS — written for EVERY lace lot, even a single one. Unlike greige, the
@@ -1815,6 +1828,8 @@ export async function unissueForCancel(
       const materialId = await ensureMaterialRecord(lotRow.fabricId, 'FABRIC', tx);
       await syncStockLevelQuantity(materialId, totalQty, lotRow.warehouseId ?? undefined, 'METER', tx);
     }
+    // The rolls / thans the job took come back as they went (the rows are stamped, never deleted)
+    await settleLotBack(tx, { lotId: jwo.fabricStockLotId, scope: { jobWorkOrderId: jwo.id }, mode: 'ALL' });
   }
 
   // Cancel the outward challan — safe HERE because this same tx just restored the stock

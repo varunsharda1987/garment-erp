@@ -29,6 +29,7 @@ import { getQualityGradeOrDefault } from '../../constants/stock.constants';
 import { foldActual } from '../../utils/fold-length';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../../utils/quantity';
 import { BusinessError } from '../../errors';
+import { settleLotOut } from '../fabric-lot-pieces.service';
 
 export interface StockInRoutingData {
   materialId: string;
@@ -468,6 +469,9 @@ export async function routeFromSpecializedStock(
             status: isQtyZero(available - deductQty) || available - deductQty < 0 ? 'EXHAUSTED' : 'AVAILABLE',
           },
         });
+        // An oldest-first draw names no rolls / thans: a lot it empties takes its whole list; a part draw leaves
+        // the list out of step for "Check rolls & thans" (fabric-lot-pieces.service)
+        await settleLotOut(client, { lotId: stock.id, userId: data.performedById });
 
         deductedRecords.push({ stockId: stock.id, quantity: deductQty });
         remainingQty -= deductQty;

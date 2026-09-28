@@ -8,6 +8,8 @@ import { DEFAULT_QUALITY_GRADE, getQualityGradeOrDefault } from '../constants/st
 import { systemSettingsService } from './system-settings.service';
 // BUG-FAB5 fix: Use decimal.js for precise valuation calculations
 import { toCurrency, multiplyCurrency, roundToCent, toNumber, Decimal } from '../utils/currency';
+import { isQtyZero } from '../utils/quantity';
+import { movePiecesToLot } from './fabric-lot-pieces.service';
 
 export interface CreateStyleStockDTO {
   styleId: string;
@@ -784,6 +786,8 @@ class FabricStockService {
         needsEmbroidery: lot.needsEmbroidery,
         weaverId: lot.weaverId,
         weaverMix: lot.weaverMix ?? undefined,
+        // The same cloth: its rolls / thans are counted at the same fold
+        foldLengthCm: lot.foldLengthCm,
         createdById: p.userId,
       },
       select: { id: true },
@@ -805,6 +809,11 @@ class FabricStockService {
       },
     });
     await syncStockLevelQuantity(materialId, qty, p.storeWarehouseId, 'METER', tx);
+    // The WHOLE held lot moved: its rolls / thans move with it (and the fold they are counted at). A part move
+    // names no pieces, so both lists are left as they are — the stock page flags them out of step.
+    if (!p.alreadyDrawnByJobId && isQtyZero(remainingAtProcessor)) {
+      await movePiecesToLot(tx, p.stockId, storeLot.id);
+    }
     return { storeLotId: storeLot.id, remainingAtProcessor };
   }
 }

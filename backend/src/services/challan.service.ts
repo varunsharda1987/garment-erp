@@ -15,6 +15,8 @@ import { toDateInputValue } from '../utils/date';
 import { normalizeUnit, unitLabel } from '../utils/units';
 import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
 import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit } from './helpers/lot-location.helper';
+import { settleLotBack, settleLotOut, type FabricPiecePick } from './fabric-lot-pieces.service';
+import { BusinessError } from '../errors';
 
 /** Rule 55 wording on a Stock-Out that sends our goods to a job worker (Phase 4e). */
 export const STOCK_OUT_TO_JOB_WORKER_REASON = 'Inputs sent to a job worker for job work (CGST Rule 45) — not a supply';
@@ -254,7 +256,16 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
   return outerTx ? run(outerTx) : prisma.$transaction(run);
 }
 
-export async function issueChallan(id: string, userId?: string) {
+export interface IssueChallanOptions {
+  /**
+   * The rolls / thans leaving each FABRIC lot, keyed by fabric_stock id (COUNTED metres). The line's
+   * quantity was already taken from them (fabric-lot-pieces.service pickActualQty). A lot with no picks
+   * that the challan empties takes its whole list; one it leaves part-full is left out of step.
+   */
+  fabricPicks?: Record<string, FabricPiecePick[]>;
+}
+
+export async function issueChallan(id: string, userId?: string, opts?: IssueChallanOptions) {
   return prisma.$transaction(async (tx) => {
     // Fetch challan with items to check for stock links
     const existing = await tx.challans.findUnique({
@@ -451,6 +462,18 @@ export async function issueChallan(id: string, userId?: string) {
           // At the lot's own store — it used to hit the default store whatever the lot's warehouse
           if (fabMaterial)
             await syncStockLevelQuantity(fabMaterial.id, -lotQty, fabricStock.warehouseId ?? undefined, 'METER', tx);
+
+          // The lot's rolls / thans go with its metres: the ones picked, or — a challan that empties the lot
+          // without naming any — every one still listed (fabric-lot-pieces.service)
+          await settleLotOut(tx, {
+            lotId: item.fabricStockId,
+            picks: opts?.fabricPicks?.[item.fabricStockId] ?? null,
+            userId: effectiveUserId,
+            challanId: existing.id,
+            challanItemId: item.id,
+            cuttingBatchId: existing.cuttingBatchId ?? null,
+            jobWorkOrderId: item.jobWorkOrderId ?? existing.jobWorkOrderId ?? null,
+          });
         }
 
         // 3. Lace stock deduction
@@ -1212,17 +1235,34 @@ export async function cancelChallan(id: string) {
 
 export interface FabricReturnItem {
   fabricStockId: string;
+  /** ACTUAL metres coming back to the lot */
   quantity: number;
   description: string;
+  /**
+   * Cutting completion: the rolls / thans ticked as back WHOLE (optional, rare — owner 2026-09-28). The rest of
+   * the metres comes back as one end piece.
+   */
+  wholePieceIds?: string[];
 }
 
 export interface CreateFabricReturnInput {
   workOrderId: string;
   /** The cutting batch the fabric is coming back from — see run-fabric.helper.ts */
   cuttingBatchId?: string | null;
+  /** The batch's number — an end piece says where it came from ("End from CB-…") */
+  cuttingBatchNumber?: string | null;
   issuedById: string;
   items: FabricReturnItem[];
   remarks?: string;
+  /**
+   * How the lots' rolls / thans come back (fabric-lot-pieces.service settleLotBack):
+   *  - 'ALL' (default) — every piece that went for the batch comes back as it went (a batch deleted or
+   *    cancelled: nothing was cut);
+   *  - 'END' — the pieces ticked as back whole, and the rest of the metres as ONE end piece (cutting
+   *    completion).
+   * A lot the batch took without a list gets its metres back unlisted, exactly as they went.
+   */
+  piecesBack?: 'ALL' | 'END';
 }
 
 /**
@@ -1319,6 +1359,28 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
         });
         if (fabMat) await syncStockLevelQuantity(fabMat.id, item.quantity, undefined, 'METER', tx);
       }
+
+      // The lot's rolls / thans come back with its metres — in this transaction, so a refusal (rolls ticked
+      // for more than the metres returned) returns nothing at all
+      if (input.cuttingBatchId) {
+        await settleLotBack(tx, {
+          lotId: item.fabricStockId,
+          scope: { cuttingBatchId: input.cuttingBatchId },
+          returnChallanId: challan.id,
+          mode:
+            input.piecesBack === 'END'
+              ? {
+                  wholePieceIds: item.wholePieceIds ?? [],
+                  returnedActual: item.quantity,
+                  endRemarks: `End from ${input.cuttingBatchNumber ?? 'cutting'}`,
+                }
+              : 'ALL',
+        });
+      } else if ((item.wholePieceIds?.length ?? 0) > 0) {
+        throw new BusinessError('Rolls / thans can come back whole only against the cutting batch they went for.', {
+          reason: 'PIECE_NOT_ISSUED_HERE',
+        });
+      }
     }
 
     return challan;
@@ -1329,11 +1391,11 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
 // QUICK ISSUE (Create + Issue in one step)
 // ============================================
 
-export async function quickIssueChallan(input: CreateChallanInput) {
+export async function quickIssueChallan(input: CreateChallanInput, opts?: IssueChallanOptions) {
   // Step 1: Create challan as DRAFT
   const challan = await createChallan(input);
   // Step 2: Immediately issue it (triggers stock deduction via issueChallan)
-  const issuedChallan = await issueChallan(challan.id, input.issuedById);
+  const issuedChallan = await issueChallan(challan.id, input.issuedById, opts);
   return issuedChallan;
 }
 

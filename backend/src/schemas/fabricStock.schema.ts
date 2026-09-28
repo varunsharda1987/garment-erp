@@ -186,30 +186,52 @@ export const adjustGreigeStockSchema = z.object({
   remarks: z.string().max(500).optional(),
 });
 
+/** One counted piece — a than (optionally in a bale) or a roll — as the Record / Check dialogs post it. */
+const lotPieceRowSchema = z.object({
+  // Bale-wise: the dialog's bale 1, 2, 3… (the server numbers them past the lot's own bales)
+  baleNumber: formNumber(z.number().int().positive()),
+  baleNo: z.string().trim().max(30).optional().nullable(), // printed bale number
+  thanNo: z.string().trim().max(30).optional().nullable(), // than tag, or the roll number
+  // COUNTED metres (the tag figure at the lot's fold length)
+  meters: formNumberRequired(z.number().positive('Every piece needs its metres').max(100000)),
+});
+
+const pieceEntryModeSchema = z.enum(['THAN_WISE', 'BALE_WISE', 'ROLL_WISE']);
+
 /**
  * Record the bales / thans / rolls of a greige lot that has no list ("Record bales & thans")
  * POST /api/greige/stock/:stockId/pieces
  */
 export const recordGreigePiecesSchema = z
   .object({
-    entryMode: z.enum(['THAN_WISE', 'BALE_WISE', 'ROLL_WISE']),
-    pieces: z
-      .array(
-        z.object({
-          // Bale-wise: the dialog's bale 1, 2, 3… (the server numbers them past the lot's own bales)
-          baleNumber: formNumber(z.number().int().positive()),
-          baleNo: z.string().trim().max(30).optional().nullable(), // printed bale number
-          thanNo: z.string().trim().max(30).optional().nullable(), // than tag, or the roll number
-          // COUNTED metres (the tag figure at the lot's fold length)
-          meters: formNumberRequired(z.number().positive('Every piece needs its metres').max(100000)),
-        })
-      )
-      .min(1, 'Count at least one piece')
-      .max(2000),
+    entryMode: pieceEntryModeSchema,
+    pieces: z.array(lotPieceRowSchema).min(1, 'Count at least one piece').max(2000),
     remarks: z.string().trim().max(500).optional().nullable(),
   })
   .refine((v) => v.entryMode !== 'BALE_WISE' || v.pieces.every((p) => p.baleNumber != null), {
     message: 'Bale-wise: every than needs its bale',
+    path: ['pieces'],
+  });
+
+/**
+ * Record / Check the rolls & thans of a finished-fabric lot
+ * POST /api/stock/:id/pieces
+ * Record: a lot with no list (or none left) — `pieces` only. Check: `keepPieceIds` = the listed pieces that
+ * are really on the rack (every other listed piece leaves the list), plus any new `pieces`.
+ */
+export const recordFabricPiecesSchema = z
+  .object({
+    entryMode: pieceEntryModeSchema,
+    keepPieceIds: z.array(z.string().uuid()).max(2000).default([]),
+    pieces: z.array(lotPieceRowSchema).max(2000).default([]),
+    remarks: z.string().trim().max(500).optional().nullable(),
+  })
+  .refine((v) => v.entryMode !== 'BALE_WISE' || v.pieces.every((p) => p.baleNumber != null), {
+    message: 'Bale-wise: every than needs its bale',
+    path: ['pieces'],
+  })
+  .refine((v) => v.keepPieceIds.length > 0 || v.pieces.length > 0, {
+    message: 'Tick a roll / than that is on the rack, or add one',
     path: ['pieces'],
   });
 
@@ -258,6 +280,8 @@ export type UpdateFabricStockInput = z.infer<typeof updateFabricStockSchema>;
 export type TransferFabricStockInput = z.infer<typeof transferFabricStockSchema>;
 export type AdjustFabricStockInput = z.infer<typeof adjustFabricStockSchema>;
 export type FabricStockQueryInput = z.infer<typeof fabricStockQuerySchema>;
+
+export type RecordFabricPiecesInput = z.infer<typeof recordFabricPiecesSchema>;
 
 export type CreateGreigeStockInput = z.infer<typeof createGreigeStockSchema>;
 export type UpdateGreigeStockInput = z.infer<typeof updateGreigeStockSchema>;

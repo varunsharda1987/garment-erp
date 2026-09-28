@@ -35,6 +35,7 @@ import { challanDestination } from './lot-location.helper';
 import { recomputeCoveringChallansForJwo } from './jwo-challan-lifecycle.helper';
 import fabricStockService from '../fabric-stock.service';
 import { bringHeldLaceLotToStore } from '../laceStock.service';
+import { settleLotBack } from '../fabric-lot-pieces.service';
 
 export type ReturnedTo = 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
 
@@ -218,6 +219,9 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
         });
         const materialId = await ensureMaterialRecord(lot.fabricId, 'FABRIC', tx);
         await syncStockLevelQuantity(materialId, returnedQty, lot.warehouseId ?? undefined, 'METER', tx);
+        // The rolls / thans the job took come back as they went. A part return cannot say which pieces are
+        // missing, so the list then reads out of step and the Fabric Stock page offers "Check rolls & thans".
+        await settleLotBack(tx, { lotId: job.fabricStockLotId, scope: { jobWorkOrderId: job.id }, mode: 'ALL' });
       }
 
       // --- the document that says it came back -------------------------------------------------

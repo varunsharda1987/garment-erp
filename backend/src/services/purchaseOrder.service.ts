@@ -42,6 +42,12 @@ import { assertPoLinesFitCategory } from './helpers/po-line-category.helper';
 import { applySearch } from '../utils/search-filter';
 import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER } from './helpers/label-line.helper';
 import {
+  attachMaterialDetails,
+  MATERIAL_DETAIL_SELECT,
+  type MaterialDetailInput,
+} from './helpers/material-detail.helper';
+import { resolvePoForBuyers, type PoForBuyerInput } from './helpers/po-for-buyer.helper';
+import {
   applyDeliveryPlan,
   FINISHED_STATUSES,
   loadDeliveryProgress,
@@ -53,6 +59,31 @@ import {
 import { createAuditLog } from './audit.service';
 
 type Tx = Prisma.TransactionClient;
+
+/**
+ * POs as the PO page and list read them: each line's material with its `buyerBrand` / `spec` (whose label it
+ * is, and what — material-detail.helper), and the PO's `forBuyer`. PO2609-0231 bought Easybuy's size labels
+ * and nothing on it said so (2026-09-28). One detail lookup and one buyer lookup for the whole response.
+ */
+async function withLineDetails<
+  M extends MaterialDetailInput,
+  I extends { materials: M | null },
+  P extends Omit<PoForBuyerInput, 'purchase_order_items'> & { purchase_order_items: I[] },
+>(pos: P[]) {
+  const materials = pos
+    .flatMap((po) => po.purchase_order_items.map((item) => item.materials))
+    .filter((m): m is M => !!m);
+  const [detailed, forBuyers] = await Promise.all([attachMaterialDetails(materials), resolvePoForBuyers(pos)]);
+  const detailOf = new Map(materials.map((m, i) => [m, detailed[i]]));
+  return pos.map((po, i) => ({
+    ...po,
+    purchase_order_items: po.purchase_order_items.map((item) => ({
+      ...item,
+      materials: item.materials ? (detailOf.get(item.materials) ?? null) : null,
+    })),
+    forBuyer: forBuyers[i],
+  }));
+}
 
 /** Refuse a PO date after today (IST) — the schema checks it too; this guards every other writer. */
 function assertPoDateNotFuture(poDate: Date | string | undefined | null): void {
@@ -580,7 +611,8 @@ class PurchaseOrderService {
             },
           },
           // The list shows WHAT is on each PO, not only its category — in the PO page's line order,
-          // with the label + size of a label size row so the list can show "Label · N sizes"
+          // with the label + size of a label size row so the list can show "Label · N sizes", and the
+          // master FKs its whose-and-what detail line is read through
           purchase_order_items: {
             orderBy: PO_LINE_ORDER,
             include: {
@@ -589,9 +621,9 @@ class PurchaseOrderService {
                   id: true,
                   code: true,
                   name: true,
-                  materialType: true,
                   unit: true,
                   ...LABEL_LINE_MATERIAL_SELECT,
+                  ...MATERIAL_DETAIL_SELECT, // + materialType
                 },
               },
             },
@@ -602,7 +634,7 @@ class PurchaseOrderService {
     ]);
 
     return {
-      data: purchaseOrders.map((po) => ({
+      data: (await withLineDetails(purchaseOrders)).map((po) => ({
         ...po,
         itemCount: po.purchase_order_items.length,
       })),
@@ -628,7 +660,8 @@ class PurchaseOrderService {
       throw new NotFoundError('Purchase order');
     }
 
-    return purchaseOrder;
+    const [withDetails] = await withLineDetails([purchaseOrder]);
+    return withDetails;
   }
 
   /**
@@ -1853,7 +1886,6 @@ class PurchaseOrderService {
               id: true,
               code: true,
               name: true,
-              materialType: true,
               unit: true,
               // Width of what is being ORDERED: greige loom width for greige buys,
               // the fabric's actual width for ready-fabric buys. The item's own
@@ -1863,6 +1895,8 @@ class PurchaseOrderService {
               fabric_master: { select: { actualWidth: true } },
               // Which label and size a label size row is — PO pages group a label's sizes
               ...LABEL_LINE_MATERIAL_SELECT,
+              // materialType + the master FKs the line's whose-and-what detail is read through (getPurchaseOrderById)
+              ...MATERIAL_DETAIL_SELECT,
             },
           },
         },

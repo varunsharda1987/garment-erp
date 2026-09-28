@@ -42,6 +42,7 @@ import type { PendingCuttingInfo } from '@/services/grn.service';
 import { formatDate } from '@/lib/date';
 import { foldActual, hasFold } from '@/lib/fold-length';
 import { formatCurrency } from '@/lib/currency';
+import { materialDetailLine } from '@/lib/material-detail';
 
 /** "T-1023" when the than carries its printed tag, else "T5" by position */
 const detailLabel = (d: GRNItemDetail, position: number): string => {
@@ -546,12 +547,16 @@ export default function GRNDetail() {
                   });
                 }
 
+                // Who it is for · what tells it apart — two buyers' "Main Label"s read the same otherwise
+                const detail = materialDetailLine(item.materials);
+
                 return (
                   <TableRow key={item.id} className="align-top">
                     <TableCell>
                       <div>
                         <div className="font-medium">{item.materials?.code}</div>
                         <div className="text-sm text-muted-foreground">{item.materials?.name}</div>
+                        {detail && <div className="text-xs text-muted-foreground">{detail}</div>}
                       </div>
                       {/* Over-receipt indicator */}
                       {item.isOverReceipt && (

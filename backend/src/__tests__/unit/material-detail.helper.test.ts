@@ -23,7 +23,14 @@ jest.mock('../../config/database', () => ({
 }));
 
 import prisma from '../../config/database';
-import { attachMaterialDetails, joinFacts } from '../../services/helpers/material-detail.helper';
+import {
+  attachMaterialDetails,
+  joinFacts,
+  loadMaterialBuyers,
+  MATERIAL_DETAIL_SELECT,
+  materialDetailLine,
+} from '../../services/helpers/material-detail.helper';
+import { MASTER_CONFIG } from '../../services/helpers/master-config';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -165,5 +172,58 @@ describe('attachMaterialDetails', () => {
     ]);
     expect(out.every((m) => m.buyerBrand === null && m.spec === null)).toBe(true);
     expect(db.label_master.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('what a PO / GRN line reads it through', () => {
+  it('MATERIAL_DETAIL_SELECT carries the FK of every master type described above', () => {
+    for (const type of [
+      'LABEL',
+      'PACKAGING',
+      'BUTTON',
+      'ZIPPER',
+      'ELASTIC',
+      'LACE',
+      'INTERLINING',
+      'GREIGE',
+      'FABRIC',
+      'THREAD',
+    ]) {
+      expect(MATERIAL_DETAIL_SELECT).toHaveProperty(MASTER_CONFIG[type].fkField, true);
+    }
+    expect(MATERIAL_DETAIL_SELECT).toMatchObject({ materialType: true, threadPly: true });
+  });
+
+  it('loadMaterialBuyers: the customer behind buyerBrand (else the brand’s), reading only labels and packaging', async () => {
+    jest.clearAllMocks();
+    const EASYBUY = { id: 'cust-e', name: 'Easybuy' };
+    db.label_master.findMany.mockResolvedValue([
+      {
+        id: 'lbl-4',
+        labelName: 'Main Cum Size Label Black',
+        labelCategory: 'SEWN_IN',
+        labelType: 'Main Cum Size Label',
+        material: null,
+        color: 'Black',
+        size: null,
+        customer: null,
+        brandCategory: { brandName: 'Easybuy', category: 'Western Wear', customer: EASYBUY },
+      },
+    ]);
+    const out = await loadMaterialBuyers([
+      { materialType: 'LABEL', labelId: 'lbl-4' },
+      { materialType: 'BUTTON', buttonId: 'btn-1' },
+    ]);
+    expect(out).toEqual([EASYBUY, null]);
+    expect(db.button_master.findMany).not.toHaveBeenCalled();
+  });
+
+  it('materialDetailLine joins buyerBrand and spec, null when neither', () => {
+    expect(materialDetailLine({ buyerBrand: 'Easybuy · Easybuy - Western Wear', spec: 'Sewn-in · Black' })).toBe(
+      'Easybuy · Easybuy - Western Wear · Sewn-in · Black'
+    );
+    expect(materialDetailLine({ buyerBrand: null, spec: '16L · 4 holes' })).toBe('16L · 4 holes');
+    expect(materialDetailLine({ buyerBrand: null, spec: null })).toBeNull();
+    expect(materialDetailLine(undefined)).toBeNull();
   });
 });

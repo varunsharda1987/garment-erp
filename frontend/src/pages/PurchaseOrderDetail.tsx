@@ -17,7 +17,7 @@ import { queryKeys } from '@/lib/query-client';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PRE_SEND_STATUSES } from '@/lib/delivery-plan';
 import { CancelPoDialog } from '@/components/purchase-orders/CancelPoDialog';
-import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
+import type { POForBuyer, PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
 import {
   PurchaseOrderStatusLabels,
   PO_CATEGORY_LABELS,
@@ -63,6 +63,7 @@ import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { formatDate } from '@/lib/date';
 import { isQtyZero, qtyAtLeast } from '@/lib/quantity';
+import { materialDetailLine } from '@/lib/material-detail';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
 // NOTE: the backend serializer maps the Prisma `styles` relation key to `style`
@@ -127,6 +128,17 @@ interface GRNItem {
   receivedQuantity: number;
 }
 
+/** "Easybuy · Order SO2609-0012" — the buyer, and the order or style that names them when that is the source */
+function forBuyerText(forBuyer: POForBuyer): string {
+  const via =
+    forBuyer.source === 'ORDER' && forBuyer.orderNumber
+      ? `Order ${forBuyer.orderNumber}`
+      : forBuyer.source === 'STYLE' && forBuyer.styleCode
+        ? `Style ${forBuyer.styleCode}`
+        : null;
+  return [forBuyer.name, via].filter(Boolean).join(' · ');
+}
+
 type POItem = NonNullable<PurchaseOrder['items']>[number];
 
 /** One PO line; a label's size row shows its size instead of the material (the label is the heading above). */
@@ -136,6 +148,8 @@ function PoItemRow({ item, size }: { item: POItem; size?: string | null }) {
   const isPartiallyReceived = !isQtyZero(item.receivedQuantity) && !isFullyReceived;
   const taxAmt = Number(item.taxAmount || 0);
   const lineWithTax = Number(item.totalPrice) + taxAmt;
+  // Who it is for · what tells it apart — a size row leaves it to its label's heading
+  const detail = materialDetailLine(item.materials);
 
   return (
     <TableRow className={size !== undefined ? 'bg-muted/10' : undefined}>
@@ -150,6 +164,7 @@ function PoItemRow({ item, size }: { item: POItem; size?: string | null }) {
             <>
               <div className="font-medium">{item.materials.code}</div>
               <div className="text-sm text-muted-foreground">{item.materials.name}</div>
+              {detail && <div className="text-xs text-muted-foreground">{detail}</div>}
             </>
           ) : item.serviceDescription ? (
             <>
@@ -211,6 +226,8 @@ function PoLabelGroupRows({ group }: { group: LabelGroup<POItem> }) {
   const gst = same((l) => (l.gstRate ? Number(l.gstRate) : null));
   const allReceived = lines.every((l) => qtyAtLeast(l.receivedQuantity, l.orderedQuantity));
   const noneReceived = lines.every((l) => isQtyZero(l.receivedQuantity));
+  // Every size row reads the same label master, so the first one speaks for the label
+  const detail = materialDetailLine(lines[0]?.materials);
 
   return (
     <>
@@ -223,6 +240,7 @@ function PoLabelGroupRows({ group }: { group: LabelGroup<POItem> }) {
               <div className="text-sm text-muted-foreground">
                 {group.name} · {group.rows.length} {group.rows.length === 1 ? 'size' : 'sizes'}
               </div>
+              {detail && <div className="text-xs text-muted-foreground">{detail}</div>}
             </div>
           </div>
         </TableCell>
@@ -626,7 +644,7 @@ export default function PurchaseOrderDetail() {
       </div>
 
       {/* PO Source & Category */}
-      {(purchaseOrder.poCategory || purchaseOrder.poSource || linkedStyles.length > 0) && (
+      {(purchaseOrder.poCategory || purchaseOrder.poSource || purchaseOrder.forBuyer || linkedStyles.length > 0) && (
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4 flex-wrap">
@@ -636,6 +654,13 @@ export default function PurchaseOrderDetail() {
                   <Badge className={PO_CATEGORY_COLORS[purchaseOrder.poCategory] || 'bg-muted text-foreground'}>
                     {PO_CATEGORY_LABELS[purchaseOrder.poCategory] || purchaseOrder.poCategory}
                   </Badge>
+                </div>
+              )}
+              {/* Who it is for — nothing when the lines name no one buyer (the server never guesses) */}
+              {purchaseOrder.forBuyer && (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">For</div>
+                  <div className="text-sm font-medium">{forBuyerText(purchaseOrder.forBuyer)}</div>
                 </div>
               )}
               {purchaseOrder.poSource && (

@@ -99,6 +99,7 @@ import {
 import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
 import { applySearch } from '../utils/search-filter';
 import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER, toLabelLine } from './helpers/label-line.helper';
+import { loadMaterialDetails } from './helpers/material-detail.helper';
 
 /**
  * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
@@ -965,6 +966,8 @@ class GRNService {
             },
           })
         : null;
+    // Whose each line's material is and what ("Easybuy · … · Sewn-in · …") — as the PO shows it
+    const details = await loadMaterialDetails(grn.grn_items.map((item) => item.materialId));
     return {
       ...grn,
       grn_items: grn.grn_items.map((item) => {
@@ -972,6 +975,7 @@ class GRNService {
         const rate = grnLineRate(item, jwo);
         return {
           ...item,
+          materials: { ...item.materials, ...(details.get(item.materialId) ?? { buyerBrand: null, spec: null }) },
           actualQuantity: actual.toNumber(),
           rate: rate?.toNumber() ?? null,
           value: rate != null ? roundToCent(multiplyCurrency(actual, rate)).toNumber() : null,
@@ -1044,6 +1048,8 @@ class GRNService {
 
     // Greige and ready fabric are woven: the receipt must say which weaver's cloth came (Phase 1b).
     const needsWeaver = po.poCategory === 'GREIGE' || po.poCategory === 'FABRIC';
+    // Whose each material is and what ("Easybuy · … · Sewn-in · …") — the form prints it as the PO page does
+    const details = await loadMaterialDetails(po.purchase_order_items.map((item) => item.materialId));
     return po.purchase_order_items
       .filter((item) => item.materialId !== null)
       .map((item) => ({
@@ -1067,6 +1073,8 @@ class GRNService {
           labelName: label?.name ?? null,
           size,
         }))(toLabelLine(item.materials)),
+        buyerBrand: details.get(item.materialId as string)?.buyerBrand ?? null,
+        spec: details.get(item.materialId as string)?.spec ?? null,
       }));
   }
 

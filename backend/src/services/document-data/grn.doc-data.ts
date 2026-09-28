@@ -26,6 +26,7 @@ import { foldActual, hasFold } from '../../utils/fold-length';
 import { unitHeader, unitShort, unitWord } from '../../utils/units';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
+import { loadMaterialDetails, materialDetailLine, type MaterialDetails } from '../helpers/material-detail.helper';
 
 const grnDocInclude = {
   suppliers: {
@@ -75,6 +76,8 @@ export interface GrnDocLine {
   sn: number;
   material: string;
   subline: string | null;
+  /** Whose the material is and what ("Easybuy · … · Sewn-in · …") — as on the PO; null when none */
+  detail: string | null;
   uom: string;
   ordered: string;
   received: string;
@@ -185,11 +188,19 @@ export async function buildGrnDocData(grnId: string): Promise<GrnDocData> {
     prisma.goods_receiving_notes.findUnique({ where: { id: grnId }, include: grnDocInclude }),
   ]);
   if (!grn) throw new NotFoundError('GRN', grnId);
-  return transformGrn(company, grn);
+  const details = await loadMaterialDetails(grn.grn_items.map((item) => item.materialId));
+  return transformGrn(company, grn, details);
 }
 
-/** Pure transform — split from the loader so previews/tests can exercise it with a fixture record. */
-export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDocData {
+/**
+ * Pure transform — split from the loader so previews/tests can exercise it with a fixture record.
+ * `materialDetails`: each line material's whose-and-what, by materials id (material-detail.helper).
+ */
+export function transformGrn(
+  company: CompanyBlock,
+  grn: GrnWithDetails,
+  materialDetails?: ReadonlyMap<string, MaterialDetails>
+): GrnDocData {
   const jwo = grn.jobWorkOrder;
   const isJobWork = grn.jobWorkOrderId != null && jwo != null;
 
@@ -253,6 +264,7 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
       sn: idx + 1,
       material: item.materials.name,
       subline: bits.length > 0 ? bits.join(' · ') : null,
+      detail: materialDetailLine(materialDetails?.get(item.materialId)),
       uom: unitHeader(item.unit),
       ordered: fmtQty(item.orderedQuantity.toString(), item.unit),
       received: fmtQty(item.receivedQuantity.toString(), item.unit),

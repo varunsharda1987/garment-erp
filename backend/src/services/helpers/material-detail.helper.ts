@@ -32,6 +32,31 @@ export interface MaterialDetailInput {
   threadPly?: string | null;
 }
 
+/**
+ * The materials columns this helper reads — spread into a `materials` select so a PO / GRN line's material
+ * can be passed straight in. One FK per master type with a loader below (a unit test holds them in step).
+ */
+export const MATERIAL_DETAIL_SELECT = {
+  materialType: true,
+  threadPly: true,
+  labelId: true,
+  packagingId: true,
+  buttonId: true,
+  zipperId: true,
+  elasticId: true,
+  laceId: true,
+  interliningId: true,
+  greigeId: true,
+  fabricId: true,
+  threadId: true,
+} as const satisfies Prisma.materialsSelect;
+
+/** Whose a label / packaging master is — its customer, else its brand's customer */
+export interface MaterialBuyer {
+  id: string;
+  name: string;
+}
+
 type Db = Prisma.TransactionClient | typeof prisma;
 
 /** One master's facts, before joining */
@@ -40,6 +65,8 @@ interface MasterFacts {
   /** The master's own name — a fact that only repeats it is dropped */
   name: string;
   buyer?: Array<string | null | undefined>;
+  /** The customer behind `buyer` — what "For: <buyer>" on a PO compares, by id */
+  customer?: MaterialBuyer | null;
   /** Given the materials row — a thread's pack row has its own ply */
   spec: (material: MaterialDetailInput) => Array<string | null | undefined>;
 }
@@ -81,20 +108,31 @@ const PLY_WORD: Record<string, string> = { TWO_PLY: '2-ply', THREE_PLY: '3-ply' 
 /** Customer · brand ("Nihsamah - Sleepwear", as the Label form lists a brand). A brand set with no customer
  * on the master names its own customer. */
 const BUYER_SELECT = {
-  customer: { select: { name: true } },
-  brandCategory: { select: { brandName: true, category: true, customer: { select: { name: true } } } },
+  customer: { select: { id: true, name: true } },
+  brandCategory: { select: { brandName: true, category: true, customer: { select: { id: true, name: true } } } },
 } as const;
 
-function buyerFacts(row: {
-  customer: { name: string } | null;
-  brandCategory: { brandName: string; category: string | null; customer: { name: string } | null } | null;
-}): Array<string | null | undefined> {
+type BuyerRow = {
+  customer: MaterialBuyer | null;
+  brandCategory: { brandName: string; category: string | null; customer: MaterialBuyer | null } | null;
+};
+
+/** The master's customer, else its brand's */
+const customerOf = (row: BuyerRow): MaterialBuyer | null => row.customer ?? row.brandCategory?.customer ?? null;
+
+function buyerFacts(row: BuyerRow): Array<string | null | undefined> {
   const brand = row.brandCategory;
-  return [
-    row.customer?.name ?? brand?.customer?.name,
-    brand ? [brand.brandName, brand.category].filter((s) => s && s.trim()).join(' - ') : null,
-  ];
+  const customer = customerOf(row)?.name;
+  // A brand named after its buyer is said once: "Easybuy · Western Wear", not "Easybuy · Easybuy - Western Wear"
+  const brandName =
+    brand && customer && brand.brandName?.trim().toLowerCase() === customer.trim().toLowerCase()
+      ? null
+      : brand?.brandName;
+  return [customer, brand ? [brandName, brand.category].filter((s) => s && s.trim()).join(' - ') || null : null];
 }
+
+/** Only label and packaging masters carry a customer */
+const BUYER_TYPES: ReadonlySet<string> = new Set(['LABEL', 'PACKAGING']);
 
 /** One loader per master type: its facts, in one query for every id asked */
 const LOADERS: Record<string, (db: Db, ids: string[]) => Promise<MasterFacts[]>> = {
@@ -117,6 +155,7 @@ const LOADERS: Record<string, (db: Db, ids: string[]) => Promise<MasterFacts[]>>
       id: r.id,
       name: r.labelName,
       buyer: buyerFacts(r),
+      customer: customerOf(r),
       spec: () => [LABEL_CATEGORY_WORD[r.labelCategory] ?? r.labelCategory, r.labelType, r.material, r.color, r.size],
     })),
 
@@ -138,6 +177,7 @@ const LOADERS: Record<string, (db: Db, ids: string[]) => Promise<MasterFacts[]>>
       id: r.id,
       name: r.packagingName,
       buyer: buyerFacts(r),
+      customer: customerOf(r),
       spec: () => [r.packagingType, r.size, r.material, r.thickness],
     })),
 
@@ -247,23 +287,23 @@ function masterIdOf(material: MaterialDetailInput): string | null {
 }
 
 /**
- * Each material with its `buyerBrand` and `spec`, in the order given. One query per material type present
- * (types with no loader — the extended trims — get nulls and no query).
+ * The master facts of each material, in the order given — one query per material type present (types with
+ * no loader, the extended trims, get none and no query). `onlyTypes` narrows the types read.
  */
-export async function attachMaterialDetails<T extends MaterialDetailInput>(
-  materials: ReadonlyArray<T>,
-  tx?: Prisma.TransactionClient
-): Promise<Array<T & MaterialDetails>> {
-  const db: Db = tx ?? prisma;
-
+async function loadFacts(
+  materials: ReadonlyArray<MaterialDetailInput>,
+  db: Db,
+  onlyTypes?: ReadonlySet<string>
+): Promise<Array<MasterFacts | undefined>> {
   // Master ids wanted, per type
   const idsByType = new Map<string, Set<string>>();
   for (const material of materials) {
     const masterId = masterIdOf(material);
-    if (!masterId || !material.materialType || !LOADERS[material.materialType]) continue;
-    const ids = idsByType.get(material.materialType) ?? new Set<string>();
+    const type = material.materialType;
+    if (!masterId || !type || !LOADERS[type] || (onlyTypes && !onlyTypes.has(type))) continue;
+    const ids = idsByType.get(type) ?? new Set<string>();
     ids.add(masterId);
-    idsByType.set(material.materialType, ids);
+    idsByType.set(type, ids);
   }
 
   const loaded = await Promise.all(
@@ -273,12 +313,61 @@ export async function attachMaterialDetails<T extends MaterialDetailInput>(
 
   return materials.map((material) => {
     const masterId = masterIdOf(material);
-    const facts = masterId && material.materialType ? factsByType.get(material.materialType)?.get(masterId) : undefined;
-    if (!facts) return { ...material, buyerBrand: null, spec: null };
-    return {
-      ...material,
-      buyerBrand: joinFacts(facts.buyer ?? []),
-      spec: joinFacts(facts.spec(material), facts.name),
-    };
+    return masterId && material.materialType ? factsByType.get(material.materialType)?.get(masterId) : undefined;
   });
+}
+
+/**
+ * Each material with its `buyerBrand` and `spec`, in the order given. One query per material type present
+ * (types with no loader — the extended trims — get nulls and no query).
+ */
+export async function attachMaterialDetails<T extends MaterialDetailInput>(
+  materials: ReadonlyArray<T>,
+  tx?: Prisma.TransactionClient
+): Promise<Array<T & MaterialDetails>> {
+  const facts = await loadFacts(materials, tx ?? prisma);
+  return materials.map((material, i) => {
+    const f = facts[i];
+    if (!f) return { ...material, buyerBrand: null, spec: null };
+    return { ...material, buyerBrand: joinFacts(f.buyer ?? []), spec: joinFacts(f.spec(material), f.name) };
+  });
+}
+
+/**
+ * `buyerBrand` and `spec` by materials id, for a caller whose select does not carry the FK columns (a GRN's
+ * lines). One materials query, then as attachMaterialDetails. An id with no materials row is left out.
+ */
+export async function loadMaterialDetails(
+  materialIds: ReadonlyArray<string | null | undefined>,
+  tx?: Prisma.TransactionClient
+): Promise<Map<string, MaterialDetails>> {
+  const ids = [...new Set(materialIds.filter((id): id is string => !!id))];
+  if (ids.length === 0) return new Map();
+  const db: Db = tx ?? prisma;
+  const rows = await db.materials.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, ...MATERIAL_DETAIL_SELECT },
+  });
+  const detailed = await attachMaterialDetails(rows, tx);
+  return new Map(detailed.map((m) => [m.id, { buyerBrand: m.buyerBrand, spec: m.spec }]));
+}
+
+/**
+ * Whose each material is — the customer behind its `buyerBrand` (a label / packaging master's customer, else
+ * its brand's), null for everything else. In the order given; reads only the label and packaging masters.
+ */
+export async function loadMaterialBuyers<T extends MaterialDetailInput>(
+  materials: ReadonlyArray<T>,
+  tx?: Prisma.TransactionClient
+): Promise<Array<MaterialBuyer | null>> {
+  const facts = await loadFacts(materials, tx ?? prisma, BUYER_TYPES);
+  return facts.map((f) => f?.customer ?? null);
+}
+
+/**
+ * The one line printed / shown under a material: "Easybuy · Easybuy - Western Wear · Sewn-in · …" — null when
+ * it has neither part. Twin of the frontend's `materialDetailLine` (`@/lib/material-detail`).
+ */
+export function materialDetailLine(details: Partial<MaterialDetails> | null | undefined): string | null {
+  return details ? joinFacts([details.buyerBrand, details.spec]) : null;
 }

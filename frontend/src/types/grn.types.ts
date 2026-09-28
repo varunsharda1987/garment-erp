@@ -47,6 +47,12 @@ export interface MaterialSummary {
   name: string;
   materialType: string;
   unit: string | null;
+  /**
+   * GET /grn/:id — from its type master (`attachMaterialDetails`): who it is for ("customer · brand", labels and
+   * packaging only) and what tells it apart. Print both with `materialDetailLine` (@/lib/material-detail).
+   */
+  buyerBrand?: string | null;
+  spec?: string | null;
 }
 
 export interface POItemSummary {
@@ -348,6 +354,9 @@ export interface PendingPOItem {
   labelCode?: string | null;
   labelName?: string | null;
   size?: string | null;
+  /** The material's detail from its type master, as on MaterialSummary — the GRN form's line prints it */
+  buyerBrand?: string | null;
+  spec?: string | null;
 }
 
 export interface PendingItemsResponse {

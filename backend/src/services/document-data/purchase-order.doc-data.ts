@@ -17,6 +17,8 @@ import { unitHeader } from '../../utils/units';
 import { resolvePoDeliverTo } from './po-deliver-to';
 import { JOB_WORK_SHIP_TO_NOTE, loadPoShipToPlan, ONE_INVOICE_PER_DELIVERY, PoShipTo } from './po-ship-to';
 import { LABEL_LINE_MATERIAL_SELECT, labelLineKeyOf, PO_LINE_ORDER } from '../helpers/label-line.helper';
+import { attachMaterialDetails, MATERIAL_DETAIL_SELECT, materialDetailLine } from '../helpers/material-detail.helper';
+import { poForBuyerLine, resolvePoForBuyer } from '../helpers/po-for-buyer.helper';
 import { groupLabelLines, sumRows } from '../../utils/label-lines';
 
 const poDocInclude = {
@@ -33,8 +35,11 @@ const poDocInclude = {
   purchase_order_items: {
     orderBy: PO_LINE_ORDER,
     include: {
-      // + which label and size a line is: a label's sizes print under one heading (utils/label-lines)
-      materials: { select: { name: true, code: true, hsnCode: true, ...LABEL_LINE_MATERIAL_SELECT } },
+      // + which label and size a line is: a label's sizes print under one heading (utils/label-lines);
+      // + the master FKs its whose-and-what line is read through (material-detail.helper)
+      materials: {
+        select: { name: true, code: true, hsnCode: true, ...LABEL_LINE_MATERIAL_SELECT, ...MATERIAL_DETAIL_SELECT },
+      },
       weaver: { select: { name: true } }, // Phase 1b: printed under the line when known
     },
   },
@@ -52,6 +57,8 @@ export interface PurchaseOrderDocItem {
   isSize?: boolean;
   name: string;
   code: string | null; // muted material code next to the name
+  /** Muted line under the item / label heading: whose it is and what ("Easybuy · … · Sewn-in · …"); null on size rows */
+  detail: string | null;
   weaver: string | null; // "Weaver: …" under the line, when the PO names one
   hsn: string;
   uom: string;
@@ -76,6 +83,8 @@ export interface PurchaseOrderDocData {
   supplierGstin: string | null;
   supplierStateLabel: string | null; // "Punjab (03)"
   supplierContact: string | null;
+  /** "Easybuy" / "Easybuy · Order …" / "Easybuy · Style …" — who the goods are for (po-for-buyer.helper); null = not one buyer */
+  forBuyer: string | null;
   poDate: string;
   requiredBy: string;
   deliverTo: string;
@@ -146,6 +155,13 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
 
   const paymentTerms = po.paymentTerms ?? s.paymentTerms ?? null;
 
+  // Whose each line is and what, and who the whole PO is for — PO2609-0231 printed Easybuy's size labels
+  // with nothing to say they were Easybuy's (2026-09-28)
+  const lineMaterials = po.purchase_order_items.flatMap((item) => (item.materials ? [item.materials] : []));
+  const [detailed, forBuyer] = await Promise.all([attachMaterialDetails(lineMaterials), resolvePoForBuyer(po)]);
+  const detailOf = new Map(lineMaterials.map((m, i) => [m, materialDetailLine(detailed[i])]));
+  const detailLine = (item: PoItem) => (item.materials ? (detailOf.get(item.materials) ?? null) : null);
+
   // ── 02 — items & totals (all money via decimal.js) ───────────────────────
   let taxableSum = toCurrency(0);
   let taxSum = toCurrency(0);
@@ -165,6 +181,7 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
     sn,
     name: itemName(item),
     code: item.materials?.code ?? null,
+    detail: detailLine(item),
     weaver: item.weaver?.name ?? null,
     hsn: item.hsnCode ?? item.materials?.hsnCode ?? EM_DASH,
     uom: unitHeader(item.unit),
@@ -198,6 +215,7 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
       isGroup: true,
       name: g.name,
       code: `${g.code} · ${g.rows.length} ${g.rows.length === 1 ? 'size' : 'sizes'}`,
+      detail: same(detailLine), // one label master, so one line — printed once, on the heading
       weaver: null,
       hsn: same((l) => l.hsnCode ?? l.materials?.hsnCode ?? null) ?? EM_DASH,
       uom: unit ? unitHeader(unit) : EM_DASH,
@@ -215,7 +233,13 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
       sgst: money((l) => l.sgstAmount),
     });
     for (const r of g.rows) {
-      items.push({ ...lineRow(r.line, null), isSize: true, name: r.size ? `Size ${r.size}` : 'All sizes', code: null });
+      items.push({
+        ...lineRow(r.line, null),
+        isSize: true,
+        name: r.size ? `Size ${r.size}` : 'All sizes',
+        code: null,
+        detail: null,
+      });
     }
   }
 
@@ -238,6 +262,7 @@ export async function buildPurchaseOrderDocData(poId: string): Promise<PurchaseO
     supplierGstin: gstin,
     supplierStateLabel,
     supplierContact: contactBits.length > 0 ? contactBits.join(' · ') : null,
+    forBuyer: poForBuyerLine(forBuyer),
     poDate: fmtDate(po.poDate),
     requiredBy: fmtDate(po.expectedDeliveryDate),
     deliverTo,

@@ -122,6 +122,7 @@ import { foldCounted, hasFold } from '@/lib/fold-length';
 import { indexSizedLabels, labelDisplay, mergeLabelQuantities, sizeOf } from '@/lib/label-materials';
 import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
 import { formLineLabelKey } from '@/lib/label-line-keys';
+import { materialDetailLine } from '@/lib/material-detail';
 import { generateId } from '@/lib/utils';
 import { LabelSizeQtyDialog } from '@/components/purchase-orders/LabelSizeQtyDialog';
 import { LabelSetDialog, type LabelSetSelection } from '@/components/purchase-orders/LabelSetDialog';
@@ -398,7 +399,7 @@ function taxOf(
 function materialDetail(material: Material): string {
   const rate = material.purchaseUnit ? material.purchaseUnitPrice : material.costPerUnit;
   const unit = material.purchaseUnit || material.unit;
-  return [material.buyerBrand, material.spec, rate ? `${formatCurrency(rate)} / ${unitPer(unit)}` : null]
+  return [materialDetailLine(material), rate ? `${formatCurrency(rate)} / ${unitPer(unit)}` : null]
     .filter(Boolean)
     .join(' · ');
 }

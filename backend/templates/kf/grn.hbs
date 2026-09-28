@@ -53,7 +53,7 @@
       </thead>
       <tbody>
         {{#each lines}}
-        <tr><td class="num">{{this.sn}}</td><td>{{this.material}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.uom}}</td><td class="num">{{this.ordered}}</td><td class="num">{{this.received}}{{#if this.foldNote}}<br><span class="muted">{{this.foldNote}}</span>{{/if}}</td><td class="num">{{this.accepted}}</td><td class="num">{{this.rejected}}</td>{{#if @root.hasFold}}<td class="num">{{this.actual}}</td>{{/if}}{{#if @root.showValue}}<td class="num">{{this.rate}}</td><td class="num">{{this.value}}</td>{{/if}}</tr>
+        <tr><td class="num">{{this.sn}}</td><td>{{this.material}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}{{#if this.detail}}<br><span class="muted">{{this.detail}}</span>{{/if}}</td><td>{{this.uom}}</td><td class="num">{{this.ordered}}</td><td class="num">{{this.received}}{{#if this.foldNote}}<br><span class="muted">{{this.foldNote}}</span>{{/if}}</td><td class="num">{{this.accepted}}</td><td class="num">{{this.rejected}}</td>{{#if @root.hasFold}}<td class="num">{{this.actual}}</td>{{/if}}{{#if @root.showValue}}<td class="num">{{this.rate}}</td><td class="num">{{this.value}}</td>{{/if}}</tr>
         {{/each}}
         <tr class="tot"><td colspan="5">Total accepted{{#if hasFold}} (stock takes the Actual column){{else}} to stock{{/if}}</td><td class="num">{{totalAccepted}}</td><td class="num">{{totalRejected}}</td>{{#if hasFold}}<td class="num">{{totalActual}}</td>{{/if}}{{#if showValue}}<td></td><td class="num">{{totalValue}}</td>{{/if}}</tr>
       </tbody>

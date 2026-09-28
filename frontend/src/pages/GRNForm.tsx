@@ -32,6 +32,7 @@ import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
 import { qtyExceeds } from '@/lib/quantity';
+import { materialDetailLine } from '@/lib/material-detail';
 
 // ============================================
 // Types
@@ -83,6 +84,9 @@ interface GRNItemForm {
   labelCode?: string | null;
   labelName?: string | null;
   size?: string | null;
+  // Who it is for · what tells it apart (materialDetailLine) — display only
+  buyerBrand?: string | null;
+  spec?: string | null;
 }
 
 // ============================================
@@ -253,6 +257,8 @@ export default function GRNForm() {
           labelCode: item.labelCode ?? null,
           labelName: item.labelName ?? null,
           size: item.size ?? null,
+          buyerBrand: item.buyerBrand ?? null,
+          spec: item.spec ?? null,
         }));
       setItems(pendingItems);
     } catch (err) {
@@ -611,6 +617,8 @@ export default function GRNForm() {
   const renderReceiptRow = (item: GRNItemForm, index: number, size?: string | null) => {
     const received = foldActual(item.receivedQuantity, item.foldLengthCm);
     const isOver = received > item.pendingQuantity && received > 0;
+    // A size row leaves who it is for to its label's heading
+    const detail = materialDetailLine(item);
     return (
       <TableRow key={item.poItemId} className="align-top">
         <TableCell>
@@ -625,6 +633,7 @@ export default function GRNForm() {
             <div>
               <div className="font-medium">{item.materialCode}</div>
               <div className="text-sm text-muted-foreground">{item.materialName}</div>
+              {detail && <div className="text-xs text-muted-foreground">{detail}</div>}
               <div className="text-xs text-muted-foreground">{unitShort(item.unit)}</div>
             </div>
           )}
@@ -687,6 +696,8 @@ export default function GRNForm() {
   const renderLabelHeading = (group: LabelGroup<GRNItemForm>) => {
     const rows = group.rows;
     const sum = (pick: (i: GRNItemForm) => number) => sumRows(rows, pick);
+    // Every size reads the same label master, so the first one speaks for the label
+    const detail = materialDetailLine(rows[0]?.line);
     return (
       <TableRow key={group.key} className="bg-muted/40">
         <TableCell>
@@ -694,6 +705,7 @@ export default function GRNForm() {
           <div className="text-sm text-muted-foreground">
             {group.name} · {rows.length} {rows.length === 1 ? 'size' : 'sizes'}
           </div>
+          {detail && <div className="text-xs text-muted-foreground">{detail}</div>}
         </TableCell>
         <TableCell className="text-right font-medium">{sum((i) => i.orderedQuantity).toLocaleString()}</TableCell>
         <TableCell className="text-right">{sum((i) => i.alreadyReceived).toLocaleString()}</TableCell>

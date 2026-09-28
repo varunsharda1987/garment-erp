@@ -323,6 +323,9 @@ export interface PendingPOItem {
   labelCode?: string | null;
   labelName?: string | null;
   size?: string | null;
+  /** Whose the material is and what, from its type master (material-detail.helper) — the GRN form's line prints it */
+  buyerBrand?: string | null;
+  spec?: string | null;
 }
 
 /**

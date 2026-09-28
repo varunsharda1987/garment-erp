@@ -49,6 +49,7 @@ import { deliveryUndecidedSoon, FINISHED_STATUSES, planMode } from '@/lib/delive
 import { groupLabelLines, type GroupedLine } from '@/lib/label-lines';
 import { poItemLabelKey } from '@/lib/label-line-keys';
 import { summarizePOStats } from '@/lib/po-list-stats';
+import { materialDetailLine } from '@/lib/material-detail';
 import {
   ShoppingBag,
   Clock,
@@ -101,6 +102,16 @@ function describeLine(g: GroupedLine<PurchaseOrderItem>, withSizes = false): str
   return `${g.name} · ${count}${withSizes ? ` (${sizes})` : ''}`;
 }
 
+/** Who a line is for · what tells it apart — a label's sizes all read one label master, so its first size speaks for it */
+const lineDetail = (g: GroupedLine<PurchaseOrderItem>) =>
+  materialDetailLine(g.kind === 'single' ? g.line.materials : g.rows[0]?.line.materials);
+
+/** The tooltip's line for one item: its name (and sizes), then its detail when it has one */
+function tooltipLine(g: GroupedLine<PurchaseOrderItem>): string {
+  const detail = lineDetail(g);
+  return detail ? `${describeLine(g, true)} — ${detail}` : describeLine(g, true);
+}
+
 /**
  * What is on the PO: the first line's material (a service line falls back to its description, as on the
  * detail page) — a label's sizes counted as one, as on the PO page — plus a count of the others.
@@ -111,10 +122,12 @@ function POMaterialCell({ lines }: { lines: GroupedLine<PurchaseOrderItem>[] }) 
 
   const code = first.kind === 'label' ? first.code : first.line.materials?.code;
   const extra = lines.length - 1;
+  const detail = lineDetail(first);
   return (
     // Wider on big screens so a greige's quality suffix ("… (Super Dyeing)") is not cut off
-    <div className="max-w-[260px] 2xl:max-w-[420px]" title={lines.map((g) => describeLine(g, true)).join('\n')}>
+    <div className="max-w-[260px] 2xl:max-w-[420px]" title={lines.map(tooltipLine).join('\n')}>
       <div className="text-sm font-medium truncate">{describeLine(first)}</div>
+      {detail && <div className="text-xs text-muted-foreground truncate">{detail}</div>}
       <div className="text-xs text-muted-foreground truncate">
         {code}
         {extra > 0 && `${code ? ' · ' : ''}+${extra} more`}

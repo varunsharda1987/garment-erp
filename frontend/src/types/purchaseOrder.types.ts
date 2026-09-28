@@ -275,6 +275,23 @@ export interface MaterialSummary {
   labelId?: string | null;
   labelMaster?: { id: string; labelCode: string; labelName: string; labelType?: string | null } | null;
   labelSizeVariant?: { size: string } | null;
+  /**
+   * From its type master (`attachMaterialDetails`): who it is for, "customer · brand" — labels and packaging
+   * only — and what tells it apart. Print both with `materialDetailLine` (@/lib/material-detail).
+   */
+  buyerBrand?: string | null;
+  spec?: string | null;
+}
+
+/**
+ * Who a PO is for: the linked order's customer, else the linked style's customer, else the one buyer EVERY
+ * line with a buyer (labels / packaging) names. Mixed or none → the PO carries null, never a guess.
+ */
+export interface POForBuyer {
+  name: string;
+  source: 'ORDER' | 'STYLE' | 'LINES';
+  orderNumber: string | null;
+  styleCode: string | null;
 }
 
 // ============================================
@@ -395,6 +412,9 @@ export interface PurchaseOrder {
     cadMeters: number | null;
     fabric?: { id: string; name: string } | null;
   } | null;
+
+  /** GET /purchase-orders and /purchase-orders/:id — who it is for (null = no single buyer) */
+  forBuyer?: POForBuyer | null;
 
   // Computed by getReceivablePurchaseOrders (extracted from requirement_po_links)
   styleCodes?: string[];

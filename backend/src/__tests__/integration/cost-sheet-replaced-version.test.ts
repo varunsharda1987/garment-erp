@@ -136,6 +136,32 @@ describe('a replaced cost sheet version is history', () => {
     expect(await prisma.order_bom.count({ where: { orderId } })).toBe(0);
   });
 
+  it('still lets an order whose BOM came from the old version regenerate it (Regenerate sends its own source)', async () => {
+    const bomId = randomUUID();
+    await prisma.order_bom.create({
+      data: {
+        id: bomId,
+        orderId,
+        styleId,
+        isActive: true,
+        sourceCostSheetId: v1Id,
+        createdById: userId,
+        updatedAt: new Date(),
+      },
+    });
+    try {
+      const outcome = await orderBomService
+        .createFromCostSheet({ orderId, styleId, costSheetId: v1Id, createdById: userId })
+        .then(
+          () => 'built',
+          (e: { details?: { code?: string } }) => e.details?.code ?? 'other refusal'
+        );
+      expect(outcome).not.toBe('COST_SHEET_REPLACED');
+    } finally {
+      await prisma.order_bom.deleteMany({ where: { orderId: only(orderId) } });
+    }
+  });
+
   it('writes who approved and who revoked the live version to the audit log', async () => {
     await request(app)
       .patch(`/api/style-costing/${v2Id}/approve`)

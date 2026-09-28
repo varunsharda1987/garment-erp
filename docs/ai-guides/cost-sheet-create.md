@@ -65,6 +65,10 @@ keywords:
   - label cost sheet mein kahan
   - packaging cost
   - एक्सेसरीज़
+  - old version
+  - replaced version
+  - purana version revoke
+  - पुराना वर्जन
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -83,6 +87,8 @@ sources:
   - backend/src/controllers/lace.controller.ts
   - backend/src/services/laceCostingCalculation.service.ts
   - backend/src/services/helpers/material-unit.helper.ts
+  - backend/src/services/helpers/cost-sheet-version.helper.ts
+  - backend/src/controllers/style-costing-approval.controller.ts
 route: /cost-sheets/new
 ---
 
@@ -123,6 +129,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 - Components with CAD data but **no saved costing** produce no fabric row. Save a fabric costing for them first if they belong in the sheet.
 - If a fabric option was **costed more than once**, the most recent costing is the one used. Check the style's Fabric Costing Options if a rate looks unfamiliar.
 - An approved cost sheet is read-only. Opening its edit link shows "Approved cost sheets cannot be edited. Create a new version instead." and sends you to the details page. Create a new version from the list; a version reason is compulsory.
+- An older version that a newer version replaced is kept as history. **Approve**, **Reject**, **Revoke**, **Edit**, **Delete** and **New Version** on it are refused with "… cost sheet v1 was replaced on 28-Sep-2026 and is kept as history. Open v2 to make changes." Open the version the message names and work there. Every **Approve**, **Reject** and **Revoke** is recorded with who did it and when.
 - A pending version with a box **Made by a CAD correction** (on the **Cost Sheet Details** page) was made by **Correct…** in CAD Planning, not by hand. The box shows the old and new CAD average, who corrected it, when and why. An admin decides it with **Approve** or **Reject**: approving it also updates the CAD row, its fabric price approval, and every order built on the previous version (a new BOM version and its requirements); rejecting it drops the correction and keeps the previous version. Do not **Delete** such a version — **Reject** it. If the box says some orders could not be updated, fix the reason it gives (for example unlock the order BOM) and click **Retry** in the box.
 - A cost sheet keeps the mode it was created in. **Fabric Costing Mode** is locked on the **Edit Cost Sheet** page, and **New Version** keeps the mode and the closed cost. For another mode, make a separate sheet with **+ New Cost Sheet**.
 - **Reload from Style** refreshes fabric and trim rows from the style. It overwrites what you typed in those tables.

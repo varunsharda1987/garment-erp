@@ -392,8 +392,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       throw new NotFoundError('Cost Sheet', input.costSheetId);
     }
 
-    // An old version stays APPROVED as history; an order is never built on its replaced figures
-    await assertCostSheetIsLive(input.costSheetId);
+    // An old version stays APPROVED as history: no order takes it as a NEW source. Regenerate rebuilds a BOM
+    // from the sheet it already came from — an order left on v1 by a manual New Version keeps that door.
+    const regenerating = await this.prisma.order_bom.findFirst({
+      where: { orderId: input.orderId, styleId: input.styleId, isActive: true, sourceCostSheetId: input.costSheetId },
+      select: { id: true },
+    });
+    if (!regenerating) await assertCostSheetIsLive(input.costSheetId);
 
     if (costSheet.approvalStatus !== 'APPROVED') {
       throw new BusinessError('Cost Sheet must be approved before creating Order BOM');

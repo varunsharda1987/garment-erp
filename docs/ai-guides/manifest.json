@@ -248,14 +248,14 @@
       "frontend/src/pages/CuttingChart.tsx": "77aa32b5d84d",
       "frontend/src/pages/CuttingDetail.tsx": "01dd8f6071c3",
       "frontend/src/pages/WorkOrderDetail.tsx": "0fd224e036cb",
-      "frontend/src/components/FabricIssuanceSection.tsx": "6a9e79681efc",
+      "frontend/src/components/FabricIssuanceSection.tsx": "d751537c055c",
       "frontend/src/components/job-work/ThanPicker.tsx": "20dda4f2ee97",
       "backend/src/schemas/production.schema.ts": "ab9ffff81b5a",
       "backend/src/routes/cutting.routes.ts": "c8017d275eeb",
       "backend/src/services/productionBlockingValidation.service.ts": "5c701bf13264"
     },
-    "contentHash": "eaa705bd4e7a",
-    "generatedAt": "2026-09-28T16:02:11.510Z"
+    "contentHash": "574e913cc1da",
+    "generatedAt": "2026-09-28T17:11:14.792Z"
   },
   "debit-note-create": {
     "sources": {

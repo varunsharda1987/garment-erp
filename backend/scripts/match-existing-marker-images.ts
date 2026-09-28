@@ -10,8 +10,8 @@
  *
  * It never changes a CAD value, and never links an image to a row that already has one.
  *
- *   npx ts-node scripts/match-existing-marker-images.ts            (dry run: reads the images, writes nothing)
- *   npx ts-node scripts/match-existing-marker-images.ts --apply    (stores the readings, links the exact matches)
+ *   npx ts-node --files scripts/match-existing-marker-images.ts            (dry run: reads the images, writes nothing)
+ *   npx ts-node --files scripts/match-existing-marker-images.ts --apply    (stores the readings, links the exact matches)
  *
  * Reading takes ~6 s an image, one at a time.
  */

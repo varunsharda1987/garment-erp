@@ -26,6 +26,15 @@ keywords:
   - रंग ज़रूरी
   - प्राइमरी कलर
   - आउटपुट सेव नहीं हो रहा
+  - no colour
+  - style has no colour
+  - colour optional
+  - color unknown
+  - bina colour ke silai
+  - colour nahi hai
+  - बिना रंग
+  - रंग नहीं है
+  - रंग वैकल्पिक
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -56,7 +65,7 @@ Stitching has two parts: first create a **stitching issue** from a cutting trans
 ## Record the work
 7. Click **Receive from Cutting** (Step 1), then **Start Stitching** (Step 2).
 8. Click **Record Output**. In the **Record Daily Output** dialog set **Output Date**, then enter **Good Qty** and **Defect Qty** per row and click **Save Output**. Repeat every day.
-9. When everything is stitched, click **Complete**, then **Generate Transfer Slip** to send the pieces to finishing.
+9. When everything is stitched, click **Complete**, then **Generate Transfer Slip** to send the pieces to finishing. The page then shows **Go to Finishing**, which opens a new finishing issue for that slip.
 
 ## Traps to avoid
 - All selected slips must belong to the **same work order**. Ticking a slip from another run clears the earlier selection.
@@ -64,5 +73,6 @@ Stitching has two parts: first create a **stitching issue** from a cutting trans
 - A slip already used by another stitching issue cannot be reused.
 - **Complete** only appears after at least one daily output is recorded.
 - **Good Qty** and **Defect Qty** are capped at the **Remaining** figure on that row.
-- Every output row needs a colour. If the style has no **Primary Color**, its rows carry none and **Save Output** is refused with "Color (row 1): Required — open the style and set its Primary Color, and it fills in here automatically." Open that style in **Styles**, set **Primary Color** on the Basic Info tab, then record the output again. Creating the issue itself is not affected — only the output is.
+- A colour is not needed. A style with no colour is received, stitched, recorded and transferred with no colour on its rows — the **Color** column reads **Unknown** in the **Record Daily Output** dialog and **-** in **SKU Breakdown**. Just enter the quantities and click **Save Output**; you do not have to set a colour on the style first.
+- Completed too early? **Reopen** (shown on a Completed issue until its transfer slip is generated) puts it back to In Progress so you can record more output.
 - On the list, the row icons do the same steps quickly: Receive, Start, Complete, Issue to Finishing.

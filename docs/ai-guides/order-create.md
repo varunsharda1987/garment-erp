@@ -46,6 +46,22 @@ keywords:
   - create BOM
   - BOM kaise banaye
   - बीओएम बनाना
+  - no colour
+  - style has no colour
+  - size without colour
+  - colour optional
+  - choose the colour for each size
+  - bina colour ke size
+  - colour nahi hai
+  - colour chunna hai
+  - बिना रंग
+  - रंग नहीं है
+  - रंग के बिना साइज़
+  - unit price
+  - closed cost
+  - use cost sheet
+  - price kahan se aata hai
+  - यूनिट प्राइस
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -61,11 +77,13 @@ sources:
   - backend/src/services/order-bom.service.ts
   - frontend/src/services/saleOrder.service.ts
   - backend/src/services/saleOrder.service.ts
+  - backend/src/services/helpers/sku-colour.helper.ts
+  - frontend/src/components/cost-sheet/CostSheetComparisonModal.tsx
 route: /orders/new
 ---
 
 ## Before you start
-The style must be published (**Active** status) and must already have an **Approved** cost sheet with purpose *Raw Material Calculation*. Without it the order cannot be saved, and the order's BOM is built from that sheet. The style also needs size options (SKU variants) in Style Master. One order carries one style only.
+The style must be published (**Active** status) and must already have an **Approved** cost sheet with purpose *Raw Material Calculation*. Without it the order cannot be saved, and the order's BOM is built from that sheet. The style also needs size options (SKU variants) in Style Master. It does not need a colour: a style with no colour is ordered and sized without one. One order carries one style only.
 
 ## Steps
 1. Open **Orders & Sales → Orders** in the sidebar.
@@ -73,10 +91,10 @@ The style must be published (**Active** status) and must already have an **Appro
 3. Pick **Customer Name \*** from the dropdown.
 4. Pick **Style \***. Type two or more letters in the **Search styles...** box inside the dropdown to search the full catalogue.
 5. Watch the message that appears under the row. Green means approved cost sheets are available; a red **No Approved Cost Sheet** panel means you must click **Create Cost Sheet** and get it approved first.
-   - **If this customer has a confirmed sale order for the style** that no production order is made for yet, the form fills itself from it and a banner says **Filled from SO… · Buyer PO … · N pcs — this order will be linked to the sale order**: the size grid (a line ordered without a colour goes in the style's only colour), **Total Qty**, **Delivery** (the sale order's Expected Ship Date), **Order Date** (the buyer's PO date, else today) and **Unit Price** (the sale order's price). When several sale orders match, pick one in the banner's box. **Undo** puts the form back; the banner then turns amber, warning that the sale order stays unlinked (link it later from the sale order with **Link to Production Order**), with **Fill from sale order** to fill it again.
+   - **If this customer has a confirmed sale order for the style** that no production order is made for yet, the form fills itself from it and a banner says **Filled from SO… · Buyer PO … · N pcs — this order will be linked to the sale order**: the size grid, **Total Qty**, **Delivery** (the sale order's Expected Ship Date, else its Buyer Deadline), **Order Date** (the buyer's PO date, else today) and **Unit Price** (the sale order's price for the style — the quantity-weighted average when its lines carry different prices). In the size grid, a style with no colour is filled by size alone, and a line ordered without a colour goes in the style's only colour. When the style comes in several colours, a line without a colour cannot be placed: the banner lists it after **Enter by hand:** so you type it into the right colour row yourself. When several sale orders match, pick one in the banner's box. **Undo** puts the form back; the banner then turns amber, warning that the sale order stays unlinked (link it later from the sale order with **Link to Production Order**), with **Fill from sale order** to fill it again.
 6. Enter **Total Qty \*** (total pieces) and set **Delivery \*** (expected delivery date). **Order Date** defaults to today and can be changed, including to a past date.
-7. Optional: click **Use Cost Sheet** to pick an approved sheet. It fills **Unit Price** for you.
-8. Open **Quantity & Pricing** to split the quantity. Choose **Absolute**, **Percentage** or **Ratio**. In Absolute, type pieces into the colour × size grid or click **Smart Distribute**. In Percentage/Ratio, type the share per size and click **Recalculate**. You may also leave the grid empty and fill the sizes in later — see *Add the size breakdown later* below.
+7. Optional: click **Use Cost Sheet** and pick an approved sheet. It fills **Unit Price** with that sheet's **Closed Cost per Piece** (the buyer's agreed price, excluding GST) — not its **Total Product Cost**, which is the calculated cost. If the sheet has no Closed Cost set, Unit Price is left empty for you to type.
+8. Open **Quantity & Pricing** to split the quantity. Choose **Absolute**, **Percentage** or **Ratio**. In Absolute, type pieces into the grid — **Quantity by Color & Size**, or **Quantity by Size** when the style has no colour — or click **Smart Distribute**. In Percentage/Ratio, type the share per size and click **Recalculate**. You may also leave the grid empty and fill the sizes in later — see *Add the size breakdown later* below.
 9. If the customer has size presets, **Size Override (Optional)** lets you swap the style's default sizes.
 10. Click **Create Order** in the bar at the bottom of the screen.
 
@@ -101,10 +119,14 @@ An order can be created with the total quantity only, so long-lead greige, dyein
 
 1. Open the order (click its number on the Orders list).
 2. In the **What's stopping it** card, the style shows **Size breakdown not given**. Click **Add Size Breakdown** next to it. (**Items & Sizes** also says "Size breakdown not given yet".)
-3. A dialog titled **Add Size Breakdown** opens. The description explains that entering sizes generates per-size label requirements and lets production work orders be created. Pick the **Colour *** for these sizes — it is filled in and locked when the style has only one colour. Click **Distribute [N] evenly** (the button carries the item's total) to spread the pieces across every size, or type the pieces into the box under each size name.
-4. Check the **Entered: X / Y pcs** counter. X is what you typed, Y is what the order currently carries.
-5. Click **Save Size Breakdown**.
-6. If the sizes add up to a different total, the save is refused once and an alert explains the difference. The button then reads **Confirm & change quantity to [N]**. Clicking it saves the sizes and changes the order quantity to N.
+3. A dialog titled **Add Size Breakdown** opens. The description explains that entering sizes generates per-size label requirements and lets production work orders be created. Click **Distribute [N] evenly** (the button carries the item's total) to spread the pieces across every size, or type the pieces into the box under each size name.
+4. Below the size boxes, the colour depends on the style:
+   - **No colour** — the dialog says **This style has no colour — sizes are saved without one.** There is nothing to pick.
+   - **One colour** — **Colour \*** is already filled in and locked.
+   - **Several colours** — pick the **Colour \*** these sizes are for (**Choose the colour**). **Save Size Breakdown** stays disabled until you do.
+5. Check the **Entered: X / Y pcs** counter. X is what you typed, Y is what the order currently carries.
+6. Click **Save Size Breakdown**.
+7. If the sizes add up to a different total, the save is refused once and an alert explains the difference. The button then reads **Confirm & change quantity to [N]**. Clicking it saves the sizes and changes the order quantity to N.
 
 This works even when the order already has an approved BOM or material requirements. Saving refreshes the material requirements and creates the production work orders, which cannot exist while an order has no sizes. A success message summarises what happened: pieces saved, quantity updated if changed, requirements refreshed, and work orders created.
 
@@ -114,8 +136,8 @@ Traps in this dialog:
 - Only sizes belonging to the order's style are accepted.
 - A **Cancelled** or **Split** order will not accept a size breakdown.
 - If the confirmation message mentions requirements already on a purchase order, those are not adjusted automatically — check them yourself afterwards.
-- **Save Size Breakdown** stays disabled until a colour is chosen. If the dialog says **This style has no colour yet**, set the style's Primary Color first — production needs a colour to record stitched pieces and put them into finished-goods stock.
-- An order linked to a sale order with **Link to Production Order** gets its sizes from that sale order automatically; you do not enter them here. If the buyer's split was entered wrong, an administrator corrects it on the sale order with **Amend Quantities**, which updates this order too.
+- A colour is not required. A style with no colour saves its sizes without one; you do not have to set a colour on the style first. Only a style that comes in several colours needs the colour chosen.
+- An order linked to a sale order with **Link to Production Order** gets its sizes from that sale order automatically — also when the style has no colour — so you do not enter them here. Linking also sets the order's **Unit Price** to the sale order's price for that style and moves its **Delivery** to the sale order's Expected Ship Date (when it has one). The sizes are not copied only when the style comes in several colours and the sale order lines do not say which: the link is still made, the message ends with "… comes in N colours (…) — choose the colour for each size.", and you enter the sizes here with **Add Size Breakdown**. If the buyer's split was entered wrong, an administrator corrects it on the sale order with **Amend Quantities**, which updates this order too.
 
 ## Change the size breakdown
-Once sizes exist, the order page's **Items & Sizes** card shows the colour × size grid under **Size breakdown**, with an **Edit Size Breakdown** button while the order is open (Pending or In Production). Click it: the dialog opens titled **Edit Size Breakdown** with the saved quantities and colour already filled in. Change the numbers and click **Save Size Breakdown** (or **Confirm & change quantity to [N]** if the total changes). The size-wise label requirements and any production run that is still Pending are updated to the new split; a run already in production is not re-planned.
+Once sizes exist, the order page's **Items & Sizes** card shows the colour × size grid under **Size breakdown** (the **Colour** column reads **—** for sizes saved without a colour), with an **Edit Size Breakdown** button while the order is open (Pending or In Production). Click it: the dialog opens titled **Edit Size Breakdown** with the saved quantities and colour already filled in. Change the numbers and click **Save Size Breakdown** (or **Confirm & change quantity to [N]** if the total changes). The size-wise label requirements and any production run that is still Pending are updated to the new split; a run already in production is not re-planned.

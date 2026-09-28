@@ -40,6 +40,11 @@ keywords:
   - size split pending
   - add size breakdown
   - edit size breakdown
+  - style has no colour
+  - size without colour
+  - colour optional
+  - fabric issued
+  - costing per piece
   - oder status
   - ordr status
   # Hinglish
@@ -60,6 +65,9 @@ keywords:
   - status khud badalta hai
   - saiz
   - saiz kaise dale
+  - bina colour ke size
+  - colour nahi hai
+  - kapda kitna issue hua
   # Devanagari (MANDATORY)
   - ऑर्डर
   - ऑर्डर स्टेटस
@@ -80,6 +88,10 @@ keywords:
   - साइज़
   - साइज़ ब्रेकडाउन
   - साइज़ पेंडिंग
+  - बिना रंग
+  - रंग नहीं है
+  - रंग के बिना साइज़
+  - कपड़ा जारी
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -101,6 +113,7 @@ sources:
   - backend/src/services/helpers/order-requirements.helper.ts
   - backend/src/services/order.service.ts
   - backend/src/controllers/order.controller.ts
+  - backend/src/services/helpers/sku-colour.helper.ts
 route: /orders
 ---
 
@@ -141,9 +154,9 @@ It also moves back: a cancelled or rejected delivery note takes a Dispatched ord
    - When nothing blocks: **Ready to cut — plan the production run.** with **Create Production Run**.
 
    A style that already has a production run shows the run number and its status instead — follow it in **Production**. "Checking…" shows while the checks load. A cancelled order says "This order is cancelled."; a completed one says "Production is finished" (and "and shipped" once dispatched).
-4. **Materials** — every live requirement line of the order counted once: **To order**, **On order**, **Received**, **From stock**, and, when there are any, **Waiting for sizes**, **Needs a decision** and **Not checked**, with "% ordered or in hand". Cancelled lines are not counted. A second row, **Processing (dyeing / printing)**, has an **Open** button for the Outsourced Work tab; **Services on the production runs** shows To assign / Job work created / Completed. **Open Requirements** opens **Requirements** filtered to this order. Before the BOM is approved it reads "No requirements yet".
-5. **Production** — one box per production run: number, status, style, planned dates and location, then **Fabric issued** (and how much is "still at Cutting"), **Cut** (of the run's total), **Stitched**, **Finished** and **Completed** with a %. **View** opens the run. **Split** appears on a Pending run of more than one piece. **Create Production Run** appears at the top when a style with sizes has no run yet.
-6. **Items & Sizes** — each style with its quantity, the colour × size grid and **Edit Size Breakdown**, and a **Costing (per piece)** box.
+4. **Materials** — the **Materials to buy — N lines** row counts every live requirement line of the order once: **To order**, **On order**, **Received**, **From stock**, and, when there are any, **Waiting for sizes**, **Needs a decision** and **Not checked**, with "% ordered or in hand". Cancelled lines are not counted. A second row, **Processing (dyeing / printing)**, has an **Open** button for the Outsourced Work tab; **Services on the production runs** shows To assign / Job work created / Completed. **Open Requirements** opens **Requirements** filtered to this order. Before the BOM is approved it reads "No requirements yet".
+5. **Production** — one box per production run: number, status, style, planned dates and location, then **Fabric issued**, **Cut** (of the run's total), **Stitched**, **Finished** and **Completed** with a %. **Fabric issued** is net of any fabric returned from Cutting (fabric sent back and issued again is not counted twice), with how much is "still at Cutting" underneath. **View** opens the run. **Split** appears on a Pending run of more than one piece that has sizes. **Create Production Run** appears at the top when a style with sizes has no run yet.
+6. **Items & Sizes** — each style with its quantity and price per piece ("Price not set" when there is none), the colour × size grid (the **Colour** column reads **—** for sizes saved without a colour) and **Edit Size Breakdown**, and a **Costing (per piece)** box. The costing box uses the cost sheet's own words: the section totals (**Fabric Total**, **Trims Total** and so on), **Subtotal**, **Value Loss**, **Total After Value Loss**, **Markup**, **Total Product Cost** (the calculated cost) and **Closed Cost per Piece** (the buyer's agreed price, excluding GST — "not set on the cost sheet" when blank). Once a run has an actual cost, **Actual Total Product Cost** is shown against the Closed Cost.
 7. **Order BOM** — one row per style with its BOM version, status and number of lines. **Review BOM** (draft) or **View BOM** opens it; **Create BOM** appears when the style has none.
 8. **Dispatch & Billing** — appears once there are delivery notes or invoices, including those made from the linked sale order. The heading says how many pieces of the order have shipped. Click a note or invoice to open it.
 
@@ -158,14 +171,16 @@ Each style's POs can also be found under **Procurement → Purchase Orders** by 
 Orders are often started with the total quantity only, so long-lead greige, dyeing and printing can be bought first. Enter the sizes on the order page — not in **Edit Order**, where the style, quantity and size grid are locked once the order has approved BOMs or active material requirements.
 
 1. Open the order. In **What's stopping it**, the style shows **Size breakdown not given**. Click **Add Size Breakdown**.
-2. In the **Add Size Breakdown** dialog, pick the **Colour \*** (filled in and locked when the style has only one colour), then click **Distribute [N] evenly** or type the pieces under each size.
-3. Check the **Entered: X / Y pcs** counter, then click **Save Size Breakdown**.
-4. If the sizes add up to a different total, the save is refused once and an alert explains it. The button then reads **Confirm & change quantity to [N]**; clicking it saves the sizes and changes the order quantity.
+2. In the **Add Size Breakdown** dialog, click **Distribute [N] evenly** or type the pieces under each size.
+3. Below the sizes, the colour: a style with no colour shows **This style has no colour — sizes are saved without one.** (nothing to pick); a style with one colour has **Colour \*** filled in and locked; a style with several colours needs you to pick the **Colour \*** — **Save Size Breakdown** stays disabled until you do.
+4. Check the **Entered: X / Y pcs** counter, then click **Save Size Breakdown**.
+5. If the sizes add up to a different total, the save is refused once and an alert explains it. The button then reads **Confirm & change quantity to [N]**; clicking it saves the sizes and changes the order quantity.
 
 Saving refreshes the order's material requirements and creates the production runs, which cannot exist while the order has no sizes.
 
-- **Save Size Breakdown** stays disabled until a colour is chosen. If the dialog says **This style has no colour yet**, set the style's Primary Color first.
+- A colour is not needed to enter sizes — a style with no colour saves them without one. You do not have to set the style's Primary Color first.
 - **This style has no sizes defined** means the sizes must be added to the style first.
+- An order linked to a sale order gets its sizes from the sale order when it is linked (**Link to Production Order**), whatever the style's colour. Only a style with several colours, whose sale order lines do not name the colour, is left for you to enter here.
 - To change sizes already saved, click **Edit Size Breakdown** in **Items & Sizes** (shown while the order is open).
 
 ## Cancel or delete an order
@@ -180,7 +195,7 @@ Cancelling is refused once production has started — a run in production, fabri
 **Delete** (Orders list, administrators only, on Pending or Cancelled orders) removes the order for good. It is refused, with the reason, when the order has production started, job work with material activity, shipped deliveries, paid invoices, processed ASN, fabric or lace allocations, lace issue notes, cutting batches, or requirement lines already on a PO or job work. A refused Delete never cancels anything; if the order is not yet cancelled, the refusal offers **Cancel the order instead…**, which opens the Cancel dialog above.
 
 ## Factory-wide view
-For all running orders at once, open **Production Status** at the top of the sidebar. The **Production Status Dashboard** has a **By Order** / **By Style** toggle, search and filters, and a **Refresh** button showing when the data was last updated.
+For all running orders at once, open **Production Status** at the top of the sidebar. The **Production Status Dashboard** has a **By Order** / **By Style** toggle, **Detailed** / **Compact** / **Board** views, search and filters, and a **Refresh** button next to "Updated … ago". Below the list, the pager moves between pages and **Rows per page:** shows 20, 50 or 100 at a time (the pager is hidden in the **Board** view).
 
 ## Good to know
 - **Create BOM** can show a dialog titled **Processor rate differs at this order quantity**: this order's quantity falls in a different processor rate band than the style was costed at. **Accept order-quantity rates** continues with rates that apply to this order only. It works the same on the Orders list and on the order page.

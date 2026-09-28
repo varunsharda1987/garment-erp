@@ -23,59 +23,64 @@ keywords:
   - तैयार माल
   - पूर्ण स्टॉक
   - रेडी स्टॉक
+  # No colour
+  - no colour stock
+  - color blank
+  - colour dash
+  - bina colour ka stock
+  - बिना रंग का स्टॉक
+  - रंग खाली
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/FGStockList.tsx
+  - frontend/src/components/Pagination.tsx
+  - backend/src/controllers/fg-stock.controller.ts
+  - backend/src/controllers/finishing.controller.ts
+  - backend/src/services/helpers/finished-goods.helper.ts
 route: /inventory/fg-stock
 ---
 
 ## Steps
 
-1. Open **Inventory → FG Stock** in the sidebar.
-2. The page displays all finished goods (completed garments) ready for dispatch.
+1. Open **Inventory → FG Stock** in the sidebar. The page is titled **Finished Goods Stock**.
+2. The **FG Stock Inventory** table lists the finished garments ready to ship, by style, colour and size, most recently updated first.
 
 ## Search
 
-- Use the **Search** box to find items by style code, style name, color name, or size.
-- Results filter in real-time as you type.
+- Type in the **Search by style, color, size...** box. It matches the style code, style name, buyer style code, colour name, size and work order number.
+- Results update as you type and go back to page 1.
 
 ## Understanding the Table
 
-The table shows finished goods with these columns:
-
 | Column | Description |
 |--------|-------------|
-| **Style** | Style code and name of the garment |
-| **Color** | Color swatch and name |
+| **Style** | Style code, with the style name underneath |
+| **Color** | Colour swatch and name. A style with no colour has its stock with no colour — this column shows **-** |
 | **Size** | Size label (S, M, L, XL, etc.) |
 | **Quantity** | Number of pieces in stock |
-| **Unit Cost** | Cost per piece (actual or estimated*) |
-| **Stock Value** | Total value (Unit Cost x Quantity) |
-| **Location** | Warehouse where stock is stored |
-| **Work Order** | Work order number that produced this batch |
-| **Last Updated** | Date of last stock movement |
+| **Unit Cost** | Cost per piece (actual, or estimated marked **\***) |
+| **Stock Value** | Unit Cost × Quantity |
+| **Location** | Warehouse where the stock is kept |
+| **Work Order** | Work order number that produced it |
+| **Last Updated** | Date of the last stock movement |
 
 ## Understanding Costs
 
-- **Unit Cost** shows the cost per piece.
-- A **bold** value means actual cost is captured; a value with **\*** is estimated.
-- Hover over the cost to see a tooltip with:
-  - Actual cost (if available)
-  - Estimated cost (from cost sheet)
-  - Cost variance percentage (how much actual differs from estimate)
+- **Unit Cost** shows the actual cost per piece when it has been captured (normal text); otherwise the estimated cost from the cost sheet, greyed and marked **\***.
+- Hover over the cost for a tooltip: **Actual** (or **Estimated** when there is no actual yet) and, when known, **Variance** — how far actual differs from the estimate, in %.
 
 ## Summary Badges
 
 At the top-right of the page:
-- **Total Pieces** — sum of all quantities on current page
-- **Total Value** — sum of all stock values (shown only when costing data exists)
+- A badge with the total pieces (**… pcs**) — the sum of the quantities on the current page.
+- A **Value:** badge — the sum of the stock values on the current page (shown only when costing data exists).
 
 ## How FG Stock Gets Created
 
-Finished goods stock is created automatically when:
-1. A **finishing batch** is completed in Manufacturing.
-2. The work order moves to COMPLETED status.
-3. The system books the finished quantity into FG Stock.
+1. Finishing is recorded on a finishing issue (**Manufacturing → Finishing**) and the issue is completed.
+2. Clicking **Generate Transfer Slip** on that completed issue books every finished piece into FG Stock, one row per style, colour and size. A style with no colour is booked with no colour.
+3. Delivery notes then take the pieces out when they are created; cancelling a pending note puts them back.
 
 ## Pagination
 
@@ -85,6 +90,7 @@ Finished goods stock is created automatically when:
 
 ## Traps
 
-- **Empty list?** — FG stock only appears after production batches are completed. Check Work Orders → Finishing if expecting stock.
-- **No costing data?** — The Unit Cost and Stock Value columns show "-" if no cost sheet or actual costing exists for that style.
-- **Search not finding items?** — Search works on style code, style name, color name, and size. It does not search by location or work order number.
+- **Empty list?** — the page says "No finished goods stock found". Stock appears only after a finishing issue's **Generate Transfer Slip**. Check **Manufacturing → Finishing** if you expect stock.
+- **Colour shows "-"?** — that is stock of a style with no colour, which is normal. It can be shipped or allocated against any line of that style and size.
+- **No costing data?** — **Unit Cost** and **Stock Value** show **-** when there is no cost sheet or actual costing for that style.
+- **Search not finding items?** — search does not look at the location. Search by style, buyer style code, colour, size or work order number instead.

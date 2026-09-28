@@ -46,20 +46,34 @@ keywords:
   - ज़्यादा माल भेजना
   - स्टॉक कम है
   - एडमिन ओवरराइड
+  # No colour
+  - no colour
+  - style has no colour
+  - colour optional
+  - style and size are required
+  - comes in several colours choose one
+  - bina colour ke dispatch
+  - colour nahi hai
+  - बिना रंग
+  - रंग नहीं है
+  - रंग चुनें
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/DispatchDeliveryNoteForm.tsx
   - frontend/src/pages/SaleOrderDetail.tsx
   - backend/src/schemas/dispatch.schema.ts
   - backend/src/controllers/dispatch.controller.ts
   - backend/src/services/helpers/sale-order-dispatch.helper.ts
   - frontend/src/components/AdminOverrideModal.tsx
+  - frontend/src/pages/DispatchList.tsx
+  - backend/src/services/helpers/sku-colour.helper.ts
 route: /manufacturing/dispatch/delivery/new
 ---
 
 ## Before you start
 
-1. The **Order** must exist in the system with at least one item that has size breakup (Style / Color / Size / Quantity).
+1. The **Order** must exist in the system with at least one item that has a size breakup (Style / Size / Quantity — plus the colour when the style has one).
 2. The **Customer** must be linked to the order (or you can select a different customer).
 3. **Finished Goods (FG) Stock** must cover every size you dispatch. Finished goods reach stock when Finishing clicks **Generate Transfer Slip**. If stock is short, the note is **not created** — see *Traps*.
 
@@ -67,7 +81,7 @@ route: /manufacturing/dispatch/delivery/new
 
 1. Open **Manufacturing > Dispatch** in the sidebar.
 
-2. Click **+ Create Delivery Note** (top-right button) or use the **Create Delivery Note** action from an existing ASN.
+2. Click **New Delivery Note** (top-right button) or use the **Create Delivery Note** action (package icon) on an approved ASN in the **ASN Applications** tab.
    From a sale order you can also open **Actions** → **Create Delivery Note** on the sale order page (see *Dispatching a sale order* below).
 
 3. In the **Delivery Details** card:
@@ -79,7 +93,7 @@ route: /manufacturing/dispatch/delivery/new
    - The system pre-fills items from the order's SKU breakup.
    - For each row, verify or select:
      - **Style** (from styles on the order)
-     - **Color** (from the selected style's color options)
+     - **Color** (from the selected style's colours). A style with no colour shows **—** here and the box is greyed out — leave it. A style that comes in several colours must have one chosen.
      - **Size** (from the selected style's size options)
      - **Quantity** (number of pieces to dispatch)
    - Click **Add Item** to add more rows.
@@ -93,7 +107,7 @@ route: /manufacturing/dispatch/delivery/new
 
 On the sale order page, open **Actions** and click **Create Delivery Note** (shown while the order is Confirmed, Partially/Fully Allocated or Partially Dispatched).
 - If a production order is linked to the sale order, the form opens with that **Order** already selected.
-- If there is no production order (goods sold from finished-goods stock), the form opens with the **Sale Order** shown in place of the Order box, and the items are pre-filled with what each sale order line still has to ship. A line ordered without a colour is filled with the style's colour when the style has only one.
+- If there is no production order (goods sold from finished-goods stock), the form opens with the **Sale Order** shown in place of the Order box, and the items are pre-filled with what each sale order line still has to ship. A line ordered without a colour is filled with the style's colour when the style has only one, and stays without a colour (**—**) when the style has none.
 
 Either way the page says **Booked against sale order …**: when you click **Create Delivery Note**, the sale order's **Dispatched** quantities go up and its status moves to Partially Dispatched / Dispatched. A delivery note for a production order that is linked to a sale order is always booked against that sale order, even when you start from **Manufacturing > Dispatch**.
 
@@ -108,13 +122,15 @@ When you click **Create Delivery Note** from an approved ASN:
 
 ## Traps
 
-- Every item row must have **Style**, **Color**, and **Size** selected. Leaving any blank will show an error.
+- Every item row needs **Style** and **Size** — otherwise "Item N: style and size are required". **Color** is optional: only a style that comes in several colours needs one picked ("Item N: this style comes in several colours — choose one").
+- A row left without a colour on a style that has only one colour is saved in that colour, so it counts against the order's sizes as usual.
+- Finished-goods stock with no colour (from a style with no colour) can ship against any row of that style and size, whatever colour the row names.
 - **Quantity** must be a positive whole number (no decimals, no zero).
 - You need at least one item row with valid data. An empty items list blocks submission.
 - If FG stock does not cover a size, the note is **refused** and nothing is saved. A red box lists each short size (e.g. "need 50, in stock 30"). Record finishing first (**Generate Transfer Slip**), or ask an administrator: an admin sees **Create anyway (admin override)** and must write a reason (at least 10 characters), which is saved on the note.
 - Stock reserved (allocated) for this sale order is used first. Stock reserved for a **different** sale order is never taken, even if it is on the shelf.
 - A size cannot ship more than the buyer ordered — unless the customer has an **Over-shipment allowed (%)** set on the Customer page (for example 5 lets 100 ordered ship as up to 105). Anything above that is refused, naming the size and how many can still go.
-- Against a sale order, every row must match one of its lines (same style and size; the colour must match, or the line was ordered without a colour). A size the sale order does not carry is refused.
+- Against a sale order, every row must match one of its lines: same style and size, and the colour must match — or the line was ordered without a colour, or (for a row with no colour) the sale order has only one line of that style and size. Otherwise it is refused ("… has no line for [style] size [size] in that colour.").
 - Changing the **Style** on a row clears the Color and Size selections because they depend on the style.
 
 ## After saving
@@ -125,5 +141,5 @@ When you click **Create Delivery Note** from an approved ASN:
   - **Dispatch** the note (mark it as in-transit).
   - **Cancel** it while it is still Pending (made by mistake): the stock and the sale order's Dispatched quantity go back, and the note stays in the list marked Cancelled.
   - **Record POD** (Proof of Delivery) when the customer receives the goods.
-  - **Create Invoice** once the POD is recorded.
+  - **Invoice** once the POD is recorded and the note is Delivered — it opens the note with **Create Invoice**.
 - When the note is booked against a sale order, that sale order's **Dispatched** quantity and status update straight away (the House of Kasya B2B app sees the same numbers).

@@ -26,6 +26,16 @@ keywords:
   - रंग ज़रूरी
   - प्राइमरी कलर
   - पैकिंग सेव नहीं हो रही
+  - no colour
+  - style has no colour
+  - colour optional
+  - color unknown
+  - bina colour ke packing
+  - colour nahi hai
+  - बिना रंग
+  - रंग नहीं है
+  - रंग वैकल्पिक
+  - तैयार माल स्टॉक
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -57,12 +67,13 @@ Finishing starts from a stitching transfer slip, then moves through output, pack
 8. Click **Record Output**. In the **Record Daily Output** dialog set **Output Date**, enter **Finished** and **Defect** per row, then click **Save Output**. Repeat daily.
 9. Click **Move to Packing** when finishing work is done.
 10. In packing, use **Polybag Entry** (set **Packing Date** and **Packed** per row, then **Save Polybag Entry**) and **Carton Packing** (**Carton Number** and **Carton Date** are required, then **Save Carton**).
-11. Click **Complete**, then **Generate Transfer Slip** to hand the goods to dispatch.
+11. Click **Complete**, then **Generate Transfer Slip** to hand the goods to dispatch. This also adds the finished pieces to **Inventory → FG Stock**, per size (and colour, when the style has one) — delivery notes ship from that stock.
 
 ## Traps to avoid
 - The status order is fixed: Pending Receipt → Received → In Progress → Packing → Completed. **Complete** only appears in the Packing stage.
 - **Finished** and **Defect** are capped at the **Remaining** figure on that row, and at least one row must be filled.
 - **Packed** quantity in Polybag Entry and **Quantity** in Carton Packing must be more than zero on at least one row.
 - If the slip has no size breakdown, the form shows a single "All Colors / All Sizes" row — check it before saving.
-- **Record Output**, **Polybag Entry** and **Carton Packing** all need a colour on every row. If the style has no **Primary Color**, the save is refused with "Color (row 1): Required — open the style and set its Primary Color, and it fills in here automatically." Open that style in **Styles**, set **Primary Color** on the Basic Info tab, then save again. Creating the issue itself is not affected.
+- A colour is not needed. For a style with no colour, **Record Output**, **Polybag Entry**, **Carton Packing** and **Generate Transfer Slip** all work with no colour on the rows — the **Color** column reads **Unknown** in the output, polybag and carton dialogs and **-** in **SKU Breakdown**. Enter the quantities and save as usual; the finished goods go into FG Stock with no colour. You do not have to set a colour on the style first.
+- A transfer slip can be generated only once per finishing issue.
 - Use the **Size-wise Status** tab to see pending, running and done pieces per size, plus idle-day warnings.

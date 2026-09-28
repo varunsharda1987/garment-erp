@@ -36,11 +36,17 @@ keywords:
   - डिलीवरी नोट
   - प्रूफ ऑफ डिलीवरी
   - डिलीवरी नोट रद्द करें
+  - बिना रंग
+  - no colour item
+  - reschedule filter
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/DispatchList.tsx
   - frontend/src/pages/DispatchDeliveryNoteDetail.tsx
   - frontend/src/types/dispatch.types.ts
+  - frontend/src/components/SearchInput.tsx
+  - backend/src/schemas/dispatch.schema.ts
 route: /manufacturing/dispatch
 ---
 
@@ -59,15 +65,15 @@ route: /manufacturing/dispatch
 
 ## Finding a specific delivery
 
-1. In the **Delivery Notes** tab, use the search box.
-2. Search by delivery note number (DN #), order number, or customer name.
+1. In the **Delivery Notes** tab, use the search box (**Search by note #, order, customer or style...**).
+2. Type a delivery note number (DN #), order number, customer or style code.
 3. Use the **status filter** dropdown to narrow results:
    - **All Statuses**
    - **Pending** - ready to dispatch
    - **In Transit** - shipped, awaiting delivery
    - **Delivered** - confirmed received
    - **Cancelled** - pending notes that were cancelled (the record is kept)
-4. Click **Search** or press Enter.
+4. Results update as you type — there is no Search button. The cross in the box clears it.
 
 ## Understanding delivery note statuses
 
@@ -86,7 +92,7 @@ route: /manufacturing/dispatch
    - **Delivery Details** card: Order number, Customer, Dispatch Date, Total Pieces, Cartons, ASN reference, Remarks
    - **Transport** card: Transporter name, Vehicle number and type, Driver name and phone, LR No, Expected Delivery date
    - **Proof of Delivery** card (if delivered): Delivery date, Received By, Delivery status, Customer GRN, Shortage qty, Rejection reason
-   - **Items** table: Style, Buyer Ref, Color, Size, Quantity, and **Received** once the proof of delivery is recorded
+   - **Items** table: Style, Buyer Ref, Color, Size, Quantity, and **Received** once the proof of delivery is recorded. **Color** reads **-** for a style with no colour — that is normal
    - A red box on a **Cancelled** note (when, and the reason), and a note if an administrator let it ship past finished-goods stock
 4. Buttons at the top: **Cancel Delivery Note** (Pending), **Record POD** (In Transit), **Create Invoice** (Delivered, not yet invoiced), or **Invoice INV…** to open the invoice already raised.
 
@@ -100,7 +106,7 @@ route: /manufacturing/dispatch
 ## Checking ASN application status
 
 1. Switch to the **ASN Applications** tab.
-2. Search by ASN number or order number.
+2. Search by ASN #, order, customer or buyer ref (**Search by ASN #, order, customer or buyer ref...**).
 3. Filter by status:
    - **Pending** - ASN created, not yet applied
    - **Applied** - Submitted to customer, awaiting response
@@ -160,5 +166,6 @@ route: /manufacturing/dispatch
 - **In Transit** does not automatically change to **Delivered**. Someone must record the POD.
 - ASN **Approved** status means the customer accepted the shipment window. You still need to create the actual Delivery Note.
 - Use the **Refresh** button (top right) to see the latest status if shipments were recently updated.
+- In the **ASN Applications** tab, the **Rescheduled** status filter does not work: an error pop-up says "Failed to load ASN applications…" and the list is not filtered. Use **All Statuses** and look for the **Reschedule** badge in the Status column instead.
 
 - The **Buyer PO** card on a delivery note shows the customer's own purchase orders for that sale order — PO number, delivery location and PO date — with a **View PO** link that opens their PO document. It appears on every note booked against a sale order — raised from the sale order, or for a production order linked to one; a production order with no sale order shows nothing. Opening the PO needs you to be signed in.

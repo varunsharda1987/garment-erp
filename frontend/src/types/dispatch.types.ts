@@ -57,7 +57,7 @@ export const DeliveryConfirmationLabels: Record<DeliveryConfirmation, string> = 
 export interface ASNSKU {
   id: string;
   asnId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   plannedQty: number;
   color?: {
@@ -121,7 +121,7 @@ export interface DeliveryNoteItem {
   id: string;
   deliveryNoteId: string;
   styleId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   quantity: number;
   /** What the buyer received, set by the proof of delivery; null until then */
@@ -302,7 +302,7 @@ export interface CreateASNRequest {
   requestedShipDate: string;
   remarks?: string;
   skus: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     plannedQty: number;
   }[];
@@ -316,10 +316,11 @@ export interface ApproveASNRequest {
 }
 
 // Matches backend createDeliveryNoteSchema (backend/src/schemas/dispatch.schema.ts):
-// items are REQUIRED (min 1) with styleId/colorId/sizeId all mandatory; cartonIds optional.
+// items are REQUIRED (min 1) with styleId/sizeId mandatory; colorId optional (blank for a style with
+// no colour, 2026-09-28); cartonIds optional.
 export interface CreateDeliveryNoteItemInput {
   styleId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   quantity: number;
 }
@@ -355,7 +356,7 @@ export interface ASNReconciliation {
   };
   deliveryNotes: Array<{ id: string; deliveryNumber: string; status: DeliveryStatus; totalPieces: number }>;
   skuBreakdown: Array<{
-    colorId: string;
+    colorId: string | null;
     colorName: string | null;
     sizeId: string;
     sizeName: string | null;

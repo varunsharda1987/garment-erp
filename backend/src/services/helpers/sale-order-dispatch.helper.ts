@@ -13,6 +13,7 @@
  */
 import { Prisma } from '@prisma/client';
 import { BusinessError, ValidationError } from '../../errors';
+import { stockColourWhere } from './sku-colour.helper';
 
 type Tx = Prisma.TransactionClient;
 
@@ -56,13 +57,19 @@ export async function overShipAllowanceOf(tx: Tx, customerId: string): Promise<n
  * the same style and size that has NO colour — the buyer ordered the size, and allocation already
  * accepts any colour of the style for such a line (saleOrder.service.ts allocateStock). A line with
  * no size never matches: the buyer's size split has to be known before it can be shipped.
+ * A blank-colour SKU (a style with no colour, sku-colour.helper) also takes the ONLY line of its size
+ * when that line names a colour — never guesses between several.
  */
 export function matchSaleOrderLine<T extends SaleOrderLineRef>(
   lines: T[],
-  sku: { styleId: string; colorId: string; sizeId: string }
+  sku: { styleId: string; colorId: string | null; sizeId: string }
 ): T | undefined {
   const sameSize = lines.filter((l) => l.styleId === sku.styleId && l.sizeId === sku.sizeId);
-  return sameSize.find((l) => l.colorId === sku.colorId) ?? sameSize.find((l) => !l.colorId);
+  return (
+    sameSize.find((l) => l.colorId === sku.colorId) ??
+    sameSize.find((l) => !l.colorId) ??
+    (!sku.colorId && sameSize.length === 1 ? sameSize[0] : undefined)
+  );
 }
 
 /**
@@ -74,7 +81,7 @@ export async function shippingColourFor(
   tx: Tx,
   line: SaleOrderLineRef & { styleCode?: string },
   requestedColorId?: string | null
-): Promise<string> {
+): Promise<string | null> {
   if (requestedColorId) {
     if (line.colorId && line.colorId !== requestedColorId) {
       throw new ValidationError(`${line.styleCode ?? 'This line'} was ordered in a different colour.`);
@@ -85,20 +92,20 @@ export async function shippingColourFor(
 }
 
 /**
- * The colour a sale order line is made and shipped in: its own, else the style's only colour. Lines
- * taken without a colour (all 7 ESSKY sale orders, 2026-09) would otherwise hand a colourless size
- * split to production, and a colourless run can be cut but never records stitching output — so no
- * finished goods (the rule applyOrderItemSizeBreakup already applies on Link to Production Order).
- * A style with several colours must be told which; a style with none needs its Primary Color.
+ * The colour a sale order line is shipped in: its own, else the style's only colour, else BLANK for a
+ * style with no colour — colour is optional (sku-colour.helper, owner 2026-09-28; until then a style
+ * with none was refused here). A style with several colours must be told which.
  */
-export async function colourForSaleOrderLine(tx: Tx, line: SaleOrderLineRef & { styleCode?: string }): Promise<string> {
+export async function colourForSaleOrderLine(
+  tx: Tx,
+  line: SaleOrderLineRef & { styleCode?: string }
+): Promise<string | null> {
   if (line.colorId) return line.colorId;
   const colours = await tx.color_options.findMany({ where: { styleId: line.styleId }, select: { id: true } });
+  if (colours.length === 0) return null;
   if (colours.length === 1) return colours[0].id;
   throw new ValidationError(
-    colours.length === 0
-      ? `${line.styleCode ?? 'This style'} has no colour yet — set the style's Primary Color first.`
-      : `${line.styleCode ?? 'This style'} comes in ${colours.length} colours and the sale order line has none — choose the colour on the sale order lines.`
+    `${line.styleCode ?? 'This style'} comes in ${colours.length} colours and the sale order line has none — choose the colour on the sale order lines.`
   );
 }
 
@@ -154,7 +161,7 @@ export interface FinishedGoodsTaken {
  */
 export async function drawFinishedGoods(
   tx: Tx,
-  sku: { styleId: string; colorId: string; sizeId: string },
+  sku: { styleId: string; colorId: string | null; sizeId: string },
   quantity: number,
   saleOrderItemId: string | null
 ): Promise<{ taken: FinishedGoodsTaken[]; fromReservations: number; notFound: number }> {
@@ -168,7 +175,7 @@ export async function drawFinishedGoods(
         saleOrderItemId,
         status: 'ALLOCATED',
         allocatedQty: { gt: 0 },
-        fgStock: { styleId: sku.styleId, colorId: sku.colorId, sizeId: sku.sizeId },
+        fgStock: { styleId: sku.styleId, sizeId: sku.sizeId, ...stockColourWhere(sku.colorId) },
       },
       orderBy: [{ allocatedAt: 'asc' }, { id: 'asc' }],
       select: { id: true, fgStockId: true },
@@ -196,7 +203,9 @@ export async function drawFinishedGoods(
 
   if (need >= 1) {
     const rows = await tx.finished_goods_stock.findMany({
-      where: { styleId: sku.styleId, colorId: sku.colorId, sizeId: sku.sizeId, quantity: { gt: 0 } },
+      // That colour or blank-colour stock (stockColourMatches) — blank-colour stock is the style in
+      // whatever colour it is
+      where: { styleId: sku.styleId, sizeId: sku.sizeId, quantity: { gt: 0 }, ...stockColourWhere(sku.colorId) },
       orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
       select: { id: true },
     });
@@ -272,7 +281,7 @@ export async function recordSaleOrderDispatch(
 
 export interface StockShortfall {
   styleId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   requested: number;
   deducted: number;
@@ -292,7 +301,7 @@ export async function refuseShortStock(tx: Tx, shortfalls: StockShortfall[]): Pr
       select: { id: true, styleCode: true },
     }),
     tx.color_options.findMany({
-      where: { id: { in: shortfalls.map((s) => s.colorId) } },
+      where: { id: { in: shortfalls.flatMap((s) => (s.colorId ? [s.colorId] : [])) } },
       select: { id: true, colorName: true },
     }),
     tx.size_options.findMany({
@@ -305,7 +314,7 @@ export async function refuseShortStock(tx: Tx, shortfalls: StockShortfall[]): Pr
   const lines = shortfalls.map((s) => ({
     ...s,
     styleCode: name(styles, s.styleId, 'styleCode'),
-    colorName: name(colours, s.colorId, 'colorName'),
+    colorName: s.colorId ? name(colours, s.colorId, 'colorName') : '—',
     sizeName: name(sizes, s.sizeId, 'sizeName'),
   }));
   throw new BusinessError(

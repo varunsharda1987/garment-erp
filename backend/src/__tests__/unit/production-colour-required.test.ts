@@ -1,13 +1,10 @@
 /**
- * Four production tables declare `colorId` NOT NULL — stitching_output_skus,
- * finishing_output_skus, polybag_skus and carton_skus — but their Zod shapes used to accept a
- * missing or null colour. The row reached Prisma and died there, so recording output on a style
- * with no colourway answered "An unexpected error occurred" (500) with no field named and nothing
- * on screen looking wrong. validateBody now rejects it first, as a 400 that says what to fix.
- *
- * The second half of this file is the more important half: the ISSUE-side and CUTTING shapes point
- * at genuinely nullable columns and must keep accepting a colour-less SKU. Tightening them to
- * "match" would break size-only cutting and issuing, which are legal today.
+ * Colour is OPTIONAL (owner, 2026-09-28; services/helpers/sku-colour.helper.ts). The output tables —
+ * stitching_output_skus, finishing_output_skus, polybag_skus and carton_skus — declared `colorId`
+ * NOT NULL until then, and these shapes refused a missing colour ("open the style and set its
+ * Primary Color"), so a style with no colour could be cut but never stitched. The columns are
+ * nullable now (migration 20260928170000, NULLS NOT DISTINCT unique indexes), so every production
+ * shape takes a size-only SKU. A colour that IS sent must still be a well-formed id.
  *
  * No database — these parse the exact shapes the screens post.
  */
@@ -26,8 +23,8 @@ const COLOR = 'cm9x1a2b3c4d5e6f7g8h9i0j'; // color_options ids are cuids, not uu
 const SIZE = '11111111-1111-4111-8111-111111111111';
 const WORK_ORDER = '22222222-2222-4222-8222-222222222222';
 
-/** Every shape that writes a NOT-NULL colour, with the SKU list it posts. */
-const required = [
+/** Every OUTPUT shape (the columns that were NOT NULL until 2026-09-28), with the SKU list it posts. */
+const outputs = [
   {
     name: 'record stitching output',
     schema: recordStitchingOutputSchema,
@@ -58,41 +55,27 @@ const required = [
   },
 ] as const;
 
-describe('production schemas — a NOT-NULL colour is refused before it reaches Prisma', () => {
-  describe.each(required)('$name', ({ schema, key, body, sku }) => {
+describe('production output schemas — colour is optional', () => {
+  describe.each(outputs)('$name', ({ schema, key, body, sku }) => {
     it('accepts a real colour', () => {
       expect(schema.safeParse(body({ ...sku, colorId: COLOR })).success).toBe(true);
     });
 
-    it('rejects a missing colour, naming the field and how to fix it', () => {
-      const r = schema.safeParse(body(sku));
-      expect(r.success).toBe(false);
-      if (r.success) return;
-      const issue = r.error.issues.find((i) => i.path.join('.') === `${key}.0.colorId`);
-      expect(issue).toBeDefined();
-      // The operator's remedy, not "Invalid input" — this is the whole point of the 400.
-      expect(issue!.message).toContain('Primary Color');
+    it('accepts a size-only SKU — no colour at all', () => {
+      expect(schema.safeParse(body(sku)).success).toBe(true);
     });
 
-    it('rejects an explicit null colour the same way', () => {
-      const r = schema.safeParse(body({ ...sku, colorId: null }));
-      expect(r.success).toBe(false);
-      if (r.success) return;
-      const issue = r.error.issues.find((i) => i.path.join('.') === `${key}.0.colorId`);
-      expect(issue!.message).toContain('Primary Color');
+    it('accepts an explicit null colour (what the pages post for a style with no colour)', () => {
+      expect(schema.safeParse(body({ ...sku, colorId: null })).success).toBe(true);
     });
 
-    it('rejects a malformed colour id', () => {
-      const r = schema.safeParse(body({ ...sku, colorId: 'not-an-id' }));
-      expect(r.success).toBe(false);
-      if (r.success) return;
-      expect(r.error.issues.some((i) => i.path.join('.') === `${key}.0.colorId`)).toBe(true);
-    });
-
-    it('names the row when a later SKU is the one missing a colour', () => {
+    it('still rejects a malformed colour id, naming the row', () => {
       const r = schema.safeParse({
         ...body({ ...sku, colorId: COLOR }),
-        [key]: [{ ...sku, colorId: COLOR }, { ...sku }],
+        [key]: [
+          { ...sku, colorId: COLOR },
+          { ...sku, colorId: 'not-an-id' },
+        ],
       });
       expect(r.success).toBe(false);
       if (r.success) return;
@@ -128,9 +111,7 @@ describe('production schemas — colour stays OPTIONAL where the column is nulla
   });
 
   it('receiving from cutting accepts a size-only SKU', () => {
-    // stage_receipt_skus.colorId IS non-nullable, but the controller drops colour-less rows rather
-    // than writing them (stitching.controller.ts) and the header totals still capture the quantity.
-    // Requiring it here would block a receive that works today.
+    // stage_receipt_skus.colorId is nullable since 2026-09-28 — the colour-less row is recorded
     expect(receiveFromCuttingSchema.safeParse({ skuReceived: [{ sizeId: SIZE, receivedQty: 10 }] }).success).toBe(true);
   });
 });

@@ -174,9 +174,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   // All validations passed -> Proceed with order creation
   logInfo('[createOrder] All cost sheet validations passed. Proceeding with order creation...');
 
-  // A size line without a colour takes the style's only colour: a colourless run can be cut but never
-  // records stitching output (the rule Link to Production Order and Start Production apply). A style
-  // with no colours stays size-only; one with several is left for the page to have chosen.
+  // A size line without a colour takes the style's only colour (the rule Link to Production Order and
+  // Start Production apply, sku-colour.helper). A style with no colours stays size-only — colour is
+  // optional (owner, 2026-09-28); one with several is left for the page to have chosen.
   const onlyColour = new Map<string, string>();
   for (const item of items as OrderItem[]) {
     if (!(item.breakup || []).some((b) => !b.colorId && b.quantity > 0) || onlyColour.has(item.styleId)) continue;

@@ -8,6 +8,7 @@ import { dedupeSkuRows, generateTransferSlipNumber } from './cutting.utils';
 import { nextSeededSequence } from '../utils/seeded-sequence';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
+import { skuKey } from '../services/helpers/sku-colour.helper';
 
 // ============================================
 // Helper Functions
@@ -511,7 +512,7 @@ export const receiveFromCutting = async (req: Request, res: Response) => {
     });
 
     if (skuReceived?.length && userId) {
-      const expectedByKey = new Map(slip.skuBreakdown.map((s) => [`${s.colorId ?? ''}|${s.sizeId}`, s.quantity]));
+      const expectedByKey = new Map(slip.skuBreakdown.map((s) => [skuKey(s.colorId, s.sizeId), s.quantity]));
       const totalReceived = skuReceived.reduce((sum: number, r: any) => sum + Number(r.receivedQty || 0), 0);
       const hasDeviation = totalReceived !== slip.totalGoodPieces;
       await prisma.stage_receipts.create({
@@ -527,20 +528,18 @@ export const receiveFromCutting = async (req: Request, res: Response) => {
             : null,
           remarks,
           skuReceipts: {
-            // stage_receipt_skus.colorId is non-nullable — size-only (null-color) rows are captured
-            // by the header totals/deviation above
-            create: skuReceived
-              .filter((r: any) => r.colorId)
-              .map((r: any) => {
-                const expectedQty = expectedByKey.get(`${r.colorId}|${r.sizeId}`) ?? 0;
-                return {
-                  colorId: r.colorId,
-                  sizeId: r.sizeId,
-                  expectedQty,
-                  receivedQty: Number(r.receivedQty || 0),
-                  deviation: Number(r.receivedQty || 0) - expectedQty,
-                };
-              }),
+            // Blank-colour (size-only) rows are recorded too — colour is optional (sku-colour.helper);
+            // until 2026-09-28 the column was NOT NULL and they were silently dropped here
+            create: skuReceived.map((r: any) => {
+              const expectedQty = expectedByKey.get(skuKey(r.colorId, r.sizeId)) ?? 0;
+              return {
+                colorId: r.colorId ?? null,
+                sizeId: r.sizeId,
+                expectedQty,
+                receivedQty: Number(r.receivedQty || 0),
+                deviation: Number(r.receivedQty || 0) - expectedQty,
+              };
+            }),
           },
         },
       });
@@ -650,7 +649,7 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
             );
           }
           return {
-            colorId: sku.colorId,
+            colorId: sku.colorId ?? null,
             sizeId: sku.sizeId,
             goodQty: Number(goodQty) || 0,
             defectQty: Number(defectQty) || 0,
@@ -812,10 +811,10 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   const slipNumber = await generateTransferSlipNumber();
 
   // Calculate good pieces per SKU from daily outputs
-  const skuGoodQtyMap = new Map<string, { colorId: string; sizeId: string; goodQty: number }>();
+  const skuGoodQtyMap = new Map<string, { colorId: string | null; sizeId: string; goodQty: number }>();
   for (const output of issue.dailyOutputs) {
     for (const skuOutput of output.skuOutputs) {
-      const key = `${skuOutput.colorId}-${skuOutput.sizeId}`;
+      const key = skuKey(skuOutput.colorId, skuOutput.sizeId);
       const existing = skuGoodQtyMap.get(key);
       if (existing) {
         existing.goodQty += skuOutput.goodQty;

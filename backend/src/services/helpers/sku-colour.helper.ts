@@ -37,6 +37,15 @@ export function stockColourMatches(
 }
 
 /**
+ * The Prisma `where` fragment for stock that may serve `wanted` — `stockColourMatches` as a query:
+ * that colour or blank-colour stock; with no colour wanted, any. Spread it into a where that has no
+ * `OR` of its own.
+ */
+export function stockColourWhere(wanted: string | null | undefined): { OR?: Array<{ colorId: string | null }> } {
+  return wanted ? { OR: [{ colorId: wanted }, { colorId: null }] } : {};
+}
+
+/**
  * Apply the colour rule to a style's size lines. Returns the lines with `colorId` settled (a string,
  * or null for a style with no colour); throws when a line names a foreign colour, or leaves the
  * colour out on a style that comes in several.

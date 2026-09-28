@@ -41,7 +41,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatDate, toDateInputValue } from '@/lib/date';
 
 interface OutputEntry {
-  colorId: string;
+  colorId: string | null;
   colorName: string;
   sizeId: string;
   sizeName: string;
@@ -53,7 +53,7 @@ interface OutputEntry {
 
 // Per-SKU packing quantity (shared by the polybag-entry and carton-packing dialogs)
 interface PackEntry {
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   colorName: string;
   sizeName: string;

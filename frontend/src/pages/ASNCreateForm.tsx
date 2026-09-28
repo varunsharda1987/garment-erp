@@ -36,10 +36,10 @@ interface SKULine {
   orderQty: number;
   plannedQty: number;
   /**
-   * Can this line actually be STORED as an asn_sku? Its colorId and sizeId are NOT NULL columns, so
-   * a line built from an order item with no size/colour breakup cannot be. Such lines used to be
-   * rendered as editable and then silently filtered out of the payload while their quantity still
-   * counted toward the header total.
+   * Can this line actually be STORED as an asn_sku? Its sizeId is a NOT NULL column, so a line built
+   * from an order item with no size breakup cannot be. Such lines used to be rendered as editable and
+   * then silently filtered out of the payload while their quantity still counted toward the header
+   * total. Colour is optional (a style with no colour ships blank-coloured, 2026-09-28).
    */
   persistable: boolean;
 }
@@ -97,13 +97,13 @@ export default function ASNCreateForm() {
               styleCode: item.style?.styleCode || '',
               buyerStyleRef: item.style?.buyerStyleRef ?? null,
               colorId: b.colorOptions?.id || '',
-              colorName: b.colorOptions?.colorName || 'N/A',
+              colorName: b.colorOptions?.colorName || '—',
               colorCode: b.colorOptions?.colorCode,
               sizeId: b.sizeOptions?.id || '',
               sizeName: b.sizeOptions?.sizeName || 'N/A',
               orderQty: b.quantity,
               plannedQty: b.quantity, // Default to full order qty
-              persistable: !!b.colorOptions?.id && !!b.sizeOptions?.id,
+              persistable: !!b.sizeOptions?.id,
             });
           });
         } else {
@@ -172,7 +172,7 @@ export default function ASNCreateForm() {
     const skus = skuLines
       .filter((line) => line.persistable && line.plannedQty > 0)
       .map((line) => ({
-        colorId: line.colorId,
+        colorId: line.colorId || null,
         sizeId: line.sizeId,
         plannedQty: line.plannedQty,
       }));

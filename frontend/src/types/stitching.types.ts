@@ -29,7 +29,7 @@ export const StitchingIssueStatusColors: Record<StitchingIssueStatus, string> = 
 export interface StitchingIssueSKU {
   id: string;
   stitchingIssueId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   availableQty: number;
   issuedQty: number;
@@ -75,7 +75,7 @@ export interface StitchingDailyOutput {
 export interface StitchingOutputSKU {
   id: string;
   dailyOutputId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   goodQty: number;
   defectQty: number;
@@ -183,7 +183,7 @@ export interface RecordDailyOutputRequest {
   outputDate: string;
   componentId?: string;
   skuOutputs: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     goodQty: number;
     defectQty?: number;
@@ -196,7 +196,7 @@ export interface ReceiveFromCuttingRequest {
   transferSlipId?: string;
   // Optional: the list-page quick-receive omits this; the detail page sends the received breakdown.
   skuReceived?: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     receivedQty: number;
     shortageQty?: number;

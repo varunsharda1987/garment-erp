@@ -14,7 +14,7 @@ import { formatDate } from '@/lib/date';
 interface FGStockItem {
   id: string;
   styleId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   variantId: string | null;
   quantity: number;

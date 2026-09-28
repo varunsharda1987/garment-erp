@@ -13,7 +13,7 @@ import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { deleteBuyerPoDocumentFile } from '../middleware/upload.middleware';
-import { resolveSizeLineColours, skuKey } from './helpers/sku-colour.helper';
+import { resolveSizeLineColours, skuKey, stockColourMatches, stockColourWhere } from './helpers/sku-colour.helper';
 import { saleOrderSizeSplit } from './helpers/sale-order-sizes.helper';
 import { formatDate, toDateInputValue } from '../utils/date';
 
@@ -1716,7 +1716,7 @@ export class SaleOrderService {
       // Lock the stock row for the rest of the transaction so a concurrent allocation of the same
       // lot waits here rather than reading the same "available" figure we did.
       const locked = await tx.$queryRaw<
-        Array<{ id: string; quantity: number; styleId: string; colorId: string; sizeId: string }>
+        Array<{ id: string; quantity: number; styleId: string; colorId: string | null; sizeId: string }>
       >`SELECT id, quantity, "styleId", "colorId", "sizeId"
           FROM finished_goods_stock WHERE id = ${fgStockId} FOR UPDATE`;
       if (locked.length === 0) throw new NotFoundError('Finished goods stock', fgStockId);
@@ -1729,7 +1729,8 @@ export class SaleOrderService {
           `That stock is not for style ${item.style?.styleCode ?? item.styleId} — pick stock for this line's style.`
         );
       }
-      if (item.colorId && fgStock.colorId !== item.colorId) {
+      // Blank-colour stock is the style in whatever colour it is (sku-colour.helper)
+      if (!stockColourMatches(fgStock.colorId, item.colorId)) {
         throw new ValidationError("That stock is a different colour from this line's.");
       }
       if (item.sizeId && fgStock.sizeId !== item.sizeId) {
@@ -1779,8 +1780,8 @@ export class SaleOrderService {
   // existed. Sizes are added to a sale order through the edit sheet.
 
   async getAvailableStock(styleId: string, colorId?: string, sizeId?: string) {
-    const where: Prisma.finished_goods_stockWhereInput = { styleId };
-    if (colorId) where.colorId = colorId;
+    // That colour or blank-colour stock (stockColourWhere) — blank-colour stock serves any colour
+    const where: Prisma.finished_goods_stockWhereInput = { styleId, ...stockColourWhere(colorId) };
     if (sizeId) where.sizeId = sizeId;
 
     const stocks = await prisma.finished_goods_stock.findMany({

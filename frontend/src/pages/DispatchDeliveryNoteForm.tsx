@@ -65,7 +65,7 @@ interface StyleOptions {
 interface ItemRow {
   tempId: string;
   styleId: string;
-  colorId: string; // '' until chosen — backend requires a real color ID
+  colorId: string; // '' = no colour — colour is optional; a style with several colours must choose
   sizeId: string;
   quantity: string; // kept as string for the input; parsed on submit
 }
@@ -385,8 +385,12 @@ export default function DispatchDeliveryNoteForm() {
     }
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i];
-      if (!row.styleId || !row.colorId || !row.sizeId) {
-        notify.error(`Item ${i + 1}: style, color and size are all required`);
+      if (!row.styleId || !row.sizeId) {
+        notify.error(`Item ${i + 1}: style and size are required`);
+        return false;
+      }
+      if (!row.colorId && (styleOptionsMap[row.styleId]?.colors.length ?? 0) > 1) {
+        notify.error(`Item ${i + 1}: this style comes in several colours — choose one`);
         return false;
       }
       const qty = parseInt(row.quantity);
@@ -409,10 +413,10 @@ export default function DispatchDeliveryNoteForm() {
       asnId: asnId || undefined,
       remarks: remarks.trim() || undefined,
       items: items
-        .filter((r) => r.styleId && r.colorId && r.sizeId && parseInt(r.quantity) > 0)
+        .filter((r) => r.styleId && r.sizeId && parseInt(r.quantity) > 0)
         .map((r) => ({
           styleId: r.styleId,
-          colorId: r.colorId,
+          colorId: r.colorId || null,
           sizeId: r.sizeId,
           quantity: parseInt(r.quantity),
         })),
@@ -621,10 +625,12 @@ export default function DispatchDeliveryNoteForm() {
                               <Select
                                 value={row.colorId}
                                 onValueChange={(v) => updateItem(row.tempId, { colorId: v })}
-                                disabled={!row.styleId}
+                                disabled={!row.styleId || (opts?.colors.length ?? 0) === 0}
                               >
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select color" />
+                                  <SelectValue
+                                    placeholder={row.styleId && (opts?.colors.length ?? 0) === 0 ? '—' : 'Select color'}
+                                  />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {(opts?.colors || []).map((c) => (

@@ -843,7 +843,7 @@ model delivery_note_items {
   orderItemId      String?
   saleOrderItemId  String?
   styleId          String
-  colorId          String
+  colorId          String?
   sizeId           String
   variantId        String?
   quantity         Int
@@ -852,7 +852,7 @@ model delivery_note_items {
   receivedQty      Int?
   cartons          Int?
   remarks          String?
-  color_options    color_options     @relation(fields: [colorId], references: [id])
+  color_options    color_options?    @relation(fields: [colorId], references: [id], onDelete: Restrict)
   delivery_notes   delivery_notes    @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
   order_items      order_items?      @relation(fields: [orderItemId], references: [id])
   sale_order_items sale_order_items? @relation(fields: [saleOrderItemId], references: [id])
@@ -921,7 +921,7 @@ model delivery_note_fg_allocations {
 model finished_goods_stock {
   id                           String                         @id
   styleId                      String
-  colorId                      String
+  colorId                      String?
   sizeId                       String
   variantId                    String?
   quantity                     Int
@@ -929,7 +929,7 @@ model finished_goods_stock {
   workOrderId                  String?
   receivedDate                 DateTime                       @default(now())
   lastUpdated                  DateTime                       @default(now())
-  color_options                color_options                  @relation(fields: [colorId], references: [id])
+  color_options                color_options?                 @relation(fields: [colorId], references: [id], onDelete: Restrict)
   locations                    locations                      @relation(fields: [locationId], references: [id])
   size_options                 size_options                   @relation(fields: [sizeId], references: [id])
   styles                       styles                         @relation(fields: [styleId], references: [id])
@@ -938,6 +938,8 @@ model finished_goods_stock {
   fg_stock_allocations         fg_stock_allocations[]
   delivery_note_fg_allocations delivery_note_fg_allocations[]
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([styleId, colorId, sizeId, locationId])
   @@index([locationId])
   @@index([styleId])
@@ -6727,6 +6729,8 @@ model cutting_batch_skus {
   cuttingBatch   cutting_batches @relation(fields: [cuttingBatchId], references: [id], onDelete: Cascade)
   size           size_options    @relation(fields: [sizeId], references: [id])
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([cuttingBatchId, colorId, sizeId])
   @@index([cuttingBatchId])
 }
@@ -6848,6 +6852,8 @@ model transfer_slip_skus {
   size           size_options?  @relation(fields: [sizeId], references: [id])
   transferSlip   transfer_slips @relation(fields: [transferSlipId], references: [id], onDelete: Cascade)
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([transferSlipId, colorId, sizeId])
   @@index([transferSlipId])
 }
@@ -6878,15 +6884,17 @@ model stage_receipts {
 model stage_receipt_skus {
   id             String         @id @default(uuid())
   stageReceiptId String
-  colorId        String
+  colorId        String?
   sizeId         String
   expectedQty    Int
   receivedQty    Int
   deviation      Int            @default(0)
-  color          color_options  @relation(fields: [colorId], references: [id])
+  color          color_options? @relation(fields: [colorId], references: [id], onDelete: Restrict)
   size           size_options   @relation(fields: [sizeId], references: [id])
   stageReceipt   stage_receipts @relation(fields: [stageReceiptId], references: [id], onDelete: Cascade)
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([stageReceiptId, colorId, sizeId])
   @@index([stageReceiptId])
 }
@@ -6975,14 +6983,16 @@ model stitching_daily_outputs {
 model stitching_output_skus {
   id            String                  @id @default(uuid())
   dailyOutputId String
-  colorId       String
+  colorId       String?
   sizeId        String
   goodQty       Int                     @default(0)
   defectQty     Int                     @default(0)
-  color         color_options           @relation(fields: [colorId], references: [id])
+  color         color_options?          @relation(fields: [colorId], references: [id], onDelete: Restrict)
   dailyOutput   stitching_daily_outputs @relation(fields: [dailyOutputId], references: [id], onDelete: Cascade)
   size          size_options            @relation(fields: [sizeId], references: [id])
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([dailyOutputId, colorId, sizeId])
   @@index([dailyOutputId])
 }
@@ -7073,14 +7083,16 @@ model finishing_daily_outputs {
 model finishing_output_skus {
   id            String                  @id @default(uuid())
   dailyOutputId String
-  colorId       String
+  colorId       String?
   sizeId        String
   finishedQty   Int                     @default(0)
   defectQty     Int                     @default(0)
-  color         color_options           @relation(fields: [colorId], references: [id])
+  color         color_options?          @relation(fields: [colorId], references: [id], onDelete: Restrict)
   dailyOutput   finishing_daily_outputs @relation(fields: [dailyOutputId], references: [id], onDelete: Cascade)
   size          size_options            @relation(fields: [sizeId], references: [id])
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([dailyOutputId, colorId, sizeId])
   @@index([dailyOutputId])
 }
@@ -7192,13 +7204,15 @@ model polybag_entries {
 model polybag_skus {
   id             String          @id @default(uuid())
   polybagEntryId String
-  colorId        String
+  colorId        String?
   sizeId         String
   packedQty      Int
-  color          color_options   @relation(fields: [colorId], references: [id])
+  color          color_options?  @relation(fields: [colorId], references: [id], onDelete: Restrict)
   polybagEntry   polybag_entries @relation(fields: [polybagEntryId], references: [id], onDelete: Cascade)
   size           size_options    @relation(fields: [sizeId], references: [id])
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([polybagEntryId, colorId, sizeId])
   @@index([polybagEntryId])
 }
@@ -7238,13 +7252,15 @@ model carton_packings {
 model carton_skus {
   id       String          @id @default(uuid())
   cartonId String
-  colorId  String
+  colorId  String?
   sizeId   String
   quantity Int
   carton   carton_packings @relation(fields: [cartonId], references: [id], onDelete: Cascade)
-  color    color_options   @relation(fields: [colorId], references: [id])
+  color    color_options?  @relation(fields: [colorId], references: [id], onDelete: Restrict)
   size     size_options    @relation(fields: [sizeId], references: [id])
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([cartonId, colorId, sizeId])
   @@index([cartonId])
 }
@@ -7607,13 +7623,15 @@ model asn_applications {
 model asn_skus {
   id         String           @id @default(uuid())
   asnId      String
-  colorId    String
+  colorId    String?
   sizeId     String
   plannedQty Int
   asn        asn_applications @relation(fields: [asnId], references: [id], onDelete: Cascade)
-  color      color_options    @relation(fields: [colorId], references: [id])
+  color      color_options?   @relation(fields: [colorId], references: [id], onDelete: Restrict)
   size       size_options     @relation(fields: [sizeId], references: [id])
 
+  // NULLS NOT DISTINCT (raw SQL, migration 20260928170000) — a blank colour is one value, so two
+  // blank-colour rows for one size still collide. Prisma cannot express it: never drop/recreate it.
   @@unique([asnId, colorId, sizeId])
   @@index([asnId])
 }

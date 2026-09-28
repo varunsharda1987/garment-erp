@@ -37,15 +37,16 @@ export const ASNStatusEnum = z.enum(['PENDING', 'APPLIED', 'APPROVED', 'REJECTED
 const deliveryNoteItemSchema = z.object({
   orderId: z.string().uuid('Invalid order ID').optional(),
   orderItemId: z.string().uuid('Invalid order item ID').optional(),
-  // styleId/colorId/sizeId are REQUIRED: delivery_note_items has all three as non-nullable columns,
-  // so an item missing any of them rolled back the whole create with an opaque Prisma 500 instead of
-  // a field-level 400 (bug-hunt dispatch-7).
+  // styleId/sizeId are REQUIRED: delivery_note_items has both as non-nullable columns, so an item
+  // missing either rolled back the whole create with an opaque Prisma 500 instead of a field-level 400
+  // (bug-hunt dispatch-7). colorId is optional — blank for a style with no colour (sku-colour.helper,
+  // owner 2026-09-28).
   styleId: z.string().uuid('Invalid style ID'),
   variantId: z.string().uuid('Invalid variant ID').optional(),
   skuId: z.string().uuid('Invalid SKU ID').optional(),
   // The controller writes colorId/sizeId onto delivery_note_items; without them here validateBody
   // stripped them and the insert failed (bug-hunt F5 — delivery-note creation 500'd).
-  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }),
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).nullable().optional(),
   sizeId: z.string().uuid('Invalid size ID'),
   quantity: z.number().int('Quantity must be a whole number').positive('Quantity must be positive'), // BUG-DIS5 fix: enforce integer
   cartonCount: z.number().int().nonnegative().optional(),
@@ -172,12 +173,12 @@ const asnItemSchema = z.object({
 /**
  * ASN SKU (simple dispatch application)
  */
-// asn_skus.colorId, .sizeId and .plannedQty are all NOT NULL. Declaring them optional here meant a
-// malformed line reached Prisma and died as a 500 instead of being rejected as a 400 — and it let
-// the frontend believe an id-less line was a legal thing to send. A header-only ASN is still legal
-// (`skus` itself stays optional); what is not legal is a SKU line that cannot be stored.
+// asn_skus.sizeId and .plannedQty are NOT NULL. Declaring them optional here meant a malformed line
+// reached Prisma and died as a 500 instead of being rejected as a 400. A header-only ASN is still legal
+// (`skus` itself stays optional); what is not legal is a SKU line that cannot be stored. colorId is
+// optional — blank for a style with no colour (sku-colour.helper, owner 2026-09-28).
 const asnSkuSchema = z.object({
-  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }),
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).nullable().optional(),
   sizeId: z.string().uuid('Invalid size ID'),
   // The controller reads sku.plannedQty (not `quantity`); mismatched name meant it was stripped and
   // ASN creation threw (bug-hunt F5).

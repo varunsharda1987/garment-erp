@@ -20,6 +20,7 @@ import {
   shippingColourFor,
 } from '../services/helpers/sale-order-dispatch.helper';
 import { resolveAdminOverride } from '../utils/admin-override';
+import { skuKey, stockColourMatches } from '../services/helpers/sku-colour.helper';
 import { createAuditLog } from '../services/audit.service';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { applySearch } from '../utils/search-filter';
@@ -465,8 +466,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
       throw new ValidationError(`The customer does not match ${so.saleOrderNumber}.`);
     }
     saleOrderNumber = so.saleOrderNumber;
-    lineFor = (items as Array<{ styleId: string; colorId: string; sizeId: string }>).map((item) => {
-      const line = matchSaleOrderLine(so.items, item);
+    lineFor = (items as Array<{ styleId: string; colorId?: string | null; sizeId: string }>).map((item) => {
+      const line = matchSaleOrderLine(so.items, { ...item, colorId: item.colorId ?? null });
       if (!line) {
         const styleCode = so.items.find((l) => l.styleId === item.styleId)?.style.styleCode;
         const sizeName = so.items.find((l) => l.sizeId === item.sizeId)?.size?.sizeName;
@@ -525,12 +526,12 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
               select: { styleId: true, colorId: true, sizeId: true, quantity: true, receivedQty: true },
             });
 
-            const skuKey = (styleId?: string | null, colorId?: string | null, sizeId?: string | null) =>
+            const styleSkuKey = (styleId?: string | null, colorId?: string | null, sizeId?: string | null) =>
               `${styleId || ''}-${colorId || ''}-${sizeId || ''}`;
 
             const dispatchedMap = new Map<string, number>();
             for (const di of existingDeliveryItems) {
-              const key = skuKey(di.styleId, di.colorId, di.sizeId);
+              const key = styleSkuKey(di.styleId, di.colorId, di.sizeId);
               // Once a proof of delivery is in, what the buyer kept: returned pieces may ship again
               dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + (di.receivedQty ?? di.quantity));
             }
@@ -541,7 +542,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             for (const oi of order.order_items) {
               for (const b of oi.order_item_breakup) {
                 hasBreakup = true;
-                const key = skuKey(oi.styleId, b.colorId, b.sizeId);
+                const key = styleSkuKey(oi.styleId, b.colorId, b.sizeId);
                 orderedMap.set(key, (orderedMap.get(key) || 0) + b.quantity);
               }
             }
@@ -549,7 +550,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             if (hasBreakup) {
               for (const item of items) {
                 if (!item.styleId || !item.sizeId || !item.quantity) continue;
-                const key = skuKey(item.styleId, item.colorId, item.sizeId);
+                const key = styleSkuKey(item.styleId, item.colorId, item.sizeId);
                 const ordered = orderedMap.get(key) ?? 0;
                 const cap = shipCap(ordered, allowance);
                 const already = dispatchedMap.get(key) ?? 0;
@@ -616,7 +617,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
                       id: crypto.randomUUID(),
                       saleOrderItemId: saleOrderId ? lineFor[i].id : null,
                       styleId: item.styleId,
-                      colorId: item.colorId,
+                      colorId: item.colorId ?? null,
                       sizeId: item.sizeId,
                       quantity: item.quantity,
                     })),
@@ -632,7 +633,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
           const lineId = saleOrderId ? lineFor[i].id : null;
           const drawn = await drawFinishedGoods(
             tx,
-            { styleId: item.styleId, colorId: item.colorId, sizeId: item.sizeId },
+            { styleId: item.styleId, colorId: item.colorId ?? null, sizeId: item.sizeId },
             item.quantity,
             lineId
           );
@@ -652,10 +653,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
         }
         if (fgShortfalls.length > 0) {
           if (!override.adminOverride) {
-            await refuseShortStock(
-              tx,
-              fgShortfalls.map((f) => ({ ...f, colorId: f.colorId ?? '' }))
-            );
+            await refuseShortStock(tx, fgShortfalls);
           }
           await tx.delivery_notes.update({
             where: { id: created.id },
@@ -1283,8 +1281,11 @@ export const recordPOD = async (req: Request, res: Response) => {
       let toRestore = shortOf(item);
       for (const a of allocations) {
         if (toRestore < 1) break;
+        // Blank-colour stock may have served a coloured line (stockColourMatches) — it goes back to that row
         const sameSku =
-          a.fgStock.styleId === item.styleId && a.fgStock.colorId === item.colorId && a.fgStock.sizeId === item.sizeId;
+          a.fgStock.styleId === item.styleId &&
+          a.fgStock.sizeId === item.sizeId &&
+          stockColourMatches(a.fgStock.colorId, item.colorId);
         if (!sameSku || a.quantity < 1) continue;
         const back = Math.min(a.quantity, toRestore);
         await tx.finished_goods_stock.update({
@@ -1486,7 +1487,7 @@ export const createASN = async (req: Request, res: Response) => {
   // the buyer promising the whole lot and containing no SKU lines at all, and the success toast and
   // redirect looked identical to a correct save. These three guards make each of those cases a
   // visible error instead.
-  const skuLines: Array<{ colorId: string; sizeId: string; plannedQty: number }> = skus ?? [];
+  const skuLines: Array<{ colorId?: string | null; sizeId: string; plannedQty: number }> = skus ?? [];
 
   // A — the order HAS a breakup, so a per-SKU plan is available and must not be omitted.
   const hasBreakup = order.order_items.some((i) => i._count.order_item_breakup > 0);
@@ -1497,7 +1498,7 @@ export const createASN = async (req: Request, res: Response) => {
   // B — duplicate tuples would hit the @@unique as a raw Prisma 500.
   const seenSku = new Set<string>();
   for (const sku of skuLines) {
-    const key = `${sku.colorId}|${sku.sizeId}`;
+    const key = skuKey(sku.colorId, sku.sizeId);
     if (seenSku.has(key)) {
       throw new ValidationError('Duplicate SKU line in ASN breakdown');
     }
@@ -1530,7 +1531,7 @@ export const createASN = async (req: Request, res: Response) => {
         skuLines.length > 0
           ? {
               create: skuLines.map((sku) => ({
-                colorId: sku.colorId,
+                colorId: sku.colorId ?? null,
                 sizeId: sku.sizeId,
                 plannedQty: sku.plannedQty,
               })),
@@ -1960,7 +1961,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
         // helper POST /delivery-notes uses, so both routes move dispatchedQty identically.
         const skuShortfalls: Array<{
           styleId: string;
-          colorId: string;
+          colorId: string | null;
           sizeId: string;
           requested: number;
           deducted: number;
@@ -2152,7 +2153,7 @@ export const getASNReconciliation = async (req: Request, res: Response) => {
     if (dnExt.deliveryNote.status === 'PENDING' || dnExt.deliveryNote.status === 'CANCELLED') continue;
 
     for (const item of dnExt.deliveryNote.delivery_note_items) {
-      const key = `${item.colorId || 'null'}-${item.sizeId}`;
+      const key = skuKey(item.colorId, item.sizeId);
       actualBySkuKey[key] = (actualBySkuKey[key] || 0) + item.quantity;
       totalActualDispatched += item.quantity;
     }
@@ -2160,7 +2161,7 @@ export const getASNReconciliation = async (req: Request, res: Response) => {
 
   // Build SKU-level reconciliation
   const skuReconciliation = asn.skuBreakdown.map((sku) => {
-    const key = `${sku.colorId}-${sku.sizeId}`;
+    const key = skuKey(sku.colorId, sku.sizeId);
     const actualQty = actualBySkuKey[key] || 0;
     return {
       colorId: sku.colorId,

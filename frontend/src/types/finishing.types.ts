@@ -31,7 +31,7 @@ export const FinishingStatusColors: Record<FinishingStatus, string> = {
 export interface FinishingIssueSKU {
   id: string;
   finishingIssueId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   availableQty: number;
   issuedQty: number;
@@ -77,7 +77,7 @@ export interface FinishingDailyOutput {
 export interface FinishingOutputSKU {
   id: string;
   dailyOutputId: string;
-  colorId: string;
+  colorId: string | null;
   sizeId: string;
   finishedQty: number;
   defectQty: number;
@@ -184,7 +184,7 @@ export interface RecordDailyOutputRequest {
   outputDate: string;
   componentId?: string;
   skuOutputs: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     finishedQty: number;
     defectQty?: number;
@@ -199,7 +199,7 @@ export interface ReceiveFromStitchingRequest {
   receivedQty?: number;
   // Optional: retained as source data for deriving receivedQty; the list-page quick-receive omits it.
   skuReceived?: {
-    colorId: string;
+    colorId: string | null;
     sizeId: string;
     receivedQty: number;
     shortageQty?: number;

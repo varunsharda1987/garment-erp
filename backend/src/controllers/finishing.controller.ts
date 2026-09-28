@@ -5,6 +5,8 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { dedupeSkuRows } from './cutting.utils';
+import { skuKey } from '../services/helpers/sku-colour.helper';
+import { addFinishedGoods } from '../services/helpers/finished-goods.helper';
 import workOrderService from '../services/workOrder.service';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { applySearch } from '../utils/search-filter';
@@ -606,7 +608,7 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
             );
           }
           return {
-            colorId: sku.colorId,
+            colorId: sku.colorId ?? null,
             sizeId: sku.sizeId,
             finishedQty: Number(sku.finishedQty),
             defectQty: Number(sku.defectQty),
@@ -795,10 +797,10 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   const today = new Date();
 
   // Calculate finished pieces per SKU from daily outputs
-  const skuFinishedQtyMap = new Map<string, { colorId: string; sizeId: string; finishedQty: number }>();
+  const skuFinishedQtyMap = new Map<string, { colorId: string | null; sizeId: string; finishedQty: number }>();
   for (const output of issue.dailyOutputs) {
     for (const skuOutput of output.skuOutputs) {
-      const key = `${skuOutput.colorId}-${skuOutput.sizeId}`;
+      const key = skuKey(skuOutput.colorId, skuOutput.sizeId);
       const existing = skuFinishedQtyMap.get(key);
       if (existing) {
         existing.finishedQty += skuOutput.finishedQty;
@@ -873,28 +875,16 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
         },
       });
 
-      // Atomic upsert-with-increment per SKU (the FG unique on style+color+size+location makes this exact)
+      // Atomic insert-or-increment per SKU on the FG unique (style+colour+size+location, NULLS NOT
+      // DISTINCT) — a blank colour included (finished-goods.helper)
       for (const sku of skuBreakdownForSlip) {
-        await tx.finished_goods_stock.upsert({
-          where: {
-            styleId_colorId_sizeId_locationId: {
-              styleId: issue.workOrder.styleId,
-              colorId: sku.colorId,
-              sizeId: sku.sizeId,
-              locationId: fgLocation.id,
-            },
-          },
-          update: { quantity: { increment: sku.finishedQty }, lastUpdated: new Date() },
-          create: {
-            id: randomUUID(),
-            styleId: issue.workOrder.styleId,
-            colorId: sku.colorId,
-            sizeId: sku.sizeId,
-            quantity: sku.finishedQty,
-            locationId: fgLocation.id,
-            workOrderId: issue.workOrderId,
-            receivedDate: new Date(),
-          },
+        await addFinishedGoods(tx, {
+          styleId: issue.workOrder.styleId,
+          colorId: sku.colorId,
+          sizeId: sku.sizeId,
+          locationId: fgLocation.id,
+          quantity: sku.finishedQty,
+          workOrderId: issue.workOrderId,
         });
       }
 
@@ -1332,7 +1322,7 @@ export const createPolybagEntry = async (req: Request, res: Response) => {
 
   const { packingDate, skuBreakdown, remarks } = req.body as {
     packingDate?: string;
-    skuBreakdown: Array<{ colorId: string; sizeId: string; packedQty: number }>;
+    skuBreakdown: Array<{ colorId: string | null; sizeId: string; packedQty: number }>;
     remarks?: string;
   };
 
@@ -1357,7 +1347,7 @@ export const createPolybagEntry = async (req: Request, res: Response) => {
       createdById: userId,
       skuBreakdown: {
         create: skuBreakdown.map((s) => ({
-          colorId: s.colorId,
+          colorId: s.colorId ?? null,
           sizeId: s.sizeId,
           packedQty: s.packedQty,
         })),
@@ -1386,7 +1376,7 @@ export const createCartonPacking = async (req: Request, res: Response) => {
       cartonDimensions?: string;
       grossWeight?: number;
       netWeight?: number;
-      skuBreakdown: Array<{ colorId: string; sizeId: string; quantity: number }>;
+      skuBreakdown: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
       remarks?: string;
     };
 
@@ -1417,7 +1407,7 @@ export const createCartonPacking = async (req: Request, res: Response) => {
       remarks,
       skuBreakdown: {
         create: skuBreakdown.map((s) => ({
-          colorId: s.colorId,
+          colorId: s.colorId ?? null,
           sizeId: s.sizeId,
           quantity: s.quantity,
         })),

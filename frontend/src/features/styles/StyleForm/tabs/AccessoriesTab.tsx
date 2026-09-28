@@ -92,6 +92,7 @@ export function AccessoriesTab({ onPrevious, onOpenPicker, onSaveAsDraft, onSubm
         )}
       </Card>
 
+      {/* allow-own-pager: wizard step navigation between the Style Form tabs, not a list pager */}
       <div className="flex justify-between">
         <Button type="button" variant="outline" onClick={onPrevious}>
           Previous

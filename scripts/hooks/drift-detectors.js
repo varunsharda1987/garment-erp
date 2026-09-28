@@ -1274,6 +1274,88 @@ function silentCatchFrontend(relFiles) {
   return out;
 }
 
+// Own pager — a list page rendering its own "Previous / Page X of Y / Next" instead of the shared
+// `frontend/src/components/Pagination.tsx`. On 2026-09-28 ~43 pages did, each with its own paging,
+// no page-size choice, and the Requirements page cut a label set across pages and lost ticks on
+// every page turn. Flags (a) JSX text `Page {x} of {y}` and (b) a "Previous"/"Prev" button label
+// within ~600 chars of a page decrement (`page - 1`, `setPage((p) => p - 1)`, `page: String(n - 1)`,
+// `offset - limit`, a `handlePreviousPage` handler). Step / preview navigation that is not a list pager opts out with an
+// `allow-own-pager` comment (// or {/* */}) within the 10 lines above the flagged line.
+const OWN_PAGER_EXEMPT = new Set(['frontend/src/components/Pagination.tsx']);
+// Whitespace, a `{' '}` spacer, or a self-closing JSX element (an icon) between tags and text.
+const JSX_GAP = String.raw`(?:\s|\{\s*['"\x60]\s*['"\x60]\s*\}|<[A-Z][\w.]*\b[^<>]*\/>)`;
+const PAGE_OF_RE = new RegExp(
+  String.raw`(?<=[>\s])Page${JSX_GAP}*\{([^{}]+)\}${JSX_GAP}*of${JSX_GAP}*\{([^{}]+)\}`,
+  'g'
+);
+const PREV_LABEL_RE = new RegExp(
+  String.raw`>${JSX_GAP}*(?:&[a-z]+;|[←‹«])?\s*Prev(?:ious)?(?:\s+[Pp]age)?\s*(?=<|\{)`,
+  'g'
+);
+const PAGE_DECREMENT_RES = [
+  /\b[\w$.]*[pP]age(?:Index|Num|Number|No)?\s*-\s*1\b/g, // page - 1, currentPage - 1, p.page - 1
+  /\bset\w*Page\w*\s*\(\s*\(?\s*([\w$]+)\s*\)?\s*=>[^;\n]{0,40}?\b\1\s*-\s*1\b/g, // setPage((p) => p - 1)
+  /\bpage\s*:\s*[^,}\n]{0,60}?-\s*1\b/g, // page: String(currentPage - 1)
+  /\boffset\s*-\s*[\w$.]*(?:limit|Limit|pageSize|PageSize|PAGE_SIZE)\b/g, // offset - limit
+  /\b(?:handle|goTo|go|on)?[pP]rev(?:ious)?Page\b/g, // onClick={handlePreviousPage}
+];
+const OWN_PAGER_WINDOW = 600;
+function ownPager(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^frontend\/src\/.*\.tsx$/.test(norm)) continue;
+    if (/\.test\.|__tests__/.test(norm)) continue;
+    if (OWN_PAGER_EXEMPT.has(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    // The opt-out is read from the RAW source: blankComments keeps `// allow-*` line comments but
+    // blanks `{/* allow-own-pager */}`, the form JSX needs.
+    const rawLines = (readRel(rel) || '').split('\n');
+    const optedOut = (line) => rawLines.slice(Math.max(0, line - 11), line).some((l) => /allow-own-pager/.test(l));
+    const seen = new Map();
+    const push = (idx, what, detail) => {
+      const line = lineOf(content, idx);
+      if (optedOut(line)) return;
+      let key = `${rel} :: own-pager :: ${what}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({ key, file: rel, line, detail });
+    };
+    const fix =
+      "use the shared pager (import Pagination from '@/components/Pagination') or mark `// allow-own-pager: <why>` if this is step/preview navigation";
+    let m;
+    // (a) "Page {x} of {y}"
+    PAGE_OF_RE.lastIndex = 0;
+    while ((m = PAGE_OF_RE.exec(content))) {
+      const cur = m[1].replace(/\s+/g, '');
+      const tot = m[2].replace(/\s+/g, '');
+      push(m.index, `Page {${cur}} of {${tot}}`, `hand-rolled "Page {${cur}} of {${tot}}" pager — ${fix}`);
+    }
+    // (b) a "Previous" label near a page decrement
+    PREV_LABEL_RE.lastIndex = 0;
+    while ((m = PREV_LABEL_RE.exec(content))) {
+      const from = Math.max(0, m.index - OWN_PAGER_WINDOW);
+      const windowText = content.slice(from, m.index + m[0].length + OWN_PAGER_WINDOW);
+      const labelAt = m.index - from;
+      let best = null;
+      for (const re of PAGE_DECREMENT_RES) {
+        const r = new RegExp(re.source, re.flags);
+        let d;
+        while ((d = r.exec(windowText))) {
+          const dist = Math.abs(d.index - labelAt);
+          if (!best || dist < best.dist) best = { dist, text: d[0].replace(/\s+/g, '') };
+        }
+      }
+      if (!best) continue;
+      const labelIdx = m.index + m[0].search(/Prev/);
+      push(labelIdx, `Previous near ${best.text}`, `hand-rolled Previous button (near ${best.text}) — ${fix}`);
+    }
+  }
+  return out;
+}
+
 // D3 — `someQty || null` / `|| undefined` / `|| ''` on a money/quantity identifier: `||` treats a
 // REAL 0 as missing, so a genuine zero price/qty is replaced by the fallback and lost (BUG-BEL1,
 // BUG-FC2 class). Use `??` (only null/undefined trigger the fallback). Only literal null/undefined/
@@ -2365,6 +2447,7 @@ module.exports = {
   schemaServiceUpdateParity,
   stockSyncNoWarehouse,
   silentCatchFrontend,
+  ownPager,
   numericOrFallback,
   hardcodedDefault,
   itemWriteFieldDrift,

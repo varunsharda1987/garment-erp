@@ -43,9 +43,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Ruler, Clock, CheckCircle2, Circle, Loader2, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
-import { applyUrlUpdates, getUrlList, getUrlPage, type FilterUpdate } from '@/lib/url-filters';
+import { applyUrlUpdates, getUrlLimit, getUrlList, getUrlPage, type FilterUpdate } from '@/lib/url-filters';
+import Pagination from '@/components/Pagination';
 
 const PAGE_SIZE = 15;
+const PAGE_SIZE_OPTIONS = [15, 30, 50, 100]; // the API takes any limit; 100 is the project cap
 const EMPTY_ROWS: ReadonlySet<string> = new Set();
 
 const ORDER_FILTER_OPTIONS: Array<{ value: 'all' | CADOrderFilter; label: string }> = [
@@ -89,7 +91,7 @@ export default function CADPlanningList() {
   // Only PENDING and APPROVED tabs (IN_PROGRESS merged into PENDING)
   const statusTab: 'PENDING' | 'APPROVED' = searchParams.get('tab') === 'APPROVED' ? 'APPROVED' : 'PENDING';
   const currentPage = getUrlPage(searchParams);
-  const pageSize = PAGE_SIZE;
+  const pageSize = getUrlLimit(searchParams, PAGE_SIZE);
   const searchQuery = searchParams.get('search') ?? '';
 
   // The filter bar — sent to both the list and the tab badges
@@ -114,11 +116,18 @@ export default function CADPlanningList() {
     (listFilters.cadProgress ? 1 : 0);
   const hasListFilters = activeFilterCount - (searchQuery ? 1 : 0) > 0;
 
-  // Clear keeps the tab: it is where the user is, not a filter they set
+  // Clear keeps the tab and the rows-per-page choice: where the user is, not filters they set
   const clearFilters = useCallback(() => {
-    setSearchParams(statusTab === 'APPROVED' ? new URLSearchParams({ tab: 'APPROVED' }) : new URLSearchParams(), {
-      replace: true,
-    });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams();
+        if (statusTab === 'APPROVED') next.set('tab', 'APPROVED');
+        const limit = prev.get('limit');
+        if (limit) next.set('limit', limit);
+        return next;
+      },
+      { replace: true }
+    );
   }, [setSearchParams, statusTab]);
 
   // SearchInput fires onChange ~300ms after MOUNT with the current value. Without this guard that
@@ -137,6 +146,19 @@ export default function CADPlanningList() {
   );
 
   const setCurrentPage = (page: number) => updateURLParams({ page: page > 1 ? page : undefined });
+
+  // Build filters for styles query
+  const stylesFilters = useMemo(
+    () => ({
+      status: searchQuery ? undefined : statusTab,
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery || undefined,
+      searchAll: !!searchQuery,
+      ...listFilters,
+    }),
+    [statusTab, currentPage, pageSize, searchQuery, listFilters]
+  );
 
   // Expandable rows state, tied to the view it was opened in: changing the tab, search or a filter
   // collapses everything (derived during render — no reset effect). Page changes keep it.
@@ -159,19 +181,6 @@ export default function CADPlanningList() {
       staleTime: 2 * 60 * 1000, // 2 minutes
       placeholderData: (previousData) => previousData,
     }
-  );
-
-  // Build filters for styles query
-  const stylesFilters = useMemo(
-    () => ({
-      status: searchQuery ? undefined : statusTab,
-      page: currentPage,
-      limit: pageSize,
-      search: searchQuery || undefined,
-      searchAll: !!searchQuery,
-      ...listFilters,
-    }),
-    [statusTab, currentPage, pageSize, searchQuery, listFilters]
   );
 
   // React Query: Fetch styles (cached, deduped, auto-refetch)
@@ -278,50 +287,6 @@ export default function CADPlanningList() {
     const greiges = new Set(cadDetails.filter((cad) => cad.greigeName).map((cad) => cad.greigeName));
 
     return Array.from(greiges) as string[];
-  };
-
-  // Pagination component
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-
-    return (
-      <div className="flex items-center justify-between px-4 py-3 border-t">
-        <div className="text-sm text-muted-foreground">
-          Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalStyles)} of {totalStyles}{' '}
-          results
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(1)}>
-            «
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            ‹
-          </Button>
-          <span className="px-3 py-1 bg-primary text-primary-foreground rounded text-sm">{currentPage}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            ›
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(totalPages)}
-          >
-            »
-          </Button>
-        </div>
-      </div>
-    );
   };
 
   // Render CAD details sub-table grouped by purpose
@@ -763,7 +728,20 @@ export default function CADPlanningList() {
                   </Table>
 
                   {/* Pagination */}
-                  {renderPagination()}
+                  <div className="px-4 pb-3 border-t">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      pageSize={pageSize}
+                      totalItems={totalStyles}
+                      onPageChange={setCurrentPage}
+                      onPageSizeChange={(size) =>
+                        updateURLParams({ limit: size === PAGE_SIZE ? undefined : size, page: undefined })
+                      }
+                      pageSizeOptions={PAGE_SIZE_OPTIONS}
+                      itemLabel="styles"
+                    />
+                  </div>
                 </div>
               )}
             </TabsContent>

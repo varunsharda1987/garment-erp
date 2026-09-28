@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Pagination from '@/components/Pagination';
 import { garmentPhysicalTestsService } from '@/services/testing.service';
 import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -44,15 +45,16 @@ export default function GarmentPhysicalTests() {
   const [pendingBuyerApproval, setPendingBuyerApproval] = useState(searchParams.get('pendingBuyerApproval') === 'true');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [resultDialog, setResultDialog] = useState<ResultDialogState | null>(null);
   const { can } = usePermissions();
   const canWrite = can('testing');
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     fetchTests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, statusFilter, pendingBuyerApproval]);
+  }, [page, pageSize, search, statusFilter, pendingBuyerApproval]);
 
   const fetchTests = async () => {
     try {
@@ -66,6 +68,7 @@ export default function GarmentPhysicalTests() {
       });
       setTests(result.data);
       setTotalPages(result.pagination.totalPages);
+      setTotalItems(result.pagination.total);
     } catch (error) {
       handleApiError(error, 'Failed to load garment physical tests');
     } finally {
@@ -391,23 +394,19 @@ export default function GarmentPhysicalTests() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="tests"
+      />
     </div>
   );
 }

@@ -38,6 +38,10 @@ export type DataTableProps<T> = {
     totalItems: number;
     onPageChange: (page: number) => void;
     onPageSizeChange?: (size: number) => void;
+    pageSizeOptions?: number[];
+    /** Noun for "Showing 1 to 20 of 312 …" (Pagination default "results") */
+    itemLabel?: string;
+    pageSizeLabel?: string;
   };
 
   // Row actions
@@ -140,6 +144,9 @@ export default function DataTable<T>({
           totalItems={pagination.totalItems}
           onPageChange={pagination.onPageChange}
           onPageSizeChange={pagination.onPageSizeChange}
+          pageSizeOptions={pagination.pageSizeOptions}
+          itemLabel={pagination.itemLabel}
+          pageSizeLabel={pagination.pageSizeLabel}
         />
       )}
     </div>

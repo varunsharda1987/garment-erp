@@ -23,6 +23,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import Pagination from '@/components/Pagination';
 import { getAllSPOs, createSPO, deleteSPO } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
@@ -58,6 +59,7 @@ export default function StockProductionOrderList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [spoToDelete, setSpoToDelete] = useState<StockProductionOrder | null>(null);
@@ -74,11 +76,11 @@ export default function StockProductionOrderList() {
 
   // BUG-ORD14 fix: standardized query key
   const { data, isLoading } = useQuery({
-    queryKey: queryKeys.stockProductionOrders.list({ page, search, status: statusFilter }),
+    queryKey: queryKeys.stockProductionOrders.list({ page, limit: pageSize, search, status: statusFilter }),
     queryFn: () =>
       getAllSPOs({
         page,
-        limit: 20,
+        limit: pageSize,
         search: search || undefined,
         status: statusFilter !== 'all' ? (statusFilter as StockProductionOrderStatus) : undefined,
       }),
@@ -296,30 +298,20 @@ export default function StockProductionOrderList() {
           </Table>
 
           {/* Pagination */}
-          {data?.pagination && data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {data.pagination.page} of {data.pagination.totalPages} ({data.pagination.total} total)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= data.pagination.totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {data?.pagination && (
+            <Pagination
+              currentPage={page}
+              totalPages={data.pagination.totalPages}
+              pageSize={pageSize}
+              totalItems={data.pagination.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[20, 50, 100]}
+              itemLabel="orders"
+            />
           )}
         </CardContent>
       </Card>

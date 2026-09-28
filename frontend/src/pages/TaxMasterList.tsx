@@ -20,6 +20,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/Pagination';
 import { getAllTaxMasters, createTaxMaster, updateTaxMaster, deleteTaxMaster } from '@/services/taxMaster.service';
 import type { TaxMaster, TaxType, CreateTaxMasterRequest, UpdateTaxMasterRequest } from '@/types/taxMaster.types';
 import { formatDate, toDateInputValue } from '@/lib/date';
@@ -30,6 +31,7 @@ export default function TaxMasterList() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [typeFilter, setTypeFilter] = useState<TaxType | ''>('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TaxMaster | null>(null);
@@ -48,11 +50,11 @@ export default function TaxMasterList() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['tax-masters', { page, search, taxType: typeFilter }],
+    queryKey: ['tax-masters', { page, pageSize, search, taxType: typeFilter }],
     queryFn: () =>
       getAllTaxMasters({
         page,
-        limit: 20,
+        limit: pageSize,
         search: search || undefined,
         taxType: typeFilter || undefined,
       }),
@@ -277,26 +279,20 @@ export default function TaxMasterList() {
             </TableBody>
           </Table>
 
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {(pagination.page - 1) * pagination.limit + 1}-
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {pagination && (
+            <Pagination
+              currentPage={page}
+              totalPages={pagination.totalPages}
+              pageSize={pageSize}
+              totalItems={pagination.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[20, 50, 100]}
+              itemLabel="tax rates"
+            />
           )}
         </CardContent>
       </Card>

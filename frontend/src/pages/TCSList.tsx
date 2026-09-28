@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Pagination from '@/components/Pagination';
 import { getTCSEntries, createTCS, updateTCSStatus, deleteTCS } from '@/services/tcs.service';
 import type { TCSEntry, CreateTCSRequest, TCSStatus } from '@/types/tcs.types';
 import { TCS_STATUS_LABELS, TCS_STATUS_COLORS, TCS_SECTIONS } from '@/types/tcs.types';
@@ -87,6 +88,7 @@ export default function TCSList() {
   // Filters
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [financialYear, setFinancialYear] = useState(FINANCIAL_YEARS[0]);
   const [quarterFilter, setQuarterFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -102,11 +104,11 @@ export default function TCSList() {
   // ---------- Queries ----------
 
   const { data, isLoading } = useQuery({
-    queryKey: ['tcs-entries', { page, search, financialYear, quarter: quarterFilter, status: statusFilter }],
+    queryKey: ['tcs-entries', { page, limit, search, financialYear, quarter: quarterFilter, status: statusFilter }],
     queryFn: () =>
       getTCSEntries({
         page,
-        limit: 20,
+        limit,
         search: search || undefined,
         financialYear: financialYear || undefined,
         quarter: quarterFilter !== 'all' ? Number(quarterFilter) : undefined,
@@ -448,31 +450,21 @@ export default function TCSList() {
             </TableBody>
           </Table>
 
-          {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {pagination.page} of {pagination.totalPages} ({pagination.total} entries)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {/* Pagination — tcsQuerySchema caps limit at 100 */}
+          {pagination && (
+            <Pagination
+              currentPage={page}
+              totalPages={pagination.totalPages}
+              pageSize={limit}
+              totalItems={pagination.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setLimit(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[20, 50, 100]}
+              itemLabel="entries"
+            />
           )}
         </CardContent>
       </Card>

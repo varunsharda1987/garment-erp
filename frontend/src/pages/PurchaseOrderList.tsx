@@ -28,6 +28,8 @@ import { CancelPoDialog } from '@/components/purchase-orders/CancelPoDialog';
 import { getAllPurchaseOrders, getPOStats, deletePurchaseOrder } from '@/services/purchaseOrder.service';
 import { getOrderById } from '@/services/order.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
+import Pagination from '@/components/Pagination';
+import { getUrlLimit } from '@/lib/url-filters';
 import type { PurchaseOrderStatus, POSource, PurchaseOrderFilters, POStats } from '@/types/purchaseOrder.types';
 import {
   PurchaseOrderStatusLabels,
@@ -173,7 +175,8 @@ export default function PurchaseOrderList() {
       delivery: searchParams.get('delivery') === 'TO_BE_ADVISED' ? 'TO_BE_ADVISED' : undefined,
       search: searchParams.get('search') || undefined,
       page: Number.isInteger(pageParam) && pageParam > 0 ? pageParam : 1,
-      limit: 20,
+      // ?limit= from the pager's size choice; the API accepts 1-100
+      limit: getUrlLimit(searchParams, 20),
       sortBy: 'createdAt',
       sortOrder: 'desc',
     };
@@ -209,8 +212,7 @@ export default function PurchaseOrderList() {
   );
 
   const purchaseOrders = poResponse?.data || [];
-  const pagination = poResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
-  const lastPage = Math.max(1, pagination.totalPages);
+  const pagination = poResponse?.pagination || { page: 1, limit: filters.limit ?? 20, total: 0, totalPages: 1 };
 
   // A page past the end (rows deleted, a narrower filter, an old link) showed the empty state with no pager
   // to get back — go to page 1 instead
@@ -830,33 +832,19 @@ export default function PurchaseOrderList() {
             </CardContent>
           </Card>
 
-          {/* Pagination — also shown on a page past the end, so there is always a way back */}
-          {(currentPage > 1 || pagination.totalPages > 1) && (
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage <= 1}
-                onClick={() => {
-                  const previous = Math.min(currentPage - 1, lastPage);
-                  updateURLParams({ page: previous > 1 ? String(previous) : undefined });
-                }}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {lastPage}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={currentPage >= lastPage}
-                onClick={() => updateURLParams({ page: String(currentPage + 1) })}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          {/* The shared pager (a page past the end is sent back to page 1 by the effect above) */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.max(1, pagination.totalPages)}
+            pageSize={filters.limit ?? 20}
+            totalItems={pagination.total}
+            onPageChange={(p) => updateURLParams({ page: p > 1 ? String(p) : undefined })}
+            onPageSizeChange={(size) =>
+              updateURLParams({ limit: size === 20 ? undefined : String(size), page: undefined })
+            }
+            pageSizeOptions={[20, 50, 100]}
+            itemLabel="purchase orders"
+          />
         </div>
       </Tabs>
 

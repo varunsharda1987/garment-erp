@@ -86,6 +86,7 @@ import {
 } from '@/services/mrp.service';
 import {
   getAllServiceRequirements,
+  getServiceRequirementsAllPages,
   generateServiceJWOs,
   getDashboardStats as getServiceDashboardStats,
 } from '@/services/serviceRequirement.service';
@@ -130,7 +131,6 @@ import {
   ClipboardCheck,
   Clock,
   IndianRupee,
-  ChevronLeft,
   ChevronRight,
   CheckCircle2,
   ArrowRight,
@@ -150,6 +150,17 @@ const canOrderFromHere = (r: { status: string; material?: { materialType?: strin
   needsPO(r) && r.material?.materialType !== 'THREAD';
 
 const THREAD_PO_HINT = 'Order thread from Purchase Orders, in cones / tubes';
+
+/** "PO PO2609-0010" or "POs PO2609-0010, PO2609-0011" — MRP makes one PO per category (2026-09-28) */
+const poNumbersText = (result: {
+  purchaseOrder: { poNumber: string } | null;
+  purchaseOrders?: { poNumber: string }[];
+}) => {
+  const numbers = (result.purchaseOrders ?? (result.purchaseOrder ? [result.purchaseOrder] : [])).map(
+    (p) => p.poNumber
+  );
+  return numbers.length > 1 ? `POs ${numbers.join(', ')}` : `PO ${numbers[0] ?? ''}`;
+};
 
 type RequirementTab = 'material' | 'outsourced';
 
@@ -765,7 +776,7 @@ function MaterialRequirementsTab({
         remarks: poRemarks || undefined,
         consolidate: true,
       });
-      handleApiSuccess('PO Generated', `PO ${result.purchaseOrder?.poNumber} created with ${result.totalItems} items`);
+      handleApiSuccess('PO Generated', `${poNumbersText(result)} created with ${result.totalItems} items`);
       setShowGeneratePO(false);
       setPOSupplierId('');
       setPODeliveryDate('');
@@ -2035,6 +2046,11 @@ function OutsourcedWorkTab({
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const page = parseInt(searchParams.get('page') || '1');
+  const pageSize = getUrlLimit(searchParams, DEFAULT_LIST_PAGE_SIZE);
+  // One source in the list view pages on the server. The merged "All" view and the grouped views load every
+  // row of both sources (up to 500 each) and page / group here — MRP-32: paging the two lists separately
+  // made page p hold "page p of each", so no single "Showing X to Y of Z" could be true (2026-09-28).
+  const loadAll = viewMode !== 'flat' || sourceFilter === 'all';
   const searchFilter = searchParams.get('search') || undefined;
   const processorIdFilter = searchParams.get('processorId') || undefined;
   const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
@@ -2102,17 +2118,22 @@ function OutsourcedWorkTab({
       orderItemId: workOrderIdFilter ? (scopeWorkOrder?.orderItemId ?? undefined) : undefined,
       status: statusFilter?.split(',') as MaterialRequirementStatus[] | undefined,
       search: searchFilter,
-      page: viewMode === 'flat' ? page : 1,
-      limit: viewMode === 'flat' ? 20 : 100, // Backend caps at 100
+      ...(loadAll ? {} : { page, limit: pageSize }),
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [statusFilter, searchFilter, orderIdFilter, workOrderIdFilter, scopeWorkOrder, page, viewMode]
+    [statusFilter, searchFilter, orderIdFilter, workOrderIdFilter, scopeWorkOrder, page, pageSize, loadAll]
   );
 
   const { data: processingResponse, isLoading: processingLoading } = useQuery({
     queryKey: [...queryKeys.mrp.all, 'processing-list', processingFilters],
-    queryFn: () => getRequirements(processingFilters),
+    queryFn: () =>
+      loadAll
+        ? getAllRequirements(processingFilters).then(({ data, total }) => ({
+            data,
+            pagination: { page: 1, limit: data.length, total, totalPages: 1 },
+          }))
+        : getRequirements(processingFilters),
     staleTime: 30 * 1000,
     // Wait for the work-order scope to resolve (MRP-19) — firing early would briefly list every
     // processing requirement in the database, which is the bug being fixed.
@@ -2127,17 +2148,23 @@ function OutsourcedWorkTab({
       status: statusFilter?.split(',') as ServiceRequirementStatus[] | undefined,
       processorId: processorIdFilter,
       search: searchFilter,
-      page: viewMode === 'flat' ? page : 1,
-      limit: viewMode === 'flat' ? 20 : 100, // Match processing limit
+      ...(loadAll ? {} : { page, limit: pageSize }),
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [statusFilter, searchFilter, processorIdFilter, orderIdFilter, workOrderIdFilter, page, viewMode]
+    [statusFilter, searchFilter, processorIdFilter, orderIdFilter, workOrderIdFilter, page, pageSize, loadAll]
   );
 
   const { data: serviceResponse, isLoading: serviceLoading } = useQuery({
     queryKey: [...queryKeys.serviceRequirements.all, 'service-list', serviceFilters],
-    queryFn: () => getAllServiceRequirements(serviceFilters),
+    queryFn: () =>
+      loadAll
+        ? getServiceRequirementsAllPages(serviceFilters).then(({ data, total }) => ({
+            success: true,
+            data,
+            pagination: { page: 1, limit: data.length, total, totalPages: 1 },
+          }))
+        : getAllServiceRequirements(serviceFilters),
     staleTime: 30 * 1000,
     enabled: sourceFilter === 'all' || sourceFilter === 'service',
   });
@@ -2356,31 +2383,32 @@ function OutsourcedWorkTab({
     );
   };
 
-  // Pagination: when viewing a single source, use server pagination; when "all", show merged results
+  // Paging: one source → the server's page; "All" → one page of the merged, newest-first rows
+  const mergedPage = sourceFilter === 'all' ? pageGroups(rows, page, pageSize) : null;
+  const pageRows = viewMode === 'flat' && mergedPage ? mergedPage.items : rows;
   const pagination = useMemo(() => {
     if (sourceFilter === 'processing') {
-      return processingResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
+      return processingResponse?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
     }
     if (sourceFilter === 'service') {
-      return serviceResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
+      return serviceResponse?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
     }
-    // "all" — combine totals (client-side merge)
-    const procTotal = processingResponse?.pagination?.total || 0;
-    const svcTotal = serviceResponse?.pagination?.total || 0;
-    const total = procTotal + svcTotal;
     return {
-      page,
-      limit: 40,
-      total,
-      totalPages: Math.max(
-        processingResponse?.pagination?.totalPages || 1,
-        serviceResponse?.pagination?.totalPages || 1
-      ),
+      page: mergedPage?.page ?? 1,
+      limit: pageSize,
+      total: mergedPage?.total ?? 0,
+      totalPages: mergedPage?.totalPages ?? 1,
     };
-  }, [sourceFilter, processingResponse, serviceResponse, page]);
+  }, [sourceFilter, processingResponse, serviceResponse, pageSize, mergedPage]);
+  // A loaded-in-full view stops at 500 rows per source — say so rather than implying it is everything
+  const loadedShort =
+    loadAll &&
+    ((processingResponse?.pagination?.total ?? 0) > (processingResponse?.data?.length ?? 0) ||
+      (serviceResponse?.pagination?.total ?? 0) > (serviceResponse?.data?.length ?? 0));
 
   // Selection helpers
-  const selectableRows = useMemo(() => rows.filter((r) => r.isSelectable), [rows]);
+  // "Select all" is page-scoped in the list view
+  const selectableRows = useMemo(() => pageRows.filter((r) => r.isSelectable), [pageRows]);
   const allSelectedIds = [...selectedProcessingIds, ...selectedServiceIds];
   const hasProcessingSelected = selectedProcessingIds.length > 0;
   const hasServiceSelected = selectedServiceIds.length > 0;
@@ -2434,7 +2462,7 @@ function OutsourcedWorkTab({
       'JWO Number',
       'Created At',
     ];
-    const csvRows = rows.map((row) => [
+    const csvRows = pageRows.map((row) => [
       row.styleCode,
       row.buyerStyleRef || '',
       row.componentName || '',
@@ -2492,7 +2520,7 @@ function OutsourcedWorkTab({
       handleApiSuccess(
         result.purchaseOrder ? 'PO Generated' : 'Job Work Order Generated',
         result.purchaseOrder
-          ? `PO ${result.purchaseOrder.poNumber} created with ${result.totalItems} items` +
+          ? `${poNumbersText(result)} created with ${result.totalItems} items` +
               (result.jobWorkNumber ? ` · JWO ${result.jobWorkNumber}` : '')
           : `JWO ${result.jobWorkNumber} created covering ${result.linkedRequirements} requirement(s) — dispatch it from Job Work Orders`
       );
@@ -2701,27 +2729,23 @@ function OutsourcedWorkTab({
             <Button
               variant="outline"
               onClick={handleExport}
-              disabled={rows.length === 0}
-              title={`Exports the ${rows.length} row(s) on this page`}
+              disabled={pageRows.length === 0}
+              title={`Exports the ${pageRows.length} row(s) on this page`}
             >
               <Download className="h-4 w-4 mr-1" />
-              Export page ({rows.length})
+              Export page ({pageRows.length})
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Results summary.
-          MRP-32: in the merged "All" view the two sources paginate independently (20 each), so a
-          page can hold anywhere between 0 and 40 rows and later pages often carry only one source.
-          Say that plainly instead of implying a single uniform sequence. */}
+      {/* Results summary */}
       <div className="text-sm text-muted-foreground px-1">
-        Showing {rows.length} outsourced work items
-        {pagination.total > 0 && ` of ${pagination.total}`}
-        {sourceFilter === 'all' && pagination.totalPages > 1 && (
-          <span className="ml-1">
-            (page {pagination.page} of {pagination.totalPages}; processing and services are paged separately, so a page
-            may show only one of the two)
+        {viewMode === 'flat' ? `Showing ${pageRows.length}` : rows.length} outsourced work items
+        {viewMode === 'flat' && pagination.total > 0 && ` of ${pagination.total}`}
+        {loadedShort && (
+          <span className="ml-1 text-warning">
+            (only the first 500 of each source are loaded — narrow with a filter)
           </span>
         )}
       </div>
@@ -2761,7 +2785,7 @@ function OutsourcedWorkTab({
                       Loading outsourced work items...
                     </TableCell>
                   </TableRow>
-                ) : rows.length === 0 ? (
+                ) : pageRows.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={sourceFilter === 'service' ? 9 : 11}
@@ -2771,7 +2795,7 @@ function OutsourcedWorkTab({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((row) => (
+                  pageRows.map((row) => (
                     <TableRow key={row.rowKey}>
                       {/* Checkbox */}
                       <TableCell>
@@ -3099,29 +3123,20 @@ function OutsourcedWorkTab({
         </div>
       )}
 
-      {/* Pagination - only show in flat view */}
-      {viewMode === 'flat' && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page <= 1}
-            onClick={() => updateURLParams({ page: String(pagination.page - 1) })}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" /> Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page >= pagination.totalPages}
-            onClick={() => updateURLParams({ page: String(pagination.page + 1) })}
-          >
-            Next <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
+      {/* Paging — list view only (grouped views show every group) */}
+      {viewMode === 'flat' && (
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          pageSize={pageSize}
+          totalItems={pagination.total}
+          onPageChange={(p) => updateURLParams({ page: p > 1 ? String(p) : undefined })}
+          onPageSizeChange={(size) =>
+            updateURLParams({ limit: size === DEFAULT_LIST_PAGE_SIZE ? undefined : String(size), page: undefined })
+          }
+          pageSizeOptions={LIST_PAGE_SIZES}
+          itemLabel="work items"
+        />
       )}
 
       {/* ─── Processing Dialogs ──────────────────────────────── */}

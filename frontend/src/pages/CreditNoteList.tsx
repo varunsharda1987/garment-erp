@@ -30,6 +30,7 @@ import type {
 } from '@/types/creditNote.types';
 import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Pagination from '@/components/Pagination';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
@@ -89,7 +90,7 @@ export default function CreditNoteList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   // Confirm dialogs
   const [approveTarget, setApproveTarget] = useState<CreditNote | null>(null);
@@ -319,30 +320,20 @@ export default function CreditNoteList() {
               </Table>
 
               {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => p + 1)}
-                      disabled={pagination.page >= pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+              {pagination && (
+                <Pagination
+                  currentPage={page}
+                  totalPages={pagination.totalPages}
+                  pageSize={limit}
+                  totalItems={pagination.total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setLimit(size);
+                    setPage(1);
+                  }}
+                  pageSizeOptions={[20, 50, 100]}
+                  itemLabel="credit notes"
+                />
               )}
             </>
           )}

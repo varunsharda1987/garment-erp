@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { AgencyFormDialog } from '@/components/AgencyFormDialog';
+import Pagination from '@/components/Pagination';
 import { getAllAgencies, createAgency, updateAgency, deleteAgency } from '@/services/agency.service';
 import type { Agency, CreateAgencyRequest, UpdateAgencyRequest } from '@/types/agency.types';
 
@@ -25,6 +26,7 @@ export default function AgencyList() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -32,8 +34,8 @@ export default function AgencyList() {
 
   // Fetch agencies
   const { data, isLoading } = useQuery({
-    queryKey: ['agencies', { page, search }],
-    queryFn: () => getAllAgencies({ page, limit: 20, search: search || undefined }),
+    queryKey: ['agencies', { page, pageSize, search }],
+    queryFn: () => getAllAgencies({ page, limit: pageSize, search: search || undefined }),
   });
 
   // Create mutation
@@ -211,30 +213,20 @@ export default function AgencyList() {
                 </TableBody>
               </Table>
 
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => p + 1)}
-                      disabled={pagination.page >= pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+              {pagination && (
+                <Pagination
+                  currentPage={page}
+                  totalPages={pagination.totalPages}
+                  pageSize={pageSize}
+                  totalItems={pagination.total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                  pageSizeOptions={[20, 50, 100]}
+                  itemLabel="agencies"
+                />
               )}
             </>
           )}

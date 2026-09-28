@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Pagination from '@/components/Pagination';
 import { testTemplatesService } from '@/services/testing.service';
 import type { TestTemplate, TestTemplateType } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -19,12 +20,13 @@ export default function TestTemplates() {
   const [templateType, setTemplateType] = useState<TestTemplateType | 'all'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const pageSize = 20;
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     fetchTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, templateType]);
+  }, [page, pageSize, search, templateType]);
 
   const fetchTemplates = async () => {
     try {
@@ -37,6 +39,7 @@ export default function TestTemplates() {
       });
       setTemplates(result.data);
       setTotalPages(result.pagination.totalPages);
+      setTotalItems(result.pagination.total);
     } catch (error) {
       handleApiError(error, 'Failed to load test templates');
     } finally {
@@ -238,23 +241,19 @@ export default function TestTemplates() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="templates"
+      />
     </div>
   );
 }

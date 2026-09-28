@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import DataTable, { type Column } from '@/components/DataTable';
+import Pagination from '@/components/Pagination';
 import {
   stockMovementDashboardService,
   SOURCE_TYPES,
@@ -39,7 +40,8 @@ export default function StockMovementDashboard() {
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [inwardPage, setInwardPage] = useState(1);
   const [outwardPage, setOutwardPage] = useState(1);
-  const pageSize = 25;
+  const [inwardPageSize, setInwardPageSize] = useState(25);
+  const [outwardPageSize, setOutwardPageSize] = useState(25);
 
   // Dashboard summary query
   const {
@@ -57,13 +59,13 @@ export default function StockMovementDashboard() {
     isLoading: inwardLoading,
     refetch: refetchInward,
   } = useQuery({
-    queryKey: ['stock-movement-pending-inward', inwardSourceType, overdueOnly, inwardPage],
+    queryKey: ['stock-movement-pending-inward', inwardSourceType, overdueOnly, inwardPage, inwardPageSize],
     queryFn: () =>
       stockMovementDashboardService.getPendingInward({
         sourceType: inwardSourceType || undefined,
         overdueOnly,
         page: inwardPage,
-        limit: pageSize,
+        limit: inwardPageSize,
       }),
   });
 
@@ -73,12 +75,12 @@ export default function StockMovementDashboard() {
     isLoading: outwardLoading,
     refetch: refetchOutward,
   } = useQuery({
-    queryKey: ['stock-movement-pending-outward', outwardSourceType, outwardPage],
+    queryKey: ['stock-movement-pending-outward', outwardSourceType, outwardPage, outwardPageSize],
     queryFn: () =>
       stockMovementDashboardService.getPendingOutward({
         sourceType: outwardSourceType || undefined,
         page: outwardPage,
-        limit: pageSize,
+        limit: outwardPageSize,
       }),
   });
 
@@ -404,28 +406,20 @@ export default function StockMovementDashboard() {
                 loading={inwardLoading}
                 emptyState={{ title: 'No pending inward items', description: 'All external receipts are up to date' }}
               />
-              {pendingInward && pendingInward.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={inwardPage === 1}
-                    onClick={() => setInwardPage((p) => p - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {inwardPage} of {pendingInward.pagination.totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={inwardPage >= pendingInward.pagination.totalPages}
-                    onClick={() => setInwardPage((p) => p + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
+              {pendingInward && (
+                <Pagination
+                  currentPage={inwardPage}
+                  totalPages={pendingInward.pagination.totalPages}
+                  pageSize={inwardPageSize}
+                  totalItems={pendingInward.pagination.total}
+                  onPageChange={setInwardPage}
+                  onPageSizeChange={(size) => {
+                    setInwardPageSize(size);
+                    setInwardPage(1);
+                  }}
+                  pageSizeOptions={[25, 50, 100]}
+                  itemLabel="items"
+                />
               )}
             </CardContent>
           </Card>
@@ -466,28 +460,20 @@ export default function StockMovementDashboard() {
                 loading={outwardLoading}
                 emptyState={{ title: 'No pending outward items', description: 'No drafts awaiting send' }}
               />
-              {pendingOutward && pendingOutward.pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={outwardPage === 1}
-                    onClick={() => setOutwardPage((p) => p - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {outwardPage} of {pendingOutward.pagination.totalPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={outwardPage >= pendingOutward.pagination.totalPages}
-                    onClick={() => setOutwardPage((p) => p + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
+              {pendingOutward && (
+                <Pagination
+                  currentPage={outwardPage}
+                  totalPages={pendingOutward.pagination.totalPages}
+                  pageSize={outwardPageSize}
+                  totalItems={pendingOutward.pagination.total}
+                  onPageChange={setOutwardPage}
+                  onPageSizeChange={(size) => {
+                    setOutwardPageSize(size);
+                    setOutwardPage(1);
+                  }}
+                  pageSizeOptions={[25, 50, 100]}
+                  itemLabel="items"
+                />
               )}
             </CardContent>
           </Card>

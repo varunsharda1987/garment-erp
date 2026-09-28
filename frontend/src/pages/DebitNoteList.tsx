@@ -14,6 +14,7 @@ import type { DebitNoteQueryParams, DocumentStatus, DebitNoteReason } from '@/ty
 import { DebitNoteReasonLabels } from '@/types/debitNote.types';
 import { DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Pagination from '@/components/Pagination';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
@@ -74,7 +75,7 @@ export default function DebitNoteList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   // Reset page when filters change
   useEffect(() => {
@@ -304,10 +305,6 @@ export default function DebitNoteList() {
     }
   };
 
-  // ---- Pagination helpers ----
-  const canPrev = page > 1;
-  const canNext = page < pagination.totalPages;
-
   // ============================================================
   // Render
   // ============================================================
@@ -461,23 +458,19 @@ export default function DebitNoteList() {
           </Table>
 
           {/* Pagination */}
-          {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
-                Showing {(page - 1) * limit + 1}
-                {' - '}
-                {Math.min(page * limit, pagination.total)} of {pagination.total}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={!canPrev} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" disabled={!canNext} onClick={() => setPage((p) => p + 1)}>
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={page}
+            totalPages={pagination.totalPages}
+            pageSize={limit}
+            totalItems={pagination.total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setLimit(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[20, 50, 100]}
+            itemLabel="debit notes"
+          />
         </CardContent>
       </Card>
 

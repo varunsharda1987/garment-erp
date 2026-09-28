@@ -18,6 +18,7 @@ import {
   CHALLAN_ITEM_TYPES,
 } from '@/types/challan.types';
 import DataTable, { type Column } from '@/components/DataTable';
+import Pagination from '@/components/Pagination';
 import { handleApiError } from '@/lib/api-error-handler';
 import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw } from 'lucide-react';
 
@@ -38,7 +39,7 @@ export default function ChallanList() {
   const [showTodayOnly, setShowTodayOnly] = useState(false);
   const productionRunId = searchParams.get('productionRunId') || '';
   const [page, setPage] = useState(1);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(20);
 
   // Today's summary query
   const {
@@ -53,7 +54,18 @@ export default function ChallanList() {
   useEffect(() => {
     loadChallans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, statusFilter, itemTypeFilter, page, search, productionRunId, fromDate, toDate, showTodayOnly]);
+  }, [
+    typeFilter,
+    statusFilter,
+    itemTypeFilter,
+    page,
+    pageSize,
+    search,
+    productionRunId,
+    fromDate,
+    toDate,
+    showTodayOnly,
+  ]);
 
   async function loadChallans() {
     try {
@@ -429,24 +441,20 @@ export default function ChallanList() {
             loading={isLoading}
             emptyState={{ title: 'No challans found' }}
           />
-          {total > pageSize && (
-            <div className="flex items-center justify-between mt-4">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {page} of {Math.ceil(total / pageSize)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= Math.ceil(total / pageSize)}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          {/* API pages by offset and returns only the total, so the page count is derived here */}
+          <Pagination
+            currentPage={page}
+            totalPages={Math.max(1, Math.ceil(total / pageSize))}
+            pageSize={pageSize}
+            totalItems={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[20, 50, 100]}
+            itemLabel="challans"
+          />
         </CardContent>
       </Card>
     </div>

@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Pagination from '@/components/Pagination';
 import UnapproveImpactDialog, { getCostingInUseDetails } from '@/components/fabric-costing/UnapproveImpactDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { customerService } from '../services/customer.service';
@@ -211,15 +212,15 @@ export default function FabricCostingOptionsPage() {
 
   // Clear all filters
   const clearFilters = () => {
-    setFilters({
+    setFilters((prev) => ({
       customerId: undefined,
       styleId: undefined,
       processorId: undefined,
       status: 'ALL',
       purpose: 'ALL',
       page: 1,
-      limit: 10,
-    });
+      limit: prev.limit, // the rows-per-page choice is not a filter
+    }));
   };
 
   // Handle approve
@@ -867,30 +868,16 @@ export default function FabricCostingOptionsPage() {
         </div>
       )}
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
-            disabled={filters.page <= 1}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
-            disabled={filters.page >= pagination.totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      {/* Pagination — the API pages by STYLE (each style card holds all its options) */}
+      <Pagination
+        currentPage={filters.page}
+        totalPages={pagination.totalPages}
+        pageSize={filters.limit}
+        totalItems={pagination.totalStyles}
+        onPageChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+        onPageSizeChange={(limit) => setFilters((prev) => ({ ...prev, limit, page: 1 }))}
+        itemLabel="styles"
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

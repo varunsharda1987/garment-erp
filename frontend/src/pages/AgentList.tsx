@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { AgentFormDialog } from '@/components/AgentFormDialog';
+import Pagination from '@/components/Pagination';
 import { getAllAgents, createAgent, updateAgent, deleteAgent } from '@/services/agent.service';
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from '@/types/agent.types';
 
@@ -25,6 +26,7 @@ export default function AgentList() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -32,8 +34,8 @@ export default function AgentList() {
 
   // Fetch agents
   const { data, isLoading } = useQuery({
-    queryKey: ['agents', { page, search }],
-    queryFn: () => getAllAgents({ page, limit: 20, search: search || undefined }),
+    queryKey: ['agents', { page, pageSize, search }],
+    queryFn: () => getAllAgents({ page, limit: pageSize, search: search || undefined }),
   });
 
   // Create mutation
@@ -219,30 +221,20 @@ export default function AgentList() {
                 </TableBody>
               </Table>
 
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <p className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page <= 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => p + 1)}
-                      disabled={pagination.page >= pagination.totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+              {pagination && (
+                <Pagination
+                  currentPage={page}
+                  totalPages={pagination.totalPages}
+                  pageSize={pageSize}
+                  totalItems={pagination.total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                  pageSizeOptions={[20, 50, 100]}
+                  itemLabel="agents"
+                />
               )}
             </>
           )}

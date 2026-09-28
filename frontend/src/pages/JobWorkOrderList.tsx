@@ -28,6 +28,7 @@ import { openPDF } from '@/lib/document-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import SearchInput from '@/components/SearchInput';
+import Pagination from '@/components/Pagination';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -113,7 +114,7 @@ export default function JobWorkOrderList() {
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [waJwo, setWaJwo] = useState<JobWorkOrder | null>(null);
-  const limit = 20;
+  const [limit, setLimit] = useState(20);
 
   const queryParams: JobWorkOrderQueryParams = {
     page,
@@ -427,25 +428,21 @@ export default function JobWorkOrderList() {
           </div>
 
           {/* Pagination */}
-          {data && data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-4 border-t">
-              <div className="text-sm text-muted-foreground">
-                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, data.pagination.total)} of{' '}
-                {data.pagination.total}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= data.pagination.totalPages}
-                  onClick={() => setPage(page + 1)}
-                >
-                  Next
-                </Button>
-              </div>
+          {data && data.pagination.total > 0 && (
+            <div className="px-4 pb-4 border-t">
+              <Pagination
+                currentPage={page}
+                totalPages={data.pagination.totalPages}
+                pageSize={limit}
+                totalItems={data.pagination.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setLimit(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="job work orders"
+              />
             </div>
           )}
         </CardContent>

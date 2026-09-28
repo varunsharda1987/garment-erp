@@ -13,18 +13,8 @@ import CompactOrderRow, { CompactOrderHeader } from '@/components/status/Compact
 import ProductionKanban from '@/components/status/ProductionKanban';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Layers,
-  ShoppingCart,
-  RefreshCw,
-  Clock,
-  LayoutGrid,
-  List,
-  Kanban,
-} from 'lucide-react';
+import Pagination from '@/components/Pagination';
+import { Loader2, Layers, ShoppingCart, RefreshCw, Clock, LayoutGrid, List, Kanban } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
@@ -58,7 +48,7 @@ export default function ProductionStatus() {
 
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
@@ -201,18 +191,9 @@ export default function ProductionStatus() {
   const items = viewMode === 'style' ? styleItems : orderItems;
   const summary = viewMode === 'style' ? styleSummary : orderSummary;
 
-  const handlePreviousPage = () => {
-    if (page > 1) {
-      setPage(page - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
-  const handleNextPage = () => {
-    if (page < totalPages) {
-      setPage(page + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -309,14 +290,9 @@ export default function ProductionStatus() {
 
       {/* Results Count */}
       {!loading && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div>
-            Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of{' '}
-            {total} {viewMode === 'order' ? 'orders' : 'styles'}
-          </div>
-          <div>
-            Page {page} of {totalPages}
-          </div>
+        <div className="text-sm text-muted-foreground">
+          Showing {items.length === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total}{' '}
+          {viewMode === 'order' ? 'orders' : 'styles'}
         </div>
       )}
 
@@ -380,58 +356,20 @@ export default function ProductionStatus() {
       )}
 
       {/* Pagination - hide in kanban mode */}
-      {!loading && totalPages > 1 && displayMode !== 'kanban' && (
-        <div className="flex items-center justify-between bg-card p-4 rounded-lg border border-border">
-          <Button
-            variant="outline"
-            onClick={handlePreviousPage}
-            disabled={page === 1}
-            className="flex items-center gap-2"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Previous
-          </Button>
-
-          <div className="flex items-center gap-2">
-            {/* Show page numbers */}
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum: number;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (page <= 3) {
-                pageNum = i + 1;
-              } else if (page >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = page - 2 + i;
-              }
-
-              return (
-                <Button
-                  key={pageNum}
-                  variant={page === pageNum ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => {
-                    setPage(pageNum);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                >
-                  {pageNum}
-                </Button>
-              );
-            })}
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={handleNextPage}
-            disabled={page === totalPages}
-            className="flex items-center gap-2"
-          >
-            Next
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+      {!loading && displayMode !== 'kanban' && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={total}
+          onPageChange={handlePageChange}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            handlePageChange(1);
+          }}
+          pageSizeOptions={[20, 50, 100]}
+          itemLabel={viewMode === 'order' ? 'orders' : 'styles'}
+        />
       )}
     </div>
   );

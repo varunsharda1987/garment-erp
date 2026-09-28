@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import Pagination from '@/components/Pagination';
 import {
   Dialog,
   DialogContent,
@@ -56,7 +57,8 @@ export default function TestingLabs() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const pageSize = 20;
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
 
   // Inline create/edit dialog (replaces dead /new, /:id, /:id/edit routes)
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -67,7 +69,7 @@ export default function TestingLabs() {
   useEffect(() => {
     fetchLabs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [page, pageSize, search]);
 
   const fetchLabs = async () => {
     try {
@@ -79,6 +81,7 @@ export default function TestingLabs() {
       });
       setLabs(result.data);
       setTotalPages(result.pagination.totalPages);
+      setTotalItems(result.pagination.total);
     } catch (error) {
       handleApiError(error, 'Failed to load testing labs');
     } finally {
@@ -312,23 +315,19 @@ export default function TestingLabs() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="labs"
+      />
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

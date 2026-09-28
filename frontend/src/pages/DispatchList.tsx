@@ -4,8 +4,6 @@ import {
   Truck,
   Plus,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Send,
   CheckCircle,
@@ -18,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SearchInput from '@/components/SearchInput';
+import Pagination from '@/components/Pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -39,14 +38,18 @@ export default function DispatchList() {
   // Delivery Notes state
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNote[]>([]);
   const [dnPage, setDnPage] = useState(1);
+  const [dnPageSize, setDnPageSize] = useState(20);
   const [dnTotalPages, setDnTotalPages] = useState(1);
+  const [dnTotal, setDnTotal] = useState(0);
   const [dnSearch, setDnSearch] = useState('');
   const [dnStatusFilter, setDnStatusFilter] = useState<string>('');
 
   // ASN state
   const [asnApplications, setAsnApplications] = useState<ASNApplication[]>([]);
   const [asnPage, setAsnPage] = useState(1);
+  const [asnPageSize, setAsnPageSize] = useState(20);
   const [asnTotalPages, setAsnTotalPages] = useState(1);
+  const [asnTotal, setAsnTotal] = useState(0);
   const [asnSearch, setAsnSearch] = useState('');
   const [asnStatusFilter, setAsnStatusFilter] = useState<string>('');
 
@@ -63,33 +66,35 @@ export default function DispatchList() {
     try {
       const response = await deliveryNoteService.getAll({
         page: dnPage,
-        limit: 20,
+        limit: dnPageSize,
         search: dnSearch || undefined,
         status: (dnStatusFilter as DeliveryStatus) || undefined,
       });
       setDeliveryNotes(response.data);
       setDnTotalPages(response.pagination.totalPages);
+      setDnTotal(response.pagination.total);
     } catch (error) {
       console.error('Error fetching delivery notes:', error);
       handleApiError(error, 'Failed to load delivery notes');
     }
-  }, [dnPage, dnSearch, dnStatusFilter]);
+  }, [dnPage, dnPageSize, dnSearch, dnStatusFilter]);
 
   const fetchASNApplications = useCallback(async () => {
     try {
       const response = await asnService.getAll({
         page: asnPage,
-        limit: 20,
+        limit: asnPageSize,
         search: asnSearch || undefined,
         status: (asnStatusFilter as ASNStatus) || undefined,
       });
       setAsnApplications(response.data);
       setAsnTotalPages(response.pagination.totalPages);
+      setAsnTotal(response.pagination.total);
     } catch (error) {
       console.error('Error fetching ASN applications:', error);
       handleApiError(error, 'Failed to load ASN applications');
     }
-  }, [asnPage, asnSearch, asnStatusFilter]);
+  }, [asnPage, asnPageSize, asnSearch, asnStatusFilter]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -393,28 +398,19 @@ export default function DispatchList() {
               )}
 
               {/* Pagination */}
-              {dnTotalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {dnPage} of {dnTotalPages}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setDnPage(dnPage - 1)} disabled={dnPage === 1}>
-                      <ChevronLeft className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDnPage(dnPage + 1)}
-                      disabled={dnPage === dnTotalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={dnPage}
+                totalPages={dnTotalPages}
+                pageSize={dnPageSize}
+                totalItems={dnTotal}
+                onPageChange={setDnPage}
+                onPageSizeChange={(size) => {
+                  setDnPageSize(size);
+                  setDnPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="delivery notes"
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -559,33 +555,19 @@ export default function DispatchList() {
               )}
 
               {/* Pagination */}
-              {asnTotalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {asnPage} of {asnTotalPages}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAsnPage(asnPage - 1)}
-                      disabled={asnPage === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAsnPage(asnPage + 1)}
-                      disabled={asnPage === asnTotalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={asnPage}
+                totalPages={asnTotalPages}
+                pageSize={asnPageSize}
+                totalItems={asnTotal}
+                onPageChange={setAsnPage}
+                onPageSizeChange={(size) => {
+                  setAsnPageSize(size);
+                  setAsnPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="ASN applications"
+              />
             </CardContent>
           </Card>
         </TabsContent>

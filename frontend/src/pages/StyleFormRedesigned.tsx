@@ -3539,6 +3539,7 @@ export default function StyleFormRedesigned() {
               )}
             </Card>
 
+            {/* allow-own-pager: wizard step navigation between the Style Form tabs, not a list pager */}
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setActiveTab('basic')}>
                 Previous
@@ -3562,6 +3563,7 @@ export default function StyleFormRedesigned() {
               <TrimSelector selectedTrims={selectedTrims} onChange={setSelectedTrims} styleCode={styleCode} />
             </Card>
 
+            {/* allow-own-pager: wizard step navigation between the Style Form tabs, not a list pager */}
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setActiveTab('fabrics')}>
                 Previous
@@ -3710,6 +3712,7 @@ export default function StyleFormRedesigned() {
               />
             </Card>
 
+            {/* allow-own-pager: wizard step navigation between the Style Form tabs, not a list pager */}
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setActiveTab('trims')}>
                 Previous

@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import Pagination from '../components/Pagination';
 import { laceStockService } from '../services/laceStock.service';
 import type {
   LaceStock,
@@ -100,7 +101,7 @@ export default function LaceStockList() {
   useEffect(() => {
     fetchStocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, statusFilter, stockTypeFilter, qualityFilter]);
+  }, [pagination.page, pagination.limit, statusFilter, stockTypeFilter, qualityFilter]);
 
   const handleSearch = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
@@ -390,29 +391,16 @@ export default function LaceStockList() {
       </Card>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page === 1}
-            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-          >
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page === pagination.totalPages}
-            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.totalPages}
+        pageSize={pagination.limit}
+        totalItems={pagination.total}
+        onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+        onPageSizeChange={(limit) => setPagination((prev) => ({ ...prev, page: 1, limit }))}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="lots"
+      />
     </div>
   );
 }

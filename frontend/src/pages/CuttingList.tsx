@@ -5,8 +5,6 @@ import {
   Plus,
   Search,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   Eye,
   Play,
   CheckCircle,
@@ -22,6 +20,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import Pagination from '@/components/Pagination';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type {
   CuttingBatch,
@@ -42,7 +41,9 @@ export default function CuttingList() {
   const [summary, setSummary] = useState<CuttingSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -68,7 +69,7 @@ export default function CuttingList() {
       const [batchesRes, summaryRes] = await Promise.all([
         cuttingBatchService.getAll({
           page,
-          limit: 20,
+          limit: pageSize,
           search: search || undefined,
           status: (statusFilter as CuttingBatchStatus) || undefined,
           workOrderId: workOrderId || undefined,
@@ -77,6 +78,7 @@ export default function CuttingList() {
       ]);
       setBatches(batchesRes.data);
       setTotalPages(batchesRes.pagination.totalPages);
+      setTotal(batchesRes.pagination.total);
       setSummary(summaryRes);
     } catch (error) {
       console.error('Error fetching cutting data:', error);
@@ -94,7 +96,7 @@ export default function CuttingList() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter, workOrderId]);
+  }, [page, pageSize, statusFilter, workOrderId]);
 
   const handleSearch = () => {
     setPage(1);
@@ -395,28 +397,19 @@ export default function CuttingList() {
               )}
 
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {page} of {totalPages}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setPage(page - 1)} disabled={page === 1}>
-                      <ChevronLeft className="h-4 w-4" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === totalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="batches"
+              />
             </CardContent>
           </Card>
         </TabsContent>

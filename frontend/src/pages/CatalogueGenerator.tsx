@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import Pagination from '@/components/Pagination';
 import {
   BookImage,
   Download,
@@ -86,6 +87,7 @@ type PriceDisplay = 'b2b' | 'b2r' | 'both' | 'none';
 // Constants for pagination
 const PAGE_SIZE = 50;
 const DISPLAY_PAGE_SIZE = 20;
+const DISPLAY_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 // Available sizes for filter
 const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Free Size'];
@@ -102,6 +104,7 @@ export default function CatalogueGenerator() {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [displayPage, setDisplayPage] = useState(1);
+  const [displayPageSize, setDisplayPageSize] = useState(DISPLAY_PAGE_SIZE);
 
   // State for filters
   const [seasons, setSeasons] = useState<Season[]>([]);
@@ -294,12 +297,12 @@ export default function CatalogueGenerator() {
 
   // Paginate filtered styles for display
   const paginatedFilteredStyles = useMemo(() => {
-    const start = (displayPage - 1) * DISPLAY_PAGE_SIZE;
-    return filteredStyles.slice(start, start + DISPLAY_PAGE_SIZE);
-  }, [filteredStyles, displayPage]);
+    const start = (displayPage - 1) * displayPageSize;
+    return filteredStyles.slice(start, start + displayPageSize);
+  }, [filteredStyles, displayPage, displayPageSize]);
 
   // Total pages for display pagination
-  const totalDisplayPages = Math.ceil(filteredStyles.length / DISPLAY_PAGE_SIZE);
+  const totalDisplayPages = Math.max(1, Math.ceil(filteredStyles.length / displayPageSize));
 
   // Reset display page when filters change
   useEffect(() => {
@@ -927,39 +930,21 @@ export default function CatalogueGenerator() {
                     </Table>
                   </div>
 
-                  {/* Pagination Controls */}
-                  <div className="flex items-center justify-between pt-4 border-t mt-4">
-                    <div className="text-sm text-muted-foreground">
-                      Showing {(displayPage - 1) * DISPLAY_PAGE_SIZE + 1}-
-                      {Math.min(displayPage * DISPLAY_PAGE_SIZE, filteredStyles.length)} of {filteredStyles.length}{' '}
-                      styles
-                      {totalStyles > styles.length && (
-                        <span className="ml-2 text-accent">
-                          ({styles.length} loaded of {totalStyles} total)
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDisplayPage((p) => Math.max(1, p - 1))}
-                        disabled={displayPage === 1}
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm text-muted-foreground">
-                        Page {displayPage} of {totalDisplayPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDisplayPage((p) => Math.min(totalDisplayPages, p + 1))}
-                        disabled={displayPage >= totalDisplayPages}
-                      >
-                        Next
-                      </Button>
-                    </div>
+                  {/* Pagination Controls — pages the styles loaded so far; Load More fetches the rest */}
+                  <div className="border-t mt-4">
+                    <Pagination
+                      currentPage={displayPage}
+                      totalPages={totalDisplayPages}
+                      pageSize={displayPageSize}
+                      totalItems={filteredStyles.length}
+                      onPageChange={setDisplayPage}
+                      onPageSizeChange={(size) => {
+                        setDisplayPageSize(size);
+                        setDisplayPage(1);
+                      }}
+                      pageSizeOptions={DISPLAY_PAGE_SIZE_OPTIONS}
+                      itemLabel="styles"
+                    />
                   </div>
 
                   {/* Load More Button */}

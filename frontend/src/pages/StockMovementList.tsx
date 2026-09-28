@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
 import DataTable from '@/components/DataTable';
+import Pagination from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
 import stockMovementService, { type UnifiedMovement } from '../services/stockMovement.service';
@@ -50,7 +51,16 @@ export default function StockMovementList() {
   useEffect(() => {
     loadMovements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [directionFilter, startDate, endDate, invoiceSearch, materialSearch, supplierId, pagination.page]);
+  }, [
+    directionFilter,
+    startDate,
+    endDate,
+    invoiceSearch,
+    materialSearch,
+    supplierId,
+    pagination.page,
+    pagination.limit,
+  ]);
 
   const loadMovements = async () => {
     try {
@@ -386,31 +396,17 @@ export default function StockMovementList() {
       </Card>
 
       {/* Pagination */}
-      {!loading && pagination.total > 0 && (
-        <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <div>
-            Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} movements
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page <= 1}
-              onClick={() => setPagination((p) => ({ ...p, page: p.page - 1 }))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page >= pagination.totalPages}
-              onClick={() => setPagination((p) => ({ ...p, page: p.page + 1 }))}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {!loading && (
+        <Pagination
+          currentPage={pagination.page}
+          totalPages={pagination.totalPages}
+          pageSize={pagination.limit}
+          totalItems={pagination.total}
+          onPageChange={(page) => setPagination((p) => ({ ...p, page }))}
+          onPageSizeChange={(limit) => setPagination((p) => ({ ...p, page: 1, limit }))}
+          pageSizeOptions={[20, 50, 100]}
+          itemLabel="movements"
+        />
       )}
     </>
   );

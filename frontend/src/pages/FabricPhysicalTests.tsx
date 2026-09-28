@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import Pagination from '@/components/Pagination';
 import { fabricPhysicalTestsService } from '@/services/testing.service';
 import type { FabricPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -27,6 +28,8 @@ export default function FabricPhysicalTests() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>(searchParams.get('status') || 'all');
   const [resultDialog, setResultDialog] = useState<ResultDialogState | null>(null);
@@ -36,18 +39,19 @@ export default function FabricPhysicalTests() {
   useEffect(() => {
     fetchTests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, filterStatus]);
+  }, [page, pageSize, search, filterStatus]);
 
   const fetchTests = async () => {
     try {
       setLoading(true);
-      const params: Record<string, string | number | boolean> = { page, limit: 20 };
+      const params: Record<string, string | number | boolean> = { page, limit: pageSize };
       if (search) params.search = search;
       if (filterStatus !== 'all') params.overallTestResult = filterStatus;
 
       const result = await fabricPhysicalTestsService.getAll(params);
       setTests(result.data);
       setTotalPages(result.pagination.totalPages);
+      setTotalItems(result.pagination.total);
     } catch (error) {
       handleApiError(error, 'Failed to fetch fabric tests');
     } finally {
@@ -112,12 +116,21 @@ export default function FabricPhysicalTests() {
             <Input
               placeholder="Search by test number, batch..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="pl-10"
             />
           </div>
 
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <Select
+            value={filterStatus}
+            onValueChange={(value) => {
+              setFilterStatus(value);
+              setPage(1);
+            }}
+          >
             <SelectTrigger>
               <Filter className="h-4 w-4 mr-2" />
               <SelectValue placeholder="Filter by status" />
@@ -280,23 +293,19 @@ export default function FabricPhysicalTests() {
       )}
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-            Previous
-          </Button>
-          <span className="py-2 px-4 text-sm text-foreground">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        totalItems={totalItems}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="tests"
+      />
     </div>
   );
 }

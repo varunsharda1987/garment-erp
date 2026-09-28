@@ -94,6 +94,10 @@ export interface ListPageLayoutProps {
     pageSize: number;
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
+    pageSizeOptions?: number[];
+    /** Noun for "Showing 1 to 20 of 312 …" (Pagination default "results") */
+    itemLabel?: string;
+    pageSizeLabel?: string;
   };
   /** Total pages */
   totalPages?: number;

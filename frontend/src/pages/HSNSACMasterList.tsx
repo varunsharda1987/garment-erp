@@ -20,6 +20,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import Pagination from '@/components/Pagination';
 import {
   getAllHSNSACMasters,
   createHSNSACMaster,
@@ -34,6 +35,7 @@ export default function HSNSACMasterList() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [typeFilter, setTypeFilter] = useState<HSNSACType | ''>('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<HSNSACMaster | null>(null);
@@ -52,11 +54,11 @@ export default function HSNSACMasterList() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['hsn-sac-masters', { page, search, type: typeFilter }],
+    queryKey: ['hsn-sac-masters', { page, pageSize, search, type: typeFilter }],
     queryFn: () =>
       getAllHSNSACMasters({
         page,
-        limit: 20,
+        limit: pageSize,
         search: search || undefined,
         type: typeFilter || undefined,
       }),
@@ -269,26 +271,20 @@ export default function HSNSACMasterList() {
             </TableBody>
           </Table>
 
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {(pagination.page - 1) * pagination.limit + 1}-
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {pagination && (
+            <Pagination
+              currentPage={page}
+              totalPages={pagination.totalPages}
+              pageSize={pageSize}
+              totalItems={pagination.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[20, 50, 100]}
+              itemLabel="codes"
+            />
           )}
         </CardContent>
       </Card>

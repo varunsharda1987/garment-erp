@@ -138,6 +138,26 @@ export async function getAllServiceRequirements(
 }
 
 /**
+ * Every page of the service-requirements list (the API caps a page at 100), up to maxRows — for views that
+ * merge or group rows on the client and must not stop at the first page.
+ */
+export async function getServiceRequirementsAllPages(
+  filters: ServiceRequirementFilters,
+  maxRows = 500
+): Promise<{ data: ServiceRequirement[]; total: number }> {
+  const limit = 100;
+  const data: ServiceRequirement[] = [];
+  let total = 0;
+  for (let page = 1; data.length < maxRows; page++) {
+    const res = await getAllServiceRequirements({ ...filters, page, limit });
+    total = res.pagination?.total ?? res.data.length;
+    data.push(...res.data);
+    if (page >= (res.pagination?.totalPages ?? 1) || res.data.length === 0) break;
+  }
+  return { data: data.slice(0, maxRows), total };
+}
+
+/**
  * Get service requirements summary for a work order
  * GET /api/work-orders/:workOrderId/service-requirements/summary
  */

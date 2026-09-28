@@ -12,6 +12,7 @@ import { getGenericGreigeStock } from '../services/style-stock.service';
 import { greigeStockService } from '../services/greigeStock.service';
 import { warehouseService } from '../services/warehouse.service';
 import { WarehouseCombobox } from '../components/WarehouseCombobox';
+import Pagination from '@/components/Pagination';
 import type { GenericGreigeStock, GreigeStockDetail, UpdateGreigeStockData } from '../types/style-stock.types';
 import {
   Search,
@@ -72,6 +73,7 @@ export default function GreigeAvailableStock() {
   const [weaverFilter, setWeaverFilter] = useState('all');
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -169,8 +171,8 @@ export default function GreigeAvailableStock() {
   }, [applyFilters]);
 
   // Derived data
-  const totalPages = Math.ceil(filteredStock.length / PAGE_SIZE);
-  const paginatedStock = filteredStock.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filteredStock.length / pageSize));
+  const paginatedStock = filteredStock.slice((page - 1) * pageSize, page * pageSize);
 
   const uniqueWarehouses = [...new Set(greigeStock.flatMap((s) => s.warehouses || []))].filter(Boolean).sort();
   const weaverChoices = [
@@ -834,30 +836,19 @@ export default function GreigeAvailableStock() {
               </div>
 
               {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 px-2">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filteredStock.length)} of{' '}
-                    {filteredStock.length}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                      Previous
-                    </Button>
-                    <span className="flex items-center px-3 text-sm">
-                      Page {page} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page >= totalPages}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={filteredStock.length}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[25, 50, 100]}
+                itemLabel="greige types"
+              />
             </>
           )}
         </CardContent>

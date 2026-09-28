@@ -18,13 +18,12 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   AlertCircle,
   Ban,
   ClipboardCheck,
 } from 'lucide-react';
+import Pagination from '@/components/Pagination';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getEInvoiceInvoices, generateIrn, cancelIrn, preflightEInvoice } from '@/services/einvoice.service';
 import type { EInvoiceInvoiceRow, EInvoicePreflightResult } from '@/types/einvoice.types';
@@ -44,6 +43,7 @@ export default function EInvoiceInvoicesPage() {
   const [search, setSearch] = useState('');
   const [irnStatus, setIrnStatus] = useState<'all' | 'not_generated' | 'generated' | 'cancelled' | 'error'>('all');
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkGenerating, setBulkGenerating] = useState(false);
 
@@ -59,14 +59,14 @@ export default function EInvoiceInvoicesPage() {
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['einvoice-invoices', { search: debouncedSearch, irnStatus, page }],
+  const { data, isLoading } = useQuery({
+    queryKey: ['einvoice-invoices', { search: debouncedSearch, irnStatus, page, limit }],
     queryFn: () =>
       getEInvoiceInvoices({
         search: debouncedSearch || undefined,
         irnStatus: irnStatus === 'all' ? undefined : irnStatus,
         page,
-        limit: 20,
+        limit,
       }),
   });
 
@@ -212,7 +212,7 @@ export default function EInvoiceInvoicesPage() {
     );
   };
 
-  const pagination = data?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
+  const pagination = data?.pagination || { page: 1, limit, total: 0, totalPages: 1 };
   const pushableCount = data?.data.filter(canGenerate).length || 0;
 
   return (
@@ -428,32 +428,20 @@ export default function EInvoiceInvoicesPage() {
                 </Table>
               </div>
 
-              {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages} ({pagination.total} invoices)
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page === 1 || isFetching}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                      disabled={pagination.page === pagination.totalPages || isFetching}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {/* Pagination — the list service caps limit at 100 */}
+              <Pagination
+                currentPage={page}
+                totalPages={pagination.totalPages}
+                pageSize={limit}
+                totalItems={pagination.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setLimit(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="invoices"
+              />
             </>
           )}
         </CardContent>

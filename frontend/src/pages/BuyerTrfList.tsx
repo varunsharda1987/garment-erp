@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import Pagination from '@/components/Pagination';
 import { buyerTrfService } from '@/services/buyerTrf.service';
 import { openPDF } from '@/lib/document-utils';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -38,11 +39,12 @@ export default function BuyerTrfList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [printingId, setPrintingId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['buyer-trfs', { page, search }],
-    queryFn: () => buyerTrfService.getAll({ page, limit: 20, search: search || undefined }),
+    queryKey: ['buyer-trfs', { page, pageSize, search }],
+    queryFn: () => buyerTrfService.getAll({ page, limit: pageSize, search: search || undefined }),
   });
 
   const handlePrint = async (trf: BuyerTrf) => {
@@ -169,25 +171,20 @@ export default function BuyerTrfList() {
             </Table>
           )}
 
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between pt-4 text-sm">
-              <span className="text-muted-foreground">
-                Showing {rows.length} of {pagination.total}
-              </span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {pagination && (
+            <Pagination
+              currentPage={page}
+              totalPages={pagination.totalPages}
+              pageSize={pageSize}
+              totalItems={pagination.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[20, 50, 100]}
+              itemLabel="forms"
+            />
           )}
         </CardContent>
       </Card>

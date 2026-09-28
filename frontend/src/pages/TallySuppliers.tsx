@@ -17,19 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Loader2,
-  Search,
-  Link2,
-  Link2Off,
-  CheckCircle,
-  XCircle,
-  Wand2,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  ArrowRight,
-} from 'lucide-react';
+import { Loader2, Search, Link2, Link2Off, CheckCircle, XCircle, Wand2, Download, ArrowRight } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   getTallySuppliers,
@@ -43,12 +31,14 @@ import {
 } from '@/services/tally.service';
 import type { SupplierTallyMatch } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
+import Pagination from '@/components/Pagination';
 
 export default function TallySuppliersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [matchStatus, setMatchStatus] = useState<'all' | 'matched' | 'unmatched'>('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierTallyMatch | null>(null);
   const [selectedLedger, setSelectedLedger] = useState('');
@@ -61,14 +51,14 @@ export default function TallySuppliersPage() {
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['tally-suppliers', { search: debouncedSearch, matchStatus, page }],
+  const { data, isLoading } = useQuery({
+    queryKey: ['tally-suppliers', { search: debouncedSearch, matchStatus, page, pageSize }],
     queryFn: () =>
       getTallySuppliers({
         search: debouncedSearch || undefined,
         matchStatus: matchStatus === 'all' ? undefined : matchStatus,
         page,
-        limit: 20,
+        limit: pageSize,
         suggestions: true,
       }),
   });
@@ -335,31 +325,19 @@ export default function TallySuppliersPage() {
               </div>
 
               {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page === 1 || isFetching}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                      disabled={pagination.page === pagination.totalPages || isFetching}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={pagination.totalPages}
+                pageSize={pageSize}
+                totalItems={pagination.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="suppliers"
+              />
             </>
           )}
         </CardContent>

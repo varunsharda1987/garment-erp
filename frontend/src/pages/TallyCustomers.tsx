@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Search, Link as LinkIcon, Unlink, Wand2, Check, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Search, Link as LinkIcon, Unlink, Wand2, Check, X } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   getTallyCustomers,
@@ -25,26 +25,28 @@ import {
 } from '@/services/tally.service';
 import type { CustomerTallyMatch, TallyLedger } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
+import Pagination from '@/components/Pagination';
 
 export default function TallyCustomersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [matchStatus, setMatchStatus] = useState<'all' | 'matched' | 'unmatched'>('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [linkDialog, setLinkDialog] = useState<CustomerTallyMatch | null>(null);
   const [selectedLedger, setSelectedLedger] = useState('');
   const [ledgerSearch, setLedgerSearch] = useState('');
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['tally-customers', { search: debouncedSearch, matchStatus, page }],
+  const { data, isLoading } = useQuery({
+    queryKey: ['tally-customers', { search: debouncedSearch, matchStatus, page, pageSize }],
     queryFn: () =>
       getTallyCustomers({
         search: debouncedSearch || undefined,
         matchStatus: matchStatus === 'all' ? undefined : matchStatus,
         page,
-        limit: 20,
+        limit: pageSize,
         suggestions: true,
       }),
   });
@@ -269,31 +271,19 @@ export default function TallyCustomersPage() {
               </div>
 
               {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages} ({pagination.total} customers)
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page === 1 || isFetching}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                      disabled={pagination.page === pagination.totalPages || isFetching}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={pagination.totalPages}
+                pageSize={pageSize}
+                totalItems={pagination.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="customers"
+              />
             </>
           )}
         </CardContent>

@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Pagination from '@/components/Pagination';
 import { getTDSEntries, createTDS, updateTDSStatus, deleteTDS } from '@/services/tds.service';
 import type { TDSEntry, CreateTDSRequest, TDSStatus } from '@/types/tds.types';
 import { TDS_STATUS_LABELS, TDS_STATUS_COLORS, TDS_SECTIONS } from '@/types/tds.types';
@@ -92,6 +93,7 @@ export default function TDSList() {
   // Filters
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [financialYear, setFinancialYear] = useState(FINANCIAL_YEARS[0]);
   const [quarterFilter, setQuarterFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -107,11 +109,11 @@ export default function TDSList() {
   // ---------- Queries ----------
 
   const { data, isLoading } = useQuery({
-    queryKey: ['tds-entries', { page, search, financialYear, quarter: quarterFilter, status: statusFilter }],
+    queryKey: ['tds-entries', { page, pageSize, search, financialYear, quarter: quarterFilter, status: statusFilter }],
     queryFn: () =>
       getTDSEntries({
         page,
-        limit: 20,
+        limit: pageSize,
         search: search || undefined,
         financialYear: financialYear || undefined,
         quarter: quarterFilter !== 'all' ? Number(quarterFilter) : undefined,
@@ -486,30 +488,20 @@ export default function TDSList() {
           </Table>
 
           {/* Pagination */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {pagination.page} of {pagination.totalPages} ({pagination.total} entries)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page >= pagination.totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+          {pagination && (
+            <Pagination
+              currentPage={page}
+              totalPages={pagination.totalPages}
+              pageSize={pageSize}
+              totalItems={pagination.total}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+              pageSizeOptions={[20, 50, 100]}
+              itemLabel="entries"
+            />
           )}
         </CardContent>
       </Card>

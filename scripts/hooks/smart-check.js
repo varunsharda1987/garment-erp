@@ -414,6 +414,17 @@ function checkSilentCatchFrontend(tsFiles) {
   );
 }
 
+/** Check: a list page hand-rolling its own Previous / "Page X of Y" / Next pager — BLOCKING new + ratchet. */
+function checkOwnPager(tsFiles) {
+  console.log(`\n${c.cyan}Checking list pages use the shared pager...${c.reset}`);
+  return runRatchetedCheck(
+    'hand-rolled list pager(s)',
+    detectors.ownPager(tsFiles),
+    'own-pager-baseline.json',
+    "Use the shared pager: import Pagination from '@/components/Pagination' (see CLAUDE.md → Enforced Guardrails). Step/preview navigation that is not a list pager: add // allow-own-pager: <why> above it."
+  );
+}
+
 /** Check (D3): `moneyOrQty || null/undefined/""` — a real 0 becomes the fallback — BLOCKING new + ratchet. */
 function checkNumericOrFallback(tsFiles) {
   console.log(`\n${c.cyan}Checking for || fallbacks that lose a real 0...${c.reset}`);
@@ -1325,6 +1336,7 @@ function runAllModeChecks() {
   if (!checkSchemaFrontendParity(tsFiles)) ok = false;
   if (!checkStockSyncNoWarehouse(tsFiles)) ok = false;
   if (!checkSilentCatchFrontend(tsFiles)) ok = false;
+  if (!checkOwnPager(tsFiles)) ok = false;
   if (!checkNumericOrFallback(tsFiles)) ok = false;
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
@@ -1451,6 +1463,7 @@ function main() {
     if (!checkSchemaFrontendParity(categories.typescript)) allPassed = false;
     if (!checkStockSyncNoWarehouse(categories.typescript)) allPassed = false;
     if (!checkSilentCatchFrontend(categories.typescript)) allPassed = false;
+    if (!checkOwnPager(categories.typescript)) allPassed = false;
     if (!checkNumericOrFallback(categories.typescript)) allPassed = false;
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;

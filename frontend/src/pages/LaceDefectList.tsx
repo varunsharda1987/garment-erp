@@ -13,6 +13,7 @@ import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
+import Pagination from '../components/Pagination';
 import { laceDefectService } from '../services/laceDefect.service';
 import type { LaceDefect, DefectType, ClaimStatus, DiscoveredAt, DefectFilters } from '../types/laceDefect.types';
 import {
@@ -122,7 +123,7 @@ export default function LaceDefectList() {
   useEffect(() => {
     fetchDefects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, defectTypeFilter, claimStatusFilter, discoveredAtFilter]);
+  }, [pagination.page, pagination.limit, defectTypeFilter, claimStatusFilter, discoveredAtFilter]);
 
   const handleSearch = () => {
     setPagination((prev) => ({ ...prev, page: 1 }));
@@ -452,29 +453,16 @@ export default function LaceDefectList() {
       </Card>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page === 1}
-            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-          >
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page === pagination.totalPages}
-            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.totalPages}
+        pageSize={pagination.limit}
+        totalItems={pagination.total}
+        onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+        onPageSizeChange={(limit) => setPagination((prev) => ({ ...prev, page: 1, limit }))}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="defects"
+      />
 
       {/* Claim Modal */}
       <Dialog open={showClaimModal} onOpenChange={setShowClaimModal}>

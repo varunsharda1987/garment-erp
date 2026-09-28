@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import Pagination from '@/components/Pagination';
 import { Bug, Loader2, ImageIcon, StickyNote, Save, History } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getAllIssueReports, updateIssueReport } from '@/services/issue-report.service';
@@ -47,18 +48,19 @@ export default function IssueReports() {
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [notesReport, setNotesReport] = useState<IssueReport | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
   const [trailReport, setTrailReport] = useState<IssueReport | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['issue-reports', statusFilter, page],
+    queryKey: ['issue-reports', statusFilter, page, pageSize],
     queryFn: () =>
       getAllIssueReports({
         status: statusFilter === 'ALL' ? undefined : (statusFilter as IssueStatus),
         page,
-        limit: 20,
+        limit: pageSize,
       }),
   });
 
@@ -211,23 +213,20 @@ export default function IssueReports() {
       </Card>
 
       {/* Pagination */}
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= pagination.totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Next
-          </Button>
-        </div>
+      {pagination && (
+        <Pagination
+          currentPage={page}
+          totalPages={pagination.totalPages}
+          pageSize={pageSize}
+          totalItems={pagination.total}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          pageSizeOptions={[20, 50, 100]}
+          itemLabel="reports"
+        />
       )}
 
       {/* Full-size screenshot viewer */}

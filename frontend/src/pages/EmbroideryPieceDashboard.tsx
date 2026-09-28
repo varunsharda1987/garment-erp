@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
 } from '../components/ui/alert-dialog';
 import { Textarea } from '../components/ui/textarea';
+import Pagination from '@/components/Pagination';
 import { toast } from 'sonner';
 import { externalProcessService } from '../services/external-process.service';
 import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, Search, XCircle } from 'lucide-react';
@@ -46,6 +47,7 @@ export default function EmbroideryPieceDashboard() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
 
@@ -55,14 +57,14 @@ export default function EmbroideryPieceDashboard() {
   });
 
   const { data: sendOutsData, isLoading } = useQuery({
-    queryKey: ['embroidery-piece-sendouts', { search, status: statusFilter, page }],
+    queryKey: ['embroidery-piece-sendouts', { search, status: statusFilter, page, pageSize }],
     queryFn: () =>
       externalProcessService.getSendOuts({
         processType: 'EMBROIDERY_PIECE',
         status: statusFilter !== 'all' ? (statusFilter as ExternalProcessStatus) : undefined,
         search: search || undefined,
         page,
-        limit: 20,
+        limit: pageSize,
       }),
   });
 
@@ -276,26 +278,20 @@ export default function EmbroideryPieceDashboard() {
         </CardContent>
       </Card>
 
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Showing {(pagination.page - 1) * pagination.limit + 1}–
-            {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
-          </p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= pagination.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
+      {pagination && (
+        <Pagination
+          currentPage={page}
+          totalPages={pagination.totalPages}
+          pageSize={pageSize}
+          totalItems={pagination.total}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          pageSizeOptions={[20, 50, 100]}
+          itemLabel="send-outs"
+        />
       )}
 
       <AlertDialog

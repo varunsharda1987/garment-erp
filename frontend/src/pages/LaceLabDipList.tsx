@@ -10,6 +10,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import Pagination from '../components/Pagination';
 import { laceLabDipService } from '../services/laceLabDip.service';
 import type { LaceLabDip, LabDipStatus, LabDipListFilters } from '../types/laceLabDip.types';
 import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS } from '../types/laceLabDip.types';
@@ -81,7 +82,7 @@ export default function LaceLabDipList() {
   useEffect(() => {
     fetchLabDips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, statusFilter]);
+  }, [pagination.page, pagination.limit, statusFilter]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this lab dip request?')) {
@@ -272,29 +273,16 @@ export default function LaceLabDipList() {
       </Card>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex justify-center gap-2 mt-6">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page === 1}
-            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-          >
-            Previous
-          </Button>
-          <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.page === pagination.totalPages}
-            onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.totalPages}
+        pageSize={pagination.limit}
+        totalItems={pagination.total}
+        onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+        onPageSizeChange={(limit) => setPagination((prev) => ({ ...prev, page: 1, limit }))}
+        pageSizeOptions={[20, 50, 100]}
+        itemLabel="lab dips"
+      />
     </div>
   );
 }

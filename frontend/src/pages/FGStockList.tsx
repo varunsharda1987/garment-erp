@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
+import Pagination from '@/components/Pagination';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
@@ -72,13 +72,14 @@ interface FGStockResponse {
 export default function FGStockList() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const { data, isLoading } = useQuery<FGStockResponse>({
-    queryKey: ['fg-stock', { page, search }],
+    queryKey: ['fg-stock', { page, pageSize, search }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set('page', String(page));
-      params.set('limit', '20');
+      params.set('limit', String(pageSize));
       if (search) params.set('search', search);
       const response = await api.get(`/fg-stock?${params.toString()}`);
       return response.data;
@@ -249,25 +250,20 @@ export default function FGStockList() {
                 </Table>
               </div>
 
-              {pagination && pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {(page - 1) * 20 + 1} to {Math.min(page * 20, pagination.total)} of {pagination.total} items
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={page >= pagination.totalPages}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+              {pagination && (
+                <Pagination
+                  currentPage={page}
+                  totalPages={pagination.totalPages}
+                  pageSize={pageSize}
+                  totalItems={pagination.total}
+                  onPageChange={setPage}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPage(1);
+                  }}
+                  pageSizeOptions={[20, 50, 100]}
+                  itemLabel="items"
+                />
               )}
             </>
           )}

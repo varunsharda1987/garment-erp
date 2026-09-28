@@ -15,8 +15,6 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   Link2Off,
   AlertCircle,
@@ -26,6 +24,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getTallyCreditNotes, pushCreditNoteToTally } from '@/services/tally.service';
 import type { CreditNoteTallyStatus } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
+import Pagination from '@/components/Pagination';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, formatDateTime } from '@/lib/date';
 
@@ -34,19 +33,20 @@ export default function TallyCreditNotesPage() {
   const [search, setSearch] = useState('');
   const [pushStatus, setPushStatus] = useState<'all' | 'pushed' | 'not_pushed' | 'error'>('all');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPushing, setBulkPushing] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['tally-credit-notes', { search: debouncedSearch, pushStatus, page }],
+  const { data, isLoading } = useQuery({
+    queryKey: ['tally-credit-notes', { search: debouncedSearch, pushStatus, page, pageSize }],
     queryFn: () =>
       getTallyCreditNotes({
         search: debouncedSearch || undefined,
         pushStatus: pushStatus === 'all' ? undefined : pushStatus,
         page,
-        limit: 20,
+        limit: pageSize,
       }),
   });
 
@@ -381,31 +381,19 @@ export default function TallyCreditNotesPage() {
               </div>
 
               {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                  <div className="text-sm text-muted-foreground">
-                    Page {pagination.page} of {pagination.totalPages} ({pagination.total} credit notes)
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={pagination.page === 1 || isFetching}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                      disabled={pagination.page === pagination.totalPages || isFetching}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={page}
+                totalPages={pagination.totalPages}
+                pageSize={pageSize}
+                totalItems={pagination.total}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[20, 50, 100]}
+                itemLabel="credit notes"
+              />
             </>
           )}
         </CardContent>

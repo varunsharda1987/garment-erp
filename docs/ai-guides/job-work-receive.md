@@ -34,6 +34,16 @@ keywords:
   - receiving date
   - than count
   - fold length
+  - roll wise
+  - roll-wise receive
+  - roll number
+  - than number
+  - than tag
+  - roll ki list
+  - than ki list
+  - रोल
+  - रोल नंबर
+  - थान नंबर
   - inward challan
   - partial receipt
   - receive in parts
@@ -141,9 +151,9 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 
 ### Fill it in
 1. Read **Expected back** (or **Expected dyed lace**) — the quantity due back: the greige sent minus the expected shrinkage. **Maximum you can receive** appears once you start typing a quantity.
-2. Choose the **Entry mode**: **Total metres**, **Than-wise** or **Bale-wise**.
+2. Choose the **Entry mode**: **Total metres**, **Than-wise**, **Bale-wise** or **Roll-wise**.
 3. **Total metres** — type **How much came back (MTR) \*** exactly as the processor counted it. **Than count** and **Fold length L (cm)** can be recorded alongside it and are stored with the receipt. Beside them, **Actual metres (after L)** fills itself and cannot be typed into: with a fold length under 100 cm it is counted × L/100 (10,011 at L=98 reads 9,810.78 m); with no fold it is the counted figure. Stock, shrinkage, the loss split and the "final delivery" check all use the actual metres.
-4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. In both, the than count is the number of rows, and **Fold length L (cm)** and **Actual metres (after L)** sit under the rows, working on the Detail sum.
+4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. **Roll-wise** — click **Add roll** for every roll and type its metres. Beside each piece you can type the processor's tag — **Than No.** or **Roll No.** — and each bale's **Bale No.**; they are optional. In every piece-wise mode the count is the number of rows, and **Fold length L (cm)** and **Actual metres (after L)** sit under the rows, working on the Detail sum. The finished fabric lot keeps this roll / than list: cutting picks from it later, and **Inventory → Fabric Stock** shows it (see "Record or check the rolls & thans of a fabric lot"). With **Total metres** the lot has no list.
 5. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
 6. **Their challan no.** — the processor's challan number.
    **Processor's invoice no. \*** and **Invoice date \*** — the processor's bill for this delivery. If the bill has not come with the goods, tick **Invoice not received yet** instead (both boxes clear); add the bill later on the receipt with **Add invoice**, or type it when you close the job. The button stays disabled until one or the other is done.

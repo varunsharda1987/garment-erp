@@ -68,6 +68,12 @@ keywords:
   - कढ़ाई
   - लेस
   - लेस रंगाई
+  - embroidery roll
+  - kadhai ke roll
+  - kadhai roll bhejo
+  - record rolls sent
+  - कढ़ाई के रोल
+  - कढ़ाई रोल भेजना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -131,6 +137,8 @@ Both figures stay editable — type over either one and it will not be overwritt
 
    **Best fit (whole thans)** / **Best fit (whole rolls)** ticks whole pieces only — none is cut — landing within 1% of the order, over or under. For thans it uses whole bales first, finishes bales that are already opened, and breaks as few bales as possible; the note under the button says how many bales (or rolls) it used. The order quantity does not change. If no set of whole pieces fits within 1%, it says so — use **Pick thans for me** instead.
 
+   On an **Embroidery** order that takes a fabric lot (dyed or printed cloth), there are no lot rows: the dialog says "This order issues from its selected fabric lot (… will be consumed for embroidery)". If that lot has a list of its rolls / thans, they open under that line, already ticked for the order's metres, as **Pick rolls for me** would tick them. Change the ticks if other rolls are going, or click **Best fit (whole rolls)**. The ticked pieces decide the metres the lot gives up, and the line under the list says what they come to. They must land within 1% of the order; otherwise a red line says "The ticked pieces come to … — tick more or fewer, or send a part of the last one" and the issue button stays off. Untick everything to send the order's quantity without naming pieces (record them later, see below). If the lot's list is out of step with its metres, nothing is ticked for you and a warning says so: tick what goes, or send by quantity and use **Check rolls & thans** on the Fabric Stock page.
+
    If the lot has **no list** (for example it was received on its GRN as **Total Meters**), the line under it says so, for example "GRG-0039 has no bale, than or roll list — it goes by quantity. (Received on GRN2608-0004 as Total Meters.)" — the issue is never blocked; it simply goes by quantity. To pick pieces from this lot from now on, click **Record bales & thans** on that line, type the bales / thans / rolls now on the rack, save — the pieces then open under the lot. The link shows only to people allowed to edit greige stock.
 5. Check **Sent date**. It is today unless you change it. It cannot be after today, and it cannot be before the day a chosen lot was received (or reached the processor). A date more than 7 days back shows a reminder to make sure it is the real day. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
 6. Click **Issue & Create Challan**. When every chosen lot is already at the processor the button reads **Allocate at <processor>** instead, and there is no vehicle box. The confirmation shows the challan number that was created (or, for an allocation, "allocated at … under challan …, nothing dispatched"). The challan names the store the goods leave from (for example Kashaya Fabs). Every issue that sends something out gets a challan — greige, lace, a fabric roll or garments; only greige that is already at this processor is allocated without one. Greige or lace the supplier delivered straight to this processor (approved with **Delivered straight to …** on the GRN) is taken from where it lies: no truck and no new challan — the job shows the challan that already covers it, and the one-year return period counts from the day the processor received it. Ready fabric delivered straight to this processor is taken the same way: on a fabric-roll job (for example embroidery) whose lot is already at the processor, the button reads **Allocate at <processor>**, nothing travels and no challan is created. Greige, lace or fabric sitting at a different processor cannot be put on this job as it is: the dialog lists it under **Elsewhere: … at <processor>** with a **Move here** link, which files a challan from that processor to this one — the cloth then shows under **Already at <processor>** and is taken without a truck.
@@ -143,6 +151,8 @@ On the **New Job Work Order** form of that page, **Create & Send to Mill** with 
 ## Name the thans after sending
 If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** (**Record rolls sent** for a roll lot) with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me** / **Best fit (whole thans)**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more than 1% over what the order took. Only pieces that were on the lot's list when the order took its cloth are offered: pieces recorded later with **Record bales & thans** were still on the rack, so they can never be named on an order that had already left (and the button does not show for such an order).
 
+The same goes for an **Embroidery** order that took its fabric lot by quantity: its page shows **Record rolls sent** (**Record thans sent** for a than lot) with a line such as "0 m of 100 m recorded by roll". Click it, tick the rolls that went and click **Record rolls sent**. The lot's metres do not move again, and a roll put on the lot's list after the order took its cloth is refused.
+
 If other orders went to the same processor on the same day from the same lot and their thans are not recorded yet, the dialog lists them and shows **Best fit for all N jobs**. It fits the thans on the total of all those orders — whole bales across the vehicle, a bale shared between two orders rather than two bales broken — then shares them out, each order within 1%. The button at the bottom then reads **Record thans for N jobs** and saves all of them together. Click **Record this job only** to go back to one order.
 
 ## Traps
@@ -153,6 +163,6 @@ If other orders went to the same processor on the same day from the same lot and
 - All lot rows must be the same greige. One job work order sends one cloth.
 - The dyed variant must have been created from the greige lace being sent. Picking a variant of a different lace is refused — use the **Create** box to make the right one.
 - A lace job cannot also carry a fabric, and lace is refused on any process type other than Dyeing.
-- A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
+- A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back — on an embroidery order the rolls / thans it took go back on the fabric lot's list), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
 - Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**. On that page **Best fit for all orders** picks whole thans for every order on the truck together, lot by lot, each order within 1%. Only store lots are offered there. If an order's cloth is already at the processor, the order says so, with a link: issue it from its own page.
 - A sent date after today, or before the lot arrived, is refused: "Lot … was received on … — it cannot have left on …".

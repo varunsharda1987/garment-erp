@@ -65,3 +65,4 @@ The lot's metres never change — this only records its pieces. From then on its
 - A lot that still lists pieces cannot be counted again: "… already lists … — A lot is counted only when its list is empty". If pieces left on an order without being named, name them on that order with **Record thans sent**.
 - Pieces recorded now are the ones on the rack now. An order that already left before the count can never be given these pieces — they were still in the godown.
 - Every row needs its metres before it can be saved. You need permission to edit greige stock; others do not see the button.
+- This is for greige lots. Dyed or printed fabric lots have their own **Record rolls & thans** and **Check rolls & thans** on **Inventory → Fabric Stock** (see "Record or check the rolls & thans of a fabric lot").

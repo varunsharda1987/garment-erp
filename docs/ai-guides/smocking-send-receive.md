@@ -28,11 +28,18 @@ keywords:
   - स्मॉकिंग वेंडर
   - स्मॉकिंग पेंडिंग
   - स्मॉकिंग रिसीव
+  - smocking roll
+  - smocking ke roll
+  - kaunse roll bheje smocking
+  - स्मॉकिंग रोल
+  - स्मॉकिंग के थान
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/SmockingDashboard.tsx
   - frontend/src/pages/SmockingSendOut.tsx
   - frontend/src/pages/SmockingReceive.tsx
+  - frontend/src/components/job-work/ThanPicker.tsx
+  - backend/src/services/external-process.service.ts
 route: /manufacturing/smocking
 ---
 
@@ -61,17 +68,18 @@ route: /manufacturing/smocking
    - **Cutting Batch (Cut Pieces)** - for cut garment pieces
    - **Fabric Stock (Meters)** - for uncut fabric
 6. Select the specific cutting batch or fabric stock lot
-7. **Step 4 - Enter Quantities per SKU** (cutting batch only):
+7. **Fabric Stock only — the lot's rolls / thans**: if the lot has a roll / than list (dyed or printed fabric received roll-wise or than-wise), it opens under the lot. Tick the rolls or thans you are sending — type the **Quantity (meters)** first, then **Pick rolls for me** ticks them in order for it (the last one can be a part) and **Best fit (whole rolls)** ticks whole rolls only. The ticked pieces decide the quantity sent: the **Quantity (meters)** box then shows what they come to and cannot be typed (the line under the list says "The quantity sent is what the ticked pieces come to."). Tick nothing to send a typed quantity without naming pieces. A lot with no list says so and goes by quantity.
+8. **Step 4 - Enter Quantities per SKU** (cutting batch only):
    - Enter quantity to send for each color/size combination
    - Total is auto-calculated
-8. **Step 5 - Send-Out Details**:
+9. **Step 5 - Send-Out Details**:
    - **Agreed Rate** - rate per piece or meter (required)
    - **Send Date** - date sent to vendor (required)
    - **Expected Return Date** - when work should return (optional)
    - **Remarks** - any notes (optional)
-9. Review the summary showing vendor, quantity, rate, and estimated total
-10. Click **Create Send-Out**
-11. System redirects to dashboard with success message
+10. Review the summary showing vendor, quantity, rate, and estimated total
+11. Click **Create Send-Out**
+12. System redirects to dashboard with success message. The outward challan names the fabric lot the metres left, and the ticked rolls / thans are marked sent to this job.
 
 ## Receive smocking work
 
@@ -111,12 +119,14 @@ route: /manufacturing/smocking
 3. Click the **X** (cancel) icon in Actions column
 4. Enter a cancellation reason (required)
 5. Click **Cancel Send-Out**
-6. Stock deductions are reversed, status becomes **Cancelled**
+6. Stock deductions are reversed — the rolls / thans this send-out took go back on the lot's list — and the status becomes **Cancelled**
 
 ## Traps
 
 - **No Job Work Order**: You cannot send out without a SMOCKING job work order. Generate one first from the work order's service requirements page
 - **Source selection**: Cutting batch shows pieces (good for garment work), fabric stock shows meters (good for fabric-level work) - choose the right type
+- **Roll list out of step**: if the lot's roll / than list does not match its metres, a warning shows above the list. Tick what goes or send by quantity, then fix the list with **Check rolls & thans** on the Fabric Stock page
+- **A ticked roll with a blank or too-large metres** blocks the send-out — fix the metres or untick it
 - **Quantity limits**: When entering SKU quantities, you cannot exceed the available count from the cutting batch
 - **Overdue tracking**: Send-outs past their expected return date are highlighted in red on the dashboard
 - **Partial receives**: If you receive less than sent, status becomes **Partially Received** and you can receive more later

@@ -55,3 +55,4 @@ route: /fabric-stock
 - **Warehouse Location** starts empty. It is a searchable dropdown — search by warehouse code, name or city and pick from the list; it cannot be typed in free-form.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
 - To book stock directly against a style instead, use **Add Stock Against Style** on the **Finished Fabric Stock** page and pick the style code.
+- A lot entered here has no roll or than list — its **Rolls / thans** column reads "No list". To list them, click **Record rolls & thans** on the lot's row (see "Record or check the rolls & thans of a fabric lot"). Fabric received back from a processor than-wise, bale-wise or roll-wise gets its list automatically.

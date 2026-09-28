@@ -8,7 +8,8 @@
  *     with a ledger row — no fallback onto another receipt's or a hand-entered lot.
  *  3. Issue to Cutting of a lot the Cutting Chart did not plan: a lot of a fabric the batch cuts joins the batch (so
  *     completion counts and returns it); a lot of another fabric is refused and nothing moves.
- *  4. The cutting issue fulfils the order's MRP hold on the lot (only the job-work issue did).
+ *  4. The cutting issue fulfils the order's MRP hold on the lot (only the job-work issue did); a batch deleted with
+ *     nothing laid gives the hold back on that lot — never another lot's.
  *  5. POST /api/stock/transfer moves a whole lot only, with its ledger row in the same transaction.
  *
  * Tests run on the LIVE DB: every fixture is tagged with RUN and removed by id. Nothing posts {}.
@@ -331,7 +332,10 @@ afterAll(async () => {
   await prisma.stock_reservations.deleteMany({ where: { referenceId: only(requirementId) } });
   await prisma.material_requirements.deleteMany({ where: { id: only(requirementId) } });
 
-  await prisma.cutting_batches.updateMany({ where: { id: only(batchId) }, data: { returnChallanId: null } });
+  await prisma.cutting_batches.updateMany({
+    where: { workOrderId: only(workOrderId) },
+    data: { returnChallanId: null },
+  });
   const challanIds = (
     await prisma.challans.findMany({
       where: { OR: [{ productionRunId: only(workOrderId) }, { cuttingBatchId: only(batchId) }] },
@@ -340,8 +344,8 @@ afterAll(async () => {
   ).map((c) => c.id);
   await prisma.challan_items.deleteMany({ where: { challanId: { in: challanIds } } });
   await prisma.challans.deleteMany({ where: { id: { in: challanIds } } });
-  await prisma.fabric_stock_allocation.deleteMany({ where: { cuttingBatchId: only(batchId) } });
-  await prisma.cutting_batches.deleteMany({ where: { id: only(batchId) } });
+  await prisma.fabric_stock_allocation.deleteMany({ where: { cuttingBatch: { workOrderId: only(workOrderId) } } });
+  await prisma.cutting_batches.deleteMany({ where: { workOrderId: only(workOrderId) } });
   await prisma.work_orders.deleteMany({ where: { id: only(workOrderId) } });
   await prisma.orders.deleteMany({ where: { id: only(orderId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
@@ -495,6 +499,89 @@ describe('fabric-lot bug fixes', () => {
       expect(Number(row.fabricIssued)).toBe(100);
       expect(Number(row.fabricReturned)).toBe(40);
       expect(Number(row.actualConsumption)).toBe(60);
+    });
+
+    it("a batch deleted with nothing laid gives the order its hold back on that lot — never another lot's", async () => {
+      // Another lot of fabric A held 60 m for the same requirement, and a batch planned from it
+      const heldLot = await makeLot(fabricA, 200);
+      await prisma.stock_reservations.create({
+        data: {
+          materialId: fabricA,
+          warehouseId,
+          reservationType: 'ORDER',
+          referenceType: 'MATERIAL_REQUIREMENT',
+          referenceId: requirementId,
+          referenceNumber: `${RUN}-MR`,
+          reservedQuantity: 60,
+          unit: 'METER',
+          status: 'ACTIVE',
+          reservedById: userId,
+          fabricStockId: heldLot,
+        },
+      });
+      await prisma.fabric_stock.update({ where: { id: heldLot }, data: { quantityReserved: 60 } });
+      // As Use Stock records it: the requirement took 60 m more from stock
+      await prisma.material_requirements.update({
+        where: { id: requirementId },
+        data: { allocatedFromStock: { increment: 60 } },
+      });
+      const batch2 = (
+        await prisma.cutting_batches.create({
+          data: {
+            id: randomUUID(),
+            batchNumber: `${RUN}-CB2`,
+            workOrderId,
+            fabricStockId: heldLot,
+            cuttingDate: new Date(),
+            actualFabricWidth: 56,
+            cadAverageUsed: 1.5,
+            cadWidthUsed: 58,
+            layersPerLay: 1,
+            numberOfLays: 1,
+            fabricConsumed: 0,
+            status: 'PENDING',
+            createdById: userId,
+          },
+        })
+      ).id;
+      await prisma.cutting_batch_fabrics.create({
+        data: { batchId: batch2, fabricStockId: heldLot, cadAvgUsed: 1.5, cadWidthUsed: 58, actualWidth: 56 },
+      });
+
+      const res = await request(app)
+        .post(`/api/work-orders/${workOrderId}/issue-fabric`)
+        .set(authHeader)
+        .send({
+          cuttingBatchId: batch2,
+          lots: [{ fabricStockId: heldLot, fabricId: fabricA, quantity: 100, description: `${RUN} issue` }],
+        });
+      expect(res.status).toBe(201);
+      const taken = await prisma.stock_reservations.findFirstOrThrow({
+        where: { referenceId: requirementId, fabricStockId: heldLot },
+      });
+      expect(taken.status).toBe('CONSUMED');
+      expect(Number(taken.consumedQuantity)).toBe(60);
+
+      // Nothing laid: deleting the batch sends its fabric back — and the order's hold on that lot with it
+      const del = await request(app).delete(`/api/cutting/batches/${batch2}`).set(authHeader);
+      expect(del.status).toBe(200);
+      expect(await lotQty(heldLot)).toBe(200);
+      const back = await prisma.stock_reservations.findFirstOrThrow({
+        where: { referenceId: requirementId, fabricStockId: heldLot },
+      });
+      expect(back.status).toBe('ACTIVE');
+      expect(Number(back.consumedQuantity)).toBe(0);
+      expect(Number((await prisma.fabric_stock.findUniqueOrThrow({ where: { id: heldLot } })).quantityReserved)).toBe(
+        60
+      );
+      // The hold the first batch's issue fulfilled on the other lot stays fulfilled
+      const other = await prisma.stock_reservations.findFirstOrThrow({
+        where: { referenceId: requirementId, fabricStockId: lot.extra },
+      });
+      expect(other.status).toBe('CONSUMED');
+      expect(Number((await prisma.fabric_stock.findUniqueOrThrow({ where: { id: lot.extra } })).quantityReserved)).toBe(
+        0
+      );
     });
   });
 

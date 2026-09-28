@@ -135,7 +135,7 @@ The style must exist and its fabrics must be costed: the CAD approved in **CAD P
 - **Reload from Style** refreshes fabric and trim rows from the style. It overwrites what you typed in those tables.
 - If the style already has a cost sheet, check the list before making a duplicate.
 - **Enable Budget Tracking for Procurement** only appears in **Raw Material Calculation** mode, and every budget must be zero or more.
-- To find sheets of one mode on the **Cost Sheets** list, use the **Purpose** filter: **All**, **Costing** or **RM Calculation**.
+- To find sheets of one mode on the **Cost Sheets** list, use the **Purpose** filter: **All purposes**, **Costing** or **Raw Material**.
 - **Download** exports what is saved. Unsaved edits on the form are not in the PDF or Excel — click **Update Cost Sheet** first.
 - Trim items can carry only one master link at a time. If you see an error about multiple FK fields, only one of the master IDs should be set.
 - A dyed lace is a **separate lace** from the greige it came from — that is what keeps dyed and undyed stock apart. Only one dyed lace can exist per greige and colour; asking for the same pair again reuses the existing one instead of creating a second.

@@ -36,6 +36,16 @@ keywords:
   - सेल ऑर्डर से ऑर्डर
   - buyer deadline
   - delivery date
+  - order priority
+  - payment terms
+  - shipping address
+  - priority kahan dale
+  - payment terms kahan hai
+  - प्रायोरिटी
+  - पेमेंट टर्म्स
+  - create BOM
+  - BOM kaise banaye
+  - बीओएम बनाना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -44,16 +54,18 @@ sources:
   - frontend/src/pages/OrderForm.tsx
   - frontend/src/pages/OrderDetail.tsx
   - frontend/src/components/orders/SizeBreakupDialog.tsx
+  - frontend/src/hooks/useCreateOrderBom.tsx
   - frontend/src/types/order.types.ts
   - backend/src/schemas/order.schema.ts
   - backend/src/controllers/order.controller.ts
+  - backend/src/services/order-bom.service.ts
   - frontend/src/services/saleOrder.service.ts
   - backend/src/services/saleOrder.service.ts
 route: /orders/new
 ---
 
 ## Before you start
-The style must be published (**Active** status) and must already have an **Approved** cost sheet with purpose *Raw Material Calculation* or *Production*. Without it the order cannot be saved. The style also needs size options (SKU variants) in Style Master. One order carries one style only.
+The style must be published (**Active** status) and must already have an **Approved** cost sheet with purpose *Raw Material Calculation*. Without it the order cannot be saved, and the order's BOM is built from that sheet. The style also needs size options (SKU variants) in Style Master. One order carries one style only.
 
 ## Steps
 1. Open **Orders & Sales → Orders** in the sidebar.
@@ -73,19 +85,22 @@ The style must be published (**Active** status) and must already have an **Appro
 - Size breakup and Unit Price are optional. A quantity mismatch warning is only information — the order saves with the Total Qty you typed.
 - "This style has no size options" means you must add SKU variants in Style Master first.
 - With a linked sale order, **Delivery** after its ship date shows a warning; after its **Buyer Deadline** it shows an error and **Create Order** stays disabled — production has to finish by the buyer's last day. The same applies when you later change Delivery on the order.
-- There are no Payment Terms, Shipping Address or Remarks boxes on this screen. Payment terms fill in automatically from the customer's credit days.
+- There are no Priority, Payment Terms, Shipping Address or Remarks boxes on this screen. The printed order form takes the payment terms and ship-to address from the customer's own record.
 - When you reopen the order with **Edit Order** and it already has approved BOMs or active material requirements, a warning banner appears and **Style**, **Total Qty**, the size grid, the **Absolute** / **Percentage** / **Ratio** buttons, **Smart Distribute** and **Recalculate** are all disabled. The banner tells you to use **Add Size Breakdown** on the order page instead — that is the only way to enter the sizes at that stage.
 - An order started from a sale order can carry several styles. An amber notice on the edit page says the form edits the **first style only** — the other styles are kept unchanged when you save.
 
 ## After saving
-You return to the Orders list. The next step is **Create BOM** on the order's row.
+You return to the Orders list. The order starts as **Pending**; its status then moves by itself as production runs start and goods are dispatched — nobody sets it by hand.
+
+The next step is **Create BOM** on the order's row (the same button is on the order page, in **What's stopping it** and **Order BOM**). It builds the BOM from the style's approved *Raw Material Calculation* cost sheet and opens it for review — approve it there. If it says the cost sheet is waiting for approval, a newer cost sheet version must be approved first. Once every style's BOM is approved, the row's button reads **Requirements** (locking the BOM is optional).
+
 If a dialog titled **Processor rate differs at this order quantity** appears when creating the BOM, the order's quantity falls in a different processor rate band than the style was costed at. Click **Accept order-quantity rates** to continue — the accepted rates apply to this order's BOM only, and the style costing is not changed.
 
 ## Add the size breakdown later
 An order can be created with the total quantity only, so long-lead greige, dyeing and printing can be procured while the sizes are still being confirmed. Enter the sizes on the order page, not in **Edit Order**.
 
-1. Open the order and scroll to **Order Items**.
-2. The item shows **Size breakdown not specified**. Click **Add Size Breakdown**.
+1. Open the order (click its number on the Orders list).
+2. In the **What's stopping it** card, the style shows **Size breakdown not given**. Click **Add Size Breakdown** next to it. (**Items & Sizes** also says "Size breakdown not given yet".)
 3. A dialog titled **Add Size Breakdown** opens. The description explains that entering sizes generates per-size label requirements and lets production work orders be created. Pick the **Colour *** for these sizes — it is filled in and locked when the style has only one colour. Click **Distribute [N] evenly** (the button carries the item's total) to spread the pieces across every size, or type the pieces into the box under each size name.
 4. Check the **Entered: X / Y pcs** counter. X is what you typed, Y is what the order currently carries.
 5. Click **Save Size Breakdown**.
@@ -103,4 +118,4 @@ Traps in this dialog:
 - An order linked to a sale order with **Link to Production Order** gets its sizes from that sale order automatically; you do not enter them here. If the buyer's split was entered wrong, an administrator corrects it on the sale order with **Amend Quantities**, which updates this order too.
 
 ## Change the size breakdown
-Once sizes exist, the item shows a **Quantity Breakup** table with an **Edit Size Breakdown** button. Click it: the dialog opens titled **Edit Size Breakdown** with the saved quantities and colour already filled in. Change the numbers and click **Save Size Breakdown** (or **Confirm & change quantity to [N]** if the total changes). The size-wise label requirements and any production run that is still Pending are updated to the new split; a run already in production is not re-planned.
+Once sizes exist, the order page's **Items & Sizes** card shows the colour × size grid under **Size breakdown**, with an **Edit Size Breakdown** button while the order is open (Pending or In Production). Click it: the dialog opens titled **Edit Size Breakdown** with the saved quantities and colour already filled in. Change the numbers and click **Save Size Breakdown** (or **Confirm & change quantity to [N]** if the total changes). The size-wise label requirements and any production run that is still Pending are updated to the new split; a run already in production is not re-planned.

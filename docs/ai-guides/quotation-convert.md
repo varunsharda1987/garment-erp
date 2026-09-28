@@ -24,9 +24,13 @@ keywords:
   - कोटेशन स्वीकार
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/QuotationDetail.tsx
   - frontend/src/pages/QuotationList.tsx
   - frontend/src/pages/OrderForm.tsx
+  - frontend/src/pages/OrderList.tsx
+  - backend/src/services/order.service.ts
+  - backend/src/services/helpers/order-status.helper.ts
 route: /quotations
 ---
 
@@ -40,23 +44,24 @@ A quotation must be in **Accepted** status before it can be converted to a produ
 4. If the quotation is in **Draft** status, first click **Mark as Sent** to move it to Sent status.
 5. If the quotation is in **Sent** status, click **Accept** to move it to Accepted status. A confirmation dialog appears — click **Update Status** to confirm.
 6. Once the status shows **Accepted**, the **Convert to Order** button appears in the header.
-7. Click **Convert to Order**. This opens the **New Order** form with details pre-filled from the quotation.
+7. Click **Convert to Order**. This opens the **Create New Order** form with details pre-filled from the quotation.
 
 ## What gets copied
 - **Customer** — the quotation's customer is pre-selected.
-- **Payment Terms** — set from the customer's credit days if available.
 - **Style** — the first quoted item's style is pre-selected.
 - **Unit Price** — the quoted price for that style is filled in.
-- **Remarks** — automatically set to "Converted from quotation {quotation number}".
+- A note "Converted from quotation {quotation number}" is saved with the order. The form has no Remarks box, so you will not see it there.
+
+The form has no Priority, Payment Terms or Shipping Address boxes; the printed order form takes the payment terms and ship-to address from the customer's own record.
 
 ## Multi-style quotations
-A production order covers one style at a time. When the quotation has multiple styles, only the **first item's style** is used for the initial order. The remarks note how many styles were quoted, and you must create separate orders for the remaining styles.
+A production order covers one style at a time. When the quotation has multiple styles, only the **first item's style** is used for the initial order. The saved note says how many styles were quoted, and you must create separate orders for the remaining styles.
 
 ## Complete the order
 After conversion, you are on the new order form with the pre-filled data. You still need to:
 1. Select or validate the **Cost Sheet** for the style.
 2. Fill in sizes, colours and quantities. If this customer already has a confirmed sale order for the style, the form fills them (and the delivery date and price) from that sale order and links the order to it — see *Create a Production Order*.
-3. Set optional fields like expected delivery date.
+3. Enter **Total Qty \*** and the **Delivery \*** date — both are required.
 4. Click **Create Order** to save.
 
 ## Traps
@@ -66,4 +71,4 @@ After conversion, you are on the new order form with the pre-filled data. You st
 - The order is not saved automatically — you must complete the order form and click **Create Order**.
 
 ## After converting
-The quotation remains in Accepted status. The new production order starts in Draft status and follows the normal order workflow (Draft → Confirmed → In Production → Completed). The order's remarks link it back to the source quotation.
+The quotation remains in Accepted status. The new production order starts as **Pending** and its status moves by itself: **In Production** when a production run starts, **Completed** when the runs are done, **Dispatched** when everything has shipped. To find the orders made from a quotation, type the quotation number in the search box on **Orders & Sales → Orders** — it matches the saved note.

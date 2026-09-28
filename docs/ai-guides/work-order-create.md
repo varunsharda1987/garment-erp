@@ -27,6 +27,12 @@ keywords:
   - location badalna
   - प्रोडक्शन लोकेशन
   - लोकेशन
+  - create production run from order
+  - ready to cut
+  - order se production run banana
+  - run kaise banaye order se
+  - ऑर्डर से प्रोडक्शन रन
+  - कटिंग के लिए तैयार
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -39,6 +45,9 @@ sources:
   - frontend/src/components/StyleCombobox.tsx
   - frontend/src/components/SplitProductionModal.tsx
   - frontend/src/pages/SaleOrderDetail.tsx
+  - frontend/src/pages/OrderDetail.tsx
+  - backend/src/controllers/order.controller.ts
+  - backend/src/services/helpers/order-status.helper.ts
   - backend/src/schemas/workOrder.schema.ts
   - backend/src/routes/workOrder.routes.ts
   - backend/src/services/workOrder.service.ts
@@ -77,11 +86,15 @@ There is no location field on this page. Every new production run, including one
 - The system requires the header total to equal the sum of all breakup rows. The page adds them for you, so do not edit quantities in another tab while saving.
 - If you see "No sizes found for this style", fix the style's variants first.
 
-## Other way in
+## Other ways in
+From a production order: open **Orders & Sales → Orders** and open the order. When a style has nothing left blocking it, the **What's stopping it** card shows **Ready to cut — plan the production run.** with **Create Production Run**. The **Production** card also shows **Create Production Run** at the top while a style with sizes has no run yet. It makes one run per order line from the order's own sizes, planned from today to the order's delivery date; you can change the dates afterwards with **Edit** on the run. "Nothing to create" means every order line already has a run. A line with no size breakdown gets no run — click **Add Size Breakdown** on the order page first (saving the sizes creates the run too).
+
 From a sale order, open **Orders & Sales → Sale Orders**, open the order, open **Actions** and click **Start Production**. If a production order for that style was raised earlier and is not linked to a sale order, **Link to Production Order** appears instead — linking copies the sale order's sizes onto it and creates its production run. That creates the production run for you — by default only for the pieces finished-goods stock does not already cover (choose **Full sale-order quantity** in the dialog to make everything). The order must be Confirmed, every line must have a size, each style needs an approved cost sheet, and a line with no colour needs a style that has exactly one colour — otherwise the button explains exactly which of those is missing.
 
 ## After creating
 Open the run and use **Push to Cutting** when materials are ready.
+
+A run made for a production order moves that order's status by itself: the order turns **In Production** once a run has started, **Completed** once all its runs are completed and cover the order quantity, and **Dispatched** once everything has shipped. Nobody sets an order's status by hand.
 
 Only runs still in **Pending** status can be changed:
 - **Edit** lets you change **Production Location**, **Priority**, the planned dates and **Remarks**. Clearing Production Location or Remarks and saving removes them. Quantities cannot be edited here.

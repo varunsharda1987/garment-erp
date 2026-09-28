@@ -1,43 +1,82 @@
 ---
 slug: order-track-status
-title: Check the Status of an Order
+title: Check an Order's Status and What Is Stopping It
 keywords:
+  # English
   - order status
   - track order
   - order progress
-  - order kahan pahuncha
-  - order status kaise dekhe
-  - ऑर्डर
-  - स्टेटस
-  - ट्रैक
-  - प्रोडक्शन
-  - डिलीवरी
+  - where is my order
+  - what is stopping the order
+  - why is the order stuck
+  - order blocked
+  - order blockers
+  - ready to cut
   - production status
+  - production run progress
   - work order progress
   - pending order
+  - in production
+  - completed order
   - dispatched
-  - production workflow
-  - workflow tracker
+  - order late
+  - due date
+  - order page
+  - order details
   - order pipeline
-  - वर्कफ़्लो
+  - production workflow
+  - materials of an order
+  - requirements of an order
   - view POs
   - POs for this order
   - which POs for this order
   - purchase orders of an order
-  - order ke PO
-  - order ke PO kaise dekhe
-  - is order ke kitne PO bane
-  - PO kitne bane
-  - ऑर्डर के पीओ
-  - पीओ देखना
-  - पर्चेज़ ऑर्डर
+  - cancel order
+  - delete order
+  - order cannot be deleted
+  - order cannot be cancelled
   - size breakdown
   - size split
   - size split pending
   - add size breakdown
   - edit size breakdown
+  - oder status
+  - ordr status
+  # Hinglish
+  - order kahan pahuncha
+  - order status kaise dekhe
+  - order kyun ruka hai
+  - order kahan atka hai
+  - order late hai
+  - order ka kaam kitna hua
+  - order ke PO
+  - order ke PO kaise dekhe
+  - is order ke kitne PO bane
+  - PO kitne bane
+  - order cancel kaise kare
+  - order delete kaise kare
+  - order delete nahi ho raha
+  - order cancel nahi ho raha
+  - status khud badalta hai
   - saiz
   - saiz kaise dale
+  # Devanagari (MANDATORY)
+  - ऑर्डर
+  - ऑर्डर स्टेटस
+  - स्टेटस
+  - ट्रैक
+  - प्रोडक्शन
+  - डिलीवरी
+  - ऑर्डर क्यों रुका है
+  - ऑर्डर कहाँ अटका है
+  - रुकावट
+  - ऑर्डर लेट
+  - ऑर्डर के पीओ
+  - पीओ देखना
+  - पर्चेज़ ऑर्डर
+  - ऑर्डर कैंसल
+  - ऑर्डर रद्द
+  - ऑर्डर डिलीट
   - साइज़
   - साइज़ ब्रेकडाउन
   - साइज़ पेंडिंग
@@ -49,71 +88,101 @@ sources:
   - frontend/src/pages/OrderDetail.tsx
   - frontend/src/pages/OrderForm.tsx
   - frontend/src/components/orders/SizeBreakupDialog.tsx
+  - frontend/src/components/orders/CancelOrderDialog.tsx
+  - frontend/src/hooks/useCreateOrderBom.tsx
+  - frontend/src/components/ExportButton.tsx
   - frontend/src/pages/ProductionStatus.tsx
-  - frontend/src/components/OrderWorkflowTracker.tsx
-  - frontend/src/pages/PurchaseOrderList.tsx
+  - frontend/src/pages/UnifiedRequirementsPage.tsx
+  - frontend/src/components/requirements/OrderStyleLabelView.tsx
+  - frontend/src/components/requirements/requirement-list-options.ts
   - frontend/src/types/order.types.ts
   - frontend/src/types/mrp.types.ts
-  - backend/src/services/purchaseOrder.service.ts
+  - backend/src/services/helpers/order-status.helper.ts
+  - backend/src/services/helpers/order-requirements.helper.ts
+  - backend/src/services/order.service.ts
+  - backend/src/controllers/order.controller.ts
 route: /orders
 ---
 
-## Steps
+## Find the order
 1. Open **Orders & Sales → Orders** in the sidebar.
-2. Search by order number, customer, style code, buyer style code, or the sale order / buyer PO it came from, or narrow the list with the **All Customers**, **All Status** and **All Priorities** dropdowns. Typing several words narrows the list — each word must match something, so a customer name and a style code together find exactly that order. Status values are Pending, In Production, Completed, Dispatched, Cancelled and Split. **Split** means the order was divided into child production runs — open the children to follow the work.
-3. Click the order number (or the **View** button) to open **Order Details**.
-4. The top card shows the status and priority badges, Customer, Order Date, Expected Delivery, Total Quantity, Total Amount and Payment Terms. "Pricing Pending" means no unit price was entered yet. Shipping Address and Remarks show underneath when they were filled in.
-5. The **Production Workflow** card shows the pipeline **Order → BOM → MRP → PO → GRN → Processing → Production → Dispatch** with a badge "N of 8 steps completed". Each step is marked done, in progress, not started or waiting, with a short note under its name (for example "v2 Locked" or "Waiting for MRP"). A step that is still waiting for the one before it has no button. What each button does is under *Production Workflow buttons* below.
-6. **Order Procurement Summary** has two boxes. **Materials (MRP)** counts Total, Pending PO, PO Generated and With Shortfall. **Services** counts Total, Pending, JWO Created and Completed. Each box has a **View** button that opens the requirements for this order.
-7. **Order Items** shows each style with its **Quantity Breakup** table (Color, Size, Quantity) and an **Edit Size Breakdown** button. If the order was created without sizes, the item shows **Size breakdown not specified** and an **Add Size Breakdown** button instead — see *Enter the sizes later* below.
-8. **Order BOM** shows the BOM version and status; **View Details** opens it.
-9. **Production Runs** lists each work order with its status, Location, Quantity (done / total pcs), Planned Start, Planned End and a progress bar. **View** opens the run. **Split** appears on a Pending run of more than one piece.
-10. **Billing & Dispatch** lists Invoices and Delivery Notes for the order. Click one to open it.
+2. Type in **Search by order number, customer or style...** — the order number, customer name or code, style code / buyer style / style name, or the sale order / buyer PO it came from. Several words narrow the list: each word must match something.
+3. Narrow the list with **All Customers** and **All Status** (Pending, In Production, Completed, Dispatched, Cancelled).
+4. The row shows the order number with its order date (and an **SO …** chip when it came from a sale order — click it to open the sale order), Customer, Style, Buyer Style, Delivery Date, Quantity, Amount ("Price TBD" when no price is set) and Status.
+5. Click the order number, the row, or **View** to open the order page.
 
-## Production Workflow buttons
-- **BOM** — **Create** when the order has no Order BOM yet: it builds the BOM from the style's approved cost sheet and you stay on the order page. **Review** (draft BOM) and **Lock** (approved BOM) open the Order BOM page, where you approve and lock it.
-- **MRP** — waits until the BOM is locked. **Calculate** works out the material requirements and opens **Requirements** filtered to this order. After that the step shows the number of items; a **View** button appears while some are short.
-- **PO** — waits until MRP has run. Then it shows one of these:
-  - "N need PO" with **Generate** — opens Requirements for this order, where you make the POs.
-  - "N need a decision (extra quantity)" with **Decide** — a new BOM version needs more than was already ordered. Opens Requirements for this order to choose **Order the extra** or **Don't order more**.
-  - "N awaiting size breakdown" with **View** — size-wise labels wait for the sizes (see *Enter the sizes later*).
-  - "N created" with **View** — nothing is left to order and the order has N purchase orders.
-  - "In stock" with no button — nothing is left to order and no purchase order was needed.
-- **GRN** — waits until the PO step is done. **View** opens the GRN list.
-- **Processing** — shows "Not required" once the goods are received.
-- **Production** — **Start** (no work orders yet) and **View** open the Production Runs list. To create missing runs use **Create Work Orders** at the top of the order page.
-- **Dispatch** — **Create DN** once production is complete, then **View**.
+**Export** (top right) downloads the list as CSV, Excel or PDF, with the same search and filters you applied.
+
+## The row's next-step button
+Next to **View**, each open order shows the next BOM step across all its styles:
+- **Create BOM** — a style on the order has no BOM yet. It builds the BOM from the style's approved raw-material cost sheet and opens it for review.
+- **Review BOM** — a draft BOM is waiting to be approved.
+- **Requirements** — every style has an approved BOM (locking it is optional). Opens **Requirements** filtered to this order.
+
+**Edit** appears while the order is Pending or In Production.
+
+## How the status moves
+Nobody sets an order's status by hand. It follows the production runs and delivery notes, and the order page says why on its **Status:** line:
+- **Pending** — no production run has started yet ("no production run yet" / "no production run has started").
+- **In Production** — a production run has started (for example "WO… in production").
+- **Completed** — every production run is completed and the runs cover the whole order quantity.
+- **Dispatched** — everything ordered has shipped on delivery notes (returned pieces are taken off).
+
+It also moves back: a cancelled or rejected delivery note takes a Dispatched order back to Completed, and a new production run takes a Completed order back to In Production. **Cancelled** comes only from **Cancel Order**. **Split** means the order was divided into child production runs — open the children to follow the work.
+
+## Read the order page
+1. **Header** — the order number, the status badge, the **SO …** chip for a sale-order order, and the **Status:** reason line. Buttons: the share menu, **Back to Orders**, and — while the order is still open — **Cancel Order** and **Edit Order**.
+2. **Summary** — Customer, Order Date, Delivery Date, Quantity and Amount. Under Delivery Date it says "due in N days", "due today" or, in red, "N days late". Quantity shows "N shipped" once something has shipped. "Pricing Pending" means no unit price was entered.
+3. **What's stopping it** — one box for each style on the order that has no production run yet, listing everything that stops it being cut:
+   - **No BOM yet.** — click **Create BOM**.
+   - **BOM vN is a draft — review and approve it.** — click **Review BOM**.
+   - **Size breakdown not given** — click **Add Size Breakdown** (see *Enter the sizes later*).
+   - The cutting checks, in the words the cutting step uses: a sample not approved, a lab round not passed, a fabric or garment test not passed, material short, or no approved Production CAD. Each has a button to where it is fixed: **Open the style**, **Fabric tests**, **Garment tests**, **Requirements** or **CAD Planning**.
+   - When nothing blocks: **Ready to cut — plan the production run.** with **Create Production Run**.
+
+   A style that already has a production run shows the run number and its status instead — follow it in **Production**. "Checking…" shows while the checks load. A cancelled order says "This order is cancelled."; a completed one says "Production is finished" (and "and shipped" once dispatched).
+4. **Materials** — every live requirement line of the order counted once: **To order**, **On order**, **Received**, **From stock**, and, when there are any, **Waiting for sizes**, **Needs a decision** and **Not checked**, with "% ordered or in hand". Cancelled lines are not counted. A second row, **Processing (dyeing / printing)**, has an **Open** button for the Outsourced Work tab; **Services on the production runs** shows To assign / Job work created / Completed. **Open Requirements** opens **Requirements** filtered to this order. Before the BOM is approved it reads "No requirements yet".
+5. **Production** — one box per production run: number, status, style, planned dates and location, then **Fabric issued** (and how much is "still at Cutting"), **Cut** (of the run's total), **Stitched**, **Finished** and **Completed** with a %. **View** opens the run. **Split** appears on a Pending run of more than one piece. **Create Production Run** appears at the top when a style with sizes has no run yet.
+6. **Items & Sizes** — each style with its quantity, the colour × size grid and **Edit Size Breakdown**, and a **Costing (per piece)** box.
+7. **Order BOM** — one row per style with its BOM version, status and number of lines. **Review BOM** (draft) or **View BOM** opens it; **Create BOM** appears when the style has none.
+8. **Dispatch & Billing** — appears once there are delivery notes or invoices, including those made from the linked sale order. The heading says how many pieces of the order have shipped. Click a note or invoice to open it.
 
 ## See the purchase orders of an order
-1. Open the order. On the **Production Workflow** card, the **PO** step reads "N created".
-2. Click **View** under it. **Purchase Orders** opens showing only this order's POs, with a chip **Order: [order number]** beside the filters.
-3. The list includes the POs made from this order's requirements on the Requirements page as well as POs linked to the order directly. The count on the PO step counts both.
-4. To see every PO again, click the **×** on the **Order:** chip, or click **Clear**.
+1. On the order page, click **Open Requirements** on the **Materials** card. **Requirements** opens with **All orders** set to this order.
+2. In the status box choose **On order** (or **All (not cancelled)**).
+3. Open the order + style card. The **PO** column names the purchase order of each line.
 
-If the PO step still reads "N need PO", "need a decision" or "awaiting size breakdown", there is no **View** button for POs yet — its button opens Requirements instead. You can always open **Procurement → Purchase Orders** and search for the style or material.
+Each style's POs can also be found under **Procurement → Purchase Orders** by searching the style code or the material.
 
 ## Enter the sizes later
-Orders are often started with the total quantity only so long-lead greige, dyeing and printing can be procured first. Enter the sizes from the order page — not from **Edit Order**, where the style, quantity and size grid are disabled once the order has approved BOMs or active material requirements.
+Orders are often started with the total quantity only, so long-lead greige, dyeing and printing can be bought first. Enter the sizes on the order page — not in **Edit Order**, where the style, quantity and size grid are locked once the order has approved BOMs or active material requirements.
 
-1. Open the order and scroll to **Order Items**.
-2. On the item showing **Size breakdown not specified**, click **Add Size Breakdown**.
-3. In the **Add Size Breakdown** dialog, click **Distribute [N] evenly** (the button carries the item's total) or type the pieces into the box under each size name.
-4. Pick the **Colour \*** for these sizes. It is filled in and locked when the style has only one colour.
-5. Check the **Entered: X / Y pcs** counter, then click **Save Size Breakdown**.
-6. If the sizes add up to a different total, the save is refused once and an alert explains the difference. The button then reads **Confirm & change quantity to [N]**. Clicking it saves the sizes and updates the order quantity.
+1. Open the order. In **What's stopping it**, the style shows **Size breakdown not given**. Click **Add Size Breakdown**.
+2. In the **Add Size Breakdown** dialog, pick the **Colour \*** (filled in and locked when the style has only one colour), then click **Distribute [N] evenly** or type the pieces under each size.
+3. Check the **Entered: X / Y pcs** counter, then click **Save Size Breakdown**.
+4. If the sizes add up to a different total, the save is refused once and an alert explains it. The button then reads **Confirm & change quantity to [N]**; clicking it saves the sizes and changes the order quantity.
 
-Saving refreshes the order's material requirements and creates the production work orders, which cannot exist while the order has no sizes. A success message summarises what happened.
+Saving refreshes the order's material requirements and creates the production runs, which cannot exist while the order has no sizes.
 
 - **Save Size Breakdown** stays disabled until a colour is chosen. If the dialog says **This style has no colour yet**, set the style's Primary Color first.
 - **This style has no sizes defined** means the sizes must be added to the style first.
-- To change sizes already saved, click **Edit Size Breakdown** above the **Quantity Breakup** table. The dialog opens titled **Edit Size Breakdown** with the saved quantities and colour filled in.
+- To change sizes already saved, click **Edit Size Breakdown** in **Items & Sizes** (shown while the order is open).
+
+## Cancel or delete an order
+**Cancel Order** (order page, while the order is open):
+1. Click **Cancel Order**. The dialog **Cancel order [number]** explains that the order, its production runs that have not started, its BOMs and its open requirements are cancelled and its reserved stock released. It cannot be undone.
+2. If lace is still reserved for the order, choose **Release it to stock** or **Return it to the supplier**.
+3. Optionally type a **Reason (optional)**.
+4. Type the order number in the confirm box, then click **Cancel order**. **Keep order** leaves it as it is.
+
+Cancelling is refused once production has started — a run in production, fabric issued to Cutting, or a cutting batch. The message names each run; close or cancel those runs first. It is also refused when a run is already completed or dispatched, and while a job work of the order has material issued or received. The reason shows inside the dialog.
+
+**Delete** (Orders list, administrators only, on Pending or Cancelled orders) removes the order for good. It is refused, with the reason, when the order has production started, job work with material activity, shipped deliveries, paid invoices, processed ASN, fabric or lace allocations, lace issue notes, cutting batches, or requirement lines already on a PO or job work. A refused Delete never cancels anything; if the order is not yet cancelled, the refusal offers **Cancel the order instead…**, which opens the Cancel dialog above.
 
 ## Factory-wide view
 For all running orders at once, open **Production Status** at the top of the sidebar. The **Production Status Dashboard** has a **By Order** / **By Style** toggle, search and filters, and a **Refresh** button showing when the data was last updated.
 
 ## Good to know
-- The order status updates on its own as work moves through the pipeline. There is no manual status dropdown on the order page.
-- **Create BOM** on the **Orders** list can show a dialog titled **Processor rate differs at this order quantity**. It means this order's quantity falls in a different processor rate band than the style was costed at. **Accept order-quantity rates** continues with rates that apply to this order only. The **Create** button on the order page's BOM step does not offer this dialog — it only shows the error. Use **Create BOM** on the order's row in the Orders list instead.
-- If an **SO ...** chip sits next to the order number, that order came from a sale order — click the chip to open it.
-- **Create Work Orders** on the order page creates any missing production runs ("Nothing to create" means every item already has one). **Edit Order** reopens the order form.
-- While an order has no size breakdown, size-wise labels still appear in **Procurement → Requirements** with the status **Size Split Pending**, planned at the order's full quantity. They cannot be put on a purchase order until the sizes are entered. Labels without size variants, and size-independent materials such as fabric, greige, processing and most trims, are unaffected and can be procured straight away.
+- **Create BOM** can show a dialog titled **Processor rate differs at this order quantity**: this order's quantity falls in a different processor rate band than the style was costed at. **Accept order-quantity rates** continues with rates that apply to this order only. It works the same on the Orders list and on the order page.
+- If Create BOM says the raw-material cost sheet is waiting for approval, approve the newer cost sheet version first.
+- While an order has no size breakdown, size-wise labels appear in **Procurement → Requirements** with the status **Size Split Pending**, planned at the order's full quantity. They cannot go on a purchase order until the sizes are entered. Fabric, greige, processing and most trims can be bought straight away.

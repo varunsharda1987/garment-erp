@@ -60,6 +60,7 @@ sources:
   - frontend/src/types/mrp.types.ts
   - frontend/src/types/material.types.ts
   - frontend/src/pages/OrderDetail.tsx
+  - frontend/src/pages/OrderList.tsx
   - backend/src/schemas/mrp.schema.ts
 route: /procurement/requirements
 ---
@@ -92,6 +93,6 @@ Requirements that are already on a PO, received or cancelled are hidden until yo
 - **"Nothing needs action right now."** Everything left is on order, received or cancelled — choose another **Status**.
 - **"No requirements match these filters."** Click **Clear filters**, or remove one filter at a time.
 - **Ticks stay when you turn the page** (the count reads "N selected"), but **changing any filter or the view unticks everything** so nothing hidden is ordered by mistake. **Clear selection** unticks on purpose.
-- **A link from an order** (the **Decide** or **View** button on the order page) opens the page already filtered to that order — **All orders** shows the order number; pick **All orders** to widen it.
+- **A link from an order** opens the page already filtered to that order — **Open Requirements** (or a **Requirements** link under **What's stopping it**) on the order page, or the **Requirements** button on the order's row in **Orders & Sales → Orders**. **All orders** then shows the order number; pick **All orders** to widen it. The order page's **Processing (dyeing / printing)** **Open** button lands on the **Outsourced Work** tab, filtered the same way.
 - **Grouped views load up to 500 requirements.** If the count line says "only the first … are grouped", narrow with a filter.
 - **Job work (processing) and services are on the Outsourced Work tab**, not here.

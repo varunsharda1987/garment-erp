@@ -13,18 +13,22 @@ keywords:
   - add category
   - create category
   - sub-category
+  - search category
   # Hinglish
   - category banana
   - product category add karna
   - naya category
   - sub category banana
+  - category dhundhna
   # Devanagari (MANDATORY)
   - प्रोडक्ट कैटेगरी
   - कैटेगरी मास्टर
   - कैटेगरी बनाना
   - नई कैटेगरी
+  - कैटेगरी खोजें
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/pages/MasterDataDashboard.tsx
   - frontend/src/pages/ProductCategoryMaster.tsx
 route: /product-categories
 ---
@@ -33,7 +37,8 @@ route: /product-categories
 
 ### Open Product Categories
 1. Press **Ctrl+K** and type "Product Categories"
-2. Or go to **Materials & Masters > All Masters** and find Product Categories
+2. Or go to **Materials & Masters > All Masters** and click **Product Categories** in the **Configuration** section
+3. The page opens as **Product Category Master**
 
 ### Add a Main Category
 1. Click the **"Add Category"** button (top-right)
@@ -72,7 +77,9 @@ These defaults auto-populate when creating styles in this category.
 ### Navigate the Tree
 - **Expand/Collapse**: Click the arrow on any category with children
 - **Expand All / Collapse All**: Use the buttons above the tree
-- **Search**: Type in the search box to filter categories by name or code
+- **Search**: Type in **Search category code, name…** to filter categories by code or name
+- **Clear 1 filter** (on the filter row) empties the search. If nothing fits, the tree says **No categories match these filters.** — click **Clear filters**
+- **Refresh**: Reloads the tree
 
 ## Traps
 

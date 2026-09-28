@@ -22,27 +22,39 @@ keywords:
   - कढ़ाई का काम वापस
   - एम्ब्रॉयडरी पीस रिसीव
   - कट पीस कढ़ाई वापसी
+  - कढ़ाई फ़िल्टर
+  # Filter / search
+  - filter embroidery send-outs
+  - embroidery vendor filter
+  - kadai vendor se filter
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceReceive.tsx
   - frontend/src/pages/EmbroideryPieceDashboard.tsx
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/SupplierCombobox.tsx
 route: /embroidery-stock/piece-receive
 ---
 
 ## Before you start
 
-You need pieces that were already sent out for embroidery work. The send-out must have status "Sent" or "Partially Received" to record a receipt.
+You need pieces that were already sent out for embroidery work. The send-out must have status "Sent" or "Partial" to record a receipt.
 
 ## Steps
 
 1. **Open Embroidery Pieces dashboard**
-   - Go to **Manufacturing** > **Embroidery Pieces** in the sidebar
+   - Press **Ctrl+K** and search "Embroidery Pieces"
    - Or navigate directly to `/embroidery-stock/pieces`
+   - The page title is **Embroidery — Piece Tracking**
 
 2. **Find the send-out to receive**
    - The dashboard shows summary cards: Total Sent, Pending, Partial, Received, Overdue
-   - Use the search box to find by batch number, vendor, or work order
-   - Use the Status dropdown to filter: Sent, Partially Received, Received, Cancelled
+   - Use the filter row above the table:
+     - The search box (**Search batch number, vendor, work order…**) finds a send-out by batch number, vendor or work order
+     - The vendor picker (**All vendors**) is searchable — type a vendor name and pick it
+     - The status dropdown (**All statuses**) filters to Sent, Partial, Received or Cancelled
+   - Click **Clear N filters** to reset every filter and go back to page 1
+   - If nothing matches, the table shows "No embroidery piece send-outs match these filters." with a **Clear filters** button
    - Overdue send-outs are highlighted in red
 
 3. **Click Receive button**
@@ -81,14 +93,14 @@ If you have the send-out ID, navigate directly to `/embroidery-stock/piece-recei
 
 - **Total received must be greater than 0**: You cannot record a receipt with zero total quantity
 - **Damaged cannot exceed received**: Damaged quantity per SKU cannot be more than received quantity
-- **Only pending send-outs**: You can only receive pieces from send-outs with status "Sent" or "Partially Received"
-- **Partial receipts**: If you receive less than sent, the send-out becomes "Partially Received" until fully received
+- **Only pending send-outs**: You can only receive pieces from send-outs with status "Sent" or "Partial"
+- **Partial receipts**: If you receive less than sent, the send-out becomes "Partial" until fully received
 - **Shortages**: If pieces are lost/missing, record them as damaged or reduce received quantity
 - **Rejections**: For quality rejections, enter them in the Damaged column with remarks explaining the issue
 
 ## After saving
 
-- Send-out status updates to "Received" (full) or "Partially Received" (partial)
+- Send-out status updates to "Received" (full) or "Partial" (partial)
 - Embroidered pieces are added back to inventory
 - The dashboard summary cards update to reflect the new counts
 - Pieces are available for the next production stage (stitching)

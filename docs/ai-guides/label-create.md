@@ -59,6 +59,8 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/label.controller.ts
+  - backend/src/services/helpers/label-name.helper.ts
+  - frontend/src/components/CustomerCombobox.tsx
   - frontend/src/pages/LabelDetail.tsx
 route: /materials/label/new
 ---
@@ -72,7 +74,7 @@ Every label — sewn-in, hangtag or price tag — is an **Accessory**, not a tri
 3. Click **+ Add New Label**.
 4. **Label Category** is the one required choice: **Sewn-in Label (Care/Size Labels)**, **Hangtag**, or **Price Tag**. It starts on Sewn-in Label. The hint under it reads "Every label — sewn-in, hangtag or price tag — is an Accessory, not a trim". The whole form re-titles itself to match — for a hangtag the heading, the field names and the save button all say Hangtag.
 5. **Label Code** is greyed out and marked **Auto-generated**. The system assigns it on save (LBL-0001, LBL-0002 …). The sample text in the box shows "LBL-000001", but real codes have four digits.
-6. **Label Name**: leave it empty to have it built automatically from Type, Colour, Material and Size. The word "Label" is added only for sewn-in labels, and only when the chosen Type does not already contain it. Type a name only to override.
+6. **Label Name** is built automatically on save as *code | type | brand | colour | material | size* — for example "LBL-0030 | Washcare | White | Satin | 1*2". Empty fields are left out; with no Type, the category (Sewn-in Label, Hangtag or Price Tag) is used instead. When you create a label the name is always built this way, even if you typed one. To use your own name, open the label afterwards, click **Edit** and type it in **Label Name**.
 7. **Label Type** lists only the types valid for the chosen category. Sewn-in: **Main Label**, **Washcare Label**, **Size Label**, **Main Cum Size Label**, **Brand Label**, **Loop Tag**, **Traceability Label**, **Barcode Label**, **Country of Origin**, **Composition Label**. Hangtag: **Hangtag**, **Brand Hangtag**, **Product Hangtag**, **Disclaimer Tag**, **Liva Tag**, **Eco-Vera Tag**. Price Tag: **Price Tag**. Pick **Other (Custom)** to type your own in the box that appears. Trap: if you change the Category afterwards, an incompatible Type is cleared and must be picked again.
 8. **Customer (Optional)** and **Brand (Optional)** link the label to one buyer. Leave **No Customer (Generic Label)** for a generic label (the option is named after the category — **No Customer (Generic Hangtag)** for a hangtag). Choose the customer first — the **Brand (Optional)** dropdown only appears after that, and stays disabled with "No brands available" if that customer has no brands set up. Leave **No Brand (Customer-Generic)** to link the customer but not one brand.
 9. **Size (Physical Dimensions)** is the physical size of the printed label, not the garment size.
@@ -84,7 +86,16 @@ Every label — sewn-in, hangtag or price tag — is an **Accessory**, not a tri
 15. Optional: enter the **Supplier Reference Code** under **Reference Codes**, and any **Description** notes under **Additional Information**.
 16. Click **Create Label** (or **Create Hangtag** / **Create Price Tag**). You return to the **Label Management** list. **Cancel** returns without saving.
 
-Back on the list, use the **All Categories** filter to see only **Sewn-in Labels**, **Hangtags** or **Price Tags**, and **All Customers** / **Generic Only** to filter by buyer. A label with size variants shows every size on the list in size order (XS, S, M …), each with its stock in brackets — a filled chip means that size has stock. Its own page lists them under **Sizes (N)**: each size is ordered and stocked on its own, and on a purchase order (an **Accessories** PO) the sizes sit under one heading for the label. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
+## Find a label on the list
+
+1. Type in the search box (**Search code, name, customer, brand, type, size, color, supplier…**).
+2. Pick a buyer in the **All customers** picker (type to search). A customer shows its own labels plus the generic ones.
+3. Pick **Sewn-in labels**, **Hangtags** or **Price tags** in the **All categories** dropdown.
+4. Pick a supplier in the **All suppliers** picker (type to search).
+5. Click **Clear N filters** to reset all filters and go back to page 1.
+6. If nothing matches, the list says **No labels match these filters.** Click **Clear filters** to see every label.
+
+A label with size variants shows every size on the list in size order (XS, S, M …), each with its stock in brackets — a filled chip means that size has stock. Its own page lists them under **Sizes (N)**: each size is ordered and stocked on its own, and on a purchase order (an **Accessories** PO) the sizes sit under one heading for the label. To change a label later, open it, click **Edit**, and use **Update Label** (or **Update Hangtag** / **Update Price Tag**). The code never changes.
 
 ## Traps
 

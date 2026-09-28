@@ -29,6 +29,7 @@ sources:
   - frontend/src/pages/HandworkDashboard.tsx
   - frontend/src/pages/HandworkSendOut.tsx
   - frontend/src/pages/HandworkReceive.tsx
+  - frontend/src/components/SupplierCombobox.tsx
 route: /manufacturing/handwork
 ---
 
@@ -98,9 +99,14 @@ Handwork is an external process done after stitching (post-stitching, pre-finish
 
 ## Filter and search
 
-- Use the **search box** to find by batch number, vendor name, or work order
-- Use the **Status dropdown** to filter by: All Status, Sent, Partially Received, Received, Cancelled
-- **Overdue** items are highlighted in red in the list
+1. Use the filter row above the send-outs list.
+2. Type in the search box (**Search batch number, vendor, work order…**) to find a send-out.
+3. Pick a vendor in the **All vendors** picker. Type to search the vendor list. Choose **All vendors** to see every vendor again.
+4. Pick a status in the **All statuses** dropdown: Sent, Partial, Received or Cancelled.
+5. Click **Clear N filters** to reset all filters and go back to page 1.
+6. If nothing matches, the list says **No handwork send-outs match these filters.** Click **Clear filters** to see everything again.
+
+**Overdue** items are highlighted in red in the list.
 
 ## Status meanings
 

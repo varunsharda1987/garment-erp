@@ -29,6 +29,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/TestTemplateForm.tsx
   - frontend/src/pages/TestTemplates.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/pages/TestingDashboard.tsx
 route: /test-templates/new
 ---
@@ -85,6 +86,6 @@ route: /test-templates/new
 
 - The template appears in the Test Templates list.
 - The template is now available for use when creating FPT or GPT test records.
-- You can filter templates by type (FPT/GPT) using the dropdown in the list view.
+- To find it in the list, type in the search box (**Search template code, name, description or standards...**), or narrow the list with the type dropdown (**All types**, **FPT (Fabric)**, **GPT (Garment)**) and the status dropdown (**All statuses**, **Active**, **Inactive**). **Clear N filters** resets them; if nothing matches, the page says **No test templates match these filters.** with a **Clear filters** button.
 - Active templates will be selectable; inactive templates will not appear in test creation dropdowns.
 - To edit a template later, click **Edit** on the template card (feature coming soon).

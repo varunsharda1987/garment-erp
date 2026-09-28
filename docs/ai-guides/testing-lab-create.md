@@ -48,7 +48,7 @@ route: /testing-labs
    - **Contact Phone** — Phone number for coordination.
    - **Avg. Turnaround (days)** — Expected days to receive test results (defaults to 7).
    - **Address**, **City**, **State**, **Pincode** — Lab location details.
-   - **Accreditations** — Enter certifications separated by commas (e.g., NABL, ISO 17025).
+   - **Accreditations (comma separated)** — Enter certifications separated by commas (e.g., NABL, ISO 17025).
    - **Active** toggle — Keep ON if the lab is currently in use.
 6. Click **Create Lab** to save.
 
@@ -65,3 +65,4 @@ route: /testing-labs
 - The lab becomes available when assigning Fabric Physical Tests (FPT) or Garment Physical Tests (GPT).
 - Lab count updates on the Testing Dashboard.
 - Use the **Edit** button on any lab card to update details later.
+- To find a lab later, type in the search box (**Search lab code, name, contact, city, state or accreditation...**) or pick **Active** / **Inactive** in the **All statuses** filter. **Clear N filters** resets them; if nothing matches you see "No testing labs match these filters." with a **Clear filters** button.

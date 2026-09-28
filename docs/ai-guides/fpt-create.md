@@ -136,7 +136,12 @@ The test list shows:
 - Construction results
 - Count results
 
-Use the search box to find tests by test number or batch. Use the status filter to show only Pending, Passed, Failed, or Retest Required tests.
+To find a test:
+
+1. Type in the search box (**Search test number, batch, TRF or sample number...**).
+2. Pick a status in the **All statuses** dropdown: Pending, Passed, Failed or Retest Required.
+3. Click **Clear N filters** to reset the search and status and go back to page 1.
+4. If nothing matches, the page shows "No tests match these filters." with a **Clear filters** button.
 
 ## Traps
 

@@ -35,6 +35,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StyleFormRedesigned.tsx
   - frontend/src/pages/StyleList.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - backend/src/schemas/style.schema.ts
   - backend/src/services/style.service.ts
   - backend/src/services/helpers/material-unit.helper.ts
@@ -46,8 +47,8 @@ route: /styles
 ### Finding the Style
 
 1. Click **Styles** in the sidebar (top-level item)
-2. Use the search bar to find the style by code, name, buyer, or brand
-3. The list shows Active, Drafts, and Inactive tabs
+2. The list has three tabs: **Active Styles**, **Drafts** and **Inactive**
+3. Type in the search box (**Search style code, buyer ref, name, buyer, brand, category…**) to find the style. On **Active Styles** you can also narrow the list with the status dropdown (**All statuses**, **Active only**, **Drafts only**); **Clear N filters** resets the search and status, goes back to page 1 and keeps your tab and rows-per-page choice. If nothing matches on **Active Styles**, the list says **No styles match these filters.** with a **Clear filters** button
 4. Click the **Edit** button on the style row (requires ADMIN or MERCHANDISER role)
 
 ### Editing Basic Info (Tab 1)

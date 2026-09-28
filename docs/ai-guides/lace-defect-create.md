@@ -41,7 +41,7 @@ route: /lace-defects/new
 
 ## Steps
 
-1. Go to **Masters > Lace Defects**
+1. Go to **Materials & Masters > Lace Defects** in the sidebar
 2. Click the **Log Defect** button (top right)
 3. Select the **Stock Lot** from the dropdown (shows lace name, lot number, and available quantity)
 4. Choose the **Defect Type**:
@@ -63,7 +63,7 @@ route: /lace-defects/new
 
 After logging a defect, submit a supplier claim:
 
-1. Go to **Masters > Lace Defects**
+1. Go to **Materials & Masters > Lace Defects** in the sidebar
 2. Find the defect row (status will be "Pending")
 3. Click the **$** (dollar) icon in the Actions column
 4. Enter the **Claim Reference** (e.g., CLM-2024-001)
@@ -91,5 +91,6 @@ After logging a defect, submit a supplier claim:
 
 - The defect is recorded against that stock lot
 - Summary cards on the list page update (Total Defects, Pending Claims, etc.)
-- You can filter by defect type, claim status, or discovery stage to track claims
+- To find defects, use the filter row: the search box (**Search defect description or claim reference...**), **All defect types**, **All statuses** (claim status) and **All stages** (where it was discovered)
+- Click **Clear N filters** to reset all filters and go back to page 1. If nothing matches, the list says **No defects match these filters.** — click **Clear filters**
 - Click the eye icon to view full defect details including resolution history

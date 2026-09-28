@@ -30,11 +30,19 @@ keywords:
   - bina colour ka stock
   - बिना रंग का स्टॉक
   - रंग खाली
+  # Filter / search
+  - fg stock by style
+  - search fg stock
+  - style wise fg stock
+  - style ka ready stock
+  - स्टाइल वाइज तैयार माल
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/FGStockList.tsx
   - frontend/src/components/Pagination.tsx
+  - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - backend/src/controllers/fg-stock.controller.ts
   - backend/src/controllers/finishing.controller.ts
   - backend/src/services/helpers/finished-goods.helper.ts
@@ -46,10 +54,13 @@ route: /inventory/fg-stock
 1. Open **Inventory → FG Stock** in the sidebar. The page is titled **Finished Goods Stock**.
 2. The **FG Stock Inventory** table lists the finished garments ready to ship, by style, colour and size, most recently updated first.
 
-## Search
+## Search and filter
 
-- Type in the **Search by style, color, size...** box. It matches the style code, style name, buyer style code, colour name, size and work order number.
-- Results update as you type and go back to page 1.
+1. Type in the **Search style, buyer's code, colour, size, work order, location...** box. It matches the style code, style name, buyer style code, colour name, size, work order number and location.
+2. To see one style only, open the **All styles** picker, type the style code and pick it. Archived styles are listed too, because stock can outlive a style.
+3. Results update straight away and go back to page 1.
+4. Click **Clear N filters** to empty the search and the style picker and go back to page 1. Your rows-per-page choice stays.
+5. If nothing matches, the table says "No finished goods stock matches these filters." with a **Clear filters** button.
 
 ## Understanding the Table
 
@@ -90,7 +101,6 @@ At the top-right of the page:
 
 ## Traps
 
-- **Empty list?** — the page says "No finished goods stock found". Stock appears only after a finishing issue's **Generate Transfer Slip**. Check **Manufacturing → Finishing** if you expect stock.
+- **Empty list with no filters?** — the page says "No finished goods stock found". Stock appears only after a finishing issue's **Generate Transfer Slip**. Check **Manufacturing → Finishing** if you expect stock.
 - **Colour shows "-"?** — that is stock of a style with no colour, which is normal. It can be shipped or allocated against any line of that style and size.
 - **No costing data?** — **Unit Cost** and **Stock Value** show **-** when there is no cost sheet or actual costing for that style.
-- **Search not finding items?** — search does not look at the location. Search by style, buyer style code, colour, size or work order number instead.

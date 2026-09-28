@@ -30,6 +30,11 @@ keywords:
   - accessories ka stock kitna hai
   - एक्सेसरीज़
   - एक्सेसरीज़ स्टॉक
+  - stock filter
+  - clear filters
+  - stock search
+  - filter hatana
+  - स्टॉक फ़िल्टर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -38,6 +43,8 @@ sources:
   - frontend/src/pages/StockLevelList.tsx
   - frontend/src/pages/StockDashboard.tsx
   - frontend/src/components/WarehouseCombobox.tsx
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/types/material.types.ts
   - backend/src/services/helpers/thread-pack.helper.ts
 route: /inventory/stock-levels
 ---
@@ -46,17 +53,18 @@ route: /inventory/stock-levels
 
 1. Open **Inventory → Stock Levels** in the sidebar.
 2. The page is titled **Stock Levels**. Each row shows one material in one warehouse: **Material Code**, **Material Name**, **Type**, **Warehouse**, **Current Stock**, **Valuation Rate**, **Stock Value**, **Reorder Level** and **Status**.
-3. To find one material, type its code or name in the **Search Material** box at the top left. The list filters as you type.
-4. To see only one kind of material, use the **Material Type** dropdown. Options are: **All Material Types**, **Greige**, **Fabric**, **Thread**, **Button**, **Zipper**, **Elastic**, **Lace**, **Label**, **Packaging**, **Machine Parts**, **Other Materials**. Accessories (a style's labels and packaging) have no single option — pick **Label** or **Packaging**.
-5. To check stock in one godown only, use the **Warehouse** box (it shows **All Warehouses** by default). Type to search; each warehouse is listed as code plus name.
-6. When a material type filter is on, a bar appears saying "Showing stock for". Press **Clear filter** to go back to all materials.
-7. To see only items that are running out, press the **Low Stock Only** button at the top right. Press it again to switch back.
+3. To find one material, type in the search box at the top left (**Search material code or name, warehouse...**). It matches the material code, material name and warehouse. The list filters as you type.
+4. To see only one kind of material, open the material type picker (it reads **All material types** by default) and type to search — for example **Greige**, **Fabric**, **Thread**, **Lace**, **Label** or **Packaging**. Pick **All material types** (the first row) to go back to every type. A style's accessories (its labels and packaging) are found under **Label** or **Packaging**.
+5. To check stock in one godown only, open the warehouse picker (it reads **All warehouses** by default). Type to search by code, name or city; each warehouse is listed as code plus name. Pick **All warehouses** (the first row) to see every godown again.
+6. To see only items that are running out, press the **Low stock only** button. Press it again to switch back. It works together with the search, type and warehouse filters.
+7. When any filter is on, a **Clear N filters** button appears in the filter row (for example **Clear 2 filters**). Press it to reset the search, type, warehouse and low-stock filters in one go. If nothing matches, the table says **No stock levels match these filters.** with a **Clear filters** button.
 8. Read the **Status** column to judge the item: **Critical** (below minimum), **Low Stock** (at or below reorder level), **Overstock** (above maximum) or **Normal**.
 
 ## Notes
 
 - The same material can appear on more than one row if it is kept in more than one warehouse. Add the rows up for the total.
 - A thread shows one row per pack it is stocked in — for example "… - Cone 3-ply" and "… - Tube 3-ply" — each counted in cones or tubes. Cones and tubes are never added together, so do not add those rows up.
+- Click a **Material Code** to open that material's ledger for that warehouse — every receipt and issue behind the figure on the row.
 - The count at the bottom ("Showing N stock levels") reflects the filters currently applied, not the whole factory.
 - For a summary of the whole inventory instead of a list, open **Inventory → Inventory Dashboard** (the page is titled **Unified Inventory Dashboard**). Its **Finished Fabric Stock** and **Generic Greige Stock** cards each have a **View Details** button, and the **Trim & Accessories Stock** card (trims plus labels and packaging) has **View All Stock Levels**. The greige card shows five tiles: **Total Meters**, **Total Value**, **Bales**, **Thans** and **Aging (>180d)**.
 - Greige and finished fabric also have their own detailed screens: **Inventory → Greige Stock** and **Inventory → Fabric Stock**. Use those when you need roll numbers, lot detail or ageing.

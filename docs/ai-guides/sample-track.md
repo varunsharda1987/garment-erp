@@ -43,6 +43,10 @@ sources:
   - frontend/src/pages/SampleDetail.tsx
   - frontend/src/components/samples/SampleActionMenu.tsx
   - frontend/src/components/samples/SampleTestingPanel.tsx
+  - frontend/src/types/sample.types.ts
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/StyleCombobox.tsx
 route: /samples
 ---
 
@@ -56,14 +60,13 @@ route: /samples
    - **Overdue** — samples past their required date (shown in red)
    - **Approved** — samples approved by buyer
 
-3. Use the **Filters** section to find specific samples:
-   - **Search** — search by sample number, style code, or customer name
-   - **Sample Type** dropdown — filter by FIT Sample, PP Sample, Size Set Sample, Shipment Sample, or Photoshoot Sample
-   - **Status** dropdown — filter by Requested, In Progress, Submitted, Sent, Feedback Pending, Approved, Rejected, or Revision Needed
-   - **Customer** dropdown — filter by a specific customer
-   - **Group By** dropdown — organize the list by Sample Type, by Customer, or Overdue First
-   - **Running Styles Only** checkbox — show only samples for active/running styles
-   - Click **Reset** to clear all filters
+3. Use the **Filters** row to find specific samples:
+   - **Search** — sample number, style code, the buyer's style code, style name or customer name
+   - **All types** dropdown — FIT Sample, PP Sample (Pre-Production), Size Set Sample, Photoshoot Sample, Production Sample or Shipment Sample
+   - **All statuses** dropdown — Requested, In Progress, Submitted, Approved, Rejected, Sent to Buyer, Awaiting Feedback, Revision Needed or Approved (with comments)
+   - **All customers** and **All styles** — searchable pickers; type to find one, or pick the "All …" row to see everything
+   - **Group by** dropdown — **No grouping**, **By sample type**, **By customer** or **Overdue first**
+   - Click **Clear N filters** to remove every filter and go back to page 1. It keeps your **Group by** choice. If nothing matches, the list says "No samples match these filters." with a **Clear filters** button.
 
 4. The table shows each sample with:
    - **Sample #** — sample number with version badge and overdue indicator (red alert icon)
@@ -89,7 +92,7 @@ the menu; the top item is the one step that sample is ready for, followed by **V
 | Requested | **Start Progress** — asks you to confirm, then moves it to In Progress |
 | In Progress | **Mark Complete** — pick the completion date, then click Mark Complete |
 | Submitted | **Mark Sent** — enter sent date, courier mode and tracking number |
-| Sent / Feedback Pending | **Record Feedback** — enter the buyer's response |
+| Sent to Buyer / Awaiting Feedback | **Record Feedback** — enter the buyer's response |
 | Rejected / Revision Needed | **Create Revision** — asks you to confirm, then starts a new version |
 | Approved | no further action — the row shows Approved |
 
@@ -106,8 +109,8 @@ sample blocker cards in **Production Status**, with the same steps and the same 
 | **Requested** | Sample request created, not yet started |
 | **In Progress** | Work has begun on the sample |
 | **Submitted** | Sample completed, ready to send |
-| **Sent** | Sample dispatched to buyer |
-| **Feedback Pending** | Waiting for buyer response |
+| **Sent to Buyer** | Sample dispatched to buyer |
+| **Awaiting Feedback** | Waiting for buyer response |
 | **Approved** | Buyer approved the sample |
 | **Approved (with comments)** | Approved but buyer has notes |
 | **Revision Needed** | Buyer requested changes |
@@ -146,7 +149,7 @@ On the **Sample Detail** page:
 
 ## WhatsApp notification
 
-When a sample is in **Sent** or **Feedback Pending** status:
+When a sample is in **Sent to Buyer** or **Awaiting Feedback** status:
 1. Click **Notify buyer on WhatsApp** in the Shipping Info card
 2. Review the pre-filled message with sample and shipping details
 3. Enter or confirm the buyer's WhatsApp number
@@ -156,7 +159,7 @@ Note: Your WhatsApp must be linked in **Team & Settings → My WhatsApp** for th
 
 ## Traps
 
-- **Overdue indicator** — a red alert icon next to the sample number means the required date has passed. Check the "Overdue" summary card or use the "Overdue First" grouping to prioritize these.
+- **Overdue indicator** — a red alert icon next to the sample number means the required date has passed. Check the "Overdue" summary card or choose **Overdue first** in **Group by** to prioritize these.
 
 - **Version column** — only FIT Sample, PP Sample, and Size Set Sample show versions. Other sample types show "-" in this column. Those same three are the only types that offer **Create Revision**; every other type is remade as a new sample instead.
 
@@ -166,4 +169,4 @@ Note: Your WhatsApp must be linked in **Team & Settings → My WhatsApp** for th
 
 - **SLA colors** — green = on time, yellow = approaching deadline, red = delayed, gray = completed.
 
-- **Grouping resets pagination** — when using Group By, samples are grouped into cards without pagination. Switch back to "No Grouping" for paginated view.
+- **Grouping resets pagination** — when using Group By, samples are grouped into cards without pagination. Switch **Group by** back to **No grouping** for the paginated view.

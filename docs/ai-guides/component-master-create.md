@@ -49,7 +49,7 @@ route: /component-masters
 3. Click **Create** to save
 
 ### Edit an existing component
-1. Find the component in the table (use search if needed)
+1. Find the component in the table. Type in the search box (it matches name, component group and description), or pick a group in the **All component groups** picker (you can type to search it). **Clear N filters** resets both; if nothing matches you see "No components match these filters." with a **Clear filters** button.
 2. Click the **pencil icon** in the Actions column
 3. Modify the details and click **Update**
 

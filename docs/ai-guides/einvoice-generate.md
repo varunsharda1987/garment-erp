@@ -68,9 +68,10 @@ route: /settings/einvoice/invoices
 ### Generate IRN for an invoice
 
 1. From e-Invoice Settings page, click **IRN Generation** button (or go directly to Team & Settings > GST e-Invoice > IRN Generation via search)
-2. Find your invoice using:
-   - **Search** - by invoice number, customer name, or IRN
-   - **Filter** - by status (All / Not Generated / Generated / Cancelled / With Errors)
+2. The page title is **IRN Generation**. Find your invoice using:
+   - **Search** - type in **Search invoice number, customer, GSTIN, IRN…**
+   - **Status filter** - **All statuses**, **Not Generated**, **Generated**, **Cancelled** or **With Errors**
+   - If nothing shows, the page reads "No invoices match these filters." - click **Clear filters** (or the **Clear N filters** button in the filter row) to reset the search and status
 3. **Run Preflight Check** (clipboard icon) - checks if invoice data is complete before generating
    - Shows problems that must be fixed
    - Shows warnings (non-blocking)

@@ -35,6 +35,8 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/LaceStockList.tsx
   - frontend/src/pages/LaceStockDetail.tsx
+  - frontend/src/types/laceStock.types.ts
+  - frontend/src/components/StyleCombobox.tsx
 route: /lace-stock
 ---
 
@@ -57,14 +59,15 @@ The page shows four summary cards:
 
 ## Filtering the list
 
-Use filters to narrow down:
+Use the filter row above the list:
 
-| Filter | Options |
-|--------|---------|
-| **Search** | Type lace name, lot number, or style code |
-| **Status** | All Statuses, Available, Reserved, Consumed, Depleted, Defect Hold |
-| **Stock Type** | All Types, Greige, Dyed |
-| **Quality Grade** | All Grades, Grade A, Grade B, Defect |
+1. Type in the search box (**Search lace, color, lot or dye lot, style or buyer ref...**).
+2. Pick a status in the **All statuses** dropdown: Available, Reserved, Exhausted, Issued or Pending Return.
+3. Pick a stock type in the **All types** dropdown: Generic, Planned, Excess, MOQ Excess, Cross-Style Reuse, Returned or Variance Unused.
+4. Pick a grade in the **All grades** dropdown: Grade A, Grade B or Defect.
+5. Pick a style in the **All origin styles** picker. Type to search the style list.
+6. Click **Clear N filters** to reset all filters and go back to page 1.
+7. If nothing matches, the list says **No lace stock lots match these filters.** Click **Clear filters** to see every lot.
 
 Click **Refresh** to reload the list.
 
@@ -171,15 +174,15 @@ Greige lace is typically purchased, then sent for dyeing. The dyed result is tra
 
 | Status | Meaning |
 |--------|---------|
-| **AVAILABLE** | Can be allocated to orders |
-| **RESERVED** | Allocated but not yet consumed |
-| **CONSUMED** | Fully used in production |
-| **DEPLETED** | Exhausted (zero remaining) |
-| **DEFECT_HOLD** | Quality issue, cannot be used |
+| **Available** | Can be allocated to orders |
+| **Reserved** | Allocated but not yet consumed |
+| **Issued** | Issued out of the store |
+| **Pending Return** | Waiting for unused lace to come back |
+| **Exhausted** | Nothing left in the lot |
 
 ## Traps
 
-- **Stock Type filter**: Remember "Greige" is raw/undyed lace while "Dyed" has been processed
+- **Stock Type filter**: It shows why the stock exists (Generic, Planned, Excess, MOQ Excess, Cross-Style Reuse, Returned, Variance Unused) — not whether the lace is greige or dyed. Search by the lace name to find a greige or dyed lace
 - **Aging alerts**: Lots over 60 days appear in the Aging Alert count - prioritize using older stock first (FIFO)
 - **Transfer requires IDs**: You need the actual Style ID and Order ID (UUIDs), not the display codes
 - **Return is per-allocation**: You can only return from a specific allocation, not from the lot overall

@@ -14,13 +14,20 @@ keywords:
   - godown update karna
   - warehouse badalna
   - godown details change karna
+  - warehouse search
+  - warehouse filter
+  - godown dhundhna
+  - clear filters
   # Devanagari
   - वेयरहाउस एडिट
   - गोदाम बदलना
   - वेयरहाउस अपडेट
   - गोदाम में बदलाव
+  - गोदाम खोजें
+  - वेयरहाउस फ़िल्टर
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/WarehouseForm.tsx
   - frontend/src/pages/WarehouseList.tsx
 route: /inventory/warehouses
@@ -29,11 +36,13 @@ route: /inventory/warehouses
 ## Steps
 
 1. Go to **Inventory > Warehouses** from the sidebar
-2. Find the warehouse you want to edit:
-   - Use the **Search** box to search by name or code
-   - Use **Type** filter to filter by warehouse type (Raw Material, Finished Goods, WIP, Job Work, General, Transit)
-   - Use **Status** filter to show Active or Inactive warehouses
-3. Click the **Edit** button (pencil icon) on the row, OR click anywhere on the row to open the edit form
+2. Find the warehouse you want to edit using the filter row at the top:
+   - Type in the search box ("Search code, name, city, state, contact person, phone…"). It matches the code, name, city, state, contact person or phone.
+   - Use the type dropdown (**All types** first) to show one type: Raw Material, Finished Goods, WIP, Job Work, General or Transit.
+   - Use the status dropdown (**All statuses** first) to show only **Active** or **Inactive** warehouses.
+   - Once any filter is set, a **Clear N filters** button appears. Click it to reset the search, type and status filters.
+   - If nothing matches, the list shows "No warehouses match these filters." with a **Clear filters** button.
+3. Click the edit button (pencil icon) in the **Actions** column, OR click anywhere on the row to open the edit form
 4. Update the fields you want to change:
    - **Warehouse Name** - The display name for this warehouse
    - **Address** - Full address

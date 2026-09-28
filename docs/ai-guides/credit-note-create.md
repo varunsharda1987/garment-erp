@@ -32,6 +32,7 @@ sources:
   - frontend/src/pages/CreditNoteList.tsx
   - frontend/src/pages/CreditNoteDetail.tsx
   - frontend/src/types/creditNote.types.ts
+  - frontend/src/components/CustomerCombobox.tsx
 route: /credit-notes
 ---
 
@@ -94,5 +95,8 @@ route: /credit-notes
 ## Related actions
 
 - To view a credit note: click its row in the list, or search by credit note number
-- To filter by status: use the **All Statuses** dropdown (Draft, Approved, Cancelled)
-- To search: type the credit note number or customer name in the search box
+- To search: type in the search box ("Search credit note number, customer, invoice number…")
+- To filter by customer: click **All customers** and type to find the customer
+- To filter by status: use the **All statuses** dropdown (Draft, Approved, Cancelled)
+- To filter by date: use **Credit note date** (From / To)
+- To remove every filter: click **Clear N filters** (e.g. **Clear 2 filters**). If nothing matches, the list says **No credit notes match these filters.** with a **Clear filters** button

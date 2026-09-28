@@ -27,12 +27,13 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceDashboard.tsx
+  - frontend/src/components/SupplierCombobox.tsx
 route: /embroidery-stock/pieces
 ---
 
 ## Steps
 
-1. Press **Ctrl+K** and type "Embroidery Pieces" or navigate to **Manufacturing > Embroidery** in the sidebar.
+1. Press **Ctrl+K**, type "Embroidery Pieces" and open it. (The sidebar's **Manufacturing > Embroidery** link opens the embroidery job work orders, not this page.)
 
 2. The dashboard shows cut pieces sent for embroidery work (post-cutting stage, not fabric meters).
 
@@ -44,8 +45,10 @@ route: /embroidery-stock/pieces
    - **Overdue** - Past expected return date (highlighted in red)
 
 4. **Search and filter:**
-   - Use the search box to find by batch number, vendor name, or work order number
-   - Use the Status dropdown to filter: All Status, Sent, Partially Received, Received, Cancelled
+   - Use the search box ("Search batch number, vendor, work order…") to find a send-out
+   - To see one vendor's send-outs, click **All vendors** and type to find the vendor
+   - Use the status dropdown to filter: **All statuses**, Sent, Partial, Received, Cancelled
+   - Click **Clear N filters** (e.g. **Clear 2 filters**) to remove every filter. If nothing matches, the table says **No embroidery piece send-outs match these filters.** with a **Clear filters** button
 
 5. **Review the table** showing:
    - **Batch #** - Unique identifier for the send-out

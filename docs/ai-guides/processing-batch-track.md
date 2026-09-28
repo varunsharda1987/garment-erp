@@ -17,6 +17,8 @@ keywords:
   - in transit quantity
   - receive dyed lace
   - dye lot
+  - search processing batch
+  - filter batches
   # Hinglish
   - batch status dekhna
   - processing ka status
@@ -27,6 +29,7 @@ keywords:
   - mill mein kitna hai
   - transit mein kitna
   - received kitna
+  - batch dhundhna
   # Devanagari (MANDATORY)
   - बैच स्टेटस
   - प्रोसेसिंग ट्रैकिंग
@@ -35,6 +38,7 @@ keywords:
   - मिल में कितना
   - ट्रांजिट में कितना
   - रिसीव्ड कितना
+  - बैच खोजें
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ProcessingBatchList.tsx
@@ -48,32 +52,32 @@ route: /processing/batches
 
 ### View all processing batches
 
-1. Go to **Production** > **Processing Batches**
+1. Go to **Manufacturing** > **Processing Batches**
 2. See the summary cards at top:
    - **Active Batches** - currently being processed
    - **Completed** - finished batches
    - **In Process** - total metres at processors
    - **In Transit** - total metres being transported
-3. Click any summary card to filter the list by that status
+3. Click the **Active Batches** or **Completed** card to show only batches in that status (click it again to show all)
 
 ### Filter and search batches
 
-1. Use the search box to find by batch number
-2. Use the **Status** dropdown to filter:
-   - All Statuses
+1. Type in **Search batch number, material, target colour…** — it matches the batch number, the material, or the target colour
+2. Use the status dropdown (**All statuses**) to show only:
    - Active
    - Completed
    - Cancelled
-3. Use the **Material Type** dropdown to filter:
-   - All Materials
+3. Use the material dropdown (**All materials**) to show only:
    - Greige Fabric
    - Fabric
    - Lace
-4. Click **Refresh** to reload the list
+4. **Clear N filters** on the filter row resets the search, status and material
+5. If nothing fits, the list says **No processing batches match these filters.** — click **Clear filters**
+6. Click **Refresh** to reload the list
 
 ### View batch details
 
-1. In the batch list, click the **eye icon** on any row
+1. In the batch list, click the **eye icon** (**View Details**) on any row
 2. The detail page shows:
    - **Material** - name and code of the material being processed
    - **Type** - Greige Fabric, Fabric, or Lace

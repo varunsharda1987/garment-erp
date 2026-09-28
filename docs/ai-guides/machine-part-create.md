@@ -13,12 +13,15 @@ keywords:
   - sewing machine parts
   - add machine part
   - create machine part
+  - search machine part
+  - filter machine parts by supplier
   # Hinglish
   - machine part add karna
   - spare part banana
   - machine ka part
   - needle add karna
   - bobbin add karna
+  - machine part dhundhna
   # Devanagari
   - मशीन पार्ट
   - स्पेयर पार्ट
@@ -28,10 +31,14 @@ keywords:
   - मोटर
   - बेल्ट
   - सिलाई मशीन पार्ट्स
+  - मशीन पार्ट खोजें
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/pages/MasterDataDashboard.tsx
   - frontend/src/pages/MachinePartForm.tsx
   - frontend/src/pages/MachinePartList.tsx
+  - frontend/src/components/SupplierCombobox.tsx
+  - frontend/src/components/Pagination.tsx
 route: /materials/machine-part/new
 ---
 
@@ -40,7 +47,15 @@ route: /materials/machine-part/new
 ### Opening the Machine Parts Page
 1. Press **Ctrl+K** to open the command palette
 2. Type "Machine Parts" and select it
-3. Or go to **Materials & Masters** > **All Masters** > **Machine Parts** (under Static Masters section)
+3. Or go to **Materials & Masters** > **All Masters** > **Machine Parts** (in the **Workshop & Other Materials** section)
+4. The list opens as **Machine Parts Management**
+
+### Finding a Machine Part
+1. Type in the search box **Search code, name, part number, category, machine, brand, supplier…** — it matches any of those.
+2. To see only one supplier's parts, pick the supplier in the **All suppliers** picker (type to search it). Choose **All suppliers** to show every part again.
+3. **Clear N filters** (on the filter row) resets the search and the supplier and goes back to page 1.
+4. If nothing is found, the list says **No machine parts match these filters.** — click **Clear filters**.
+5. Use the pager under the table to move between pages; **Rows per page** sets how many show at once.
 
 ### Creating a New Machine Part
 1. Click the **+ Add New Machine Part** button in the top right

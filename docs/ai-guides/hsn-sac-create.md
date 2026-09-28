@@ -70,10 +70,18 @@ HSN/SAC codes are mandatory for GST invoicing. Each code carries a default GST r
 
 ### Edit an existing code
 
-1. Find the code in the table (use the search box or Type filter)
+1. Find the code in the table (use the search box or the filters — see **Find a code** below)
 2. Click the **pencil icon** in the Actions column
 3. Update fields as needed
 4. Click **"Update"** to save
+
+### Find a code
+
+1. Type in the search box (**Search code, description, chapter, section, unit…**).
+2. Pick a type in the **All types** dropdown: HSN (Goods) or SAC (Services).
+3. Pick a status in the **All statuses** dropdown: Active or Inactive. Inactive codes are the deleted ones.
+4. Click **Clear N filters** to reset all filters and go back to page 1.
+5. If nothing matches, the table says **No HSN/SAC codes match these filters.** Click **Clear filters** to see every code.
 
 ### Delete a code
 
@@ -89,7 +97,7 @@ HSN/SAC codes are mandatory for GST invoicing. Each code carries a default GST r
 
 - **Missing chapter/section**: While optional, filling chapter and section helps organize and search codes. Chapter 62 = Articles of apparel (not knitted), Chapter 61 = Knitted/crocheted apparel.
 
-- **Code already exists**: If you get a duplicate error, search for the existing code using the search box. It may be inactive.
+- **Code already exists**: If you get a duplicate error, search for the existing code using the search box. It may be inactive — set the status filter to **Inactive** to find it.
 
 ## Common HSN codes for garments
 

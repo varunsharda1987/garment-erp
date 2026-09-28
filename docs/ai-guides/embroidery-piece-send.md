@@ -40,7 +40,7 @@ route: /embroidery-stock/piece-send-out
 
 1. Open the **Embroidery Pieces** dashboard:
    - Press **Ctrl+K** and search "Embroidery Pieces"
-   - Or navigate via Manufacturing > Embroidery > click link to Pieces
+   - Or navigate directly to `/embroidery-stock/pieces` (page title **Embroidery — Piece Tracking**)
 
 2. Click **New Piece Send-Out** button (top right)
 
@@ -83,6 +83,7 @@ route: /embroidery-stock/piece-send-out
 - Send-out record created with status **SENT**
 - Pieces tracked under the selected job work order
 - View all send-outs on the Embroidery Pieces dashboard
-- Dashboard shows: Total Sent, Pending, Partial Received, Received, Overdue counts
+- Dashboard shows: Total Sent, Pending, Partial, Received, Overdue counts
+- To find a send-out later, use the filter row: the search box (batch number, vendor, work order), the **All vendors** picker and the **All statuses** dropdown; **Clear N filters** resets them
 - When pieces return, use the **Receive** button to record receipt
 - Overdue returns highlighted in red on the dashboard

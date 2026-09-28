@@ -29,6 +29,7 @@ sources:
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
   - frontend/src/pages/SupplierList.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/pages/SupplierForm.tsx
   - frontend/src/components/GSTNumberInput.tsx
   - frontend/src/types/supplier.types.ts
@@ -41,7 +42,7 @@ route: /suppliers/new
 
 ## Steps
 
-1. Open **Materials & Masters → Suppliers** in the sidebar. To check whether the supplier already exists, type into the search box — it matches the code, name, contact person, email and phone, and several words each have to match.
+1. Open **Materials & Masters → Suppliers** in the sidebar. To check whether the supplier already exists, type into the search box (**Search code, name, GST, contact, email, phone, payment terms…**) — it matches the code, name, GST number, contact person, email, phone and payment terms, and several words each have to match. You can also narrow the list with the **All categories** picker (type to search a category) and the **All ratings** dropdown; **Clear N filters** resets them. If nothing matches, the list says **No suppliers match these filters.**
 2. Click **+ Add New Supplier** at the top right. The **Create New Supplier** form opens.
 3. **Supplier Code** is filled automatically and is read-only. Do not try to type it.
 4. Type the **Supplier Name**. It must be at least 2 characters. Trailing commas or dots are removed automatically when saved.

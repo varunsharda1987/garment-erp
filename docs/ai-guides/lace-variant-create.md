@@ -29,6 +29,8 @@ sources:
   - frontend/src/pages/LaceForm.tsx
   - frontend/src/pages/LaceList.tsx
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
+  - frontend/src/pages/TrimMastersDashboard.tsx
+  - frontend/src/components/SupplierCombobox.tsx
 route: /materials/lace
 ---
 
@@ -43,7 +45,7 @@ Use this when you want to pre-create dyed variants before costing.
 
 ### Steps
 
-1. Go to **Materials** > **Trims Dashboard** > **Laces** (or directly `/materials/lace`)
+1. Go to **Materials & Masters** > **Trims Dashboard** in the sidebar, then click the **Laces** quick-access button (or open `/materials/lace` directly)
 2. Click **+ Add New Lace** button
 3. Under **Lace Nature**, select **Ready-to-Use (Finished)**
    - This indicates the lace is colored and ready for production
@@ -66,14 +68,21 @@ Use this when costing a style that uses greige lace - the system creates the var
 1. Open a **Cost Sheet** for your style
 2. In the **Lace Costing** section, add a greige lace
 3. Click on the lace row to open the **Sourcing Strategy** modal
-4. In the **Greige + Processing** tab, look for **Dye this greige** section
-5. Select a **Color** from the Color Picker
-6. Optionally select a **Processor** (dyer) from the dropdown
-7. Click **Create Dyed Variant**
+4. In the **Greige + Dyeing** tab, look for the **Dye this greige lace** section
+5. Pick the colour in **Dye to Colour**
+6. Optionally pick a dyer in **Processor (optional)**
+7. Click **Create Dyed Variant & Cost**
 8. The system will:
    - Create (or reuse) a finished lace variant with that color
    - Calculate the greige cost + processing cost
    - Update the cost sheet row to point to the new variant
+
+## Find a lace on the list
+
+1. On the **Lace Management** list, type in the search box (**Search code, name, lace type, color, style, supplier…**).
+2. Pick a supplier in the **All suppliers** picker. Type to search the supplier list.
+3. Click **Clear N filters** to reset the filters and go back to page 1.
+4. If nothing matches, the list says **No lace items match these filters.** Click **Clear filters** to see every lace.
 
 ## Traps
 

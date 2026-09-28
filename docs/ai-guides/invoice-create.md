@@ -34,6 +34,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/InvoiceForm.tsx
   - frontend/src/pages/InvoiceList.tsx
+  - frontend/src/components/filters/DateRangeFilter.tsx
   - backend/src/schemas/invoice.schema.ts
 route: /invoices/new
 ---
@@ -86,7 +87,7 @@ route: /invoices/new
 
 - **Invoice number generated** - System assigns a unique invoice number (e.g., INV-2026-0001)
 - **Status is PENDING** - New invoices start with Pending status
-- **View the invoice** - You're redirected to the invoice list; click the invoice number to view details
+- **View the invoice** - You're redirected to the invoice list; click the invoice number to view details. To find an invoice there, type in **Search invoice number, customer, order, sale order, style, buyer style…**, or use the **All customers**, **All orders** and **All statuses** filters and the **Invoice date** From/To range. **Clear filters** resets them
 - **Print or download** - From the invoice detail page, you can print the tax invoice or generate PDF
 - **Record payments** - Track payments against the invoice from the detail page
 - **E-Invoice (IRN)** - If e-invoicing is enabled, generate the IRN from Team & Settings -> GST e-Invoice

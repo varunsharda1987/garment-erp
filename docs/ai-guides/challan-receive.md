@@ -45,10 +45,11 @@ route: /manufacturing/challans
 1. Open **Manufacturing → Challans** in the sidebar.
 
 2. Find the challan to receive against:
-   - Use the search box to search by challan number, processor name, or remarks.
-   - Filter by **Status** dropdown — select **Issued**, **In Transit**, or **Partially Received** to see receivable challans.
-   - Filter by **Type** or **Item Type** if needed.
-   - Use **Today Only** button or date filters to narrow by date.
+   - Type in the search box ("Search challan number, from, to, remarks…").
+   - In the status dropdown (starts at **All statuses**), select **Issued**, **In Transit**, or **Partially Received** to see receivable challans.
+   - Narrow by type (**All types**) or item type (**All item types**) if needed.
+   - Use **Challan date** (From / To) or the **Today only** button to narrow by date.
+   - Click **Clear N filters** (e.g. **Clear 2 filters**) to remove every filter. If nothing matches, the list says **No challans match these filters.** with a **Clear filters** button.
 
 3. Click the **challan number** link to open the challan detail page.
 

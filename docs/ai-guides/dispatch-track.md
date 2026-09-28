@@ -39,6 +39,10 @@ keywords:
   - बिना रंग
   - no colour item
   - reschedule filter
+  - filter by customer
+  - filter by order
+  - customer se filter karna
+  - फिल्टर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -46,6 +50,8 @@ sources:
   - frontend/src/pages/DispatchDeliveryNoteDetail.tsx
   - frontend/src/types/dispatch.types.ts
   - frontend/src/components/SearchInput.tsx
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/OrderCombobox.tsx
   - backend/src/schemas/dispatch.schema.ts
 route: /manufacturing/dispatch
 ---
@@ -65,15 +71,17 @@ route: /manufacturing/dispatch
 
 ## Finding a specific delivery
 
-1. In the **Delivery Notes** tab, use the search box (**Search by note #, order, customer or style...**).
-2. Type a delivery note number (DN #), order number, customer or style code.
+1. In the **Delivery Notes** tab, use the search box ("Search DN number, order, customer, style, buyer PO, customer GRN…").
+2. Type a delivery note number (DN #), order number, customer, style code, buyer PO or customer GRN.
 3. Use the **status filter** dropdown to narrow results:
-   - **All Statuses**
+   - **All statuses**
    - **Pending** - ready to dispatch
    - **In Transit** - shipped, awaiting delivery
    - **Delivered** - confirmed received
    - **Cancelled** - pending notes that were cancelled (the record is kept)
-4. Results update as you type — there is no Search button. The cross in the box clears it.
+4. To see one customer's or one order's notes, click **All customers** or **All orders** and type to find it.
+5. Results update as you type — there is no Search button. The cross in the box clears it.
+6. Click **Clear N filters** (e.g. **Clear 2 filters**) to remove every filter on this tab. If nothing matches, the list says **No delivery notes match these filters.** with a **Clear filters** button.
 
 ## Understanding delivery note statuses
 
@@ -106,14 +114,15 @@ route: /manufacturing/dispatch
 ## Checking ASN application status
 
 1. Switch to the **ASN Applications** tab.
-2. Search by ASN #, order, customer or buyer ref (**Search by ASN #, order, customer or buyer ref...**).
-3. Filter by status:
+2. Search by ASN number, buyer ref, order, customer, style or buyer style ("Search ASN number, buyer ref, order, customer, style, buyer style…"). To see one order's ASNs, click **All orders** and type to find it.
+3. Filter by status (starts at **All statuses**):
    - **Pending** - ASN created, not yet applied
    - **Applied** - Submitted to customer, awaiting response
    - **Approved** - Customer approved the shipment window
    - **Rejected** - Customer rejected the request
-   - **Rescheduled** - Appointment moved to a new date
-4. The table shows: ASN #, Order, Requested Ship Date, Planned Qty, Cartons, Appointment (date and time), Status.
+   - **Reschedule** - Appointment moved to a new date
+4. Click **Clear N filters** to remove every filter on this tab. Each tab keeps its own filters.
+5. The table shows: ASN #, Order, Requested Ship Date, Planned Qty, Cartons, Appointment (date and time), Status.
 
 ## Table columns explained
 
@@ -165,7 +174,6 @@ route: /manufacturing/dispatch
 - The **Customer GRN** column only shows data after POD is recorded. If blank, it means either delivery is pending or POD was not captured.
 - **In Transit** does not automatically change to **Delivered**. Someone must record the POD.
 - ASN **Approved** status means the customer accepted the shipment window. You still need to create the actual Delivery Note.
-- Use the **Refresh** button (top right) to see the latest status if shipments were recently updated.
-- In the **ASN Applications** tab, the **Rescheduled** status filter does not work: an error pop-up says "Failed to load ASN applications…" and the list is not filtered. Use **All Statuses** and look for the **Reschedule** badge in the Status column instead.
+- Use the refresh button (circular-arrows icon, top right) to see the latest status if shipments were recently updated.
 
 - The **Buyer PO** card on a delivery note shows the customer's own purchase orders for that sale order — PO number, delivery location and PO date — with a **View PO** link that opens their PO document. It appears on every note booked against a sale order — raised from the sale order, or for a production order linked to one; a production order with no sale order shows nothing. Opening the PO needs you to be signed in.

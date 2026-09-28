@@ -95,7 +95,7 @@ route: /test-requirement-forms/new
 1. Open **Manufacturing > Sample Tracking**, click the sample, then open its **Lab Tests** tab.
 2. Click **Send for lab testing**. The form opens with the sample shown as **For sample …** at the top,
    the style fixed, and the buyer's order picked for you when the style is on exactly one of their
-   orders. The **Sample Stage** is ticked from the sample type: a PP Sample ticks **PP**, a Shipment
+   orders. The **Sample testing stage** is ticked from the sample type: a PP Sample ticks **PP**, a Shipment
    Sample ticks **SHIPMENT**.
 3. Fill the rest as in the steps above and click **Save**. You go back to the sample's **Lab Tests**
    tab, where the new form shows as the next lab round.
@@ -109,9 +109,15 @@ your corrections such as the fibre content and season — ticks **Retest** in th
 
 ## Reprinting an old form
 
-Open **Test Requirement Forms**, find the row, and click **Print** on it. Search by TRF number,
-style, buyer order number or colour. A reprint shows exactly what was sent, even if the style
-has changed since.
+1. Open **Test Requirement Forms**.
+2. Find the row. Type in the search box (**Search TRF number, style, buyer's code, buyer, order
+   number, SO / WO, colour…**), or narrow the list with the filters in the same row: **All
+   statuses**, **All stages**, the **All buyers** picker and the **All styles** picker.
+3. Click **Print** on the row. A reprint shows exactly what was sent, even if the style has
+   changed since.
+
+**Clear N filters** resets every filter and goes back to page 1. If nothing matches you see
+"No forms match these filters." with a **Clear filters** button.
 
 ## If a field keeps coming up blank
 

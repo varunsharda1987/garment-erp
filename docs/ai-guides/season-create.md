@@ -25,6 +25,7 @@ sources:
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
   - backend/src/schemas/season.schema.ts
+  - frontend/src/components/filters/FilterBar.tsx
 route: /seasons/new
 ---
 
@@ -47,4 +48,4 @@ route: /seasons/new
 - **Season Type**, **Year** and **Season Code** are locked when you edit an existing season. Only the name and the active switch can be changed afterwards. If the type or year is wrong, delete the season and create it again.
 - **Generate Seasons** refuses a range where the end year is before the start year, and refuses ranges longer than 20 years.
 - Generating is safe to repeat — existing seasons are skipped, not duplicated. The success message tells you how many were created and how many were skipped.
-- Use the **Year**, **Type** and **Status** filters at the top of the list to find a season quickly.
+- To find a season quickly, use the filter row at the top of the list: the search box (season code or name), **All years**, **All types** and **All statuses** (Active / Inactive). **Clear N filters** removes them all. If nothing matches, the list says "No seasons match these filters." with a **Clear filters** button.

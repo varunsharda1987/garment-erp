@@ -153,6 +153,8 @@ sources:
   - backend/src/services/helpers/material-hsn.helper.ts
   - frontend/src/components/SupplierCombobox.tsx
   - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/SearchInput.tsx
 route: /procurement/purchase-orders/new
 ---
 
@@ -220,8 +222,8 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 ## The Purchase Orders list
 - The cards at the top count **Total POs**, **Pending Action** (drafts not yet sent), **Awaiting Delivery** (Sent, Acknowledged and Partially Received) and **Total Value**.
 - Each row shows the PO number with its **PO Date** under it, **Supplier**, **Material** (the first line's material, with "+N more" when the PO has several lines; a label bought in sizes counts as one line), **Category** (Fabric, Greige, Trims, Accessories, Thread, Lace, Greige Lace, Machine Parts, General; an older PO may show Packaging), **Expected Delivery**, **Items**, **Amount**, **Source** (All tab only) and **Status**. The PO number is a link — click it (or open it in a new tab) to see the PO; clicking anywhere else on the row opens it too.
-- The search box finds a PO by PO number, supplier, style or material. The filters are **All Status** (Draft, Sent, Acknowledged, Partially Received, Received, Closed Short, Cancelled), **All Suppliers**, **All Sources** (Manual, Cost Sheet, MRP) and **Any delivery place** / **Delivery: to be advised**. **Clear** removes every filter.
-- When the list is opened from an order, it shows only that order's POs and an **Order: …** chip. Click the **×** on the chip to see every PO again.
+- The search box finds a PO by PO number, supplier, style or material. The filters in the same row are **All statuses** (Draft, Sent, Acknowledged, Partially Received, Received, Closed Short, Cancelled), **All suppliers** (a searchable picker — type a name to find one), **All sources** (Manual, Cost Sheet, MRP; on the **All** tab) and **Any delivery place** / **Delivery: to be advised**. **Clear N filters** removes every filter and goes back to page 1; it keeps the tab you are on. If nothing matches, the list says "No purchase orders match these filters" with a **Clear filters** button.
+- When the list is opened from an order, it shows only that order's POs and an **Order: …** chip in the filter row. Click the **×** on the chip to see every PO again.
 - The row's **…** (actions) menu always has **View Details**. A **Draft** also has **Edit** and **Delete**; a **Sent** or **Acknowledged** PO has **Cancel PO**; a **Partially Received** PO has **Close Short**.
 
 ## After saving

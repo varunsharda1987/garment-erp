@@ -42,15 +42,16 @@ route: /component-groups
 
 ## To Edit a Group
 
-1. Find the group in the table
+1. Find the group in the table. To narrow the list, type in the search box (it matches code, name and description) or pick **Active** / **Inactive** in the **All statuses** dropdown. **Clear N filters** resets them.
 2. Click the pencil icon on that row
 3. Update Name, Description, Sort Order, or Active Status (Code cannot be changed)
 4. Click **Update**
 
 ## To Reorder Groups
 
-1. Use the up/down arrow buttons in the Order column
-2. Groups reorder immediately
+1. Clear any search or status filter first (**Clear N filters**). While a filter is on, the arrows are greyed out ("Clear filters to change the order").
+2. Use the up/down arrow buttons in the Order column
+3. Groups reorder immediately
 
 ## Traps
 

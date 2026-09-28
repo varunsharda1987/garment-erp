@@ -13,6 +13,8 @@ keywords:
   - download catalogue
   - share catalogue
   - WhatsApp catalogue
+  - filter styles
+  - clear filters
   # Hinglish
   - catalogue generate karna
   - catalogue banana
@@ -20,6 +22,7 @@ keywords:
   - catalogue download karna
   - catalogue share karna
   - WhatsApp pe catalogue bhejana
+  - catalogue filter karna
   # Devanagari
   - कैटलॉग
   - स्टाइल कैटलॉग
@@ -27,6 +30,7 @@ keywords:
   - कैटलॉग बनाना
   - कैटलॉग डाउनलोड
   - कैटलॉग शेयर
+  - फिल्टर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CatalogueGenerator.tsx
@@ -47,12 +51,14 @@ route: /catalogue-generator
 
 ### Filter Styles (Optional)
 Use the **Filters** panel on the left to narrow down styles:
-- **Search**: Type style code, name, or buyer reference
-- **Category**: Filter by product category (e.g., Kurta, Dupatta)
-- **Brand Category**: Filter by brand category
-- **Season**: Filter by season (e.g., SS24, AW24)
+- **Search**: Type style code, buyer's code, name, category, brand category or season. Every word you type must match
+- **Category**: Starts at **All categories**. Click it and type to find a product category (e.g., Kurta, Dupatta)
+- **Brand Category**: Pick a brand category, or **All brand categories**
+- **Season**: Starts at **All seasons**. Click it and type to find a season (e.g., SS24, AW24)
 - **Size Availability**: Click size badges (S, M, L, XL, etc.) to filter by size
 - **Price Range**: Enter minimum and maximum price values
+- To remove every filter, click **Clear N filters** (e.g. **Clear 2 filters**) at the top of the Filters panel
+- If nothing matches, the list says **No styles match these filters.** Click **Clear filters**, or **Load more styles** — filters only look at the styles loaded so far
 
 ### Configure Catalogue Options
 In the **Catalogue Options** panel:

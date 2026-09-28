@@ -102,4 +102,5 @@ route: /inventory/stock-counts/new
 - Stock adjustment entries are created for items with variance
 - The audit trail shows who verified and approved the count
 - Stock levels are updated to match the physical count
-- View completed counts from the Stock Counts list (filter by Status = Approved)
+- View completed counts from the Stock Counts list: open the **All statuses** filter and choose **Approved**
+- The list's filter row also has **All count types**, an **All warehouses** picker and a **Count date** From/To range. **Clear N filters** resets them all; if nothing matches you see "No stock counts match these filters." with a **Clear filters** button

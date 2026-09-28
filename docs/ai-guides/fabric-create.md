@@ -57,15 +57,19 @@ The fabric should point at a greige. If the greige master does not exist yet, yo
 Check the list first so you do not enter the same fabric twice. On
 **Materials & Masters → Fabric Master** the filter bar above the table narrows the list:
 
-- **Search** matches code, name or colour.
-- **Finish Type**, **Generic Name**, **Colour** and **Source** each let you tick **several** values
-  at once. Each option shows how many fabrics use it.
-- **Greige** and **Supplier** are search boxes — start typing to narrow the list, and pick
-  **All Greige** or **All Suppliers** to remove the filter.
-- **Generic** separates general stock fabric from style-specific fabric.
+- **Search** (*Search code, name, colour, greige, style code…*) matches code, name, colour, greige or style code.
+- **Status** shows **Active only** by default; choose **Inactive only** or **All statuses** to see the rest.
+- **Finish type**, **Generic name**, **Colour** and **Source** each let you tick **several** values
+  at once (they read **All finish types**, **All generic names**, **All colours**, **All sources** when
+  nothing is ticked). Each option shows how many fabrics use it.
+- **Greige** and **Supplier** are searchable pickers — start typing to narrow the list, and pick
+  **All greige** or **All suppliers** to remove the filter.
+- **Generic** separates general stock fabric (**Generic only**) from **Style-specific** fabric; **All fabrics** shows both.
 - **GSM** and **Width (")** take a Min and a Max box. Leave either box empty for no limit.
 - The line above the table reads, for example, *Showing 12 of 30 fabric masters · 3 filters applied*.
-- **Clear N filters** at the end of the bar removes everything and returns Status to Active Only.
+- **Clear N filters** at the end of the bar removes everything, returns Status to Active only and goes
+  back to page 1. Your rows-per-page choice stays.
+- If nothing matches, the table shows *No fabric masters match these filters.* with a **Clear filters** button.
 
 Your filters stay in the page address, so opening a fabric and pressing Back returns you to the
 same filtered list, and you can send the address to a colleague to show them the same view.

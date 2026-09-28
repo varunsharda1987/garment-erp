@@ -20,6 +20,8 @@ keywords:
   - menu item missing
   - all on
   - all off
+  - search permission
+  - filter by role
   # Hinglish
   - permission dena
   - permission hatana
@@ -27,6 +29,7 @@ keywords:
   - role set karna
   - permission change karna
   - permission reset karna
+  - permission dhundhna
   - access nahi hai
   - menu me nahi dikh raha
   - permision
@@ -40,6 +43,7 @@ keywords:
   - परमिशन हटाना
   - एक्सेस नहीं है
   - अनुमति
+  - परमिशन खोजें
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -61,7 +65,7 @@ Only administrators can open this page.
 ## Steps to change a permission
 
 1. Open **Team & Settings → Permissions** in the sidebar. The page title is **Permission Management**.
-2. Find the module in the **Permission Matrix** table (rows are modules, columns are roles). Use the **Search permissions...** box or the **All Categories** dropdown to narrow the list, or click a role card at the top to show only that role's column.
+2. Find the module in the **Permission Matrix** table (rows are modules, columns are roles). In the **Filters** card, type in **Search permission, key, category…**, pick a module group in **All categories**, or pick a role in **All roles** to show only that role's column. Clicking a role card at the top does the same as picking the role (click it again to clear). **Clear N filters** resets the search, category and role. If nothing fits, the table says **No permissions match these filters.** — click **Clear filters**.
 3. Click the switch where the module row meets the role column. Blue is enabled, grey is disabled.
 4. The change saves immediately — a message confirms **Enabled … for …** or **Disabled … for …**.
 

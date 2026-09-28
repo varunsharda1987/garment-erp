@@ -26,6 +26,8 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
   - frontend/src/pages/FabricCostingOptionsPage.tsx
+  - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/CustomerCombobox.tsx
 route: /fabric-costing
 ---
 
@@ -40,9 +42,10 @@ route: /fabric-costing
 1. Go to **Pre-Production** in the sidebar
 2. Click **Costing Options**
 3. Filter to find your style:
-   - Select Customer from the dropdown
-   - Select Style from the dropdown
+   - Type the style code, buyer code or customer in the search box, or
+   - Pick from the **All styles** picker (searchable — type the style code), or the **All customers** picker
    - Or use the Purpose tabs (All / Costing / Raw Mat) to filter
+   - Click **Clear N filters** to reset the filters
 4. Find the costing option you want to approve in the table
 5. Click the **three-dot menu** (More options) on the right side of the row
 6. Click **Approve**
@@ -50,7 +53,7 @@ route: /fabric-costing
 
 ## Alternate route
 
-- From the **Fabric Costing** page after saving, click **View Style Options** button
+- From the **Fabric Costing** page after saving, click the **View Saved Options** button
 - This takes you directly to the Costing Options page filtered to that style
 
 ## What approval means

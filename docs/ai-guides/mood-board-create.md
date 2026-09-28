@@ -11,18 +11,21 @@ keywords:
   - design inspiration
   - color palette
   - image board
+  - search mood board
   # Hinglish
   - mood board banana
   - mood board create karna
   - design board banana
   - naya mood board
   - inspiration board banana
+  - mood board dhundhna
   # Devanagari
   - मूड बोर्ड
   - मूड बोर्ड बनाना
   - डिज़ाइन बोर्ड
   - इंस्पिरेशन बोर्ड
   - नया मूड बोर्ड
+  - मूड बोर्ड खोजें
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/MoodBoardDetail.tsx
@@ -81,9 +84,11 @@ After creating, use the left toolbar to add items:
 
 ## Filtering Mood Boards
 
-On the list page:
-- Use search box to find by name
-- Filter by status (Draft, Active, Archived, or All)
+On the Mood Boards page:
+1. Type in **Search name, description, season…** — it matches the board's name, description or season.
+2. Pick a status in the **All statuses** dropdown: **Draft**, **Active** or **Archived**. Choose **All statuses** to see every board.
+3. **Clear N filters** on the filter row resets the search and the status.
+4. If no board fits, the page says **No mood boards match these filters.** — click **Clear filters**.
 
 ## Traps
 

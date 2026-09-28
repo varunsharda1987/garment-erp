@@ -35,6 +35,9 @@ sources:
   - frontend/src/pages/dyeing/DyeLabDipDetail.tsx
   - frontend/src/pages/printing/PrintLabDipDetail.tsx
   - frontend/src/pages/DyeingList.tsx
+  - frontend/src/pages/ProcessingList.tsx
+  - frontend/src/components/ProcessorCombobox.tsx
+  - frontend/src/pages/LaceLabDipList.tsx
   - frontend/src/types/laceLabDip.types.ts
   - frontend/src/types/printing.types.ts
 route: /manufacturing/processing
@@ -52,9 +55,9 @@ route: /manufacturing/processing
 
 1. Open **Manufacturing** (in the sidebar)
 2. Click **Dyeing & Printing**
-3. You land on the **Lab Dips** tab by default
-4. Find the lab dip in the table (use search or filter by status)
-5. Click on the lab dip row to open the detail page
+3. You land on the **Dyeing & Printing** page, on the **Lab Dips** tab
+4. Find the lab dip: type in the search box (lab dip number, style, buyer ref, fabric, colour, design or processor), or use the filters in the same row — **All types** (pick **Dyeing**), **All processors** (a searchable picker) and **All statuses**. **Clear filters** resets them all
+5. Click the lab dip row to open its detail page
 6. In the header, click the green **Approve** button
 7. In the dialog:
    - Enter **Approved Sample #** (required) - e.g., "S1", "S2"
@@ -80,9 +83,9 @@ route: /manufacturing/processing
 
 1. Open **Manufacturing** (in the sidebar)
 2. Click **Dyeing & Printing**
-3. Switch to the **Printing** section (if not already there)
-4. Go to the **Lab Dips** tab
-5. Find and click on the lab dip to open the detail page
+3. Stay on the **Lab Dips** tab
+4. In the **All types** filter pick **Printing** (or search for the lab dip directly)
+5. Click the lab dip row to open its detail page
 6. Click the green **Approve** button in the header
 7. In the dialog:
    - Enter **Approved Sample #** (required) - e.g., "S1", "S2"
@@ -99,7 +102,7 @@ Lace lab dips have a different workflow with sequential status transitions.
 
 1. Open **Materials & Masters** (in the sidebar)
 2. Click **Lace Lab Dips**
-3. Find the lab dip that shows status **Awaiting Buyer** (yellow badge)
+3. Find the lab dip that shows status **Awaiting Buyer** (yellow badge). Use the search box, or pick it in the **All statuses** filter; **All processors** narrows to one processor
 4. Click to open the detail page
 5. In the **Workflow Status** card, you'll see **Update Status** section with buttons
 6. To approve:

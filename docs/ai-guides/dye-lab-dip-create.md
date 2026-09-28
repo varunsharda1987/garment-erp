@@ -31,6 +31,8 @@ sources:
   - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/dyeing/DyeLabDipCreate.tsx
   - frontend/src/pages/DyeingList.tsx
+  - frontend/src/pages/ProcessingList.tsx
+  - frontend/src/pages/processing/UnifiedLabDipCreate.tsx
   - frontend/src/components/processing/LabDipBatchCreateForm.tsx
 route: /manufacturing/dyeing/lab-dips/new
 ---
@@ -46,7 +48,7 @@ route: /manufacturing/dyeing/lab-dips/new
 
 1. Open **Manufacturing > Dyeing & Printing** in the sidebar.
 
-2. On the Dyeing page, click **New Lab Dip** button in the header area (left of "New Job Work Order").
+2. On the **Dyeing & Printing** page, click the **New Lab Dip** button at the top right (left of **New Job Work Order**).
 
 3. In the **Style & Submission** card:
    - **Style** * - Search and select the style. Type at least 2 characters to search. The dropdown shows style code and name.
@@ -80,7 +82,7 @@ route: /manufacturing/dyeing/lab-dips/new
 ## After saving
 
 - Each included fabric creates a separate lab dip record with status PENDING
-- Lab dips appear in the **Lab Dips** tab of the Dyeing page
+- Lab dips appear in the **Lab Dips** tab of the Dyeing & Printing page. To find one, type in the search box (it matches lab dip number, style, buyer ref, fabric, colour, design or processor), or narrow the list with **All types** (Dyeing / Printing), **All processors** and **All statuses**. **Clear filters** resets them
 - Send physical fabric swatches to the processor for shade matching
 - When samples return, update the lab dip status to SUBMITTED and record the color match rating
 - Approved lab dips can proceed to bulk dyeing via Job Work Orders

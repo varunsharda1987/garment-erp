@@ -96,6 +96,7 @@ route: /debit-notes
 ## After saving
 
 - The debit note appears in the list with status **Draft**
+- To find it later, type in the search box (debit note number, supplier, PO number, job work order), or use the **All suppliers** picker, the **All statuses** dropdown or the **Debit note date** range. **Clear N filters** resets them all
 - From the list, you can:
   - Click **Approve** to finalize the debit note
   - Click **Cancel** to cancel the debit note

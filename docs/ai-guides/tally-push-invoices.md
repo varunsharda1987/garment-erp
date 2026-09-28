@@ -27,6 +27,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/TallyInvoices.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/services/tally.service.ts
   - frontend/src/types/tally.types.ts
   - frontend/src/pages/TallySettings.tsx
@@ -50,7 +51,7 @@ route: /settings/tally/invoices
 
 ### Push a single invoice
 
-1. Find the invoice in the list (use search or filter by status)
+1. Find the invoice in the list: type in the search box (**Search invoice number, customer…**) or pick a status (see *Filter invoices* below)
 2. Check the status column:
    - **Pending** = ready to push (customer linked, not yet pushed)
    - **Pushed** = already in Tally (shows date/time)
@@ -76,11 +77,14 @@ If an invoice was already pushed but you need to update it in Tally:
 
 ### Filter invoices
 
-Use the status dropdown to filter:
-- **All Invoices** = show everything
-- **Not Pushed** = pending invoices ready to push
-- **Pushed** = invoices already synced to Tally
-- **With Errors** = invoices that failed to push
+1. Type in the search box (**Search invoice number, customer…**) to find an invoice by its number or customer.
+2. Use the status dropdown to filter:
+   - **All statuses** = show everything
+   - **Not pushed** = pending invoices ready to push
+   - **Pushed** = invoices already synced to Tally
+   - **With errors** = invoices that failed to push
+3. When a filter is on, a **Clear N filters** button appears in the filter row. It resets the search and status and goes back to page 1 (your rows-per-page choice stays).
+4. If nothing matches, the table says **No invoices match these filters.** with a **Clear filters** button.
 
 ## Traps
 

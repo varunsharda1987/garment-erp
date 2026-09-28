@@ -36,11 +36,20 @@ keywords:
   - कॉस्ट देखना
   - रेट तुलना
   - ऑप्शन देखना
+  - कॉस्टिंग ऑप्शन फ़िल्टर
+  # Filter / search
+  - filter costing options
+  - search costing options
+  - costing option dhundho
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingOptionsPage.tsx
   - frontend/src/services/fabricCosting.service.ts
   - frontend/src/types/fabricCosting.types.ts
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/ProcessorCombobox.tsx
+  - frontend/src/components/filters/FilterBar.tsx
 route: /fabric-costing/options
 ---
 
@@ -52,13 +61,16 @@ route: /fabric-costing/options
 
 ## Filter Options
 
-Use the filters at the top to narrow down results:
+Use the filter row at the top to narrow down results:
 
-1. **Customer** - Select a customer to see only their styles
-2. **Style** - Select a specific style (requires customer selection first)
-3. **Processor** - Filter by fabric processor
-4. **Status** - Choose All, Approved, or Pending
-5. Click **Clear** to reset all filters
+1. **Search** - Type in the box **Search style, buyer code, customer, component, greige, processor…** to find options by any of those
+2. **Customer** - Open the **All customers** picker, type a customer name and pick it
+3. **Style** - Open the **All styles** picker, type a style code or name and pick it (you do not need to pick a customer first)
+4. **Processor** - Open the **All processors** picker, type a processor name and pick it
+5. **Status** - Choose **All statuses**, **Approved**, or **Pending**
+6. Click **Clear N filters** to reset every filter and go back to page 1. The purpose tab and the rows-per-page choice stay as they are.
+
+If nothing matches, the page shows "No costing options match these filters." with a **Clear filters** button.
 
 ## Purpose Tabs
 
@@ -152,6 +164,5 @@ When ALL fabric options for a style are approved:
 ## Traps
 
 - **Cannot unapprove** if the costing is used by live orders or cost sheets. The system shows which documents block the change.
-- **Must select Customer first** before the Style dropdown becomes active.
 - **Quantity groups** - Options at different order quantities may have different rates due to rate slabs. Compare within the same quantity group.
 - **Total cost includes shrinkage** - The greige you buy shrinks during processing, so the effective cost per finished meter is higher.

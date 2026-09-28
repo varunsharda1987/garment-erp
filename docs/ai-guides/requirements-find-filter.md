@@ -62,6 +62,9 @@ sources:
   - frontend/src/pages/OrderDetail.tsx
   - frontend/src/pages/OrderList.tsx
   - backend/src/schemas/mrp.schema.ts
+  - backend/src/services/mrp.service.ts
+  - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/SupplierCombobox.tsx
 route: /procurement/requirements
 ---
 
@@ -75,11 +78,11 @@ Requirements that are already on a PO, received or cancelled are hidden until yo
 ## Steps to find a requirement
 1. Open **Procurement → Requirements** in the sidebar and stay on the **Material Requirements** tab.
 2. Narrow the list with the filters in the top box (use any together):
-   - **Search** — requirement number, material code or name, order number, style code / buyer style / style name, or the buyer's name.
+   - **Search** — requirement number, material code or name, order number, style code / buyer style / style name, the buyer's name, the vendor's name or code, or the number of the PO raised for it.
    - **Status** — the quick choices **Needs action**, **On order** (PO Generated, PO Sent, Partially Received), **Received / from stock**, **Cancelled**, **All (not cancelled)**; or one status under **Exact status** (for example **Needs Decision**).
    - **All orders** — type the order number or the buyer's name; it lists only orders that have requirements.
    - **All styles** — type the style code, buyer style or name.
-   - **All vendors** — the preferred vendor on the requirement.
+   - **All vendors** — the preferred vendor on the requirement; a searchable picker, type the vendor's name.
    - **All materials** — the material type (Label, Button, Greige…).
 3. Choose how to see it in the **Show:** row:
    - **Order & Style** — cards per order + style (use this to order a style's labels as a set).
@@ -87,7 +90,7 @@ Requirements that are already on a PO, received or cancelled are hidden until yo
    - **Vendor** — one group per preferred vendor.
    - **List** — one row per requirement, newest first.
 4. Turn pages with the buttons at the bottom. **Order & Style**, **Material** and **Vendor** page whole groups (**Sets per page** / **Materials per page** / **Vendors per page**: 10, 25 or 50) — a set is never split across two pages. **List** pages rows (**Rows per page**: 20, 50 or 100).
-5. To start again, click **Clear N filters** at the end of the filter box. It keeps the view you chose.
+5. To start again, click **Clear N filters** at the end of the filter row. It goes back to page 1 and keeps the view and tab you chose.
 
 ## Traps
 - **"Nothing needs action right now."** Everything left is on order, received or cancelled — choose another **Status**.

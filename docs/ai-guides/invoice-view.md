@@ -35,17 +35,24 @@ sources:
   - frontend/src/pages/InvoiceList.tsx
   - frontend/src/components/DocumentShareMenu.tsx
   - frontend/src/types/invoice.types.ts
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/OrderCombobox.tsx
+  - frontend/src/components/filters/DateRangeFilter.tsx
 route: /invoices
 ---
 
 ## Steps to find an invoice
 
 1. Open **Orders & Sales > Invoices** in the sidebar.
-2. Use the **search box** to search by invoice number.
-3. Use the filters to narrow down:
-   - **Customer dropdown** to filter by a specific customer.
-   - **Status dropdown**: All Statuses, Pending, Partially Paid, Paid, Overdue, or Settled with Credit.
-4. Click on an **invoice number** or the **View** button to open the invoice detail page.
+2. Type in the search box (**Search invoice number, customer, order, sale order, style, buyer style…**).
+3. Use the filter row to narrow down:
+   - **All customers** picker: type to search, then pick a customer.
+   - **All orders** picker: type to search, then pick an order.
+   - **All statuses** dropdown: Pending, Partially Paid, Paid, Overdue, or Settled with Credit.
+   - **Invoice date**: set a **From** and/or **To** date.
+4. Click **Clear N filters** to reset all filters and go back to page 1.
+5. If nothing matches, the list says **No invoices match these filters.** Click **Clear filters** to see every invoice.
+6. Click on an **invoice number** or the **View** button to open the invoice detail page.
 
 ## Steps to download or print
 

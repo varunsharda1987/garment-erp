@@ -28,6 +28,11 @@ keywords:
   - सीधा डायर के पास
   - स्प्लिट डिलीवरी
   - डिलीवरी निर्देश
+  - dyed at
+  - delivers to
+  - allocate to orders
+  - kis dyer par rangai
+  - रंगाई कहाँ
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -45,13 +50,16 @@ sources:
   - backend/src/services/purchaseOrder.service.ts
   - backend/src/services/mrp.service.ts
   - frontend/src/pages/ManufacturingControlCenter.tsx
+  - backend/src/services/helpers/po-allocation.helper.ts
+  - frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx
+  - frontend/src/components/purchase-orders/PoAllocationCard.tsx
 route: /procurement/purchase-orders
 ---
 
 ## When to use this
 A purchase order delivers to **one place**, to **several places** with a quantity for each (for example part of the greige straight to a dyer and the rest to Kashaya Fabs), or it is **to be advised** — sent without a place, decided before the supplier dispatches. You can change it until the order is fully received, closed short or cancelled.
 
-A greige or greige-lace PO made from **Requirements** starts with its delivery already filled in from the dyers its requirements are processed at:
+A greige, greige-lace or lace PO made from **Requirements** starts with its delivery already filled in from the dyers its requirements are processed at:
 - every requirement at **one dyer** → **One place**: that dyer's **… - Processing Unit**;
 - requirements at **several dyers** → **Split**: one place per dyer, each getting the metres of its own requirements;
 - any requirement whose dyer is not decided yet → **To be advised**.
@@ -80,3 +88,4 @@ Check it on the PO's **Deliver To** card and change it there if needed.
 - Once anything has arrived, the PO cannot go back to **To be advised**, and a split PO cannot be turned back into **One place**.
 - On a split PO, each GRN must say which place it is for (**Delivery point**). Receiving more than a place's share, or booking it at another warehouse, is allowed but shows a warning after saving.
 - Goods delivered straight to a processor's unit are booked as ours, held by that processor, with a job-work challan dated the receipt day — no "delivered straight there?" question when the PO already names that unit.
+- Where a greige, greige-lace or lace line goes decides which orders it can be linked to (guide "Allocate a sent PO to running orders"). The **Allocate to orders** box and the **Allocated to orders** card show **Delivers to …** (or **Delivery place to be advised**) under each such line, and each order's **Dyed at**. An order dyed at a processor the line does not deliver to cannot be linked ("is dyed at …, but this line delivers to …"); a line to your own store, or still to be advised, can take any order. Changing the delivery later does not unlink anyone — the card then warns "This line no longer delivers to …".

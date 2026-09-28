@@ -74,6 +74,17 @@ keywords:
   - record rolls sent
   - कढ़ाई के रोल
   - कढ़ाई रोल भेजना
+  - held for another order
+  - take them anyway
+  - no keep them
+  - goods reserved for another order
+  - created but not sent
+  - dusre order ka maal
+  - dusre order ke liye rakha
+  - phir bhi le lo
+  - दूसरे ऑर्डर का माल
+  - दूसरे ऑर्डर के लिए रखा
+  - फिर भी ले लो
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -95,6 +106,10 @@ sources:
   - backend/src/controllers/job-work-order.controller.ts
   - backend/src/services/helpers/jwo-rate.helper.ts
   - backend/src/services/job-work-issuance.service.ts
+  - frontend/src/hooks/useHeldStockConfirm.tsx
+  - frontend/src/lib/held-stock-confirm.ts
+  - backend/src/controllers/dyeing.controller.ts
+  - backend/src/controllers/printing.controller.ts
 route: /job-work-orders
 ---
 
@@ -142,11 +157,12 @@ Both figures stay editable — type over either one and it will not be overwritt
    If the lot has **no list** (for example it was received on its GRN as **Total Meters**), the line under it says so, for example "GRG-0039 has no bale, than or roll list — it goes by quantity. (Received on GRN2608-0004 as Total Meters.)" — the issue is never blocked; it simply goes by quantity. To pick pieces from this lot from now on, click **Record bales & thans** on that line, type the bales / thans / rolls now on the rack, save — the pieces then open under the lot. The link shows only to people allowed to edit greige stock.
 5. Check **Sent date**. It is today unless you change it. It cannot be after today, and it cannot be before the day a chosen lot was received (or reached the processor). A date more than 7 days back shows a reminder to make sure it is the real day. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
 6. Click **Issue & Create Challan**. When every chosen lot is already at the processor the button reads **Allocate at <processor>** instead, and there is no vehicle box. The confirmation shows the challan number that was created (or, for an allocation, "allocated at … under challan …, nothing dispatched"). The challan names the store the goods leave from (for example Kashaya Fabs). Every issue that sends something out gets a challan — greige, lace, a fabric roll or garments; only greige that is already at this processor is allocated without one. Greige or lace the supplier delivered straight to this processor (approved with **Delivered straight to …** on the GRN) is taken from where it lies: no truck and no new challan — the job shows the challan that already covers it, and the one-year return period counts from the day the processor received it. Ready fabric delivered straight to this processor is taken the same way: on a fabric-roll job (for example embroidery) whose lot is already at the processor, the button reads **Allocate at <processor>**, nothing travels and no challan is created. Greige, lace or fabric sitting at a different processor cannot be put on this job as it is: the dialog lists it under **Elsewhere: … at <processor>** with a **Move here** link, which files a challan from that processor to this one — the cloth then shows under **Already at <processor>** and is taken without a truck.
+7. If some of the greige or lace you picked is held for another order (it arrived on a purchase order line linked to that order, or that order set it aside from stock), nothing is sent yet. A box titled **These goods are held for another order** lists who holds it, one line each ("Held for ORD… (STYLE): N m"), and asks "Take them anyway? That order will need them bought again." Click **No, keep them** to leave the goods for that order: nothing is issued and the Issue dialog stays open, so you can pick other lots. Click **Take them anyway** to issue: the job takes the goods and that order's need reopens, to be bought again. Goods held for this job's own order are taken without asking.
 
 ## Send to Mill from the Dyeing / Printing list
-On **Manufacturing → Dyeing & Printing**, tab **Job Work Orders**, a draft order has a **Send to Mill** button (paper-plane icon). The **Send … to Mill** dialog shows the same lot line as the Issue dialog: pick the lot under **Greige Stock Lot *** (one lot must cover the whole order — split across lots from the order's own page), and if the lot has a list of pieces, tick the thans or rolls going, or use **Pick thans for me** / **Best fit**. A lot with no list shows the same "no bale, than or roll list — it goes by quantity" line and **Record bales & thans** link. Fill **Sent Date** and **Vehicle Number**, then **Send & Create Challan** (or **Allocate at <processor>** when the cloth is already there).
+On **Manufacturing → Dyeing & Printing**, tab **Job Work Orders**, a draft order has a **Send to Mill** button (paper-plane icon). The **Send … to Mill** dialog shows the same lot line as the Issue dialog: pick the lot under **Greige Stock Lot *** (one lot must cover the whole order — split across lots from the order's own page), and if the lot has a list of pieces, tick the thans or rolls going, or use **Pick thans for me** / **Best fit**. A lot with no list shows the same "no bale, than or roll list — it goes by quantity" line and **Record bales & thans** link. Fill **Sent Date** and **Vehicle Number**, then **Send & Create Challan** (or **Allocate at <processor>** when the cloth is already there). If the lot's cloth is held for another order, the same **These goods are held for another order** box appears: **No, keep them** sends nothing and leaves the dialog open to pick another lot; **Take them anyway** sends it and reopens that order's need.
 
-On the **New Job Work Order** form of that page, **Create & Send to Mill** with a lot that lists pieces first creates the order and then opens **Send to Mill** so you can tick which pieces go; the form shows "… lists N rolls — Create & Send to Mill will ask which ones go." Close it without sending and the order stays created but not sent — send it from the list when ready.
+On the **New Job Work Order** form of that page, **Create & Send to Mill** with a lot that lists pieces first creates the order and then opens **Send to Mill** so you can tick which pieces go; the form shows "… lists N rolls — Create & Send to Mill will ask which ones go." Close it without sending and the order stays created but not sent — send it from the list when ready. If **Create & Send to Mill** cannot send — most often because the lot's cloth is held for another order — the order is still created: a warning starting "Created but not sent:" gives the reason (for held cloth it ends "Send it to Mill to take the cloth anyway."), and **Send to Mill** opens on the new order, where the box above asks the question.
 
 ## Name the thans after sending
 If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** (**Record rolls sent** for a roll lot) with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me** / **Best fit (whole thans)**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more than 1% over what the order took. Only pieces that were on the lot's list when the order took its cloth are offered: pieces recorded later with **Record bales & thans** were still on the rack, so they can never be named on an order that had already left (and the button does not show for such an order).
@@ -163,6 +179,7 @@ If other orders went to the same processor on the same day from the same lot and
 - All lot rows must be the same greige. One job work order sends one cloth.
 - The dyed variant must have been created from the greige lace being sent. Picking a variant of a different lace is refused — use the **Create** box to make the right one.
 - A lace job cannot also carry a fabric, and lace is refused on any process type other than Dyeing.
-- A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back — on an embroidery order the rolls / thans it took go back on the fabric lot's list), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
-- Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**. On that page **Best fit for all orders** picks whole thans for every order on the truck together, lot by lot, each order within 1%. Only store lots are offered there. If an order's cloth is already at the processor, the order says so, with a link: issue it from its own page.
+- A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back — on an embroidery order the rolls / thans it took go back on the fabric lot's list; greige or lace comes back held for the job's order again, except what was taken from another order with **Take them anyway**, which comes back free), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
+- Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**. On that page **Best fit for all orders** picks whole thans for every order on the truck together, lot by lot, each order within 1%. Only store lots are offered there. If an order's cloth is already at the processor, the order says so, with a link: issue it from its own page. Greige held for another order brings up the **These goods are held for another order** box there too: **Take them anyway** applies to every order on the truck, **No, keep them** sends nothing.
+- The server's refusal behind that box reads "… is held for … Take it anyway and their need goes back to be bought again, or pick other lots."
 - A sent date after today, or before the lot arrived, is refused: "Lot … was received on … — it cannot have left on …".

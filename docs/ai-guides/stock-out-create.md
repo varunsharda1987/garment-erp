@@ -33,11 +33,20 @@ keywords:
   - greige to processor
   - processor ko greige bhejna
   - प्रोसेसर को ग्रे भेजना
+  - for order
+  - issue for an order
+  - held for another order
+  - take them anyway
+  - order ke liye issue
+  - dusre order ka maal
+  - ऑर्डर के लिए इश्यू
+  - दूसरे ऑर्डर का माल
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockOutForm.tsx
   - frontend/src/pages/StockMovementList.tsx
   - backend/src/services/challan.service.ts
+  - frontend/src/hooks/useHeldStockConfirm.tsx
 route: /inventory/movements/stock-out
 ---
 
@@ -67,7 +76,7 @@ route: /inventory/movements/stock-out
 
 7. **Step 2: Select Destination**:
    - For **Purchase Return**: Search and select the supplier by name or code. You can optionally filter by category first.
-   - For **Internal Issue**: Select the destination department from the dropdown. Choose "Other (Custom)" to enter a custom department name.
+   - For **Internal Issue**: Select the destination department from the dropdown. Choose "Other (Custom)" to enter a custom department name. Then pick the order the goods are for in **For order** (optional): goods held for that order (arrived on its PO, or taken for it with Use Stock) are issued to it. Leave it empty only when the goods are for no order.
 
 8. **Step 3: Add Items**:
    - Click the material type tile to select what you are issuing (Greige Fabric, Finished Fabric, Lace, Buttons, Threads, Zippers, Elastics, Labels, Packaging, Other Materials)
@@ -89,6 +98,7 @@ route: /inventory/movements/stock-out
 - **Processing goes to Job Work Order**: If you select "Send for Processing", you are redirected to the Dyeing & Printing page because processing requires proper job work tracking
 - **Supplier material types are filtered**: For Purchase Return, only material types that match the supplier's categories are shown
 - **Greige sent to a processor stays ours**: if the supplier you pick is a processor (it has a "… - Processing Unit"), greige on the challan is not a return — it is booked as held at that processor's unit, and the challan goes out as a job-work challan that must come back within one year. To bring it back later, use **Stock In → Processor Return** or **Bring to store** on Greige Stock
+- **Goods held for another order**: if what you issue is held for another order (it arrived on a PO linked to that order, or was taken for it with Use Stock), a box **These goods are held for another order** lists "Held for ORD… (STYLE): N" and asks "Take them anyway? That order will need them bought again." Click **No, keep them** to issue nothing, or **Take them anyway** — that order's requirement then goes back to needing the goods bought. On an Internal Issue, picking the right order in **For order** means that order's own held goods are simply issued to it. A Purchase Return never names an order, so held goods sent back are always taken from their order
 - **Only greige in our stores is offered**: greige a processor already holds is not listed here — move it with **Move to another processor** or bring it back with **Bring to store**
 
 ## After saving

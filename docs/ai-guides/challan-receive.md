@@ -27,10 +27,19 @@ keywords:
   - चालान का माल लेना
   - माल रिसीव करना
   - प्रोसेसर से माल आया
+  - issue challan
+  - held for another order
+  - take them anyway
+  - challan issue karna
+  - dusre order ka maal
+  - चालान इश्यू
+  - दूसरे ऑर्डर का माल
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ChallanDetail.tsx
   - frontend/src/pages/ChallanList.tsx
+  - frontend/src/hooks/useHeldStockConfirm.tsx
+  - backend/src/services/challan.service.ts
 route: /manufacturing/challans
 ---
 
@@ -72,7 +81,8 @@ route: /manufacturing/challans
 
 ## Traps
 
-- **Receive button not visible**: The challan status must be Issued, In Transit, or Partially Received. Draft challans must be issued first; Received or Cancelled challans cannot be received again.
+- **Receive button not visible**: The challan status must be Issued, In Transit, or Partially Received. Draft challans must be issued first (**Issue Challan**); Received or Cancelled challans cannot be received again.
+- **Issuing asks about goods held for another order**: when you click **Issue Challan** on a draft and some of the goods are held for another order (they arrived on a PO linked to that order, or were taken for it with Use Stock), a box **These goods are held for another order** lists "Held for ORD… (STYLE): N" and asks "Take them anyway? That order will need them bought again." **No, keep them** issues nothing; **Take them anyway** issues the challan and that order's requirement goes back to needing the goods bought.
 - **Partial receipts**: If you enter less than the sent quantity, the challan status becomes Partially Received and you can receive the balance later.
 - **Damaged quantity**: Damaged items are tracked separately — they count as received but are flagged. Enter the damaged count in the **Damaged** column.
 - **Cannot undo**: Once confirmed, a receipt cannot be reversed through the UI. Verify quantities before clicking Confirm Receipt.
@@ -84,4 +94,5 @@ route: /manufacturing/challans
 - The **Received Date** and **Received By** fields are recorded on the challan.
 - The items table on the detail page shows **Received Qty** and **Damaged** columns with the recorded values.
 - Stock levels are updated based on the received quantities.
+- Trims or lace given back on a challan issued for an order are held for that order again, so another order cannot take them without asking.
 - You can print the challan using the **Print** button to get a PDF copy.

@@ -65,6 +65,10 @@ keywords:
   - total meters warning
   - roll wise
   - रोल
+  - held for order
+  - linked order receipt
+  - order ke liye rakha maal
+  - ऑर्डर के लिए रखा माल
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -84,6 +88,8 @@ sources:
   - frontend/src/types/purchaseOrder.types.ts
   - backend/src/services/helpers/receipt-invoice.helper.ts
   - frontend/src/components/filters/DateRangeFilter.tsx
+  - backend/src/services/helpers/receipt-allocation.helper.ts
+  - backend/src/services/helpers/po-allocation.helper.ts
 route: /procurement/grn/new
 ---
 
@@ -91,7 +97,7 @@ route: /procurement/grn/new
 A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Partially Received** status — Draft POs do not appear in the list. This form is only for goods you **bought**. Processed fabric or dyed lace coming back from a processor is not received here: open the job work order and click **Receive from processor** — one action that books it into stock (see *Receive processed material back from a processor*).
 
 ## Steps
-1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**. (To find an existing GRN there, type in the search box — GRN, PO or JWO number, invoice, material, supplier, style or warehouse — or use **All suppliers**, **All statuses** and the **Inward date** From/To filter; **Clear filters** resets them.)
+1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**. (To find an existing GRN there, type in the search box — GRN, PO or JWO number, invoice, material, supplier, style or warehouse — or use **All suppliers**, **All statuses** and the **Inward date** From/To filter; the **Clear N filters** button resets them.)
 2. Click **+ Create GRN**. The page title reads **Create Goods Receiving Note**. (Shortcut: from the PO page click **Receive Goods** and the PO is already selected — or, in the PO's **Deliver To** card, click **Receive here** on a delivery place and that place is chosen too.)
 3. Under **Purchase Order Selection**, search by PO number, supplier, material or style, or click a category chip — **All (N)** plus one chip for each category that has POs waiting, named as on the PO page (Greige, Greige Lace, Trims, Accessories, Machine Parts…) — then pick the PO in **Purchase Order ***. Labels and packaging are bought on an **Accessories** PO; an older PO may still show the retired **Packaging** chip.
 4. If you came here to receive from a processor, stop: under the PO list the form says **Receiving from a processor? Open the job work order and click Receive from processor**. There is no job work box on this form any more.
@@ -122,4 +128,6 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 ## After saving
 The GRN is created with status **Pending QC**. Stock is NOT added yet — it is added only when the GRN is approved. (A **Job work return** is different: it is filed already accepted by the job's **Receive from processor** action, with the stock booked in the same step.)
 
-Saving already counts the delivery on the purchase order — it shows **Partially Received** or **Received** straight away. Until this GRN is approved or rejected, that PO cannot be closed short or cancelled: the refusal names the GRN still awaiting QC. Approve or reject it first (see *Approve a GRN*).
+Saving already counts the delivery on the purchase order — it shows **Partially Received** or **Received** straight away. Until this GRN is approved or rejected, that PO cannot be closed short or cancelled: the refusal names the GRN still awaiting QC. Its PO line also cannot be allocated to orders until then ("GRN … on this line is awaiting QC — finish QC first"). Approve or reject it first (see *Approve a GRN*).
+
+If the PO line is allocated to running orders, approval fills the order with the earliest delivery first, and goods that arrive for a linked order are held for that order rather than left as free stock (see *Allocate a sent PO to running orders*).

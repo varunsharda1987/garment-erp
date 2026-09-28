@@ -44,6 +44,14 @@ keywords:
   - one po per category
   - do po kyun bane
   - labal
+  - open po covers sizes
+  - link sizes
+  - link to open po
+  - already on a po
+  - sizes po se jodna
+  - khula po
+  - साइज़ पीओ से जोड़ें
+  - खुला पीओ
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -57,6 +65,9 @@ sources:
   - frontend/src/lib/label-lines.ts
   - backend/src/schemas/mrp.schema.ts
   - backend/src/services/mrp.service.ts
+  - frontend/src/components/requirements/OpenPOSupplyNote.tsx
+  - frontend/src/components/requirements/open-po-supply.ts
+  - frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx
   - backend/src/services/helpers/po-line-category.helper.ts
 route: /procurement/requirements
 ---
@@ -80,6 +91,15 @@ For each style you order its labels together — main-cum-size, traceability, wa
    - **Manual PO** — puts everything ticked with ONE supplier. When every ticked row has the same vendor (for example NRM Industries for the House of Kasya labels), that vendor is already chosen. Pick the **Expected Delivery Date**, check the preview, and click **Generate PO**.
    Either way, each vendor gets **one PO per category**: labels and packaging go on an **Accessories** PO, buttons, fusing, interlining and other trims on a **Trims** PO. So ticking a style's labels and its buttons from one vendor makes two POs; the message lists every PO number made.
 8. On the new Accessories PO each label shows as one heading row with its sizes beneath, in size order, and each size keeps its own quantity and rate.
+
+## An open PO already has room? Link instead of ordering again
+A PO that was already sent (for example one raised for another order, or bought over) may have room for these labels. Then:
+- The style card shows the badge **Open PO covers N lines**.
+- A label's heading shows **Open PO covers N/M sizes** (N of its M sizes still waiting for a PO) and a **Link sizes** button. A single row shows an amber note such as "PO… · N pcs free · not linked" and a **Link** button.
+- Click **Link sizes** (or **Link**). The **Allocate … to orders** box opens on that PO with only those sizes ticked. Check the quantities and click **Allocate to N orders**. Nothing is linked until you click it.
+- Linked rows then show the PO and how much of it is theirs, for example "PO… · 350 pcs", and leave **Needs action**.
+- If you tick such rows anyway, the top reads "N selected could be linked to open POs instead", and **Bulk Generate POs** warns at its first step that a new PO would buy them again. Close it and use **Link** on those rows.
+**Link** shows only to users with the **MRP** or **Purchase Orders** permission.
 
 ## Validation traps
 - Only rows with status **PO Required** or **Partially from Stock** can be ticked. Rows already on a PO, received or cancelled have no box.

@@ -43,6 +43,11 @@ keywords:
   - ड्राफ्ट डिलीट
   - पीओ डिलीट
   - गलत पीओ
+  - allocated to orders
+  - linked orders
+  - undo allocation after close
+  - order se juda po
+  - ऑर्डर से जुड़ा पीओ
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -53,6 +58,8 @@ sources:
   - frontend/src/hooks/usePermissions.ts
   - backend/src/schemas/purchaseOrder.schema.ts
   - backend/src/services/purchaseOrder.service.ts
+  - backend/src/services/helpers/po-allocation.helper.ts
+  - frontend/src/components/purchase-orders/PoAllocationCard.tsx
 route: /procurement/purchase-orders
 ---
 
@@ -83,8 +90,9 @@ Closing short ends the *ordering* only. It moves no stock, and it does not write
 
 ### What happens
 - The order's status becomes **Closed Short**. It is final — the order cannot be edited, received against or cancelled afterwards.
-- Lines the supplier never delivered against go back to the material plan on their own, so they can be ordered again.
-- A part-delivered requirement is closed at what actually arrived, and records both the short quantity and your reason.
+- Requirements the supplier delivered nothing against are unlinked from the PO and go back to the material plan on their own (**PO Required**, or **Partially from Stock** when part was covered from stock), so they can be ordered again. A requirement whose order has been cancelled is cancelled instead.
+- A part-delivered requirement is closed at what actually arrived, and records both the short quantity and your reason. If its order has been cancelled, no balance is carried forward, even with the box ticked.
+- Orders linked to the PO keep their link at what arrived. The **Allocated to orders** card still lists them, but **Undo** is greyed out ("… is short closed — its links are settled by the PO, not undone"), and **Allocate to orders** is no longer offered.
 - On a Greige PO, any Processing PO that was waiting for that greige is released and its quantity trimmed to the greige that really arrived.
 - On a PO split across several delivery places, closing short ends every place's balance at once. The **Deliver To** card keeps showing what each place received, but no longer offers **Receive here** or **Change delivery**.
 
@@ -95,7 +103,7 @@ Closing short ends the *ordering* only. It moves no stock, and it does not write
 4. Click **Cancel Order**. **Keep Order** leaves without cancelling.
 5. If the cancel is refused, the box stays open with your reason still typed and a message saying why. Fix the cause and click **Cancel Order** again.
 
-The status becomes **Cancelled**, and the reason is added to the PO's **Notes**.
+The status becomes **Cancelled**, and the reason is added to the PO's **Notes**. Every order linked to the PO is unlinked, and its requirement goes back to be ordered again (or is cancelled, if its order was cancelled).
 
 ## Delete a Draft
 A Draft was never sent to anyone, so it is deleted, not cancelled.
@@ -114,6 +122,7 @@ Only to correct a genuine mistake on a PO goods have already been received again
 - **A reason is required** for Close Short, Cancel and Force cancel. The button stays disabled until you type one.
 - **Finish QC first.** If a GRN for this order is still awaiting QC, both Close Short and every cancel (forced or not) are refused and name the GRN. Approve or reject it first, so the delivered quantity is final.
 - **Close the job work order first.** If an open job work order is linked to this PO, closing short is refused and names it. Short-returned material must be settled there.
+- **Orders linked to the PO do not block it.** You do not need to undo allocations first — Close Short and Cancel settle the links themselves.
 - **A plain cancel is refused once goods have arrived**: "Goods have been received against … — use Close Short to end it at what arrived." A fully received PO "cannot be cancelled".
 - **A Draft cannot be cancelled** — "… is a draft that was never sent — delete it instead of cancelling it."
 - **A Closed Short order cannot also be cancelled**, and a Cancelled one cannot be cancelled again.

@@ -61,6 +61,15 @@ keywords:
   - than number badalna
   - रोल नंबर
   - थान नंबर
+  - held for order
+  - linked order receipt
+  - allocated to orders
+  - earliest delivery first
+  - order ke liye rakha maal
+  - ऑर्डर के लिए रखा माल
+  - grn reverse refused
+  - grn reverse nahi ho raha
+  - जीआरएन रिवर्स नहीं हो रहा
 sources:
   - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
@@ -77,6 +86,8 @@ sources:
   - backend/src/services/helpers/stock-routing.helper.ts
   - backend/src/services/helpers/receipt-invoice.helper.ts
   - frontend/src/lib/receipt-invoice.ts
+  - backend/src/services/helpers/receipt-allocation.helper.ts
+  - backend/src/services/helpers/po-allocation.helper.ts
 route: /procurement/grn
 ---
 
@@ -85,7 +96,7 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 
 ## Steps
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
-2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, the supplier's invoice number, the PO or job work order number, the material's name or code, supplier, warehouse, or the style — including the buyer's own style code. Typing several words narrows the list, since each word must match something. You can also filter by supplier using the supplier dropdown.
+2. Pick **Pending QC** in the **All statuses** dropdown to see everything waiting, or type in the search box: GRN number, the supplier's invoice number, the PO or job work order number, the material's name or code, supplier, warehouse, or the style — including the buyer's own style code. Typing several words narrows the list, since each word must match something. You can also narrow by **All suppliers** and by the **Inward date** From / To range; the **Clear N filters** button resets them.
 3. Click the GRN number to open it. The **PO / JWO** column shows which purchase order or job work order the GRN belongs to. On the GRN page, **PO Status** shows the purchase order's status — if it reads **CANCELLED**, do not approve: reject the GRN instead (see *Traps*). **Received at** shows the warehouse it was booked into; on a PO split across several places, **Delivery point** shows which of the PO's places it delivered against (flagged "Booked away from the planned place" when the warehouse differs).
 4. Check the summary tiles — **Total Items**, **Total Received**, **Total Accepted**, **Total Rejected** — and the **Received Items** table. Than, bale and roll breakdowns are shown under each material.
 5. Click **Approve**.
@@ -102,8 +113,10 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 - Buttons received in gross are stocked in pieces: 16 gross accepted = 2,304 pcs in stock at the price per piece. The GRN and the PO keep showing gross.
 - Thread received in boxes is stocked in cones or tubes: 2 boxes of Cone 3-ply accepted = 20 cones, at the price per cone. Each pack is its own stock item ("… - Cone 3-ply", "… - Tube 3-ply"), never added together. The GRN and the PO keep showing boxes.
 - The PO receiving status is recomputed — it becomes Partially Received or Received.
+- If the PO line is allocated to running orders, the accepted quantity goes to those orders first — the order with the **earliest delivery** is filled first, so a part delivery may cover only the first orders. Goods that arrive for a linked order are **held for that order** (greige, lace, trims and accessories), not left as free stock; only what arrives beyond what was allocated to them is free. The PO page's **Allocated to orders** card shows what each order has received and holds (see *Allocate a sent PO to running orders*).
 - Rejected quantity is taken back off the PO's received counter so the shortfall can be re-ordered, and is logged as an adjustment-out movement.
 - Receiving greige can automatically ready the linked processing work.
+- If fabric was waiting for a production run, a banner appears with **Go to Cutting Chart** or **View Cutting**.
 - A GRN with a line received at a fold length shows both figures on its page in their own columns: **Received (counted)** and **Accepted (counted)** are the supplier's counted figures, and **Actual accepted (after L)** is the metres booked into stock (e.g. 9,810.78, with "counted × 98/100" under it). On the GRN list, **Qty (counted)** and **Actual (after L)** sit side by side ("@ L=98" under the actual; "—" where no L applies). Approving books the actual metres into stock; the **Rate** and **Value** columns and the printed GRN (its **Actual** column) use the actual metres too.
 - For a **Job work return** there is nothing to do here: the finished fabric lot (or dyed lace lot), the inward challan, the job's shrinkage, than, fold, width and quality, the loss split and the **Stock Updated** status were all written when it was received on the job. Click the job work order in the **PO / JWO** column to see them.
 - A fabric line received than-wise, bale-wise or roll-wise gives its fabric lot the same roll / than list, with the fold it was counted at — on a **Job work return** and on a fabric purchase order alike. Cutting picks from that list, and **Inventory → Fabric Stock** shows it.
@@ -113,7 +126,6 @@ The **Received Items** table lists each line's thans, bales or rolls. To type th
 1. Under a greige line, click **Edit bale / than numbers**. Under a fabric line of a **Job work return** or a fabric purchase order, click **Edit roll / than numbers**.
 2. Type each **Than No.** or **Roll No.** (and each bale's **Bale No.** on a bale-wise line) and click **Save**.
 Only the labels change — never the metres, and it works in any status. The stock lot's thans or rolls take the same numbers at once.
-- If fabric was waiting for a production run, a banner appears with **Go to Cutting Chart** or **View Cutting**.
 
 ## The invoice came later — add it
 A GRN saved with **Invoice not received yet** (or a job work return received the same way) shows **To follow** in the list's **Invoice #** column, and on its page the invoice section reads "Invoice to follow — this delivery came without the supplier's bill" (the processor's, on a job work return). When the bill arrives:
@@ -126,10 +138,15 @@ Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) a
 
 ## Traps
 - A GRN whose purchase order is **cancelled** cannot be approved. Approve is refused with "… cannot be approved: purchase order … is cancelled, and its material has been handed back for re-ordering. Reject this receipt instead." The cancel already sent that material back to be ordered again, so approving would buy it twice. Click **Reject** and give the reason.
-- A GRN waiting in **Pending QC** holds its purchase order open. Until it is approved or rejected, the PO cannot be closed short (**Close Short** on the PO page) or cancelled — not even with an admin's **Force cancel (admin)**. The refusal names the GRN: "Cannot short-close …: GRN … is still awaiting QC. Complete or reject it first so the delivered quantity is final." Approve or reject the GRN first, then close the PO.
+- A GRN waiting in **Pending QC** holds its purchase order open. Until it is approved or rejected, the PO cannot be closed short (**Close Short** on the PO page) or cancelled — not even with an admin's **Force cancel (admin)**. The refusal names the GRN: "Cannot short-close …: GRN … is still awaiting QC. Complete or reject it first so the delivered quantity is final." Approve or reject the GRN first, then close the PO. Its PO line also cannot be allocated to orders, nor an allocation on it undone, until then ("GRN … on this line is awaiting QC — finish QC first").
 - Approval is one-way from this screen — you cannot re-approve or re-edit an Accepted GRN here.
 - If two people approve the same GRN at once, the second one gets "GRN is no longer PENDING_QC". Refresh and check the status.
 - An inactive warehouse is rejected. Pick an active one.
-- Reversing a GRN whose thread or trim lot has already been partly used is refused ("… has already been used. Take those back first, then reverse.").
+- Only an admin can reverse an accepted GRN — there is no button for it on this page. The reversal is refused while its goods are in use:
+  - its greige, lace, thread, trim or fabric lot is already partly used ("Cannot reverse GRN …: … has already been used …"). Take the used goods back first — cancel or return the issue, or return the fabric from cutting — then reverse;
+  - its greige or lace lot is still reserved for an order ("… lot is still reserved — … Release those holds (or give them other cloth) first, then reverse.");
+  - an order linked to the PO already issued those goods ("This receipt cannot be reversed: … already issued … Return those goods first.");
+  - trims would be left held for orders beyond what is on hand ("… Release or issue those holds first.");
+  - the PO is closed short, or cancelled with its goods already credited to orders ("Undoing this receipt is an administrator correction, not a screen action.").
 - Reversing a **Job work return** takes back only that receipt's lot and inward challan. A job received in parts keeps its other parts; its total is recomputed, and if the reversed receipt was the final delivery the job goes back to **Partial Receipt** so the last delivery can be entered again.
 - A **Job work return** cannot be rejected or re-approved here — it is already accepted. If the count was wrong, ask an admin to reverse it: that takes the lot back and cancels the inward challan, and is refused once any of that material has been used or reserved — including when any of its rolls or thans has gone to cutting, even if it came back ("… its fabric lot has already been used … Take that fabric back first").

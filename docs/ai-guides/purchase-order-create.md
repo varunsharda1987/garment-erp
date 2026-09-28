@@ -120,6 +120,12 @@ keywords:
   - kaunsa label
   - kis buyer ka label
   - कौन सा लेबल
+  - po for which buyer
+  - kiske liye po
+  - किसके लिए पीओ
+  - allocate to orders
+  - po ko order se jodna
+  - पीओ ऑर्डर से जोड़ें
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -155,6 +161,11 @@ sources:
   - frontend/src/components/ui/combobox.tsx
   - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/components/SearchInput.tsx
+  - frontend/src/lib/material-detail.ts
+  - backend/src/services/helpers/po-for-buyer.helper.ts
+  - backend/templates/kf/purchase-order.hbs
+  - frontend/src/components/purchase-orders/PoAllocationCard.tsx
+  - frontend/src/lib/po-allocation-view.ts
 route: /procurement/purchase-orders/new
 ---
 
@@ -221,8 +232,8 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 
 ## The Purchase Orders list
 - The cards at the top count **Total POs**, **Pending Action** (drafts not yet sent), **Awaiting Delivery** (Sent, Acknowledged and Partially Received) and **Total Value**.
-- Each row shows the PO number with its **PO Date** under it, **Supplier**, **Material** (the first line's material, with "+N more" when the PO has several lines; a label bought in sizes counts as one line), **Category** (Fabric, Greige, Trims, Accessories, Thread, Lace, Greige Lace, Machine Parts, General; an older PO may show Packaging), **Expected Delivery**, **Items**, **Amount**, **Source** (All tab only) and **Status**. The PO number is a link — click it (or open it in a new tab) to see the PO; clicking anywhere else on the row opens it too.
-- The search box finds a PO by PO number, supplier, style or material. The filters in the same row are **All statuses** (Draft, Sent, Acknowledged, Partially Received, Received, Closed Short, Cancelled), **All suppliers** (a searchable picker — type a name to find one), **All sources** (Manual, Cost Sheet, MRP; on the **All** tab) and **Any delivery place** / **Delivery: to be advised**. **Clear N filters** removes every filter and goes back to page 1; it keeps the tab you are on. If nothing matches, the list says "No purchase orders match these filters" with a **Clear filters** button.
+- Each row shows the PO number with its **PO Date** under it, **Supplier**, **Material** (the first line's material, with "+N more" when the PO has several lines; a label bought in sizes counts as one line; a grey line under it says whose it is and what it is, as on the PO page — point at the cell to see every line), **Category** (Fabric, Greige, Trims, Accessories, Thread, Lace, Greige Lace, Machine Parts, General; an older PO may show Packaging), **Expected Delivery**, **Items**, **Amount**, **Source** (All tab only) and **Status**. The PO number is a link — click it (or open it in a new tab) to see the PO; clicking anywhere else on the row opens it too.
+- The search box finds a PO by PO number, supplier, style or material. The filters in the same row are **All statuses** (Draft, Sent, Acknowledged, Partially Received, Received, Closed Short, Cancelled), **All suppliers** (a searchable picker — type a name to find one), **All sources** (Manual, Cost Sheet, MRP; on the **All** tab), **All categories** (on the **Material** tab) and **Any delivery place** / **Delivery: to be advised**. **Clear N filters** removes every filter and goes back to page 1; it keeps the tab you are on. If nothing matches, the list says "No purchase orders match these filters" with a **Clear filters** button.
 - When the list is opened from an order, it shows only that order's POs and an **Order: …** chip in the filter row. Click the **×** on the chip to see every PO again.
 - The row's **…** (actions) menu always has **View Details**. A **Draft** also has **Edit** and **Delete**; a **Sent** or **Acknowledged** PO has **Cancel PO**; a **Partially Received** PO has **Close Short**.
 
@@ -231,7 +242,9 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 - Editing a Draft PO keeps everything you already entered on each line, including **Fold L (cm)** and **GST %**, and shows the **PO Date** and **Delivery Location** it was saved with. Changing the supplier on a draft works the tax out again (CGST + SGST or IGST) for the new supplier. Emptying **Notes** and saving clears them. Changing the location there records a proper amendment (the original location is kept for tracking), so change it before sending — the supplier's PDF prints the delivery address. Emptying the box on the form does not clear it; to make it "to be advised" again, use **Change delivery** on the PO page.
 - The PO page always shows a **Deliver To** card. On a PO left to be advised it reads **To be advised** with a **Set delivery** button; otherwise it has **Change delivery**. Set or change it until the PO is fully Received, Closed Short or Cancelled, then share the PO with the supplier again.
 - Removing a line from a Draft puts that material back on the material plan so it can be ordered again on another PO.
+- On the PO page each line has a grey line under the material saying whose it is and what it is (buyer · brand, then type, size, material, colour…); a label bought in sizes shows it once, on its heading. When the PO is for one buyer — its linked order's or style's buyer, or the one buyer all its labels and packaging are for — the card with **Category** and **Source** also shows **For** with that buyer (and the order or style, e.g. "<buyer> · Order <order number>"). Lines for several buyers, or none, show no **For**. The printed PO carries the same **For** line and the same grey line under each item.
 - From the PO page use **Send to Supplier**; once the supplier confirms, mark it with **Acknowledge**.
+- Once the PO is Sent, Acknowledged or Partially Received, it can be linked to running orders that need what it brings: a banner says "N running orders need these and are not linked", **Allocate to orders** (in the top bar or the banner) links them, and the **Allocated to orders** card shows what is linked. Full steps are in the guide "Allocate a sent PO to running orders".
 - Goods can only be received once the PO is Sent, Acknowledged or Partially Received. From the PO page click **Receive Goods** to start the GRN.
 - To end a PO, the action depends on its status:
   - **Draft** — it was never sent, so it is deleted, not cancelled: click **Delete** (on the PO page or in the row menu).

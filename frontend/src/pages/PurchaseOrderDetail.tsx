@@ -12,8 +12,12 @@ import {
   deletePurchaseOrder,
   shortClosePurchaseOrder,
 } from '@/services/purchaseOrder.service';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
+import { getPoAllocation } from '@/services/poAllocation.service';
+import { AllocateToOrdersDialog } from '@/components/purchase-orders/AllocateToOrdersDialog';
+import { PoAllocationCard } from '@/components/purchase-orders/PoAllocationCard';
+import { hasAllocationContent, hasFreeCandidates, unlinkedOrdersText } from '@/lib/po-allocation-view';
 import { usePermissions } from '@/hooks/usePermissions';
 import { PRE_SEND_STATUSES } from '@/lib/delivery-plan';
 import { CancelPoDialog } from '@/components/purchase-orders/CancelPoDialog';
@@ -27,7 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
-import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { getErrorMessage, handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 import { formatCurrency } from '@/lib/currency';
 import {
@@ -43,6 +47,7 @@ import {
   ChevronRight,
   Trash2,
   ShieldAlert,
+  Link2,
 } from 'lucide-react';
 import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
 import { poItemLabelKey } from '@/lib/label-line-keys';
@@ -273,7 +278,7 @@ export default function PurchaseOrderDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { isAdmin } = usePermissions();
+  const { isAdmin, canAny } = usePermissions();
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -290,6 +295,14 @@ export default function PurchaseOrderDetail() {
   const [shortCloseReason, setShortCloseReason] = useState('');
   const [shortCloseReorder, setShortCloseReorder] = useState(false);
   const [isShortClosing, setIsShortClosing] = useState(false);
+  const [allocateOpen, setAllocateOpen] = useState(false);
+
+  // Which running orders this PO's lines are allocated to. Nothing to show before it is sent.
+  const allocationQuery = useQuery({
+    queryKey: queryKeys.poAllocation.detail(id ?? ''),
+    queryFn: () => getPoAllocation(id!),
+    enabled: !!id && !!purchaseOrder && !PRE_SEND_STATUSES.includes(purchaseOrder.status),
+  });
 
   useEffect(() => {
     if (id) {
@@ -325,6 +338,15 @@ export default function PurchaseOrderDetail() {
       setError(handleApiError(err, 'Failed to fetch purchase order', false));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Reload after a change made on this page without blanking it to "Loading…" (the allocation card stays open)
+  const reloadPurchaseOrder = async () => {
+    try {
+      setPurchaseOrder(await getPurchaseOrderById(id!));
+    } catch (err) {
+      handleApiError(err, 'Failed to refresh purchase order');
     }
   };
 
@@ -512,6 +534,13 @@ export default function PurchaseOrderDetail() {
   // Only a part-delivered order can be closed short — there is nothing to close short about an
   // order the supplier never delivered against (that one is cancelled) or delivered in full.
   const canShortClose = purchaseOrder.status === 'PARTIALLY_RECEIVED';
+  // Allocating a sent PO to running orders is open to whoever works MRP or purchase orders (owner decision D4)
+  const allocation = allocationQuery.data;
+  const canAllocate = canReceive && canAny('mrp', 'purchaseOrders') && hasFreeCandidates(allocation);
+  const refreshAfterAllocation = () => {
+    void reloadPurchaseOrder();
+    refreshLists();
+  };
   // Per line, with its unit. A single summed number is meaningless the moment a PO mixes units
   // (60 metres of fabric + 200 pieces of buttons is not "260"), and this decision is irreversible.
   const shortCloseLines = (purchaseOrder.items ?? []).map((item) => ({
@@ -541,7 +570,7 @@ export default function PurchaseOrderDetail() {
             variant={getStatusVariant(purchaseOrder.status)}
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           {canEdit && (
             <Button variant="outline" onClick={() => navigate(`/procurement/purchase-orders/${id}/edit`)}>
               <Edit className="h-4 w-4 mr-2" />
@@ -564,6 +593,12 @@ export default function PurchaseOrderDetail() {
             <Button onClick={() => navigate(`/procurement/grn/new?poId=${id}`)}>
               <PackageOpen className="h-4 w-4 mr-2" />
               Receive Goods
+            </Button>
+          )}
+          {canAllocate && (
+            <Button variant="outline" onClick={() => setAllocateOpen(true)}>
+              <Link2 className="h-4 w-4 mr-2" />
+              Allocate to orders
             </Button>
           )}
           {canShortClose && (
@@ -611,6 +646,24 @@ export default function PurchaseOrderDetail() {
           />
         </div>
       </div>
+
+      {/* Running orders that need what this PO brings and are not linked to it */}
+      {canReceive && allocation && allocation.unlinkedOrderCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-warning bg-warning/10 p-3 text-sm">
+          <div className="flex items-start gap-2">
+            <Link2 className="h-4 w-4 text-warning mt-0.5 shrink-0" />
+            <span>
+              {unlinkedOrdersText(allocation.unlinkedOrderCount)}
+              {!hasFreeCandidates(allocation) && ' — nothing on this PO is left free to link'}.
+            </span>
+          </div>
+          {canAllocate && (
+            <Button size="sm" variant="outline" onClick={() => setAllocateOpen(true)}>
+              Allocate to orders
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -672,7 +725,7 @@ export default function PurchaseOrderDetail() {
               {linkedStyles.length > 0 && (
                 <div>
                   <div className="text-xs text-muted-foreground mb-1">Style(s)</div>
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     {linkedStyles.map((s) => (
                       <Badge key={s.code} variant="outline" className="text-xs">
                         {formatStyleCodeWithRef(s.code, s.ref)}
@@ -681,22 +734,22 @@ export default function PurchaseOrderDetail() {
                   </div>
                 </div>
               )}
-              {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks?.length &&
-                (purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.length > 0 && (
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Linked To</div>
-                    <div className="flex gap-1">
-                      {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.map((link) => (
-                        <Badge key={link.id} variant="secondary" className="text-xs">
-                          {link.materialRequirement?.requirementNumber ||
-                            link.serviceRequirement?.serviceType ||
-                            link.productionRun?.workOrderNumber ||
-                            link.sourceType}
-                        </Badge>
-                      ))}
-                    </div>
+              {/* A ternary, not `length && …`: an empty list rendered a stray "0" */}
+              {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks?.length ? (
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Linked To</div>
+                  <div className="flex flex-wrap gap-1">
+                    {(purchaseOrder as ExtendedPurchaseOrder).poSourceLinks!.map((link) => (
+                      <Badge key={link.id} variant="secondary" className="text-xs">
+                        {link.materialRequirement?.requirementNumber ||
+                          link.serviceRequirement?.serviceType ||
+                          link.productionRun?.workOrderNumber ||
+                          link.sourceType}
+                      </Badge>
+                    ))}
                   </div>
-                )}
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -869,6 +922,29 @@ export default function PurchaseOrderDetail() {
         </CardContent>
       </Card>
 
+      {/* Which running orders the lines are allocated to, and how far each got */}
+      {allocationQuery.isError ? (
+        <Card>
+          <CardContent className="pt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <span className="text-destructive">
+              Could not load which orders this PO is allocated to: {getErrorMessage(allocationQuery.error)}
+            </span>
+            <Button size="sm" variant="outline" onClick={() => void allocationQuery.refetch()}>
+              Try again
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        allocation &&
+        hasAllocationContent(allocation) && (
+          <PoAllocationCard
+            allocation={allocation}
+            canUndo={canAny('mrp', 'purchaseOrders')}
+            onChanged={refreshAfterAllocation}
+          />
+        )
+      )}
+
       {/* Receiving History */}
       {purchaseOrder.goodsReceivingNotes && purchaseOrder.goodsReceivingNotes.length > 0 && (
         <Card>
@@ -967,6 +1043,13 @@ export default function PurchaseOrderDetail() {
         cancelText="Keep Draft"
         onConfirm={handleDelete}
         variant="destructive"
+      />
+
+      <AllocateToOrdersDialog
+        poId={purchaseOrder.id}
+        open={allocateOpen}
+        onOpenChange={setAllocateOpen}
+        onDone={refreshAfterAllocation}
       />
 
       {/* Close Short Dialog */}

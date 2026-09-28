@@ -26,6 +26,8 @@ import {
 } from '@/types/mrp.types';
 import type { MergedRequirementRow, OrderStyleGroup } from './order-style-groups';
 import { RequirementDecisionActions, RequirementQtyNote } from './RequirementDecision';
+import { LinkedPOList, LinkPOButton, OpenPOSupplyNote } from './OpenPOSupplyNote';
+import { distinctSupplyLines, hasLinkableSupply, openPOSizeCoverage, type POLinkTarget } from './open-po-supply';
 
 interface OrderStyleLabelViewProps {
   groups: OrderStyleGroup[];
@@ -37,6 +39,8 @@ interface OrderStyleLabelViewProps {
   notSelectableHint?: (req: MaterialRequirement) => string | null;
   onUseStock: (req: MaterialRequirement) => void;
   onCancel: (req: MaterialRequirement) => void;
+  /** Open the Allocate dialog on an open PO for these requirements; absent = the user may not link */
+  onLinkPO?: (target: POLinkTarget) => void;
 }
 
 const COLS = 11;
@@ -98,6 +102,7 @@ export function OrderStyleLabelView({
   notSelectableHint,
   onUseStock,
   onCancel,
+  onLinkPO,
 }: OrderStyleLabelViewProps) {
   // A few sets open straight away (a link from the PO form lands on one); a long list starts folded.
   // Only the user's own toggles are stored, so the default follows the data whenever it arrives.
@@ -153,6 +158,8 @@ export function OrderStyleLabelView({
     const many = reqs.length > 1;
     return (
       <div className="flex flex-wrap gap-1 justify-end">
+        {/* An open PO has room for it: link instead of buying again (the row's colours together) */}
+        {onLinkPO && <LinkPOButton reqs={reqs} onLink={onLinkPO} />}
         {reqs.map((req) => {
           const suffix = many ? ` ${req.requirementNumber}` : '';
           const canUseStock =
@@ -196,6 +203,7 @@ export function OrderStyleLabelView({
     const reqs = row.requirements;
     const pending = reqs.every((r) => r.status === 'SIZE_PENDING');
     const pos = poNumbersOf(reqs);
+    const supply = distinctSupplyLines(reqs);
     return (
       <TableRow key={row.key} className={opts.inGroup ? 'bg-muted/20' : undefined}>
         <TableCell>{renderSelect(reqs, `Select ${row.head.material?.code ?? ''}`) ?? renderHint(reqs)}</TableCell>
@@ -240,7 +248,12 @@ export function OrderStyleLabelView({
           <StatusChips reqs={reqs} />
         </TableCell>
         <TableCell className="text-sm">{vendorOf(reqs)}</TableCell>
-        <TableCell className="text-xs">{pos.length > 0 ? pos.join(', ') : '-'}</TableCell>
+        <TableCell className="text-xs">
+          {/* On a PO: which, and how much of it is theirs. Not yet: an open PO that could cover it */}
+          <LinkedPOList reqs={reqs} unit={row.unit} />
+          <OpenPOSupplyNote supply={supply} unit={row.unit} className={pos.length > 0 ? 'mt-1' : ''} />
+          {pos.length === 0 && supply.length === 0 && '-'}
+        </TableCell>
         <TableCell className="text-right">{renderActions(reqs)}</TableCell>
       </TableRow>
     );
@@ -255,6 +268,7 @@ export function OrderStyleLabelView({
     const unit = sharedUnit(rows);
     const sizes = group.rows.filter((r) => r.size).length;
     const pos = poNumbersOf(reqs);
+    const coverage = openPOSizeCoverage(rows);
     return [
       <TableRow key={key} className="cursor-pointer hover:bg-muted/50" onClick={() => toggleLabel(key)}>
         <TableCell>{renderSelect(reqs, `Select all sizes of ${group.code}`) ?? renderHint(reqs)}</TableCell>
@@ -305,8 +319,17 @@ export function OrderStyleLabelView({
           <StatusChips reqs={reqs} />
         </TableCell>
         <TableCell className="text-sm">{vendorOf(reqs)}</TableCell>
-        <TableCell className="text-xs">{pos.length > 0 ? pos.join(', ') : '-'}</TableCell>
-        <TableCell />
+        <TableCell className="text-xs">
+          {pos.length > 0 ? pos.join(', ') : !coverage && '-'}
+          {coverage && (
+            <div className={`text-amber-700 ${pos.length > 0 ? 'mt-1' : ''}`}>
+              Open PO covers {coverage.covered}/{coverage.waiting} {coverage.waiting === 1 ? 'size' : 'sizes'}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-right">
+          {onLinkPO && coverage && <LinkPOButton reqs={reqs} onLink={onLinkPO} label="Link sizes" />}
+        </TableCell>
       </TableRow>,
       ...(open ? group.rows.map((r) => renderRow(r.line, { size: r.size, inGroup: true })) : []),
     ];
@@ -326,6 +349,8 @@ export function OrderStyleLabelView({
           0
         );
         const others = group.lines.length - labels;
+        // Rows an open PO could be linked to (a size's colours count once)
+        const coverable = new Set(group.requirements.filter(hasLinkableSupply).map((r) => r.materialId)).size;
         return (
           <Collapsible key={group.key} open={open} onOpenChange={() => toggleStyle(group.key)}>
             <Card>
@@ -366,6 +391,11 @@ export function OrderStyleLabelView({
                       {others > 0 && (
                         <Badge variant="outline">
                           {others} other {others === 1 ? 'line' : 'lines'}
+                        </Badge>
+                      )}
+                      {coverable > 0 && (
+                        <Badge variant="outline" className="border-amber-300 text-amber-800">
+                          Open PO covers {coverable} {coverable === 1 ? 'line' : 'lines'}
                         </Badge>
                       )}
                     </div>

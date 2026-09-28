@@ -103,6 +103,8 @@ import { loadMaterialDetails } from './helpers/material-detail.helper';
 import { isInvoiceOpenStatus, resolveReceiptInvoice } from './helpers/receipt-invoice.helper';
 import { createAuditLog } from './audit.service';
 import { copyReceiptPieces, lotPiecesEverIssued } from './fabric-lot-pieces.service';
+import { applyLineReceipts, assertTrimHoldsCovered, type HoldShortfall } from './helpers/receipt-allocation.helper';
+import { heldForEntries, heldForOtherOrders } from './helpers/po-allocation.helper';
 
 /**
  * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
@@ -1201,6 +1203,7 @@ class GRNService {
     (grn as any).__postCommit = {
       updateProcessingPOStatus: false,
       sourcingUpdates: [] as Array<{ poId: string; fabricId: string; actualRate: number }>,
+      holdShortfalls: [] as HoldShortfall[],
     };
 
     // Update GRN status in transaction with stock movements
@@ -1676,11 +1679,15 @@ class GRNService {
           return approved; // Skip normal stock_movements/stock_levels
         }
 
+        // The PO lines this receipt lands on: their links are filled once the lots exist (below)
+        const receiptLineIds = new Set<string>();
+
         // Categories with their own lot branch (greige, fabric, lace, unpacked thread) sync stock_levels there;
         // every other line — trims, and thread ordered in a pack (on its PACK row) — books stock_levels HERE,
         // once, and its lot in createSpecializedStockInTx.
         // Create stock movements and update stock levels for accepted items
         for (const item of grn.grn_items) {
+          if (item.poItemId) receiptLineIds.add(item.poItemId);
           const bookStockLevelsHere = lineBooksStockLevelsInLoop(po?.poCategory, item);
           // A packed thread line's stock is its pack row (Cone 3-ply…), in cones / tubes; every other line's, its own
           const stockMaterialId = await grnLineStockMaterialId(tx, item);
@@ -1742,14 +1749,6 @@ class GRNService {
                 update: { quantity: { increment: stock.qty }, lastUpdated: new Date() },
               });
             }
-
-            // MRP received-qty update, now ATOMIC with the approval — updateReceivedQuantity is tx-aware and
-            // no longer opens a nested tx, so running it on `tx` closes the over-procurement gap (a committed
-            // receipt MRP never saw → duplicate PO) without the second-connection/deadlock risk (F4 #12).
-            // In STOCK units: requirement links count pieces even when the PO line is in gross.
-            if (item.poItemId) {
-              await mrpService.updateReceivedQuantity(item.poItemId, stock.qty, tx);
-            }
           }
 
           // Track rejected quantities as audit trail — and NET THEM OUT of the PO's received counter
@@ -1806,6 +1805,16 @@ class GRNService {
           await this.createSpecializedStockInTx(tx, grn, po, userId, targetWarehouseId, direct);
         }
 
+        // D1 / D2: fill each line's PO links from the receipts approved on it — earliest delivery first,
+        // recomputed from the totals, never a per-receipt delta — and hold what they were credited on the lots
+        // just booked. In the same transaction (a committed receipt MRP never saw would be bought twice, F4 #12),
+        // and in STOCK units (links count pieces when the PO line is in gross). Holds never refuse an approval:
+        // what the lots cannot cover comes back as a warning.
+        if (receiptLineIds.size > 0) {
+          const outcomes = await applyLineReceipts(tx, [...receiptLineIds].sort(), { event: 'approve', userId });
+          (grn as any).__postCommit.holdShortfalls = outcomes.flatMap((o) => o.holdShortfalls);
+        }
+
         return approved;
       },
       { timeout: 30000, maxWait: 10000 }
@@ -1818,11 +1827,20 @@ class GRNService {
       | {
           updateProcessingPOStatus?: boolean;
           sourcingUpdates?: Array<{ poId: string; fabricId: string; actualRate: number }>;
+          holdShortfalls?: HoldShortfall[];
         }
       | undefined;
 
     // BUG-PROC4 fix: Collect warnings from post-commit operations to notify frontend
     const postCommitWarnings: string[] = [];
+
+    // Credited to an order but not all of it could be held: part of the lot is already reserved or used elsewhere
+    const unheld = [...new Set((postCommit?.holdShortfalls ?? []).map((s) => s.requirementNumber ?? 'an order'))];
+    if (unheld.length > 0) {
+      postCommitWarnings.push(
+        `Not all of what arrived could be held for ${unheld.join(', ')} — part of it is already reserved or used elsewhere.`
+      );
+    }
 
     // P2: Recompute PO receiving status FIRST, before processing activation.
     // checkProcessingPOReadiness relies on PO status being RECEIVED, so this must run first.
@@ -1944,8 +1962,13 @@ class GRNService {
           normalItems.push(...overrideItems);
           overrideItems.length = 0;
         } else {
-          // Validation passed - run cleanup on the SAME transaction (no separate inner $transaction)
-          const cleanupResult = await executeSourceMismatchCleanup(po.id, tx);
+          // Validation passed - run cleanup on the SAME transaction (no separate inner $transaction). Its
+          // requirement part touches only the lines that came as fabric; their links are credited from this
+          // receipt by applyLineReceipts in approveGRN (credit only — a fabric lot holds no greige)
+          const readyFabricLineIds = overrideItems
+            .map((item: { poItemId: string | null }) => item.poItemId)
+            .filter((id: string | null): id is string => !!id);
+          const cleanupResult = await executeSourceMismatchCleanup(po.id, readyFabricLineIds, tx);
           logInfo(`Source mismatch cleanup completed`, {
             grnId: grn.id,
             greigePOId: po.id,
@@ -2299,7 +2322,9 @@ class GRNService {
     // ===== LACE / GREIGE_LACE =====
     if (po.poCategory === 'LACE' || po.poCategory === 'GREIGE_LACE') {
       for (const item of grn.grn_items) {
-        const acceptedQty = Number(item.acceptedQuantity);
+        // ACTUAL metres (counted × L/100 when the line has a fold length) — what the stock movement books and what
+        // the line's PO links are credited and held, so the lot can carry every hold placed on it
+        const acceptedQty = grnLineActualQty(item).toNumber();
         if (acceptedQty <= 0) continue;
 
         const material = await tx.materials.findUnique({
@@ -2797,6 +2822,37 @@ class GRNService {
       );
     }
 
+    // A cancelled PO is settled too (C2): the links it kept are frozen at what they received, and the rest of their
+    // need already went back to be ordered again. Taking this receipt back would leave those orders short of goods
+    // nobody will re-order, reading "on PO" against a dead PO.
+    if (po?.status === 'CANCELLED') {
+      const lineIds = grn.grn_items.map((i) => i.poItemId).filter((pid): pid is string => !!pid);
+      const credited = (
+        await prisma.requirement_po_links.findMany({
+          where: { purchaseOrderItemId: { in: lineIds } },
+          select: {
+            receivedQuantity: true,
+            material_requirements: { select: { requirementNumber: true, orders: { select: { orderNumber: true } } } },
+          },
+        })
+      ).filter((l) => qtyExceeds(Number(l.receivedQuantity), 0));
+      if (credited.length > 0) {
+        const who = [
+          ...new Set(
+            credited.map(
+              (l) =>
+                `${l.material_requirements.orders?.orderNumber ?? 'no order'} (${l.material_requirements.requirementNumber})`
+            )
+          ),
+        ];
+        throw new BusinessError(
+          `Cannot reverse GRN ${grn.grnNumber}: purchase order ${po.poNumber} is cancelled, and what arrived on it is ` +
+            `already credited to ${who.join(', ')}. Undoing this receipt is an administrator correction, not a screen action.`,
+          { code: 'GRN_PO_CLOSED_LINKED', creditedTo: who }
+        );
+      }
+    }
+
     // Execute reversal in a transaction
     const reversedGRN = await prisma.$transaction(
       async (tx) => {
@@ -2820,6 +2876,9 @@ class GRNService {
           include: this.getFullInclude(),
         });
 
+        // The PO lines whose links are refilled from the receipts still approved (every category but PROCESSING)
+        const receiptLineIds = new Set<string>();
+
         // 2. Process each GRN item for reversal
         for (const item of grn.grn_items) {
           const acceptedQty = grnLineActualQty(item).toNumber();
@@ -2836,9 +2895,12 @@ class GRNService {
               },
             });
 
-            // 2b. Revert MRP received quantity (stock units — requirement links count pieces)
-            await mrpService.updateReceivedQuantity(item.poItemId, -stockQty, tx);
+            // 2b. A PROCESSING line's links stay pro-rata: take back this receipt's share (stock units)
+            if (po?.poCategory === 'PROCESSING') {
+              await mrpService.updateReceivedQuantity(item.poItemId, -stockQty, tx);
+            }
           }
+          if (item.poItemId && po?.poCategory !== 'PROCESSING') receiptLineIds.add(item.poItemId);
 
           // 2c. Create reverse stock movement for audit trail. Not for a job-work return: it wrote no
           // STOCK_IN — its lot row IS the receipt, and step 4 deletes that lot. An out-row here has no
@@ -2872,8 +2934,25 @@ class GRNService {
           }
         }
 
+        // 2d. Refill every other line's links from the receipts still approved (this GRN is REVERSED already), so
+        // a reversal lands exactly on the state of the receipts that remain (D1). BEFORE the lots are taken back:
+        // the recompute moves the links' holds off this receipt's lots, so what is still reserved on them below is
+        // someone else's hold. Refused (GRN_REVERSAL_ISSUED) when an order already issued goods only this covered.
+        if (receiptLineIds.size > 0) {
+          await applyLineReceipts(tx, [...receiptLineIds].sort(), { event: 'reverse', userId });
+        }
+
         // 3. Reverse specialized stock based on PO category
         await this.reverseSpecializedStockInTx(tx, grn, po, userId, warehouseId, reason);
+
+        // 3b. A trim has no lot to refuse on: refuse instead when orders would be left holding more of it (Use
+        // Stock and receipt holds alike) than is still on hand
+        if (po && receivesViaStockLevels(po.poCategory)) {
+          await assertTrimHoldsCovered(
+            tx,
+            grn.grn_items.filter((i) => i.materialId && !threadPackOf(i)).map((i) => i.materialId as string)
+          );
+        }
 
         // 4. Handle Processing PO specific reversal (Phase 4b: also PO-less JWO GRNs)
         if (po?.poCategory === 'PROCESSING' || (!grn.poId && grn.jobWorkOrderId)) {
@@ -4029,6 +4108,13 @@ class GRNService {
           const reverseQty = greigeStock.grnItemId ? Number(greigeStock.quantityAvailable) : actualQty;
 
           const newAvailable = Math.max(0, Number(greigeStock.quantityAvailable) - reverseQty);
+          await this.assertLotNotHeld(tx, grn, {
+            label: 'greige',
+            lotId: greigeStock.id,
+            materialId: greigeId,
+            reserved: Number(greigeStock.quantityReserved),
+            leftAfter: newAvailable,
+          });
           // Zero the lot, never delete it: approval's STOCK_IN row and the reversal row below both
           // point at it (greige_stock_transaction_stockId_fkey), so a delete failed EVERY greige GRN
           // reversal (2026-09-25, grn-greige-reversal.test.ts).
@@ -4113,6 +4199,13 @@ class GRNService {
           }
           const reverseQty = linkedLace ? Number(linkedLace.quantityAvailable) : acceptedQty;
           const newAvailable = Math.max(0, Number(laceStock.quantityAvailable) - reverseQty);
+          await this.assertLotNotHeld(tx, grn, {
+            label: 'lace',
+            lotId: laceStock.id,
+            materialId: laceId,
+            reserved: Number(laceStock.quantityReserved),
+            leftAfter: newAvailable,
+          });
           // A lot a challan names (lace delivered straight to a processor) cannot be deleted — zero it
           const namedOnChallan = await tx.challan_items.count({ where: { laceStockId: laceStock.id } });
           if (isQtyZero(newAvailable) && namedOnChallan === 0) {
@@ -4129,13 +4222,43 @@ class GRNService {
 
           await syncStockLevelQuantity(laceId, -reverseQty, warehouseId, undefined, tx);
 
-          logInfo(`Reversed lace_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
+          logInfo(`Reversed lace_stock from GRN ${grn.grnNumber}: ${reverseQty}m`, {
             grnId: grn.id,
             laceId,
           });
         }
       }
     }
+  }
+
+  /**
+   * A greige / lace lot a reversal takes back must not stay reserved beyond what the reversal leaves on it. By
+   * now the line's own PO-link holds have been moved off it (applyLineReceipts, step 2d), so anything still
+   * reserved is another order's hold (Use Stock, or a receipt hold of another line) or a reservation outside any
+   * order's hold (a lace allocation). Taking the lot back would leave them holding cloth that is gone
+   * (invariant 8): refuse, naming who holds it.
+   */
+  private async assertLotNotHeld(
+    tx: Prisma.TransactionClient,
+    grn: { grnNumber: string },
+    lot: { label: 'greige' | 'lace'; lotId: string; materialId: string; reserved: number; leftAfter: number }
+  ): Promise<void> {
+    if (!qtyExceeds(lot.reserved, lot.leftAfter)) return;
+    const holds = await heldForOtherOrders(tx, { materialId: lot.materialId, lotIds: [lot.lotId] });
+    const entries = heldForEntries(holds);
+    const named = Math.round(entries.reduce((s, e) => s + e.qty, 0) * 1000) / 1000;
+    const unnamed = Math.round((lot.reserved - named) * 100) / 100;
+    const who = [
+      ...entries.map(
+        (e) => `${e.orderNumber ?? 'no order'} (${e.requirementNumber}) holds ${e.qty} ${unitShort(e.unit)}`
+      ),
+      ...(qtyExceeds(unnamed, 0) ? [`${unnamed} m is reserved outside any order's hold`] : []),
+    ];
+    throw new BusinessError(
+      `Cannot reverse GRN ${grn.grnNumber}: its ${lot.label} lot is still reserved — ${who.join('; ')}. ` +
+        `Release those holds (or give them other cloth) first, then reverse.`,
+      { code: 'GRN_LOT_HELD', lotId: lot.lotId, reserved: lot.reserved, heldFor: entries }
+    );
   }
 
   /**

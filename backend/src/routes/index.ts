@@ -84,6 +84,7 @@ import issueReportRoutes from './issue-report.routes';
 import auditRoutes from './audit.routes';
 import jobsRoutes from './jobs.routes';
 import purchaseOrderRoutes from './purchaseOrder.routes';
+import poAllocationRoutes from './po-allocation.routes';
 import grnRoutes from './grn.routes';
 import mrpRoutes from './mrp.routes';
 import embroideryRoutes from './embroidery.routes';
@@ -289,6 +290,7 @@ export function createApiRouter(): Router {
   // Procurement (Purchase Orders & GRN)
   router.use('/purchase-orders', purchaseOrderRoutes);
   router.use('/purchase-orders', unifiedPORoutes); // Unified PO routes (extended endpoints)
+  router.use('/po-allocations', poAllocationRoutes); // Allocate a sent PO to running orders (mrp OR purchaseOrders)
   router.use('/grn', grnRoutes);
 
   // MRP (Material Requirement Planning)

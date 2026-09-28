@@ -6,6 +6,9 @@
  * compared the 0.002 m left with `=== 0`, and the row read "Partially from Stock" for 2 mm (and sat
  * in the "needs PO" lists). The same dialog pre-filled 2786.60 against a 2786.598 shortfall and
  * refused its own number. The server had no limit check at all.
+ *
+ * Use Stock on a trim is capped by what is free on the shelf (po-allocation D2), so the fixture is a real
+ * trim — an other-material master, its materials row and a 5,000 m lot — not a bare materials row.
  */
 
 import request from 'supertest';
@@ -13,13 +16,19 @@ import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
+import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 
 const RUN = `MAD${Date.now().toString(36).toUpperCase()}`;
 
 let authHeader: Record<string, string>;
 let userId: string;
 let materialId: string;
+let masterId: string;
+let warehouseId: string;
 let seq = 0;
+
+/** On the shelf: enough for every allocation below together (1,340.722 + 2,786.598 + 40) */
+const ON_HAND = 5000;
 
 async function makeRequirement(totalRequired: number) {
   seq += 1;
@@ -65,18 +74,35 @@ beforeAll(async () => {
   userId = user.id;
   authHeader = getAuthHeader(user.id, 'ADMIN');
 
-  const categoryId = (await prisma.material_categories.findFirstOrThrow({ select: { id: true } })).id;
-  const material = await prisma.materials.create({
+  warehouseId = (
+    await prisma.warehouses.create({
+      data: {
+        warehouseCode: `${RUN}-ST`,
+        warehouseName: `${RUN} Store`,
+        warehouseType: 'RAW_MATERIAL',
+        createdById: userId,
+      },
+    })
+  ).id;
+  masterId = (
+    await prisma.other_material_master.create({
+      data: { materialCode: `${RUN}-OTH`, materialName: `${RUN} Tape`, unit: 'METER' },
+    })
+  ).id;
+  materialId = await ensureMaterialRecord(masterId, 'OTHER_MATERIAL');
+  // Counted in metres, like the requirements below (a line's unit is its material's unit)
+  await prisma.materials.update({ where: { id: materialId }, data: { unit: 'METER' } });
+  await prisma.other_material_stock.create({
     data: {
-      id: randomUUID(),
-      code: `${RUN}-MAT`,
-      name: `${RUN} Material`,
-      categoryId,
-      materialType: 'OTHER',
+      otherMaterialId: masterId,
+      quantityAvailable: ON_HAND,
       unit: 'METER',
+      purchaseCost: 1,
+      weightedAvgCost: 1,
+      receivedDate: new Date(),
+      warehouseId,
     },
   });
-  materialId = material.id;
 });
 
 afterAll(async () => {
@@ -87,7 +113,10 @@ afterAll(async () => {
     await prisma.stock_reservations.deleteMany({ where: { referenceId: { in: reqIds } } });
     await prisma.material_requirements.deleteMany({ where: { id: { in: reqIds } } });
   }
+  await prisma.other_material_stock.deleteMany({ where: { otherMaterialId: only(masterId) } });
   await prisma.materials.deleteMany({ where: { id: only(materialId) } });
+  await prisma.other_material_master.deleteMany({ where: { id: only(masterId) } });
+  await prisma.warehouses.deleteMany({ where: { id: only(warehouseId) } });
   await prisma.users.deleteMany({ where: { id: only(userId) } });
   await prisma.$disconnect();
 });
@@ -116,5 +145,13 @@ describe('allocate stock — rounding dust', () => {
     const res = await allocate(req.id, 105, 422);
     expect(res.body.message).toMatch(/still short/);
     expect(await reload(req.id)).toEqual({ status: 'PO_REQUIRED', shortfall: 100, allocated: 0 });
+  });
+
+  it('refuses more than the shelf holds (USE_STOCK_SHORT) and leaves the requirement as it was', async () => {
+    const req = await makeRequirement(ON_HAND + 1000);
+    const res = await allocate(req.id, ON_HAND + 500, 422);
+    expect(res.body.details).toMatchObject({ code: 'USE_STOCK_SHORT', onHand: ON_HAND });
+    expect(res.body.message).toMatch(/cannot be allocated from stock/);
+    expect(await reload(req.id)).toEqual({ status: 'PO_REQUIRED', shortfall: ON_HAND + 1000, allocated: 0 });
   });
 });

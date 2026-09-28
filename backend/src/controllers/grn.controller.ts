@@ -12,6 +12,11 @@ import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { systemSettingsService } from '../services/system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
+import { lineCreditDeltasForGrn } from '../services/helpers/receipt-allocation.helper';
+import { splitReceiptAcrossLinks } from '../services/helpers/receipt-split.helper';
+import { grnLineActualQty, grnLineRate, grnLineStockQty } from '../services/helpers/grn-line-value.helper';
+import { addCurrency, Decimal, divideCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
+import { qtyExceeds } from '../utils/quantity';
 
 /**
  * @route GET /api/grn
@@ -224,11 +229,14 @@ export const approveGRN = async (req: Request, res: Response) => {
     const grnWithItems = await prisma.goods_receiving_notes.findUnique({
       where: { id },
       include: {
+        purchase_orders: { select: { poCategory: true } },
         grn_items: {
           include: {
             purchase_order_items: {
               include: {
                 requirement_po_links: {
+                  // By id: a PROCESSING line's pro-rata remainder lands on the same link the receipt split used
+                  orderBy: { id: 'asc' },
                   include: {
                     material_requirements: {
                       include: {
@@ -257,33 +265,57 @@ export const approveGRN = async (req: Request, res: Response) => {
       // Group items by styleId and calculate actual costs
       const styleActuals: Record<string, { fabric: number; trims: number; lace: number }> = {};
 
-      for (const grnItem of grnWithItems.grn_items) {
-        // unitPrice is on purchase_order_items, not grn_items
-        const unitPrice = Number(grnItem.purchase_order_items?.unitPrice || 0);
-        // P2.7: Use acceptedQuantity, not receivedQuantity — actuals should reflect what was
-        // accepted after QC (minus rejects), not what supplier delivered
-        const acceptedQty = Number(grnItem.acceptedQuantity);
-        const actualCost = unitPrice * acceptedQty;
+      // Each linked order is charged for what THIS receipt gave it, never the whole line: the fill's credit with
+      // the receipt less without it (receipt-allocation D1). What went to no order — plain stock — is charged to
+      // no style. A PROCESSING line keeps its pro-rata split of the receipt.
+      const creditDeltas = await lineCreditDeltasForGrn(prisma, id);
+      const isProcessing = grnWithItems.purchase_orders?.poCategory === 'PROCESSING';
 
-        // Trace back to styleId through requirement_po_links
-        for (const link of grnItem.purchase_order_items?.requirement_po_links || []) {
+      // One PO line may carry several receipt lines: their value and stock are added up and shared once
+      type LineLink = NonNullable<
+        (typeof grnWithItems.grn_items)[number]['purchase_order_items']
+      >['requirement_po_links'][number];
+      const lines = new Map<string, { value: Decimal; stockQty: number; links: LineLink[] }>();
+      for (const grnItem of grnWithItems.grn_items) {
+        const poItem = grnItem.purchase_order_items;
+        if (!poItem) continue;
+        // P2.7: the ACCEPTED quantity (after QC), in actual metres, at the rate the receipt is valued at
+        const value = multiplyCurrency(grnLineActualQty(grnItem), grnLineRate(grnItem, null) ?? 0);
+        const line = lines.get(poItem.id) ?? { value: new Decimal(0), stockQty: 0, links: poItem.requirement_po_links };
+        line.value = addCurrency(line.value, value);
+        line.stockQty = Math.round((line.stockQty + grnLineStockQty(grnItem)) * 1000) / 1000;
+        lines.set(poItem.id, line);
+      }
+
+      for (const line of lines.values()) {
+        const shares = isProcessing
+          ? new Map(
+              splitReceiptAcrossLinks(
+                line.links.map((l) => ({ id: l.id, allocatedQuantity: Number(l.allocatedQuantity) })),
+                line.stockQty
+              ).map((s) => [s.id, s.qty])
+            )
+          : creditDeltas;
+        for (const link of line.links) {
+          const share = shares.get(link.id) ?? 0;
+          if (!qtyExceeds(share, 0)) continue;
           const requirement = link.material_requirements;
           const styleId = requirement.order_items?.styleId;
           const materialType = requirement.materials.materialType;
+          if (!styleId) continue;
+          const actualCost = toNumber(roundToCent(multiplyCurrency(line.value, divideCurrency(share, line.stockQty))));
 
-          if (styleId) {
-            if (!styleActuals[styleId]) {
-              styleActuals[styleId] = { fabric: 0, trims: 0, lace: 0 };
-            }
+          if (!styleActuals[styleId]) {
+            styleActuals[styleId] = { fabric: 0, trims: 0, lace: 0 };
+          }
 
-            // Categorize as FABRIC, LACE, or TRIMS based on material type
-            if (materialType === 'GREIGE' || materialType === 'FABRIC') {
-              styleActuals[styleId].fabric += actualCost;
-            } else if (materialType === 'LACE') {
-              styleActuals[styleId].lace += actualCost;
-            } else {
-              styleActuals[styleId].trims += actualCost;
-            }
+          // Categorize as FABRIC, LACE, or TRIMS based on material type
+          if (materialType === 'GREIGE' || materialType === 'FABRIC') {
+            styleActuals[styleId].fabric = toNumber(addCurrency(styleActuals[styleId].fabric, actualCost));
+          } else if (materialType === 'LACE') {
+            styleActuals[styleId].lace = toNumber(addCurrency(styleActuals[styleId].lace, actualCost));
+          } else {
+            styleActuals[styleId].trims = toNumber(addCurrency(styleActuals[styleId].trims, actualCost));
           }
         }
       }

@@ -228,6 +228,8 @@ export const issueJwoSchema = z.object({
   vehicleNumber: z.string().max(50).trim().optional(),
   // Width guard override: issue although the lot's greige width differs beyond tolerance
   acknowledgeWidthMismatch: z.boolean().optional(),
+  // The user confirmed "take them anyway": goods held for other orders on the picked lots are taken (D10)
+  takeHeld: z.boolean().optional(),
 });
 
 /**
@@ -260,6 +262,8 @@ export const dispatchJwoSchema = z.object({
   vehicleNumber: z.string().max(50).trim().optional(),
   challanNumber: z.string().max(100).trim().optional(),
   acknowledgeWidthMismatch: z.boolean().optional(),
+  // "Take them anyway" for goods held for other orders, on every order on the truck (D10)
+  takeHeld: z.boolean().optional(),
   orders: z
     .array(
       z.object({
@@ -316,6 +320,8 @@ export const issueWithDetailsSchema = z.object({
   challanNumber: z.string().max(100).trim().optional(),
   acknowledgeWidthMismatch: z.boolean().optional(),
   finishedFabricId: z.string().optional().nullable(),
+  // The user confirmed "take them anyway": goods held for other orders on the picked lots are taken (D10)
+  takeHeld: z.boolean().optional(),
   // Than selection is optional per lot (owner, 2026-09-24): a lot either names its thans or
   // gives a plain quantity (ACTUAL metres), so one issue can mix both.
   lots: z

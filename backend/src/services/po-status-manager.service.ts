@@ -58,8 +58,12 @@ export interface StatusUpdateResult {
  * the bare client. It also lacked the zero/negative branch, so it never downgraded a requirement
  * back to PO_SENT on a GRN reversal.
  *
- * The single receipt track is: grn.service.ts → mrpService.updateReceivedQuantity /
- * updateJwoReceivedQuantity (both tx-aware, both atomic increments).
+ * The single receipt track is grn.service.ts, inside the approval / reversal transaction:
+ *  - a PO line's links (every category but PROCESSING) → helpers/receipt-allocation.helper.ts
+ *    `applyLineReceipts`: refilled from the line's approved receipts on every event, earliest
+ *    delivery first, and held for those orders (po-allocation D1 / D2, 2026-09-29) — never a delta;
+ *  - a PROCESSING line's links and job-work links → mrpService.updateReceivedQuantity /
+ *    updateJwoReceivedQuantity (pro-rata, atomic increments).
  */
 
 /*

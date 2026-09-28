@@ -383,6 +383,18 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       }
     },
     onSuccess: (created) => {
+      // Create & Send made the order but the send was refused — most often cloth held for another order, which
+      // this one click cannot ask about. Open Send to Mill on it: it shows why, and asks "take them anyway?" (D10)
+      if (created?.notSent) {
+        toast.warning(created.notSent);
+        if (created.jobWorkOrder) {
+          sentFromDialog.current = false;
+          setSendPo(created);
+          return;
+        }
+        navigate(backPath);
+        return;
+      }
       handleApiSuccess(
         created?.poNumber
           ? `Job work order ${created.poNumber} created successfully`
@@ -1312,7 +1324,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         </Button>
       </div>
 
-      {/* Created, now sent — the lot lists pieces, so Send to Mill asks which ones go */}
+      {/* Created, now sent — the lot lists pieces (Send to Mill asks which ones go), or Create & Send was refused */}
       <SendToMillDialog
         open={!!sendPo}
         onOpenChange={(open) => {

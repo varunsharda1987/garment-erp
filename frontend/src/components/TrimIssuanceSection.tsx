@@ -11,12 +11,16 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
 import type { MaterialIssuanceData, MaterialIssuanceItem, IssuedChallan } from '@/types/production.types';
 import { useNavigate } from 'react-router-dom';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { formatDate } from '@/lib/date';
 import { isQtyZero, prefillQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 
 interface TrimIssuanceSectionProps {
   workOrderId: string;
 }
+
+/** On the shelf for this run: free, plus what other orders hold (issuing that asks first) */
+const onShelf = (item: MaterialIssuanceItem) => item.availableStock + (item.heldForOthers ?? 0);
 
 export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSectionProps) {
   const navigate = useNavigate();
@@ -25,6 +29,7 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
   const [isIssuing, setIsIssuing] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [quantities, setQuantities] = useState<Record<string, string>>({});
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
 
   const loadData = async () => {
     try {
@@ -82,7 +87,11 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
 
     try {
       setIsIssuing(true);
-      await workOrderService.issueTrims(workOrderId, { items });
+      // Goods held for other orders are refused first; the user may take them anyway (po-allocation D10)
+      const issued = await withHeldStockConfirm((takeHeld) =>
+        workOrderService.issueTrims(workOrderId, takeHeld ? { items, takeHeld } : { items })
+      );
+      if (issued === undefined) return; // kept for the other order
       handleApiSuccess('Trims Issued', 'Trims have been issued to stitching department via challan.');
       loadData();
     } catch (err) {
@@ -106,11 +115,12 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
   if (!data || (data.items.length === 0 && data.issuedChallans.length === 0)) return null;
 
   const hasIssuedChallans = data.issuedChallans.length > 0;
-  const itemsWithStock = data.items.filter((i) => !isQtyZero(i.availableStock));
+  const itemsWithStock = data.items.filter((i) => !isQtyZero(onShelf(i)));
   const hasShortage = data.items.some((i) => qtyExceeds(i.shortage, 0));
 
   return (
     <div className="space-y-4">
+      {heldStockDialog}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
@@ -155,7 +165,9 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
               {data.items.map((item: MaterialIssuanceItem) => {
                 const remaining = qtyRemaining(item.requiredQty, item.alreadyIssued);
                 const isSelected = item.materialId ? !!selected[item.materialId] : false;
-                const hasStock = !isQtyZero(item.availableStock);
+                // On the shelf counts, even when held for other orders: issuing it asks first
+                const hasStock = !isQtyZero(onShelf(item));
+                const heldForOthers = item.heldForOthers ?? 0;
                 return (
                   <TableRow
                     key={item.bomItemId}
@@ -195,6 +207,11 @@ export default function TrimIssuanceSection({ workOrderId }: TrimIssuanceSection
                       className={`text-right ${qtyExceeds(item.shortage, 0) ? 'text-destructive font-medium' : ''}`}
                     >
                       {item.availableStock.toFixed(1)}
+                      {qtyExceeds(heldForOthers, 0) && (
+                        <div className="text-xs font-normal text-warning">
+                          + {heldForOthers.toFixed(1)} held for other orders
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       {item.materialId && hasStock && remaining > 0 ? (

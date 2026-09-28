@@ -4,6 +4,9 @@
  */
 
 import { Decimal } from '@prisma/client/runtime/library';
+import type { OpenPOSupplyLine } from '../services/helpers/po-allocation.helper';
+
+export type { OpenPOSupplyLine };
 
 // ============================================
 // ENUMS (mirror Prisma enums)
@@ -324,6 +327,14 @@ export interface MaterialRequirementResponse {
   shortfall: number;
   /** Live current stock for this material (queried at response time, not a snapshot) */
   currentStock: number;
+  /**
+   * GET /mrp/requirements only: open PO lines that could cover this row but are not linked to it ("PO2609-0231 ·
+   * 1,589 free · not linked") — only on a MATERIAL row that still needs buying (or awaits a decision) and is on no
+   * PO or job; [] otherwise. Figures are in the row's (stock) unit.
+   */
+  openPOSupply?: OpenPOSupplyLine[];
+  /** Goods that arrived on its linked PO lines and are held for it now (receipt holds, po-allocation D2) */
+  receiptHeldQty?: number;
   preferredSupplierId: string | null;
   requirementType?: string;
   processorId?: string | null;
@@ -442,8 +453,16 @@ export interface RequirementPOLinkResponse {
   requirementId: string;
   purchaseOrderId: string;
   purchaseOrderItemId: string;
+  /** In the requirement's (stock) unit */
   allocatedQuantity: number;
+  /** Credited from what arrived on the line (a part delivery fills links in fillOrder) */
   receivedQuantity: number;
+  /** Rank on its PO line — a receipt fills the line's links in this order; null on an old link */
+  fillOrder: number | null;
+  /** Arrived goods held for it now (ACTIVE receipt holds, net of what it used) */
+  heldQuantity: number;
+  /** What it has issued of its receipt holds */
+  issuedQuantity: number;
   createdAt: string;
 
   // Relations
@@ -455,9 +474,13 @@ export interface RequirementPOLinkResponse {
   };
   purchaseOrderItem?: {
     id: string;
+    /** In the line's own unit (a purchase unit such as GROSS, or the stock unit) */
     orderedQuantity: number;
     receivedQuantity: number;
     unitPrice: number;
+    unit: string | null;
+    /** Stock units in one line unit (144 for GROSS); null = the line is in the stock unit */
+    stockUnitsPerUnit: number | null;
   };
 }
 

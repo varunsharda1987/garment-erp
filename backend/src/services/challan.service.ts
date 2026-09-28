@@ -12,11 +12,17 @@ import { ensureMaterialRecord, syncStockLevelQuantity, threadLotMaterialId } fro
 import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 import { applySearch } from '../utils/search-filter';
 import { toDateInputValue } from '../utils/date';
-import { normalizeUnit, unitLabel } from '../utils/units';
+import { normalizeUnit, unitLabel, unitShort } from '../utils/units';
 import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
 import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit } from './helpers/lot-location.helper';
 import { settleLotBack, settleLotOut, type FabricPiecePick } from './fabric-lot-pieces.service';
-import { consumeReservations } from './helpers/stock-reservation.helper';
+import {
+  consumeReservations,
+  unconsumeReservations,
+  untrackedHeldByMaterial,
+} from './helpers/stock-reservation.helper';
+import { heldForOtherOrders, heldStockConflict, takeHeldGoods } from './helpers/po-allocation.helper';
+import { getDerivedOnHandMap } from './helpers/derived-stock.helper';
 import { BusinessError } from '../errors';
 
 /** Rule 55 wording on a Stock-Out that sends our goods to a job worker (Phase 4e). */
@@ -264,6 +270,12 @@ export interface IssueChallanOptions {
    * that the challan empties takes its whole list; one it leaves part-full is left out of step.
    */
   fabricPicks?: Record<string, FabricPiecePick[]>;
+  /**
+   * The user confirmed "take them anyway" (po-allocation owner decision D10): trims or lace held for other
+   * orders are issued, and those orders get their need back, to be bought again. Without it such an issue is
+   * refused with 409 STOCK_HELD_FOR_ORDER naming who holds them.
+   */
+  takeHeld?: boolean;
 }
 
 const CUTTING_BATCH_FABRICS_SELECT = {
@@ -367,6 +379,58 @@ async function consumeOrderLotHolds(
     new Date(),
     [lotId]
   );
+}
+
+/**
+ * A batch's fabric back with nothing laid: the order still needs it, so the MRP hold the issue consumed on this lot
+ * comes back — never more than the order's holds consumed on THIS lot, so another lot's hold is left alone.
+ */
+async function restoreOrderLotHolds(
+  tx: Prisma.TransactionClient,
+  workOrderId: string,
+  materialId: string,
+  lotId: string,
+  qty: number
+): Promise<void> {
+  const run = await tx.work_orders.findUnique({ where: { id: workOrderId }, select: { orderId: true } });
+  if (!run?.orderId) return;
+  const requirementIds = (
+    await tx.material_requirements.findMany({ where: { orderId: run.orderId, materialId }, select: { id: true } })
+  ).map((r) => r.id);
+  if (requirementIds.length === 0) return;
+  const consumedHere = await tx.stock_reservations.aggregate({
+    where: { referenceType: 'MATERIAL_REQUIREMENT', referenceId: { in: requirementIds }, fabricStockId: lotId },
+    _sum: { consumedQuantity: true },
+  });
+  const give = Math.min(qty, Number(consumedHere._sum.consumedQuantity ?? 0));
+  if (!isQtyZero(give)) await unconsumeReservations(tx, requirementIds, give, [lotId]);
+}
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** Material types whose holds sit on their lots (stock-reservation.helper); a trim's hold has no lot */
+const LOT_KEPT_TYPES = new Set<string>(['GREIGE', 'FABRIC', 'LACE']);
+
+/**
+ * The requirements a trim or lace line on this challan serves: the order's own live MATERIAL rows for the
+ * material (a PO link's balance row included), plus the line's own requirement. An issue uses their holds;
+ * goods given back are held for them again.
+ */
+async function orderRowsFor(
+  tx: Prisma.TransactionClient,
+  orderId: string | null,
+  materialId: string | null,
+  lineRequirementId?: string | null
+): Promise<string[]> {
+  const ids = new Set<string>(lineRequirementId ? [lineRequirementId] : []);
+  if (orderId && materialId) {
+    const rows = await tx.material_requirements.findMany({
+      where: { orderId, materialId, requirementType: 'MATERIAL', status: { not: 'CANCELLED' } },
+      select: { id: true },
+    });
+    for (const r of rows) ids.add(r.id);
+  }
+  return [...ids];
 }
 
 export async function issueChallan(id: string, userId?: string, opts?: IssueChallanOptions) {
@@ -621,6 +685,35 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
           if (qtyExceeds(qty, laceStock.quantityAvailable))
             throw new Error(`Insufficient lace stock. Available: ${laceStock.quantityAvailable}, Requested: ${qty}`);
           const lotQty = snapToLimit(qty, laceStock.quantityAvailable);
+
+          // What this lot holds for OTHER orders (arrived on their PO, or their Use Stock) is not free for this
+          // issue (po-allocation D2). The user may take it anyway (D10): those orders get their need back.
+          const heldLace = await heldForOtherOrders(tx, {
+            materialId: laceStock.laceId,
+            lotIds: [laceStock.id],
+            excludeOrderId: existing.orderId,
+          });
+          const laceShort = round3(
+            lotQty - (Number(laceStock.quantityAvailable) - heldLace.reduce((sum, h) => sum + h.qty, 0))
+          );
+          if (qtyExceeds(laceShort, 0)) {
+            if (!opts?.takeHeld) {
+              throw heldStockConflict(
+                `${laceShort} m of lace lot ${laceStock.lotNumber ?? laceStock.id.slice(0, 8)} is held for other orders. ` +
+                  `Take it anyway, or issue less.`,
+                heldLace
+              );
+            }
+            await takeHeldGoods(tx, {
+              materialId: laceStock.laceId,
+              lotIds: [laceStock.id],
+              quantity: laceShort,
+              takerOrderId: existing.orderId,
+              userId: effectiveUserId,
+              reference: `Challan ${existing.challanNumber}`,
+            });
+          }
+
           // BUG-CHN5 fix: Use decimal.js for safe subtraction
           const newAvailable = toNumber(subtractCurrency(laceStock.quantityAvailable, lotQty));
 
@@ -633,6 +726,12 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
               status: isQtyZero(newAvailable) || newAvailable < 0 ? 'ISSUED' : 'AVAILABLE',
             },
           });
+
+          // The issue uses the order's own holds on the lace — this lot's first (stock-reservation.helper)
+          const laceRows = await orderRowsFor(tx, existing.orderId, laceStock.laceId, item.materialRequirementId);
+          if (laceRows.length > 0) {
+            await consumeReservations(tx, laceRows, lotQty, new Date(), [laceStock.id]);
+          }
 
           // Audit trail
           await tx.lace_stock_transaction.create({
@@ -739,6 +838,38 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
           });
 
           if (warehouse) {
+            // What other orders hold of this item (arrived on their PO, or their Use Stock) is not free for this
+            // issue (po-allocation D2). The user may take it anyway (D10): those orders get their need back.
+            // Holds of lot-kept goods (lace, greige) are held on their lots, not here — a Stock-Out that draws
+            // such a lot by FIFO is the known gap (design §8).
+            const onHand = (await getDerivedOnHandMap([item.materialId], tx)).get(item.materialId) ?? 0;
+            // More than is on the shelf at all is the stock-out's own refusal below, not a held-goods question
+            if (!qtyExceeds(qty, onHand)) {
+              const othersHeld =
+                (
+                  await untrackedHeldByMaterial(tx, [item.materialId], {
+                    excludeOrderId: existing.orderId ?? undefined,
+                  })
+                ).get(item.materialId) ?? 0;
+              const short = round3(qty - (onHand - othersHeld));
+              if (qtyExceeds(short, 0)) {
+                if (!opts?.takeHeld) {
+                  throw heldStockConflict(
+                    `${short} ${unitShort(item.unit)} of ${item.description} is held for other orders. ` +
+                      `Take it anyway, or issue less.`,
+                    await heldForOtherOrders(tx, { materialId: item.materialId, excludeOrderId: existing.orderId })
+                  );
+                }
+                await takeHeldGoods(tx, {
+                  materialId: item.materialId,
+                  quantity: short,
+                  takerOrderId: existing.orderId,
+                  userId: effectiveUserId,
+                  reference: `Challan ${existing.challanNumber}`,
+                });
+              }
+            }
+
             try {
               await stockMovementService.createStockOut(
                 {
@@ -759,6 +890,13 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
               // Stock deduction failure must block challan issuance for ALL types
               // to prevent data inconsistency (challan ISSUED but stock not deducted)
               throw new Error(`Stock deduction failed for material ${item.materialId}: ${err.message}`);
+            }
+
+            // The issue uses the order's own holds of the item: its Use Stock first, then what arrived on its
+            // PO (C8). Before, a trim issue used no hold, so the goods stayed held after they had left.
+            const trimRows = await orderRowsFor(tx, existing.orderId, item.materialId, item.materialRequirementId);
+            if (trimRows.length > 0) {
+              await consumeReservations(tx, trimRows, qty, new Date());
             }
           }
         }
@@ -1169,6 +1307,18 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
                 tx
               );
           }
+
+          // Lace given back is held for the order again, on this lot, as far as its issue used its holds (C9).
+          // Before, it came back free and another order could take it.
+          const laceRows = await orderRowsFor(
+            tx,
+            existingChallan.orderId,
+            laceStock?.laceId ?? null,
+            item.materialRequirementId
+          );
+          if (laceRows.length > 0) {
+            await unconsumeReservations(tx, laceRows, receivedQty, [item.laceStockId]);
+          }
         }
 
         // General material credit (trims/accessories) via stock_movements
@@ -1203,15 +1353,35 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
               // to prevent data inconsistency (challan RECEIVED but stock not credited)
               throw new Error(`Stock credit failed for material ${item.materialId}: ${err.message}`);
             }
+
+            // Trims given back are held for the order again, as far as its issue used its holds (C9). A lot-kept
+            // material (lace, greige, fabric) booked here lands on a new lot; its hold stays where it was.
+            const material = await tx.materials.findUnique({
+              where: { id: item.materialId },
+              select: { materialType: true },
+            });
+            if (material && !LOT_KEPT_TYPES.has(material.materialType)) {
+              const trimRows = await orderRowsFor(
+                tx,
+                existingChallan.orderId,
+                item.materialId,
+                item.materialRequirementId
+              );
+              if (trimRows.length > 0) await unconsumeReservations(tx, trimRows, receivedQty);
+            }
           }
         }
 
-        // Update linked material requirement status
+        // Update linked material requirement status — unless it is on a PO: its PO link decides its status
+        // (po-allocation invariant 1), and goods given back never make a PO row "fulfilled from stock"
         if (item.materialRequirementId) {
-          await tx.material_requirements.update({
-            where: { id: item.materialRequirementId },
-            data: { status: 'FULFILLED_STOCK' },
-          });
+          const onPo = await tx.requirement_po_links.count({ where: { requirementId: item.materialRequirementId } });
+          if (onPo === 0) {
+            await tx.material_requirements.update({
+              where: { id: item.materialRequirementId },
+              data: { status: 'FULFILLED_STOCK' },
+            });
+          }
         }
 
         // Update linked service requirement status.
@@ -1507,6 +1677,11 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
           reason: 'PIECE_NOT_ISSUED_HERE',
         });
       }
+
+      // Nothing laid (the batch deleted or cancelled): the order's hold comes back; a completion's leftover stays free
+      if (input.piecesBack !== 'END' && updated.fabricId) {
+        await restoreOrderLotHolds(tx, input.workOrderId, updated.fabricId, item.fabricStockId, item.quantity);
+      }
     }
 
     return challan;
@@ -1520,9 +1695,19 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
 export async function quickIssueChallan(input: CreateChallanInput, opts?: IssueChallanOptions) {
   // Step 1: Create challan as DRAFT
   const challan = await createChallan(input);
-  // Step 2: Immediately issue it (triggers stock deduction via issueChallan)
-  const issuedChallan = await issueChallan(challan.id, input.issuedById, opts);
-  return issuedChallan;
+  // Step 2: Immediately issue it (triggers stock deduction via issueChallan). A refused issue cancels the draft
+  // it just made — a "held for another order" refusal is answered by sending the whole Stock-Out again, and each
+  // try used to leave a DRAFT challan behind.
+  try {
+    return await issueChallan(challan.id, input.issuedById, opts);
+  } catch (err) {
+    try {
+      await cancelChallan(challan.id); // DRAFT-only guarded flip
+    } catch (cleanupErr) {
+      logWarn('[Challan] Could not cancel the draft of a refused quick issue', { challanId: challan.id, cleanupErr });
+    }
+    throw err;
+  }
 }
 
 // ============================================

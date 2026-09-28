@@ -14,6 +14,10 @@
  *
  * The lot's bales / thans / rolls are offered here too (2026-09-28) — the same lot rows and picker as
  * the Issue dialog; a lot with no list says so and goes by quantity. One lot covers the whole order.
+ *
+ * Cloth on the lot held for another order (a PO allocated to it, or its Use Stock) is refused with
+ * STOCK_HELD_FOR_ORDER; the dialog asks "take them anyway?" and sends again with takeHeld — the same question
+ * the Job Work Order page asks (owner decision D10).
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -44,6 +48,7 @@ import { prefillQty, qtyAtLeast } from '@/lib/quantity';
 import { dyeingService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import type { ProcessPO } from '@/types/printing.types';
 import { toDateInputValue } from '@/lib/date';
 
@@ -63,6 +68,7 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [preview, setPreview] = useState<JwoIssuePreview | null>(null);
   const [sending, setSending] = useState(false);
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
 
   const jwo = po?.jobWorkOrder;
   const qtyNeeded = Number(jwo?.qtySentMeters ?? 0);
@@ -121,13 +127,20 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
     setSending(true);
     try {
       const service = processType === 'DYEING' ? dyeingService.processPOs : printProcessPOService;
-      await service.sendToMill(po.id, {
-        sentDate,
-        challanNumber: challanNumber || undefined,
-        vehicleNumber: vehicleNumber || undefined,
-        greigeStockLotId: needsLot && row?.lotId ? row.lotId : undefined,
-        details: picking ? picksPayload(row.selectedDetails) : undefined,
-      });
+      const sent = await withHeldStockConfirm(
+        (takeHeld) =>
+          service.sendToMill(po.id, {
+            sentDate,
+            challanNumber: challanNumber || undefined,
+            vehicleNumber: vehicleNumber || undefined,
+            greigeStockLotId: needsLot && row?.lotId ? row.lotId : undefined,
+            details: picking ? picksPayload(row.selectedDetails) : undefined,
+            ...(takeHeld ? { takeHeld } : {}),
+          }),
+        uom
+      );
+      // "No, keep them": nothing was sent — the dialog stays open to pick another lot or cancel
+      if (sent === undefined) return;
       handleApiSuccess(
         'Sent to Mill',
         drawsHere
@@ -241,6 +254,7 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
           </Button>
         </DialogFooter>
       </DialogContent>
+      {heldStockDialog}
     </Dialog>
   );
 }

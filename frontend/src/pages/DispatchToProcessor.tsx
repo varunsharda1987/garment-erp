@@ -51,6 +51,7 @@ import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { toDateInputValue } from '@/lib/date';
 import { formatQuantity } from '@/lib/formatters';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 
 /**
  * Blockers no lot selection can clear. Everything else the server reports on a dispatchable order
@@ -77,6 +78,8 @@ export default function DispatchToProcessor() {
   const [truckFitNotes, setTruckFitNotes] = useState<string[]>([]);
   /** Per-order message from a rejected submit, shown against the row it belongs to. */
   const [orderErrors, setOrderErrors] = useState<Record<string, string>>({});
+  // Greige held for another order: ask before taking it, then send again with takeHeld (owner decision D10)
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
 
   const {
     data: dispatchable,
@@ -300,16 +303,21 @@ export default function DispatchToProcessor() {
         };
       });
 
-      return jobWorkOrderService.dispatch({
-        processorId,
-        sentDate: sentDate || undefined,
-        vehicleNumber: vehicleNumber || undefined,
-        challanNumber: challanNumber || undefined,
-        acknowledgeWidthMismatch: widthAcknowledged || undefined,
-        orders: payloadOrders,
-      });
+      // Resolves to undefined when the user kept held greige for its order — nothing was sent
+      return withHeldStockConfirm((takeHeld) =>
+        jobWorkOrderService.dispatch({
+          processorId,
+          sentDate: sentDate || undefined,
+          vehicleNumber: vehicleNumber || undefined,
+          challanNumber: challanNumber || undefined,
+          acknowledgeWidthMismatch: widthAcknowledged || undefined,
+          ...(takeHeld ? { takeHeld } : {}),
+          orders: payloadOrders,
+        })
+      );
     },
     onSuccess: (result) => {
+      if (!result) return;
       toast.success(
         `Challan ${result.data.challanNumber} issued — ${result.data.orders.length} order(s) on their way.`,
         { duration: 8000 }
@@ -618,6 +626,7 @@ export default function DispatchToProcessor() {
           </CardContent>
         </Card>
       )}
+      {heldStockDialog}
     </div>
   );
 }

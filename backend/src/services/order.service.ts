@@ -15,6 +15,7 @@ import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { releaseReservations } from './helpers/stock-reservation.helper';
+import { releaseCancelledOrderLinks } from './helpers/po-allocation.helper';
 import { getRunFabricPosition } from './helpers/run-fabric.helper';
 import { totalProductCostOf } from './helpers/order-costing.helper';
 import { fmtQty } from './document-data/format';
@@ -704,173 +705,201 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       );
     }
 
-    // Use transaction to cancel order, work orders, deactivate BOMs, and handle lace
-    await this.prisma.$transaction(async (tx) => {
-      // Cancel the order
-      await tx.orders.update({
-        where: { id },
-        data: { status: 'CANCELLED' }, // allow-order-status: Cancel is the one hand-made order status event
-      });
+    // Use transaction to cancel order, work orders, deactivate BOMs, and handle lace. A longer timeout than the
+    // 5 s default: the PO-line recompute locks the POs and rebuilds holds line by line.
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Cancel the order
+        await tx.orders.update({
+          where: { id },
+          data: { status: 'CANCELLED' }, // allow-order-status: Cancel is the one hand-made order status event
+        });
 
-      // Cancel all related work orders
-      await tx.work_orders.updateMany({
-        where: {
-          orderId: id,
-          status: {
-            in: ['PENDING', 'IN_PRODUCTION'],
+        // Cancel all related work orders
+        await tx.work_orders.updateMany({
+          where: {
+            orderId: id,
+            status: {
+              in: ['PENDING', 'IN_PRODUCTION'],
+            },
           },
-        },
-        data: { status: 'CANCELLED' },
-      });
-
-      // Deactivate all related Order BOMs.
-      // Qty-rate audit 2026-08-24: LOCKED BOMs are exempt — order-bom.service.deactivate()
-      // refuses them, and this raw updateMany used to flatten that rule.
-      await tx.order_bom.updateMany({
-        where: {
-          orderId: id,
-          isActive: true,
-          status: { not: 'LOCKED' },
-        },
-        data: { isActive: false },
-      });
-
-      // Qty-rate audit 2026-08-24: cancellation is a 100%-quantity-reduction amendment, but the
-      // order's material requirements stayed PENDING/PO_REQUIRED with their full pre-cancel
-      // quantities and price snapshots — still purchasable, and their live rows blocked any
-      // later correction of the order. Same open-status filter as order-bom.service.
-      // cancelBomRequirements: rows already on POs (PO_GENERATED/PO_SENT/…) are kept, since a
-      // real commercial document references them.
-      const openRequirements = await tx.material_requirements.findMany({
-        where: {
-          orderId: id,
-          status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
-        },
-        select: { id: true },
-      });
-      const openRequirementIds = openRequirements.map((r) => r.id);
-      if (openRequirementIds.length > 0) {
-        await tx.material_requirements.updateMany({
-          where: { id: { in: openRequirementIds } },
           data: { status: 'CANCELLED' },
         });
-        // The cancelled order no longer holds cloth: give its reservations back to their lots
-        await releaseReservations(tx, openRequirementIds);
-      }
 
-      // Handle ALL lace allocations for this order (not just RESERVED/IN_USE)
-      const laceAllocations = await tx.lace_stock_allocation.findMany({
-        where: {
-          orderId: id,
-        },
-        include: {
-          stock: true,
-        },
-      });
+        // Deactivate all related Order BOMs.
+        // Qty-rate audit 2026-08-24: LOCKED BOMs are exempt — order-bom.service.deactivate()
+        // refuses them, and this raw updateMany used to flatten that rule.
+        await tx.order_bom.updateMany({
+          where: {
+            orderId: id,
+            isActive: true,
+            status: { not: 'LOCKED' },
+          },
+          data: { isActive: false },
+        });
 
-      if (laceAllocations.length > 0) {
-        const laceHandling = options?.laceHandling || 'RELEASE_TO_STOCK';
-        const userId = options?.userId;
-        const cancellationReason = options?.cancellationReason || 'Order cancelled';
-
-        for (const allocation of laceAllocations) {
-          // Skip allocations already in terminal states
-          if (['CONSUMED', 'RETURNED', 'TRANSFERRED'].includes(allocation.allocationStatus)) {
-            continue;
-          }
-          // Calculate unreleased quantity (allocated but not yet consumed)
-          const unreleasedQty =
-            Number(allocation.quantityAllocated) -
-            Number(allocation.quantityConsumed) -
-            Number(allocation.quantityReturned || 0);
-
-          if (unreleasedQty <= 0) {
-            // All allocated quantity was consumed, just close the allocation
-            await tx.lace_stock_allocation.update({
-              where: { id: allocation.id },
-              data: { allocationStatus: 'CONSUMED' },
-            });
-            continue;
-          }
-
-          if (laceHandling === 'RELEASE_TO_STOCK') {
-            // Release back to general stock - increase available, decrease reserved
-            const updatedStock = await tx.lace_stock.update({
-              where: { id: allocation.stockId },
-              data: {
-                quantityAvailable: { increment: unreleasedQty },
-                quantityReserved: { decrement: unreleasedQty },
-                status: 'AVAILABLE',
-                stockType: 'EXCESS',
-              },
-            });
-
-            // Update allocation status
-            await tx.lace_stock_allocation.update({
-              where: { id: allocation.id },
-              data: {
-                allocationStatus: 'RETURNED',
-                quantityReturned: { increment: unreleasedQty },
-              },
-            });
-
-            // Create audit transaction
-            await tx.lace_stock_transaction.create({
-              data: {
-                stockId: allocation.stockId,
-                transactionType: 'RETURN',
-                quantity: unreleasedQty,
-                balanceAfter: Number(updatedStock.quantityAvailable),
-                fromStyleId: allocation.styleId,
-                fromStyleCode: allocation.styleCode || undefined,
-                referenceType: 'ORDER',
-                referenceId: id,
-                notes: `${cancellationReason} - released ${unreleasedQty}m to general stock`,
-                transactionDate: new Date(),
-                performedById: userId || 'system',
-              },
-            });
-          } else if (laceHandling === 'RETURN_TO_SUPPLIER') {
-            // Mark for return to supplier
-            await tx.lace_stock.update({
-              where: { id: allocation.stockId },
-              data: {
-                returnStatus: 'PENDING_RETURN',
-                returnReason: cancellationReason,
-                returnRequestDate: new Date(),
-              },
-            });
-
-            // Update allocation status
-            await tx.lace_stock_allocation.update({
-              where: { id: allocation.id },
-              data: { allocationStatus: 'TRANSFERRED' },
-            });
-
-            // Create audit transaction
-            await tx.lace_stock_transaction.create({
-              data: {
-                stockId: allocation.stockId,
-                transactionType: 'RETURN_TO_SUPPLIER',
-                quantity: unreleasedQty,
-                balanceAfter: Number(allocation.stock.quantityAvailable),
-                referenceType: 'ORDER',
-                referenceId: id,
-                notes: `${cancellationReason} - marked for return to supplier (${unreleasedQty}m)`,
-                transactionDate: new Date(),
-                performedById: userId || 'system',
-              },
-            });
-          }
+        // Qty-rate audit 2026-08-24: cancellation is a 100%-quantity-reduction amendment, but the
+        // order's material requirements stayed PENDING/PO_REQUIRED with their full pre-cancel
+        // quantities and price snapshots — still purchasable, and their live rows blocked any
+        // later correction of the order. Same open-status filter as order-bom.service.
+        // cancelBomRequirements: rows already on POs (PO_GENERATED/PO_SENT/…) are kept, since a
+        // real commercial document references them.
+        const openRequirements = await tx.material_requirements.findMany({
+          where: {
+            orderId: id,
+            status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+          },
+          select: { id: true },
+        });
+        const openRequirementIds = openRequirements.map((r) => r.id);
+        if (openRequirementIds.length > 0) {
+          await tx.material_requirements.updateMany({
+            where: { id: { in: openRequirementIds } },
+            data: { status: 'CANCELLED' },
+          });
+          // The cancelled order no longer holds cloth: give its reservations back to their lots
+          await releaseReservations(tx, openRequirementIds);
         }
 
-        logInfo('Lace allocations handled for cancelled order', {
-          orderId: id,
-          laceHandling,
-          allocationCount: laceAllocations.length,
+        // A kept row may still hold stock of its own (a PARTIAL_STOCK row later put on a PO) — a cancelled order
+        // holds nothing, so that goes back to the lots too. Before the recompute below, which holds trims for the
+        // next orders only up to what is free on the shelf.
+        const keptRequirementIds = (
+          await tx.material_requirements.findMany({
+            where: { orderId: id, id: { notIn: openRequirementIds } },
+            select: { id: true },
+          })
+        ).map((r) => r.id);
+        await releaseReservations(tx, keptRequirementIds, undefined, { kind: 'stock' });
+
+        // Its rows on a sent PO stay (the PO is a real document), but the order takes nothing more from it: its
+        // links keep only what they already issued, what arrived for it passes to the next order in line (plain
+        // stock on a closed PO), and links left with nothing go, their rows CANCELLED (po-allocation design §6.7).
+        // After the status write above: the recompute reads the order as cancelled.
+        const passedOn = await releaseCancelledOrderLinks(tx, id, options?.userId || 'system');
+        if (passedOn.lines.length > 0) {
+          logInfo('PO links of cancelled order released', {
+            orderId: id,
+            lines: passedOn.lines.length,
+            unlinked: passedOn.unlinked.filter((u) => u.changed).map((u) => u.requirementNumber),
+          });
+        }
+
+        // Handle ALL lace allocations for this order (not just RESERVED/IN_USE)
+        const laceAllocations = await tx.lace_stock_allocation.findMany({
+          where: {
+            orderId: id,
+          },
+          include: {
+            stock: true,
+          },
         });
-      }
-    });
+
+        if (laceAllocations.length > 0) {
+          const laceHandling = options?.laceHandling || 'RELEASE_TO_STOCK';
+          const userId = options?.userId;
+          const cancellationReason = options?.cancellationReason || 'Order cancelled';
+
+          for (const allocation of laceAllocations) {
+            // Skip allocations already in terminal states
+            if (['CONSUMED', 'RETURNED', 'TRANSFERRED'].includes(allocation.allocationStatus)) {
+              continue;
+            }
+            // Calculate unreleased quantity (allocated but not yet consumed)
+            const unreleasedQty =
+              Number(allocation.quantityAllocated) -
+              Number(allocation.quantityConsumed) -
+              Number(allocation.quantityReturned || 0);
+
+            if (unreleasedQty <= 0) {
+              // All allocated quantity was consumed, just close the allocation
+              await tx.lace_stock_allocation.update({
+                where: { id: allocation.id },
+                data: { allocationStatus: 'CONSUMED' },
+              });
+              continue;
+            }
+
+            if (laceHandling === 'RELEASE_TO_STOCK') {
+              // Release back to general stock - increase available, decrease reserved
+              const updatedStock = await tx.lace_stock.update({
+                where: { id: allocation.stockId },
+                data: {
+                  quantityAvailable: { increment: unreleasedQty },
+                  quantityReserved: { decrement: unreleasedQty },
+                  status: 'AVAILABLE',
+                  stockType: 'EXCESS',
+                },
+              });
+
+              // Update allocation status
+              await tx.lace_stock_allocation.update({
+                where: { id: allocation.id },
+                data: {
+                  allocationStatus: 'RETURNED',
+                  quantityReturned: { increment: unreleasedQty },
+                },
+              });
+
+              // Create audit transaction
+              await tx.lace_stock_transaction.create({
+                data: {
+                  stockId: allocation.stockId,
+                  transactionType: 'RETURN',
+                  quantity: unreleasedQty,
+                  balanceAfter: Number(updatedStock.quantityAvailable),
+                  fromStyleId: allocation.styleId,
+                  fromStyleCode: allocation.styleCode || undefined,
+                  referenceType: 'ORDER',
+                  referenceId: id,
+                  notes: `${cancellationReason} - released ${unreleasedQty}m to general stock`,
+                  transactionDate: new Date(),
+                  performedById: userId || 'system',
+                },
+              });
+            } else if (laceHandling === 'RETURN_TO_SUPPLIER') {
+              // Mark for return to supplier
+              await tx.lace_stock.update({
+                where: { id: allocation.stockId },
+                data: {
+                  returnStatus: 'PENDING_RETURN',
+                  returnReason: cancellationReason,
+                  returnRequestDate: new Date(),
+                },
+              });
+
+              // Update allocation status
+              await tx.lace_stock_allocation.update({
+                where: { id: allocation.id },
+                data: { allocationStatus: 'TRANSFERRED' },
+              });
+
+              // Create audit transaction
+              await tx.lace_stock_transaction.create({
+                data: {
+                  stockId: allocation.stockId,
+                  transactionType: 'RETURN_TO_SUPPLIER',
+                  quantity: unreleasedQty,
+                  balanceAfter: Number(allocation.stock.quantityAvailable),
+                  referenceType: 'ORDER',
+                  referenceId: id,
+                  notes: `${cancellationReason} - marked for return to supplier (${unreleasedQty}m)`,
+                  transactionDate: new Date(),
+                  performedById: userId || 'system',
+                },
+              });
+            }
+          }
+
+          logInfo('Lace allocations handled for cancelled order', {
+            orderId: id,
+            laceHandling,
+            allocationCount: laceAllocations.length,
+          });
+        }
+      },
+      { timeout: 30000, maxWait: 10000 }
+    );
 
     logInfo('Order, work orders, BOMs, and lace allocations cancelled/deactivated', { id });
   }

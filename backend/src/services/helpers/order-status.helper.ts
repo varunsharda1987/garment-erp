@@ -28,6 +28,7 @@ import { OrderStatus, Prisma, PrismaClient } from '@prisma/client';
 import { logInfo, logWarn } from '../../utils/logger';
 import { qtyAtLeast } from '../../utils/quantity';
 import { matchSaleOrderLine } from './sale-order-dispatch.helper';
+import { releaseCompletedOrderHolds } from './po-allocation.helper';
 
 type DbClient = Prisma.TransactionClient | PrismaClient;
 
@@ -260,6 +261,8 @@ export async function syncOrderStatus(
         data: { status }, // allow-order-status: the derivation authority itself
       });
       logInfo(`[OrderStatus] ${orderId} ${order.status} -> ${status} (${reason})`);
+      // A finished order's leftover receipt holds go back to free stock (owner 2026-09-28, po-allocation D11)
+      if (DONE.includes(status)) await releaseCompletedOrderHolds(tx, orderId);
     }
     return status;
   } catch (err) {

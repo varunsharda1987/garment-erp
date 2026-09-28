@@ -147,6 +147,8 @@ export interface IssueWithDetailsPayload {
   challanNumber?: string;
   acknowledgeWidthMismatch?: boolean;
   finishedFabricId?: string | null;
+  /** The user confirmed "take them anyway" for goods held for other orders (hooks/useHeldStockConfirm) */
+  takeHeld?: boolean;
   lots: IssueLotWithDetailsInput[];
 }
 
@@ -303,6 +305,8 @@ export interface IssueJwoPayload {
   fabricDetails?: FabricPiecePick[];
   vehicleNumber?: string;
   acknowledgeWidthMismatch?: boolean;
+  /** The user confirmed "take them anyway" for goods held for other orders (hooks/useHeldStockConfirm) */
+  takeHeld?: boolean;
 }
 
 /** What an issue did: a new challan, cloth drawn where it lies at the processor, or both. */
@@ -437,6 +441,8 @@ export interface DispatchPayload {
   vehicleNumber?: string;
   challanNumber?: string;
   acknowledgeWidthMismatch?: boolean;
+  /** The user confirmed "take them anyway" for goods held for other orders, for the whole truck */
+  takeHeld?: boolean;
   orders: DispatchOrderInput[];
 }
 

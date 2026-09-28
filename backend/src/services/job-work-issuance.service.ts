@@ -19,6 +19,7 @@
  *   both legacy values; four AT_MILL-only dashboards start seeing issued orders).
  */
 
+import { randomUUID } from 'crypto';
 import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { createChallan, type CreateChallanItemInput } from './challan.service';
@@ -27,7 +28,14 @@ import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { jwoStockUnit, setJwoStatus } from './helpers/jwo-status.helper';
-import { consumeReservations } from './helpers/stock-reservation.helper';
+import { consumeReservations, unconsumeReservations } from './helpers/stock-reservation.helper';
+import {
+  heldForOtherOrders,
+  heldStockConflict,
+  takeHeldGoods,
+  STOCK_HELD_FOR_ORDER,
+  type HeldForOther,
+} from './helpers/po-allocation.helper';
 import {
   coveringChallanWhere,
   challanOrigin,
@@ -40,6 +48,7 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
 import { formatDate, formatDateTime, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
+import { unitShort } from '../utils/units';
 import {
   fabricLotLabel,
   markPiecesOut,
@@ -105,6 +114,12 @@ export interface IssueJwoOptions {
    * marked issued to this job and its challan. Without picks the lot gives up the order's quantity.
    */
   fabricPicks?: FabricPiecePick[];
+  /**
+   * The user confirmed "take them anyway": greige / lace on the picked lots that is held for OTHER orders is taken
+   * for this job, and those orders' need reopens (owner decision D10). Without it such an issue is refused with
+   * STOCK_HELD_FOR_ORDER, naming who holds the goods.
+   */
+  takeHeld?: boolean;
 }
 
 export interface IssueJwoResult {
@@ -154,6 +169,8 @@ export const ISSUE_ERROR_CODES = {
   NO_ORDERS: 'NO_ORDERS',
   PROCESSOR_MISMATCH: 'PROCESSOR_MISMATCH',
   LOT_REUSED_ACROSS_ORDERS: 'LOT_REUSED_ACROSS_ORDERS',
+  /** The picked greige / lace is held for other orders — a warning the user may overrule (takeHeld, D10) */
+  STOCK_HELD_FOR_ORDER,
 } as const;
 
 /** Nominal greige width varies loom to loom — this is the acceptable slack. */
@@ -166,16 +183,115 @@ const JWO_ISSUE_INCLUDE = {
   greigeLace: { select: { id: true, laceCode: true, laceName: true } },
   finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
   labDip: { select: { fabric: { select: { greigeId: true } } } },
+  workOrder: { select: { orderId: true } },
   requirementLinks: {
     select: {
       material_requirements: {
-        select: { id: true, materialId: true, linkedRequirementId: true, materials: { select: { greigeId: true } } },
+        select: {
+          id: true,
+          materialId: true,
+          linkedRequirementId: true,
+          orderId: true,
+          materials: { select: { greigeId: true } },
+        },
       },
     },
   },
 } satisfies Prisma.job_work_ordersInclude;
 
 type JwoForIssue = Prisma.job_work_ordersGetPayload<{ include: typeof JWO_ISSUE_INCLUDE }>;
+
+/** The order a job works for: its requirement's order, else its work order's. A stock job has none. */
+const jwoOrderId = (jwo: Pick<JwoForIssue, 'requirementLinks' | 'workOrder'>): string | null =>
+  jwo.requirementLinks.find((l) => l.material_requirements.orderId)?.material_requirements.orderId ??
+  jwo.workOrder?.orderId ??
+  null;
+
+/** One picked greige / lace lot, as the held-goods gate reads it */
+interface PickedLot {
+  table: 'greige' | 'lace';
+  lotId: string;
+  /** materials.id === master.id, so a lot's greigeId / laceId IS its materials id */
+  materialId: string;
+  lotCode: string;
+  qty: number;
+}
+
+/** A picked lot that gives this job less than it asks for, because other orders hold the rest */
+export interface HeldShortLot extends PickedLot {
+  /** How much of other orders' holds the issue needs from this lot */
+  short: number;
+  held: HeldForOther[];
+}
+
+const pickedLotsOf = (v: Pick<ValidateIssueResult, 'lots' | 'laceLots'>): PickedLot[] => [
+  ...v.laceLots.map((l) => ({
+    table: 'lace' as const,
+    lotId: l.row.id,
+    materialId: l.row.laceId,
+    lotCode: l.row.laceMaster?.laceCode ?? l.row.id.slice(0, 8),
+    qty: l.qty,
+  })),
+  ...v.lots.map((l) => ({
+    table: 'greige' as const,
+    lotId: l.row.id,
+    materialId: l.row.greigeId,
+    lotCode: l.row.greige?.greigeCode ?? l.row.id.slice(0, 8),
+    qty: l.qty,
+  })),
+];
+
+/**
+ * The held-goods gate (po-allocation design §6.7, owner decision D10): a picked lot gives this job what is on it
+ * less what OTHER orders hold there — an order may always use what is held for itself, and the job what is held
+ * for its own requirements (a stock job's have no order). Reads the lot as it stands: call it inside the issue's
+ * transaction before any lot is consumed, or outside it for the friendly check.
+ */
+async function heldShortOnLots(
+  client: Tx | typeof prisma,
+  jwo: Pick<JwoForIssue, 'requirementLinks' | 'workOrder'>,
+  picked: PickedLot[]
+): Promise<HeldShortLot[]> {
+  const out: HeldShortLot[] = [];
+  const takerOrderId = jwoOrderId(jwo);
+  const ownRequirementIds = new Set(jobRequirementIds(jwo.requirementLinks));
+  const LOT_QTY = { quantityAvailable: true, quantityReserved: true } as const;
+  for (const p of picked) {
+    const lot =
+      p.table === 'greige'
+        ? await client.greige_stock.findUnique({ where: { id: p.lotId }, select: LOT_QTY })
+        : await client.lace_stock.findUnique({ where: { id: p.lotId }, select: LOT_QTY });
+    // A lot's reserved figure is the sum of the holds on it: nothing reserved, nobody holds it
+    if (!lot || !qtyExceeds(lot.quantityReserved, 0)) continue;
+    const held = (
+      await heldForOtherOrders(client, {
+        materialId: p.materialId,
+        lotIds: [p.lotId],
+        excludeOrderId: takerOrderId,
+      })
+    ).filter((h) => !ownRequirementIds.has(h.requirementId));
+    if (held.length === 0) continue;
+    const othersHeld = held.reduce((sum, h) => sum + h.qty, 0);
+    const free = Number(lot.quantityAvailable) - othersHeld;
+    // More than the lot holds at all is INSUFFICIENT_GREIGE / _LACE's business: only held goods can be taken
+    const short = Math.round(Math.min(othersHeld, p.qty - free) * 1000) / 1000;
+    if (qtyExceeds(short, 0)) out.push({ ...p, short, held });
+  }
+  return out;
+}
+
+/** "150 m of GRG-0042 is held for ORD…030 (MR2608-0157). …" */
+function heldShortMessage(jwo: Pick<JwoForIssue, 'uom'>, heldShort: HeldShortLot[]): string {
+  const unit = unitShort(jwo.uom);
+  const lots = heldShort.map((s) => `${s.short} ${unit} of ${s.lotCode}`).join(', ');
+  const who = [
+    ...new Set(heldShort.flatMap((s) => s.held.map((h) => `${h.orderNumber ?? 'no order'} (${h.requirementNumber})`))),
+  ];
+  return (
+    `${lots} is held for ${who.join(', ')}. ` +
+    `Take it anyway and their need goes back to be bought again, or pick other lots.`
+  );
+}
 
 // Named whole thans rarely add up to the job's exact metres (owner, 2026-09-24: ±1%). The one
 // definition lives beside the than rows in greige-stock.service — a lot's count uses it too.
@@ -246,6 +362,8 @@ export interface ValidateIssueResult {
   } | null;
   expectedGreigeId: string | null;
   expectedGreige: { id: string; greigeCode: string; greigeName: string } | null;
+  /** Picked lots that other orders hold beyond what is free for this job, and who holds them (D10) */
+  heldShort: HeldShortLot[];
   blockers: IssueBlocker[];
 }
 
@@ -606,6 +724,13 @@ export async function validateIssue(
     lots.sort((a, b) => b.qty - a.qty);
   }
 
+  // Goods held for other orders (po-allocation design §6.7): a warning, not a wall (owner decision D10). The
+  // user may take them anyway (takeHeld) — the issue then reopens those orders' need (issueOneWithinTx).
+  const heldShort = await heldShortOnLots(prisma, jwo, pickedLotsOf({ lots, laceLots }));
+  if (heldShort.length > 0 && !opts.takeHeld) {
+    blockers.push({ code: ISSUE_ERROR_CODES.STOCK_HELD_FOR_ORDER, message: heldShortMessage(jwo, heldShort) });
+  }
+
   let fabricLotRow: ValidateIssueResult['fabricLotRow'] = null;
   if (fabricLotId) {
     const row = await prisma.fabric_stock.findUnique({
@@ -701,7 +826,20 @@ export async function validateIssue(
     }
   }
 
-  return { jwo, lots, laceLots, fabricLotRow, expectedGreigeId, expectedGreige, blockers };
+  return { jwo, lots, laceLots, fabricLotRow, expectedGreigeId, expectedGreige, heldShort, blockers };
+}
+
+/**
+ * The error an issue that cannot go ahead throws: a blocker the user must fix (422, the first one), or — when
+ * the only thing in the way is goods held for other orders — the 409 the screen answers with "take them anyway".
+ */
+function issueRefusal(blockers: IssueBlocker[], heldShort: HeldShortLot[], prefix = ''): Error {
+  const hard = blockers.find((b) => b.code !== ISSUE_ERROR_CODES.STOCK_HELD_FOR_ORDER);
+  if (hard) return new JobWorkOrderError(hard.code, `${prefix}${hard.message}`);
+  return heldStockConflict(
+    `${prefix}${blockers[0]?.message ?? 'The picked goods are held for another order.'}`,
+    heldShort.flatMap((s) => s.held)
+  );
 }
 
 /** One greige lot a job could draw, placed relative to the job's processor. */
@@ -931,6 +1069,8 @@ interface IssueOneOptions {
   skipGreigeConsumption?: boolean;
   /** Named thans per greige lot id — see IssueJwoOptions.thanPicks */
   thanPicks?: Record<string, IssueDetailInput[]>;
+  /** See IssueJwoOptions.takeHeld */
+  takeHeld?: boolean;
 }
 
 /** The challan shape both callers hand down — whatever createChallan returned. */
@@ -964,6 +1104,17 @@ async function issueOneWithinTx(
   const { jwo, lots, laceLots, fabricLotRow } = v;
   const jwoId = jwo.id;
   const warnings: string[] = [];
+
+  // 3-0. GOODS HELD FOR OTHER ORDERS (D10) — read again here, before any lot is consumed: holds may have moved
+  // since validateIssue. Without takeHeld the issue is refused as the dialog would have been; with it the goods
+  // are taken at 5a, once the job's own holds are used up.
+  const heldNow = await heldShortOnLots(tx, jwo, pickedLotsOf(v));
+  if (heldNow.length > 0 && !opts.takeHeld) {
+    throw heldStockConflict(
+      heldShortMessage(jwo, heldNow),
+      heldNow.flatMap((s) => s.held)
+    );
+  }
 
   // 3a. CONSUME LACE — guarded, per lot. Store lace is ledgered against the challan it travels on;
   // lace already at this processor (delivered straight there) is DRAWN where it lies, ledgered
@@ -1211,6 +1362,30 @@ async function issueOneWithinTx(
     }
   }
 
+  // 5a. HELD GOODS TAKEN (the user confirmed, D10) — after step 5, so the job's own holds are spent first and never
+  // counted as another's. Each losing order's need reopens to be bought again (takeHeldGoods, audit-logged).
+  for (const s of heldNow) {
+    const taken = await takeHeldGoods(tx, {
+      materialId: s.materialId,
+      lotIds: [s.lotId],
+      quantity: s.short,
+      takerOrderId: jwoOrderId(jwo),
+      userId: opts.userId,
+      reference: `Job work ${jwo.jobWorkNumber}`,
+    });
+    if (qtyExceeds(taken.short, 0)) {
+      warnings.push(
+        `${taken.short} ${unitShort(jwo.uom)} of lot ${s.lotCode} was reserved outside any order's hold — check the lot.`
+      );
+    }
+    for (const f of taken.from) {
+      logInfo(
+        `[Issuance] ${jwo.jobWorkNumber} took ${f.quantity} held for ${f.orderNumber ?? f.requirementNumber}` +
+          (f.balanceRequirementNumber ? ` — reopened as ${f.balanceRequirementNumber}` : ` — now ${f.status}`)
+      );
+    }
+  }
+
   // 6. (challan → ISSUED is a CHALLAN-level act, so the caller does it once — see below)
 
   // 7. STATUTORY — set once, kept silently thereafter (R2: immutable once set)
@@ -1304,7 +1479,7 @@ async function issueOneWithinTx(
 export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): Promise<IssueJwoResult> {
   const v = await validateIssue(jwoId, opts);
   if (v.blockers.length > 0) {
-    throw new JobWorkOrderError(v.blockers[0].code, v.blockers[0].message);
+    throw issueRefusal(v.blockers, v.heldShort);
   }
   const { jwo, lots, laceLots, fabricLotRow } = v;
   const issueDate = opts.sentDate ?? new Date();
@@ -1438,6 +1613,8 @@ export interface DispatchInput {
   /** Manual challan-book reference for the whole vehicle. */
   challanNumber?: string;
   acknowledgeWidthMismatch?: boolean;
+  /** See IssueJwoOptions.takeHeld — for every order on the truck */
+  takeHeld?: boolean;
   orders: DispatchOrderInput[];
 }
 
@@ -1517,6 +1694,7 @@ export async function validateDispatch(rawInput: DispatchInput): Promise<Validat
       fabricStockLotId: order.fabricStockLotId,
       acknowledgeWidthMismatch: input.acknowledgeWidthMismatch,
       sentDate: input.sentDate,
+      takeHeld: input.takeHeld,
     });
     validations.push(v);
     // Cloth already at the processor does not travel on this truck: its job is allocated where it
@@ -1632,8 +1810,15 @@ export async function dispatchJobWorkOrders(rawInput: DispatchInput): Promise<Di
     throw new JobWorkOrderError(v.dispatchBlockers[0].code, v.dispatchBlockers[0].message);
   }
   if (v.orderBlockers.length > 0) {
-    const first = v.orderBlockers[0];
-    throw new JobWorkOrderError(first.blockers[0].code, `${first.jobWorkNumber}: ${first.blockers[0].message}`);
+    // A blocker to fix on any order comes first; goods held for other orders, alone, are the "take them anyway" 409
+    const first =
+      v.orderBlockers.find((o) => o.blockers.some((b) => b.code !== ISSUE_ERROR_CODES.STOCK_HELD_FOR_ORDER)) ??
+      v.orderBlockers[0];
+    throw issueRefusal(
+      first.blockers,
+      v.validations.flatMap((one) => one.heldShort),
+      `${first.jobWorkNumber}: `
+    );
   }
 
   const issueDate = input.sentDate ?? new Date();
@@ -1696,6 +1881,7 @@ export async function dispatchJobWorkOrders(rawInput: DispatchInput): Promise<Di
             challanNumber: input.challanNumber,
             vehicleNumber: input.vehicleNumber,
             thanPicks: thanPicksOf(input.orders.find((o) => o.jwoId === one.jwo.id) ?? { jwoId: one.jwo.id }),
+            takeHeld: input.takeHeld,
           },
           issueDate
         );
@@ -1722,14 +1908,77 @@ export async function dispatchJobWorkOrders(rawInput: DispatchInput): Promise<Di
   return result;
 }
 
+/** The requirements whose holds a job's issue used: its own links, and the MATERIAL rows they came from */
+function jobRequirementIds(
+  links: Array<{ material_requirements: { id: string; linkedRequirementId: string | null } }>
+): string[] {
+  return [
+    ...new Set(
+      links.flatMap((l) =>
+        [l.material_requirements.id, l.material_requirements.linkedRequirementId].filter((id): id is string => !!id)
+      )
+    ),
+  ];
+}
+
+/** The audit event a cancel notes its job's requirements under (read back by unissueForCancel) */
+const JOB_CANCEL_REQUIREMENTS_EVENT = 'JOB_WORK_CANCELLED_REQUIREMENTS';
+
+/**
+ * Cancelling a job deletes its requirement links, but the cloth — and with it the order's hold — comes back only at
+ * the disposition (unissueForCancel), a later request. Call this in the cancel's transaction BEFORE the links are
+ * deleted: it notes which requirements the issue took holds from, so the disposition can give them back (C9).
+ */
+export async function noteCancelledJobRequirements(tx: Tx, jwoId: string, userId: string): Promise<string[]> {
+  const links = await tx.requirement_jwo_links.findMany({
+    where: { jobWorkOrderId: jwoId },
+    select: { material_requirements: { select: { id: true, linkedRequirementId: true } } },
+  });
+  const requirementIds = jobRequirementIds(links);
+  if (requirementIds.length === 0) return [];
+  await tx.audit_logs.create({
+    data: {
+      id: randomUUID(),
+      userId,
+      action: 'UPDATE',
+      entityType: 'job_work_order',
+      entityId: jwoId,
+      newValues: { event: JOB_CANCEL_REQUIREMENTS_EVENT, requirementIds },
+    },
+  });
+  return requirementIds;
+}
+
+/** The job's requirements: its links while it has them, else what its cancel noted */
+async function cancelledJobRequirementIds(tx: Tx, jwoId: string): Promise<string[]> {
+  const links = await tx.requirement_jwo_links.findMany({
+    where: { jobWorkOrderId: jwoId },
+    select: { material_requirements: { select: { id: true, linkedRequirementId: true } } },
+  });
+  if (links.length > 0) return jobRequirementIds(links);
+  const notes = await tx.audit_logs.findMany({
+    where: { entityType: 'job_work_order', entityId: jwoId },
+    orderBy: { timestamp: 'desc' },
+    select: { newValues: true },
+  });
+  for (const note of notes) {
+    const values = note.newValues as { event?: unknown; requirementIds?: unknown } | null;
+    if (values?.event === JOB_CANCEL_REQUIREMENTS_EVENT && Array.isArray(values.requirementIds)) {
+      return values.requirementIds.filter((id): id is string => typeof id === 'string');
+    }
+  }
+  return [];
+}
+
 /**
  * Reverse an issue as part of JWO cancellation — runs inside the CALLER's transaction.
  * Restores every consumed lot (guarded — never drives quantityConsumed negative),
  * writes RETURN ledger rows, syncs stock_levels (the piece the old cancel path missed),
  * and cancels the outward challan so ITC-04 stops declaring the movement.
  *
- * No reservation resurrection: consumption is available-only, so nothing was taken from
- * quantityReserved; requirements reverted to PO_REQUIRED get re-reserved by re-planning.
+ * The greige / lace that comes back is held for its order again (C9): the issue consumed the order's holds, and
+ * without this the returned cloth came back free for any order to take. Goods the issue took from ANOTHER order's
+ * hold (takeHeld) come back free — that order's need was already reopened to be bought again.
  */
 export async function unissueForCancel(
   tx: Tx,
@@ -1898,6 +2147,19 @@ export async function unissueForCancel(
     await settleLotBack(tx, { lotId: jwo.fabricStockLotId, scope: { jobWorkOrderId: jwo.id }, mode: 'ALL' });
   }
 
+  // C9: the greige / lace is back on its lots, so the order's hold is too — rows on the returned lots first. Only a
+  // requirement that may still hold goods gets it (not a cancelled one, nor one of a finished or cancelled order).
+  const returnedQty =
+    laceComponents.reduce((sum, c) => sum + Number(c.qtySent), 0) + greigeLots.reduce((sum, l) => sum + l.qty, 0);
+  if (qtyExceeds(returnedQty, 0)) {
+    const requirementIds = await cancelledJobRequirementIds(tx, jwo.id);
+    const restored = await unconsumeReservations(tx, requirementIds, returnedQty, [
+      ...laceComponents.map((c) => c.laceStockId as string),
+      ...greigeLots.map((l) => l.id),
+    ]);
+    if (restored > 0) logInfo(`[Issuance] ${jwo.jobWorkNumber} cancelled — ${restored} held for its order again`);
+  }
+
   // Cancel the outward challan — safe HERE because this same tx just restored the stock
   // the issue deducted (the DRAFT-only guard on cancelChallan protects everyone else).
   // ITC-04 and reconciliation filter status != CANCELLED, so the movement stops counting.
@@ -1927,6 +2189,8 @@ export interface IssueJwoWithDetailsOptions {
   vehicleNumber?: string;
   finishedFabricId?: string | null;
   acknowledgeWidthMismatch?: boolean;
+  /** See IssueJwoOptions.takeHeld */
+  takeHeld?: boolean;
 }
 
 /**
@@ -1971,6 +2235,7 @@ export async function issueJobWorkOrderWithDetails(
     finishedFabricId: opts.finishedFabricId,
     acknowledgeWidthMismatch: opts.acknowledgeWidthMismatch,
     thanPicks,
+    takeHeld: opts.takeHeld,
   });
   logInfo(
     `[Issuance] ${Object.keys(thanPicks).length} lot(s) issued than by than (` +
@@ -2005,6 +2270,7 @@ export async function issueForSendToMill(
     vehicleNumber: plain.vehicleNumber,
     finishedFabricId: plain.finishedFabricId,
     acknowledgeWidthMismatch: plain.acknowledgeWidthMismatch,
+    takeHeld: plain.takeHeld,
   });
 }
 

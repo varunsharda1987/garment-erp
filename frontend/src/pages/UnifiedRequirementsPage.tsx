@@ -55,6 +55,10 @@ import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
 import { OrderStyleLabelView } from '@/components/requirements/OrderStyleLabelView';
 import { groupRequirementsByOrderStyle } from '@/components/requirements/order-style-groups';
+import { LinkedPOList, LinkPOButton, OpenPOSupplyNote } from '@/components/requirements/OpenPOSupplyNote';
+import { distinctSupplyLines, hasLinkableSupply, type POLinkTarget } from '@/components/requirements/open-po-supply';
+import { AllocateToOrdersDialog } from '@/components/purchase-orders/AllocateToOrdersDialog';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   DEFAULT_GROUP_PAGE_SIZE,
   DEFAULT_LIST_PAGE_SIZE,
@@ -243,8 +247,13 @@ export default function UnifiedRequirementsPage() {
     (mrpStats?.requirementsNeedingPO || 0) +
     (mrpStats?.processingNeedingAssignment || 0) +
     (serviceStats?.needsProcessorCount || 0);
+  // "On PO / JWO": a row linked to a SENT PO is PO_SENT (awaitingReceipt) — counting PO_GENERATED alone dropped
+  // it from every card but Total (design M2)
   const poGenerated =
-    (mrpStats?.poInProgress || 0) + (mrpStats?.processingPoGenerated || 0) + (serviceStats?.poGeneratedCount || 0);
+    (mrpStats?.poInProgress || 0) +
+    (mrpStats?.awaitingReceipt || 0) +
+    (mrpStats?.processingPoGenerated || 0) +
+    (serviceStats?.poGeneratedCount || 0);
   const overdueCount = mrpStats?.overdueRequirements || 0;
   // Est. Service Cost = work-order services + open processing job work (billable fabric-out basis)
   const estimatedValue = (serviceStats?.estimatedTotalCost || 0) + (mrpStats?.processingEstimatedCost || 0);
@@ -342,7 +351,7 @@ export default function UnifiedRequirementsPage() {
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">PO / JWO Generated</p>
+                <p className="text-xs text-muted-foreground">On PO / JWO</p>
                 <p className="text-xl font-bold text-success">{poGenerated}</p>
               </div>
               <div className="h-9 w-9 rounded-full bg-success-muted flex items-center justify-center">
@@ -445,6 +454,17 @@ function MaterialRequirementsTab({
   });
   const [showVendorAllocation, setShowVendorAllocation] = useState(false);
   const [showBulkPOGeneration, setShowBulkPOGeneration] = useState(false);
+
+  // Link to an open PO: the PO page's Allocate dialog, on that PO, with only these requirements ticked. The
+  // target outlives the close so the dialog can animate out.
+  const { canAny } = usePermissions();
+  const canLinkPO = canAny('mrp', 'purchaseOrders');
+  const [linkTarget, setLinkTarget] = useState<POLinkTarget | null>(null);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const openLinkPO = (target: POLinkTarget) => {
+    setLinkTarget(target);
+    setLinkDialogOpen(true);
+  };
 
   // PO generation success banner
   const [poGeneratedCount, setPOGeneratedCount] = useState<number | null>(null);
@@ -742,6 +762,11 @@ function MaterialRequirementsTab({
     }
     return [...names];
   }, [selectedRequirementRows]);
+  // Advisory only: ticked rows an open PO already has room for — linking them saves buying twice
+  const linkableSelectedCount = useMemo(
+    () => selectedRequirementRows.filter(hasLinkableSupply).length,
+    [selectedRequirementRows]
+  );
   const manualPOSupplierMismatch =
     poSupplierId.length > 0 &&
     selectedRequirementRows.some((r) => r.preferredSupplierId && r.preferredSupplierId !== poSupplierId);
@@ -1043,6 +1068,14 @@ function MaterialRequirementsTab({
           )}
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {linkableSelectedCount > 0 && (
+            <span
+              className="text-amber-700"
+              title="An open PO has room for these — use Link on the row instead of raising another PO"
+            >
+              {linkableSelectedCount} selected could be linked to open POs instead
+            </span>
+          )}
           {selectedIds.length > 0 && (
             <>
               <span className="text-primary font-medium">{selectedIds.length} selected</span>
@@ -1197,6 +1230,7 @@ function MaterialRequirementsTab({
             isSelectable={canOrderFromHere}
             notSelectableHint={(r) => (!canOrderFromHere(r) && needsPO(r) ? THREAD_PO_HINT : null)}
             onUseStock={openAllocateStockDialog}
+            onLinkPO={canLinkPO ? openLinkPO : undefined}
             onCancel={(r) => {
               setRequirementToCancel(r.id);
               setCancelDialogOpen(true);
@@ -1242,6 +1276,14 @@ function MaterialRequirementsTab({
                               </div>
                             </div>
                             <div className="flex items-center gap-3 text-sm">
+                              {/* One material: its open POs' free figure once, not per row */}
+                              {viewMode === 'byMaterial' && (
+                                <OpenPOSupplyNote
+                                  supply={distinctSupplyLines(group.requirements)}
+                                  unit={group.requirements[0].unit}
+                                  headlineOnly
+                                />
+                              )}
                               <Badge variant="secondary">{group.count} items</Badge>
                               {(() => {
                                 // A total only means something in one unit — metres plus pieces is not a number
@@ -1379,6 +1421,12 @@ function MaterialRequirementsTab({
                                       >
                                         {MaterialRequirementStatusLabels[req.status]}
                                       </span>
+                                      <LinkedPOList reqs={[req]} unit={req.unit} className="mt-1" />
+                                      <OpenPOSupplyNote
+                                        supply={req.openPOSupply}
+                                        unit={req.unit}
+                                        className="mt-1 max-w-[260px]"
+                                      />
                                     </TableCell>
                                     {viewMode !== 'byParty' && (
                                       <TableCell>
@@ -1401,6 +1449,7 @@ function MaterialRequirementsTab({
                                               Use Stock
                                             </Button>
                                           )}
+                                        {canLinkPO && <LinkPOButton reqs={[req]} onLink={openLinkPO} />}
                                         {!isQtyZero(req.shortfall) &&
                                           req.material?.materialType === 'FABRIC' &&
                                           !req.material?.fabricId &&
@@ -1590,6 +1639,8 @@ function MaterialRequirementsTab({
                           >
                             {MaterialRequirementStatusLabels[req.status]}
                           </span>
+                          <LinkedPOList reqs={[req]} unit={req.unit} className="mt-1" />
+                          <OpenPOSupplyNote supply={req.openPOSupply} unit={req.unit} className="mt-1 max-w-[260px]" />
                         </TableCell>
                         <TableCell>
                           <span className="text-sm">{req.preferredSupplier?.name || 'Not Assigned'}</span>
@@ -1610,6 +1661,7 @@ function MaterialRequirementsTab({
                                   Use Stock
                                 </Button>
                               )}
+                            {canLinkPO && <LinkPOButton reqs={[req]} onLink={openLinkPO} />}
                             {!isQtyZero(req.shortfall) &&
                               req.material?.materialType === 'FABRIC' &&
                               !req.material?.fabricId &&
@@ -1690,11 +1742,23 @@ function MaterialRequirementsTab({
         open={showBulkPOGeneration}
         onOpenChange={setShowBulkPOGeneration}
         requirementIds={selectedIds}
+        requirements={selectedRequirementRows}
         onComplete={(result) => {
           refreshData();
           if (result?.totalPOs) setPOGeneratedCount(result.totalPOs);
         }}
       />
+
+      {/* Link to an open PO — the dialog refreshes requirements and POs itself when it saves */}
+      {linkTarget && (
+        <AllocateToOrdersDialog
+          poId={linkTarget.poId}
+          itemIds={linkTarget.itemIds}
+          focusRequirementIds={linkTarget.focusRequirementIds}
+          open={linkDialogOpen}
+          onOpenChange={setLinkDialogOpen}
+        />
+      )}
 
       <ConfirmDialog
         open={cancelDialogOpen}

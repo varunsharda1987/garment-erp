@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { BusinessError, NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { BusinessError, ConflictError, NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
 import { issueJobWorkOrder, issueForSendToMill } from '../services/job-work-issuance.service';
+import { STOCK_HELD_FOR_ORDER } from '../services/helpers/po-allocation.helper';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { maxNumericSuffix, seedScopedSequenceIfMissing, generateJobWorkNumber } from '../utils/jobWorkNumber';
@@ -1738,7 +1739,12 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         finishedFabricId,
       });
     } catch (sendError) {
-      const reason = sendError instanceof Error ? sendError.message : 'unknown error';
+      // Cloth held for another order is a question, not a failure (owner decision D10): the order is created,
+      // and Send to Mill asks "take them anyway?" — this one-click path cannot ask
+      const held = sendError instanceof ConflictError && sendError.details?.code === STOCK_HELD_FOR_ORDER;
+      const reason =
+        (sendError instanceof Error ? sendError.message : 'unknown error') +
+        (held ? ' Send it to Mill to take the cloth anyway.' : '');
       logger.error('Auto-send failed after dyeing JWO creation — order left READY_TO_SEND', {
         jobId: job.id,
         error: sendError,
@@ -1819,7 +1825,7 @@ export const deleteProcessPO = async (req: Request, res: Response, _next: NextFu
 // 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
 export const sendProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
-  const { sentDate, challanNumber, vehicleNumber, greigeStockLotId, details } = req.body;
+  const { sentDate, challanNumber, vehicleNumber, greigeStockLotId, details, takeHeld } = req.body;
   const userId = req.user?.userId || req.user?.id;
   if (!userId) {
     throw new UnauthorizedError();
@@ -1881,6 +1887,9 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
       vehicleNumber,
       finishedFabricId,
       details,
+      // The user confirmed taking cloth held for other orders (D10): the 409 STOCK_HELD_FOR_ORDER passes
+      // through untouched, and Send to Mill answers it by sending again with takeHeld
+      takeHeld,
     });
   } catch (e) {
     if (e instanceof JobWorkOrderError) {

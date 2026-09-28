@@ -89,6 +89,7 @@ import { openPDF } from '@/lib/document-utils';
 import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage';
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { section143Days, SECTION_143_CRITICAL_DAYS } from '@/lib/section143';
 import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
@@ -172,6 +173,8 @@ export default function JobWorkOrderDetail() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [waDialogOpen, setWaDialogOpen] = useState(false);
   const { cutableWidthDeduction } = useDefaultSettings();
+  // Greige / lace held for another order: ask before taking it, then issue again with takeHeld (owner decision D10)
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
   const [cancelReason, setCancelReason] = useState('');
   // Two-step cancel: disposition dialog shown after cancellation for issued JWOs
   const [dispositionDialogOpen, setDispositionDialogOpen] = useState(false);
@@ -368,7 +371,8 @@ export default function JobWorkOrderDetail() {
     qtyExceeds(Math.abs(issueFabricActual - issueFabricTarget), (issueFabricTarget * THAN_PICK_TOLERANCE_PCT) / 100);
 
   const issueMutation = useMutation({
-    mutationFn: () => {
+    // Resolves to undefined when the goods were held for another order and the user kept them for it
+    mutationFn: async () => {
       const filledRows = issueRows.filter((row) => row.lotId && parseFloat(row.qty) > 0);
       const lotAvailable = (lotId: string, fallback: number) =>
         issuePreview?.availableLots.find((lot) => lot.id === lotId)?.quantityAvailable ?? fallback;
@@ -379,21 +383,25 @@ export default function JobWorkOrderDetail() {
       // Any picked than sends the whole issue through issue-with-details: rows with picks name their
       // thans (COUNTED — the server converts them), rows without travel as an ACTUAL quantity.
       if (isGreigeIssue && filledRows.some(rowHasPicks)) {
-        return jobWorkOrderService
-          .issueWithDetails(id!, {
-            sentDate: issueSentDate || undefined,
-            vehicleNumber: issueVehicle || undefined,
-            acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
-            lots: filledRows.map((row) =>
-              rowHasPicks(row)
-                ? { greigeStockLotId: row.lotId, details: picksPayload(row.selectedDetails) }
-                : {
-                    greigeStockLotId: row.lotId,
-                    qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
-                  }
-            ),
-          })
-          .then((result) => ({ ...result, thansUnrecorded, fabricUnrecorded: false }));
+        const sent = await withHeldStockConfirm(
+          (takeHeld) =>
+            jobWorkOrderService.issueWithDetails(id!, {
+              sentDate: issueSentDate || undefined,
+              vehicleNumber: issueVehicle || undefined,
+              acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
+              ...(takeHeld ? { takeHeld } : {}),
+              lots: filledRows.map((row) =>
+                rowHasPicks(row)
+                  ? { greigeStockLotId: row.lotId, details: picksPayload(row.selectedDetails) }
+                  : {
+                      greigeStockLotId: row.lotId,
+                      qty: snapToLimit(parseFloat(row.qty), lotAvailable(row.lotId, parseFloat(row.qty))),
+                    }
+              ),
+            }),
+          jwo?.uom
+        );
+        return sent && { ...sent, thansUnrecorded, fabricUnrecorded: false };
       }
       const payload: IssueJwoPayload = {
         sentDate: issueSentDate || undefined,
@@ -424,11 +432,15 @@ export default function JobWorkOrderDetail() {
       }
       // A listed fabric lot that went by quantity leaves its rolls / thans unnamed — say so, as for greige
       const fabricUnrecorded = issueLotLists && !issueByPieces;
-      return jobWorkOrderService
-        .issue(id!, payload)
-        .then((result) => ({ ...result, thansUnrecorded, fabricUnrecorded }));
+      const sent = await withHeldStockConfirm(
+        (takeHeld) => jobWorkOrderService.issue(id!, takeHeld ? { ...payload, takeHeld } : payload),
+        jwo?.uom
+      );
+      return sent && { ...sent, thansUnrecorded, fabricUnrecorded };
     },
     onSuccess: (result) => {
+      // Kept for the other order: nothing was issued, the dialog stays open to pick other lots
+      if (!result) return;
       setIssueDialogOpen(false);
       setIssueRows([{ lotId: '', qty: '' }]);
       setIssueFabricPickState({ touched: false, picks: [] });
@@ -2440,6 +2452,7 @@ export default function JobWorkOrderDetail() {
       />
 
       <JwoWhatsAppSendDialog jwo={jwo} open={waDialogOpen} onOpenChange={setWaDialogOpen} />
+      {heldStockDialog}
     </div>
   );
 }

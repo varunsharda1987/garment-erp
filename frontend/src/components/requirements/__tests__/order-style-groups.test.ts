@@ -16,6 +16,7 @@ function req(p: {
   shortfall?: number;
   status?: MaterialRequirement['status'];
   requiredDate?: string | null;
+  splitFromId?: string | null;
 }): MaterialRequirement {
   n += 1;
   return {
@@ -30,6 +31,7 @@ function req(p: {
     label: p.label ?? null,
     size: p.size ?? null,
     requiredDate: p.requiredDate ?? null,
+    splitFromId: p.splitFromId ?? null,
     order: { id: p.order ?? 'o1', orderNumber: `ORD-${p.order ?? 'o1'}`, customerId: 'c1', customerName: 'Easybuy' },
     orderItem: { id: 'oi', styleId: p.style ?? 's1', styleCode: `ST-${p.style ?? 's1'}`, totalQuantity: 100 },
   } as unknown as MaterialRequirement;
@@ -93,6 +95,40 @@ describe('groupRequirementsByOrderStyle', () => {
     expect(groups.map((g) => g.orderNumber)).toEqual(['ORD-o4', 'ORD-o1', 'ORD-o2', 'ORD-o3']);
     expect(groups[0].earliestRequiredDate).toBe('2026-10-07T00:00:00.000Z');
     expect(groups[3].earliestRequiredDate).toBeNull();
+  });
+
+  it('counts a split balance row once: its quantity is already in its parent (M10)', () => {
+    // MR-A needed 100; a PO took 60 and the 40 left became balance MR-B, of which another PO took 30 → MR-C 10
+    const parent = req({ materialId: 'main-XS', label: MAIN, size: 'XS', qty: 100, shortfall: 60, status: 'PO_SENT' });
+    const child = req({
+      materialId: 'main-XS',
+      label: MAIN,
+      size: 'XS',
+      qty: 40,
+      shortfall: 30,
+      splitFromId: parent.id,
+    });
+    const grandchild = req({
+      materialId: 'main-XS',
+      label: MAIN,
+      size: 'XS',
+      qty: 10,
+      shortfall: 10,
+      splitFromId: child.id,
+    });
+    // a second colour of XS is its own requirement and still adds
+    const other = req({ materialId: 'main-XS', label: MAIN, size: 'XS', qty: 5, shortfall: 5 });
+    const [g] = groupRequirementsByOrderStyle([grandchild, parent, child, other]);
+    const main = g.lines[0];
+    if (main.kind !== 'label') throw new Error('expected a label group');
+    expect(main.rows[0].line.totalRequired).toBe(105);
+    expect(main.rows[0].line.shortfall).toBe(105);
+
+    // With the parent filtered out (on a PO, not "Needs action"), the balance row is what is shown
+    const [shown] = groupRequirementsByOrderStyle([child, grandchild]);
+    const shownMain = shown.lines[0];
+    if (shownMain.kind !== 'label') throw new Error('expected a label group');
+    expect(shownMain.rows[0].line.totalRequired).toBe(40);
   });
 
   it('rounds merged quantities to 3 decimals', () => {

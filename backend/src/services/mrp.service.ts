@@ -30,7 +30,7 @@ import { validateTransition } from '../utils/stateMachine';
 import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database';
-import { getDerivedOnHand } from './helpers/derived-stock.helper';
+import { getDerivedOnHandMap } from './helpers/derived-stock.helper';
 import { splitReceiptAcrossLinks, isReceiptComplete, RECEIPT_COMPLETE_TOLERANCE } from './helpers/receipt-split.helper';
 import {
   CalculateRequirementsInput,
@@ -56,15 +56,23 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 // Qty-rate audit 2026-08-24: slab-correct JWO pricing at the job's ACTUAL meters + provenance
 import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/jwo-rate.helper';
 import logger, { logWarn } from '../utils/logger';
-import { BusinessError } from '../errors';
+import { BusinessError, ConflictError, NotFoundError } from '../errors';
 import { applyDeliveryPlan, MAX_DELIVERY_POINTS, type DeliveryPlanPointInput } from './helpers/po-delivery-plan.helper';
 import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
 import {
   reserveOnLots,
   releaseReservations,
+  untrackedHeldByMaterial,
   type LotReservation,
   type LotTable,
 } from './helpers/stock-reservation.helper';
+import {
+  allocatePoLinesInTx,
+  assignLineFillOrder,
+  batchGetOpenPOSupply,
+  sizeLinksForLine,
+} from './helpers/po-allocation.helper';
+import { PO_LINK_REQUIREMENT_STATUSES, requirementDyers } from './helpers/receipt-allocation.helper';
 import { NOT_ORDERED, reconcileRequirementLineage } from './helpers/requirement-reconcile.helper';
 import { createAuditLog } from './audit.service';
 import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
@@ -102,7 +110,7 @@ import {
 } from './helpers/lot-location.helper';
 import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
 import { applySearch } from '../utils/search-filter';
-import { normalizeUnit, unitLabel, unitToJwoUom } from '../utils/units';
+import { normalizeUnit, unitLabel, unitShort, unitToJwoUom } from '../utils/units';
 
 /**
  * All master FK fields derived from MASTER_CONFIG (single source of truth).
@@ -881,6 +889,29 @@ function netFreeLace(lots: PlanningLaceLot[], laceId: string, processorId: strin
 }
 
 /**
+ * A trim's stock (any material with no lot table): derived on-hand, what is held on it with no lot — Use Stock
+ * holds and goods that arrived on a linked PO line (stock-reservation.helper) — and what is free of both. Batched.
+ */
+async function trimStockOf(
+  materialIds: string[],
+  client: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<Map<string, { onHand: number; held: number; free: number }>> {
+  const out = new Map<string, { onHand: number; held: number; free: number }>();
+  const ids = [...new Set(materialIds)];
+  if (ids.length === 0) return out;
+  const [onHandMap, heldMap] = await Promise.all([
+    getDerivedOnHandMap(ids, client),
+    untrackedHeldByMaterial(client, ids),
+  ]);
+  for (const id of ids) {
+    const onHand = onHandMap.get(id) ?? 0;
+    const held = heldMap.get(id) ?? 0;
+    out.set(id, { onHand, held, free: qtyRemaining(onHand, held) });
+  }
+  return out;
+}
+
+/**
  * Batch lookup current stock for multiple requirements.
  * Groups requirements by stock table type and queries in bulk.
  * Returns a Map of REQUIREMENT id -> currentStock (live, not snapshot). Keyed per requirement, not per
@@ -890,8 +921,6 @@ async function batchGetCurrentStock(
   requirements: Array<{
     id: string;
     materialId: string;
-    /** The processor a greige requirement will be processed at — decides which held cloth counts */
-    processorId?: string | null;
     materials?: {
       id: string;
       materialType: string;
@@ -953,14 +982,20 @@ async function batchGetCurrentStock(
   // Lace lots: like greige, which count depends on the requirement's processor (placed by its unit)
   const laceLots = await loadPlanningLaceLots(prisma, [...laceIds]);
 
-  // Batch query generic materials via derived_stock_view
-  const genericStockMap = new Map<string, number>();
-  if (genericMaterialIds.size > 0) {
-    for (const materialId of genericMaterialIds) {
-      const stock = await getDerivedOnHand(materialId);
-      genericStockMap.set(materialId, stock);
-    }
-  }
+  // The processor each greige / lace row will be dyed at — on its PROCESSING child, not the MATERIAL row
+  // (null there live). One rule with Use Stock and the open-PO note (requirementDyers): until 2026-09-29 this
+  // passed the row's own processorId, so cloth at ANY dyer counted and the page offered stock Use Stock refused.
+  const locatedIds = requirements
+    .filter((req) => {
+      const type = materialIdToLookupId.get(req.materialId)?.type;
+      return type === 'greige' || type === 'lace';
+    })
+    .map((req) => req.id);
+  const dyers = await requirementDyers(prisma, locatedIds);
+
+  // Trims (derived_stock_view): on hand less what is held for orders — Use Stock holds and goods that arrived on
+  // a linked PO line (po-allocation D2). Greige / lace holds are already on their lots' quantityReserved.
+  const trimStock = await trimStockOf([...genericMaterialIds]);
 
   // Build result map: materialId -> currentStock
   for (const req of requirements) {
@@ -973,16 +1008,16 @@ async function batchGetCurrentStock(
     let stock = 0;
     switch (lookup.type) {
       case 'greige':
-        stock = netFreeGreige(greigeLots, lookup.lookupId, req.processorId ?? null);
+        stock = netFreeGreige(greigeLots, lookup.lookupId, dyers.get(req.id) ?? null);
         break;
       case 'fabric':
         stock = fabricStockMap.get(lookup.lookupId) ?? 0;
         break;
       case 'lace':
-        stock = netFreeLace(laceLots, lookup.lookupId, req.processorId ?? null);
+        stock = netFreeLace(laceLots, lookup.lookupId, dyers.get(req.id) ?? null);
         break;
       case 'generic':
-        stock = genericStockMap.get(lookup.lookupId) ?? 0;
+        stock = trimStock.get(lookup.lookupId)?.free ?? 0;
         break;
     }
     result.set(req.id, stock);
@@ -1632,8 +1667,10 @@ export async function calculateRequirementsFromOrder(
           );
         } else if (material?.id || resolvedTrimMaterialId) {
           // Non-fabric/non-lace or without specific IDs: use generic stock_levels
-          // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
-          availableStock = await getDerivedOnHand(material?.id || resolvedTrimMaterialId!);
+          // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity —
+          // less what is held for orders (Use Stock, and goods that arrived on a linked PO line)
+          const trimId = material?.id || resolvedTrimMaterialId!;
+          availableStock = (await trimStockOf([trimId])).get(trimId)?.free ?? 0;
         }
       }
 
@@ -2704,13 +2741,19 @@ export async function getRequirements(
     prisma.material_requirements.count({ where }),
   ]);
 
-  // Enrich with live current stock (not the snapshot from creation time)
-  const currentStockMap = await batchGetCurrentStock(data);
+  // Enrich with live current stock (not the snapshot from creation time), and the open POs that could cover a
+  // row still needing buying but are not linked to it ("PO2609-0231 · 1,589 free · not linked") — every view of
+  // the Requirements page (list, by material / vendor, Order & Style) reads this one endpoint
+  const [currentStockMap, openSupply] = await Promise.all([
+    batchGetCurrentStock(data),
+    batchGetOpenPOSupply(data.map((req) => req.id)),
+  ]);
 
   return {
     data: data.map((req) => ({
       ...mapToResponse(req),
       currentStock: currentStockMap.get(req.id) ?? 0,
+      openPOSupply: openSupply.get(req.id) ?? [],
     })),
     total,
   };
@@ -3042,69 +3085,111 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
   };
 }
 
+/** What Use Stock may cover: a requirement that still needs covering. A row on a PO has its goods coming there. */
+const USE_STOCK_STATUSES: MaterialRequirementStatus[] = [
+  MaterialRequirementStatus.PENDING,
+  MaterialRequirementStatus.PO_REQUIRED,
+  MaterialRequirementStatus.PARTIAL_STOCK,
+];
+
+/** Statuses a requirement is in only while a PO line (or, for processing, a job) is bought for it (invariant 1) */
+const PO_STATUSES: readonly MaterialRequirementStatus[] = PO_LINK_REQUIREMENT_STATUSES;
+
+/** A requirement's links, as document numbers: every PO link (a kept link on a closed PO still covers it) and live jobs */
+const LIVE_LINKS_INCLUDE = {
+  requirement_po_links: { select: { purchase_orders: { select: { poNumber: true } } } },
+  requirement_jwo_links: { select: { job_work_orders: { select: { jobWorkNumber: true, jwoStatus: true } } } },
+} as const satisfies Prisma.material_requirementsInclude;
+
+function liveLinkNumbers(req: {
+  requirement_po_links: ReadonlyArray<{ purchase_orders: { poNumber: string } }>;
+  requirement_jwo_links: ReadonlyArray<{ job_work_orders: { jobWorkNumber: string; jwoStatus: string } }>;
+}): { po: string[]; jwo: string[] } {
+  return {
+    po: [...new Set(req.requirement_po_links.map((l) => l.purchase_orders.poNumber))],
+    jwo: [
+      ...new Set(
+        req.requirement_jwo_links
+          .filter((l) => l.job_work_orders.jwoStatus !== 'CANCELLED')
+          .map((l) => l.job_work_orders.jobWorkNumber)
+      ),
+    ],
+  };
+}
+
+const statusWord = (s: string) => s.toLowerCase().replace(/_/g, ' ');
+
 /**
- * Allocate stock to a requirement
+ * Use Stock: cover (part of) a requirement from stock, holding the lots it may use — or, for a trim, a lot-less
+ * hold. Only a row that still needs covering and is on no PO: covering a row that is on a sent PO from
+ * stock too buys the same pieces twice (po-allocation design §6.9). The row is locked and re-read inside the
+ * transaction — linking it to a PO locks it the same way — and the status write is guarded, so a Use Stock that
+ * races a link or an MRP Generate PO is refused cleanly instead of covering the row twice.
  */
 export async function allocateStock(data: AllocateStockRequest, userId: string): Promise<MaterialRequirementResponse> {
-  const requirement = await prisma.material_requirements.findUnique({
-    where: { id: data.requirementId },
-  });
-
-  if (!requirement) {
-    throw new Error(`Requirement ${data.requirementId} not found`);
-  }
-
-  // Quantity rule (utils/quantity): the requirement is stored at 3 decimals, screens and lots at 2.
-  // A full allocation typed at 2 decimals (1340.72 against 1340.722) is the full allocation — snap it
-  // to the shortfall, so the requirement closes instead of reading "Partially from Stock" for 2 mm.
-  const currentShortfall = qtyRemaining(requirement.totalRequired, requirement.allocatedFromStock);
-  if (qtyExceeds(data.quantity, currentShortfall)) {
-    throw new BusinessError(
-      `Cannot allocate ${data.quantity} — only ${currentShortfall} is still short on ${requirement.requirementNumber}`
-    );
-  }
-  const allocateQty = snapToLimit(data.quantity, currentShortfall);
-
-  // BUG-MRP5 fix: use decimal.js for precision in allocation calculations
-  const allocatedFromStockNum = Number(requirement.allocatedFromStock);
-  const newAllocatedDecimal = toCurrency(allocatedFromStockNum).plus(toCurrency(allocateQty));
-  const newAllocated = toNumber(newAllocatedDecimal);
-  const newShortfall = qtyRemaining(requirement.totalRequired, newAllocated);
-  let newStatus = requirement.status;
-
-  if (isQtyZero(newShortfall)) {
-    newStatus = MaterialRequirementStatus.FULFILLED_STOCK;
-  } else if (newAllocated > 0) {
-    newStatus = MaterialRequirementStatus.PARTIAL_STOCK;
-  }
-
   // The requirement status update, the FIFO stock reservations, and the reservation audit MUST be atomic —
   // otherwise a partial failure leaves the requirement reading FULFILLED/PARTIAL while the physical
   // quantityReserved is missing, so the same stock is re-allocated to another order (double-reserve /
   // oversell) (bug-hunt T1/F4).
   const updated = await prisma.$transaction(async (tx) => {
-    const upd = await tx.material_requirements.update({
-      where: { id: data.requirementId },
-      data: {
-        allocatedFromStock: newAllocated,
-        shortfall: newShortfall,
-        status: newStatus,
-      },
-      include: getRequirementIncludes(),
-    });
-
-    // Reserve physical stock on the appropriate stock table (FIFO by receivedDate)
-    const reqWithMaterial = await tx.material_requirements.findUnique({
+    await tx.$queryRaw`SELECT id FROM material_requirements WHERE id = ${data.requirementId} FOR UPDATE`;
+    const requirement = await tx.material_requirements.findUnique({
       where: { id: data.requirementId },
       include: {
+        ...LIVE_LINKS_INCLUDE,
         materials: {
-          select: { id: true, materialType: true, fabricId: true, laceId: true, greigeId: true },
+          select: { id: true, code: true, materialType: true, fabricId: true, laceId: true, greigeId: true },
         },
       },
     });
+    if (!requirement) throw new NotFoundError('Requirement', data.requirementId);
 
-    if (reqWithMaterial?.materials) {
-      const matType = reqWithMaterial.materials.materialType;
+    if (!USE_STOCK_STATUSES.includes(requirement.status)) {
+      throw new BusinessError(
+        `${requirement.requirementNumber} is ${statusWord(requirement.status)} — Use Stock only covers a requirement that still needs buying.`,
+        { code: 'USE_STOCK_REFUSED' }
+      );
+    }
+    // An older row can sit in a buying status beside a live PO link: the link decides
+    const onPo = liveLinkNumbers(requirement).po;
+    if (onPo.length > 0) {
+      throw new BusinessError(
+        `${requirement.requirementNumber} is on ${onPo.join(', ')} — its goods come on that PO. ` +
+          `To cover it from stock instead, undo its allocation on the PO first.`,
+        { code: 'USE_STOCK_REFUSED' }
+      );
+    }
+
+    // Quantity rule (utils/quantity): the requirement is stored at 3 decimals, screens and lots at 2.
+    // A full allocation typed at 2 decimals (1340.72 against 1340.722) is the full allocation — snap it
+    // to the shortfall, so the requirement closes instead of reading "Partially from Stock" for 2 mm.
+    // A split parent's shortfall is only its own part (its balance row carries the rest), so the stored
+    // shortfall caps it as well as totalRequired − allocatedFromStock.
+    const currentShortfall = Math.min(
+      qtyRemaining(requirement.totalRequired, requirement.allocatedFromStock),
+      qtyRemaining(requirement.shortfall, 0)
+    );
+    if (qtyExceeds(data.quantity, currentShortfall)) {
+      throw new BusinessError(
+        `Cannot allocate ${data.quantity} — only ${currentShortfall} is still short on ${requirement.requirementNumber}`
+      );
+    }
+    const allocateQty = snapToLimit(data.quantity, currentShortfall);
+
+    // BUG-MRP5 fix: use decimal.js for precision in allocation calculations
+    const newAllocated = toNumber(toCurrency(Number(requirement.allocatedFromStock)).plus(toCurrency(allocateQty)));
+    const newShortfall = qtyRemaining(currentShortfall, allocateQty);
+    let newStatus = requirement.status;
+    if (isQtyZero(newShortfall)) {
+      newStatus = MaterialRequirementStatus.FULFILLED_STOCK;
+    } else if (qtyExceeds(newAllocated, 0)) {
+      newStatus = MaterialRequirementStatus.PARTIAL_STOCK;
+    }
+
+    // Reserve physical stock on the appropriate stock table (FIFO by receivedDate)
+    let lotPlan: { lots: LotReservation[]; remaining: number } | null = null;
+    if (requirement.materials) {
+      const matType = requirement.materials.materialType;
       const reserveQty = allocateQty;
       // A lot's free quantity is what it holds less what is already reserved on it — until 2026-09-26 the
       // cap ignored the reserved part, so two allocations could reserve more than a lot held.
@@ -3123,11 +3208,17 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         return { lots, remaining };
       };
 
-      let lotPlan: { lots: LotReservation[]; remaining: number } | null = null;
-      if (matType === 'FABRIC' && reqWithMaterial.materials.fabricId) {
+      // Greige and lace: the processor it will be dyed at — on its PROCESSING child, not the MATERIAL row
+      // (requirementDyers, the same answer receipts and PO links use)
+      const located =
+        (matType === 'GREIGE' && requirement.materials.greigeId) ||
+        (matType === 'LACE' && requirement.materials.laceId);
+      const processorId = located ? ((await requirementDyers(tx, [requirement.id])).get(requirement.id) ?? null) : null;
+
+      if (matType === 'FABRIC' && requirement.materials.fabricId) {
         const lots = await tx.fabric_stock.findMany({
           where: {
-            fabricId: reqWithMaterial.materials.fabricId,
+            fabricId: requirement.materials.fabricId,
             status: 'AVAILABLE',
             quantityAvailable: { gt: 0 },
             ...notInProcessorUnitWhere(),
@@ -3139,27 +3230,25 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
           lots.map((l) => ({ id: l.id, warehouseId: l.warehouseId, free: freeOf(l) })),
           'fabric'
         );
-      } else if (matType === 'GREIGE' && reqWithMaterial.materials.greigeId) {
+      } else if (matType === 'GREIGE' && requirement.materials.greigeId) {
         // Only cloth this requirement may use (lot-location.helper): our stores and what is already at
         // its processor — until 2026-09-25 this reserved ANY lot, another dyer's included. Cloth
         // already at its processor goes first (its return clock is running), then FIFO.
-        const processorId = reqWithMaterial.processorId ?? null;
         const atItsProcessor = (lot: PlanningGreigeLot) =>
           processorId != null && greigeHolderId(lot) === processorId ? 0 : 1;
-        const lots = (await loadPlanningGreigeLots(tx, [reqWithMaterial.materials.greigeId]))
+        const lots = (await loadPlanningGreigeLots(tx, [requirement.materials.greigeId]))
           .filter((lot) => greigeCountsForPlanning(lot, processorId))
           .sort((a, b) => atItsProcessor(a) - atItsProcessor(b) || a.receivedDate.getTime() - b.receivedDate.getTime());
         lotPlan = plan(
           lots.map((l) => ({ id: l.id, warehouseId: l.warehouse?.id ?? null, free: freeOf(l) })),
           'greige'
         );
-      } else if (matType === 'LACE' && reqWithMaterial.materials.laceId) {
+      } else if (matType === 'LACE' && requirement.materials.laceId) {
         // The greige rule (lot-location.helper): our stores and lace already in its processor's unit,
         // that processor's first, then FIFO. Until 2026-09-26 this reserved ANY lot, another dyer's too.
-        const processorId = reqWithMaterial.processorId ?? null;
         const atItsProcessor = (lot: PlanningLaceLot) =>
           processorId != null && unitLotHolderId(lot) === processorId ? 0 : 1;
-        const lots = (await loadPlanningLaceLots(tx, [reqWithMaterial.materials.laceId]))
+        const lots = (await loadPlanningLaceLots(tx, [requirement.materials.laceId]))
           .filter((lot) => laceCountsForPlanning(lot, processorId))
           .sort((a, b) => atItsProcessor(a) - atItsProcessor(b) || a.receivedDate.getTime() - b.receivedDate.getTime());
         lotPlan = plan(
@@ -3173,11 +3262,49 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
       if (lotPlan && qtyExceeds(lotPlan.remaining, 0)) {
         const free = toNumber(roundToCent(reserveQty - lotPlan.remaining));
         throw new BusinessError(
-          `Only ${free} is free on the lots ${reqWithMaterial.requirementNumber} may use — ` +
+          `Only ${free} is free on the lots ${requirement.requirementNumber} may use — ` +
             `${reserveQty} cannot be allocated from stock.`
         );
       }
 
+      // A trim has no lots: it may take what is on the shelf beyond every order's holds — Use Stock holds and
+      // goods that arrived on a linked PO line for another order (po-allocation D2). Until 2026-09-29 a trim's
+      // Use Stock had no cap at all. Not thread: its requirement counts garments while its stock is cones or
+      // tubes on the pack rows, so the two cannot be compared (thread consumption is not designed yet).
+      if (!lotPlan && matType !== 'THREAD') {
+        const stock = (await trimStockOf([requirement.materialId], tx)).get(requirement.materialId)!;
+        if (qtyExceeds(reserveQty, stock.free)) {
+          const unit = unitShort(requirement.unit);
+          const code = requirement.materials.code;
+          throw new BusinessError(
+            qtyExceeds(stock.held, 0)
+              ? `Only ${stock.free} ${unit} of ${code} is free — ${stock.held} ${unit} of the ${stock.onHand} on hand ` +
+                  `is held for other orders. ${reserveQty} cannot be allocated from stock.`
+              : `Only ${stock.onHand} ${unit} of ${code} is in stock — ${reserveQty} cannot be allocated from stock.`,
+            { code: 'USE_STOCK_SHORT', free: stock.free, onHand: stock.onHand, held: stock.held }
+          );
+        }
+      }
+    }
+
+    // Guarded: the row must still be what was read (status, what stock already covers, on no PO)
+    const write = await tx.material_requirements.updateMany({
+      where: {
+        id: requirement.id,
+        status: requirement.status,
+        allocatedFromStock: requirement.allocatedFromStock,
+        requirement_po_links: { none: {} },
+      },
+      data: { allocatedFromStock: newAllocated, shortfall: newShortfall, status: newStatus },
+    });
+    if (write.count !== 1) {
+      throw new ConflictError(
+        `${requirement.requirementNumber} changed while stock was being allocated — a PO or another Use Stock took it. Reload and try again.`,
+        { code: 'USE_STOCK_CHANGED' }
+      );
+    }
+
+    if (requirement.materials) {
       // One stock_reservations row per lot, each lot up by exactly its share (stock-reservation.helper)
       const warehouseId = data.warehouseId;
       const warehouse = warehouseId
@@ -3185,20 +3312,23 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
         : await tx.warehouses.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
       await reserveOnLots(tx, {
         requirement: {
-          id: data.requirementId,
-          requirementNumber: reqWithMaterial.requirementNumber,
-          materialId: reqWithMaterial.materialId,
-          unit: String(reqWithMaterial.unit),
+          id: requirement.id,
+          requirementNumber: requirement.requirementNumber,
+          materialId: requirement.materialId,
+          unit: String(requirement.unit),
         },
         lots: lotPlan?.lots ?? [],
         userId,
         fallbackWarehouseId: warehouse?.id ?? null,
         // Trims have no lot table: the allocation is recorded, no lot quantity moves
-        untrackedQuantity: lotPlan ? undefined : reserveQty,
+        untrackedQuantity: lotPlan ? undefined : allocateQty,
       });
     }
 
-    return upd;
+    return tx.material_requirements.findUniqueOrThrow({
+      where: { id: requirement.id },
+      include: getRequirementIncludes(),
+    });
   });
 
   return mapToResponse(updated);
@@ -3450,32 +3580,12 @@ export async function findProcessingRequirementMatches(params: {
 /**
  * The processor each greige (or greige-lace) MATERIAL requirement will be processed at. The MATERIAL
  * row does not store it: it lives on its PROCESSING child — the dyer of a live job already drawing for
- * that child wins (the two can differ), else the child's processorId. null = no processing requirement
- * names one (bought ready, or not decided).
+ * that child wins (the two can differ), else the child's processorId, else the row's own (convert-to-greige
+ * rows). null = none names one (bought ready, or not decided). One answer with PO receipts and links:
+ * receipt-allocation.helper `requirementDyers`.
  */
 export async function greigeRequirementProcessors(requirementIds: string[]): Promise<Map<string, string | null>> {
-  const rows = await prisma.material_requirements.findMany({
-    where: { id: { in: requirementIds } },
-    select: {
-      id: true,
-      childRequirements: {
-        where: { requirementType: 'PROCESSING' },
-        select: {
-          processorId: true,
-          requirement_jwo_links: { select: { job_work_orders: { select: { processorId: true, jwoStatus: true } } } },
-        },
-      },
-    },
-  });
-  const out = new Map<string, string | null>();
-  for (const r of rows) {
-    const jobProcessor = r.childRequirements
-      .flatMap((c) => c.requirement_jwo_links.map((l) => l.job_work_orders))
-      .find((j) => j.jwoStatus !== 'CANCELLED')?.processorId;
-    const childProcessor = r.childRequirements.find((c) => c.processorId)?.processorId;
-    out.set(r.id, jobProcessor ?? childProcessor ?? null);
-  }
-  return out;
+  return requirementDyers(prisma, requirementIds);
 }
 
 /**
@@ -4596,27 +4706,22 @@ export async function generatePOFromRequirements(
         },
       });
 
-      // Create links to requirements with proportional allocation based on actual shortfall
-      // Build shortfall map for proportional allocation
-      const reqShortfalls = new Map<string, number>();
-      let totalShortfall = 0;
-      for (const reqId of item.requirementIds) {
-        const req = requirements.find((r) => r.id === reqId);
-        const shortfall = req ? Number(req.shortfall) : 0;
-        reqShortfalls.set(reqId, shortfall);
-        totalShortfall += shortfall;
-      }
-
       // A link is in the REQUIREMENT's unit (pieces): 16 gross covers 2,304 pieces. The remainder check,
       // PO cancel and short-close below all compare links with requirements — pieces with pieces.
+      // Each link takes its requirement's need when the line covers every need — the rest is free on the line
+      // (16 gross for 2,300 pcs leaves 4 free, not 4 credited to that order) — else a pro-rata share; never
+      // more than the need (po-allocation.helper sizeLinksForLine). What a share leaves uncovered is split off
+      // below (MRP-12).
       const itemStockQty = toStockQty(item.quantity, item.stockUnitsPerUnit);
+      const linkSizes = sizeLinksForLine(
+        itemStockQty,
+        item.requirementIds.map((reqId) => ({
+          id: reqId,
+          need: Number(requirements.find((r) => r.id === reqId)?.shortfall ?? 0),
+        }))
+      );
       for (const reqId of item.requirementIds) {
-        // Allocate proportionally: each requirement gets its share based on its shortfall
-        const reqShortfall = reqShortfalls.get(reqId) || 0;
-        const allocatedQty =
-          totalShortfall > 0
-            ? (reqShortfall / totalShortfall) * itemStockQty
-            : itemStockQty / item.requirementIds.length; // Fallback to equal split
+        const allocatedQty = linkSizes.get(reqId) ?? 0;
 
         await tx.requirement_po_links.create({
           data: {
@@ -4639,6 +4744,11 @@ export async function generatePOFromRequirements(
         linkedCount++;
       }
     }
+    // Rank each line's links earliest delivery first: a part delivery fills them in this order (owner D1)
+    await assignLineFillOrder(
+      tx,
+      lineAllocations.map((l) => l.poItemId)
+    );
 
     // Several dyers (Phase 4f): one delivery point each, through the one writer of delivery plans. Composing
     // the PO, so no revision is written.
@@ -4764,7 +4874,11 @@ export async function generatePOFromRequirements(
 }
 
 /**
- * Link a requirement to an existing PO item
+ * Link a requirement to a line of a sent PO — the one-row form of the PO page's Allocate to orders. Its own
+ * checks run first (a size-wise label still waiting for its sizes is refused before any PO is looked at); then
+ * po-allocation.helper, the one writer of links on a sent PO, does the rest: every other check, the link, a
+ * balance row for a part cover, the line's fill order, and goods already here held at once. The quantity is in
+ * the requirement's unit.
  */
 export async function linkRequirementToPO(
   data: LinkRequirementToPORequest,
@@ -4772,68 +4886,57 @@ export async function linkRequirementToPO(
 ): Promise<MaterialRequirementResponse> {
   const { requirementId, purchaseOrderId, purchaseOrderItemId, allocatedQuantity } = data;
 
-  // Verify requirement exists
   const requirement = await prisma.material_requirements.findUnique({
     where: { id: requirementId },
   });
-
   if (!requirement) {
-    throw new Error(`Requirement ${requirementId} not found`);
+    throw new NotFoundError('Requirement', requirementId);
   }
 
   // Reject requirements already covered by a PO (bug-hunt procurement-16: linking blindly
   // force-set PO_GENERATED and allowed double-procurement of the same requirement)
-  const coveredStatuses: MaterialRequirementStatus[] = [
-    MaterialRequirementStatus.PO_GENERATED,
-    MaterialRequirementStatus.PO_SENT,
-    MaterialRequirementStatus.PARTIALLY_RECEIVED,
-    MaterialRequirementStatus.RECEIVED,
-  ];
-  if (coveredStatuses.includes(requirement.status)) {
-    throw new Error(`Requirement ${requirementId} is already ${requirement.status} — it is covered by an existing PO`);
-  }
-
-  // A size-wise label whose split is not known yet must not reach a supplier: the sizes are
-  // printed on it. Every other PO path allowlists PO_REQUIRED/PARTIAL_STOCK and so excludes
-  // this status implicitly, but THIS one is a denylist, so it needs the rule stated.
-  if (requirement.status === MaterialRequirementStatus.SIZE_PENDING) {
-    throw new Error(
-      `Requirement ${requirement.requirementNumber} is awaiting the order's size breakdown — ` +
-        `enter the sizes on the order before ordering this label.`
+  if (PO_STATUSES.includes(requirement.status)) {
+    throw new BusinessError(
+      `${requirement.requirementNumber} is already ${statusWord(requirement.status)} — it is covered by an existing PO`,
+      { code: 'PO_ALLOCATION_REFUSED' }
     );
   }
 
-  // Link + status flip atomically; the guarded updateMany re-checks status INSIDE the tx so a
-  // concurrent link cannot double-cover the requirement
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.requirement_po_links.create({
-      data: {
-        requirementId,
+  // A size-wise label whose split is not known yet must not reach a supplier: the sizes are
+  // printed on it.
+  if (requirement.status === MaterialRequirementStatus.SIZE_PENDING) {
+    throw new BusinessError(
+      `Requirement ${requirement.requirementNumber} is awaiting the order's size breakdown — ` +
+        `enter the sizes on the order before ordering this label.`,
+      { code: 'PO_ALLOCATION_REFUSED' }
+    );
+  }
+
+  const result = await prisma.$transaction(
+    (tx) =>
+      allocatePoLinesInTx(
+        tx,
         purchaseOrderId,
-        purchaseOrderItemId,
-        allocatedQuantity,
-      },
-    });
+        [{ purchaseOrderItemId, requirementId, quantity: allocatedQuantity }],
+        userId
+      ),
+    { timeout: 30000, maxWait: 10000 }
+  );
+  await createAuditLog(result.audit);
 
-    const flip = await tx.material_requirements.updateMany({
-      where: { id: requirementId, status: { notIn: coveredStatuses } },
-      data: { status: MaterialRequirementStatus.PO_GENERATED },
-    });
-    if (flip.count === 0) {
-      throw new Error(`Requirement ${requirementId} was already covered by another PO`);
-    }
-
-    return tx.material_requirements.findUnique({
-      where: { id: requirementId },
-      include: getRequirementIncludes(),
-    });
+  const updated = await prisma.material_requirements.findUniqueOrThrow({
+    where: { id: requirementId },
+    include: getRequirementIncludes(),
   });
-
-  return mapToResponse(updated!);
+  return mapToResponse(updated);
 }
 
 /**
- * Update requirement status
+ * Update requirement status (the Requirements page's status change). A requirement is in a PO status
+ * (PO_GENERATED, PO_SENT, PARTIALLY_RECEIVED, RECEIVED) exactly while a PO line — or, for processing, a job — is
+ * bought for it (po-allocation invariant 1): a linked row cannot be moved out of one by hand (undo it on the PO),
+ * and an unlinked row cannot be moved into one. The row is locked like Use Stock and PO linking, and the write
+ * is guarded.
  */
 export async function updateRequirementStatus(
   id: string,
@@ -4841,44 +4944,68 @@ export async function updateRequirementStatus(
   userId: string,
   userRole?: string
 ): Promise<MaterialRequirementResponse> {
-  // MRP-24: this was a raw `update({ data: { status } })` with no read of the current value — the
-  // endpoint could walk a RECEIVED requirement back to PO_REQUIRED and make already-delivered
-  // material re-orderable. Route it through the shared state machine like every other document.
-  const current = await prisma.material_requirements.findUnique({
-    where: { id },
-    select: { status: true, requirementNumber: true, totalRequired: true },
-  });
-  if (!current) {
-    throw new Error(`Requirement ${id} not found`);
-  }
-
-  const transition = validateTransition('materialRequirement', current.status, status, userRole);
-  if (!transition.valid) {
-    throw new Error(transition.message || `Cannot change status from ${current.status} to ${status}`);
-  }
-  if (transition.isAdminOverride) {
-    logWarn(
-      `[MRP] ADMIN OVERRIDE: requirement ${current.requirementNumber} forced ${current.status} → ${status} by user ${userId}`
-    );
-  }
-
-  // Leaving stock (FULFILLED/PARTIAL_STOCK → PO_REQUIRED / CANCELLED) gives the reserved cloth back to its
-  // lots — until 2026-09-26 it stayed reserved while the requirement was re-bought
-  const leavesStock =
-    (current.status === MaterialRequirementStatus.FULFILLED_STOCK ||
-      current.status === MaterialRequirementStatus.PARTIAL_STOCK) &&
-    (status === MaterialRequirementStatus.PO_REQUIRED || status === MaterialRequirementStatus.CANCELLED);
-
   const updated = await prisma.$transaction(async (tx) => {
-    if (leavesStock) await releaseReservations(tx, [id]);
-    return tx.material_requirements.update({
+    await tx.$queryRaw`SELECT id FROM material_requirements WHERE id = ${id} FOR UPDATE`;
+    // MRP-24: this was a raw `update({ data: { status } })` with no read of the current value — the
+    // endpoint could walk a RECEIVED requirement back to PO_REQUIRED and make already-delivered
+    // material re-orderable. Route it through the shared state machine like every other document.
+    const current = await tx.material_requirements.findUnique({
       where: { id },
+      select: { status: true, requirementNumber: true, totalRequired: true, ...LIVE_LINKS_INCLUDE },
+    });
+    if (!current) {
+      throw new NotFoundError('Requirement', id);
+    }
+
+    const transition = validateTransition('materialRequirement', current.status, status, userRole);
+    if (!transition.valid) {
+      throw new BusinessError(transition.message || `Cannot change status from ${current.status} to ${status}`);
+    }
+
+    const links = liveLinkNumbers(current);
+    const fromPo = PO_STATUSES.includes(current.status);
+    const toPo = PO_STATUSES.includes(status);
+    if (fromPo && !toPo && links.po.length > 0) {
+      throw new BusinessError(
+        `${current.requirementNumber} is on ${links.po.join(', ')} — undo it on ${links.po[0]} first. ` +
+          `While it is linked, its status follows the PO.`,
+        { code: 'REQUIREMENT_ON_PO' }
+      );
+    }
+    if (!fromPo && toPo && links.po.length === 0 && links.jwo.length === 0) {
+      throw new BusinessError(
+        `${current.requirementNumber} is on no PO — link it to a PO line or generate a PO for it; ` +
+          `"${statusWord(status)}" is set by the PO, not by hand.`,
+        { code: 'REQUIREMENT_NOT_ON_PO' }
+      );
+    }
+    if (transition.isAdminOverride) {
+      logWarn(
+        `[MRP] ADMIN OVERRIDE: requirement ${current.requirementNumber} forced ${current.status} → ${status} by user ${userId}`
+      );
+    }
+
+    // Leaving stock (FULFILLED/PARTIAL_STOCK → PO_REQUIRED / CANCELLED) gives the reserved cloth back to its
+    // lots — until 2026-09-26 it stayed reserved while the requirement was re-bought
+    const leavesStock =
+      (current.status === MaterialRequirementStatus.FULFILLED_STOCK ||
+        current.status === MaterialRequirementStatus.PARTIAL_STOCK) &&
+      (status === MaterialRequirementStatus.PO_REQUIRED || status === MaterialRequirementStatus.CANCELLED);
+
+    if (leavesStock) await releaseReservations(tx, [id]);
+    const write = await tx.material_requirements.updateMany({
+      where: { id, status: current.status },
       data: {
         status,
         ...(leavesStock ? { allocatedFromStock: 0, shortfall: current.totalRequired } : {}),
       },
-      include: getRequirementIncludes(),
     });
+    if (write.count !== 1) {
+      throw new ConflictError(`${current.requirementNumber} changed meanwhile. Reload and try again.`, {
+        code: 'REQUIREMENT_CHANGED',
+      });
+    }
+    return tx.material_requirements.findUniqueOrThrow({ where: { id }, include: getRequirementIncludes() });
   });
 
   return mapToResponse(updated);
@@ -4903,15 +5030,15 @@ export async function cancelRequirement(id: string, userId: string): Promise<Mat
     },
   });
   if (!current) {
-    throw new Error(`Requirement ${id} not found`);
+    throw new NotFoundError('Requirement', id);
   }
   if (current.status === MaterialRequirementStatus.RECEIVED) {
-    throw new Error(`Cannot cancel ${current.requirementNumber}: it has already been received.`);
+    throw new BusinessError(`Cannot cancel ${current.requirementNumber}: it has already been received.`);
   }
   if (current.requirement_po_links.length > 0 || current.requirement_jwo_links.length > 0) {
-    throw new Error(
+    throw new BusinessError(
       `Cannot cancel ${current.requirementNumber}: it is linked to an active purchase order or job work order. ` +
-        `Cancel that document first.`
+        `Cancel that document first, or undo its allocation on the PO.`
     );
   }
 
@@ -5247,8 +5374,13 @@ function getRequirementIncludes() {
             orderedQuantity: true,
             receivedQuantity: true,
             unitPrice: true,
+            // The line's unit (GROSS…) and how many stock units one is — the link is in the stock unit
+            unit: true,
+            stockUnitsPerUnit: true,
           },
         },
+        // Receipt holds: goods that arrived on this line held for the requirement, and what it issued of them
+        stock_reservations: { select: { status: true, reservedQuantity: true, consumedQuantity: true } },
       },
     },
     orderBom: {
@@ -5284,6 +5416,22 @@ function getRequirementIncludes() {
     // Billing basis fallback (rate card is the authority when no snapshot exists)
     orderBomItem: { select: { rateCard: { select: { shrinkagePercent: true } } } },
   };
+}
+
+const roundQty3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** A PO link's receipt holds: what is held for it now (ACTIVE, net of what it used) and what it issued (every row) */
+function linkHolds(link: {
+  stock_reservations?: ReadonlyArray<{ status: string; reservedQuantity: unknown; consumedQuantity: unknown }>;
+}): { held: number; issued: number } {
+  let held = 0;
+  let issued = 0;
+  for (const row of link.stock_reservations ?? []) {
+    const consumed = Number(row.consumedQuantity);
+    issued += consumed;
+    if (row.status === 'ACTIVE') held += Math.max(0, Number(row.reservedQuantity) - consumed);
+  }
+  return { held: roundQty3(held), issued: roundQty3(issued) };
 }
 
 function mapToResponse(req: any): MaterialRequirementResponse {
@@ -5407,6 +5555,9 @@ function mapToResponse(req: any): MaterialRequirementResponse {
       purchaseOrderItemId: link.purchaseOrderItemId,
       allocatedQuantity: Number(link.allocatedQuantity),
       receivedQuantity: Number(link.receivedQuantity),
+      fillOrder: link.fillOrder ?? null,
+      heldQuantity: linkHolds(link).held,
+      issuedQuantity: linkHolds(link).issued,
       createdAt: link.createdAt.toISOString(),
       purchaseOrder: link.purchase_orders
         ? {
@@ -5422,9 +5573,18 @@ function mapToResponse(req: any): MaterialRequirementResponse {
             orderedQuantity: Number(link.purchase_order_items.orderedQuantity),
             receivedQuantity: Number(link.purchase_order_items.receivedQuantity),
             unitPrice: Number(link.purchase_order_items.unitPrice),
+            unit: link.purchase_order_items.unit ?? null,
+            stockUnitsPerUnit:
+              link.purchase_order_items.stockUnitsPerUnit != null
+                ? Number(link.purchase_order_items.stockUnitsPerUnit)
+                : null,
           }
         : undefined,
     })),
+    // Goods that arrived on its PO lines, held for it now (po-allocation D2)
+    receiptHeldQty: roundQty3(
+      (req.requirement_po_links ?? []).reduce((sum: number, link: any) => sum + linkHolds(link).held, 0)
+    ),
     jwoLinks: req.requirement_jwo_links?.map((link: any) => ({
       id: link.id,
       requirementId: link.requirementId,

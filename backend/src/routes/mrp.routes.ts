@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
+import { authenticateToken, requireAnyPermission, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, orderIdParamSchema } from '../schemas/common.schema';
@@ -39,6 +39,22 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+
+/**
+ * @route   POST /api/mrp/requirements/:id/link-po
+ * @desc    Link a requirement to a line of a sent PO (po-allocation.helper does the checks and the link)
+ * @access  MRP OR Purchase Orders permission (owner decision D4: whoever works either page may allocate) —
+ *          so it sits above the router's MRP-only write gate
+ * @body    { purchaseOrderId: string, purchaseOrderItemId: string, allocatedQuantity: number }
+ */
+router.post(
+  '/requirements/:id/link-po',
+  requireAnyPermission('mrp', 'purchaseOrders'),
+  validateParams(idParamSchema),
+  validateBody(linkToPOSchema),
+  asyncHandler(mrpController.linkToPO)
+);
+
 router.use(requirePermissionForWrites('mrp'));
 
 // ============================================
@@ -163,19 +179,6 @@ router.post(
   validateParams(idParamSchema),
   validateBody(declineExtraSchema),
   asyncHandler(mrpController.declineExtraRequirement)
-);
-
-/**
- * @route   POST /api/mrp/requirements/:id/link-po
- * @desc    Link a requirement to an existing PO item
- * @access  Private
- * @body    { purchaseOrderId: string, purchaseOrderItemId: string, allocatedQuantity: number }
- */
-router.post(
-  '/requirements/:id/link-po',
-  validateParams(idParamSchema),
-  validateBody(linkToPOSchema),
-  asyncHandler(mrpController.linkToPO)
 );
 
 /**

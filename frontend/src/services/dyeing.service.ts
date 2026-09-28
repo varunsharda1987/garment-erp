@@ -248,9 +248,10 @@ export const dyeProcessPOService = {
     const response = await api.get<{ data: ProcessPO }>(`/dyeing/process-pos/${id}`);
     return response.data.data;
   },
-  async create(data: CreateProcessPORequest): Promise<ProcessPO> {
-    const response = await api.post<{ data: ProcessPO }>('/dyeing/process-pos', data);
-    return response.data.data;
+  /** `notSent`: Create & Send made the order but could not send it — the server's reason (e.g. cloth held for another order) */
+  async create(data: CreateProcessPORequest): Promise<ProcessPO & { notSent?: string }> {
+    const response = await api.post<{ data: ProcessPO; warning?: string }>('/dyeing/process-pos', data);
+    return { ...response.data.data, notSent: response.data.warning };
   },
   async delete(id: string): Promise<void> {
     await api.delete(`/dyeing/process-pos/${id}`);
@@ -264,6 +265,8 @@ export const dyeProcessPOService = {
       greigeStockLotId?: string;
       /** The bales / thans / rolls of that lot that leave (COUNTED metres) */
       details?: IssueDetailInput[];
+      /** The user confirmed taking cloth held for other orders (owner decision D10) */
+      takeHeld?: boolean;
     }
   ): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/send`, data);

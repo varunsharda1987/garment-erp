@@ -192,6 +192,8 @@ export const issueMaterialItemsSchema = z.object({
     )
     .min(1, 'At least one item must be selected'),
   remarks: z.string().max(1000).optional(),
+  /** The user confirmed taking goods held for other orders (po-allocation D10) — refused with 409 otherwise */
+  takeHeld: z.boolean().optional(),
 });
 
 /**

@@ -45,6 +45,7 @@ import { billableFromGreige, greigeFromBillable } from '@/utils/shrinkage';
 import { toDateInputValue } from '@/lib/date';
 import { groupLabelLines, sumRows } from '@/lib/label-lines';
 import { previewItemLabelKey } from '@/lib/label-line-keys';
+import { hasLinkableSupply, linkableSupply } from '@/components/requirements/open-po-supply';
 
 interface POGenerationResult {
   totalPOs: number;
@@ -59,6 +60,8 @@ interface BulkPOGenerationDialogProps {
   onComplete?: (result?: POGenerationResult) => void;
   /** 'PO' (default) = material purchase orders; 'JOBWORK' = processing job work orders. */
   mode?: 'PO' | 'JOBWORK';
+  /** The ticked rows as the page shows them — step 1 warns when an open PO already has room for some */
+  requirements?: MaterialRequirement[];
 }
 
 interface SupplierGroup {
@@ -77,9 +80,15 @@ export default function BulkPOGenerationDialog({
   requirementIds,
   onComplete,
   mode = 'PO',
+  requirements,
 }: BulkPOGenerationDialogProps) {
   const { company } = useCompanyProfile();
   const isJobWork = mode === 'JOBWORK';
+  // Rows a sent PO already has room for: a new PO would buy them twice (advisory — MRP only suggests)
+  const coveredByOpenPO = isJobWork
+    ? []
+    : (requirements ?? []).filter((r) => requirementIds.includes(r.id) && hasLinkableSupply(r));
+  const openPONumbers = [...new Set(coveredByOpenPO.flatMap((r) => linkableSupply(r).map((s) => s.poNumber)))];
   const partyNoun = isJobWork ? 'Processor' : 'Supplier';
   const [step, setStep] = useState<Step>('grouping');
   const [loading, setLoading] = useState(false);
@@ -541,6 +550,17 @@ export default function BulkPOGenerationDialog({
                       <div className="text-xs text-primary">Unassigned</div>
                     </div>
                   </div>
+                )}
+
+                {coveredByOpenPO.length > 0 && (
+                  <Alert className="mb-4 border-amber-300 bg-amber-50 text-amber-900">
+                    <AlertTriangle className="h-4 w-4 text-amber-700" />
+                    <AlertDescription>
+                      {coveredByOpenPO.length === 1
+                        ? `${coveredByOpenPO[0].requirementNumber} could be linked to ${openPONumbers.join(', ')} instead — a sent PO with room for it. A new PO would buy it again; close this and use Link on its row.`
+                        : `${coveredByOpenPO.length} of these could be linked to ${openPONumbers.join(', ')} instead — sent POs with room for them. A new PO would buy them again; close this and use Link on their rows.`}
+                    </AlertDescription>
+                  </Alert>
                 )}
 
                 {groupedData && groupedData.unassigned.length > 0 && (

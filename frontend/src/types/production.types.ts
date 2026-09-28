@@ -493,7 +493,10 @@ export interface MaterialIssuanceItem {
   orderQty: number;
   wastagePercent: number;
   requiredQty: number;
+  /** Free for this run: on the shelf, less what is held for other orders */
   availableStock: number;
+  /** On the shelf but held for other orders (po-allocation D2) — issuing it asks first (D10) */
+  heldForOthers?: number;
   shortage: number;
   alreadyIssued: number;
 }
@@ -511,6 +514,8 @@ export interface IssueMaterialsRequest {
     description: string;
   }>;
   remarks?: string;
+  /** The user confirmed taking goods held for other orders */
+  takeHeld?: boolean;
 }
 
 // ============================================

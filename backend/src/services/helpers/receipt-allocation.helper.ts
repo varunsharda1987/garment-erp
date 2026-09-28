@@ -15,6 +15,9 @@
  * the shelf beyond everyone else's holds. Stock readers net the holds. Holding never throws on approve or link:
  * what the lots or the shelf cannot cover is logged and returned.
  *
+ * A greige line "received as ready fabric" is credited like any receipt — the orders got their goods, as another
+ * type (source-mismatch.helper cancels their dyeing) — but it booked a fabric lot, not greige: credit only, no hold.
+ *
  * PROCESSING lines stay pro-rata (their links carry job work, not goods for an order) and are skipped here.
  * This file must not import the mrp, grn, purchaseOrder or order services — they call it.
  */
@@ -209,6 +212,11 @@ interface LoadedLine {
   orderedStock: number;
   grnLines: GrnLineState[];
   poolTotals: Record<string, number>;
+  /**
+   * Per pool, what arrived with no greige lot to hold it on: a greige line received as ready fabric (it booked a
+   * fabric lot). It fills links like any receipt, but a hold short by this much is by design, not a shortfall.
+   */
+  unholdable: Record<string, number>;
   links: LinkState[];
 }
 
@@ -246,13 +254,15 @@ async function loadLine(client: Db, poItemId: string, opts: LineCreditsOptions =
       stockUnitsPerUnit: true,
       purchase_orders: { select: { id: true, poNumber: true, status: true, poCategory: true } },
       grn_items: {
-        // A greige line received as ready fabric became fabric, not greige: it fills nobody's greige link
-        where: { receivedAsReadyFabric: false, goods_receiving_notes: grnWhere },
+        // Received as ready fabric included: the goods came, as another type — they fill the line's links (credit
+        // only, see `unholdable`), as source-mismatch.helper treats them ("we got the goods")
+        where: { goods_receiving_notes: grnWhere },
         select: {
           id: true,
           acceptedQuantity: true,
           foldLengthCm: true,
           stockQuantity: true,
+          receivedAsReadyFabric: true,
           goods_receiving_notes: {
             select: {
               id: true,
@@ -303,6 +313,25 @@ async function loadLine(client: Db, poItemId: string, opts: LineCreditsOptions =
   }));
   const poolTotals: Record<string, number> = {};
   for (const g of grnLines) poolTotals[g.pool] = round3((poolTotals[g.pool] ?? 0) + g.stockQty);
+
+  // A greige line received as ready fabric booked a fabric lot (or, when the override was refused at approval,
+  // a greige lot like any receipt — that one is held as usual)
+  const unholdable: Record<string, number> = {};
+  const readyIds = new Set(item.grn_items.filter((gi) => gi.receivedAsReadyFabric).map((gi) => gi.id));
+  if (kind === 'lot-greige' && readyIds.size > 0) {
+    const asGreige = new Set(
+      (
+        await client.greige_stock.findMany({
+          where: { grnItemId: { in: [...readyIds] } },
+          select: { grnItemId: true },
+        })
+      ).map((l) => l.grnItemId)
+    );
+    for (const g of grnLines) {
+      if (!readyIds.has(g.grnItemId) || asGreige.has(g.grnItemId)) continue;
+      unholdable[g.pool] = round3((unholdable[g.pool] ?? 0) + g.stockQty);
+    }
+  }
 
   // One query at a time: inside an interactive transaction they share one connection anyway
   const reqIds = item.requirement_po_links.map((l) => l.requirementId);
@@ -369,6 +398,7 @@ async function loadLine(client: Db, poItemId: string, opts: LineCreditsOptions =
     orderedStock: toStockQty(Number(item.orderedQuantity), spu),
     grnLines,
     poolTotals,
+    unholdable,
     links,
   };
 }
@@ -896,9 +926,15 @@ async function placeHolds(
     unit: link.unit ?? '',
   });
   const holders = sortByFillOrder(line.links).filter((l) => l.holdable && !l.hypothetical);
+  // Credit that came as ready fabric has no greige lot to be held on — short by that much is by design
+  const asFabric = { ...line.unholdable };
   const note = (link: LinkState, pool: string, want: number, got: number) => {
     if (!qtyExceeds(want, got)) return;
-    shortfalls.push({ linkId: link.id, requirementNumber: link.requirementNumber, pool, wanted: want, held: got });
+    const byDesign = Math.min(round3(want - got), asFabric[pool] ?? 0);
+    asFabric[pool] = round3((asFabric[pool] ?? 0) - byDesign);
+    const wanted = round3(want - byDesign);
+    if (!qtyExceeds(wanted, got)) return;
+    shortfalls.push({ linkId: link.id, requirementNumber: link.requirementNumber, pool, wanted, held: got });
   };
 
   if (line.kind === 'untracked') {

@@ -29,8 +29,10 @@ import type { ComboboxOption } from '@/components/ui/combobox';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import { challanService } from '../services/challan.service';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import stockLevelService from '../services/stockLevel.service';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import { OrderCombobox } from '@/components/OrderCombobox';
 import { getAllSuppliers } from '../services/supplier.service';
 import { fabricStockService } from '../services/fabricStock.service';
 import { greigeStockService } from '../services/greigeStock.service';
@@ -186,6 +188,7 @@ function createEmptyLineItem(): LineItem {
 export default function StockOutForm() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -206,6 +209,9 @@ export default function StockOutForm() {
   const [supplierCategories, setSupplierCategories] = useState<SupplierCategory[]>([]);
   const [department, setDepartment] = useState('');
   const [customDepartment, setCustomDepartment] = useState('');
+  // The order an internal issue is for: goods held for it (arrived on its PO, or its Use Stock) are issued to it
+  // and its own holds used up. Without it, goods held for orders are TAKEN from them, to be bought again.
+  const [orderId, setOrderId] = useState('');
 
   // Multi-item support: array of line items
   const [lineItems, setLineItems] = useState<LineItem[]>([createEmptyLineItem()]);
@@ -577,6 +583,9 @@ export default function StockOutForm() {
       toType: getDestinationType(),
       toId: challanType === 'OUTWARD' ? supplierId : undefined,
       toName: destinationName,
+      // An internal issue names the order it serves. A purchase return never does: the goods go back to the
+      // supplier, so an order that held them has lost them and needs them bought again (take them anyway)
+      orderId: challanType === 'INTERNAL' && orderId ? orderId : undefined,
       unit: headerUnit,
       remarks: remarks || undefined,
       items: challanItems,
@@ -584,7 +593,12 @@ export default function StockOutForm() {
 
     try {
       setLoading(true);
-      const challan = await challanService.quickIssueChallan(input);
+      // Goods held for other orders are refused first; the user may take them anyway (po-allocation D10)
+      const challan = await withHeldStockConfirm(
+        (takeHeld) => challanService.quickIssueChallan(input, takeHeld),
+        headerUnit
+      );
+      if (challan === undefined) return; // kept for the other order
       setSuccess(`Challan ${challan.challanNumber} created with ${lineItems.length} item(s) and issued successfully!`);
       setTimeout(() => navigate(`/manufacturing/challans`), 2000);
     } catch (err) {
@@ -600,6 +614,7 @@ export default function StockOutForm() {
   return (
     <div className="container mx-auto py-6">
       <PageHeader title="Stock Out" />
+      {heldStockDialog}
       <p className="text-muted-foreground -mt-4 mb-4">Return materials to suppliers or transfer to departments</p>
 
       {error && (
@@ -630,6 +645,7 @@ export default function StockOutForm() {
                   setChallanType('OUTWARD');
                   setSupplierId('');
                   setSupplierName('');
+                  setOrderId('');
                 }}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
                   issuePurpose === 'PURCHASE_RETURN'
@@ -651,6 +667,7 @@ export default function StockOutForm() {
                   setIssuePurpose('INTERNAL');
                   setChallanType('INTERNAL');
                   setDepartment('');
+                  setOrderId('');
                 }}
                 className={`p-4 rounded-lg border-2 text-left transition-all ${
                   issuePurpose === 'INTERNAL' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
@@ -843,6 +860,18 @@ export default function StockOutForm() {
                       />
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* INTERNAL: the order the goods are for */}
+              {challanType === 'INTERNAL' && (
+                <div className="space-y-2 max-w-md mt-4">
+                  <Label>For order</Label>
+                  <OrderCombobox value={orderId} onValueChange={setOrderId} placeholder="Select order (optional)..." />
+                  <p className="text-xs text-muted-foreground">
+                    Goods held for this order are issued to it. Leave empty only when the goods are for no order — goods
+                    held for orders would then be taken from them and bought again.
+                  </p>
                 </div>
               )}
             </CardContent>

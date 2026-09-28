@@ -287,7 +287,7 @@ export const processPoQuerySchema = z.object({
  * Send Process PO to Mill
  * POST /api/dyeing/process-pos/:id/send or /api/printing/process-pos/:id/send
  *
- * Controller destructures: sentDate, challanNumber, vehicleNumber, greigeStockLotId, details
+ * Controller destructures: sentDate, challanNumber, vehicleNumber, greigeStockLotId, details, takeHeld
  */
 export const sendProcessPoSchema = z
   .object({
@@ -300,6 +300,8 @@ export const sendProcessPoSchema = z
     greigeStockLotId: z.string().uuid().optional(),
     // The bales / thans / rolls of that lot that leave (COUNTED metres) — same picks as the Issue dialog
     details: z.array(thanPickSchema).min(1).max(2000).optional(),
+    // "Take them anyway": the lot's cloth held for other orders goes on this job (owner decision D10)
+    takeHeld: z.boolean().optional(),
   })
   .passthrough();
 

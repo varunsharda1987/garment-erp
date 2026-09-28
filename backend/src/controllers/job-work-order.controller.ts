@@ -27,6 +27,7 @@ import {
   getSameTripThanSiblings,
   validateIssue,
   unissueForCancel,
+  noteCancelledJobRequirements,
   dispatchJobWorkOrders,
   listIssueCandidates,
   type IssueCandidateLot,
@@ -57,7 +58,7 @@ import {
 import { toDateInputValue } from '../utils/date';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { returnJobWorkUnprocessed } from '../services/helpers/jwo-return-unprocessed.helper';
-import { UnauthorizedError } from '../errors';
+import { ConflictError, UnauthorizedError } from '../errors';
 import { resolveJwoRate, jwoRateProvenance, type JwoRateResolution } from '../services/helpers/jwo-rate.helper';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
@@ -72,6 +73,16 @@ import type {
   ReturnUnprocessedInput,
   DispatchJwoInput,
 } from '../schemas/jobWorkOrder.schema';
+
+/**
+ * Goods held for another order (po-allocation D10): a 409 whose `code` / `heldFor` the issue screens read to ask
+ * "take them anyway". Also sent under `details`, the shape the error middleware gives every other screen.
+ */
+function heldStockResponse(res: Response, error: ConflictError) {
+  return res
+    .status(409)
+    .json({ success: false, ...(error.details ?? {}), details: error.details, message: error.message });
+}
 
 // Standard includes for JWO queries
 const jwoInclude = {
@@ -1208,6 +1219,7 @@ class JobWorkOrderController {
         vehicleNumber,
         acknowledgeWidthMismatch,
         fabricDetails,
+        takeHeld,
       } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
@@ -1227,6 +1239,8 @@ class JobWorkOrderController {
         acknowledgeWidthMismatch,
         // A fabric-lot job naming its rolls / thans: the lot gives up what they come to (fabric-lot-pieces)
         fabricPicks: fabricDetails,
+        // The user confirmed taking goods held for other orders (D10)
+        takeHeld,
       });
 
       const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
@@ -1251,6 +1265,7 @@ class JobWorkOrderController {
           message: error.message,
         });
       }
+      if (error instanceof ConflictError) return heldStockResponse(res, error);
 
       logger.error('Error issuing JWO:', error);
       res.status(500).json({
@@ -1504,6 +1519,7 @@ class JobWorkOrderController {
         vehicleNumber: body.vehicleNumber,
         challanNumber: body.challanNumber,
         acknowledgeWidthMismatch: body.acknowledgeWidthMismatch,
+        takeHeld: body.takeHeld,
         orders: body.orders,
       });
 
@@ -1520,6 +1536,7 @@ class JobWorkOrderController {
         }
         return res.status(422).json({ success: false, code: error.code, message: error.message });
       }
+      if (error instanceof ConflictError) return heldStockResponse(res, error);
       logger.error('Error dispatching job work orders:', error);
       return res.status(500).json({
         success: false,
@@ -1584,6 +1601,11 @@ class JobWorkOrderController {
           await txClient.service_requirement_jwo_links.deleteMany({
             where: { jobWorkOrderId: jwo.id, serviceRequirementId: { in: revertableWosr } },
           });
+        }
+        // Issued cloth comes back only at the disposition, after these links are gone: note whose holds the
+        // issue used, so the disposition can hold the returned cloth for them again (po-allocation C9)
+        if (hasIssuedMaterial) {
+          await noteCancelledJobRequirements(txClient, jwo.id, userId);
         }
         const mrpLinks = await txClient.requirement_jwo_links.findMany({
           where: { jobWorkOrderId: jwo.id },
@@ -2231,6 +2253,7 @@ class JobWorkOrderController {
         vehicleNumber,
         acknowledgeWidthMismatch,
         finishedFabricId,
+        takeHeld,
       } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
@@ -2252,6 +2275,7 @@ class JobWorkOrderController {
         vehicleNumber,
         acknowledgeWidthMismatch,
         finishedFabricId,
+        takeHeld,
       });
 
       const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
@@ -2276,6 +2300,7 @@ class JobWorkOrderController {
           message: error.message,
         });
       }
+      if (error instanceof ConflictError) return heldStockResponse(res, error);
 
       logger.error('Error issuing JWO with details:', error);
       res.status(500).json({

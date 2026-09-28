@@ -3,9 +3,11 @@
  *
  * A requirement counts buttons in pieces (2,300 pcs); the supplier sells them by the gross. The wizard's preview
  * and the PO it creates must both read 16 GROSS (rounded UP) at the rate per gross — the supplier's own, else
- * the master's — and the requirement link must hold PIECES (2,304) so the remainder check, cancel and
- * short-close keep comparing pieces with pieces. The wizard echoes the previewed quantity and price back as
- * edits: they are already in gross and must not be multiplied by 144 a second time.
+ * the master's — and the requirement link must hold PIECES so the remainder check, cancel and short-close keep
+ * comparing pieces with pieces: the 2,300 the order needs, never more (2026-09-29, po-allocation — the 4 pieces
+ * the rounding up adds stay free on the line instead of being credited to that order). The wizard echoes the
+ * previewed quantity and price back as edits: they are already in gross and must not be multiplied by 144 a
+ * second time.
  */
 
 import { randomUUID } from 'crypto';
@@ -151,10 +153,12 @@ describe('MRP orders buttons by the gross', () => {
     expect(Number(line.totalPrice)).toBe(272);
   });
 
-  it('the requirement link holds pieces (2,304) — so no uncovered remainder is split off', async () => {
+  it('the requirement link holds the pieces it needs (2,300 of the 2,304) — so no uncovered remainder is split off', async () => {
     const links = await prisma.requirement_po_links.findMany({ where: { requirementId } });
     expect(links).toHaveLength(1);
-    expect(Number(links[0].allocatedQuantity)).toBe(2304);
+    expect(Number(links[0].allocatedQuantity)).toBe(2300);
+    // Ranked on its line: a part delivery fills the line's links in this order
+    expect(links[0].fillOrder).toBe(1);
     const splits = await prisma.material_requirements.count({ where: { splitFromId: requirementId } });
     expect(splits).toBe(0);
   });

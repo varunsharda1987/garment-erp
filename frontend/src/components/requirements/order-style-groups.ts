@@ -6,6 +6,9 @@
  * are merged into one size row (it keeps every requirement, so selecting it selects them all). The size rows
  * are then grouped by label (lib/label-lines): base / SIZE_PENDING row first, sizes in size order.
  *
+ * A requirement split into a balance row (MRP-12; a PO covering part of it) keeps its whole quantity as Required
+ * and the balance row repeats that part, so a row holding both counts the parent's only (design M10).
+ *
  * The sets themselves come soonest-needed first (earliest required date, then order number) — the page opens on
  * this view as a to-do list (2026-09-28).
  */
@@ -73,7 +76,6 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
     const row = entry.rows.get(r.materialId);
     if (row) {
       row.requirements.push(r);
-      row.totalRequired = round3(row.totalRequired + Number(r.totalRequired || 0));
       row.shortfall = round3(row.shortfall + Number(r.shortfall || 0));
     } else {
       entry.rows.set(r.materialId, {
@@ -87,6 +89,9 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
       });
     }
   }
+  for (const { rows } of groups.values()) {
+    for (const row of rows.values()) row.totalRequired = requiredOf(row.requirements);
+  }
   return [...groups.values()]
     .map(({ group, rows }) => ({
       ...group,
@@ -97,6 +102,16 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
         compareNullsLast(a.earliestRequiredDate, b.earliestRequiredDate) ||
         compareNullsLast(a.orderNumber, b.orderNumber)
     );
+}
+
+/** Σ Required, leaving out a balance row whose parent is in the same row (its quantity is already the parent's) */
+function requiredOf(reqs: readonly MaterialRequirement[]): number {
+  const ids = new Set(reqs.map((r) => r.id));
+  return round3(
+    reqs
+      .filter((r) => !(r.splitFromId && ids.has(r.splitFromId)))
+      .reduce((total, r) => total + Number(r.totalRequired || 0), 0)
+  );
 }
 
 /** Ascending; a missing value sorts after every real one. Equal → 0, so the sort keeps arrival order. */

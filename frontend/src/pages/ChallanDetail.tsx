@@ -23,6 +23,7 @@ import type { Challan } from '@/types/challan.types';
 import { ChallanTypeLabels, ChallanTypeColors, ChallanStatusLabels, ChallanStatusColors } from '@/types/challan.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { useToast } from '@/hooks/use-toast';
+import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { ArrowLeft, Send, X, ArrowRight, Loader2, Printer, PackageCheck } from 'lucide-react';
 
 import { openPDF } from '@/lib/document-utils';
@@ -36,6 +37,7 @@ export default function ChallanDetail() {
   const [challan, setChallan] = useState<Challan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { withHeldStockConfirm, heldStockDialog } = useHeldStockConfirm();
 
   // Receive dialog state (finding B10-08) — wires challanService.receiveChallan (PUT /challans/:id/receive)
   const [receiveOpen, setReceiveOpen] = useState(false);
@@ -64,7 +66,12 @@ export default function ChallanDetail() {
   async function handleIssue() {
     try {
       setIsProcessing(true);
-      await challanService.issueChallan(id!);
+      // Goods held for other orders are refused first; the user may take them anyway (po-allocation D10)
+      const issued = await withHeldStockConfirm(
+        (takeHeld) => challanService.issueChallan(id!, takeHeld),
+        challan?.unit
+      );
+      if (issued === undefined) return; // kept for the other order
       toast({ title: 'Success', description: 'Challan issued' });
       loadChallan();
     } catch (error) {
@@ -156,6 +163,7 @@ export default function ChallanDetail() {
 
   return (
     <div className="space-y-4">
+      {heldStockDialog}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

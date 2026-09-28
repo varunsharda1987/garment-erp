@@ -74,12 +74,24 @@ export const createChallanSchema = z.object({
 });
 
 /**
+ * Issue Challan Schema
+ * PUT /api/challans/:id/issue — no body, or `{ takeHeld: true }` after the user confirmed taking goods held for
+ * other orders (po-allocation D10).
+ */
+export const issueChallanSchema = z.object({
+  takeHeld: z.boolean().optional(),
+});
+
+/**
  * Quick Issue Challan Schema
  * POST /api/challans/quick-issue
- * The controller spreads req.body (plus a server-derived issuedById) straight into quickIssueChallan,
- * which creates the challan AND deducts stock — same payload shape as create, so it reuses createChallanSchema.
+ * The controller passes req.body (plus a server-derived issuedById) to quickIssueChallan, which creates the
+ * challan AND deducts stock — the create payload, plus takeHeld as for the issue.
  */
-export const quickIssueChallanSchema = createChallanSchema;
+export const quickIssueChallanSchema = createChallanSchema.extend({
+  /** The user confirmed taking goods held for other orders (po-allocation D10) — refused with 409 otherwise */
+  takeHeld: z.boolean().optional(),
+});
 
 /**
  * Receive Challan Item Schema — one received line.
@@ -124,5 +136,6 @@ export const splitProductionRunSchema = z.object({
 // Type exports for use in controllers
 export type CreateChallanInput = z.infer<typeof createChallanSchema>;
 export type QuickIssueChallanInput = z.infer<typeof quickIssueChallanSchema>;
+export type IssueChallanBody = z.infer<typeof issueChallanSchema>;
 export type ReceiveChallanInput = z.infer<typeof receiveChallanSchema>;
 export type SplitProductionRunInput = z.infer<typeof splitProductionRunSchema>;

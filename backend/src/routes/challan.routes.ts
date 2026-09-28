@@ -16,6 +16,7 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
   createChallanSchema,
+  issueChallanSchema,
   quickIssueChallanSchema,
   receiveChallanSchema,
   splitProductionRunSchema,
@@ -50,7 +51,12 @@ router.post('/challans/quick-issue', validateBody(quickIssueChallanSchema), asyn
 router.get('/challans', asyncHandler(getChallansController));
 router.post('/challans', validateBody(createChallanSchema), asyncHandler(createChallanController));
 router.get('/challans/:id', validateParams(idParamSchema), asyncHandler(getChallanByIdController));
-router.put('/challans/:id/issue', validateParams(idParamSchema), asyncHandler(issueChallanController));
+router.put(
+  '/challans/:id/issue',
+  validateParams(idParamSchema),
+  validateBody(issueChallanSchema),
+  asyncHandler(issueChallanController)
+);
 router.put(
   '/challans/:id/receive',
   validateParams(idParamSchema),

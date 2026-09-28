@@ -15,6 +15,7 @@ import { NotFoundError, UnauthorizedError, ValidationError, ConflictError, Busin
 import { resolveAdminOverride } from '../utils/admin-override';
 import { ChallanType, Unit } from '@prisma/client';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
+import { untrackedHeldByMaterial } from '../services/helpers/stock-reservation.helper';
 import { buildCuttingChartData } from './cutting.controller';
 import {
   assertCuttingBatchCutsLot,
@@ -31,7 +32,7 @@ import { lotPiecesSummary, pickActualQty, type FabricPiecePick } from '../servic
 import { notInProcessorUnitWhere } from '../services/helpers/lot-location.helper';
 import { qtyExceeds } from '../utils/quantity';
 import { fmtQty } from '../services/document-data/format';
-import type { IssueFabricInput } from '../schemas/workOrder.schema';
+import type { IssueFabricInput, IssueMaterialItemsInput } from '../schemas/workOrder.schema';
 
 /**
  * Issue a freshly created challan; if issuing fails, cancel the just-created DRAFT challan so it
@@ -821,6 +822,11 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
   // T2-1: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
   // Returns materialId → total available qty across warehouses.
   const stockMap = await getDerivedOnHandMap(materialIds);
+  // What is held for OTHER orders (arrived on their PO, or their Use Stock) is not this run's to issue
+  // (po-allocation D2); issuing it anyway asks first (D10). This run's own order's holds are its own.
+  const heldMap = await untrackedHeldByMaterial(prisma, materialIds, {
+    excludeOrderId: workOrder.orderId ?? undefined,
+  });
 
   // Build BOM items with stock info and calculated required qty
   const items = bomItems.map((item) => {
@@ -828,7 +834,9 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
     const orderQty = item.orderQuantity;
     const wastagePercent = Number(item.wastagePercent || 0);
     const requiredQty = qtyPerPiece * orderQty * (1 + wastagePercent / 100);
-    const availableStock = item.materialId ? stockMap.get(item.materialId) || 0 : 0;
+    const onHand = item.materialId ? stockMap.get(item.materialId) || 0 : 0;
+    const heldForOthers = Math.min(onHand, item.materialId ? heldMap.get(item.materialId) || 0 : 0);
+    const availableStock = Math.max(0, onHand - heldForOthers);
 
     return {
       bomItemId: item.id,
@@ -843,6 +851,8 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
       wastagePercent,
       requiredQty: Math.ceil(requiredQty * 100) / 100, // round up to 2 decimals
       availableStock,
+      /** On the shelf but held for other orders — issuing it takes it from them after a confirmation */
+      heldForOthers,
       shortage: Math.max(0, requiredQty - availableStock),
     };
   });
@@ -920,7 +930,8 @@ async function issueMaterials(
   fromName: string,
   toName: string,
   items: Array<{ materialId: string; quantity: number; unit: string; description: string }>,
-  remarks?: string
+  remarks?: string,
+  takeHeld?: boolean
 ) {
   const workOrder = await prisma.work_orders.findUnique({
     where: { id: workOrderId },
@@ -951,7 +962,8 @@ async function issueMaterials(
     })),
   });
 
-  const issuedChallan = await issueChallanOrCleanup(challan.id, userId);
+  // Goods held for other orders are refused with 409 STOCK_HELD_FOR_ORDER unless the user confirmed (takeHeld)
+  const issuedChallan = await issueChallanOrCleanup(challan.id, userId, { takeHeld });
 
   logInfo(`Materials issued to ${toName} via INTERNAL challan`, {
     workOrderId,
@@ -971,13 +983,18 @@ export const issueTrims = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new UnauthorizedError('User not authenticated');
 
-  const { items, remarks } = req.body as {
-    items: Array<{ materialId: string; quantity: number; unit: string; description: string }>;
-    remarks?: string;
-  };
+  const { items, remarks, takeHeld } = req.body as IssueMaterialItemsInput;
   if (!items || items.length === 0) throw new ValidationError('At least one trim item must be selected');
 
-  const issuedChallan = await issueMaterials(req.params.id, userId, 'Trim Store', 'Stitching', items, remarks);
+  const issuedChallan = await issueMaterials(
+    req.params.id,
+    userId,
+    'Trim Store',
+    'Stitching',
+    items,
+    remarks,
+    takeHeld
+  );
 
   res.status(201).json({
     success: true,
@@ -994,13 +1011,18 @@ export const issuePackaging = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new UnauthorizedError('User not authenticated');
 
-  const { items, remarks } = req.body as {
-    items: Array<{ materialId: string; quantity: number; unit: string; description: string }>;
-    remarks?: string;
-  };
+  const { items, remarks, takeHeld } = req.body as IssueMaterialItemsInput;
   if (!items || items.length === 0) throw new ValidationError('At least one packaging item must be selected');
 
-  const issuedChallan = await issueMaterials(req.params.id, userId, 'Packaging Store', 'Finishing', items, remarks);
+  const issuedChallan = await issueMaterials(
+    req.params.id,
+    userId,
+    'Packaging Store',
+    'Finishing',
+    items,
+    remarks,
+    takeHeld
+  );
 
   res.status(201).json({
     success: true,

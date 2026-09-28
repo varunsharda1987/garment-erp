@@ -12,6 +12,7 @@ import {
 } from '../services/challan.service';
 import { resolveRate } from '../services/po-rate-resolver.service';
 import { NotFoundError, ValidationError } from '../errors';
+import type { IssueChallanBody, QuickIssueChallanInput } from '../schemas/challan.schema';
 
 /**
  * POST /api/challans
@@ -39,7 +40,9 @@ export async function createChallanController(req: Request, res: Response) {
  */
 export async function issueChallanController(req: Request, res: Response) {
   const userId = req.user?.userId;
-  const challan = await issueChallan(req.params.id, userId);
+  // takeHeld: the user confirmed taking goods held for other orders (409 STOCK_HELD_FOR_ORDER otherwise)
+  const { takeHeld } = req.body as IssueChallanBody;
+  const challan = await issueChallan(req.params.id, userId, { takeHeld });
   return res.json({ success: true, data: challan });
 }
 
@@ -157,10 +160,8 @@ export async function quickIssueChallanController(req: Request, res: Response) {
     throw new ValidationError('User not authenticated');
   }
 
-  const challan = await quickIssueChallan({
-    ...req.body,
-    issuedById: userId,
-  });
+  const { takeHeld, ...body } = req.body as QuickIssueChallanInput;
+  const challan = await quickIssueChallan({ ...body, issuedById: userId }, { takeHeld });
 
   return res.status(201).json({ success: true, data: challan, message: 'Challan issued successfully' });
 }

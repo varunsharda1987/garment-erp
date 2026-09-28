@@ -40,15 +40,16 @@ export const challanService = {
     return data.data;
   },
 
-  // Quick issue: Create + Issue challan in one step
-  async quickIssueChallan(input: CreateChallanInput): Promise<Challan> {
-    const { data } = await api.post(`${BASE_URL}/quick-issue`, input);
+  // Quick issue: Create + Issue challan in one step. takeHeld = the user confirmed taking goods held for other
+  // orders (the server refuses with 409 STOCK_HELD_FOR_ORDER first — hooks/useHeldStockConfirm)
+  async quickIssueChallan(input: CreateChallanInput, takeHeld = false): Promise<Challan> {
+    const { data } = await api.post(`${BASE_URL}/quick-issue`, takeHeld ? { ...input, takeHeld } : input);
     return data.data;
   },
 
-  // Issue challan (DRAFT → ISSUED)
-  async issueChallan(id: string): Promise<Challan> {
-    const { data } = await api.put(`${BASE_URL}/${id}/issue`);
+  // Issue challan (DRAFT → ISSUED); takeHeld as for quick issue
+  async issueChallan(id: string, takeHeld = false): Promise<Challan> {
+    const { data } = await api.put(`${BASE_URL}/${id}/issue`, takeHeld ? { takeHeld } : {});
     return data.data;
   },
 

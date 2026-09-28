@@ -3,6 +3,8 @@
  * Frontend type definitions for material requirements management
  */
 
+import type { PoAllocationPlace } from './po-allocation.types';
+
 // ============================================
 // ENUMS
 // ============================================
@@ -123,6 +125,12 @@ export interface RequirementPOLink {
   purchaseOrderItemId: string;
   allocatedQuantity: number;
   receivedQuantity: number;
+  /** Rank on its PO line — a part delivery fills the links in this order (earliest delivery first) */
+  fillOrder?: number | null;
+  /** Received goods held for this link now (not yet issued) */
+  heldQuantity?: number;
+  /** Of what it received, what has been issued */
+  issuedQuantity?: number;
   createdAt: string;
   purchaseOrder?: {
     id: string;
@@ -160,6 +168,45 @@ export interface RequirementJWOLink {
     /** The processor's agreed rate on the job (null until set) */
     agreedRatePerMeter?: number | null;
   };
+}
+
+// ============================================
+// OPEN PO SUPPLY — "an open PO covers this, not linked"
+// ============================================
+
+/**
+ * A sent PO line that could cover a requirement but is not linked to it — the Requirements page's
+ * "PO2609-0231 · 1,589 pcs free · not linked" note (po-allocation.helper `batchGetOpenPOSupply`). Only unlinked
+ * MATERIAL rows that still need buying (and DECISION_PENDING, which can't be linked) carry it. Every figure is in
+ * the requirement's (stock) unit; `lineUnit` is the PO line's own unit (GROSS…).
+ */
+export interface OpenPOSupplyLine {
+  purchaseOrderId: string;
+  poNumber: string;
+  poStatus: string;
+  poCategory: string | null;
+  supplierName: string | null;
+  expectedDeliveryDate: string;
+  purchaseOrderItemId: string;
+  lineUnit: string;
+  stockUnitsPerUnit: number | null;
+  orderedStockQty: number;
+  arrivedQty: number;
+  /** Σ allocated over the line's live links */
+  allocatedQty: number;
+  /** What this requirement could still be linked for */
+  freeToLink: number;
+  /** Arrived, nobody's, still physically there ("559 here") — a link takes it first and holds it at once */
+  arrivedFree: number;
+  toCome: number;
+  /** Σ shortfall of every unlinked requirement that could take this material */
+  unlinkedDemandQty: number;
+  /** Greige / lace lines: where it delivers; null = not a located line, or to be advised */
+  deliversTo: PoAllocationPlace[] | null;
+  linkable: boolean;
+  blockedReason: string | null;
+  /** The PO is expected after this requirement is needed */
+  arrivesLate: boolean;
 }
 
 // ============================================
@@ -240,6 +287,10 @@ export interface MaterialRequirement {
   createdBy?: UserSummary;
   poLinks?: RequirementPOLink[];
   jwoLinks?: RequirementJWOLink[];
+  /** Open PO lines that could cover it but are not linked — MRP only suggests; Link opens the Allocate dialog */
+  openPOSupply?: OpenPOSupplyLine[];
+  /** Received goods held for it through its PO links (not Use Stock) */
+  receiptHeldQty?: number;
   orderBom?: { id: string; version: number } | null;
   // NEW: Processing relations
   processor?: SupplierSummary | null;

@@ -217,6 +217,16 @@ export const queryKeys = {
     detail: (id: string | number) => [...queryKeys.purchaseOrders.details(), id] as const,
   },
 
+  // A sent PO's allocation to running orders. Under 'purchase-orders', so whatever refreshes the PO lists
+  // (a receipt, a cancel, a close) refreshes the allocation too.
+  poAllocation: {
+    all: ['purchase-orders', 'allocation'] as const,
+    po: (poId: string) => [...queryKeys.poAllocation.all, poId] as const,
+    /** `itemIds` narrows to some lines (the Requirements page's Link); none = every line */
+    detail: (poId: string, itemIds?: readonly string[]) =>
+      [...queryKeys.poAllocation.po(poId), itemIds && itemIds.length > 0 ? [...itemIds].sort() : 'all'] as const,
+  },
+
   // Service Requirements
   serviceRequirements: {
     all: ['service-requirements'] as const,

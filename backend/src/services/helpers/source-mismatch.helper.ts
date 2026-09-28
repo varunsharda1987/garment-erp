@@ -258,37 +258,35 @@ export async function cancelLinkedProcessingPOs(
 }
 
 /**
- * Updates MRP requirements when greige is received as ready fabric.
- * - GREIGE requirement → RECEIVED (we got the goods, just different type)
+ * Updates MRP requirements when greige is received as ready fabric, for the PO LINES that came as fabric only —
+ * another line of the same PO still comes as greige, and its orders still need their dyeing.
+ * - GREIGE requirement: left to the receipt engine. GRN approval credits its link from this receipt in the same
+ *   transaction (receipt-allocation.helper applyLineReceipts — we got the goods, just a different type), so it
+ *   reads RECEIVED or PARTIALLY_RECEIVED by what arrived. It was forced RECEIVED here, for every line of the PO.
  * - PROCESSING requirement → CANCELLED (no processing needed)
  *
  * @param greigePOId - The GREIGE PO ID
+ * @param readyFabricLineIds - The PO lines received as ready fabric
  * @param tx - Prisma transaction client
  */
-export async function updateLinkedMRPRequirements(greigePOId: string, tx: PrismaTransaction): Promise<void> {
-  // Find greige requirements linked to this PO
+export async function updateLinkedMRPRequirements(
+  greigePOId: string,
+  readyFabricLineIds: string[],
+  tx: PrismaTransaction
+): Promise<void> {
+  // Find greige requirements linked to the lines that came as fabric
   const requirementLinks = await tx.requirement_po_links.findMany({
-    where: { purchaseOrderId: greigePOId },
+    where: { purchaseOrderId: greigePOId, purchaseOrderItemId: { in: readyFabricLineIds } },
     select: { requirementId: true },
   });
   const greigeRequirementIds = requirementLinks.map((link) => link.requirementId);
 
   if (greigeRequirementIds.length === 0) {
-    logWarn(`[SourceMismatch] No MRP requirements linked to PO ${greigePOId}`);
+    logInfo(`[SourceMismatch] No MRP requirements linked to the ready-fabric line(s) of PO ${greigePOId}`);
     return;
   }
 
-  // 1. Mark GREIGE requirements as RECEIVED
-  await tx.material_requirements.updateMany({
-    where: { id: { in: greigeRequirementIds } },
-    data: {
-      status: 'RECEIVED',
-      // Note: remarks field doesn't exist in updateMany, handle separately if needed
-    },
-  });
-  logInfo(`[SourceMismatch] Marked ${greigeRequirementIds.length} GREIGE requirement(s) as RECEIVED`);
-
-  // 2. Cancel linked PROCESSING requirements
+  // Cancel linked PROCESSING requirements
   const processingReqs = await tx.material_requirements.updateMany({
     where: {
       linkedRequirementId: { in: greigeRequirementIds },
@@ -538,26 +536,29 @@ export async function updateCostSheetSourcingStrategy(
  * This is the main orchestration function to call from GRN approval.
  *
  * @param greigePOId - The GREIGE PO ID
+ * @param readyFabricLineIds - The PO lines this receipt brings as ready fabric
  * @param tx - Prisma transaction client
  * @returns Summary of actions taken
  */
 export async function executeSourceMismatchCleanup(
   greigePOId: string,
+  readyFabricLineIds: string[],
   tx: PrismaTransaction
 ): Promise<{
   cancelledPOs: string[];
   cancelledBatches: number;
   cancelledChallans: number;
 }> {
-  // 1. Cancel linked Processing POs
+  // 1. Cancel linked Processing POs (they hang off the whole greige PO, not a line)
   const cancelledPOs = await cancelLinkedProcessingPOs(greigePOId, 'Received as ready fabric instead of greige', tx);
 
-  // 2. Update MRP requirements
-  await updateLinkedMRPRequirements(greigePOId, tx);
+  // 2. Update MRP requirements — of the lines that came as fabric only
+  await updateLinkedMRPRequirements(greigePOId, readyFabricLineIds, tx);
 
-  // 3. Get greige IDs from PO items for processing batch cancellation
+  // 3. Get greige IDs from the lines that came as fabric, for processing batch cancellation — the greige of
+  //    another line still comes as greige and is still to be processed
   const poItems = await tx.purchase_order_items.findMany({
-    where: { poId: greigePOId },
+    where: { poId: greigePOId, id: { in: readyFabricLineIds } },
     include: {
       materials: { select: { greigeId: true } },
     },

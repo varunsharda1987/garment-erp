@@ -41,7 +41,8 @@ import type { CreateChallanInput, ChallanType } from '../types/challan.types';
 import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 import { toDateInputValue } from '@/lib/date';
-import { foldActual, foldLabel } from '@/lib/fold-length';
+import { foldActual } from '@/lib/fold-length';
+import { FoldActualField } from '@/components/FoldActualField';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 import {
   getAllowedMaterialTypes,
@@ -1026,11 +1027,13 @@ export default function StockOutForm() {
                             step="any"
                             placeholder="0.00"
                           />
-                          {item.availableQty !== null && qtyExceeds(item.quantity, item.availableQty) && (
-                            <p className="text-xs text-destructive">
-                              Exceeds available ({item.availableQty.toFixed(2)})
-                            </p>
-                          )}
+                          {/* Stock is in actual metres, so compare the actual figure — the same test as submit */}
+                          {item.availableQty !== null &&
+                            qtyExceeds(foldActual(item.quantity, item.foldLengthCm), item.availableQty) && (
+                              <p className="text-xs text-destructive">
+                                Exceeds available ({item.availableQty.toFixed(2)})
+                              </p>
+                            )}
                         </div>
 
                         {/* Stock Info + Than/Fold fields for fabric/greige */}
@@ -1069,11 +1072,14 @@ export default function StockOutForm() {
                                 step="any"
                                 min="0"
                               />
-                              {foldLabel(item.quantity, item.foldLengthCm, 'METER') && Number(item.quantity) > 0 && (
-                                <p className="text-xs text-info">
-                                  {foldLabel(item.quantity, item.foldLengthCm, 'METER')}
-                                </p>
-                              )}
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Actual Metres (after L)</Label>
+                              <FoldActualField
+                                counted={item.quantity}
+                                foldLengthCm={item.foldLengthCm}
+                                unit={item.unit}
+                              />
                             </div>
                           </>
                         )}

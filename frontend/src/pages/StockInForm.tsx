@@ -62,7 +62,8 @@ import type { Elastic } from '../types/elastic.types';
 import type { Label as LabelType } from '../types/label.types';
 import type { Packaging } from '../types/packaging.types';
 import { logError } from '../lib/logger';
-import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
+import { foldActual, hasFold } from '@/lib/fold-length';
+import { FoldActualField } from '@/components/FoldActualField';
 import { isQtyZero, qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { formatCurrency } from '@/lib/currency';
 
@@ -1363,22 +1364,24 @@ export default function StockInForm() {
                                 min="0"
                               />
                             </div>
-                            {/* Show calculated actual when fold length is entered */}
-                            {hasFold(item.foldLengthCm) && Number(item.quantity) > 0 && (
-                              <div className="col-span-full bg-amber-50 border border-amber-200 rounded-md p-2 text-sm">
-                                <div className="font-medium text-amber-800">Fold Length Adjustment:</div>
-                                <div className="text-amber-700">
-                                  {foldLabel(item.quantity, item.foldLengthCm, item.unit)}
-                                  {item.rate && (
-                                    <span className="ml-2">
-                                      (Value:{' '}
+                            <div className="space-y-2">
+                              <Label>Actual Metres (after L)</Label>
+                              <FoldActualField
+                                counted={item.quantity}
+                                foldLengthCm={item.foldLengthCm}
+                                unit={item.unit}
+                                note={
+                                  hasFold(item.foldLengthCm) &&
+                                  Number(item.quantity) > 0 &&
+                                  Number(item.rate) > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Value at actual:{' '}
                                       {formatCurrency(foldActual(item.quantity, item.foldLengthCm) * Number(item.rate))}
-                                      )
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                                    </p>
+                                  )
+                                }
+                              />
+                            </div>
                           </>
                         )}
 

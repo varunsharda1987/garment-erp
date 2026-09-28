@@ -31,7 +31,8 @@ import type { WarehouseType } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess, isOutcomeUnknown } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 import { toDateInputValue } from '@/lib/date';
-import { foldActual, foldLabel } from '@/lib/fold-length';
+import { foldActual } from '@/lib/fold-length';
+import { FoldActualField } from '@/components/FoldActualField';
 import { generateId } from '@/lib/utils';
 
 interface ReceiveFromProcessorDialogProps {
@@ -173,7 +174,6 @@ export default function ReceiveFromProcessorDialog({
   const rowsValid = rows.length > 0 && rows.every((r) => r.meters > 0);
   const countedQty = entryMode === 'TOTAL_METERS' ? qtyMeters : rowsValid ? sumDetailRows(rows) : 0;
   const effectiveQty = foldActual(countedQty, foldLengthCm);
-  const foldNote = countedQty > 0 ? foldLabel(countedQty, foldLengthCm, jwo?.uom ?? 'MTR') : null;
 
   // Parts: what earlier deliveries already booked. The split, the cap and the "final" tick all work
   // on the CUMULATIVE figure — a short first delivery is not a loss until the last one is in.
@@ -471,7 +471,7 @@ export default function ReceiveFromProcessorDialog({
                 Enter the metres the processor counted. With a fold length under 100 cm, stock takes the actual metres
                 (counted × L/100).
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="rfp-than" className="text-xs">
                     Than count
@@ -487,7 +487,7 @@ export default function ReceiveFromProcessorDialog({
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="rfp-fold" className="text-xs">
-                    Fold length (cm, under 1000)
+                    Fold length L (cm)
                   </Label>
                   <Input
                     id="rfp-fold"
@@ -499,8 +499,13 @@ export default function ReceiveFromProcessorDialog({
                     onChange={(e) => setFoldLengthCm(parseFloat(e.target.value) || 0)}
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="rfp-actual" className="text-xs">
+                    Actual metres (after L)
+                  </Label>
+                  <FoldActualField id="rfp-actual" counted={countedQty} foldLengthCm={foldLengthCm} unit={uom} />
+                </div>
               </div>
-              {foldNote && <p className="text-xs text-info">{foldNote}</p>}
             </div>
           ) : (
             <div className="space-y-2">
@@ -508,7 +513,7 @@ export default function ReceiveFromProcessorDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="rfp-fold" className="text-xs">
-                    Fold length (cm, under 1000)
+                    Fold length L (cm)
                   </Label>
                   <Input
                     id="rfp-fold"
@@ -520,8 +525,13 @@ export default function ReceiveFromProcessorDialog({
                     onChange={(e) => setFoldLengthCm(parseFloat(e.target.value) || 0)}
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label htmlFor="rfp-actual" className="text-xs">
+                    Actual metres (after L)
+                  </Label>
+                  <FoldActualField id="rfp-actual" counted={countedQty} foldLengthCm={foldLengthCm} unit={uom} />
+                </div>
               </div>
-              {foldNote && <p className="text-xs text-info">{foldNote}</p>}
             </div>
           )}
 

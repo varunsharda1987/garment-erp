@@ -30,7 +30,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
 import { formatDate, toDateInputValue } from '@/lib/date';
-import { foldActual, foldLabel, hasFold } from '@/lib/fold-length';
+import { foldActual, foldLabel } from '@/lib/fold-length';
+import { FoldActualField } from '@/components/FoldActualField';
 import { qtyExceeds } from '@/lib/quantity';
 import { materialDetailLine } from '@/lib/material-detail';
 
@@ -627,7 +628,6 @@ export default function GRNForm() {
     );
   };
 
-  // Counted at fold L → the actual metres stock, over-receipt and value will use.
   /** One receipt line; a label's size row shows its size instead of the material (the label is the heading above). */
   const renderReceiptRow = (item: GRNItemForm, index: number, size?: string | null) => {
     const received = foldActual(item.receivedQuantity, item.foldLengthCm);
@@ -670,9 +670,13 @@ export default function GRNForm() {
             className={`w-full ${isOver ? 'border-warning/50 bg-warning-muted' : ''}`}
             placeholder="0"
           />
-          {renderFoldActual(item)}
           {renderOverReceiptWarning(item)}
         </TableCell>
+        {showMeasurementFields && (
+          <TableCell>
+            <FoldActualField counted={item.receivedQuantity} foldLengthCm={item.foldLengthCm} unit={item.unit} />
+          </TableCell>
+        )}
         <TableCell>
           <Input
             type="number"
@@ -728,20 +732,11 @@ export default function GRNForm() {
         <TableCell className="text-sm font-medium">
           {sum((i) => foldActual(i.receivedQuantity, i.foldLengthCm)).toLocaleString()}
         </TableCell>
+        {showMeasurementFields && <TableCell />}
         <TableCell className="text-sm">{sum((i) => parseFloat(i.acceptedQuantity) || 0).toLocaleString()}</TableCell>
         <TableCell className="text-sm">{sum((i) => parseFloat(i.rejectedQuantity) || 0).toLocaleString()}</TableCell>
         <TableCell />
       </TableRow>
-    );
-  };
-
-  const renderFoldActual = (item: GRNItemForm) => {
-    const received = parseFloat(item.receivedQuantity) || 0;
-    if (!hasFold(item.foldLengthCm) || received <= 0) return null;
-    return (
-      <div className="mt-1 rounded-md border border-info/30 bg-info-muted px-2 py-1 text-xs text-info">
-        {foldLabel(received, item.foldLengthCm, item.unit)}
-      </div>
     );
   };
 
@@ -1419,7 +1414,10 @@ export default function GRNForm() {
                   <TableHead className="text-right">Ordered</TableHead>
                   <TableHead className="text-right">Already Rcvd</TableHead>
                   <TableHead className="text-right">Pending</TableHead>
-                  <TableHead className="w-[120px]">This Receipt</TableHead>
+                  <TableHead className="w-[120px]">
+                    {showMeasurementFields ? 'This Receipt (counted)' : 'This Receipt'}
+                  </TableHead>
+                  {showMeasurementFields && <TableHead className="w-[130px]">Actual (after L)</TableHead>}
                   <TableHead className="w-[100px]">Accepted</TableHead>
                   <TableHead className="w-[100px]">Rejected</TableHead>
                   <TableHead className="w-[150px]">Remarks</TableHead>

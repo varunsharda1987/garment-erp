@@ -88,18 +88,33 @@ export const updateOrderStatus = async (id: string, statusData: UpdateOrderStatu
   return data.data;
 };
 
+export type LaceHandling = 'RELEASE_TO_STOCK' | 'RETURN_TO_SUPPLIER';
+
 /**
- * Delete/Cancel order (soft delete - changes status to CANCELLED)
+ * Cancel an order: its production runs that have not started, its BOMs and its open requirements
+ * go with it, and its lace is released or returned. The server refuses once a run has started
+ * (in production, fabric issued to Cutting, or cut) and names those runs.
  */
-export const deleteOrder = async (id: string): Promise<void> => {
-  await api.delete(`/orders/${id}`);
+export const cancelOrder = async (
+  id: string,
+  body: { laceHandling?: LaceHandling; cancellationReason?: string }
+): Promise<void> => {
+  await api.post(`/orders/${id}/cancel`, body);
+};
+
+/** How much lace is still reserved against the order — decides whether cancelling asks what to do with it. */
+export const getOrderLaceAllocationSummary = async (
+  id: string
+): Promise<{ activeAllocations: number; releasableQuantity: number }> => {
+  const { data } = await api.get(`/orders/${id}/lace-allocations`);
+  return data.data.summary;
 };
 
 /**
  * Check if order can be hard deleted
- * Returns { canDelete: boolean, reason?: string }
+ * Returns { canDelete: boolean, reason?: string } — `code: 'ADMIN_ONLY'` for a non-admin
  */
-export const canDeleteOrder = async (id: string): Promise<{ canDelete: boolean; reason?: string }> => {
+export const canDeleteOrder = async (id: string): Promise<{ canDelete: boolean; reason?: string; code?: string }> => {
   const { data } = await api.get(`/orders/${id}/can-delete`);
   return data;
 };

@@ -16,6 +16,9 @@ import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
 import { releaseReservations } from './helpers/stock-reservation.helper';
+import { getRunFabricPosition } from './helpers/run-fabric.helper';
+import { fmtQty } from './document-data/format';
+import { isQtyZero } from '../utils/quantity';
 
 // ============================================
 // Types
@@ -688,6 +691,22 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       throw new NotFoundError('Order', id);
     }
 
+    if (order.status === 'CANCELLED') {
+      throw new BusinessError(`Order ${order.orderNumber} is already cancelled`);
+    }
+
+    // A run that has started is physical production: pushed to cutting, fabric issued to it, or cut.
+    // The cascade below would cancel it with its fabric still on the cutting floor (2026-09-28: a
+    // Delete click on ORD2026080025 fell through to this path while WO2609-0087 held 1,704 m at
+    // Cutting). The run is closed on its own page first; only then can the order go.
+    const startedRuns = await this.startedRunsOf(id);
+    if (startedRuns.length > 0) {
+      throw new BusinessError(
+        `Cannot cancel order ${order.orderNumber}: production has started on ${startedRuns.join('; ')}. ` +
+          `Close or cancel those production runs first.`
+      );
+    }
+
     // BUG-ORD8 fix: Prevent cancelling orders with completed/dispatched work orders
     const completedWorkOrders = await this.prisma.work_orders.findMany({
       where: {
@@ -1106,6 +1125,39 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
    */
   private async generateOrderNumber(): Promise<string> {
     return generateAtomicOrderNumber();
+  }
+
+  /**
+   * The order's production runs that have physically started, one description each — in
+   * production, fabric issued to Cutting (issued as the run's challans record it, via
+   * `getRunFabricPosition`), or a cutting batch raised. Cancelled runs are ignored.
+   */
+  private async startedRunsOf(orderId: string): Promise<string[]> {
+    const runs = await this.prisma.work_orders.findMany({
+      where: { orderId, status: { not: 'CANCELLED' } },
+      select: {
+        id: true,
+        workOrderNumber: true,
+        status: true,
+        _count: { select: { cutting_batches: true } },
+      },
+      orderBy: { workOrderNumber: 'asc' },
+    });
+    if (runs.length === 0) return [];
+
+    const started: string[] = [];
+    for (const run of runs) {
+      const position = await getRunFabricPosition([run.id], this.prisma);
+      const issued = [...position.lots.values()].reduce((sum, lot) => sum + lot.issued, 0);
+      const facts: string[] = [];
+      if (run.status === 'IN_PRODUCTION') facts.push('in production');
+      if (!isQtyZero(issued)) facts.push(`${fmtQty(issued, 'METER')} m issued to Cutting`);
+      if (run._count.cutting_batches > 0) {
+        facts.push(`${run._count.cutting_batches} cutting batch${run._count.cutting_batches === 1 ? '' : 'es'}`);
+      }
+      if (facts.length > 0) started.push(`${run.workOrderNumber} (${facts.join(', ')})`);
+    }
+    return started;
   }
 }
 

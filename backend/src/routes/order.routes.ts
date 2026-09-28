@@ -1,12 +1,11 @@
 // Order Management Routes
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import {
   createOrder,
   getAllOrders,
   getOrderById,
   updateOrderStatus,
   updateOrder,
-  deleteOrder,
   canDeleteOrder,
   hardDeleteOrder,
   getOrderStatisticsByCustomer,
@@ -50,7 +49,18 @@ router.patch(
   validateBody(updateOrderStatusSchema),
   asyncHandler(updateOrderStatus)
 );
-router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteOrder));
+/**
+ * RETIRED 2026-09-28. "Delete" used to fall through to a CANCEL whenever the order could not be
+ * deleted — so a Delete click on an order being cut cancelled it and its running production run.
+ * Deleting is DELETE /:id/hard-delete; cancelling is POST /:id/cancel. They are separate decisions.
+ */
+// no-body — 410 tombstone, nothing read
+router.delete('/:id', (_req: Request, res: Response) =>
+  res.status(410).json({
+    success: false,
+    message: 'To delete an order use Delete permanently; to cancel it use Cancel order.',
+  })
+);
 
 // Hard delete routes (for unprocessed orders)
 router.get('/:id/can-delete', validateParams(idParamSchema), asyncHandler(canDeleteOrder));

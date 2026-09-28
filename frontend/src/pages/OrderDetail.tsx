@@ -56,6 +56,7 @@ import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { SizeBreakupDialog } from '@/components/orders/SizeBreakupDialog';
+import CancelOrderDialog from '@/components/orders/CancelOrderDialog';
 import { formatDate } from '@/lib/date';
 import { qtyExceeds } from '@/lib/quantity';
 
@@ -63,6 +64,7 @@ export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   // Sizes-later workflow: which order item is having its size breakdown entered
   const [sizeBreakupItem, setSizeBreakupItem] = useState<{
@@ -540,9 +542,26 @@ export default function OrderDetail() {
           >
             {createWorkOrdersMutation.isPending ? 'Creating…' : 'Create Work Orders'}
           </Button>
+          {(order.status === 'PENDING' || order.status === 'IN_PRODUCTION') && (
+            <Button variant="outline" onClick={() => setCancelOpen(true)}>
+              Cancel Order
+            </Button>
+          )}
           <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>Edit Order</Button>
         </div>
       </div>
+
+      <CancelOrderDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        orderId={order.id}
+        orderNumber={order.orderNumber}
+        onCancelled={() => {
+          queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+          queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.mrp.forOrder(order.id) });
+        }}
+      />
 
       {/* Order Header */}
       <Card className="mb-6">

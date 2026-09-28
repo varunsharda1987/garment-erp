@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
-import { getAllOrders, deleteOrder, hardDeleteOrder, canDeleteOrder } from '@/services/order.service';
+import { getAllOrders, hardDeleteOrder, canDeleteOrder } from '@/services/order.service';
 import { createFromCostSheet } from '@/services/orderBom.service';
 import { getCostSheetVersionsByStyle } from '@/services/costSheet.service';
 import type { Order, OrderStatus, Priority } from '@/types/order.types';
@@ -14,6 +14,18 @@ import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import CancelOrderDialog from '@/components/orders/CancelOrderDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useAuthStore } from '@/stores/auth.store';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { extractRateSlabChange } from '@/lib/rate-slab-change';
@@ -61,13 +73,17 @@ export default function OrderList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
-  // Delete dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<{
+  // Delete is only ever a delete (admin). A refusal shows its reason; cancelling is a separate,
+  // explicit decision (CancelOrderDialog) — never what a Delete click falls through to.
+  const isAdmin = useAuthStore((state) => state.user?.role === 'ADMIN');
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [deleteRefusal, setDeleteRefusal] = useState<{
     id: string;
     orderNumber: string;
-    canHardDelete: boolean;
+    status: OrderStatus;
+    reason: string;
   } | null>(null);
+  const [orderToCancel, setOrderToCancel] = useState<{ id: string; orderNumber: string } | null>(null);
 
   // BOM creation loading state
   const [bomLoadingId, setBomLoadingId] = useState<string | null>(null);
@@ -109,16 +125,19 @@ export default function OrderList() {
     }
   };
 
-  const handleDeleteClick = async (id: string, orderNumber: string, isHardDelete: boolean) => {
+  const handleDeleteClick = async (order: Order) => {
     try {
-      if (isHardDelete) {
-        // Check if order can be hard deleted
-        const result = await canDeleteOrder(id);
-        setOrderToDelete({ id, orderNumber, canHardDelete: result.canDelete });
+      const result = await canDeleteOrder(order.id);
+      if (result.canDelete) {
+        setOrderToDelete({ id: order.id, orderNumber: order.orderNumber });
       } else {
-        setOrderToDelete({ id, orderNumber, canHardDelete: false });
+        setDeleteRefusal({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          reason: result.reason || 'This order cannot be deleted.',
+        });
       }
-      setDeleteDialogOpen(true);
     } catch (err) {
       handleApiError(err, 'Failed to check if order can be deleted');
     }
@@ -128,16 +147,11 @@ export default function OrderList() {
     if (!orderToDelete) return;
 
     try {
-      if (orderToDelete.canHardDelete) {
-        await hardDeleteOrder(orderToDelete.id);
-        handleApiSuccess('Order deleted', `Order ${orderToDelete.orderNumber} has been permanently deleted.`);
-      } else {
-        await deleteOrder(orderToDelete.id);
-        handleApiSuccess('Order cancelled', `Order ${orderToDelete.orderNumber} has been cancelled.`);
-      }
+      await hardDeleteOrder(orderToDelete.id);
+      handleApiSuccess('Order deleted', `Order ${orderToDelete.orderNumber} has been permanently deleted.`);
       fetchOrders();
     } catch (err: unknown) {
-      handleApiError(err, orderToDelete.canHardDelete ? 'Failed to delete order' : 'Failed to cancel order');
+      handleApiError(err, 'Failed to delete order');
     } finally {
       setOrderToDelete(null);
     }
@@ -404,13 +418,13 @@ export default function OrderList() {
                 Edit
               </Button>
             )}
-            {(order.status === 'PENDING' || order.status === 'CANCELLED') && (
+            {isAdmin && (order.status === 'PENDING' || order.status === 'CANCELLED') && (
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDeleteClick(order.id, order.orderNumber, true);
+                  handleDeleteClick(order);
                 }}
               >
                 Delete
@@ -519,21 +533,59 @@ export default function OrderList() {
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog — permanent delete only */}
       <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title={orderToDelete?.canHardDelete ? 'Delete Order' : 'Cancel Order'}
-        description={
-          orderToDelete?.canHardDelete
-            ? `Are you sure you want to permanently delete order ${orderToDelete?.orderNumber}? This will remove all related records and cannot be undone.`
-            : `Are you sure you want to cancel order ${orderToDelete?.orderNumber}? This action cannot be undone.`
-        }
-        confirmText={orderToDelete?.canHardDelete ? 'Delete Order' : 'Cancel Order'}
-        cancelText="Keep Order"
+        open={orderToDelete != null}
+        onOpenChange={(open) => {
+          if (!open) setOrderToDelete(null);
+        }}
+        title="Delete order permanently"
+        description={`Permanently delete order ${orderToDelete?.orderNumber}? This removes all its records and cannot be undone.`}
+        confirmText="Delete order"
+        cancelText="Keep order"
         onConfirm={confirmDelete}
         variant="destructive"
       />
+
+      {/* Delete refused: say why, and stop. Cancelling is offered as its own step, never done here. */}
+      <AlertDialog
+        open={deleteRefusal != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteRefusal(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Order {deleteRefusal?.orderNumber} cannot be deleted</AlertDialogTitle>
+            <AlertDialogDescription>{deleteRefusal?.reason}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            {deleteRefusal && deleteRefusal.status !== 'CANCELLED' && (
+              <AlertDialogAction
+                onClick={() => {
+                  setOrderToCancel({ id: deleteRefusal.id, orderNumber: deleteRefusal.orderNumber });
+                  setDeleteRefusal(null);
+                }}
+              >
+                Cancel the order instead…
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {orderToCancel && (
+        <CancelOrderDialog
+          open={orderToCancel != null}
+          onOpenChange={(open) => {
+            if (!open) setOrderToCancel(null);
+          }}
+          orderId={orderToCancel.id}
+          orderNumber={orderToCancel.orderNumber}
+          onCancelled={fetchOrders}
+        />
+      )}
 
       {/* Order-quantity rate-slab change (RATE_SLAB_CHANGED): accepting applies the
           order-quantity rates to THIS order's BOM only — style costing is untouched. */}

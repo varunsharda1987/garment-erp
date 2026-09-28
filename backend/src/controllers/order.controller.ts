@@ -1166,33 +1166,6 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
- * Delete/Cancel order
- * DELETE /api/orders/:id
- */
-export const deleteOrder = async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const userId = req.user?.userId;
-
-  // Check if order exists
-  const order = await prisma.orders.findUnique({
-    where: { id },
-  });
-
-  if (!order) {
-    throw new NotFoundError('Order', id);
-  }
-
-  // Use the service to cancel with default lace handling (release to stock)
-  await orderService.cancelOrder(id, {
-    laceHandling: 'RELEASE_TO_STOCK',
-    userId,
-    cancellationReason: 'Order cancelled via DELETE request',
-  });
-
-  res.json({ message: 'Order cancelled successfully' });
-};
-
-/**
  * Cancel order with options for handling allocated materials (lace)
  * POST /api/orders/:id/cancel
  */
@@ -1345,6 +1318,12 @@ export const getOrderLaceAllocations = async (req: Request, res: Response): Prom
  */
 export const canDeleteOrder = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
+  // Same floor as the hard-delete route's requireAdmin(): answer "no" here rather than let the
+  // page offer a Delete that can only come back 403.
+  if (req.user?.role !== 'ADMIN') {
+    res.json({ canDelete: false, code: 'ADMIN_ONLY', reason: 'Only an administrator can delete an order.' });
+    return;
+  }
   const result = await orderService.canDeleteOrder(id);
   res.json(result);
 };

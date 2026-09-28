@@ -17,6 +17,9 @@ What are you doing?
 ├─► Returning goods to SUPPLIER (wrong material, excess, defective)?
 │   └─► Use: Stock Out → Purchase Return
 │
+├─► Goods of ours lying at processor A must go to processor B?
+│   └─► Use: Move to another processor (Greige Stock, or "Move here" on B's job)
+│
 ├─► Sending to another DEPARTMENT or BRANCH?
 │   └─► Use: Stock Out → Internal Issue
 │
@@ -31,6 +34,15 @@ What are you receiving?
 │
 ├─► Processed fabric BACK from processor (dyeing/printing mill)?
 │   └─► Use: Receive from processor (on the SAME Job Work Order you sent) — one action
+│
+├─► The processor sent the finished goods straight on to the NEXT processor?
+│   └─► Use: Receive from processor → tick "Delivered straight to another processor"
+│
+├─► A supplier delivered what we bought STRAIGHT to a processor?
+│   └─► Use: GRN into that processor's "… - Processing Unit" (confirm "Delivered straight to …")
+│
+├─► Goods of ours lying at a processor (not on a job) come back to our store?
+│   └─► Use: Bring to store (Greige Stock) or Stock In → Processor Return
 │
 ├─► PURCHASED goods from supplier (new material you bought)?
 │   └─► Use: GRN (against the Purchase PO)
@@ -87,6 +99,11 @@ What are you receiving?
 - Damaged goods
 
 **Example:** Returning 50m of defective lining fabric to XYZ Fabrics
+
+**If the supplier you pick is a processor** (it has a "… - Processing Unit"), greige on the challan is NOT a
+return: it stays ours, is recorded as held at that processor's unit, and the challan goes out as a job-work
+challan that must come back within one year (listed in ITC-04). Bring it back later with **Bring to store**.
+Only greige in our own stores is offered here.
 
 ---
 
@@ -224,11 +241,75 @@ against the processor (debit note before Close Order).
 - Correction: reversing a wrong entry
 
 **DO NOT use for:**
-- Processor returns → Use Process PO Receive
+- Processed goods coming back from a job → Use Receive from processor on the Job Work Order
 - Purchases → Use GRN
 - Internal transfers → Use Challan Receive
 
+**One exception — Stock In → Processor Return** is the **Bring to store** door (see *Goods held at a
+processor* below): goods of ours that a processor holds, not on any job, come back into our store with an
+inward challan. It is not a count correction and needs no supervisor approval.
+
 **Why restricted:** No source document = no audit trail. Every Stock In entry is flagged for review.
+
+---
+
+## Goods held at a processor (ours, but not in our store)
+
+A processor (dyer, printer, embroiderer) can hold goods that are still OURS without them being on a job.
+Each lot shows **At Processor** with the processor's name, is counted in stock at that processor's
+"… - Processing Unit", and is covered by a job-work challan that starts its one-year return period.
+
+### 1. Delivered straight to a processor (GRN)
+
+**Location:** GRN page → receive against the purchase order → warehouse = the processor's "… - Processing Unit"
+
+**Use when:** the supplier delivered what we bought straight to the dyer, not to our store
+
+**What happens:** on approval, the system asks **Delivered straight to <processor>?** (skipped when the PO
+already delivers there). The goods are booked as ours, held by that processor, and ONE job-work challan dated
+the receipt day covers everything on the receipt.
+
+**If the processor itself sold us the goods** and keeps them to process, the question is
+**<processor> sold us this and keeps it to process?** — always asked. The challan then reads "Purchased from you
+and retained at your premises for job work".
+
+**Splitting one PO** (part to a dyer, part to our store): set it on the PO page's **Deliver To** card
+(**Change delivery → Split across places**); each GRN picks its **Delivery point**. A greige PO made from
+Requirements is filled in from the dyers its requirements are processed at — one place for one dyer, one place
+per dyer for several, "to be advised" while any dyer is undecided.
+
+### 2. A job uses held goods where they lie
+
+**Location:** the job's **Issue to Processor** dialog lists **Already at <processor>** first
+
+**What happens:** no truck and no new challan — the job takes the metres off the held lot, and its one-year
+period runs from the day the goods first reached the processor. Goods at a DIFFERENT processor cannot go on
+this job: move them first (door 4).
+
+### 3. Bring to store
+
+**Location:** Inventory → Greige Stock → expand the greige → store button on a lot held at a processor
+(or Stock In → Processor Return, which also lists lace and ready fabric)
+
+**What happens:** one inward challan from the processor; a new lot in our store; the processor's stock goes
+down. Metres reserved for a requirement are not offered.
+
+### 4. Move to another processor
+
+**Location:** Inventory → Greige Stock → two-arrows button on a held lot; or **Move here** in a job's Issue
+dialog for cloth listed under **Elsewhere**
+
+**What happens:** ONE challan from the first processor to the second; the goods become held at the second
+processor and keep the day they first reached a processor, so the one-year period does not restart.
+
+### 5. Processed goods delivered straight to the next processor
+
+**Location:** the first job's **Receive from processor** → tick **Delivered straight to another processor** →
+pick the next processor's unit
+
+**What happens:** the first job is received and closed as usual; the finished lot is booked at the next
+processor, held by them; one challan from the first processor to the next is filed, and the next processor's
+one-year period runs from the date received. From there it moves like any held goods (doors 2–4).
 
 ---
 
@@ -300,6 +381,8 @@ Here's the complete flow for sending greige for printing and receiving printed f
 | Using Stock Out for processor issues | Creates challan but no Process PO, can't track return | Use Process PO Create & Send |
 | Using Stock In for purchases | Skips Purchase PO, wrong accounting | Use GRN against PO |
 | Using manual Challan for everything | Bypasses proper workflows | Use purpose-specific doors |
+| Issuing cloth lying at dyer A on dyer B's job | Goods cannot move between processors without a challan | Move to another processor first, then issue |
+| Receiving a delivery made straight to a dyer into our store | Stock shows goods we do not have; no job-work challan | GRN into the dyer's "… - Processing Unit" |
 
 ---
 
@@ -311,6 +394,10 @@ Here's the complete flow for sending greige for printing and receiving printed f
 | **Job Work (Processor)** | Job Work Order → Outward Challan → (mill works) → Receive from processor [one action: Job work return receipt + stock lot + Inward Challan + loss split] → Service Invoice Payment |
 | **Internal Transfer** | Outward Challan → Challan Receive |
 | **Purchase Return** | Outward Challan (linked to original PO) |
+| **Delivered straight to a processor** | Purchase PO → GRN into the processor's unit → Job-work challan (Rule 45, dated the receipt) |
+| **Bring to store** | Inward Challan from the processor → new store lot |
+| **Move to another processor** | Challan from processor A to processor B (clock kept) |
+| **Straight on to the next processor** | Receive from processor (A's job closes) + Challan from A to B |
 
 ---
 

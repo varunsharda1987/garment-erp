@@ -956,6 +956,10 @@ model goods_receiving_notes {
   /// split PO, null on an unsplit one. Received-per-point is derived from it, never stored.
   poDeliveryPointId                               String?
   receivingDate                                   DateTime            @default(now())
+  /// The invoice THIS delivery came on (the supplier's, or the processor's on a job-work return). NULL on a
+  /// live receipt = "Invoice not received yet" — since 2026-09-28 the only way to file one without it
+  /// (receipt-invoice.helper); added later by PATCH /api/grn/:id/invoice. Lots never copy it — they read it
+  /// through their receipt (greigeLotInvoice). The whole job's bill is job_work_orders.invoiceNumber.
   invoiceNumber                                   String?
   invoiceDate                                     DateTime?
   status                                          GRNStatus           @default(PENDING_QC)
@@ -4687,7 +4691,9 @@ model greige_stock {
   lastConsumedDate DateTime? @db.Date
   agingDays        Int       @default(0)
 
-  // Invoice tracking
+  /// Typed only when a lot is entered by hand (and copied onto lots split from one). NULL on GRN / DIRECT
+  /// lots by design: their invoice is their receipt's — read through grnItemId, else the origin lot's
+  /// receipt via procurementId (greigeLotInvoice, 2026-09-28).
   invoiceNumber String?   @db.VarChar(50)
   invoiceDate   DateTime?
 
@@ -5326,6 +5332,8 @@ model fabric_procurement {
   purchaseDate                    DateTime                     @default(now())
   expectedDelivery                DateTime?
   receivedDate                    DateTime?
+  /// Copy of the invoice typed at manual greige entry; NULL for GRN lots, whose invoice is the receipt's
+  /// (goods_receiving_notes.invoiceNumber, read by greigeLotInvoice).
   invoiceNumber                   String?
   invoiceDate                     DateTime?
   createdById                     String
@@ -7345,6 +7353,9 @@ model job_work_orders {
   receivedWidthInches    Decimal?  @db.Decimal(10, 2)
   receivedDate           DateTime?
   receivedChallan        String?
+  /// The processor's bill for the WHOLE job, confirmed at Close. Each return receipt's
+  /// goods_receiving_notes.invoiceNumber is the bill for THAT delivery; Close pre-fills from the ACCEPTED
+  /// receipts (distinct, oldest first). Nothing copies one into the other.
   invoiceNumber          String?
   actualShrinkage        Decimal?  @db.Decimal(5, 2)
   widthVariance          Decimal?  @db.Decimal(10, 2)

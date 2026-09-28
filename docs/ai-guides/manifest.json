@@ -467,13 +467,13 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/routes/lazy-routes.tsx": "c1a31efdef59",
       "frontend/src/pages/FabricStockEntry.tsx": "44a16e634d54",
-      "frontend/src/pages/FabricAvailableStock.tsx": "d3b62ec93cd4",
+      "frontend/src/pages/FabricAvailableStock.tsx": "d42f71441d0e",
       "frontend/src/components/WarehouseCombobox.tsx": "800e7631b4cb",
       "backend/src/schemas/fabricStock.schema.ts": "b24f3a4e867a",
       "backend/src/routes/fabric-stock.routes.ts": "81757f8fa3e9"
     },
     "contentHash": "b3869263c318",
-    "generatedAt": "2026-09-28T16:02:11.711Z"
+    "generatedAt": "2026-09-28T16:34:39.659Z"
   },
   "fg-stock-view": {
     "sources": {
@@ -528,7 +528,7 @@
   },
   "greige-create": {
     "sources": {
-      "frontend/src/pages/GreigeAvailableStock.tsx": "a5c5faf86ac9",
+      "frontend/src/pages/GreigeAvailableStock.tsx": "731749234481",
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GreigeForm.tsx": "a2356090e66e",
@@ -540,7 +540,7 @@
       "backend/src/services/greige.service.ts": "fee39ab218f7"
     },
     "contentHash": "f0f6a90cad2f",
-    "generatedAt": "2026-09-28T16:06:33.287Z"
+    "generatedAt": "2026-09-28T16:34:39.664Z"
   },
   "greige-receive-without-po": {
     "sources": {
@@ -1233,13 +1233,13 @@
   },
   "reports-view": {
     "sources": {
-      "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/StyleFabricReport.tsx": "0802bc4183a9",
-      "frontend/src/pages/FabricUsageReport.tsx": "bddc599ad891",
+      "frontend/src/config/navigation.ts": "ca630f08ce15",
+      "frontend/src/pages/StyleFabricReport.tsx": "665e87701af4",
+      "frontend/src/pages/FabricUsageReport.tsx": "87cbe6840a92",
       "frontend/src/pages/GSTReports.tsx": "ae8ef14657c4"
     },
-    "contentHash": "32ceeae6eb5e",
-    "generatedAt": "2026-09-23T06:17:36.254Z"
+    "contentHash": "bb19c7fbd2b3",
+    "generatedAt": "2026-09-28T16:34:39.678Z"
   },
   "sale-order-create": {
     "sources": {
@@ -1720,16 +1720,16 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/GreigeAvailableStock.tsx": "bfb7b1c2ef3a",
-      "frontend/src/pages/StockInForm.tsx": "0336128415da",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "1f4a6e8b8aaa",
+      "frontend/src/pages/GreigeAvailableStock.tsx": "731749234481",
+      "frontend/src/pages/StockInForm.tsx": "dc05c8c9ab3d",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "20f33baecd54",
       "frontend/src/components/job-work/MoveHeldStockDialog.tsx": "c87e39dee0d9",
-      "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "6e4ba4c1e4fc",
+      "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "8d5089a6b632",
       "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
       "backend/src/schemas/stockMovement.schema.ts": "c25341352d67"
     },
     "contentHash": "3e7957426e5c",
-    "generatedAt": "2026-09-28T11:27:40.270Z"
+    "generatedAt": "2026-09-28T16:34:39.675Z"
   },
   "requirements-label-set-po": {
     "sources": {
@@ -1820,7 +1820,7 @@
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
-      "frontend/src/pages/GreigeAvailableStock.tsx": "a5c5faf86ac9",
+      "frontend/src/pages/GreigeAvailableStock.tsx": "731749234481",
       "frontend/src/components/job-work/RecordLotPiecesDialog.tsx": "5595fc2e1e7c",
       "frontend/src/components/job-work/ReceiptDetailRows.tsx": "bbef124287de",
       "frontend/src/components/job-work/GreigeLotRows.tsx": "f311a73150e6",
@@ -1830,14 +1830,14 @@
       "backend/src/services/greige-stock.service.ts": "146b7c09a0fb"
     },
     "contentHash": "428abe1c0350",
-    "generatedAt": "2026-09-28T16:02:11.718Z"
+    "generatedAt": "2026-09-28T16:34:39.669Z"
   },
   "fabric-pieces-record": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/FabricAvailableStock.tsx": "d3b62ec93cd4",
+      "frontend/src/pages/FabricAvailableStock.tsx": "d42f71441d0e",
       "frontend/src/components/fabric/FabricLotPiecesDialog.tsx": "814b8c9c4bbf",
       "frontend/src/components/job-work/RecordLotPiecesDialog.tsx": "5595fc2e1e7c",
       "frontend/src/components/job-work/ReceiptDetailRows.tsx": "bbef124287de",
@@ -1851,6 +1851,6 @@
       "backend/src/services/helpers/lot-pieces.helper.ts": "a4ae3db2a405"
     },
     "contentHash": "d5334bd7c318",
-    "generatedAt": "2026-09-28T16:02:11.702Z"
+    "generatedAt": "2026-09-28T16:34:39.508Z"
   }
 }

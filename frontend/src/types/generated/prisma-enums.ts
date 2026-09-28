@@ -1101,6 +1101,14 @@ export const ExternalProcessStatus = {
 } as const;
 export type ExternalProcessStatus = (typeof ExternalProcessStatus)[keyof typeof ExternalProcessStatus];
 
+export const MarkerReadStatus = {
+  READ: 'READ',
+  PARTIAL: 'PARTIAL',
+  UNREADABLE: 'UNREADABLE',
+  READER_UNAVAILABLE: 'READER_UNAVAILABLE',
+} as const;
+export type MarkerReadStatus = (typeof MarkerReadStatus)[keyof typeof MarkerReadStatus];
+
 export const TrfStatus = {
   DRAFT: 'DRAFT',
   ISSUED: 'ISSUED',

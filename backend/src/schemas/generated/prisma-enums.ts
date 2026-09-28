@@ -722,6 +722,9 @@ export type ExternalProcessSourceType = z.infer<typeof ExternalProcessSourceType
 export const ExternalProcessStatusEnum = z.enum(['DRAFT', 'SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']);
 export type ExternalProcessStatus = z.infer<typeof ExternalProcessStatusEnum>;
 
+export const MarkerReadStatusEnum = z.enum(['READ', 'PARTIAL', 'UNREADABLE', 'READER_UNAVAILABLE']);
+export type MarkerReadStatus = z.infer<typeof MarkerReadStatusEnum>;
+
 export const TrfStatusEnum = z.enum(['DRAFT', 'ISSUED', 'SENT_TO_LAB', 'CLOSED']);
 export type TrfStatus = z.infer<typeof TrfStatusEnum>;
 

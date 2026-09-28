@@ -3,9 +3,12 @@
  * Handles HTTP requests for mini marker file attachments
  */
 import { Request, Response } from 'express';
-import { cadFileService } from '../services/cad-file.service';
+import { cadFileService, type MarkerImageResult } from '../services/cad-file.service';
 import { ValidationError } from '../errors';
 import { CadPurpose } from '@prisma/client';
+import { deleteCadFile } from '../middleware/upload.middleware';
+import prisma from '../config/database';
+import { markerSummariesForStyle } from '../services/helpers/cad-marker.helper';
 
 /**
  * Request with multer file upload
@@ -99,6 +102,78 @@ export const deleteMiniMarker = async (req: Request, res: Response): Promise<voi
   res.status(200).json({
     message: 'Mini marker deleted successfully',
   });
+};
+
+// ---------------------------------------------------------------------------
+// A CAD row's marker image — read by the marker reader, checked by cad-marker.helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Every CAD row of the style with its marker image state (the CAD table's CAD image column)
+ * GET /api/cad-planning/:styleId/row-markers
+ */
+export const getRowMarkers = async (req: Request, res: Response): Promise<void> => {
+  const { styleId } = req.params;
+  res.status(200).json({ data: await markerSummariesForStyle(prisma, styleId) });
+};
+
+function markerMessage(result: MarkerImageResult): string {
+  switch (result.summary?.state) {
+    case 'MATCHES':
+      return 'Marker image read — the row matches it';
+    case 'DIFFERS':
+    case 'EXPLAINED':
+      return result.file.readStatus === 'READ' || result.file.readStatus === 'PARTIAL'
+        ? 'Marker image read — check the values it gives before saving'
+        : 'The image was kept, but it could not be read — saving will ask for a reason';
+    default:
+      return 'Marker image saved';
+  }
+}
+
+/**
+ * Upload a CAD row's marker image; it is read at once (about 10 seconds)
+ * POST /api/cad-planning/:styleId/row/:rowId/marker
+ */
+export const attachMarkerImage = async (req: MulterRequest, res: Response): Promise<void> => {
+  const { styleId, rowId } = req.params;
+  if (!req.file) {
+    throw new ValidationError('Choose the marker image to upload (JPG, PNG or PDF)');
+  }
+  const fileUrl = `/uploads/cad-files/${req.file.filename}`;
+  let result: MarkerImageResult;
+  try {
+    result = await cadFileService.attachToRow(
+      styleId,
+      rowId,
+      { fileUrl, fileName: req.file.originalname, fileSize: req.file.size },
+      req.user?.userId
+    );
+  } catch (error) {
+    deleteCadFile(fileUrl); // refused (approved row, other style…) — do not keep an orphan upload
+    throw error;
+  }
+  res.status(201).json({ data: result, message: markerMessage(result) });
+};
+
+/**
+ * Use an image already uploaded for the style as a CAD row's marker
+ * POST /api/cad-planning/:styleId/row/:rowId/marker/link
+ */
+export const linkMarkerImage = async (req: Request, res: Response): Promise<void> => {
+  const { styleId, rowId } = req.params;
+  const result = await cadFileService.linkToRow(styleId, rowId, req.body.fileId, req.user?.userId);
+  res.status(200).json({ data: result, message: markerMessage(result) });
+};
+
+/**
+ * Read a CAD row's marker image again
+ * POST /api/cad-planning/:styleId/row/:rowId/marker/reread
+ */
+export const rereadMarkerImage = async (req: Request, res: Response): Promise<void> => {
+  const { styleId, rowId } = req.params;
+  const result = await cadFileService.rereadForRow(styleId, rowId, req.user?.userId);
+  res.status(200).json({ data: result, message: markerMessage(result) });
 };
 
 /**

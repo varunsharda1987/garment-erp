@@ -34,7 +34,6 @@ type MarkerSource = Pick<
   | 'isEmbroidery'
   | 'piecesPerMarker'
   | 'markerLengthMeters'
-  | 'markerPlanFile'
 >;
 
 /** The marker a copy inherits: width, layer, pieces, average, part, print — never a price. */
@@ -56,7 +55,7 @@ export function cadMarkerFields(src: MarkerSource) {
     isEmbroidery: src.isEmbroidery,
     piecesPerMarker: src.piecesPerMarker,
     markerLengthMeters: src.markerLengthMeters,
-    markerPlanFile: src.markerPlanFile,
+    // markerPlanFile is retired (2026-09-28): the marker IMAGE is carried by copyMarkerImage (cad-marker.helper)
   };
 }
 

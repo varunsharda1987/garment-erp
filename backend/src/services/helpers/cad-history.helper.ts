@@ -23,8 +23,19 @@ import { getCadCostingDependents } from './cad-costing-provenance.helper';
 
 export const CAD_HISTORY_ENTITY = 'fabric_width_cad';
 
-/** History event kinds, stored in audit_logs.action. RELINK_GREIGE came from a one-off data fix. */
-export type CadHistoryAction = 'CREATE' | 'UPDATE' | 'APPROVE' | 'REJECT' | 'CORRECT';
+/**
+ * History event kinds, stored in audit_logs.action. RELINK_GREIGE came from a one-off data fix.
+ * MARKER_IMAGE = a marker image became the row's; MARKER_OVERRIDE = CAD values saved although they differ
+ * from that image (the reason is the event's reason) — cad-marker.helper.ts.
+ */
+export type CadHistoryAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'CORRECT'
+  | 'MARKER_IMAGE'
+  | 'MARKER_OVERRIDE';
 
 // ---------------------------------------------------------------------------
 // Snapshots — the CAD fields whose change moves fabric quantity or identity
@@ -187,6 +198,10 @@ const SHOWN_FIELDS = new Set([
   'purpose',
   'sizes',
   'approvalNotes',
+  // cad-marker.helper: the image attached, what was read from it, what the saved values differ in
+  'markerImage',
+  'markerRead',
+  'markerDifferences',
 ]);
 
 export async function getCadHistory(cadId: string): Promise<CadHistoryEntry[]> {

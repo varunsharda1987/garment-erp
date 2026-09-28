@@ -4991,6 +4991,8 @@ model fabric_width_cad {
   isPreferred                 Boolean                      @default(false)
   supplierAvailability        String?
   priceDifferential           Decimal?                     @db.Decimal(10, 2)
+  /// RETIRED 2026-09-28 — never written (null on all 197 rows then). A row's marker image is
+  /// cad_purpose_files.cadId (current = replacedAt null); see cad-marker.helper.ts.
   markerPlanFile              String?
   markerLengthMeters          Decimal?                     @db.Decimal(10, 2)
   piecesPerMarker             Int?
@@ -5075,6 +5077,18 @@ model fabric_width_cad {
   // cleared by deleteCostingOption, never written by CAD Planning.
   costedAtQuantityMeters      Decimal?                     @map("costed_at_quantity_meters") @db.Decimal(12, 2)
   costedRateIsBatch           Boolean                      @default(false) @map("costed_rate_is_batch")
+  /// Why the row's CAD values were saved although they differ from its marker image, or the image could not
+  /// be read (cad-marker.helper.ts). Cleared by a save that matches the image; a save that differs again
+  /// needs a reason again. markerOverrideById is a bare user id (no relation on purpose).
+  markerOverrideReason        String?                      @map("marker_override_reason")
+  markerOverrideById          String?                      @map("marker_override_by_id")
+  markerOverrideAt            DateTime?                    @map("marker_override_at")
+  /// The differences that reason covers, as the helper listed them: JSON TEXT of [{ field, label, image, row }].
+  /// Text, not Json, on purpose: writers copy whole rows with `...row` (Fabric Costing promote), and a Json?
+  /// column's null does not type-check in a create — it broke every deploy build for a few minutes.
+  markerOverrideDifferences   String?                      @map("marker_override_differences")
+  /// The row's marker images — the current one has replacedAt null
+  markerImages                cad_purpose_files[]          @relation("cad_marker_images")
   sizeBreakdowns              cad_size_breakdown[]
   embroideryPartCads          embroidery_part_cad[]        @relation("embroidery_part_cad_width")
   stockAllocations            fabric_stock_allocation[]    @relation("allocation_production_cad")
@@ -5269,8 +5283,12 @@ model cad_corrections {
   decidedById     String?
   decidedAt       DateTime?
   decisionNotes   String?
+  /// The corrected marker's image (cad_purpose_files, no cadId while the correction waits); it becomes the
+  /// row's current marker when the correction applies
+  markerFileId    String?
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
+  markerFile      cad_purpose_files?  @relation("cad_correction_marker", fields: [markerFileId], references: [id], onDelete: SetNull)
   cad             fabric_width_cad    @relation(fields: [cadId], references: [id], onDelete: Cascade)
   style           styles              @relation(fields: [styleId], references: [id], onDelete: Cascade)
   correctedBy     users               @relation("cad_correction_by", fields: [correctedById], references: [id])
@@ -11086,24 +11104,63 @@ model material_id_map {
   @@map("material_id_map")
 }
 
-/// Mini marker files attached per style+purpose for CAD planning
-/// Stores PDF/JPG/PNG files for COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION purposes
+/// CAD images ("mini markers") of a style, per purpose — PDF/JPG/PNG, usually a Nest EXPERT screenshot.
+/// The ONE home of a CAD row's marker image (2026-09-28): `cadId` ties an image to the row it is the marker
+/// of, and the row's CURRENT marker is its image with `replacedAt` null. Raw Mat and Production rows need one
+/// before their CAD values are saved or approved (services/helpers/cad-marker.helper.ts).
+/// `fabric_width_cad.markerPlanFile` is the retired second home — never written.
 model cad_purpose_files {
-  id           String     @id @default(uuid())
-  styleId      String     @map("style_id")
-  purpose      CadPurpose @map("purpose")
-  fileUrl      String     @map("file_url")
-  fileName     String?    @map("file_name")
-  fileSize     Int?       @map("file_size")
-  sortOrder    Int        @default(0) @map("sort_order")
-  uploadedById String?    @map("uploaded_by_id")
-  createdAt    DateTime   @default(now()) @map("created_at")
+  id                String            @id @default(uuid())
+  styleId           String            @map("style_id")
+  purpose           CadPurpose        @map("purpose")
+  fileUrl           String            @map("file_url")
+  fileName          String?           @map("file_name")
+  fileSize          Int?              @map("file_size")
+  sortOrder         Int               @default(0) @map("sort_order")
+  uploadedById      String?           @map("uploaded_by_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  /// The CAD row this image is the marker of; null = only in the style's gallery. At most one CURRENT image
+  /// per row: partial unique index cad_marker_one_current (raw SQL in migration 20260928200000 — Prisma
+  /// cannot express it; do not drop). A copied row gets its own record pointing at the SAME file_url.
+  cadId             String?           @map("cad_id")
+  /// Set when another image became the row's marker; the replaced one stays for the row's history
+  replacedAt        DateTime?         @map("replaced_at")
+  /// What the marker reader (backend/ocr) read from the image — null until it has been read
+  readStatus        MarkerReadStatus? @map("read_status")
+  readLengthM       Decimal?          @map("read_length_m") @db.Decimal(10, 4)
+  readWidthIn       Decimal?          @map("read_width_in") @db.Decimal(10, 2)
+  readEfficiencyPct Decimal?          @map("read_efficiency_pct") @db.Decimal(5, 2)
+  /// "Placed 135/135": pieces placed / pieces in the marker
+  readPlaced        Int?              @map("read_placed")
+  readTotal         Int?              @map("read_total")
+  /// [{ sizeName, quantity }] from the image's title ("L(x2)" = L, 2)
+  readSizes         Json?             @map("read_sizes")
+  readTitle         String?           @map("read_title")
+  readText          String?           @map("read_text")
+  readError         String?           @map("read_error")
+  readAt            DateTime?         @map("read_at")
+  readerVersion     String?           @map("reader_version")
 
-  style      styles @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  uploadedBy users? @relation("cad_file_uploader", fields: [uploadedById], references: [id])
+  style       styles            @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  uploadedBy  users?            @relation("cad_file_uploader", fields: [uploadedById], references: [id])
+  cad         fabric_width_cad? @relation("cad_marker_images", fields: [cadId], references: [id], onDelete: SetNull)
+  corrections cad_corrections[] @relation("cad_correction_marker")
 
   @@index([styleId, purpose])
+  @@index([cadId])
   @@map("cad_purpose_files")
+}
+
+/// What the CAD marker reader made of an image (backend/ocr/read_marker.py)
+enum MarkerReadStatus {
+  /// Length, width and sizes all read
+  READ
+  /// A length, but the width or the sizes could not be read
+  PARTIAL
+  /// No marker length found — not a Nest EXPERT marker, or too blurred
+  UNREADABLE
+  /// The reader is not installed or failed on the server
+  READER_UNAVAILABLE
 }
 
 /// Tally ERP Integration Settings - Singleton table

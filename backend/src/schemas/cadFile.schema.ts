@@ -9,6 +9,14 @@ export const uploadCadFileSchema = z.object({
   purpose: CadPurposeEnum,
 });
 
+// POST /api/cad-planning/:styleId/row/:rowId/marker — the image itself is the multipart file; no fields
+export const attachMarkerImageSchema = z.object({});
+
+// POST /api/cad-planning/:styleId/row/:rowId/marker/link — use an image already uploaded for the style
+export const linkMarkerImageSchema = z.object({
+  fileId: z.string().uuid("Choose one of the style's CAD images"),
+});
+
 // Schema for reordering mini markers (future use)
 export const reorderCadFilesSchema = z.object({
   purpose: CadPurposeEnum,

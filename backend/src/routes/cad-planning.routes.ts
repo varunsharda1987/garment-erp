@@ -75,6 +75,10 @@ import {
   getMiniMarkerCount,
   deleteMiniMarker,
   reorderMiniMarkers,
+  attachMarkerImage,
+  linkMarkerImage,
+  rereadMarkerImage,
+  getRowMarkers,
 } from '../controllers/cad-file.controller';
 import {
   authenticateToken as authenticate,
@@ -126,6 +130,8 @@ import {
   reorderCadFilesSchema,
   styleIdAndPurposeParamSchema,
   styleIdAndFileIdParamSchema,
+  attachMarkerImageSchema,
+  linkMarkerImageSchema,
 } from '../schemas/cadFile.schema';
 
 const router = Router();
@@ -737,6 +743,50 @@ router.post(
   validateParams(styleIdParamSchema),
   validateBody(reorderCadFilesSchema),
   asyncHandler(reorderMiniMarkers)
+);
+
+/**
+ * @route   GET /api/cad-planning/:styleId/row-markers
+ * @desc    Every CAD row of the style with its marker image state (MATCHES / DIFFERS / NEEDS_IMAGE …)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/row-markers', validateParams(styleIdParamSchema), asyncHandler(getRowMarkers));
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/marker
+ * @desc    Upload a CAD row's marker image (Nest EXPERT screenshot or PDF); it is read at once and the row's
+ *          marker state returned (values read, differences) — cad-marker.helper.ts
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/marker',
+  validateParams(styleIdAndRowIdParamSchema),
+  uploadCadFile,
+  validateBody(attachMarkerImageSchema),
+  asyncHandler(attachMarkerImage)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/marker/link
+ * @desc    Use an image already uploaded for the style as the row's marker
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/marker/link',
+  validateParams(styleIdAndRowIdParamSchema),
+  validateBody(linkMarkerImageSchema),
+  asyncHandler(linkMarkerImage)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/marker/reread
+ * @desc    Read the row's marker image again (after the reader was installed or updated)
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/marker/reread',
+  validateParams(styleIdAndRowIdParamSchema),
+  asyncHandler(rereadMarkerImage) // no-body
 );
 
 /**

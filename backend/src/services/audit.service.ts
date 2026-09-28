@@ -25,7 +25,10 @@ export type AuditAction =
   // CAD row history (helpers/cad-history.helper.ts)
   | 'APPROVE'
   | 'REJECT'
-  | 'CORRECT';
+  | 'CORRECT'
+  // a CAD row's marker image, and values saved although they differ from it (helpers/cad-marker.helper.ts)
+  | 'MARKER_IMAGE'
+  | 'MARKER_OVERRIDE';
 
 /**
  * Entity types that can be audited

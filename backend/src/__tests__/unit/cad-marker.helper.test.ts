@@ -1,0 +1,142 @@
+/**
+ * The CAD marker rule's comparisons (services/helpers/cad-marker.helper.ts). The save / approve gates and
+ * the endpoints are walked in integration/cad-marker-image.test.ts.
+ */
+import type { cad_purpose_files } from '@prisma/client';
+import {
+  markerDifferences,
+  markerRequired,
+  summarizeMarker,
+  type MarkerValues,
+  type StoredReading,
+} from '../../services/helpers/cad-marker.helper';
+
+const S_TO_XXL = ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ sizeName, quantity: 1 }));
+
+/** IP00138's marker as the reader reads it */
+const ip00138: StoredReading = {
+  status: 'READ',
+  lengthM: 8.29,
+  widthIn: 52,
+  efficiencyPct: 89.05,
+  placed: 135,
+  total: 135,
+  sizes: S_TO_XXL,
+  pieces: 5,
+  title: 'Nest EXPERT - IP00138 PANT - S-M-L-XL-XXL*',
+  error: null,
+  readAt: new Date(),
+};
+
+const matching: MarkerValues = { layerLengthM: 8.29, widthIn: 52, sizes: S_TO_XXL };
+
+describe('markerRequired', () => {
+  it('is Raw Mat and Production only', () => {
+    expect(markerRequired('RAW_MATERIAL_CALCULATION')).toBe(true);
+    expect(markerRequired('PRODUCTION')).toBe(true);
+    expect(markerRequired('COSTING')).toBe(false);
+    expect(markerRequired(null)).toBe(false);
+  });
+});
+
+describe('markerDifferences', () => {
+  it('finds nothing when the row is what the image says', () => {
+    expect(markerDifferences(matching, ip00138)).toEqual([]);
+  });
+
+  it('reads a length within 0.005 m as the same (storage dust), 0.01 m as different', () => {
+    expect(markerDifferences({ ...matching, layerLengthM: 8.2904 }, ip00138)).toEqual([]);
+    const [d] = markerDifferences({ ...matching, layerLengthM: 8.3 }, ip00138);
+    expect(d).toMatchObject({ field: 'length', image: '8.29 m', row: '8.3 m' });
+    expect(d.label).toBe('Layer length: image 8.29 m, row 8.3 m');
+  });
+
+  it('compares the width, and a blank one differs', () => {
+    expect(markerDifferences({ ...matching, widthIn: 50 }, ip00138)[0]).toMatchObject({ field: 'width', row: '50 in' });
+    expect(markerDifferences({ ...matching, widthIn: null }, ip00138)[0].label).toBe('Width: image 52 in, row blank');
+  });
+
+  it('compares sizes and quantities, not their order or case', () => {
+    const shuffled = [...S_TO_XXL].reverse().map((s) => ({ ...s, sizeName: s.sizeName.toLowerCase() }));
+    expect(markerDifferences({ ...matching, sizes: shuffled }, ip00138)).toEqual([]);
+
+    const roxie: StoredReading = { ...ip00138, sizes: [{ sizeName: 'L', quantity: 2 }], pieces: 2 };
+    const oneL = markerDifferences({ ...matching, sizes: [{ sizeName: 'L', quantity: 1 }] }, roxie);
+    expect(oneL[0]).toMatchObject({ field: 'sizes', image: 'L ×2', row: 'L' });
+  });
+
+  it('says when the marker has a size the style does not offer (IP00138: XS–XL style, S–XXL marker)', () => {
+    const xsToXl = ['XS', 'S', 'M', 'L', 'XL'].map((sizeName) => ({ sizeName, quantity: 1 }));
+    const [d] = markerDifferences({ ...matching, sizes: xsToXl }, ip00138, ['XS', 'S', 'M', 'L', 'XL']);
+    expect(d.field).toBe('sizes');
+    expect(d.label).toContain('the marker has XXL — this style has no XXL size');
+  });
+
+  it('flags a marker with pieces left unplaced', () => {
+    const partial: StoredReading = { ...ip00138, placed: 4, total: 60 };
+    expect(markerDifferences(matching, partial)).toEqual([
+      expect.objectContaining({ field: 'placed', label: "Only 4 of the marker's 60 pieces are placed" }),
+    ]);
+  });
+
+  it('treats an image it could not read, or never read, as one "not checked" difference', () => {
+    for (const status of ['UNREADABLE', 'READER_UNAVAILABLE', null] as const) {
+      const diffs = markerDifferences(matching, { ...ip00138, status });
+      expect(diffs).toHaveLength(1);
+      expect(diffs[0].field).toBe('image');
+      expect(diffs[0].label).toMatch(/not checked/);
+    }
+  });
+
+  it('marks what a partial reading could not check', () => {
+    const noSizes: StoredReading = { ...ip00138, status: 'PARTIAL', sizes: [], pieces: null };
+    expect(markerDifferences(matching, noSizes)).toEqual([
+      expect.objectContaining({ field: 'sizes', label: expect.stringMatching(/could not be read/) }),
+    ]);
+  });
+});
+
+describe('summarizeMarker', () => {
+  const file = {
+    id: 'f1',
+    fileUrl: '/uploads/cad-files/x.png',
+    fileName: 'x.png',
+    createdAt: new Date(),
+    readStatus: 'READ',
+    readLengthM: 8.29,
+    readWidthIn: 52,
+    readEfficiencyPct: 89.05,
+    readPlaced: 135,
+    readTotal: 135,
+    readSizes: S_TO_XXL,
+    readTitle: null,
+    readError: null,
+    readAt: new Date(),
+  } as unknown as cad_purpose_files;
+  const row = (values: MarkerValues, reason: string | null = null, covered: unknown = null) => ({
+    purpose: 'RAW_MATERIAL_CALCULATION',
+    values,
+    markerOverrideReason: reason,
+    markerOverrideDifferences: covered === null ? null : JSON.stringify(covered),
+  });
+
+  it('NEEDS_IMAGE for a Raw Mat row with values and no image; NONE before it has any', () => {
+    expect(summarizeMarker(row(matching), null).state).toBe('NEEDS_IMAGE');
+    expect(summarizeMarker(row({ layerLengthM: null, widthIn: 52, sizes: [] }), null).state).toBe('NONE');
+    expect(summarizeMarker({ ...row(matching), purpose: 'COSTING' }, null).state).toBe('NONE');
+  });
+
+  it('MATCHES, DIFFERS, and EXPLAINED only while the reason covers exactly these differences', () => {
+    expect(summarizeMarker(row(matching), file).state).toBe('MATCHES');
+
+    const typed = { ...matching, layerLengthM: 8.3 };
+    const differs = summarizeMarker(row(typed), file);
+    expect(differs.state).toBe('DIFFERS');
+
+    expect(summarizeMarker(row(typed, 'rounded by the CAD room', differs.differences), file).state).toBe('EXPLAINED');
+    // the same reason no longer covers a different difference
+    expect(summarizeMarker(row({ ...matching, layerLengthM: 8.4 }, 'rounded', differs.differences), file).state).toBe(
+      'DIFFERS'
+    );
+  });
+});

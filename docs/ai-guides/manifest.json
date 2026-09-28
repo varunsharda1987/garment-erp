@@ -188,7 +188,7 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/CostSheetList.tsx": "6798f26a5473",
+      "frontend/src/pages/CostSheetList.tsx": "f02302716c98",
       "frontend/src/pages/CostSheetForm.tsx": "413c78b2b9e0",
       "frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx": "0cbd69cc2bec",
       "frontend/src/pages/CostSheetDetail.tsx": "0c3928b3429a",
@@ -199,12 +199,14 @@
       "backend/src/controllers/style-costing-calc.controller.ts": "dcb354b02642",
       "backend/src/controllers/style-costing.utils.ts": "3726b391f930",
       "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
-      "backend/src/controllers/lace.controller.ts": "e7788333b98d",
+      "backend/src/controllers/lace.controller.ts": "008fddae7fd1",
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234",
-      "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e"
+      "backend/src/services/helpers/material-unit.helper.ts": "97f39048c27e",
+      "backend/src/services/helpers/cost-sheet-version.helper.ts": "74fb1ee4b7d3",
+      "backend/src/controllers/style-costing-approval.controller.ts": "0e09881e4d26"
     },
-    "contentHash": "a4fc4f278b83",
-    "generatedAt": "2026-09-28T08:10:49.467Z"
+    "contentHash": "e97387533c44",
+    "generatedAt": "2026-09-28T16:48:05.633Z"
   },
   "credit-note-create": {
     "sources": {

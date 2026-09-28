@@ -6,7 +6,18 @@
 import { unitShort } from '@/lib/units';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { fabricStockService } from '@/services/fabricStockService';
+import { ThanPicker } from '@/components/job-work/ThanPicker';
+import {
+  fabricPicksPayload,
+  noListNote,
+  thanPickActual,
+  thanPickErrors,
+  type SelectedDetail,
+} from '@/components/job-work/lot-rows';
+import { formatQuantity } from '@/lib/formatters';
+import { prefillQty } from '@/lib/quantity';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -127,6 +138,22 @@ export default function SmockingSendOut() {
   const selectedWO = workOrders.find((w) => w.id === selectedWorkOrderId);
   const selectedPO = pos.find((p) => p.id === selectedPOId);
   const selectedBatch = cuttingBatches.find((b) => b.id === selectedCuttingBatchId);
+
+  // The chosen fabric lot's rolls / thans (same key as the Fabric Stock page, so a count there refreshes this).
+  // Picks belong to the lot they were made on — choosing another lot starts with none.
+  const [pickState, setPickState] = useState<{ lotId: string; picks: SelectedDetail[] }>({ lotId: '', picks: [] });
+  const picks = pickState.lotId === selectedFabricStockId ? pickState.picks : [];
+  const setPicks = (next: SelectedDetail[]) => setPickState({ lotId: selectedFabricStockId, picks: next });
+  const { data: lotPieces } = useQuery({
+    queryKey: ['fabric-lot-pieces', selectedFabricStockId],
+    queryFn: () => fabricStockService.getPieces(selectedFabricStockId),
+    enabled: sourceType === 'FABRIC_STOCK' && !!selectedFabricStockId,
+    staleTime: 0,
+  });
+  const lotLists = (lotPieces?.details.length ?? 0) > 0;
+  // Named pieces decide the metres sent: their tag metres at the lot's fold
+  const byPieces = lotLists && picks.length > 0;
+  const quantityShown = byPieces && lotPieces ? prefillQty(thanPickActual(picks, lotPieces)) : quantitySent;
 
   // Load work orders
   useEffect(() => {
@@ -284,8 +311,12 @@ export default function SmockingSendOut() {
   const handleSubmit = () => {
     setError(null);
 
-    if (!selectedWorkOrderId || !selectedPOId || !agreedRate || !quantitySent || !sendDate) {
+    if (!selectedWorkOrderId || !selectedPOId || !agreedRate || !quantityShown || !sendDate) {
       setError('Please fill all required fields');
+      return;
+    }
+    if (byPieces && thanPickErrors(picks, lotPieces)) {
+      setError('A ticked roll / than is blank or asks for more metres than it has left — fix it or untick it.');
       return;
     }
 
@@ -309,8 +340,10 @@ export default function SmockingSendOut() {
       cuttingBatchId: sourceType === 'CUTTING_BATCH' ? selectedCuttingBatchId : undefined,
       fabricStockId: sourceType === 'FABRIC_STOCK' ? selectedFabricStockId : undefined,
       supplierId: selectedPO?.supplierId || '',
-      quantitySent: parseFloat(quantitySent),
+      quantitySent: parseFloat(quantityShown),
       unit: sourceType === 'FABRIC_STOCK' ? 'METER' : 'PIECE',
+      // The rolls / thans that go — the server takes the quantity from them
+      ...(sourceType === 'FABRIC_STOCK' && byPieces ? { fabricDetails: fabricPicksPayload(picks) } : {}),
       agreedRate: parseFloat(agreedRate),
       sendDate,
       expectedReturnDate: expectedReturnDate || undefined,
@@ -453,6 +486,39 @@ export default function SmockingSendOut() {
                 </Select>
               </div>
             )}
+
+            {/* The lot's rolls / thans: tick the ones going to the smocker — they decide the metres sent */}
+            {sourceType === 'FABRIC_STOCK' && selectedFabricStockId && lotPieces && (
+              <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                {lotLists ? (
+                  <>
+                    {lotPieces.listState === 'OUT_OF_STEP' && (
+                      <p className="text-xs text-warning">
+                        The lot&apos;s roll / than list is out of step —{' '}
+                        {formatQuantity(lotPieces.listActual ?? 0, 'METER')} listed,{' '}
+                        {formatQuantity(lotPieces.totalAvailable, 'METER')} on hand. Check it on the Fabric Stock page,
+                        or send by quantity.
+                      </p>
+                    )}
+                    <ThanPicker
+                      lotThans={lotPieces}
+                      selected={picks}
+                      onChange={setPicks}
+                      targetActual={parseFloat(quantitySent) || 0}
+                      uom="METER"
+                      disabled={sendOutMutation.isPending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {byPieces
+                        ? 'The quantity sent is what the ticked pieces come to.'
+                        : 'Nothing ticked — the quantity below is sent without naming rolls / thans.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{noListNote(lotPieces)}</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -516,8 +582,10 @@ export default function SmockingSendOut() {
                   <Label>Quantity (meters) *</Label>
                   <Input
                     type="number"
-                    step="0.01"
-                    value={quantitySent}
+                    step="any"
+                    value={quantityShown}
+                    // Ticked rolls / thans decide it; untick them to type a quantity
+                    disabled={byPieces}
                     onChange={(e) => setQuantitySent(e.target.value)}
                   />
                 </div>
@@ -545,19 +613,19 @@ export default function SmockingSendOut() {
             </div>
 
             {/* Summary */}
-            {quantitySent && agreedRate && (
+            {quantityShown && agreedRate && (
               <div className="mt-4 rounded-lg bg-muted p-4">
                 <p className="text-sm">
                   <strong>Vendor:</strong> {selectedPO?.supplierName}
                 </p>
                 <p className="text-sm">
-                  <strong>Quantity:</strong> {quantitySent} {sourceType === 'FABRIC_STOCK' ? 'METER' : 'PIECE'}
+                  <strong>Quantity:</strong> {quantityShown} {sourceType === 'FABRIC_STOCK' ? 'METER' : 'PIECE'}
                 </p>
                 <p className="text-sm">
                   <strong>Rate:</strong> {formatCurrency(parseFloat(agreedRate))}
                 </p>
                 <p className="text-sm">
-                  <strong>Estimated Total:</strong> {formatCurrency(parseFloat(quantitySent) * parseFloat(agreedRate))}
+                  <strong>Estimated Total:</strong> {formatCurrency(parseFloat(quantityShown) * parseFloat(agreedRate))}
                 </p>
               </div>
             )}

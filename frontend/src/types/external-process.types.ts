@@ -96,6 +96,8 @@ export interface CreateExternalProcessSendOutRequest {
     sizeId: string;
     sentQty: number;
   }[];
+  /** Fabric Stock source: the rolls / thans that go (COUNTED metres) — the server takes the quantity from them */
+  fabricDetails?: Array<{ fabricStockDetailId: string; metersToIssue: number }>;
 }
 
 export interface ExternalProcessReceiveRequest {

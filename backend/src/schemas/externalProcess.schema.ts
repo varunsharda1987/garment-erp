@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { fabricPiecePickSchema } from './jobWorkOrder.schema';
 
 // ============================================================================
 // Enums
@@ -61,6 +62,11 @@ export const sendOutSchema = z.object({
   embroideryId: z.string().uuid().optional(),
   skus: z.array(sendOutSkuSchema).optional(),
   remarks: z.string().max(500).optional(),
+  /**
+   * FABRIC_STOCK: the rolls / thans of the lot that go (COUNTED metres). The quantity sent is then what they
+   * come to at the lot's fold — the server works it out; a lot without a list goes by quantitySent.
+   */
+  fabricDetails: z.array(fabricPiecePickSchema).max(2000).optional(),
 });
 
 /**

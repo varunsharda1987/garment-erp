@@ -25,7 +25,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { applySearch } from '../utils/search-filter';
 import { qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
-import { settleLotBack, settleLotOut } from './fabric-lot-pieces.service';
+import { pickActualQty, settleLotBack, settleLotOut, type FabricPiecePick } from './fabric-lot-pieces.service';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -66,6 +66,8 @@ export interface SendOutDTO {
   remarks?: string;
   createdById: string;
   skus?: SendOutSkuDTO[];
+  /** FABRIC_STOCK: the rolls / thans that go — the quantity sent is what they come to (pickActualQty) */
+  fabricDetails?: FabricPiecePick[];
 }
 
 export interface ReceiveDTO {
@@ -180,6 +182,13 @@ class ExternalProcessService {
       if (jwo.processType !== expectedProcess) {
         throw new Error(`Job work order ${jwo.jobWorkNumber} is for ${jwo.processType}, not ${expectedProcess}`);
       }
+      // Named rolls / thans decide the quantity sent: their tag metres converted once at the lot's fold
+      // (fabric-lot-pieces.service) — never the screen's figure. A lot without a list goes by quantitySent.
+      if (data.sourceType === 'FABRIC_STOCK' && data.fabricStockId && (data.fabricDetails?.length ?? 0) > 0) {
+        const pick = await pickActualQty(tx, data.fabricStockId, data.fabricDetails!);
+        data.quantitySent = pick.actual;
+      }
+
       // Over-send guard: 1 JWO can back N send-out batches, but never beyond its ordered qty
       const siblingAgg = await tx.external_process_send_outs.aggregate({
         where: { jobWorkOrderId: jwo.id, status: { not: 'CANCELLED' }, isActive: true },
@@ -387,6 +396,11 @@ class ExternalProcessService {
               description: `Material for ${processLabel} — Batch ${sendOut.batchNumber}`,
               serviceRequirementId,
               jobWorkOrderId: data.jobWorkOrderId,
+              // The fabric lot the metres left (the print names it; its rolls / thans point at this line). The
+              // lot was already drawn above — issueChallan refuses a job-work challan whose job has left.
+              ...(data.sourceType === 'FABRIC_STOCK' && data.fabricStockId
+                ? { fabricStockId: data.fabricStockId }
+                : {}),
             },
           ],
         },
@@ -398,11 +412,12 @@ class ExternalProcessService {
         data: { outwardChallanId: challan.id },
       });
 
-      // Fabric sent from a lot: its rolls / thans go with the metres, to this job on this challan. No picks yet
-      // (Phase 2) — a send-out that empties the lot takes its whole list (fabric-lot-pieces.service).
+      // Fabric sent from a lot: its rolls / thans go with the metres, to this job on this challan — the ones
+      // named, or, with none named, the whole list when the send-out empties the lot (fabric-lot-pieces.service)
       if (data.sourceType === 'FABRIC_STOCK' && data.fabricStockId) {
         await settleLotOut(tx, {
           lotId: data.fabricStockId,
+          picks: data.fabricDetails ?? null,
           userId: data.createdById,
           jobWorkOrderId: data.jobWorkOrderId,
           challanId: challan.id,

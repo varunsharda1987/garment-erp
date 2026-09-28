@@ -38,6 +38,7 @@ class ExternalProcessController {
       embroideryId,
       remarks,
       skus,
+      fabricDetails,
     } = req.body;
 
     if (
@@ -76,6 +77,7 @@ class ExternalProcessController {
       remarks,
       createdById: userId,
       skus,
+      fabricDetails,
     });
 
     res.status(201).json({ message: 'Send-out created successfully', data: result });

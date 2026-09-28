@@ -512,7 +512,9 @@ describe("a dyed fabric lot's rolls & thans", () => {
       expect(pieces.every((p) => p.status === 'CONSUMED' && p.issues.length === 1)).toBe(true);
       expect(pieces.every((p) => p.issues[0].cuttingBatchId === batch2)).toBe(true);
 
-      const part = await issueToCutting(batch2, [{ lotId: lot.C, quantity: 300 }]);
+      // A part of a lot, for a batch planned from it (a batch takes only the fabrics it cuts)
+      const batchC = (await makeBatch(lot.C, 'PENDING')).id;
+      const part = await issueToCutting(batchC, [{ lotId: lot.C, quantity: 300 }]);
       expect(part.status).toBe(201);
       expect(await lotQty(lot.C)).toBe(500);
       const c = await piecesOf(lot.C);

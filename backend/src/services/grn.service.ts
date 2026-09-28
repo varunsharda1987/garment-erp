@@ -68,7 +68,7 @@ import {
 import { grnLineActualQty, grnLineRate, isKaajButtonJob, jobWorkCharges } from './helpers/grn-line-value.helper';
 import { resolveReceiptDeliveryPoint } from './helpers/po-delivery-plan.helper';
 import { foldActual, hasFold } from '../utils/fold-length';
-import { isQtyZero, qtyExceeds } from '../utils/quantity';
+import { isQtyZero, qtyExceeds, qtyRemaining } from '../utils/quantity';
 import { COUNT_UNIT_FACTORS, normalizeUnit, unitShort } from '../utils/units';
 import { stockRate, toStockQty } from './helpers/purchase-unit.helper';
 import { routeToSpecializedStock, trimLotOf } from './helpers/stock-routing.helper';
@@ -3969,6 +3969,18 @@ class GRNService {
 
       const material = item.materials;
 
+      // A GREIGE line received as READY FABRIC booked a FABRIC lot at approval (the override), not a greige lot:
+      // take that lot back. The greige branch below never found it, so the fabric stayed in stock after the
+      // reversal (2026-09-28). When approval refused the override the line booked greige as usual, and has no
+      // fabric lot — the greige branch takes it.
+      if (poCategory === 'GREIGE' && item.receivedAsReadyFabric) {
+        const readyFabricLot = await tx.fabric_stock.findFirst({ where: { grnItemId: item.id } });
+        if (readyFabricLot) {
+          await this.reverseFabricLotInTx(tx, grn, readyFabricLot, acceptedQty, warehouseId, userId, reason);
+          continue;
+        }
+      }
+
       // GREIGE - reverse greige_stock
       if (poCategory === 'GREIGE' && material?.greige_master) {
         const greigeId = material.greige_master.id;
@@ -3978,8 +3990,9 @@ class GRNService {
           where: { grnItemId: item.id },
         });
 
-        // P2: Fallback for legacy lots (null grnItemId) — log warning
-        if (!greigeStock) {
+        // P2: Fallback for legacy lots (null grnItemId) — log warning. Never for a line received as ready fabric:
+        // its lot is fabric, and the fallback would zero an unrelated old greige lot of the same greige.
+        if (!greigeStock && !item.receivedAsReadyFabric) {
           greigeStock = await tx.greige_stock.findFirst({
             where: {
               greigeId,
@@ -4060,69 +4073,15 @@ class GRNService {
         }
       }
 
-      // FABRIC - reverse fabric_stock
+      // FABRIC - the lot this receipt line booked (every FABRIC receipt lot carries its grnItemId since 2026-09-28,
+      // and none was booked before). The old fallback took any lot of that fabric in the warehouse with enough on
+      // hand — another receipt's or a hand-entered lot — and silently skipped a used lot of this one.
       if (poCategory === 'FABRIC' && material?.fabric_master) {
-        const fabricId = material.fabric_master.id;
-        // The lot this receipt line booked (grnItemId, since 2026-09-28); older lots by the heuristic, which
-        // never picks another receipt's lot
-        const linkedFabric = await tx.fabric_stock.findFirst({ where: { grnItemId: item.id } });
-        const fabricStock =
-          linkedFabric ??
-          (await tx.fabric_stock.findFirst({
-            where: {
-              fabricId,
-              warehouseId,
-              grnItemId: null,
-              quantityAvailable: { gte: acceptedQty },
-            },
-            orderBy: { receivedDate: 'desc' },
-          }));
-
-        if (fabricStock) {
-          // Fabric some of which has already gone out (cutting, a job, a send-out) cannot be un-received — and
-          // deleting its lot would wipe the record of which rolls / thans went where
-          if (linkedFabric) {
-            const piecesOut = await lotPiecesEverIssued(tx, linkedFabric.id);
-            if (
-              !isQtyZero(Number(linkedFabric.quantityConsumed)) ||
-              piecesOut > 0 ||
-              qtyExceeds(acceptedQty, linkedFabric.quantityAvailable)
-            ) {
-              throw new BusinessError(
-                `Cannot reverse GRN ${grn.grnNumber}: its fabric lot has already been used ` +
-                  `(${Number(linkedFabric.quantityAvailable)} m of ${acceptedQty} m left). Take that fabric back ` +
-                  `first (return it from cutting, or cancel the issue), then reverse.`,
-                { reason: 'GRN_LOT_ALREADY_USED', lotId: linkedFabric.id }
-              );
-            }
-          }
-          const newAvailable = Number(fabricStock.quantityAvailable) - acceptedQty;
-          // A lot a challan names (fabric delivered straight to a processor) cannot be deleted — zero it
-          const namedOnChallan = await tx.challan_items.count({ where: { fabricStockId: fabricStock.id } });
-          if (newAvailable <= 0 && namedOnChallan === 0) {
-            await tx.fabric_stock.delete({ where: { id: fabricStock.id } });
-          } else {
-            await tx.fabric_stock.update({
-              where: { id: fabricStock.id },
-              data: {
-                quantityAvailable: Math.max(0, newAvailable),
-                ...(newAvailable <= 0 ? { status: 'EXHAUSTED' as const } : {}),
-              },
-            });
-            // An emptied lot keeps no list: its receipt's pieces go with the receipt (none has ever left)
-            if (newAvailable <= 0) {
-              await tx.fabric_stock_details.deleteMany({
-                where: { fabricStockId: fabricStock.id, issues: { none: {} } },
-              });
-            }
-          }
-
-          await syncStockLevelQuantity(fabricId, -acceptedQty, warehouseId, undefined, tx);
-
-          logInfo(`Reversed fabric_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
-            grnId: grn.id,
-            fabricId,
-          });
+        const fabricLot = await tx.fabric_stock.findFirst({ where: { grnItemId: item.id } });
+        if (fabricLot) {
+          await this.reverseFabricLotInTx(tx, grn, fabricLot, acceptedQty, warehouseId, userId, reason);
+        } else {
+          logWarn(`GRN ${grn.grnNumber} reversal: no fabric lot booked by line ${item.id} — nothing to take back`);
         }
       }
 
@@ -4177,6 +4136,82 @@ class GRNService {
         }
       }
     }
+  }
+
+  /**
+   * Take back the fabric lot ONE receipt line booked — a FABRIC line, or a GREIGE line received as ready fabric.
+   * Refused once any of it has gone out: metres used, a roll / than issued (even if it came back), or less on the
+   * lot than the line brought. Otherwise the line's metres come off the lot with a ledger row, an emptied lot
+   * leaves its rolls / thans off the list, and stock_levels come down where the lot is. The lot is zeroed, never
+   * deleted: a challan (goods straight to a processor), a cutting plan or a ledger row may point at it.
+   */
+  private async reverseFabricLotInTx(
+    tx: Prisma.TransactionClient,
+    grn: any,
+    lot: {
+      id: string;
+      fabricId: string;
+      warehouseId: string | null;
+      quantityAvailable: Prisma.Decimal;
+      quantityConsumed: Prisma.Decimal;
+      weightedAvgCost: Prisma.Decimal;
+    },
+    acceptedQty: number,
+    warehouseId: string,
+    userId: string,
+    reason: string
+  ): Promise<void> {
+    const piecesOut = await lotPiecesEverIssued(tx, lot.id);
+    if (!isQtyZero(Number(lot.quantityConsumed)) || piecesOut > 0 || qtyExceeds(acceptedQty, lot.quantityAvailable)) {
+      throw new BusinessError(
+        `Cannot reverse GRN ${grn.grnNumber}: its fabric lot has already been used ` +
+          `(${Number(lot.quantityAvailable)} m of ${acceptedQty} m left). Take that fabric back ` +
+          `first (return it from cutting, or cancel the issue), then reverse.`,
+        { reason: 'GRN_LOT_ALREADY_USED', lotId: lot.id }
+      );
+    }
+    const remaining = qtyRemaining(lot.quantityAvailable, acceptedQty);
+    const wac = Number(lot.weightedAvgCost);
+    // Guarded: nobody moved the lot since it was read
+    const written = await tx.fabric_stock.updateMany({
+      where: { id: lot.id, quantityAvailable: lot.quantityAvailable },
+      data: {
+        quantityAvailable: new Prisma.Decimal(remaining),
+        ...(isQtyZero(remaining) ? { status: 'EXHAUSTED' as const } : {}),
+      },
+    });
+    if (written.count !== 1) {
+      throw new BusinessError(`GRN ${grn.grnNumber}: its fabric lot changed while reversing — try again.`, {
+        reason: 'GRN_LOT_CHANGED',
+        lotId: lot.id,
+      });
+    }
+    await tx.fabric_stock_transaction.create({
+      data: {
+        stockId: lot.id,
+        transactionType: 'ADJUSTMENT_OUT',
+        quantity: new Prisma.Decimal(acceptedQty),
+        referenceType: 'GRN',
+        referenceId: grn.id,
+        costPerUnit: new Prisma.Decimal(wac),
+        weightedAvgCost: new Prisma.Decimal(wac),
+        totalValue: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(acceptedQty, wac)))),
+        balanceAfter: new Prisma.Decimal(remaining),
+        valueAfter: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(remaining, wac)))),
+        notes: `GRN ${grn.grnNumber} reversed - ${reason}`,
+        createdById: userId,
+      },
+    });
+    // An emptied lot keeps no list: its receipt's pieces go with the receipt (none has ever left)
+    if (isQtyZero(remaining)) {
+      await tx.fabric_stock_details.deleteMany({ where: { fabricStockId: lot.id, issues: { none: {} } } });
+    }
+    await syncStockLevelQuantity(lot.fabricId, -acceptedQty, lot.warehouseId ?? warehouseId, undefined, tx);
+    logInfo(`Reversed fabric_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
+      grnId: grn.id,
+      fabricId: lot.fabricId,
+      lotId: lot.id,
+    });
   }
 
   /**

@@ -450,8 +450,15 @@ export interface FabricIssuanceData {
   /**
    * The run's open cutting batches — fabric is issued for one of them. `plannedByLot`: the metres the Cutting
    * Chart planned from each lot for the batch (lot id → ACTUAL metres) — what "Pick for this batch" fits.
+   * `fabricIds`: the fabrics the batch cuts — a lot of another fabric cannot be issued for it.
    */
-  openBatches?: Array<{ id: string; batchNumber: string; status: string; plannedByLot?: Record<string, number> }>;
+  openBatches?: Array<{
+    id: string;
+    batchNumber: string;
+    status: string;
+    plannedByLot?: Record<string, number>;
+    fabricIds?: string[];
+  }>;
   issuedChallans: IssuedChallan[];
 }
 

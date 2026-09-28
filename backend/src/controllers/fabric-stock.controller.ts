@@ -23,7 +23,9 @@ import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { systemSettingsService } from '../services/system-settings.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { qtyExceeds, snapToLimit } from '../utils/quantity';
+import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
+import { multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
+import { fmtQty } from '../services/document-data/format';
 import type {
   CreateFabricStockInput,
   UpdateFabricStockInput,
@@ -970,7 +972,10 @@ export const getStockValuation = async (req: Request, res: Response) => {
 
 /**
  * POST /api/stock/transfer
- * Transfer stock between warehouses
+ * Move a WHOLE lot to another location / rack in the store. It relabels where the lot is kept (warehouseLocation,
+ * rackNumber); the lot, its metres and its rolls / thans stay one lot. A part cannot be relabelled on its own: this
+ * used to relabel the whole lot while its ledger row said only part had moved (2026-09-28). Part of a fabric goes to
+ * another warehouse through Stock Transfer. No screen calls this today.
  */
 export const transferStock = async (req: Request, res: Response) => {
   const data = req.body as TransferFabricStockInput;
@@ -997,36 +1002,47 @@ export const transferStock = async (req: Request, res: Response) => {
 
   const available = Number(stock.quantityAvailable);
 
+  if (isQtyZero(available)) {
+    throw new ValidationError('This lot has nothing on hand to move.');
+  }
   if (qtyExceeds(data.quantityToTransfer, available)) {
     throw new ValidationError(`Insufficient stock. Available: ${available}, Requested: ${data.quantityToTransfer}`);
   }
-  // Quantity rule (utils/quantity): moving the whole lot within dust moves exactly the lot.
-  data.quantityToTransfer = snapToLimit(data.quantityToTransfer, available);
+  // Only a whole lot is relabelled — the location belongs to the lot, not to part of it
+  if (!qtyAtLeast(data.quantityToTransfer, available)) {
+    throw new ValidationError(
+      `This moves a whole lot (${fmtQty(available, 'METER')} m): relabelling part of it would put all of it at ` +
+        `${data.toWarehouse}. To move part of it, use Stock Transfer.`
+    );
+  }
 
-  // Update stock record
-  const updatedStock = await prisma.fabric_stock.update({
-    where: { id: data.stockId },
-    data: {
-      warehouseLocation: data.toWarehouse,
-      rackNumber: data.toRackNumber || stock.rackNumber,
-    },
-  });
-
-  // Create transaction
-  await prisma.fabric_stock_transaction.create({
-    data: {
-      stockId: data.stockId,
-      transactionType: 'TRANSFER',
-      quantity: data.quantityToTransfer,
-      referenceType: 'MANUAL',
-      costPerUnit: Number(stock.weightedAvgCost),
-      weightedAvgCost: Number(stock.weightedAvgCost),
-      totalValue: data.quantityToTransfer * Number(stock.weightedAvgCost),
-      balanceAfter: available,
-      valueAfter: available * Number(stock.weightedAvgCost),
-      notes: data.notes || `Transferred to ${data.toWarehouse}`,
-      createdById: userId,
-    },
+  // The new location and its ledger row commit together (CLAUDE.md stock rule 5)
+  const wac = Number(stock.weightedAvgCost);
+  const value = toNumber(roundToCent(multiplyCurrency(available, wac)));
+  const updatedStock = await prisma.$transaction(async (tx) => {
+    const updated = await tx.fabric_stock.update({
+      where: { id: data.stockId },
+      data: {
+        warehouseLocation: data.toWarehouse,
+        rackNumber: data.toRackNumber || stock.rackNumber,
+      },
+    });
+    await tx.fabric_stock_transaction.create({
+      data: {
+        stockId: data.stockId,
+        transactionType: 'TRANSFER',
+        quantity: available,
+        referenceType: 'MANUAL',
+        costPerUnit: wac,
+        weightedAvgCost: wac,
+        totalValue: value,
+        balanceAfter: available,
+        valueAfter: value,
+        notes: data.notes || `Moved to ${data.toWarehouse}`,
+        createdById: userId,
+      },
+    });
+    return updated;
   });
 
   res.json({

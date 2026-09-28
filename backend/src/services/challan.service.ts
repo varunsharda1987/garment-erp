@@ -16,6 +16,7 @@ import { normalizeUnit, unitLabel } from '../utils/units';
 import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
 import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit } from './helpers/lot-location.helper';
 import { settleLotBack, settleLotOut, type FabricPiecePick } from './fabric-lot-pieces.service';
+import { consumeReservations } from './helpers/stock-reservation.helper';
 import { BusinessError } from '../errors';
 
 /** Rule 55 wording on a Stock-Out that sends our goods to a job worker (Phase 4e). */
@@ -265,6 +266,109 @@ export interface IssueChallanOptions {
   fabricPicks?: Record<string, FabricPiecePick[]>;
 }
 
+const CUTTING_BATCH_FABRICS_SELECT = {
+  batchNumber: true,
+  cadAverageUsed: true,
+  cadWidthUsed: true,
+  fabricStock: { select: { fabricId: true, fabricMaster: { select: { fabricCode: true } } } },
+  additionalFabrics: {
+    select: {
+      fabricStockId: true,
+      cadAvgUsed: true,
+      cadWidthUsed: true,
+      fabricStock: { select: { fabricId: true, fabricMaster: { select: { fabricCode: true } } } },
+    },
+  },
+} satisfies Prisma.cutting_batchesSelect;
+
+/**
+ * The ONE rule for a lot issued FOR a cutting batch: it must be a fabric the batch cuts — its primary lot's, or a lot
+ * on its list. Joining a batch with lays already recorded without naming a fabric would make those lays stop covering
+ * the fabric they were cut from, and hold its pieces back from stitching. Returns the batch; refuses a mismatch.
+ * Issue to Cutting checks it before its challan exists, and the issue itself again inside its transaction.
+ */
+export async function assertCuttingBatchCutsLot(
+  db: Prisma.TransactionClient | typeof prisma,
+  batchId: string,
+  lot: { id: string; fabricId: string }
+) {
+  const batch = await db.cutting_batches.findUnique({ where: { id: batchId }, select: CUTTING_BATCH_FABRICS_SELECT });
+  if (!batch)
+    throw new BusinessError('Cutting batch not found.', { reason: 'BATCH_NOT_FOUND', cuttingBatchId: batchId });
+  const cutHere =
+    batch.fabricStock?.fabricId === lot.fabricId ||
+    batch.additionalFabrics.some((r) => r.fabricStockId === lot.id || r.fabricStock?.fabricId === lot.fabricId);
+  if (!cutHere) {
+    const cuts = [
+      ...new Set(
+        [batch.fabricStock, ...batch.additionalFabrics.map((r) => r.fabricStock)]
+          .map((f) => f?.fabricMaster?.fabricCode)
+          .filter((c): c is string => !!c)
+      ),
+    ];
+    const fabric = await db.fabric_master.findUnique({ where: { id: lot.fabricId }, select: { fabricCode: true } });
+    throw new BusinessError(
+      `${batch.batchNumber} cuts ${cuts.join(', ') || 'another fabric'}, not ${fabric?.fabricCode ?? 'this fabric'}. ` +
+        `Issue this lot for a batch that cuts it — make one on the Cutting Chart.`,
+      { reason: 'BATCH_FABRIC_MISMATCH', cuttingBatchId: batchId, fabricStockId: lot.id }
+    );
+  }
+  return batch;
+}
+
+/**
+ * A lot issued for a cutting batch that the Cutting Chart did not plan joins the batch's fabric list
+ * (cutting_batch_fabrics) with its fabric's CAD figures — completion, its returns and the lay screen read that list,
+ * so an unplanned lot's metres were never counted or given back (2026-09-28). Refused for a fabric the batch does not
+ * cut (assertCuttingBatchCutsLot).
+ */
+async function addLotToCuttingBatch(
+  tx: Prisma.TransactionClient,
+  batchId: string,
+  lot: { id: string; fabricId: string; cutableWidth: Prisma.Decimal; finishedWidth: Prisma.Decimal }
+): Promise<void> {
+  const batch = await assertCuttingBatchCutsLot(tx, batchId, lot);
+  if (batch.additionalFabrics.some((r) => r.fabricStockId === lot.id)) return;
+  const sibling = batch.additionalFabrics.find((r) => r.fabricStock?.fabricId === lot.fabricId);
+  await tx.cutting_batch_fabrics.createMany({
+    data: [
+      {
+        batchId,
+        fabricStockId: lot.id,
+        cadAvgUsed: sibling ? sibling.cadAvgUsed : batch.cadAverageUsed,
+        cadWidthUsed: sibling ? sibling.cadWidthUsed : batch.cadWidthUsed,
+        actualWidth: Number(lot.cutableWidth) > 0 ? lot.cutableWidth : lot.finishedWidth,
+      },
+    ],
+    skipDuplicates: true,
+  });
+}
+
+/**
+ * An issue of `qty` from a lot for an order fulfils that order's MRP holds on the lot (stock-reservation.helper):
+ * the holds of the order's requirements for the lot's material, those on this lot first.
+ */
+async function consumeOrderLotHolds(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  materialId: string,
+  lotId: string,
+  qty: number
+): Promise<void> {
+  const requirements = await tx.material_requirements.findMany({
+    where: { orderId, materialId },
+    select: { id: true },
+  });
+  if (requirements.length === 0) return;
+  await consumeReservations(
+    tx,
+    requirements.map((r) => r.id),
+    qty,
+    new Date(),
+    [lotId]
+  );
+}
+
 export async function issueChallan(id: string, userId?: string, opts?: IssueChallanOptions) {
   return prisma.$transaction(async (tx) => {
     // Fetch challan with items to check for stock links
@@ -444,8 +548,10 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
           // BUG-CHN5 fix: Use decimal.js for safe subtraction
           const newAvailable = toNumber(subtractCurrency(fabricStock.quantityAvailable, lotQty));
 
-          await tx.fabric_stock.update({
-            where: { id: item.fabricStockId },
+          // Guarded: written only if nobody moved the lot since it was read — two issues of one lot at once
+          // each read the same figure, and one of the two decrements was lost
+          const written = await tx.fabric_stock.updateMany({
+            where: { id: item.fabricStockId, quantityAvailable: fabricStock.quantityAvailable },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
               quantityConsumed: { increment: lotQty },
@@ -453,6 +559,15 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
               status: isQtyZero(newAvailable) || newAvailable < 0 ? 'EXHAUSTED' : 'AVAILABLE',
             },
           });
+          if (written.count !== 1) {
+            throw new BusinessError(
+              'This fabric lot changed while the challan was being issued — reload and try again.',
+              {
+                reason: 'LOT_CHANGED',
+                fabricStockId: item.fabricStockId,
+              }
+            );
+          }
 
           // Sync stock_levels
           const fabMaterial = await tx.materials.findFirst({
@@ -474,6 +589,17 @@ export async function issueChallan(id: string, userId?: string, opts?: IssueChal
             cuttingBatchId: existing.cuttingBatchId ?? null,
             jobWorkOrderId: item.jobWorkOrderId ?? existing.jobWorkOrderId ?? null,
           });
+
+          // Issued FOR a cutting batch: a lot the Cutting Chart did not plan joins the batch's fabric list — if the
+          // batch cuts that fabric (addLotToCuttingBatch)
+          if (existing.cuttingBatchId) {
+            await addLotToCuttingBatch(tx, existing.cuttingBatchId, fabricStock);
+          }
+          // The order's MRP holds on this lot are fulfilled by the issue. Only the job-work issue consumed them,
+          // so a lot issued to cutting or on a Stock-Out kept reading reserved after the cloth had left.
+          if (existing.orderId) {
+            await consumeOrderLotHolds(tx, existing.orderId, fabricStock.fabricId, item.fabricStockId, lotQty);
+          }
         }
 
         // 3. Lace stock deduction

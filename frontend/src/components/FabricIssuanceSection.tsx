@@ -127,13 +127,15 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
 
   const selectedCount = Object.values(selectedLots).filter(Boolean).length;
 
-  // Check which component parts are missing from selection
+  // Check which component parts are missing from selection — of the fabrics the chosen batch cuts
   const missingParts = useMemo(() => {
     if (selectedCount === 0) return [];
-    const allParts = [...new Set(allLots.map((l) => l.part))];
+    const cuts = data?.openBatches?.find((b) => b.id === batchId)?.fabricIds;
+    const lotsHere = cuts ? allLots.filter((l) => !l.fabricId || cuts.includes(l.fabricId)) : allLots;
+    const allParts = [...new Set(lotsHere.map((l) => l.part))];
     const selectedParts = new Set(allLots.filter((l) => selectedLots[l.lotId]).map((l) => l.part));
     return allParts.filter((p) => !selectedParts.has(p));
-  }, [allLots, selectedLots, selectedCount]);
+  }, [allLots, selectedLots, selectedCount, data, batchId]);
 
   const toggleLot = (lotId: string) => {
     const on = !selectedLots[lotId];
@@ -147,6 +149,10 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
 
   const openBatches = data?.openBatches ?? [];
   const plannedFor = (lotId: string) => openBatches.find((b) => b.id === batchId)?.plannedByLot?.[lotId] ?? 0;
+  // A lot of a fabric the chosen batch does not cut cannot be issued for it (the server refuses it)
+  const chosenBatch = openBatches.find((b) => b.id === batchId);
+  const notCutHere = (lot: { fabricId?: string | null }) =>
+    !!chosenBatch?.fabricIds && !!lot.fabricId && !chosenBatch.fabricIds.includes(lot.fabricId);
 
   /** How a chosen lot goes: its picked rolls / thans, or whole by quantity */
   const lotPlan = (lot: (typeof allLots)[number]) => {
@@ -165,6 +171,11 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
   const blockers = allLots
     .filter((lot) => selectedLots[lot.lotId])
     .flatMap((lot) => {
+      if (notCutHere(lot)) {
+        return [
+          `${chosenBatch?.batchNumber} does not cut ${lot.fabricCode || lot.fabricName} — untick ${lot.label}, or issue it for a batch that cuts it.`,
+        ];
+      }
       const plan = lotPlan(lot);
       if (!plan.byPieces) return [];
       if (plan.lotPicks.length === 0) return [`Tick at least one roll or than of ${lot.label}, or untick the lot.`];
@@ -375,18 +386,33 @@ export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSec
                   {allLots.map((lot) => (
                     <TableRow
                       key={lot.lotId}
-                      className={selectedLots[lot.lotId] ? 'bg-primary/10' : 'cursor-pointer hover:bg-muted'}
-                      onClick={() => toggleLot(lot.lotId)}
+                      className={
+                        selectedLots[lot.lotId]
+                          ? 'bg-primary/10'
+                          : notCutHere(lot)
+                            ? 'opacity-60'
+                            : 'cursor-pointer hover:bg-muted'
+                      }
+                      onClick={() => (selectedLots[lot.lotId] || !notCutHere(lot)) && toggleLot(lot.lotId)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Checkbox checked={!!selectedLots[lot.lotId]} onCheckedChange={() => toggleLot(lot.lotId)} />
+                        <Checkbox
+                          checked={!!selectedLots[lot.lotId]}
+                          disabled={!selectedLots[lot.lotId] && notCutHere(lot)}
+                          onCheckedChange={() => toggleLot(lot.lotId)}
+                        />
                       </TableCell>
                       <TableCell className="max-w-[160px] truncate font-medium" title={lot.fabricName}>
                         {lot.fabricCode ? `${lot.fabricCode} - ` : ''}
                         {lot.fabricName}
                       </TableCell>
                       <TableCell>{lot.part}</TableCell>
-                      <TableCell className="text-xs">{lot.label}</TableCell>
+                      <TableCell className="text-xs">
+                        {lot.label}
+                        {notCutHere(lot) && (
+                          <span className="block text-muted-foreground">Not cut in {chosenBatch?.batchNumber}</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">
                         <span className={lot.listState === 'OUT_OF_STEP' ? 'text-warning' : ''}>
                           {piecesSummary(lot.pieces ? { ...lot.pieces, bales: 0 } : undefined)}

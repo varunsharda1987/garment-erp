@@ -16,7 +16,13 @@ import { resolveAdminOverride } from '../utils/admin-override';
 import { ChallanType, Unit } from '@prisma/client';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { buildCuttingChartData } from './cutting.controller';
-import { createChallan, issueChallan, cancelChallan, type IssueChallanOptions } from '../services/challan.service';
+import {
+  assertCuttingBatchCutsLot,
+  createChallan,
+  issueChallan,
+  cancelChallan,
+  type IssueChallanOptions,
+} from '../services/challan.service';
 // Shared prisma singleton — a private `new PrismaClient()` opened a second connection pool
 // (bug-hunt production-26)
 import prisma from '../config/database';
@@ -583,6 +589,10 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
         where: { allocationStatus: 'RESERVED' },
         select: { stockId: true, quantityAllocated: true },
       },
+      // The fabrics the batch cuts: its primary lot's and every lot on its list (challan.service refuses a lot of
+      // any other fabric for it)
+      fabricStock: { select: { fabricId: true } },
+      additionalFabrics: { select: { fabricStock: { select: { fabricId: true } } } },
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -591,6 +601,13 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
     batchNumber: b.batchNumber,
     status: b.status,
     plannedByLot: Object.fromEntries(b.stockAllocations.map((a) => [a.stockId, Number(a.quantityAllocated)])),
+    fabricIds: [
+      ...new Set(
+        [b.fabricStock?.fabricId, ...b.additionalFabrics.map((f) => f.fabricStock?.fabricId)].filter(
+          (id): id is string => !!id
+        )
+      ),
+    ],
   }));
 
   res.json({
@@ -661,6 +678,14 @@ export const issueFabric = async (req: Request, res: Response) => {
       `Choose which cutting batch this fabric is for: ${openBatches.map((b) => b.batchNumber).join(', ')}.`
     );
   }
+
+  // Every lot must be a fabric the batch cuts — refused here, before a challan (and its number) exists; the issue
+  // checks it again inside its transaction (challan.service assertCuttingBatchCutsLot)
+  const lotFabrics = await prisma.fabric_stock.findMany({
+    where: { id: { in: lots.map((l) => l.fabricStockId) } },
+    select: { id: true, fabricId: true },
+  });
+  for (const lotRow of lotFabrics) await assertCuttingBatchCutsLot(prisma, batch.id, lotRow);
 
   // A lot that names its rolls / thans goes by them: its quantity is what the picks come to at the lot's fold
   // (pickActualQty — never the screen's figure), and the pieces leave with the challan. A lot with no list

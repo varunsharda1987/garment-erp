@@ -19,7 +19,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Card, CardContent } from '../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import {
   Dialog,
@@ -32,6 +31,7 @@ import {
 import { Textarea } from '../components/ui/textarea';
 import { PageHeader } from '../components/PageHeader';
 import SearchInput from '../components/SearchInput';
+import { FilterBar, SelectFilter } from '../components/filters';
 import { StatusBadge } from '../components/StatusBadge';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
@@ -50,6 +50,20 @@ import {
 import type { CostSheet } from '../types/costSheet.types';
 import { formatDate } from '@/lib/date';
 
+const APPROVAL_FILTER_OPTIONS = [
+  { value: 'all', label: 'All statuses' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
+// Labels as the cards' purpose badge shows them. Production is CAD-only — never costed.
+const PURPOSE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All purposes' },
+  { value: 'COSTING', label: 'Costing' },
+  { value: 'RAW_MATERIAL_CALCULATION', label: 'Raw Material' },
+];
+
 const CostSheetList = () => {
   const navigate = useNavigate();
   const [costSheets, setCostSheets] = useState<CostSheet[]>([]);
@@ -63,6 +77,16 @@ const CostSheetList = () => {
 
   // Use the pagination hook
   const { currentPage, pageSize, paginationProps, resetPage, apiParams } = usePagination();
+
+  const activeFilterCount = [search, approvedFilter !== 'all', purposeFilter !== 'all'].filter(Boolean).length;
+
+  // Clears every filter; the rows-per-page choice stays
+  const clearFilters = () => {
+    setSearch('');
+    setApprovedFilter('all');
+    setPurposeFilter('all');
+    resetPage();
+  };
 
   // Delete/Approve dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -232,60 +256,48 @@ const CostSheetList = () => {
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="search">Search by Style</Label>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+              <Label htmlFor="search">Search</Label>
               <SearchInput
-                placeholder="Style code or name..."
+                id="search"
+                placeholder="Search style code, buyer ref, name, order number…"
                 value={search}
                 onChange={(value) => {
                   setSearch(value);
                   resetPage();
                 }}
+                // The API refuses a longer search (costSheetQuerySchema: max 100)
+                maxLength={100}
               />
             </div>
 
-            <div>
-              <Label htmlFor="approvalFilter">Approval Status</Label>
-              <Select
-                value={approvedFilter}
-                onValueChange={(value: string) => {
-                  setApprovedFilter(value);
-                  resetPage();
-                }}
-              >
-                <SelectTrigger id="approvalFilter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <SelectFilter
+              id="approvalFilter"
+              label="Approval status"
+              value={approvedFilter}
+              onChange={(value) => {
+                setApprovedFilter(value);
+                resetPage();
+              }}
+              options={APPROVAL_FILTER_OPTIONS}
+            />
 
-            <div>
-              <Label htmlFor="purposeFilter">Purpose</Label>
-              <Select
-                value={purposeFilter}
-                onValueChange={(value: string) => {
-                  setPurposeFilter(value);
-                  resetPage();
-                }}
-              >
-                <SelectTrigger id="purposeFilter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="COSTING">Costing</SelectItem>
-                  <SelectItem value="RAW_MATERIAL_CALCULATION">RM Calculation</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+            <SelectFilter
+              id="purposeFilter"
+              label="Purpose"
+              value={purposeFilter}
+              onChange={(value) => {
+                setPurposeFilter(value);
+                resetPage();
+              }}
+              options={PURPOSE_FILTER_OPTIONS}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -311,23 +323,22 @@ const CostSheetList = () => {
       ) : costSheets.length === 0 ? (
         <Card>
           <CardContent className="py-12">
-            <EmptyState
-              icon={<FileText className="h-16 w-16" />}
-              title="No cost sheets found"
-              description={
-                search || approvedFilter !== 'all' || purposeFilter !== 'all'
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'Create your first cost sheet to get started'
-              }
-              actionLabel={
-                !search && approvedFilter === 'all' && purposeFilter === 'all' ? 'Create First Cost Sheet' : undefined
-              }
-              onAction={
-                !search && approvedFilter === 'all' && purposeFilter === 'all'
-                  ? () => navigate('/cost-sheets/new')
-                  : undefined
-              }
-            />
+            {activeFilterCount > 0 ? (
+              <EmptyState
+                icon={<FileText className="h-16 w-16" />}
+                title="No cost sheets match these filters."
+                actionLabel="Clear filters"
+                onAction={clearFilters}
+              />
+            ) : (
+              <EmptyState
+                icon={<FileText className="h-16 w-16" />}
+                title="No cost sheets found"
+                description="Create your first cost sheet to get started"
+                actionLabel="Create First Cost Sheet"
+                onAction={() => navigate('/cost-sheets/new')}
+              />
+            )}
           </CardContent>
         </Card>
       ) : (

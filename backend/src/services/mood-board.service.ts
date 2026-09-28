@@ -5,6 +5,7 @@
 import prisma from '../config/database';
 import { NotFoundError, ValidationError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
 import fs from 'fs';
 import path from 'path';
 
@@ -108,6 +109,7 @@ class MoodBoardService {
     seasonId?: string;
     status?: string;
     createdById?: string;
+    search?: string;
     page?: number;
     limit?: number;
   }): Promise<{ data: object[]; pagination: object }> {
@@ -118,6 +120,9 @@ class MoodBoardService {
       if (params?.seasonId) where.seasonId = params.seasonId;
       if (params?.status) where.status = params.status;
       if (params?.createdById) where.createdById = params.createdById;
+      // What a mood board card shows: its name, description and season. Until 2026-09-28 the list
+      // page sent `search` and nothing read it, so the search box filtered nothing.
+      applySearch(where, params?.search, ['name', 'description', 'season.name', 'season.code']);
 
       const page = params?.page || 1;
       const limit = params?.limit || 20;

@@ -5,12 +5,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Loader2, Filter, X, Eye, Lock, FileText, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Loader2, X, Eye, Lock, FileText, MoreHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Combobox } from '../components/ui/combobox';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import {
@@ -24,19 +23,19 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import Pagination from '@/components/Pagination';
 import UnapproveImpactDialog, { getCostingInUseDetails } from '@/components/fabric-costing/UnapproveImpactDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
-import { customerService } from '../services/customer.service';
-import { styleService } from '../services/style.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { StyleCombobox } from '@/components/StyleCombobox';
+import { ProcessorCombobox } from '@/components/ProcessorCombobox';
+import { FilterBar } from '@/components/filters';
+import SearchInput from '@/components/SearchInput';
 import type {
   CostingOption,
   GroupedCostingByStyle,
   CostingOptionsFilters,
-  ProcessorInfo,
   PurposeCounts,
   CostingPurpose,
   CostingInUseErrorDetails,
 } from '../types/fabricCosting.types';
-import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { handleApiError } from '../lib/api-error-handler';
 import { divideByShrinkage } from '../utils/math';
@@ -48,11 +47,10 @@ export default function FabricCostingOptionsPage() {
 
   // Data state
   const [groupedData, setGroupedData] = useState<Record<string, GroupedCostingByStyle>>({});
-  const [styles, setStyles] = useState<Style[]>([]);
-  const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
 
   // Filters state
   const [filters, setFilters] = useState<CostingOptionsFilters>({
+    search: searchParams.get('search') || undefined,
     customerId: searchParams.get('customerId') || undefined,
     styleId: searchParams.get('styleId') || undefined,
     processorId: searchParams.get('processorId') || undefined,
@@ -81,7 +79,6 @@ export default function FabricCostingOptionsPage() {
 
   // Loading states
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [unapprovingId, setUnapprovingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -98,70 +95,6 @@ export default function FabricCostingOptionsPage() {
     optionId: string;
     details: CostingInUseErrorDetails;
   } | null>(null);
-
-  // Fetch filter options on mount
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      setIsLoadingFilters(true);
-      try {
-        const processorsRes = await fabricCostingService.getProcessors();
-        setProcessors(processorsRes);
-      } catch {
-        notify.error('Failed to load filter options');
-      } finally {
-        setIsLoadingFilters(false);
-      }
-    };
-    fetchFilterOptions();
-  }, []);
-
-  // Auto-load style info when styleId is provided in URL (e.g., from fabric costing page)
-  useEffect(() => {
-    const loadStyleInfo = async () => {
-      if (filters.styleId && !filters.customerId) {
-        try {
-          const style = await styleService.getStyleById(filters.styleId);
-          // BUG-FC8 fix: Access customerId from brandCategories instead of type casting
-          const customerId = style?.brandCategories?.customerId;
-          if (style && customerId) {
-            // Set customer ID to enable style dropdown
-            setFilters((prev) => ({ ...prev, customerId }));
-          }
-        } catch (error) {
-          console.error('Failed to load style info:', error);
-        }
-      }
-    };
-    loadStyleInfo();
-  }, [filters.styleId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Fetch styles when customer changes
-  useEffect(() => {
-    const fetchStyles = async () => {
-      if (!filters.customerId) {
-        setStyles([]);
-        return;
-      }
-      try {
-        // Fetch customer by ID to get name for getAllStyles filter
-        const customer = await customerService.getCustomerById(filters.customerId);
-        const customerName = customer?.name;
-        const response = await styleService.getAllStyles(
-          1, // page
-          100, // limit (reduced from 500 for performance)
-          undefined, // search
-          undefined, // stage
-          undefined, // cadStatus
-          customerName, // customerName
-          'ACTIVE' // status - only show published styles
-        );
-        setStyles(response.data);
-      } catch {
-        notify.error('Failed to load styles');
-      }
-    };
-    fetchStyles();
-  }, [filters.customerId]);
 
   // Fetch costing options
   const fetchCostingOptions = useCallback(async () => {
@@ -192,6 +125,7 @@ export default function FabricCostingOptionsPage() {
   // Update URL params when filters change
   useEffect(() => {
     const params = new URLSearchParams();
+    if (filters.search) params.set('search', filters.search);
     if (filters.customerId) params.set('customerId', filters.customerId);
     if (filters.styleId) params.set('styleId', filters.styleId);
     if (filters.processorId) params.set('processorId', filters.processorId);
@@ -210,16 +144,17 @@ export default function FabricCostingOptionsPage() {
     }));
   };
 
-  // Clear all filters
+  // Clear all filters — the purpose tab and the rows-per-page choice are not filters, so they stay
   const clearFilters = () => {
     setFilters((prev) => ({
+      search: undefined,
       customerId: undefined,
       styleId: undefined,
       processorId: undefined,
       status: 'ALL',
-      purpose: 'ALL',
+      purpose: prev.purpose,
       page: 1,
-      limit: prev.limit, // the rows-per-page choice is not a filter
+      limit: prev.limit,
     }));
   };
 
@@ -302,8 +237,17 @@ export default function FabricCostingOptionsPage() {
     return `₹${value.toFixed(2)}`;
   };
 
-  // Check if any filters are active (excluding purpose tabs which are separate)
-  const hasActiveFilters = filters.customerId || filters.styleId || filters.processorId || filters.status !== 'ALL';
+  // Active filters (the purpose tabs are separate)
+  const activeFilterCount = [
+    filters.search,
+    filters.customerId,
+    filters.styleId,
+    filters.processorId,
+    filters.status && filters.status !== 'ALL',
+  ].filter(Boolean).length;
+
+  // The filtered style's card carries its code — named in the heading once its options load
+  const selectedStyle = filters.styleId ? groupedData[filters.styleId]?.style : undefined;
 
   // Get purpose badge variant
   const getPurposeBadgeVariant = (purpose: string | null) => {
@@ -340,10 +284,9 @@ export default function FabricCostingOptionsPage() {
           <div>
             <h1 className="text-2xl font-display font-medium">
               {filters.styleId
-                ? `Costing Options - ${(() => {
-                    const selected = styles.find((s) => s.id === filters.styleId);
-                    return selected ? formatStyleCodeWithRef(selected.styleCode, selected.buyerStyleRef) : 'Loading...';
-                  })()}`
+                ? selectedStyle
+                  ? `Costing Options - ${formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)}`
+                  : 'Costing Options'
                 : 'Fabric Costing Options'}
             </h1>
             <p className="text-muted-foreground text-sm">
@@ -378,77 +321,58 @@ export default function FabricCostingOptionsPage() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">Filters:</span>
-          </div>
+        <FilterBar
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          {/* Not handleFilterChange: it maps the value 'all' to undefined, and "all" is a fair word to type */}
+          <SearchInput
+            value={filters.search || ''}
+            onChange={(v) => setFilters((prev) => ({ ...prev, search: v || undefined, page: 1 }))}
+            placeholder="Search style, buyer code, customer, component, greige, processor…"
+            className="w-[340px]"
+          />
 
-          {/* Customer Filter */}
           <CustomerCombobox
             value={filters.customerId || ''}
             onValueChange={(val) => handleFilterChange('customerId', val || undefined)}
-            placeholder="All Customers"
-            className="w-[180px]"
-            disabled={isLoadingFilters}
+            allowAll
+            placeholder="All customers"
+            className="w-[220px]"
           />
 
-          {/* Style Filter */}
-          <Select
-            value={filters.styleId || 'all'}
-            onValueChange={(val) => handleFilterChange('styleId', val)}
-            disabled={!filters.customerId}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All Styles" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Styles</SelectItem>
-              {styles.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - {s.styleName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Processor Filter */}
-          <Combobox
-            value={filters.processorId || 'all'}
-            onValueChange={(val) => handleFilterChange('processorId', val)}
-            options={[
-              { value: 'all', label: 'All Processors' },
-              ...processors.map((p) => ({ value: p.id, label: p.name })),
-            ]}
-            placeholder="All Processors"
-            searchPlaceholder="Search processor..."
-            emptyText="No processors found"
-            className="w-[180px]"
+          <StyleCombobox
+            value={filters.styleId || ''}
+            onValueChange={(val) => handleFilterChange('styleId', val || undefined)}
+            status={null}
+            allowAll
+            placeholder="All styles"
+            className="w-[220px]"
           />
 
-          {/* Status Filter */}
+          <ProcessorCombobox
+            value={filters.processorId || ''}
+            onValueChange={(val) => handleFilterChange('processorId', val || undefined)}
+            allowAll
+            placeholder="All processors"
+            className="w-[220px]"
+          />
+
           <Select
             value={filters.status || 'ALL'}
             onValueChange={(val) => handleFilterChange('status', val as CostingOptionsFilters['status'])}
           >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
+            <SelectTrigger className="w-[180px]" aria-label="Status">
+              <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">All Status</SelectItem>
+              <SelectItem value="ALL">All statuses</SelectItem>
               <SelectItem value="APPROVED">Approved</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
             </SelectContent>
           </Select>
-
-          {/* Clear Filters */}
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              <X className="h-4 w-4 mr-1" />
-              Clear
-            </Button>
-          )}
-        </div>
+        </FilterBar>
       </Card>
 
       {/* Summary */}
@@ -465,6 +389,13 @@ export default function FabricCostingOptionsPage() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : Object.keys(groupedData).length === 0 && activeFilterCount > 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground">No costing options match these filters.</p>
+          <Button variant="outline" className="mt-4" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </Card>
       ) : Object.keys(groupedData).length === 0 ? (
         <Card className="p-12 text-center">
           <p className="text-muted-foreground">No costing options found.</p>

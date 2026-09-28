@@ -115,7 +115,8 @@ export class PatternPartService {
     const where: Prisma.pattern_part_masterWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['code', 'name', 'description']);
+      // The list shows each part's component groups — searchable by name
+      applySearch(where, search, ['code', 'name', 'description', 'patternPartGroups[].componentGroup.name']);
     }
 
     if (isActive !== undefined) {

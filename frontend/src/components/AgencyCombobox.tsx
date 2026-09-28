@@ -14,6 +14,8 @@ interface AgencyComboboxProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All agencies")
 }
 
 export function AgencyCombobox({
@@ -22,6 +24,8 @@ export function AgencyCombobox({
   placeholder = 'Select agency...',
   className,
   disabled = false,
+  allowAll = false,
+  allLabel = 'All agencies',
 }: AgencyComboboxProps) {
   const fetch = useCallback(async (search: string): Promise<PickerPage<AgencySearchResult>> => {
     const items = await searchAgencies({ search: search || undefined, limit: AGENCY_PICKER_LIMIT });
@@ -45,7 +49,7 @@ export function AgencyCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all agencies' }, ...options] : options}
       value={value}
       onValueChange={onValueChange}
       placeholder={

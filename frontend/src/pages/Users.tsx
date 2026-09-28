@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -37,6 +38,13 @@ export default function Users() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
+
+  const activeFilterCount = [searchQuery].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -258,10 +266,23 @@ export default function Users() {
             )}
           </div>
 
-          {/* Search Bar */}
-          <div className="mt-4">
-            <SearchInput placeholder="Search users by name or email..." value={searchQuery} onChange={setSearchQuery} />
-          </div>
+          {/* Filters */}
+          <FilterBar
+            className="mt-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1 max-w-md"
+              placeholder="Search name, email, phone, department…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
+          </FilterBar>
         </CardHeader>
         <CardContent>
           {/* DataTable Component */}
@@ -271,15 +292,22 @@ export default function Users() {
             keyExtractor={(user) => user.id}
             loading={isLoading}
             error={error}
-            emptyState={{
-              icon: <UsersIcon className="h-16 w-16" />,
-              title: 'No users found',
-              description: searchQuery
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first user',
-              actionLabel: isAdmin ? 'Create First User' : undefined,
-              onAction: isAdmin ? () => navigate('/users/new') : undefined,
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <UsersIcon className="h-16 w-16" />,
+                    title: 'No users match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <UsersIcon className="h-16 w-16" />,
+                    title: 'No users found',
+                    description: 'Get started by creating your first user',
+                    actionLabel: isAdmin ? 'Create First User' : undefined,
+                    onAction: isAdmin ? () => navigate('/users/new') : undefined,
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

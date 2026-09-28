@@ -145,7 +145,7 @@ export const getAllEmbroidery = async (req: Request, res: Response) => {
 
   // Search filter
   if (search) {
-    applySearch(where, search as string, ['embroideryCode', 'designName', 'description']);
+    applySearch(where, search as string, ['embroideryCode', 'designName', 'description', 'supplier.name']);
   }
 
   // Supplier filter

@@ -20,8 +20,11 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { Switch } from '../components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { notify } from '../lib/notify';
-import { Plus, Pencil, Trash2, Search, MoveUp, MoveDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, MoveUp, MoveDown } from 'lucide-react';
 import { componentGroupService } from '../services/componentGroup.service';
 import type {
   ComponentGroup,
@@ -33,6 +36,7 @@ export default function ComponentGroupMaster() {
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<ComponentGroup | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -47,13 +51,22 @@ export default function ComponentGroupMaster() {
     isActive: true,
   });
 
+  const activeFilterCount = [searchTerm, statusFilter !== 'all'].filter(Boolean).length;
+  // Move up/down renumbers the rows on screen 0..n-1, so it is only safe on the whole, unfiltered list
+  const reorderLocked = activeFilterCount > 0;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+  };
+
   // Load component groups
   const loadComponentGroups = async () => {
     try {
       setLoading(true);
       const response = await componentGroupService.getAll({
         search: searchTerm,
-        isActive: undefined, // Show both active and inactive
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active', // 'all' = both
         limit: 100,
       });
       setComponentGroups(response.data);
@@ -68,7 +81,7 @@ export default function ComponentGroupMaster() {
   useEffect(() => {
     loadComponentGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   // Handle create/update
   const handleSubmit = async (e: React.FormEvent) => {
@@ -154,6 +167,7 @@ export default function ComponentGroupMaster() {
 
   // Handle reorder (move up/down)
   const handleMove = async (index: number, direction: 'up' | 'down') => {
+    if (reorderLocked) return;
     if ((direction === 'up' && index === 0) || (direction === 'down' && index === componentGroups.length - 1)) {
       return;
     }
@@ -196,19 +210,30 @@ export default function ComponentGroupMaster() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="mb-4 max-w-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search component groups..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      {/* Filters */}
+      <FilterBar
+        className="mb-4"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="min-w-[220px] flex-1 max-w-sm"
+          placeholder="Search code, name, description…"
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+      </FilterBar>
 
       {/* Table */}
       <div className="border rounded-lg">
@@ -234,19 +259,31 @@ export default function ComponentGroupMaster() {
             ) : componentGroups.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No component groups found
+                  {activeFilterCount > 0 ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <span>No component groups match these filters.</span>
+                      <Button variant="outline" size="sm" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    'No component groups found'
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
               componentGroups.map((group, index) => (
                 <TableRow key={group.id} className={!group.isActive ? 'opacity-50' : ''}>
                   <TableCell>
-                    <div className="flex items-center gap-1">
+                    <div
+                      className="flex items-center gap-1"
+                      title={reorderLocked ? 'Clear filters to change the order' : undefined}
+                    >
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleMove(index, 'up')}
-                        disabled={index === 0}
+                        disabled={reorderLocked || index === 0}
                         title="Move up"
                       >
                         <MoveUp className="h-3 w-3" />
@@ -255,7 +292,7 @@ export default function ComponentGroupMaster() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleMove(index, 'down')}
-                        disabled={index === componentGroups.length - 1}
+                        disabled={reorderLocked || index === componentGroups.length - 1}
                         title="Move down"
                       >
                         <MoveDown className="h-3 w-3" />

@@ -102,6 +102,8 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     'invoiceNumber',
     'customers.name',
     'customers.code',
+    // The Customer column shows the billing name first
+    'customers.billingName',
     'orders.orderNumber',
     'sale_orders.saleOrderNumber',
     'sale_orders.buyerPoNumber',
@@ -786,12 +788,15 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
       // Date range filter
       if (fromDate || toDate) {
-        const invoiceDateFilter: { gte?: Date; lte?: Date } = {};
+        const invoiceDateFilter: { gte?: Date; lt?: Date } = {};
         if (fromDate) {
           invoiceDateFilter.gte = new Date(fromDate);
         }
         if (toDate) {
-          invoiceDateFilter.lte = new Date(toDate);
+          // invoiceDate is a timestamp (defaults to now) — bump to next day so the whole toDate day is included
+          const end = new Date(toDate);
+          end.setDate(end.getDate() + 1);
+          invoiceDateFilter.lt = end;
         }
         where.invoiceDate = invoiceDateFilter;
       }

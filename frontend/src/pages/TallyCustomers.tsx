@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, Search, Link as LinkIcon, Unlink, Wand2, Check, X } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Unlink, Wand2, Check, X } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   getTallyCustomers,
@@ -24,8 +24,9 @@ import {
   autoMatchTallyCustomers,
 } from '@/services/tally.service';
 import type { CustomerTallyMatch, TallyLedger } from '@/types/tally.types';
-import { useDebounce } from '@/hooks/useDebounce';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 
 export default function TallyCustomersPage() {
   const queryClient = useQueryClient();
@@ -37,19 +38,26 @@ export default function TallyCustomersPage() {
   const [selectedLedger, setSelectedLedger] = useState('');
   const [ledgerSearch, setLedgerSearch] = useState('');
 
-  const debouncedSearch = useDebounce(search, 300);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['tally-customers', { search: debouncedSearch, matchStatus, page, pageSize }],
+    queryKey: ['tally-customers', { search, matchStatus, page, pageSize }],
     queryFn: () =>
       getTallyCustomers({
-        search: debouncedSearch || undefined,
+        search: search || undefined,
         matchStatus: matchStatus === 'all' ? undefined : matchStatus,
         page,
         limit: pageSize,
         suggestions: true,
       }),
   });
+
+  const activeFilterCount = [search, matchStatus !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearch('');
+    setMatchStatus('all');
+    setPage(1);
+  };
 
   const ledgersQuery = useQuery({
     queryKey: ['tally-ledgers'],
@@ -154,19 +162,21 @@ export default function TallyCustomersPage() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search customers..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            className="mb-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search code, name, billing name, GST number, Tally ledger…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+            />
             <Select
               value={matchStatus}
               onValueChange={(v) => {
@@ -175,15 +185,15 @@ export default function TallyCustomersPage() {
               }}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="matched">Matched</SelectItem>
                 <SelectItem value="unmatched">Unmatched</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* Table */}
           {isLoading ? (
@@ -207,7 +217,16 @@ export default function TallyCustomersPage() {
                     {data?.data.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                          No customers found
+                          {activeFilterCount > 0 ? (
+                            <div className="flex flex-col items-center gap-3">
+                              <span>No customers match these filters.</span>
+                              <Button variant="outline" size="sm" onClick={clearFilters}>
+                                Clear filters
+                              </Button>
+                            </div>
+                          ) : (
+                            'No customers found'
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (

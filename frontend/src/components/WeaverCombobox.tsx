@@ -15,6 +15,8 @@ interface WeaverComboboxProps {
   /** The chosen weaver's name when it is already known (e.g. pre-filled from the PO line), so the
    *  picker shows it before its list has loaded. */
   selectedName?: string | null;
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All weavers")
 }
 
 /**
@@ -29,6 +31,8 @@ export function WeaverCombobox({
   className,
   disabled = false,
   selectedName,
+  allowAll = false,
+  allLabel = 'All weavers',
 }: WeaverComboboxProps) {
   const [typed, setTyped] = useState('');
   const [adding, setAdding] = useState(false);
@@ -71,7 +75,7 @@ export function WeaverCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all weavers' }, ...options] : options}
       value={value ?? ''}
       onValueChange={(id) => onValueChange(id, byId.get(id))}
       placeholder={!initialLoaded ? (loadError ? 'Could not load — open to retry' : placeholder) : placeholder}

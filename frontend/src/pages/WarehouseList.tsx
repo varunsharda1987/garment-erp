@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@/components/PageHeader';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -60,6 +61,14 @@ export default function WarehouseList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const activeFilterCount = [searchTerm, typeFilter, activeFilter !== 'all'].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('');
+    setActiveFilter('all');
   };
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -190,22 +199,31 @@ export default function WarehouseList() {
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <div className="flex-1 min-w-[220px]">
               <Label htmlFor="search">Search</Label>
-              <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search warehouses..." />
+              <SearchInput
+                id="search"
+                value={searchTerm}
+                onChange={setSearchTerm}
+                placeholder="Search code, name, city, state, contact person, phone…"
+              />
             </div>
-            <div className="w-40">
+            <div className="w-44">
               <Label htmlFor="typeFilter">Type</Label>
               <Select
                 value={typeFilter || 'all'}
                 onValueChange={(value) => setTypeFilter(value === 'all' ? '' : (value as WarehouseType))}
               >
                 <SelectTrigger id="typeFilter">
-                  <SelectValue placeholder="All" />
+                  <SelectValue placeholder="All types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All types</SelectItem>
                   <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
                   <SelectItem value="FINISHED_GOODS">Finished Goods</SelectItem>
                   <SelectItem value="WORK_IN_PROGRESS">WIP</SelectItem>
@@ -215,20 +233,20 @@ export default function WarehouseList() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="w-32">
+            <div className="w-40">
               <Label htmlFor="statusFilter">Status</Label>
               <Select value={activeFilter} onValueChange={setActiveFilter}>
                 <SelectTrigger id="statusFilter">
-                  <SelectValue placeholder="All" />
+                  <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="true">Active</SelectItem>
                   <SelectItem value="false">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -240,17 +258,22 @@ export default function WarehouseList() {
           keyExtractor={(wh) => wh.id}
           loading={loading}
           error={error}
-          emptyState={{
-            icon: <WarehouseIcon className="h-16 w-16" />,
-            title: 'No warehouses found',
-            description:
-              searchTerm || typeFilter || activeFilter
-                ? 'Try adjusting your search or filter criteria'
-                : 'Create your first warehouse to get started',
-            actionLabel: !searchTerm && !typeFilter && !activeFilter ? 'Create First Warehouse' : undefined,
-            onAction:
-              !searchTerm && !typeFilter && !activeFilter ? () => navigate('/inventory/warehouses/new') : undefined,
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <WarehouseIcon className="h-16 w-16" />,
+                  title: 'No warehouses match these filters.',
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <WarehouseIcon className="h-16 w-16" />,
+                  title: 'No warehouses found',
+                  description: 'Create your first warehouse to get started',
+                  actionLabel: 'Create First Warehouse',
+                  onAction: () => navigate('/inventory/warehouses/new'),
+                }
+          }
           onRowClick={(wh) => navigate(`/inventory/warehouses/${wh.id}/edit`)}
         />
       </Card>

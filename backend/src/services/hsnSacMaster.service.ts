@@ -80,7 +80,7 @@ export class HSNSACMasterService {
     }
 
     if (search) {
-      applySearch(where, search, ['code', 'description', 'chapter', 'section']);
+      applySearch(where, search, ['code', 'description', 'chapter', 'section', 'unit']); // + the list's Unit column
     }
 
     const [data, total] = await Promise.all([

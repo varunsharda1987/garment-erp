@@ -7,6 +7,7 @@ import { genericTrimService } from '@/services/genericTrim.service';
 import { TRIM_TYPE_CONFIGS } from '@/types/genericTrim.types';
 import type { GenericTrimItem } from '@/types/genericTrim.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -43,6 +44,13 @@ export default function GenericTrimList() {
   // Filter state
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+
+  const activeFilterCount = [searchQuery].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -146,6 +154,13 @@ export default function GenericTrimList() {
 
   // Add dynamic fields from config (up to 4 additional columns)
   const additionalFields = config.fields.slice(0, 4);
+
+  // The search finds the text columns shown: code, name, these fields and the supplier
+  const searchPlaceholder = `Search code, name, ${additionalFields
+    .filter((field) => field.type !== 'number' && field.type !== 'boolean')
+    .map((field) => field.label.toLowerCase())
+    .join(', ')}, supplier…`;
+
   additionalFields.forEach((field) => {
     if (field.type !== 'number') {
       columns.push({
@@ -241,18 +256,24 @@ export default function GenericTrimList() {
         <Button onClick={() => navigate(`/materials/${trimType}/new`)}>Add New {config.label}</Button>
       </div>
 
-      {/* Search */}
+      {/* Filters */}
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <SearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder={`Search ${config.label.toLowerCase()}...`}
-              />
-            </div>
-          </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+              placeholder={searchPlaceholder}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -286,12 +307,20 @@ export default function GenericTrimList() {
                 onPageChange: setCurrentPage,
                 onPageSizeChange: setPageSize,
               }}
-              emptyState={{
-                title: `No ${config.label.toLowerCase()} items found`,
-                description: `Add your first ${config.label.toLowerCase()}!`,
-                actionLabel: `Add ${config.label}`,
-                onAction: () => navigate(`/materials/${trimType}/new`),
-              }}
+              emptyState={
+                activeFilterCount > 0
+                  ? {
+                      title: `No ${config.label.toLowerCase()} items match these filters.`,
+                      actionLabel: 'Clear filters',
+                      onAction: clearFilters,
+                    }
+                  : {
+                      title: `No ${config.label.toLowerCase()} items found`,
+                      description: `Add your first ${config.label.toLowerCase()}!`,
+                      actionLabel: `Add ${config.label}`,
+                      onAction: () => navigate(`/materials/${trimType}/new`),
+                    }
+              }
             />
           )}
         </CardContent>

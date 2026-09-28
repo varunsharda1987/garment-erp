@@ -125,7 +125,8 @@ class FabricPhysicalTestsService {
     const where: Prisma.fabric_physical_testsWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['testNumber']);
+      // What the list shows: the test number, batch, and the lab round's TRF and sample numbers
+      applySearch(where, search, ['testNumber', 'batchNumber', 'trf.trfNumber', 'trf.sample.sampleNumber']);
     }
 
     if (styleId) {
@@ -165,7 +166,9 @@ class FabricPhysicalTestsService {
     }
 
     if (pendingApproval) {
-      where.AND = [{ overallTestResult: 'FAIL' }, { approvedById: null }, { adminOverride: false }];
+      // Appended, not assigned: the search above already put its words under AND
+      const existingAnd = where.AND ? (Array.isArray(where.AND) ? where.AND : [where.AND]) : [];
+      where.AND = [...existingAnd, { overallTestResult: 'FAIL' }, { approvedById: null }, { adminOverride: false }];
     }
 
     if (isRetest !== undefined) {

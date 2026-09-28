@@ -117,7 +117,15 @@ class WarehouseService {
     }
 
     if (filters?.search) {
-      applySearch(where, filters.search, ['warehouseCode', 'warehouseName', 'city']);
+      // Every text column the Warehouses list shows: code, name, location (city + state), contact
+      applySearch(where, filters.search, [
+        'warehouseCode',
+        'warehouseName',
+        'city',
+        'state',
+        'contactPerson',
+        'contactPhone',
+      ]);
     }
 
     const warehouses = await prisma.warehouses.findMany({

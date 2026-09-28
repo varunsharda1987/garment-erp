@@ -17,6 +17,25 @@ import {
   GreigeRateProvenance,
 } from '../services/helpers/greige-live-rate.helper';
 import { logInfo } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
+
+/**
+ * What the Costing Options page shows for an option, so its search finds any of it: the style card
+ * (code, buyer ref, name, customer), the component heading, and the Greige and Processor columns.
+ */
+const COSTING_OPTION_SEARCH_FIELDS = [
+  'costingStyle.styleCode',
+  'costingStyle.buyerStyleRef',
+  'costingStyle.styleName',
+  'costingStyle.customerName',
+  'costingStyle.brand_categories.customer.name',
+  'componentName',
+  'styleFabric.style_components.componentName',
+  'greige.greigeName',
+  'greige.greigeCode',
+  'processor.name',
+  'processor.code',
+] as const;
 
 /**
  * POST /api/fabric-costing/calculate
@@ -1086,7 +1105,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
  * Get all costing options with filtering - grouped by style and component
  */
 export async function getCostingOptions(req: Request, res: Response) {
-  const { customerId, styleId, processorId, status, purpose, page = '1', limit = '10' } = req.query;
+  const { customerId, styleId, processorId, status, purpose, search, page = '1', limit = '10' } = req.query;
 
   // Build filter for fabric_width_cad
   const where: any = {
@@ -1106,6 +1125,9 @@ export async function getCostingOptions(req: Request, res: Response) {
   if (purpose && purpose !== 'ALL') {
     where.purpose = purpose as string;
   }
+
+  // Free-text search (under AND, so the PENDING status OR above still narrows)
+  if (typeof search === 'string') applySearch(where, search, COSTING_OPTION_SEARCH_FIELDS);
 
   // If customerId filter, we need to filter by BOTH brand_categories.customerId AND direct customerName
   // (some styles use brand_categories relation, others have customerName set directly)
@@ -1268,6 +1290,8 @@ export async function getCostingOptions(req: Request, res: Response) {
   if (status === 'PENDING') {
     purposeCountsWhere.OR = [{ costingApprovalStatus: null }, { costingApprovalStatus: { not: 'APPROVED' } }];
   }
+  // The same search, so the purpose tab counts match the list
+  if (typeof search === 'string') applySearch(purposeCountsWhere, search, COSTING_OPTION_SEARCH_FIELDS);
   // Note: customerId filter requires relation join which groupBy doesn't support directly
   // For accurate counts with customerId, we'd need to filter the options array instead
   // But for most use cases (styleId filter), this is sufficient

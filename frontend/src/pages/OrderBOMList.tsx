@@ -9,6 +9,9 @@ import { PageHeader } from '../components/PageHeader';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 import Pagination from '../components/Pagination';
+import { FilterBar } from '../components/filters';
+import { OrderCombobox } from '../components/OrderCombobox';
+import { StyleCombobox } from '../components/StyleCombobox';
 import { usePagination } from '../hooks/usePagination';
 import { handleApiError } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
@@ -20,16 +23,41 @@ const OrderBOMList = () => {
   const navigate = useNavigate();
   // Seed the style filter from the URL so "Generate Order BOM" on an approved cost
   // sheet lands on the BOM list scoped to that style (B14-05).
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const styleIdFilter = searchParams.get('styleId') || undefined;
   const [boms, setBoms] = useState<OrderBOM[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  // undefined = all orders
+  const [orderIdFilter, setOrderIdFilter] = useState<string | undefined>(undefined);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  const { currentPage, pageSize, paginationProps, apiParams } = usePagination();
+  const { currentPage, pageSize, paginationProps, resetPage, apiParams } = usePagination();
+
+  // The style filter stays in the URL, where the cost sheet's "Generate Order BOM" link puts it
+  const setStyleIdFilter = (styleId: string | undefined) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (styleId) next.set('styleId', styleId);
+        else next.delete('styleId');
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  const activeFilterCount = [statusFilter !== 'all', orderIdFilter, styleIdFilter].filter(Boolean).length;
+
+  // Clears every filter; the rows-per-page choice stays
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setOrderIdFilter(undefined);
+    setStyleIdFilter(undefined);
+    resetPage();
+  };
 
   const fetchBOMs = async () => {
     try {
@@ -38,6 +66,7 @@ const OrderBOMList = () => {
       const response = await listOrderBOMs({
         ...apiParams,
         status: statusFilter !== 'all' ? (statusFilter as OrderBOMStatus) : undefined,
+        orderId: orderIdFilter,
         styleId: styleIdFilter,
         isActive: true,
       });
@@ -55,7 +84,7 @@ const OrderBOMList = () => {
   useEffect(() => {
     fetchBOMs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, statusFilter, styleIdFilter]);
+  }, [currentPage, pageSize, statusFilter, orderIdFilter, styleIdFilter]);
 
   return (
     <>
@@ -69,21 +98,51 @@ const OrderBOMList = () => {
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex gap-4 items-end">
-            <div className="w-48">
-              <label className="text-sm font-medium text-foreground mb-1 block">Status</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Statuses" />
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <FilterBar
+              onClear={clearFilters}
+              hasActiveFilters={activeFilterCount > 0}
+              clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+            >
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value);
+                  resetPage();
+                }}
+              >
+                <SelectTrigger className="w-[180px]" aria-label="Status">
+                  <SelectValue placeholder="All statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
                   <SelectItem value="DRAFT">Draft</SelectItem>
                   <SelectItem value="APPROVED">Approved</SelectItem>
                   <SelectItem value="LOCKED">Locked</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+              <OrderCombobox
+                value={orderIdFilter || ''}
+                onValueChange={(value) => {
+                  setOrderIdFilter(value || undefined);
+                  resetPage();
+                }}
+                allowAll
+                placeholder="All orders"
+                className="w-[220px]"
+              />
+              <StyleCombobox
+                value={styleIdFilter || ''}
+                onValueChange={(value) => {
+                  setStyleIdFilter(value || undefined);
+                  resetPage();
+                }}
+                status={null}
+                allowAll
+                placeholder="All styles"
+                className="w-[220px]"
+              />
+            </FilterBar>
             <div className="text-sm text-muted-foreground">
               {totalItems} Order BOM{totalItems !== 1 ? 's' : ''} found
             </div>
@@ -101,6 +160,13 @@ const OrderBOMList = () => {
             <Button onClick={fetchBOMs}>Retry</Button>
           </CardContent>
         </Card>
+      ) : boms.length === 0 && activeFilterCount > 0 ? (
+        <EmptyState
+          icon={<ListChecks className="h-12 w-12" />}
+          title="No Order BOMs match these filters."
+          actionLabel="Clear filters"
+          onAction={clearFilters}
+        />
       ) : boms.length === 0 ? (
         <EmptyState
           icon={<ListChecks className="h-12 w-12" />}

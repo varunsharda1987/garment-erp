@@ -61,9 +61,18 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
     where.isGeneric = isGeneric === 'true';
   }
 
-  // Search filter (code, name, color) — lands under where.AND, so the facets below survive it
+  // Search filter — every text column the Fabric Master list shows (colour code, greige name and
+  // the styles it is allocated to included). Lands under where.AND, so the facets below survive it
   if (search) {
-    applySearch(where, search, ['fabricCode', 'fabricName', 'colorName']);
+    applySearch(where, search, [
+      'fabricCode',
+      'fabricName',
+      'colorName',
+      'colorCode',
+      'greige.greigeName',
+      'styleFabrics[].style_components.styles.styleCode',
+      'styleFabrics[].style_components.styles.buyerStyleRef',
+    ]);
   }
 
   // Greige filter

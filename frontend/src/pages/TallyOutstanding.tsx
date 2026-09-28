@@ -2,23 +2,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Loader2,
-  Search,
-  RefreshCw,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-} from 'lucide-react';
+import { Loader2, RefreshCw, CheckCircle, XCircle, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { getTallyOutstanding } from '@/services/tally.service';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTime as formatDate } from '@/lib/date';
@@ -34,17 +25,26 @@ export default function TallyOutstandingPage() {
     retry: 1,
   });
 
+  const activeFilterCount = [search, filter !== 'all'].filter(Boolean).length;
+
+  // The whole list is on screen (no pager), so clearing only resets the two filters
+  const clearFilters = () => {
+    setSearch('');
+    setFilter('all');
+  };
+
   // Filter and search data
   const filteredData =
     data?.data.filter((entry) => {
-      // Search filter
+      // Search filter — every text the table shows: ledger, GSTIN / group, customer name and code
       if (search) {
         const searchLower = search.toLowerCase();
         const matchesSearch =
           entry.tallyLedgerName.toLowerCase().includes(searchLower) ||
           entry.customerName?.toLowerCase().includes(searchLower) ||
           entry.customerCode?.toLowerCase().includes(searchLower) ||
-          entry.tallyGstin?.toLowerCase().includes(searchLower);
+          entry.tallyGstin?.toLowerCase().includes(searchLower) ||
+          entry.tallyParent?.toLowerCase().includes(searchLower);
         if (!matchesSearch) return false;
       }
 
@@ -150,28 +150,30 @@ export default function TallyOutstandingPage() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search ledger, customer, GSTIN..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            className="mb-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search Tally ledger, GSTIN, group, customer…"
+              value={search}
+              onChange={setSearch}
+            />
             <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter" />
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Ledgers</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="matched">Matched to ERP</SelectItem>
-                <SelectItem value="unmatched">Not Matched</SelectItem>
-                <SelectItem value="variance">With Variance</SelectItem>
+                <SelectItem value="unmatched">Not matched</SelectItem>
+                <SelectItem value="variance">With variance</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* Table */}
           {isLoading ? (
@@ -195,9 +197,18 @@ export default function TallyOutstandingPage() {
                   {filteredData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        {data?.data.length === 0
-                          ? 'No outstanding balances found in Tally'
-                          : 'No ledgers match your filters'}
+                        {data?.data.length === 0 ? (
+                          'No outstanding balances found in Tally'
+                        ) : activeFilterCount > 0 ? (
+                          <div className="flex flex-col items-center gap-3">
+                            <span>No ledgers match these filters.</span>
+                            <Button variant="outline" size="sm" onClick={clearFilters}>
+                              Clear filters
+                            </Button>
+                          </div>
+                        ) : (
+                          'No ledgers match your filters'
+                        )}
                       </TableCell>
                     </TableRow>
                   ) : (

@@ -186,7 +186,16 @@ export const getAllZipper = async (req: Request, res: Response) => {
   }
 
   if (search) {
-    applySearch(where, String(search), ['zipperName', 'zipperCode', 'color']);
+    // Every text column the Zipper list shows — its teeth type and suppliers included
+    applySearch(where, String(search), [
+      'zipperName',
+      'zipperCode',
+      'description',
+      'teethType',
+      'color',
+      'zipperSuppliers[].supplier.code',
+      'zipperSuppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

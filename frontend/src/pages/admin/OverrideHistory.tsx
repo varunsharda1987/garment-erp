@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { stageValidationService } from '@/services/stageValidation.service';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { ShieldAlert, Download, Search, FileText, Clock, User, AlertCircle, Loader2 } from 'lucide-react';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { ShieldAlert, Download, FileText, Clock, User, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { formatDate, formatTime, formatDateTime } from '@/lib/date';
@@ -72,19 +73,33 @@ export default function OverrideHistory() {
     }
   };
 
+  const activeFilterCount = [search, blockTypeFilter !== 'all'].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch('');
+    setBlockTypeFilter('all');
+  };
+
   // Filter overrides based on search and filters
   const filteredOverrides = overrides.filter((override) => {
-    // Search filter
+    // Search filter — every text the table shows: user, item, stages / sample types, reason
     if (search) {
       const searchLower = search.toLowerCase();
-      const matchesSearch =
-        override.overrideReason.toLowerCase().includes(searchLower) ||
-        override.overriddenBy.firstName.toLowerCase().includes(searchLower) ||
-        override.overriddenBy.lastName.toLowerCase().includes(searchLower) ||
-        override.overriddenBy.email.toLowerCase().includes(searchLower) ||
-        override.workOrder?.workOrderNumber.toLowerCase().includes(searchLower) ||
-        override.sample?.sampleNumber.toLowerCase().includes(searchLower);
-      if (!matchesSearch) return false;
+      const haystack = [
+        override.overrideReason,
+        `${override.overriddenBy.firstName} ${override.overriddenBy.lastName}`,
+        override.overriddenBy.email,
+        override.workOrder?.workOrderNumber,
+        override.sample?.sampleNumber,
+        override.fromStage,
+        override.toStage,
+        override.blockedSampleType,
+        override.prerequisiteSampleType,
+      ]
+        .filter(Boolean)
+        .join(' | ')
+        .toLowerCase();
+      if (!haystack.includes(searchLower)) return false;
     }
 
     // Block type filter
@@ -172,37 +187,29 @@ export default function OverrideHistory() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Search */}
-          <div className="space-y-2">
-            <Label htmlFor="search">Search</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="search"
-                placeholder="Search by reason, user, work order, sample..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          {/* Block Type Filter */}
-          <div className="space-y-2">
-            <Label htmlFor="blockType">Block Type</Label>
-            <Select value={blockTypeFilter} onValueChange={setBlockTypeFilter}>
-              <SelectTrigger id="blockType">
-                <SelectValue placeholder="All types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="STAGE_TRANSITION">Stage Transition</SelectItem>
-                <SelectItem value="SAMPLE_CREATION">Sample Creation</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <FilterBar
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="min-w-[220px] flex-1 max-w-md"
+            aria-label="Search overrides"
+            placeholder="Search user, work order, sample, stage, reason…"
+            value={search}
+            onChange={setSearch}
+          />
+          <Select value={blockTypeFilter} onValueChange={setBlockTypeFilter}>
+            <SelectTrigger className="w-[180px]" aria-label="Block type">
+              <SelectValue placeholder="All types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="STAGE_TRANSITION">Stage Transition</SelectItem>
+              <SelectItem value="SAMPLE_CREATION">Sample Creation</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterBar>
       </Card>
 
       {/* Results Count */}
@@ -222,12 +229,19 @@ export default function OverrideHistory() {
       {!loading && filteredOverrides.length === 0 && (
         <Card className="p-12 text-center">
           <ShieldAlert className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground text-lg">No overrides found</p>
-          <p className="text-muted-foreground text-sm mt-2">
-            {search || blockTypeFilter !== 'all'
-              ? 'Try adjusting your filters'
-              : 'No admin overrides have been recorded yet'}
-          </p>
+          {activeFilterCount > 0 ? (
+            <>
+              <p className="text-muted-foreground text-lg">No overrides match these filters.</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-muted-foreground text-lg">No overrides found</p>
+              <p className="text-muted-foreground text-sm mt-2">No admin overrides have been recorded yet</p>
+            </>
+          )}
         </Card>
       )}
 

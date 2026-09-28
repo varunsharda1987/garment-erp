@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,7 +12,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import {
   Loader2,
-  Search,
   QrCode,
   CheckCircle,
   XCircle,
@@ -24,10 +22,11 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getEInvoiceInvoices, generateIrn, cancelIrn, preflightEInvoice } from '@/services/einvoice.service';
 import type { EInvoiceInvoiceRow, EInvoicePreflightResult } from '@/types/einvoice.types';
-import { useDebounce } from '@/hooks/useDebounce';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate } from '@/lib/date';
 
@@ -57,13 +56,12 @@ export default function EInvoiceInvoicesPage() {
   const [cancelReason, setCancelReason] = useState<'1' | '2' | '3' | '4'>('2');
   const [cancelRemarks, setCancelRemarks] = useState('');
 
-  const debouncedSearch = useDebounce(search, 300);
-
+  // SearchInput debounces the typing, so `search` is already the settled text
   const { data, isLoading } = useQuery({
-    queryKey: ['einvoice-invoices', { search: debouncedSearch, irnStatus, page, limit }],
+    queryKey: ['einvoice-invoices', { search, irnStatus, page, limit }],
     queryFn: () =>
       getEInvoiceInvoices({
-        search: debouncedSearch || undefined,
+        search: search || undefined,
         irnStatus: irnStatus === 'all' ? undefined : irnStatus,
         page,
         limit,
@@ -212,6 +210,16 @@ export default function EInvoiceInvoicesPage() {
     );
   };
 
+  const activeFilterCount = [search, irnStatus !== 'all'].filter(Boolean).length;
+
+  // Clears every filter; page size stays as chosen. A status change drops the ticks, as the status box does
+  const clearFilters = () => {
+    setSearch('');
+    if (irnStatus !== 'all') setSelectedIds(new Set());
+    setIrnStatus('all');
+    setPage(1);
+  };
+
   const pagination = data?.pagination || { page: 1, limit, total: 0, totalPages: 1 };
   const pushableCount = data?.data.filter(canGenerate).length || 0;
 
@@ -257,19 +265,22 @@ export default function EInvoiceInvoicesPage() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search invoice number, customer, IRN..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            className="mb-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              placeholder="Search invoice number, customer, GSTIN, IRN…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search invoices"
+            />
             <Select
               value={irnStatus}
               onValueChange={(v) => {
@@ -278,18 +289,18 @@ export default function EInvoiceInvoicesPage() {
                 setSelectedIds(new Set());
               }}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
+              <SelectTrigger className="w-[180px]" aria-label="IRN status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Invoices</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="not_generated">Not Generated</SelectItem>
                 <SelectItem value="generated">Generated</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
                 <SelectItem value="error">With Errors</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* Table */}
           {isLoading ? (
@@ -323,7 +334,16 @@ export default function EInvoiceInvoicesPage() {
                     {data?.data.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                          No invoices found
+                          {activeFilterCount > 0 ? (
+                            <>
+                              <p>No invoices match these filters.</p>
+                              <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                                Clear filters
+                              </Button>
+                            </>
+                          ) : (
+                            'No invoices found'
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (

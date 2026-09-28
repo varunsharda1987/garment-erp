@@ -2631,7 +2631,16 @@ export async function getRequirements(
   if (orderId) where.orderId = orderId;
   if (orderItemId) where.orderItemId = orderItemId;
   if (materialId) where.materialId = materialId;
-  if (supplierId) where.preferredSupplierId = supplierId;
+  if (supplierId) {
+    if (requirementType === 'PROCESSING') {
+      // A processing row's party is its processor — the Assign Processors dialog sets processorId alone
+      // (vendor-suggestion bulkAssignProcessorsToProcessingRequirements) — and preferredSupplierId stands in
+      // only while none is set. Same rule as the Outsourced Work tab's Processor column.
+      where.OR = [{ processorId: supplierId }, { processorId: null, preferredSupplierId: supplierId }];
+    } else {
+      where.preferredSupplierId = supplierId;
+    }
+  }
   if (styleId) where.order_items = { styleId };
   if (source) where.source = source;
   if (requirementType) where.requirementType = requirementType;
@@ -2670,6 +2679,17 @@ export async function getRequirements(
       'order_items.styles.styleCode',
       'order_items.styles.buyerStyleRef',
       'order_items.styles.styleName',
+      // The Requirements tabs also show who supplies or processes each row, the component / colour a
+      // processing row is for, and the PO or job work order raised for it — so those find it too.
+      'preferredSupplier.name',
+      'preferredSupplier.code',
+      'processor.name',
+      'processor.code',
+      'componentName',
+      'colorName',
+      'printingType',
+      'requirement_po_links[].purchase_orders.poNumber',
+      'requirement_jwo_links[].job_work_orders.jobWorkNumber',
     ]);
   }
 

@@ -121,7 +121,16 @@ export const getAllOtherMaterials = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    applySearch(where, String(search), ['materialName', 'materialCode', 'category']);
+    // Every text column the Other Materials list shows: code, name, category, specifications, suppliers
+    applySearch(where, String(search), [
+      'materialName',
+      'materialCode',
+      'description',
+      'category',
+      'specifications',
+      'otherMaterialSuppliers[].supplier.code',
+      'otherMaterialSuppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

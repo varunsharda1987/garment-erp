@@ -90,6 +90,48 @@ const LIST_ENDPOINTS: Array<{ label: string; path: string }> = [
   { label: 'test templates', path: '/api/test-templates' },
   { label: 'fabric physical tests', path: '/api/fabric-physical-tests' },
   { label: 'garment physical tests', path: '/api/garment-physical-tests' },
+
+  // 2026-09-28 list-filter standard: "search finds what the table shows" widened these too
+  { label: 'packaging master', path: '/api/materials/packaging' },
+  { label: 'label master', path: '/api/materials/label' },
+  ...[
+    'hook_eye',
+    'snap_button',
+    'buckle',
+    'belt',
+    'velcro',
+    'drawstring',
+    'ribbon',
+    'sequin',
+    'bead',
+    'motif',
+    'interlining',
+    'padding',
+    'other_fastener',
+    'other_tape',
+    'other_decorative',
+    'other_functional',
+  ].map((t) => ({ label: `generic trim ${t}`, path: `/api/generic-trims/${t}` })),
+  { label: 'pattern parts', path: '/api/pattern-parts' },
+  { label: 'users', path: '/api/users' },
+  { label: 'Tally suppliers', path: '/api/tally/suppliers' },
+  { label: 'e-invoice invoices', path: '/api/einvoice/invoices' },
+  { label: 'material requirements', path: '/api/mrp/requirements' },
+  { label: 'processing requirements', path: '/api/mrp/requirements?requirementType=PROCESSING' },
+  { label: 'service requirements', path: '/api/service-requirements/list' },
+  { label: 'stock levels', path: '/api/stock-levels' },
+  { label: 'stock movements (unified)', path: '/api/stock-movements/unified' },
+  { label: 'dyeing lab dips', path: '/api/dyeing/lab-dips' },
+  { label: 'dyeing process POs', path: '/api/dyeing/process-pos' },
+  { label: 'printing lab dips', path: '/api/printing/lab-dips' },
+  { label: 'printing process POs', path: '/api/printing/process-pos' },
+  { label: 'processing batches', path: '/api/processing-batches' },
+  { label: 'deleted styles', path: '/api/styles/deleted' },
+  { label: 'CAD planning styles', path: '/api/cad-planning/styles' },
+  { label: 'fabric costing options', path: '/api/fabric-costing/options' },
+  { label: 'mood boards', path: '/api/mood-boards' },
+  { label: 'lace lab dips', path: '/api/lace-lab-dips' },
+  { label: 'buyer TRFs', path: '/api/buyer-trfs' },
 ];
 
 beforeAll(async () => {
@@ -115,14 +157,18 @@ afterAll(async () => {
 describe('every widened search field path is valid Prisma', () => {
   it.each(LIST_ENDPOINTS)('$label accepts a search term', async ({ path }) => {
     // A bad field path makes Prisma throw, which the error middleware turns into a 500.
-    const res = await request(app).get(`${path}?search=${RUN}-no-such-record&limit=5`).set(authHeader);
+    const res = await request(app)
+      .get(`${path}${path.includes('?') ? '&' : '?'}search=${RUN}-no-such-record&limit=5`)
+      .set(authHeader);
 
     expect(res.status).toBe(200);
   });
 
   it.each(LIST_ENDPOINTS)('$label accepts a MULTI-WORD search term', async ({ path }) => {
     // Multi-word queries build one AND clause per word; this proves the nesting survives that.
-    const res = await request(app).get(`${path}?search=${RUN}%20second%20third&limit=5`).set(authHeader);
+    const res = await request(app)
+      .get(`${path}${path.includes('?') ? '&' : '?'}search=${RUN}%20second%20third&limit=5`)
+      .set(authHeader);
 
     expect(res.status).toBe(200);
   });

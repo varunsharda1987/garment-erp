@@ -113,6 +113,7 @@ export const fabricCostingService = {
    */
   async getCostingOptions(filters: CostingOptionsFilters): Promise<CostingOptionsResponse> {
     const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
     if (filters.customerId) params.append('customerId', filters.customerId);
     if (filters.styleId) params.append('styleId', filters.styleId);
     if (filters.processorId) params.append('processorId', filters.processorId);

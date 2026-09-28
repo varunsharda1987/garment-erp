@@ -15,8 +15,11 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { notify } from '../lib/notify';
-import { Plus, Pencil, Trash2, Search, Puzzle } from 'lucide-react';
+import { Plus, Pencil, Trash2, Puzzle } from 'lucide-react';
 import ComponentPatternPartsDialog from '../components/masters/ComponentPatternPartsDialog';
 import {
   getAllComponentMasters,
@@ -33,6 +36,7 @@ export default function ComponentMasters() {
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [groupFilter, setGroupFilter] = useState(''); // componentGroupId; '' = all groups
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<ComponentMaster | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -54,12 +58,29 @@ export default function ComponentMasters() {
     isActive: true,
   });
 
+  const activeFilterCount = [searchTerm, groupFilter].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setGroupFilter('');
+  };
+
+  const groupFilterOptions: ComboboxOption[] = [
+    { value: '', label: 'All component groups', searchText: 'All component groups' },
+    ...componentGroups.map((group) => ({
+      value: group.id,
+      label: group.name,
+      searchText: `${group.name} ${group.code}`,
+    })),
+  ];
+
   // Load components
   const loadComponents = async () => {
     try {
       setLoading(true);
       const response = await getAllComponentMasters({
         search: searchTerm,
+        componentGroupId: groupFilter || undefined,
         activeOnly: false,
         limit: 100,
       });
@@ -90,7 +111,7 @@ export default function ComponentMasters() {
     loadComponents();
     loadComponentGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [searchTerm, groupFilter]);
 
   // Handle create/update
   const handleSubmit = async (e: React.FormEvent) => {
@@ -187,19 +208,29 @@ export default function ComponentMasters() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="mb-4 max-w-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search components..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      {/* Filters */}
+      <FilterBar
+        className="mb-4"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="min-w-[220px] flex-1 max-w-sm"
+          placeholder="Search name, component group, description…"
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
+        <Combobox
+          options={groupFilterOptions}
+          value={groupFilter}
+          onValueChange={(value) => setGroupFilter(value || '')}
+          placeholder="All component groups"
+          searchPlaceholder="Search component groups…"
+          emptyText="No component groups found."
+          className="w-[220px]"
+        />
+      </FilterBar>
 
       {/* Table */}
       <div className="border rounded-lg">
@@ -224,7 +255,16 @@ export default function ComponentMasters() {
             ) : components.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No component masters found
+                  {activeFilterCount > 0 ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <span>No components match these filters.</span>
+                      <Button variant="outline" size="sm" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    'No component masters found'
+                  )}
                 </TableCell>
               </TableRow>
             ) : (

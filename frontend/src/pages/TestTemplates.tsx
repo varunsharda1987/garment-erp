@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Plus, Search, Edit, CheckCircle, XCircle, Filter } from 'lucide-react';
+import { FileText, Plus, Edit, CheckCircle, XCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { testTemplatesService } from '@/services/testing.service';
 import type { TestTemplate, TestTemplateType } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -18,15 +19,32 @@ export default function TestTemplates() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [templateType, setTemplateType] = useState<TestTemplateType | 'all'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'true' | 'false'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [pageSize, setPageSize] = useState(20);
 
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPage(1);
+    };
+
+  const activeFilterCount = [search, templateType !== 'all', activeFilter !== 'all'].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearch('');
+    setTemplateType('all');
+    setActiveFilter('all');
+    setPage(1);
+  };
+
   useEffect(() => {
     fetchTemplates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, search, templateType]);
+  }, [page, pageSize, search, templateType, activeFilter]);
 
   const fetchTemplates = async () => {
     try {
@@ -36,6 +54,7 @@ export default function TestTemplates() {
         limit: pageSize,
         search: search || undefined,
         templateType: templateType === 'all' ? undefined : templateType,
+        isActive: activeFilter === 'all' ? undefined : activeFilter,
       });
       setTemplates(result.data);
       setTotalPages(result.pagination.totalPages);
@@ -47,28 +66,12 @@ export default function TestTemplates() {
     }
   };
 
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
-  };
-
   const getTemplateTypeBadge = (type: TestTemplateType) => {
     if (type === 'FPT') {
       return <Badge className="bg-info-muted text-info border-info/30">FPT - Fabric</Badge>;
     }
     return <Badge className="bg-accent/10 text-accent border-accent/25">GPT - Garment</Badge>;
   };
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
-          <p className="text-muted-foreground mt-4">Loading test templates...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="p-6 space-y-6">
@@ -89,38 +92,61 @@ export default function TestTemplates() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by template code or name..."
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        <FilterBar
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="flex-1 min-w-[240px]"
+            placeholder="Search template code, name, description or standards..."
+            value={search}
+            onChange={changeFilter(setSearch)}
+          />
           <Select
             value={templateType}
-            onValueChange={(value) => {
-              setTemplateType(value as TestTemplateType | 'all');
-              setPage(1);
-            }}
+            onValueChange={changeFilter((value: string) => setTemplateType(value as TestTemplateType | 'all'))}
           >
-            <SelectTrigger className="w-48">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Template Type" />
+            <SelectTrigger className="w-[180px]" aria-label="Template type">
+              <SelectValue placeholder="All types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="all">All types</SelectItem>
               <SelectItem value="FPT">FPT (Fabric)</SelectItem>
               <SelectItem value="GPT">GPT (Garment)</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+          <Select
+            value={activeFilter}
+            onValueChange={changeFilter((value: string) => setActiveFilter(value as 'all' | 'true' | 'false'))}
+          >
+            <SelectTrigger className="w-[160px]" aria-label="Status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="true">Active</SelectItem>
+              <SelectItem value="false">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterBar>
       </Card>
 
       {/* Templates List */}
-      {templates.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading test templates...</p>
+        </div>
+      ) : templates.length === 0 && activeFilterCount > 0 ? (
+        <Card className="p-12 text-center">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-4">No test templates match these filters.</h3>
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </Card>
+      ) : templates.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Test Templates Found</h3>

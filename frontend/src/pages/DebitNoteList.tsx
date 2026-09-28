@@ -15,6 +15,9 @@ import { DebitNoteReasonLabels } from '@/types/debitNote.types';
 import { DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
@@ -74,13 +77,24 @@ export default function DebitNoteList() {
   // ---- List state ----
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [supplierFilter, setSupplierFilter] = useState(''); // '' = all suppliers
+  // Debit note date range — ISO yyyy-MM-dd, '' = open end
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
-  // Reset page when filters change
-  useEffect(() => {
+  const activeFilterCount = [search, statusFilter !== 'all', supplierFilter, fromDate || toDate].filter(Boolean).length;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setSupplierFilter('');
+    setFromDate('');
+    setToDate('');
     setPage(1);
-  }, [search, statusFilter]);
+  };
 
   // ---- List query ----
   const queryParams: DebitNoteQueryParams = {
@@ -88,6 +102,9 @@ export default function DebitNoteList() {
     limit,
     search: search || undefined,
     status: statusFilter !== 'all' ? (statusFilter as DocumentStatus) : undefined,
+    supplierId: supplierFilter || undefined,
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined,
   };
 
   const { data, isLoading } = useQuery({
@@ -337,22 +354,44 @@ export default function DebitNoteList() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by debit note # or supplier..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              placeholder="Search debit note number, supplier, PO number, job work order…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search debit notes"
+            />
+            <SupplierCombobox
+              value={supplierFilter}
+              onValueChange={(v) => {
+                setSupplierFilter(v || '');
+                setPage(1);
+              }}
+              allowAll
+              allLabel="All suppliers"
+              placeholder="All suppliers"
+              className="w-[220px]"
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 {STATUSES.map((s) => (
                   <SelectItem key={s} value={s}>
                     {DocumentStatusLabels[s]}
@@ -360,7 +399,17 @@ export default function DebitNoteList() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+            <DateRangeFilter
+              label="Debit note date"
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+                setPage(1);
+              }}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -395,7 +444,16 @@ export default function DebitNoteList() {
               ) : debitNotes.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-10 text-muted-foreground">
-                    No debit notes found.
+                    {activeFilterCount > 0 ? (
+                      <>
+                        <p>No debit notes match these filters.</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                          Clear filters
+                        </Button>
+                      </>
+                    ) : (
+                      'No debit notes found.'
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

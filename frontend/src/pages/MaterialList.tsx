@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { getAllMaterials, deleteMaterial, getAllCategories } from '@/services/material.service';
 import { MaterialTypeLabels } from '@/types/material.types';
 import { UNIT_OPTIONS, unitLabel } from '@/lib/units';
@@ -10,6 +10,7 @@ import type { Material, MaterialCategory } from '@/types/material.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import MaterialCategorySelector from '@/components/MaterialCategorySelector';
@@ -39,10 +40,10 @@ export default function MaterialList() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalMaterials, setTotalMaterials] = useState(0);
 
-  // Filter state
+  // Filter state ('' / undefined = all)
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [unitFilter, setUnitFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined);
+  const [unitFilter, setUnitFilter] = useState<string | undefined>(undefined);
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -54,11 +55,6 @@ export default function MaterialList() {
   useEffect(() => {
     fetchCategories();
   }, []);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, categoryFilter, unitFilter]);
 
   useEffect(() => {
     fetchMaterials();
@@ -82,8 +78,8 @@ export default function MaterialList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
-        unit: unitFilter !== 'all' ? unitFilter : undefined,
+        categoryId: categoryFilter,
+        unit: unitFilter,
       });
       setMaterials(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -95,6 +91,43 @@ export default function MaterialList() {
       setIsLoading(false);
     }
   };
+
+  // Every filter change starts again from page 1 — in the same update as the filter, so one request
+  // goes out (the old reset-in-an-effect sent a second one for the stale page, and the slower of the
+  // two could land last)
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setCategoryFilter(value || undefined);
+    setCurrentPage(1);
+  };
+
+  const handleUnitChange = (value: string) => {
+    setUnitFilter(value || undefined);
+    setCurrentPage(1);
+  };
+
+  const activeFilterCount = [searchQuery, categoryFilter, unitFilter].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter(undefined);
+    setUnitFilter(undefined);
+    setCurrentPage(1);
+  };
+
+  const categoryOptions = [
+    { value: '', label: 'All categories', searchText: 'all categories' },
+    ...categories.map((category) => ({ value: category.id, label: category.name })),
+  ];
+
+  const unitOptions = [
+    { value: '', label: 'All units', searchText: 'all units' },
+    ...UNIT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label, searchText: `${opt.label} ${opt.value}` })),
+  ];
 
   const handleDeleteClick = (id: string, name: string) => {
     setMaterialToDelete({ id, name });
@@ -198,8 +231,8 @@ export default function MaterialList() {
               <ExportButton
                 module="materials"
                 filters={{
-                  categoryId: categoryFilter !== 'all' ? categoryFilter : undefined,
-                  unit: unitFilter !== 'all' ? unitFilter : undefined,
+                  categoryId: categoryFilter,
+                  unit: unitFilter,
                 }}
               />
               <ImportButton module="materials" onSuccess={fetchMaterials} />
@@ -209,41 +242,37 @@ export default function MaterialList() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-6 flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <SearchInput
-                placeholder="Search by code, name, or description..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Categories" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={unitFilter} onValueChange={setUnitFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Units" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Units</SelectItem>
-                {UNIT_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search code, name, description, category, customer, supplier, HSN…"
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+            <Combobox
+              options={categoryOptions}
+              value={categoryFilter || ''}
+              onValueChange={handleCategoryChange}
+              placeholder="All categories"
+              searchPlaceholder="Search categories..."
+              emptyText="No categories found."
+              className="w-[220px]"
+            />
+            <Combobox
+              options={unitOptions}
+              value={unitFilter || ''}
+              onValueChange={handleUnitChange}
+              placeholder="All units"
+              searchPlaceholder="Search units..."
+              emptyText="No units found."
+              className="w-[220px]"
+            />
+          </FilterBar>
 
           {/* DataTable Component */}
           <DataTable
@@ -253,16 +282,22 @@ export default function MaterialList() {
             loading={isLoading}
             error={error}
             onRowClick={(material) => navigate(`/materials/raw/${material.id}`)}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No materials found',
-              description:
-                searchQuery || categoryFilter || unitFilter
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'Get started by creating your first material',
-              actionLabel: 'Create First Material',
-              onAction: () => setCategorySelectorOpen(true),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No materials match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No materials found',
+                    description: 'Get started by creating your first material',
+                    actionLabel: 'Create First Material',
+                    onAction: () => setCategorySelectorOpen(true),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

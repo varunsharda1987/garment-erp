@@ -62,7 +62,14 @@ class EInvoiceService {
     const where: Prisma.invoicesWhereInput = {};
     if (params.search?.trim()) {
       const search = params.search.trim();
-      applySearch(where, search, ['invoiceNumber', 'customers.name', 'eInvoiceIrn']);
+      // The Customer column also shows the buyer GSTIN (primary GST row, else the customer's own)
+      applySearch(where, search, [
+        'invoiceNumber',
+        'customers.name',
+        'customers.gstNumber',
+        'customers.customer_gst_numbers[].gstNumber',
+        'eInvoiceIrn',
+      ]);
     }
     switch (params.irnStatus) {
       case 'generated':

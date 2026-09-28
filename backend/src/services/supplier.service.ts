@@ -109,7 +109,16 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
    * a code and a name together narrow instead of finding nothing. The phrase-only
    * buildSearchFilter below stays only because BaseService declares it abstract.
    */
-  protected readonly searchFields = ['code', 'name', 'contactPerson', 'email', 'phone'] as const;
+  protected readonly searchFields = [
+    'code',
+    'name',
+    'contactPerson',
+    'email',
+    'phone',
+    // The list shows the GST number under the name and a Payment Terms column
+    'gst_numbers[].gstNumber',
+    'paymentTerms',
+  ] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [

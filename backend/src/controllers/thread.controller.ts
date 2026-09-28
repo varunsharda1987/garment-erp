@@ -193,7 +193,19 @@ export const getAllThreads = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    applySearch(where, String(search), ['threadName', 'threadCode', 'color', 'colorCode']);
+    // Every text column the Thread list shows — its brand, style codes and suppliers included
+    applySearch(where, String(search), [
+      'threadName',
+      'threadCode',
+      'description',
+      'brand',
+      'color',
+      'colorCode',
+      'thread_style_associations[].style.styleCode',
+      'thread_style_associations[].style.buyerStyleRef',
+      'threadSuppliers[].supplier.code',
+      'threadSuppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

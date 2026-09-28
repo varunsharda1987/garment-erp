@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
+import { FilterBar } from '@/components/filters';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import {
   stockMovementDashboardService,
   SOURCE_TYPES,
@@ -38,6 +40,9 @@ export default function StockMovementDashboard() {
   const [inwardSourceType, setInwardSourceType] = useState<string>('');
   const [outwardSourceType, setOutwardSourceType] = useState<string>('');
   const [overdueOnly, setOverdueOnly] = useState(false);
+  // The supplier / processor holding the goods ('' = all) — the API's processorId matches either
+  const [inwardPartyId, setInwardPartyId] = useState('');
+  const [outwardPartyId, setOutwardPartyId] = useState('');
   const [inwardPage, setInwardPage] = useState(1);
   const [outwardPage, setOutwardPage] = useState(1);
   const [inwardPageSize, setInwardPageSize] = useState(25);
@@ -59,10 +64,18 @@ export default function StockMovementDashboard() {
     isLoading: inwardLoading,
     refetch: refetchInward,
   } = useQuery({
-    queryKey: ['stock-movement-pending-inward', inwardSourceType, overdueOnly, inwardPage, inwardPageSize],
+    queryKey: [
+      'stock-movement-pending-inward',
+      inwardSourceType,
+      inwardPartyId,
+      overdueOnly,
+      inwardPage,
+      inwardPageSize,
+    ],
     queryFn: () =>
       stockMovementDashboardService.getPendingInward({
         sourceType: inwardSourceType || undefined,
+        processorId: inwardPartyId || undefined,
         overdueOnly,
         page: inwardPage,
         limit: inwardPageSize,
@@ -75,10 +88,11 @@ export default function StockMovementDashboard() {
     isLoading: outwardLoading,
     refetch: refetchOutward,
   } = useQuery({
-    queryKey: ['stock-movement-pending-outward', outwardSourceType, outwardPage, outwardPageSize],
+    queryKey: ['stock-movement-pending-outward', outwardSourceType, outwardPartyId, outwardPage, outwardPageSize],
     queryFn: () =>
       stockMovementDashboardService.getPendingOutward({
         sourceType: outwardSourceType || undefined,
+        processorId: outwardPartyId || undefined,
         page: outwardPage,
         limit: outwardPageSize,
       }),
@@ -89,6 +103,22 @@ export default function StockMovementDashboard() {
     refetchInward();
     refetchOutward();
   };
+
+  // Each tab clears only its own filters; the tab and the page size stay
+  const inwardFilterCount = [inwardSourceType, inwardPartyId, overdueOnly].filter(Boolean).length;
+  const clearInwardFilters = () => {
+    setInwardSourceType('');
+    setInwardPartyId('');
+    setOverdueOnly(false);
+    setInwardPage(1);
+  };
+  const outwardFilterCount = [outwardSourceType, outwardPartyId].filter(Boolean).length;
+  const clearOutwardFilters = () => {
+    setOutwardSourceType('');
+    setOutwardPartyId('');
+    setOutwardPage(1);
+  };
+  const clearText = (n: number) => `Clear ${n} ${n === 1 ? 'filter' : 'filters'}`;
 
   // Inward columns
   const inwardColumns: Column<PendingInwardItem>[] = [
@@ -360,10 +390,45 @@ export default function StockMovementDashboard() {
         <TabsContent value="inward" className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-base">Pending External Receipts</CardTitle>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
+                <FilterBar
+                  onClear={clearInwardFilters}
+                  hasActiveFilters={inwardFilterCount > 0}
+                  clearText={clearText(inwardFilterCount)}
+                >
+                  {/* "all", not "": Radix Select refuses an empty-string item value */}
+                  <Select
+                    value={inwardSourceType || 'all'}
+                    onValueChange={(v) => {
+                      setInwardSourceType(v === 'all' ? '' : v);
+                      setInwardPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48" aria-label="Type">
+                      <SelectValue placeholder="All types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      {SOURCE_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <SupplierCombobox
+                    value={inwardPartyId}
+                    onValueChange={(v) => {
+                      setInwardPartyId(v);
+                      setInwardPage(1);
+                    }}
+                    allowAll
+                    allLabel="All suppliers and processors"
+                    placeholder="All suppliers and processors"
+                    className="w-[240px]"
+                  />
+                  <div className="flex items-center gap-2 self-center">
                     <Checkbox
                       id="overdueOnly"
                       checked={overdueOnly}
@@ -376,26 +441,7 @@ export default function StockMovementDashboard() {
                       Overdue only
                     </Label>
                   </div>
-                  <Select
-                    value={inwardSourceType}
-                    onValueChange={(v) => {
-                      setInwardSourceType(v);
-                      setInwardPage(1);
-                    }}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Types</SelectItem>
-                      {SOURCE_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                </FilterBar>
               </div>
             </CardHeader>
             <CardContent>
@@ -404,7 +450,15 @@ export default function StockMovementDashboard() {
                 columns={inwardColumns}
                 keyExtractor={(item) => item.id}
                 loading={inwardLoading}
-                emptyState={{ title: 'No pending inward items', description: 'All external receipts are up to date' }}
+                emptyState={
+                  inwardFilterCount > 0
+                    ? {
+                        title: 'No pending receipts match these filters.',
+                        actionLabel: 'Clear filters',
+                        onAction: clearInwardFilters,
+                      }
+                    : { title: 'No pending inward items', description: 'All external receipts are up to date' }
+                }
               />
               {pendingInward && (
                 <Pagination
@@ -429,27 +483,44 @@ export default function StockMovementDashboard() {
         <TabsContent value="outward" className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <CardTitle className="text-base">Drafts Awaiting Send</CardTitle>
-                <Select
-                  value={outwardSourceType}
-                  onValueChange={(v) => {
-                    setOutwardSourceType(v);
-                    setOutwardPage(1);
-                  }}
+                <FilterBar
+                  onClear={clearOutwardFilters}
+                  hasActiveFilters={outwardFilterCount > 0}
+                  clearText={clearText(outwardFilterCount)}
                 >
-                  <SelectTrigger className="w-48">
-                    <SelectValue placeholder="All Types" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Types</SelectItem>
-                    {SOURCE_TYPES.filter((t) => t.value !== 'PURCHASE').map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select
+                    value={outwardSourceType || 'all'}
+                    onValueChange={(v) => {
+                      setOutwardSourceType(v === 'all' ? '' : v);
+                      setOutwardPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-48" aria-label="Type">
+                      <SelectValue placeholder="All types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      {SOURCE_TYPES.filter((t) => t.value !== 'PURCHASE').map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <SupplierCombobox
+                    value={outwardPartyId}
+                    onValueChange={(v) => {
+                      setOutwardPartyId(v);
+                      setOutwardPage(1);
+                    }}
+                    allowAll
+                    allLabel="All processors and vendors"
+                    placeholder="All processors and vendors"
+                    className="w-[240px]"
+                  />
+                </FilterBar>
               </div>
             </CardHeader>
             <CardContent>
@@ -458,7 +529,15 @@ export default function StockMovementDashboard() {
                 columns={outwardColumns}
                 keyExtractor={(item) => item.id}
                 loading={outwardLoading}
-                emptyState={{ title: 'No pending outward items', description: 'No drafts awaiting send' }}
+                emptyState={
+                  outwardFilterCount > 0
+                    ? {
+                        title: 'No drafts match these filters.',
+                        actionLabel: 'Clear filters',
+                        onAction: clearOutwardFilters,
+                      }
+                    : { title: 'No pending outward items', description: 'No drafts awaiting send' }
+                }
               />
               {pendingOutward && (
                 <Pagination

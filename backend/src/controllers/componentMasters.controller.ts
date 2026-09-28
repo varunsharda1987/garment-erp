@@ -165,7 +165,8 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
   }
 
   if (search) {
-    applySearch(where, search as string, ['name', 'description']);
+    // The list shows the component group (or, on legacy rows, the old componentCategory) — both searchable
+    applySearch(where, search as string, ['name', 'description', 'componentGroup.name', 'componentCategory']);
   }
 
   // Support both old (componentCategory) and new (componentGroupId) filters

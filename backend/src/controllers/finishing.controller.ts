@@ -226,6 +226,11 @@ export const getAllFinishingIssues = async (req: Request, res: Response) => {
       'workOrder.styles.styleCode',
       'workOrder.styles.buyerStyleRef',
       'workOrder.styles.styleName',
+      // The Contractor column shows the contractor, else the manager
+      'contractor.name',
+      'contractor.code',
+      'manager.firstName',
+      'manager.lastName',
     ]);
   }
 

@@ -7,6 +7,7 @@ import { getDerivedOnHandMap, getDerivedStockDetailed } from '../services/helper
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
 import { generateLabelName, isGeneratedLabelName } from '../services/helpers/label-name.helper';
+import { buildSearchWhere } from '../utils/search-filter';
 
 // Type for supplier input
 interface LabelSupplierInput {
@@ -269,15 +270,25 @@ export const getAllLabel = async (req: Request, res: Response) => {
     whereConditions.push({ labelCategory: String(labelCategory) as any });
   }
 
-  // Search filter
-  if (search) {
-    whereConditions.push({
-      OR: [
-        { labelName: { contains: String(search), mode: 'insensitive' } },
-        { labelCode: { contains: String(search), mode: 'insensitive' } },
-        { color: { contains: String(search), mode: 'insensitive' } },
-      ],
-    });
+  // Search filter — every text column the Labels list shows: code, name, customer, brand, type, size,
+  // colour, suppliers. Words are ANDed (buildSearchWhere), so "kasya size" narrows instead of missing.
+  const searchWhere = buildSearchWhere(String(search), [
+    'labelName',
+    'labelCode',
+    'description',
+    'customer.name',
+    'customer.code',
+    'brandCategory.brandName',
+    'brandCategory.category',
+    'labelType',
+    'size',
+    'sizeVariants[].size',
+    'color',
+    'labelSuppliers[].supplier.code',
+    'labelSuppliers[].supplier.name',
+  ]);
+  if (searchWhere) {
+    whereConditions.push(...searchWhere.AND);
   }
 
   // Filter by supplier via junction table

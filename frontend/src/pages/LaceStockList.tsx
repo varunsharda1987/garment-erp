@@ -6,11 +6,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import Pagination from '../components/Pagination';
+import SearchInput from '../components/SearchInput';
+import { FilterBar } from '../components/filters';
+import { StyleCombobox } from '../components/StyleCombobox';
 import { laceStockService } from '../services/laceStock.service';
 import type {
   LaceStock,
@@ -28,7 +30,7 @@ import {
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { Search, RefreshCw, Eye, ArrowRightLeft, Package, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
+import { RefreshCw, Eye, ArrowRightLeft, Package, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 
 export default function LaceStockList() {
   const navigate = useNavigate();
@@ -45,7 +47,28 @@ export default function LaceStockList() {
   const [statusFilter, setStatusFilter] = useState<LaceStockStatus | ''>('');
   const [stockTypeFilter, setStockTypeFilter] = useState<LaceStockType | ''>('');
   const [qualityFilter, setQualityFilter] = useState<LaceQualityGrade | ''>('');
+  const [styleFilter, setStyleFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    };
+
+  const activeFilterCount = [searchTerm, statusFilter, stockTypeFilter, qualityFilter, styleFilter].filter(
+    Boolean
+  ).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setStockTypeFilter('');
+    setQualityFilter('');
+    setStyleFilter('');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
 
   // Summary statistics
   const [summary, setSummary] = useState({
@@ -65,6 +88,7 @@ export default function LaceStockList() {
       if (statusFilter) filters.status = statusFilter;
       if (stockTypeFilter) filters.stockType = stockTypeFilter;
       if (qualityFilter) filters.qualityGrade = qualityFilter;
+      if (styleFilter) filters.originStyleId = styleFilter;
       if (searchTerm) filters.search = searchTerm;
 
       const response = await laceStockService.getAllLaceStock(filters);
@@ -101,12 +125,7 @@ export default function LaceStockList() {
   useEffect(() => {
     fetchStocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, statusFilter, stockTypeFilter, qualityFilter]);
-
-  const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    fetchStocks();
-  };
+  }, [pagination.page, pagination.limit, searchTerm, statusFilter, stockTypeFilter, qualityFilter, styleFilter]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -204,27 +223,32 @@ export default function LaceStockList() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by lace, lot number, style..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="pl-10"
-          />
-        </div>
+      <FilterBar
+        className="mb-6"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="flex-1 min-w-[200px] max-w-md"
+          placeholder="Search lace, color, lot or dye lot, style or buyer ref..."
+          value={searchTerm}
+          onChange={changeFilter(setSearchTerm)}
+          // The API refuses a longer search (laceStockQuerySchema: max 100)
+          maxLength={100}
+        />
 
         <Select
           value={statusFilter || '__all__'}
-          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : (value as LaceStockStatus))}
+          onValueChange={(value) =>
+            changeFilter(setStatusFilter)(value === '__all__' ? '' : (value as LaceStockStatus))
+          }
         >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All Statuses" />
+          <SelectTrigger className="w-[160px]" aria-label="Status">
+            <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Statuses</SelectItem>
+            <SelectItem value="__all__">All statuses</SelectItem>
             {Object.entries(LACE_STOCK_STATUS_LABELS).map(([status, label]) => (
               <SelectItem key={status} value={status}>
                 {label}
@@ -235,13 +259,15 @@ export default function LaceStockList() {
 
         <Select
           value={stockTypeFilter || '__all__'}
-          onValueChange={(value) => setStockTypeFilter(value === '__all__' ? '' : (value as LaceStockType))}
+          onValueChange={(value) =>
+            changeFilter(setStockTypeFilter)(value === '__all__' ? '' : (value as LaceStockType))
+          }
         >
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All Types" />
+          <SelectTrigger className="w-[160px]" aria-label="Stock type">
+            <SelectValue placeholder="All types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Types</SelectItem>
+            <SelectItem value="__all__">All types</SelectItem>
             {Object.entries(LACE_STOCK_TYPE_LABELS).map(([type, label]) => (
               <SelectItem key={type} value={type}>
                 {label}
@@ -252,30 +278,49 @@ export default function LaceStockList() {
 
         <Select
           value={qualityFilter || '__all__'}
-          onValueChange={(value) => setQualityFilter(value === '__all__' ? '' : (value as LaceQualityGrade))}
+          onValueChange={(value) =>
+            changeFilter(setQualityFilter)(value === '__all__' ? '' : (value as LaceQualityGrade))
+          }
         >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="All Grades" />
+          <SelectTrigger className="w-[140px]" aria-label="Grade">
+            <SelectValue placeholder="All grades" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Grades</SelectItem>
+            <SelectItem value="__all__">All grades</SelectItem>
             <SelectItem value="A">Grade A</SelectItem>
             <SelectItem value="B">Grade B</SelectItem>
             <SelectItem value="DEFECT">Defect</SelectItem>
           </SelectContent>
         </Select>
 
+        <StyleCombobox
+          value={styleFilter}
+          onValueChange={changeFilter(setStyleFilter)}
+          status={null}
+          allowAll
+          allLabel="All origin styles"
+          placeholder="All origin styles"
+          className="w-[220px]"
+        />
+
         <Button variant="outline" onClick={fetchStocks} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+      </FilterBar>
 
       {/* Table */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
             <div className="text-center py-12">Loading...</div>
+          ) : stocks.length === 0 && activeFilterCount > 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="mb-4">No lace stock lots match these filters.</p>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            </div>
           ) : stocks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No lace stock found.</div>
           ) : (

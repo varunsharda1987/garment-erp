@@ -18,6 +18,7 @@ import { seasonService } from '@/services/season.service';
 import type { SeasonMaster, SeasonType } from '@/types/season.types';
 import { SEASON_TYPES, SEASON_TYPE_NAMES, getSeasonYearOptions } from '@/types/season.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -86,6 +87,19 @@ export default function SeasonMasterList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const activeFilterCount = [searchQuery, yearFilter !== 'all', typeFilter !== 'all', statusFilter !== 'all'].filter(
+    Boolean
+  ).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearchQuery('');
+    setYearFilter('all');
+    setTypeFilter('all');
+    setStatusFilter('all');
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, code: string) => {
@@ -242,71 +256,76 @@ export default function SeasonMasterList() {
 
         <CardContent>
           {/* Filters */}
-          <div className="flex flex-wrap gap-4 mb-6">
-            <div className="flex-1 min-w-[200px]">
-              <SearchInput placeholder="Search seasons..." value={searchQuery} onChange={setSearchQuery} />
-            </div>
-            <div className="w-[140px]">
-              <Select
-                value={yearFilter}
-                onValueChange={(value) => {
-                  setYearFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Years" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Years</SelectItem>
-                  {yearOptions.map((year) => (
-                    <SelectItem key={year} value={year.toString()}>
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-[180px]">
-              <Select
-                value={typeFilter}
-                onValueChange={(value) => {
-                  setTypeFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {SEASON_TYPES.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type} - {SEASON_TYPE_NAMES[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-[160px]">
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search season code, name…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
+            <Select
+              value={yearFilter}
+              onValueChange={(value) => {
+                setYearFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="All years" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All years</SelectItem>
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={typeFilter}
+              onValueChange={(value) => {
+                setTypeFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {SEASON_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type} - {SEASON_TYPE_NAMES[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
 
           {/* Error */}
           {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">{error}</div>}
@@ -325,10 +344,18 @@ export default function SeasonMasterList() {
             keyExtractor={(item) => item.id}
             loading={isLoading}
             onRowClick={(item) => navigate(`/seasons/${item.id}/edit`)}
-            emptyState={{
-              title: 'No seasons found',
-              description: 'Generate seasons or add your first season to get started.',
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    title: 'No seasons match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    title: 'No seasons found',
+                    description: 'Generate seasons or add your first season to get started.',
+                  }
+            }
             pagination={{
               currentPage,
               pageSize,

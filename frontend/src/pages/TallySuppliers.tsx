@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,7 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Search, Link2, Link2Off, CheckCircle, XCircle, Wand2, Download, ArrowRight } from 'lucide-react';
+import { Loader2, Link2, Link2Off, CheckCircle, XCircle, Wand2, Download, ArrowRight } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   getTallySuppliers,
@@ -30,8 +29,9 @@ import {
   type SupplierSyncPreviewResult,
 } from '@/services/tally.service';
 import type { SupplierTallyMatch } from '@/types/tally.types';
-import { useDebounce } from '@/hooks/useDebounce';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 
 export default function TallySuppliersPage() {
   const queryClient = useQueryClient();
@@ -49,19 +49,26 @@ export default function TallySuppliersPage() {
   const [syncOnlyBlanks, setSyncOnlyBlanks] = useState(true);
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 300);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['tally-suppliers', { search: debouncedSearch, matchStatus, page, pageSize }],
+    queryKey: ['tally-suppliers', { search, matchStatus, page, pageSize }],
     queryFn: () =>
       getTallySuppliers({
-        search: debouncedSearch || undefined,
+        search: search || undefined,
         matchStatus: matchStatus === 'all' ? undefined : matchStatus,
         page,
         limit: pageSize,
         suggestions: true,
       }),
   });
+
+  const activeFilterCount = [search, matchStatus !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearch('');
+    setMatchStatus('all');
+    setPage(1);
+  };
 
   const ledgersQuery = useQuery({
     queryKey: ['tally-ledgers'],
@@ -211,19 +218,21 @@ export default function TallySuppliersPage() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search suppliers..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            className="mb-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search code, name, phone, Tally ledger…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+            />
             <Select
               value={matchStatus}
               onValueChange={(v) => {
@@ -232,15 +241,15 @@ export default function TallySuppliersPage() {
               }}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter" />
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Suppliers</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="matched">Linked</SelectItem>
-                <SelectItem value="unmatched">Not Linked</SelectItem>
+                <SelectItem value="unmatched">Not linked</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* Table */}
           {isLoading ? (
@@ -264,7 +273,16 @@ export default function TallySuppliersPage() {
                     {data?.data.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                          No suppliers found
+                          {activeFilterCount > 0 ? (
+                            <div className="flex flex-col items-center gap-3">
+                              <span>No suppliers match these filters.</span>
+                              <Button variant="outline" size="sm" onClick={clearFilters}>
+                                Clear filters
+                              </Button>
+                            </div>
+                          ) : (
+                            'No suppliers found'
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (

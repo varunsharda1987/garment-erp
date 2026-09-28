@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { CADStatusBadge } from '@/components/cad/CADStatusBadge';
@@ -40,7 +41,7 @@ type Column<T> = {
 export default function StyleList() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const currentUser = useAuthStore((state) => state.user);
 
   // Tab state
@@ -110,6 +111,35 @@ export default function StyleList() {
   useEffect(() => {
     setCurrentPage(1);
   }, [location.pathname, stageFilter, statusFilter]);
+
+  // Active Styles filters: search, status and the stage a dashboard link puts in the URL
+  const activeFilterCount = [searchQuery, statusFilter !== 'ALL', stageFilter].filter(Boolean).length;
+
+  // Clears every filter; the tab and the rows-per-page choice stay
+  const clearActiveFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setCurrentPage(1);
+    if (stageFilter) {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('stage');
+        return next;
+      });
+    }
+  };
+
+  const clearDraftFilters = () => {
+    setDraftSearchQuery('');
+    setDraftCurrentPage(1);
+  };
+
+  const clearDeletedFilters = () => {
+    setDeletedSearchQuery('');
+    setDeletedCurrentPage(1);
+  };
+
+  const filterCountText = (n: number) => `Clear ${n} ${n === 1 ? 'filter' : 'filters'}`;
 
   const fetchStyles = useCallback(async () => {
     try {
@@ -766,33 +796,40 @@ export default function StyleList() {
 
             {/* Active Styles Tab */}
             <TabsContent value="active" className="mt-6">
-              {/* Search Bar with Status Filter */}
-              <div className="mb-6">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <SearchInput
-                      placeholder="Search by style code, name, buyer, or brand..."
-                      value={searchQuery}
-                      onChange={setSearchQuery}
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'ALL' | 'ACTIVE' | 'DRAFT')}>
-                    <SelectTrigger className="w-[140px]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Styles</SelectItem>
-                      <SelectItem value="ACTIVE">Active Only</SelectItem>
-                      <SelectItem value="DRAFT">Drafts Only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {stageFilter && (
-                    <Button variant="outline" onClick={() => navigate('/styles')}>
-                      Clear Filter
-                    </Button>
-                  )}
-                </div>
-              </div>
+              {/* Search + status filter (and the stage a dashboard link set) */}
+              <FilterBar
+                className="mb-6"
+                onClear={clearActiveFilters}
+                hasActiveFilters={activeFilterCount > 0}
+                clearText={filterCountText(activeFilterCount)}
+              >
+                <SearchInput
+                  className="min-w-[220px] flex-1"
+                  placeholder="Search style code, buyer ref, name, buyer, brand, category…"
+                  value={searchQuery}
+                  onChange={(value) => {
+                    setSearchQuery(value);
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Search styles"
+                />
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) => {
+                    setStatusFilter(v as 'ALL' | 'ACTIVE' | 'DRAFT');
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]" aria-label="Status">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All statuses</SelectItem>
+                    <SelectItem value="ACTIVE">Active only</SelectItem>
+                    <SelectItem value="DRAFT">Drafts only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterBar>
 
               {/* DataTable Component */}
               <DataTable
@@ -801,16 +838,22 @@ export default function StyleList() {
                 keyExtractor={(style) => style.id}
                 loading={isLoading}
                 error={error}
-                emptyState={{
-                  icon: <Shirt className="h-16 w-16" />,
-                  title: 'No styles found',
-                  description:
-                    searchQuery || stageFilter
-                      ? 'Try adjusting your search or filter criteria'
-                      : 'Get started by creating your first style',
-                  actionLabel: canCreateEdit && !searchQuery && !stageFilter ? 'Create First Style' : undefined,
-                  onAction: canCreateEdit && !searchQuery && !stageFilter ? () => navigate('/styles/new') : undefined,
-                }}
+                emptyState={
+                  activeFilterCount > 0
+                    ? {
+                        icon: <Shirt className="h-16 w-16" />,
+                        title: 'No styles match these filters.',
+                        actionLabel: 'Clear filters',
+                        onAction: clearActiveFilters,
+                      }
+                    : {
+                        icon: <Shirt className="h-16 w-16" />,
+                        title: 'No styles found',
+                        description: 'Get started by creating your first style',
+                        actionLabel: canCreateEdit ? 'Create First Style' : undefined,
+                        onAction: canCreateEdit ? () => navigate('/styles/new') : undefined,
+                      }
+                }
                 pagination={{
                   currentPage,
                   totalPages,
@@ -825,18 +868,24 @@ export default function StyleList() {
 
             {/* Drafts Tab */}
             <TabsContent value="drafts" className="mt-6">
-              {/* Search Bar */}
-              <div className="mb-6">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <SearchInput
-                      placeholder="Search draft styles by code, name, buyer, or brand..."
-                      value={draftSearchQuery}
-                      onChange={setDraftSearchQuery}
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Search */}
+              <FilterBar
+                className="mb-6"
+                onClear={clearDraftFilters}
+                hasActiveFilters={!!draftSearchQuery}
+                clearText={filterCountText(1)}
+              >
+                <SearchInput
+                  className="min-w-[220px] flex-1"
+                  placeholder="Search style code, buyer ref, name, buyer, brand, category…"
+                  value={draftSearchQuery}
+                  onChange={(value) => {
+                    setDraftSearchQuery(value);
+                    setDraftCurrentPage(1);
+                  }}
+                  aria-label="Search draft styles"
+                />
+              </FilterBar>
 
               {/* Drafts DataTable */}
               <DataTable
@@ -845,15 +894,22 @@ export default function StyleList() {
                 keyExtractor={(style) => style.id}
                 loading={isLoadingDrafts}
                 error={errorDrafts}
-                emptyState={{
-                  icon: <FileEdit className="h-16 w-16" />,
-                  title: 'No draft styles',
-                  description: draftSearchQuery
-                    ? 'No draft styles match your search criteria'
-                    : 'Draft styles will appear here. Create a new style to get started.',
-                  actionLabel: canCreateEdit && !draftSearchQuery ? 'Create New Style' : undefined,
-                  onAction: canCreateEdit && !draftSearchQuery ? () => navigate('/styles/new') : undefined,
-                }}
+                emptyState={
+                  draftSearchQuery
+                    ? {
+                        icon: <FileEdit className="h-16 w-16" />,
+                        title: 'No draft styles match these filters.',
+                        actionLabel: 'Clear filters',
+                        onAction: clearDraftFilters,
+                      }
+                    : {
+                        icon: <FileEdit className="h-16 w-16" />,
+                        title: 'No draft styles',
+                        description: 'Draft styles will appear here. Create a new style to get started.',
+                        actionLabel: canCreateEdit ? 'Create New Style' : undefined,
+                        onAction: canCreateEdit ? () => navigate('/styles/new') : undefined,
+                      }
+                }
                 pagination={{
                   currentPage: draftCurrentPage,
                   totalPages: draftTotalPages,
@@ -868,18 +924,24 @@ export default function StyleList() {
 
             {/* Inactive Styles Tab */}
             <TabsContent value="deleted" className="mt-6">
-              {/* Search Bar */}
-              <div className="mb-6">
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <SearchInput
-                      placeholder="Search inactive styles by code, name, or buyer..."
-                      value={deletedSearchQuery}
-                      onChange={setDeletedSearchQuery}
-                    />
-                  </div>
-                </div>
-              </div>
+              {/* Search */}
+              <FilterBar
+                className="mb-6"
+                onClear={clearDeletedFilters}
+                hasActiveFilters={!!deletedSearchQuery}
+                clearText={filterCountText(1)}
+              >
+                <SearchInput
+                  className="min-w-[220px] flex-1"
+                  placeholder="Search style code, internal code, buyer ref, name, buyer, brand…"
+                  value={deletedSearchQuery}
+                  onChange={(value) => {
+                    setDeletedSearchQuery(value);
+                    setDeletedCurrentPage(1);
+                  }}
+                  aria-label="Search inactive styles"
+                />
+              </FilterBar>
 
               {/* Inactive Styles DataTable */}
               <DataTable
@@ -888,13 +950,21 @@ export default function StyleList() {
                 keyExtractor={(style) => style.id}
                 loading={isLoadingDeleted}
                 error={errorDeleted}
-                emptyState={{
-                  icon: <Archive className="h-16 w-16" />,
-                  title: 'No inactive styles',
-                  description: deletedSearchQuery
-                    ? 'No inactive styles match your search criteria'
-                    : 'Inactive styles will appear here. You can restore them or permanently delete them.',
-                }}
+                emptyState={
+                  deletedSearchQuery
+                    ? {
+                        icon: <Archive className="h-16 w-16" />,
+                        title: 'No inactive styles match these filters.',
+                        actionLabel: 'Clear filters',
+                        onAction: clearDeletedFilters,
+                      }
+                    : {
+                        icon: <Archive className="h-16 w-16" />,
+                        title: 'No inactive styles',
+                        description:
+                          'Inactive styles will appear here. You can restore them or permanently delete them.',
+                      }
+                }
                 pagination={{
                   currentPage: deletedCurrentPage,
                   totalPages: deletedTotalPages,

@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { CancelPoDialog } from '@/components/purchase-orders/CancelPoDialog';
@@ -83,6 +84,9 @@ const STATUS_FILTER_OPTIONS: PurchaseOrderStatus[] = [
 
 /** Where a material PO comes from. SERVICE_REQUIREMENT retired with service POs (c95804c0). */
 const SOURCE_FILTER_OPTIONS: POSource[] = ['MANUAL', 'COST_SHEET', 'MRP'];
+
+/** The URL params that narrow the list (the tab, the page and the page size are not filters) */
+const FILTER_KEYS = ['search', 'status', 'supplierId', 'source', 'poCategory', 'delivery', 'orderId'] as const;
 
 /** Cancel starts once the PO is sent (owner, 2026-09-27): a draft is deleted, a part-delivered PO is closed short. */
 const CANCELLABLE_STATUSES: PurchaseOrderStatus[] = ['SENT', 'ACKNOWLEDGED'];
@@ -261,15 +265,9 @@ export default function PurchaseOrderList() {
   const showSourceFilter = activeTab === 'all' || !!sourceParam;
   const showCategoryFilter = (activeTab !== 'all' && categoryOptions.length > 2) || !!poCategoryParam;
 
-  const hasActiveFilters = !!(
-    statusParam ||
-    sourceParam ||
-    searchParams.get('supplierId') ||
-    searchParams.get('search') ||
-    poCategoryParam ||
-    searchParams.get('delivery') ||
-    orderIdParam
-  );
+  // Everything a person narrowed by — "Clear N filters" removes these; the tab and the page size stay
+  const activeFilterCount = FILTER_KEYS.filter((key) => !!searchParams.get(key)).length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   const colSpan = activeTab === 'all' ? 10 : 9;
 
@@ -281,11 +279,8 @@ export default function PurchaseOrderList() {
     setSearchParams(newParams, { replace: true });
   };
 
-  const handleClearFilters = () => {
-    const newParams = new URLSearchParams();
-    if (activeTab !== 'all') newParams.set('tab', activeTab);
-    setSearchParams(newParams, { replace: true });
-  };
+  const handleClearFilters = () =>
+    updateURLParams({ ...Object.fromEntries(FILTER_KEYS.map((key) => [key, undefined])), page: undefined });
 
   const handleDeleteClick = (id: string, poNumber: string) => {
     setDeleteTarget({ id, poNumber });
@@ -452,7 +447,11 @@ export default function PurchaseOrderList() {
           {/* Filter Bar */}
           <Card>
             <CardContent className="pt-4 pb-4">
-              <div className="flex flex-wrap gap-3 items-end">
+              <FilterBar
+                onClear={handleClearFilters}
+                hasActiveFilters={hasActiveFilters}
+                clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+              >
                 <div className="flex-1 min-w-[200px]">
                   <SearchInput
                     placeholder="Search by PO number, supplier, style or material..."
@@ -467,11 +466,11 @@ export default function PurchaseOrderList() {
                   value={statusParam || 'all'}
                   onValueChange={(v) => updateURLParams({ status: v === 'all' ? undefined : v, page: undefined })}
                 >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All Status" />
+                  <SelectTrigger className="w-[180px]" aria-label="Status">
+                    <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
                     {withCurrent(STATUS_FILTER_OPTIONS, statusParam).map((status) => (
                       <SelectItem key={status} value={status}>
                         {PurchaseOrderStatusLabels[status as PurchaseOrderStatus] || status}
@@ -483,9 +482,10 @@ export default function PurchaseOrderList() {
                 <SupplierCombobox
                   value={searchParams.get('supplierId') || ''}
                   onValueChange={(v) => updateURLParams({ supplierId: v || undefined, page: undefined })}
-                  placeholder="All Suppliers"
+                  placeholder="All suppliers"
                   allowAll
-                  className="w-[200px]"
+                  allLabel="All suppliers"
+                  className="w-[220px]"
                 />
 
                 {/* Source filter on the All tab — and wherever ?source= is set */}
@@ -494,11 +494,11 @@ export default function PurchaseOrderList() {
                     value={sourceParam || 'all'}
                     onValueChange={(v) => updateURLParams({ source: v === 'all' ? undefined : v, page: undefined })}
                   >
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue placeholder="All Sources" />
+                    <SelectTrigger className="w-[160px]" aria-label="Source">
+                      <SelectValue placeholder="All sources" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Sources</SelectItem>
+                      <SelectItem value="all">All sources</SelectItem>
                       {withCurrent(SOURCE_FILTER_OPTIONS, sourceParam).map((source) => (
                         <SelectItem key={source} value={source}>
                           {POSourceLabels[source as POSource] || source}
@@ -514,11 +514,11 @@ export default function PurchaseOrderList() {
                     value={poCategoryParam || 'all'}
                     onValueChange={(v) => updateURLParams({ poCategory: v === 'all' ? undefined : v, page: undefined })}
                   >
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue placeholder="All Categories" />
+                    <SelectTrigger className="w-[180px]" aria-label="Category">
+                      <SelectValue placeholder="All categories" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="all">All categories</SelectItem>
                       {categoryOptions.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
@@ -533,7 +533,7 @@ export default function PurchaseOrderList() {
                   value={searchParams.get('delivery') || 'all'}
                   onValueChange={(v) => updateURLParams({ delivery: v === 'all' ? undefined : v, page: undefined })}
                 >
-                  <SelectTrigger className="w-[190px]">
+                  <SelectTrigger className="w-[190px]" aria-label="Delivery place">
                     <SelectValue placeholder="Any delivery place" />
                   </SelectTrigger>
                   <SelectContent>
@@ -557,14 +557,7 @@ export default function PurchaseOrderList() {
                     </Button>
                   </Badge>
                 )}
-
-                {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-                    <X className="h-4 w-4 mr-1" />
-                    Clear
-                  </Button>
-                )}
-              </div>
+              </FilterBar>
             </CardContent>
           </Card>
 

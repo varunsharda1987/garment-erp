@@ -11,6 +11,8 @@ interface CustomerComboboxProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All customers")
 }
 
 export function CustomerCombobox({
@@ -19,6 +21,8 @@ export function CustomerCombobox({
   placeholder = 'Select customer...',
   className,
   disabled = false,
+  allowAll = false,
+  allLabel = 'All customers',
 }: CustomerComboboxProps) {
   const fetch = useCallback(async (search: string): Promise<PickerPage<Customer>> => {
     const response = await customerService.getAllCustomers({ limit: PICKER_LIMIT, search: search || undefined });
@@ -41,7 +45,7 @@ export function CustomerCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all customers' }, ...options] : options}
       value={value}
       onValueChange={onValueChange}
       placeholder={

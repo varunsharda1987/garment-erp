@@ -620,6 +620,8 @@ export interface StyleCostingOptionsResponse {
 
 // Filters for options page
 export interface CostingOptionsFilters {
+  /** Style code / buyer code / name, customer, component, greige or processor — words ANDed */
+  search?: string;
   customerId?: string;
   styleId?: string;
   processorId?: string;

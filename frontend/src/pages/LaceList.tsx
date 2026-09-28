@@ -8,6 +8,8 @@ import type { Lace } from '@/types/lace.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -42,6 +44,15 @@ export default function LaceList() {
   // Filter state
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const [supplierId, setSupplierId] = useState('');
+
+  const activeFilterCount = [searchQuery, supplierId].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSupplierId('');
+    setCurrentPage(1);
+  };
 
   // Stock count state
   const [stockCount, setStockCount] = useState<number | undefined>(undefined);
@@ -54,7 +65,7 @@ export default function LaceList() {
     fetchLaceItems();
     fetchStockCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery]);
+  }, [currentPage, pageSize, searchQuery, supplierId]);
 
   const fetchStockCount = async () => {
     try {
@@ -74,6 +85,7 @@ export default function LaceList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
+        supplierId: supplierId || undefined,
       });
       setLaceItems(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -326,16 +338,34 @@ export default function LaceList() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search Filter */}
-          <div className="mb-6">
-            <div className="flex-1 max-w-md">
-              <SearchInput
-                placeholder="Search by code, name, color, or style code..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-          </div>
+          {/* Filters */}
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1 max-w-md"
+              placeholder="Search code, name, lace type, color, style, supplier…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
+            <SupplierCombobox
+              value={supplierId}
+              onValueChange={(value) => {
+                setSupplierId(value || '');
+                setCurrentPage(1);
+              }}
+              allowAll
+              allLabel="All suppliers"
+              placeholder="All suppliers"
+              className="w-[220px]"
+            />
+          </FilterBar>
 
           {/* DataTable Component */}
           <DataTable
@@ -345,15 +375,22 @@ export default function LaceList() {
             loading={isLoading}
             error={error}
             onRowClick={(lace) => navigate(`/materials/lace/${lace.id}`)}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No lace items found',
-              description: searchQuery
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first lace item',
-              actionLabel: 'Create First Lace',
-              onAction: () => navigate('/materials/lace/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No lace items match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No lace items found',
+                    description: 'Get started by creating your first lace item',
+                    actionLabel: 'Create First Lace',
+                    onAction: () => navigate('/materials/lace/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

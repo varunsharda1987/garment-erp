@@ -9,7 +9,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
@@ -25,9 +24,12 @@ import {
 } from '../components/ui/alert-dialog';
 import { Textarea } from '../components/ui/textarea';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { toast } from 'sonner';
 import { externalProcessService } from '../services/external-process.service';
-import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, Search, XCircle } from 'lucide-react';
+import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, X, XCircle } from 'lucide-react';
 import { differenceInCalendarDays } from 'date-fns';
 import type { ExternalProcessSendOut, ExternalProcessStatus } from '../types/external-process.types';
 import { formatDate } from '@/lib/date';
@@ -43,14 +45,28 @@ const STATUS_BADGES: Record<
   CANCELLED: { label: 'Cancelled', variant: 'destructive' },
 };
 
+// A send-out is created SENT, so Draft is never a status to filter on
+const STATUS_FILTER_OPTIONS: ExternalProcessStatus[] = ['SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'];
+
 export default function SmockingDashboard() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [supplierId, setSupplierId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+
+  const activeFilterCount = [search, statusFilter !== 'all', supplierId].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the page size stays
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setSupplierId('');
+    setPage(1);
+  };
 
   // Dashboard data
   const { data: dashboard } = useQuery({
@@ -60,12 +76,13 @@ export default function SmockingDashboard() {
 
   // Send-outs list
   const { data: sendOutsData, isLoading } = useQuery({
-    queryKey: ['smocking-sendouts', { search, status: statusFilter, page, pageSize }],
+    queryKey: ['smocking-sendouts', { search, status: statusFilter, supplierId, page, pageSize }],
     queryFn: () =>
       externalProcessService.getSendOuts({
         processType: 'SMOCKING',
         status: statusFilter !== 'all' ? (statusFilter as ExternalProcessStatus) : undefined,
         search: search || undefined,
+        supplierId: supplierId || undefined,
         page,
         limit: pageSize,
       }),
@@ -199,19 +216,31 @@ export default function SmockingDashboard() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by batch number, vendor, work order..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="pl-9"
-          />
-        </div>
+      <FilterBar
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="flex-1 min-w-[240px]"
+          placeholder="Search batch number, vendor, work order…"
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+          }}
+        />
+        <SupplierCombobox
+          value={supplierId}
+          onValueChange={(v) => {
+            setSupplierId(v || '');
+            setPage(1);
+          }}
+          allowAll
+          allLabel="All vendors"
+          placeholder="All vendors"
+          className="w-[220px]"
+        />
         <Select
           value={statusFilter}
           onValueChange={(v) => {
@@ -220,17 +249,18 @@ export default function SmockingDashboard() {
           }}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Status" />
+            <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="SENT">Sent</SelectItem>
-            <SelectItem value="PARTIALLY_RECEIVED">Partially Received</SelectItem>
-            <SelectItem value="RECEIVED">Received</SelectItem>
-            <SelectItem value="CANCELLED">Cancelled</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
+            {STATUS_FILTER_OPTIONS.map((status) => (
+              <SelectItem key={status} value={status}>
+                {STATUS_BADGES[status].label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-      </div>
+      </FilterBar>
 
       {/* Send-Outs Table */}
       <Card>
@@ -262,7 +292,17 @@ export default function SmockingDashboard() {
               ) : sendOuts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
-                    No smocking send-outs found
+                    {activeFilterCount > 0 ? (
+                      <>
+                        <p>No smocking send-outs match these filters.</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                          <X className="h-4 w-4 mr-1" />
+                          Clear filters
+                        </Button>
+                      </>
+                    ) : (
+                      'No smocking send-outs found'
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

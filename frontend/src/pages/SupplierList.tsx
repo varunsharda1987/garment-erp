@@ -18,6 +18,8 @@ import type { Supplier } from '@/types/supplier.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { Combobox } from '@/components/ui/combobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -58,11 +60,6 @@ export default function SupplierList() {
   const [deactivationCheck, setDeactivationCheck] = useState<DeactivationCheck | null>(null);
   const [checkingDeactivation, setCheckingDeactivation] = useState(false);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, ratingFilter, categoryFilter]);
-
   useEffect(() => {
     fetchSuppliers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,6 +86,35 @@ export default function SupplierList() {
       setIsLoading(false);
     }
   };
+
+  // Every filter change goes back to page 1. Done in the handlers, not in an effect: an effect also ran on
+  // mount and threw away the ?page= that Edit hands back.
+  const goToFirstPage = () => {
+    setCurrentPage(1);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('page');
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  const activeFilterCount = [searchQuery, categoryFilter !== 'all', ratingFilter !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setRatingFilter('all');
+    goToFirstPage();
+  };
+
+  const categoryOptions = [
+    { value: '', label: 'All categories', searchText: 'all categories' },
+    ...Object.entries(SupplierCategoryLabels).map(([value, label]) => ({ value, label })),
+  ];
 
   const handleDeactivateClick = async (id: string, name: string) => {
     setSupplierToDeactivate({ id, name });
@@ -295,41 +321,53 @@ export default function SupplierList() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-6 flex gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px]">
-              <SearchInput
-                placeholder="Search by code, name, contact person, email..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Categories" />
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search code, name, GST, contact, email, phone, payment terms…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                goToFirstPage();
+              }}
+            />
+            <Combobox
+              options={categoryOptions}
+              value={categoryFilter === 'all' ? '' : categoryFilter}
+              onValueChange={(value) => {
+                setCategoryFilter(value || 'all');
+                goToFirstPage();
+              }}
+              placeholder="All categories"
+              searchPlaceholder="Search categories..."
+              emptyText="No categories found."
+              className="w-[220px]"
+            />
+            <Select
+              value={ratingFilter}
+              onValueChange={(value) => {
+                setRatingFilter(value);
+                goToFirstPage();
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All ratings" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {Object.entries(SupplierCategoryLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={ratingFilter} onValueChange={setRatingFilter}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Ratings" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Ratings</SelectItem>
+                <SelectItem value="all">All ratings</SelectItem>
                 {[5, 4, 3, 2, 1].map((rating) => (
                   <SelectItem key={rating} value={rating.toString()}>
-                    {rating} Stars & Above
+                    {rating} {rating === 1 ? 'star' : 'stars'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* DataTable Component */}
           <DataTable
@@ -339,16 +377,22 @@ export default function SupplierList() {
             loading={isLoading}
             error={error}
             onRowClick={(supplier) => navigate(`/suppliers/${supplier.id}`)}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No suppliers found',
-              description:
-                searchQuery || categoryFilter || ratingFilter
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'Get started by creating your first supplier',
-              actionLabel: 'Create First Supplier',
-              onAction: () => navigate('/suppliers/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No suppliers match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No suppliers found',
+                    description: 'Get started by creating your first supplier',
+                    actionLabel: 'Create First Supplier',
+                    onAction: () => navigate('/suppliers/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

@@ -65,7 +65,8 @@ class TestTemplatesService {
     const where: Prisma.test_templatesWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['templateCode', 'templateName']);
+      // What each card shows: code, name, description and testing standards
+      applySearch(where, search, ['templateCode', 'templateName', 'description', 'testingStandards']);
     }
 
     if (templateType) {

@@ -243,7 +243,14 @@ export class CreditNoteService {
     const where: Prisma.credit_notesWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['creditNoteNumber', 'customer.name']);
+      // Every handle the list shows: the note, the customer (billing name first) and the invoice
+      applySearch(where, search, [
+        'creditNoteNumber',
+        'customer.name',
+        'customer.billingName',
+        'customer.code',
+        'invoice.invoiceNumber',
+      ]);
     }
 
     if (status) {
@@ -260,7 +267,10 @@ export class CreditNoteService {
         where.creditNoteDate.gte = new Date(fromDate);
       }
       if (toDate) {
-        where.creditNoteDate.lte = new Date(toDate);
+        // creditNoteDate is a timestamp (@default(now())) — bump to next day so the whole toDate day is included
+        const end = new Date(toDate);
+        end.setDate(end.getDate() + 1);
+        where.creditNoteDate.lt = end;
       }
     }
 

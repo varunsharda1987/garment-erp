@@ -30,6 +30,9 @@ import {
 } from '@/components/ui/select';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { ProcessorCombobox } from '@/components/ProcessorCombobox';
+import { OrderCombobox } from '@/components/OrderCombobox';
+import SearchInput from '@/components/SearchInput';
 import Pagination from '@/components/Pagination';
 import { FilterBar } from '@/components/filters/FilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -419,6 +422,9 @@ type ViewMode = 'flat' | 'byMaterial' | 'byParty' | 'byStyle';
 
 /** The Material tab's filters ("Clear filters" removes these; the view and the tab stay) */
 const FILTER_KEYS = ['search', 'status', 'orderId', 'styleId', 'supplierId', 'materialType'] as const;
+
+/** The Outsourced Work tab's filters (the source chips and the view are not filters, and stay) */
+const OUTSOURCED_FILTER_KEYS = ['search', 'status', 'processorId', 'orderId', 'workOrderId'] as const;
 
 function MaterialRequirementsTab({
   searchParams,
@@ -1057,13 +1063,14 @@ function MaterialRequirementsTab({
             hasActiveFilters={activeFilterCount > 0}
             clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
           >
-            <div className="flex-1 min-w-[220px]">
-              <Input
-                placeholder="Search requirement, material, order, style, buyer…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-            </div>
+            {/* debounceMs 0: useDebouncedSearchParam is this page's one debounce */}
+            <SearchInput
+              className="flex-1 min-w-[220px]"
+              placeholder="Search requirement, material, order, style, buyer, vendor, PO…"
+              value={searchInput}
+              onChange={setSearchInput}
+              debounceMs={0}
+            />
 
             <Select
               value={statusFilterValue(statusParam)}
@@ -2117,12 +2124,26 @@ function OutsourcedWorkTab({
       orderId: orderIdFilter ?? (workOrderIdFilter ? (scopeWorkOrder?.orderId ?? undefined) : undefined),
       orderItemId: workOrderIdFilter ? (scopeWorkOrder?.orderItemId ?? undefined) : undefined,
       status: statusFilter?.split(',') as MaterialRequirementStatus[] | undefined,
+      // On a PROCESSING list the API matches supplierId to the row's processor (its preferred supplier only
+      // while none is set, as the Processor column shows it) — without this the processor filter narrowed
+      // only the service rows and listed every processing row beside them
+      supplierId: processorIdFilter,
       search: searchFilter,
       ...(loadAll ? {} : { page, limit: pageSize }),
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [statusFilter, searchFilter, orderIdFilter, workOrderIdFilter, scopeWorkOrder, page, pageSize, loadAll]
+    [
+      statusFilter,
+      searchFilter,
+      processorIdFilter,
+      orderIdFilter,
+      workOrderIdFilter,
+      scopeWorkOrder,
+      page,
+      pageSize,
+      loadAll,
+    ]
   );
 
   const { data: processingResponse, isLoading: processingLoading } = useQuery({
@@ -2190,6 +2211,28 @@ function OutsourcedWorkTab({
 
   const isLoading =
     (sourceFilter !== 'service' && processingLoading) || (sourceFilter !== 'processing' && serviceLoading);
+
+  // "Clear filters" — everything a person narrowed by; the source, the view and the tab stay
+  const activeFilterCount = [searchFilter, statusFilter, processorIdFilter, orderIdFilter, workOrderIdFilter].filter(
+    Boolean
+  ).length;
+  const clearFilters = () =>
+    updateURLParams({
+      ...Object.fromEntries(OUTSOURCED_FILTER_KEYS.map((key) => [key, undefined])),
+      page: undefined,
+    });
+  const noRowsMessage =
+    activeFilterCount > 0 ? (
+      <div className="space-y-3">
+        <p>No work items match these filters.</p>
+        <Button variant="outline" size="sm" onClick={clearFilters}>
+          <X className="h-4 w-4 mr-1" />
+          Clear filters
+        </Button>
+      </div>
+    ) : (
+      'No outsourced work items found'
+    );
 
   // ─── Normalize to OutsourcedRow ────────────────────────────
 
@@ -2662,14 +2705,19 @@ function OutsourcedWorkTab({
           </div>
 
           {/* Search + filters */}
-          <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="Search by material, work order, service..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
-            </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            {/* debounceMs 0: useDebouncedSearchParam is this page's one debounce */}
+            <SearchInput
+              className="flex-1 min-w-[220px]"
+              placeholder="Search style, material, component, colour, processor, work order, JWO…"
+              value={searchInput}
+              onChange={setSearchInput}
+              debounceMs={0}
+            />
 
             {/* MRP-11: options come from the active source so every one of them is a status the
                 backend(s) behind that view actually accept. */}
@@ -2677,11 +2725,11 @@ function OutsourcedWorkTab({
               value={statusFilter || 'all'}
               onValueChange={(v) => updateURLParams({ status: v === 'all' ? undefined : v, page: undefined })}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Status" />
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 {statusOptions.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>
                     {opt.label}
@@ -2690,30 +2738,44 @@ function OutsourcedWorkTab({
               </SelectContent>
             </Select>
 
-            <Select
-              value={searchParams.get('processorId') || 'all'}
-              onValueChange={(v) => updateURLParams({ processorId: v === 'all' ? undefined : v, page: undefined })}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Processors" />
-              </SelectTrigger>
-              {/* MRP-33: this listed the first 100 SUPPLIERS of any kind, so it both offered
-                  non-processors and silently omitted processor #101. It now uses the processor
-                  roster (suppliers categorised DYEING_PRINTING / WASHING / FINISHING_CONTRACTOR),
-                  which is complete and unpaginated. */}
-              <SelectContent>
-                <SelectItem value="all">All Processors</SelectItem>
-                {processors.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* MRP-33: the processor roster (suppliers categorised DYEING_PRINTING / WASHING /
+                FINISHING_CONTRACTOR) — complete, never the first 100 suppliers of any kind */}
+            <ProcessorCombobox
+              value={processorIdFilter || ''}
+              onValueChange={(v) => updateURLParams({ processorId: v || undefined, page: undefined })}
+              allowAll
+              placeholder="All processors"
+              className="w-[220px]"
+            />
+
+            {/* ?orderId= arrives from OrderDetail and carries over from the Material tab — show it */}
+            <OrderCombobox
+              value={orderIdFilter || ''}
+              onValueChange={(v) => updateURLParams({ orderId: v || undefined, page: undefined })}
+              allowAll
+              placeholder="All orders"
+              className="w-[220px]"
+            />
+
+            {/* ?workOrderId= arrives from WorkOrderDetail — say so, and let it be removed on its own */}
+            {workOrderIdFilter && (
+              <Badge variant="secondary" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
+                Work order: {scopeWorkOrder?.workOrderNumber ?? 'this work order'}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  aria-label="Remove the work order filter"
+                  onClick={() => updateURLParams({ workOrderId: undefined, page: undefined })}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </Badge>
+            )}
 
             {/* View Mode selector */}
             <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[140px]" aria-label="View">
                 <SelectValue placeholder="View Mode" />
               </SelectTrigger>
               <SelectContent>
@@ -2735,7 +2797,7 @@ function OutsourcedWorkTab({
               <Download className="h-4 w-4 mr-1" />
               Export page ({pageRows.length})
             </Button>
-          </div>
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -2791,7 +2853,7 @@ function OutsourcedWorkTab({
                       colSpan={sourceFilter === 'service' ? 9 : 11}
                       className="text-center py-12 text-muted-foreground"
                     >
-                      No outsourced work items found
+                      {noRowsMessage}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -2941,9 +3003,7 @@ function OutsourcedWorkTab({
             </Card>
           ) : !groupedRows || groupedRows.length === 0 ? (
             <Card>
-              <CardContent className="text-center py-12 text-muted-foreground">
-                No outsourced work items found
-              </CardContent>
+              <CardContent className="text-center py-12 text-muted-foreground">{noRowsMessage}</CardContent>
             </Card>
           ) : (
             groupedRows.map((group) => (

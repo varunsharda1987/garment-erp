@@ -114,8 +114,16 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
    * "LNG 229" finds LNG229 and "kasya LNG229" narrows by customer AND code. The phrase-only
    * `buildSearchFilter` below stays only because BaseService declares it abstract.
+   * The product category is the Styles page's "Product Category" column, so "kurta" finds its kurtas.
    */
-  protected readonly searchFields = ['styleCode', 'buyerStyleRef', 'styleName', 'customerName', 'brandName'] as const;
+  protected readonly searchFields = [
+    'styleCode',
+    'buyerStyleRef',
+    'styleName',
+    'customerName',
+    'brandName',
+    'product_category.name',
+  ] as const;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
@@ -927,7 +935,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     };
 
     if (options.search) {
-      applySearch(where, options.search, ['styleCode', 'buyerStyleRef', 'styleName', 'customerName']);
+      // The Inactive tab's columns: code + internal code, buyer ref, name, buyer / brand
+      applySearch(where, options.search, [
+        'styleCode',
+        'internalCode',
+        'buyerStyleRef',
+        'styleName',
+        'customerName',
+        'brandName',
+      ]);
     }
 
     const [data, total] = await Promise.all([

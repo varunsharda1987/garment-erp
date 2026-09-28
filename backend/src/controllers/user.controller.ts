@@ -22,7 +22,8 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
   // Build search filter
   const whereClause: Prisma.usersWhereInput = {};
   if (search) {
-    applySearch(whereClause, search, ['firstName', 'lastName', 'email']);
+    // Every text column the Users list shows: name (with phone under it), email, department
+    applySearch(whereClause, search, ['firstName', 'lastName', 'email', 'phone', 'department']);
   }
 
   // Get total count

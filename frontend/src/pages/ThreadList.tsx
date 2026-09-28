@@ -8,6 +8,8 @@ import type { Thread } from '@/types/thread.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -41,6 +43,7 @@ export default function ThreadList() {
   // Filter state
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const [supplierFilter, setSupplierFilter] = useState<string | undefined>(undefined);
 
   // Stock count state
   const [stockCount, setStockCount] = useState<number | undefined>(undefined);
@@ -53,7 +56,7 @@ export default function ThreadList() {
     fetchThreadItems();
     fetchStockCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery]);
+  }, [currentPage, pageSize, searchQuery, supplierFilter]);
 
   const fetchStockCount = async () => {
     try {
@@ -73,6 +76,7 @@ export default function ThreadList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
+        supplierId: supplierFilter,
       });
       setThreadItems(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -83,6 +87,25 @@ export default function ThreadList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Every filter change starts again from page 1
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleSupplierChange = (value: string) => {
+    setSupplierFilter(value || undefined);
+    setCurrentPage(1);
+  };
+
+  const activeFilterCount = (searchQuery ? 1 : 0) + (supplierFilter ? 1 : 0);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSupplierFilter(undefined);
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -266,16 +289,28 @@ export default function ThreadList() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search Filter */}
-          <div className="mb-6">
-            <div className="flex-1 max-w-md">
-              <SearchInput
-                placeholder="Search by code, name, brand, color, or style code..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-          </div>
+          {/* Filters */}
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] max-w-md flex-1"
+              placeholder="Search code, name, brand, colour, style code, supplier…"
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+            <SupplierCombobox
+              allowAll
+              allLabel="All suppliers"
+              value={supplierFilter || ''}
+              onValueChange={handleSupplierChange}
+              placeholder="All suppliers"
+              className="w-[220px]"
+            />
+          </FilterBar>
 
           {/* DataTable Component */}
           <DataTable
@@ -285,15 +320,22 @@ export default function ThreadList() {
             loading={isLoading}
             error={error}
             onRowClick={(thread) => navigate(`/materials/thread/${thread.id}`)}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No thread items found',
-              description: searchQuery
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first thread item',
-              actionLabel: 'Create First Thread',
-              onAction: () => navigate('/materials/thread/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No thread items match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No thread items found',
+                    description: 'Get started by creating your first thread item',
+                    actionLabel: 'Create First Thread',
+                    onAction: () => navigate('/materials/thread/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

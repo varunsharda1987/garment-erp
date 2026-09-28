@@ -1,26 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
-  Scissors,
-  Plus,
-  Search,
-  Filter,
-  Eye,
-  Play,
-  CheckCircle,
-  Package,
-  RefreshCw,
-  Clock,
-  AlertTriangle,
-} from 'lucide-react';
+import { Scissors, Plus, X, Eye, Play, CheckCircle, Package, RefreshCw, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type {
   CuttingBatch,
@@ -34,7 +23,7 @@ import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
 
 export default function CuttingList() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Scope the list to a work order when arriving from a work-order drill-down link
   const workOrderId = searchParams.get('workOrderId') || '';
   const [batches, setBatches] = useState<CuttingBatch[]>([]);
@@ -88,19 +77,27 @@ export default function CuttingList() {
     }
   };
 
-  // Reset to page 1 when status filter changes
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter]);
-
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, statusFilter, workOrderId]);
+  }, [page, pageSize, search, statusFilter, workOrderId]);
 
-  const handleSearch = () => {
+  // Filters: search, status, and the run a work-order drill-down link scoped the list to (?workOrderId=)
+  const activeFilterCount = [search, statusFilter, workOrderId].filter(Boolean).length;
+
+  const clearWorkOrderFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('workOrderId');
+    setSearchParams(next, { replace: true });
     setPage(1);
-    fetchData();
+  };
+
+  // Clears every filter; the tab and page size stay as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    if (workOrderId) clearWorkOrderFilter();
+    setPage(1);
   };
 
   const handleRefresh = async () => {
@@ -165,18 +162,6 @@ export default function CuttingList() {
         </div>
       </div>
 
-      {/* Work-order drill-down filter indicator */}
-      {workOrderId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            Filtered to work order: {batches.find((b) => b.workOrder)?.workOrder?.workOrderNumber || workOrderId}
-          </Badge>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/manufacturing/cutting">Clear filter</Link>
-          </Button>
-        </div>
-      )}
-
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="batches">Cutting Batches</TabsTrigger>
@@ -233,32 +218,57 @@ export default function CuttingList() {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by batch number, work order, or style..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="All Statuses" />
+              <FilterBar
+                onClear={clearFilters}
+                hasActiveFilters={activeFilterCount > 0}
+                clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+              >
+                <SearchInput
+                  className="min-w-[220px] max-w-md flex-1"
+                  placeholder="Search batch number, run number, style, buyer style, component…"
+                  value={search}
+                  onChange={(value) => {
+                    setSearch(value);
+                    setPage(1);
+                  }}
+                  // The API refuses a longer search (max 100)
+                  maxLength={100}
+                  aria-label="Search cutting batches"
+                />
+                <Select
+                  value={statusFilter || 'all'}
+                  onValueChange={(v) => {
+                    setStatusFilter(v === 'all' ? '' : v);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]" aria-label="Status">
+                    <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="COMPLETED">Completed</SelectItem>
-                    <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="PENDING">{CuttingBatchStatusLabels.PENDING}</SelectItem>
+                    <SelectItem value="IN_PROGRESS">{CuttingBatchStatusLabels.IN_PROGRESS}</SelectItem>
+                    <SelectItem value="COMPLETED">{CuttingBatchStatusLabels.COMPLETED}</SelectItem>
+                    <SelectItem value="ON_HOLD">{CuttingBatchStatusLabels.ON_HOLD}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={handleSearch}>Search</Button>
-              </div>
+                {/* Scoped to one production run by a drill-down link — say so, and let it be removed on its own */}
+                {workOrderId && (
+                  <Badge variant="secondary" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
+                    Run: {batches.find((row) => row.workOrder)?.workOrder?.workOrderNumber ?? 'this run'}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      aria-label="Remove the run filter"
+                      onClick={clearWorkOrderFilter}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </Badge>
+                )}
+              </FilterBar>
             </CardContent>
           </Card>
 
@@ -270,7 +280,17 @@ export default function CuttingList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : batches.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No cutting batches found</div>
+                activeFilterCount > 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                    <p>No cutting batches match these filters.</p>
+                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No cutting batches found</div>
+                )
               ) : (
                 <Table>
                   <TableHeader>

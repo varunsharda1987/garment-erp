@@ -1188,14 +1188,6 @@ class StockMovementService {
       const totalQty = toNumber(totalQtyDecimal);
       if (filters.direction && filters.direction !== 'INWARD') continue;
 
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const nameMatch = gs.greige?.greigeName?.toLowerCase().includes(searchLower);
-        const codeMatch = gs.greige?.greigeCode?.toLowerCase().includes(searchLower);
-        const supplierMatch = gs.supplier?.name?.toLowerCase().includes(searchLower);
-        if (!nameMatch && !codeMatch && !supplierMatch) continue;
-      }
-
       // BUG-STK8 fix: Use decimal.js for precision-safe value calculation
       const greigeRate = gs.purchaseCost ? toNumber(toCurrency(gs.purchaseCost)) : null;
       const greigeTotalValue = gs.purchaseCost ? toNumber(multiplyCurrency(totalQty, gs.purchaseCost)) : null;
@@ -1253,17 +1245,6 @@ class StockMovementService {
       const materialName = proc.fabricMaster?.fabricName || proc.greigeMaster?.greigeName || 'Material';
       const materialCode = proc.fabricMaster?.fabricCode || proc.greigeMaster?.greigeCode || '-';
 
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        if (
-          !materialName.toLowerCase().includes(searchLower) &&
-          !materialCode.toLowerCase().includes(searchLower) &&
-          !proc.supplier?.name?.toLowerCase().includes(searchLower)
-        ) {
-          continue;
-        }
-      }
-
       results.push({
         id: proc.id,
         date: proc.purchaseDate,
@@ -1310,17 +1291,6 @@ class StockMovementService {
       if (filters.direction && filters.direction !== 'INWARD') continue;
 
       for (const item of grn.grn_items) {
-        if (filters.search) {
-          const searchLower = filters.search.toLowerCase();
-          if (
-            !item.materials?.name?.toLowerCase().includes(searchLower) &&
-            !item.materials?.code?.toLowerCase().includes(searchLower) &&
-            !grn.suppliers?.name?.toLowerCase().includes(searchLower)
-          ) {
-            continue;
-          }
-        }
-
         // BUG-STK8 fix: Use decimal.js for precision-safe calculations. ACTUAL metres: a receipt counted
         // at fold L is received as counted × L/100.
         const actualReceived = foldActual(item.receivedQuantity, item.foldLengthCm);
@@ -1372,13 +1342,6 @@ class StockMovementService {
         if (filters.direction && direction !== filters.direction) continue;
 
         for (const item of challan.items) {
-          if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
-            if (!item.description?.toLowerCase().includes(searchLower)) {
-              continue;
-            }
-          }
-
           // BUG-STK8 fix: Use decimal.js for precision-safe calculations
           const itemRate = item.rate ? toNumber(toCurrency(item.rate)) : null;
           const itemQty = toNumber(toCurrency(item.quantity));
@@ -1405,12 +1368,26 @@ class StockMovementService {
       }
     }
 
+    // One search over what the list shows — party, material, invoice and document number — for every source
+    // alike, every typed word required somewhere. Each source used to match its own two or three columns, and
+    // the stock-movement source ignored the search altogether, so its rows showed whatever was typed.
+    const words = (filters.search ?? '').toLowerCase().split(/\s+/).filter(Boolean);
+    const matched = words.length
+      ? results.filter((r) => {
+          const text = [r.supplierName, r.supplierCode, r.materialName, r.materialCode, r.invoiceNumber, r.sourceNumber]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return words.every((word) => text.includes(word));
+        })
+      : results;
+
     // Sort all results by date descending
-    results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    matched.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // Apply pagination
-    const total = results.length;
-    const paginatedResults = results.slice(skip, skip + limit);
+    const total = matched.length;
+    const paginatedResults = matched.slice(skip, skip + limit);
 
     return {
       data: paginatedResults,

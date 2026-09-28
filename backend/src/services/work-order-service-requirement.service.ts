@@ -18,6 +18,7 @@ import { NotFoundError, BusinessError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
 // BUG-JWO5 fix: Import decimal.js helpers for safe cost calculations
 import { multiplyCurrency, divideCurrency, toNumber, roundToCent } from '../utils/currency';
+import { applySearch } from '../utils/search-filter';
 // Phase 5a: service requirements are fulfilled by Job Work Orders, not purchase orders
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
@@ -1602,11 +1603,22 @@ export async function getAllServiceRequirements(
   const page = filters?.page || 1;
   const limit = filters?.limit || 20;
 
-  // Build workOrder relation filter (orderId + search can coexist)
-  const workOrderFilter: any = {};
-  if (filters?.orderId) workOrderFilter.orderId = filters.orderId;
-  if (filters?.search) workOrderFilter.workOrderNumber = { contains: filters.search, mode: 'insensitive' };
-  if (Object.keys(workOrderFilter).length > 0) where.workOrder = workOrderFilter;
+  if (filters?.orderId) where.workOrder = { orderId: filters.orderId };
+
+  // The Outsourced Work tab shows each service's style and processor; only the work order number was
+  // searchable (as one whole phrase), so a style code or a processor's name found nothing.
+  applySearch(where, filters?.search, [
+    'workOrder.workOrderNumber',
+    'workOrder.styles.styleCode',
+    'workOrder.styles.buyerStyleRef',
+    'workOrder.styles.styleName',
+    'workOrder.orders.orderNumber',
+    'assignedProcessor.name',
+    'assignedProcessor.code',
+    'preferredProcessor.name',
+    'preferredProcessor.code',
+    'jobWorkOrder.jobWorkNumber',
+  ]);
 
   if (filters?.workOrderId) where.workOrderId = filters.workOrderId;
   if (filters?.source) where.source = filters.source;

@@ -20,6 +20,7 @@ function buildPackagingName(
   return parts.join(' ').trim() || `Packaging ${code}`;
 }
 import { logDebug } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
@@ -202,17 +203,6 @@ export const getAllPackaging = async (req: Request, res: Response) => {
     whereConditions.push({ brandCategoryId: String(brandCategoryId) });
   }
 
-  // Search filter
-  if (search) {
-    whereConditions.push({
-      OR: [
-        { packagingName: { contains: String(search), mode: 'insensitive' } },
-        { packagingCode: { contains: String(search), mode: 'insensitive' } },
-        { packagingType: { contains: String(search), mode: 'insensitive' } },
-      ],
-    });
-  }
-
   // Filter by supplier
   if (supplierId) {
     whereConditions.push({ supplierId: String(supplierId) });
@@ -220,6 +210,22 @@ export const getAllPackaging = async (req: Request, res: Response) => {
 
   // Build final where clause
   const where = { AND: whereConditions };
+
+  // Search — word by word, over every text column the Packaging list shows (customer and brand
+  // included); applySearch appends under AND, so the filters above still narrow the result
+  if (search) {
+    applySearch(where, String(search), [
+      'packagingCode',
+      'packagingName',
+      'description',
+      'packagingType',
+      'size',
+      'material',
+      'customer.name',
+      'brandCategory.brandName',
+      'brandCategory.category',
+    ]);
+  }
 
   // Get total count
   const total = await prisma.packaging_master.count({ where });

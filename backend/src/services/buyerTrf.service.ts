@@ -35,8 +35,12 @@ const TRF_SEARCH_FIELDS = [
   'colour',
   'sampleDescription',
   'style.styleCode',
+  'style.buyerStyleRef',
   'style.styleName',
   'customer.name',
+  // The list's "Linked to" column
+  'saleOrder.saleOrderNumber',
+  'workOrder.workOrderNumber',
 ] as const;
 
 const LIST_INCLUDE = {

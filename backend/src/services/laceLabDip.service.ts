@@ -12,6 +12,7 @@
 import prisma from '../config/database';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { LaceLabDipStatus } from '@prisma/client';
+import { applySearch } from '../utils/search-filter';
 
 export interface CreateLabDipInput {
   greigeLaceId: string;
@@ -114,6 +115,7 @@ export async function getLaceLabDips(filters: {
   processorId?: string;
   styleId?: string;
   costSheetId?: string;
+  search?: string;
   page?: number;
   limit?: number;
 }) {
@@ -126,6 +128,17 @@ export async function getLaceLabDips(filters: {
   if (filterValues.processorId) where.processorId = filterValues.processorId;
   if (filterValues.styleId) where.styleId = filterValues.styleId;
   if (filterValues.costSheetId) where.costSheetId = filterValues.costSheetId;
+
+  // What the list shows: the lab dip number, target colour, greige lace and processor. Until 2026-09-28
+  // the page filtered only the 20 rows it had loaded, so a lab dip on page 2 could never be found.
+  applySearch(where, filterValues.search, [
+    'labDipNumber',
+    'targetColor',
+    'greigeLace.laceCode',
+    'greigeLace.laceName',
+    'processor.name',
+    'processor.code',
+  ]);
 
   const [total, labDips] = await Promise.all([
     prisma.lace_lab_dip.count({ where }),

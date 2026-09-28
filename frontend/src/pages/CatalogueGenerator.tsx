@@ -36,7 +36,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
 import {
   BookImage,
   Download,
@@ -80,6 +82,7 @@ interface Season {
 interface ProductCategory {
   id: string;
   name: string;
+  code: string;
 }
 
 type PriceDisplay = 'b2b' | 'b2r' | 'both' | 'none';
@@ -231,17 +234,25 @@ export default function CatalogueGenerator() {
     return Array.from(categories.values()).sort((a, b) => a.category.localeCompare(b.category));
   }, [styles]);
 
+  const searchTerms = useMemo(() => searchTerm.toLowerCase().split(/\s+/).filter(Boolean), [searchTerm]);
+
   // Filter styles based on search and filters
   const filteredStyles = useMemo(() => {
     return styles.filter((style) => {
-      // Search filter
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase();
-        const matchesSearch =
-          style.styleCode?.toLowerCase().includes(search) ||
-          style.styleName?.toLowerCase().includes(search) ||
-          style.buyerStyleRef?.toLowerCase().includes(search);
-        if (!matchesSearch) return false;
+      // Search filter — every typed word must be found in one of the columns the table shows
+      if (searchTerms.length > 0) {
+        const haystack = [
+          style.styleCode,
+          style.buyerStyleRef,
+          style.styleName,
+          style.productCategory?.name,
+          style.brandCategories?.category,
+          style.season,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!searchTerms.every((term) => haystack.includes(term))) return false;
       }
 
       // Season filter
@@ -281,7 +292,7 @@ export default function CatalogueGenerator() {
 
       return true;
     });
-  }, [styles, searchTerm, selectedSeason, selectedCategory, selectedBrandCategory, selectedSizes, minPrice, maxPrice]);
+  }, [styles, searchTerms, selectedSeason, selectedCategory, selectedBrandCategory, selectedSizes, minPrice, maxPrice]);
 
   // Size chips come from the sizes actually present on loaded styles (fallback: standard list)
   const availableSizes = useMemo(() => {
@@ -501,14 +512,15 @@ export default function CatalogueGenerator() {
     }
   };
 
-  const hasActiveFilters =
-    searchTerm ||
-    selectedSeason ||
-    selectedCategory ||
-    selectedBrandCategory ||
-    selectedSizes.length > 0 ||
-    minPrice ||
-    maxPrice;
+  const activeFilterCount = [
+    searchTerm,
+    selectedSeason,
+    selectedCategory,
+    selectedBrandCategory,
+    selectedSizes.length > 0,
+    minPrice || maxPrice,
+  ].filter(Boolean).length;
+  const clearFiltersText = `Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`;
 
   return (
     <div className="container mx-auto py-6 px-4 space-y-6">
@@ -700,10 +712,10 @@ export default function CatalogueGenerator() {
                   <Filter className="h-4 w-4" />
                   Filters
                 </CardTitle>
-                {hasActiveFilters && (
+                {activeFilterCount > 0 && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
                     <X className="h-3 w-3 mr-1" />
-                    Clear
+                    {clearFiltersText}
                   </Button>
                 )}
               </div>
@@ -711,32 +723,34 @@ export default function CatalogueGenerator() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="search">Search</Label>
-                <Input
+                <SearchInput
                   id="search"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Style code or name..."
+                  onChange={setSearchTerm}
+                  placeholder="Search style code, buyer's code, name, category, season…"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label>Category</Label>
-                <Select
-                  value={selectedCategory || '_all'}
-                  onValueChange={(v) => setSelectedCategory(v === '_all' ? '' : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Categories</SelectItem>
-                    {productCategories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* 50+ categories: searchable */}
+                <Combobox
+                  options={[
+                    { value: '', label: 'All categories', searchText: 'all categories' },
+                    // Names repeat across parents (5 "Co-Ords"); the unique code keeps each list item distinct,
+                    // or the picker's keyboard selection sticks on the first of the repeats
+                    ...productCategories.map((cat) => ({
+                      value: cat.id,
+                      label: cat.name,
+                      searchText: `${cat.name} ${cat.code}`,
+                    })),
+                  ]}
+                  value={selectedCategory}
+                  onValueChange={setSelectedCategory}
+                  placeholder="All categories"
+                  searchPlaceholder="Search categories..."
+                  emptyText="No categories found."
+                />
               </div>
 
               <div className="space-y-2">
@@ -746,10 +760,10 @@ export default function CatalogueGenerator() {
                   onValueChange={(v) => setSelectedBrandCategory(v === '_all' ? '' : v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="All Brand Categories" />
+                    <SelectValue placeholder="All brand categories" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_all">All Brand Categories</SelectItem>
+                    <SelectItem value="_all">All brand categories</SelectItem>
                     {uniqueBrandCategories.map((bc) => (
                       <SelectItem key={bc.id} value={bc.id}>
                         {bc.category}
@@ -761,22 +775,22 @@ export default function CatalogueGenerator() {
 
               <div className="space-y-2">
                 <Label>Season</Label>
-                <Select
-                  value={selectedSeason || '_all'}
-                  onValueChange={(v) => setSelectedSeason(v === '_all' ? '' : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Seasons" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all">All Seasons</SelectItem>
-                    {seasons.map((season) => (
-                      <SelectItem key={season.id} value={season.name}>
-                        {season.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* More than a dozen seasons: searchable. A style stores its season by name. */}
+                <Combobox
+                  options={[
+                    { value: '', label: 'All seasons', searchText: 'all seasons' },
+                    // Two season records share a name (Spring/Summer 2027); the filter value is the name, so list it once
+                    ...Array.from(new Set(seasons.map((season) => season.name))).map((name) => ({
+                      value: name,
+                      label: name,
+                    })),
+                  ]}
+                  value={selectedSeason}
+                  onValueChange={setSelectedSeason}
+                  placeholder="All seasons"
+                  searchPlaceholder="Search seasons..."
+                  emptyText="No seasons found."
+                />
               </div>
 
               <div className="space-y-2">
@@ -843,7 +857,30 @@ export default function CatalogueGenerator() {
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredStyles.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">No styles found matching your filters.</div>
+                <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                  {activeFilterCount > 0 ? (
+                    <>
+                      <p>No styles match these filters.</p>
+                      <Button variant="outline" size="sm" onClick={clearFilters}>
+                        <X className="h-4 w-4 mr-1" />
+                        Clear filters
+                      </Button>
+                    </>
+                  ) : (
+                    <p>No styles found.</p>
+                  )}
+                  {/* Filters look only at the styles loaded so far — offer the rest instead of a dead end */}
+                  {totalStyles > styles.length && (
+                    <Button variant="outline" size="sm" onClick={loadMoreStyles} disabled={isLoadingMore}>
+                      {isLoadingMore ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
+                      Load more styles ({styles.length} of {totalStyles} loaded)
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <>
                   <div className="overflow-auto max-h-[500px]">

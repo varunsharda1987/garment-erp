@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { embroideryService } from '@/services/embroidery.service';
 import type { Embroidery } from '@/types/embroidery.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -34,6 +36,16 @@ export default function EmbroideryList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+
+  const activeFilterCount = [searchQuery, supplierId].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the page size stays
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSupplierId('');
+    setCurrentPage(1);
+  };
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -42,7 +54,7 @@ export default function EmbroideryList() {
   useEffect(() => {
     fetchEmbroideryItems();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery]);
+  }, [currentPage, pageSize, searchQuery, supplierId]);
 
   const fetchEmbroideryItems = async () => {
     try {
@@ -52,6 +64,7 @@ export default function EmbroideryList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
+        supplierId: supplierId || undefined,
       });
       setEmbroideryItems(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -229,18 +242,33 @@ export default function EmbroideryList() {
 
         <CardContent>
           {/* Filters */}
-          <div className="flex flex-wrap gap-4 mb-6">
-            <div className="flex-1 min-w-[200px]">
-              <SearchInput
-                placeholder="Search designs..."
-                value={searchQuery}
-                onChange={(value) => {
-                  setSearchQuery(value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
-          </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[220px] max-w-md"
+              placeholder="Search code, design name, description, supplier…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
+            <SupplierCombobox
+              value={supplierId}
+              onValueChange={(value) => {
+                setSupplierId(value || '');
+                setCurrentPage(1);
+              }}
+              allowAll
+              allLabel="All suppliers"
+              placeholder="All suppliers"
+              className="w-[220px]"
+            />
+          </FilterBar>
 
           {/* Error */}
           {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">{error}</div>}
@@ -257,10 +285,18 @@ export default function EmbroideryList() {
             keyExtractor={(item) => item.id}
             loading={isLoading}
             onRowClick={(item) => navigate(`/embroidery/${item.id}`)}
-            emptyState={{
-              title: 'No embroidery designs found',
-              description: 'Create a new embroidery design to get started',
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    title: 'No embroidery designs match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    title: 'No embroidery designs found',
+                    description: 'Create a new embroidery design to get started',
+                  }
+            }
             pagination={{
               currentPage,
               pageSize,

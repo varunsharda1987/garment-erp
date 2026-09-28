@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Search, FileText, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, FileText, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,6 +28,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { getTDSEntries, createTDS, updateTDSStatus, deleteTDS } from '@/services/tds.service';
 import type { TDSEntry, CreateTDSRequest, TDSStatus } from '@/types/tds.types';
 import { TDS_STATUS_LABELS, TDS_STATUS_COLORS, TDS_SECTIONS } from '@/types/tds.types';
@@ -36,8 +38,6 @@ import { formatDate, toDateInputValue } from '@/lib/date';
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const FINANCIAL_YEARS = ['2025-26', '2024-25', '2023-24'];
 
 function formatAmount(amount: number): string {
   return amount.toLocaleString('en-IN', {
@@ -68,6 +68,14 @@ function getQuarter(dateStr: string): number {
   return 4;
 }
 
+// The current financial year and the three before it. A fixed list went stale every April: the
+// default year stopped being the current one and entries recorded this year could not be listed.
+const CURRENT_FY = getFinancialYear(new Date().toISOString());
+const FINANCIAL_YEARS = Array.from({ length: 4 }, (_, i) => {
+  const start = Number(CURRENT_FY.slice(0, 4)) - i;
+  return `${start}-${String(start + 1).slice(2)}`;
+});
+
 const EMPTY_FORM: CreateTDSRequest = {
   deductorName: '',
   deducteeName: '',
@@ -94,7 +102,7 @@ export default function TDSList() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [financialYear, setFinancialYear] = useState(FINANCIAL_YEARS[0]);
+  const [financialYear, setFinancialYear] = useState(CURRENT_FY); // 'all' = every year
   const [quarterFilter, setQuarterFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -115,7 +123,7 @@ export default function TDSList() {
         page,
         limit: pageSize,
         search: search || undefined,
-        financialYear: financialYear || undefined,
+        financialYear: financialYear !== 'all' ? financialYear : undefined,
         quarter: quarterFilter !== 'all' ? Number(quarterFilter) : undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
       }),
@@ -257,6 +265,23 @@ export default function TDSList() {
 
   const isSubmitting = createMutation.isPending;
 
+  // A year other than the current one narrows the list; "All years" widens it, so it is not counted
+  const activeFilterCount = [
+    search,
+    financialYear !== CURRENT_FY && financialYear !== 'all',
+    quarterFilter !== 'all',
+    statusFilter !== 'all',
+  ].filter(Boolean).length;
+
+  // Clears every filter back to the page's default (the current financial year); page size stays as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setFinancialYear(CURRENT_FY);
+    setQuarterFilter('all');
+    setStatusFilter('all');
+    setPage(1);
+  };
+
   // ---------- Render ----------
 
   return (
@@ -314,19 +339,21 @@ export default function TDSList() {
       {/* Filters + Table */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px] max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search deductor/deductee..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              placeholder="Search deductor, TDS section, certificate no…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search TDS entries"
+            />
             <Select
               value={financialYear}
               onValueChange={(val) => {
@@ -334,10 +361,11 @@ export default function TDSList() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="FY" />
+              <SelectTrigger className="w-[140px]" aria-label="Financial year">
+                <SelectValue placeholder="All years" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All years</SelectItem>
                 {FINANCIAL_YEARS.map((fy) => (
                   <SelectItem key={fy} value={fy}>
                     FY {fy}
@@ -352,11 +380,11 @@ export default function TDSList() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[120px]">
-                <SelectValue placeholder="Quarter" />
+              <SelectTrigger className="w-[140px]" aria-label="Quarter">
+                <SelectValue placeholder="All quarters" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Quarters</SelectItem>
+                <SelectItem value="all">All quarters</SelectItem>
                 <SelectItem value="1">Q1 (Apr-Jun)</SelectItem>
                 <SelectItem value="2">Q2 (Jul-Sep)</SelectItem>
                 <SelectItem value="3">Q3 (Oct-Dec)</SelectItem>
@@ -370,17 +398,19 @@ export default function TDSList() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="CERTIFICATE_RECEIVED">Certificate Received</SelectItem>
-                <SelectItem value="VERIFIED">Verified</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(TDS_STATUS_LABELS) as TDSStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {TDS_STATUS_LABELS[status]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
         </CardHeader>
         <CardContent>
           <Table>
@@ -412,11 +442,22 @@ export default function TDSList() {
                 <TableRow>
                   <TableCell colSpan={10} className="text-center py-12 text-muted-foreground">
                     <FileText className="mx-auto h-10 w-10 mb-3 opacity-50" />
-                    <p>No TDS entries found</p>
-                    <Button variant="outline" className="mt-3" onClick={openCreateDialog}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Record your first TDS entry
-                    </Button>
+                    {activeFilterCount > 0 ? (
+                      <>
+                        <p>No TDS entries match these filters.</p>
+                        <Button variant="outline" className="mt-3" onClick={clearFilters}>
+                          Clear filters
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <p>No TDS entries found</p>
+                        <Button variant="outline" className="mt-3" onClick={openCreateDialog}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Record your first TDS entry
+                        </Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

@@ -38,6 +38,19 @@ interface UsePickerOptionsArgs<T> {
   onError?: (error: unknown) => void;
 }
 
+/**
+ * The server search's rule, for pickers whose endpoint returns the whole list and so search on the client:
+ * every typed word must appear in `text` (any case, any order).
+ */
+export function matchesSearch(text: string, search: string): boolean {
+  const haystack = text.toLowerCase();
+  return search
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((word) => haystack.includes(word));
+}
+
 const byLabel = (a: ComboboxOption, b: ComboboxOption) =>
   a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' });
 

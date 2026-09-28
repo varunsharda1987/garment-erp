@@ -152,6 +152,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     'name',
     'billingName',
     'brandNames',
+    'categories', // the list's Product Categories column
     'contactPerson',
     'email',
     'phone',

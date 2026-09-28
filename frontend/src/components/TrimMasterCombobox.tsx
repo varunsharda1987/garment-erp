@@ -33,11 +33,16 @@ export interface TrimMasterSelection {
 interface TrimMasterComboboxProps {
   materialType: string;
   value?: string; // Current master ID
-  onSelect: (selection: TrimMasterSelection | null) => void;
+  /** The picked master with its price and FK field (null = cleared) — form callers. */
+  onSelect?: (selection: TrimMasterSelection | null) => void;
+  /** The picked master's id ('' = none / "All …") — the same contract as every other picker, for filters. */
+  onValueChange?: (value: string) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
   customerId?: string; // For customer-specific label/packaging filtering
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All thread masters", "All button masters"…)
 }
 
 /** Common shape for trim master items across all material types */
@@ -183,12 +188,16 @@ export function TrimMasterCombobox({
   materialType,
   value,
   onSelect,
+  onValueChange,
   placeholder,
   className,
   disabled = false,
   customerId,
+  allowAll = false,
+  allLabel,
 }: TrimMasterComboboxProps) {
   const config = MASTER_CONFIG[materialType];
+  const typeLabel = (TRIM_TYPE_REGISTRY[materialType]?.label ?? materialType).toLowerCase();
 
   const fetch = useCallback(
     async (search: string): Promise<PickerPage<TrimMasterItem>> => {
@@ -217,6 +226,8 @@ export function TrimMasterCombobox({
   });
 
   const handleValueChange = (selectedId: string) => {
+    onValueChange?.(selectedId);
+    if (!onSelect) return;
     if (!selectedId || !config) {
       onSelect(null);
       return;
@@ -247,7 +258,11 @@ export function TrimMasterCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={
+        allowAll
+          ? [{ value: '', label: allLabel ?? `All ${typeLabel} masters`, searchText: `all ${typeLabel}` }, ...options]
+          : options
+      }
       value={value}
       onValueChange={handleValueChange}
       placeholder={

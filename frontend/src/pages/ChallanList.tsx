@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { challanService } from '@/services/challan.service';
 import type { Challan, ChallanFilters, TodaySummary } from '@/types/challan.types';
 import {
@@ -19,14 +17,16 @@ import {
 } from '@/types/challan.types';
 import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import { handleApiError } from '@/lib/api-error-handler';
-import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw } from 'lucide-react';
+import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw, X } from 'lucide-react';
 
 import { formatDate } from '@/lib/date';
 
 export default function ChallanList() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [challans, setChallans] = useState<Challan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -200,6 +200,14 @@ export default function ChallanList() {
     },
   ];
 
+  // Drop drill-down params from the URL once their filter is cleared, so a reload does not bring them back
+  const clearUrlFilters = (...keys: string[]) => {
+    const next = new URLSearchParams(searchParams);
+    keys.forEach((key) => next.delete(key));
+    setSearchParams(next, { replace: true });
+  };
+
+  // Clears every filter; page size stays as chosen
   const clearFilters = () => {
     setTypeFilter('all');
     setStatusFilter('all');
@@ -208,17 +216,20 @@ export default function ChallanList() {
     setToDate('');
     setShowTodayOnly(false);
     setSearch('');
+    clearUrlFilters('challanType', 'status', 'productionRunId');
     setPage(1);
   };
 
-  const hasActiveFilters =
-    typeFilter !== 'all' ||
-    statusFilter !== 'all' ||
-    itemTypeFilter !== 'all' ||
-    fromDate ||
-    toDate ||
-    showTodayOnly ||
-    search;
+  const activeFilterCount = [
+    search,
+    typeFilter !== 'all',
+    statusFilter !== 'all',
+    itemTypeFilter !== 'all',
+    fromDate || toDate,
+    showTodayOnly,
+    productionRunId,
+  ].filter(Boolean).length;
+  const hasActiveFilters = activeFilterCount > 0;
 
   return (
     <div className="space-y-4">
@@ -293,145 +304,124 @@ export default function ChallanList() {
         </Card>
       )}
 
-      {/* Production-run drill-down filter indicator */}
-      {productionRunId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            Filtered to production run:{' '}
-            {challans.find((c) => c.productionRun)?.productionRun?.workOrderNumber || productionRunId}
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/manufacturing/challans')}>
-            Clear filter
-          </Button>
-        </div>
-      )}
-
       <Card>
         <CardHeader className="pb-3">
-          <div className="space-y-3">
-            {/* First row: Search + Quick filters */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <Input
-                placeholder="Search challans, processor, remarks..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="w-64"
-              />
-              <Select
-                value={typeFilter}
-                onValueChange={(v) => {
-                  setTypeFilter(v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {Object.entries(ChallanTypeLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => {
-                  setStatusFilter(v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {Object.entries(ChallanStatusLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={itemTypeFilter}
-                onValueChange={(v) => {
-                  setItemTypeFilter(v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All Items" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Item Types</SelectItem>
-                  {CHALLAN_ITEM_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  Clear filters
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={hasActiveFilters}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] max-w-md flex-1"
+              placeholder="Search challan number, from, to, remarks…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              aria-label="Search challans"
+            />
+            <Select
+              value={typeFilter}
+              onValueChange={(v) => {
+                setTypeFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[160px]" aria-label="Type">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {Object.entries(ChallanTypeLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {Object.entries(ChallanStatusLabels).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={itemTypeFilter}
+              onValueChange={(v) => {
+                setItemTypeFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Item type">
+                <SelectValue placeholder="All item types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All item types</SelectItem>
+                {CHALLAN_ITEM_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <DateRangeFilter
+              label="Challan date"
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+                setShowTodayOnly(false);
+                setPage(1);
+              }}
+            />
+            <Button
+              variant={showTodayOnly ? 'default' : 'outline'}
+              onClick={() => {
+                setShowTodayOnly(!showTodayOnly);
+                if (!showTodayOnly) {
+                  setFromDate('');
+                  setToDate('');
+                }
+                setPage(1);
+              }}
+            >
+              <Calendar className="h-4 w-4 mr-1" />
+              Today only
+            </Button>
+            {/* Scoped to one production run by a drill-down link — say so, and let it be removed on its own */}
+            {productionRunId && (
+              <Badge variant="secondary" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
+                Run: {challans.find((c) => c.productionRun)?.productionRun?.workOrderNumber ?? 'this run'}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  aria-label="Remove the run filter"
+                  onClick={() => {
+                    clearUrlFilters('productionRunId');
+                    setPage(1);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
                 </Button>
-              )}
-              <span className="text-sm text-muted-foreground ml-auto">
-                {total} challan{total !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Second row: Date filters */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <Button
-                variant={showTodayOnly ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  setShowTodayOnly(!showTodayOnly);
-                  if (!showTodayOnly) {
-                    setFromDate('');
-                    setToDate('');
-                  }
-                  setPage(1);
-                }}
-              >
-                <Calendar className="h-4 w-4 mr-1" />
-                Today Only
-              </Button>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm text-muted-foreground">From:</Label>
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => {
-                    setFromDate(e.target.value);
-                    setShowTodayOnly(false);
-                    setPage(1);
-                  }}
-                  className="w-36 h-8"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label className="text-sm text-muted-foreground">To:</Label>
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => {
-                    setToDate(e.target.value);
-                    setShowTodayOnly(false);
-                    setPage(1);
-                  }}
-                  className="w-36 h-8"
-                />
-              </div>
-            </div>
-          </div>
+              </Badge>
+            )}
+          </FilterBar>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -439,7 +429,11 @@ export default function ChallanList() {
             columns={columns}
             keyExtractor={(c) => c.id}
             loading={isLoading}
-            emptyState={{ title: 'No challans found' }}
+            emptyState={
+              hasActiveFilters
+                ? { title: 'No challans match these filters.', actionLabel: 'Clear filters', onAction: clearFilters }
+                : { title: 'No challans found' }
+            }
           />
           {/* API pages by offset and returns only the total, so the page count is derived here */}
           <Pagination

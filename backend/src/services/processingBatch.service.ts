@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { divideCurrency, roundToCent, toNumber } from '../utils/currency';
+import { applySearch } from '../utils/search-filter';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 export interface CreateProcessingBatchDTO {
@@ -289,12 +290,17 @@ class ProcessingBatchService {
       where.laceId = filters.laceId;
     }
 
-    if (filters?.search) {
-      where.batchNumber = {
-        contains: filters.search,
-        mode: 'insensitive',
-      };
-    }
+    // Every column the Processing Batches table shows: batch number, target colour, material code / name
+    applySearch(where, filters?.search, [
+      'batchNumber',
+      'colorToApply',
+      'greigeMaster.greigeCode',
+      'greigeMaster.greigeName',
+      'fabricMaster.fabricCode',
+      'fabricMaster.fabricName',
+      'laceMaster.laceCode',
+      'laceMaster.laceName',
+    ]);
 
     const batches = await prisma.processing_batch.findMany({
       where,

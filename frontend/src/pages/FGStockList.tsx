@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Package, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Package, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Pagination from '@/components/Pagination';
@@ -71,16 +74,25 @@ interface FGStockResponse {
 
 export default function FGStockList() {
   const [search, setSearch] = useState('');
+  const [styleId, setStyleId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
+  const activeFilterCount = [search, styleId].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearch('');
+    setStyleId('');
+    setPage(1);
+  };
+
   const { data, isLoading } = useQuery<FGStockResponse>({
-    queryKey: ['fg-stock', { page, pageSize, search }],
+    queryKey: ['fg-stock', { page, pageSize, search, styleId }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('limit', String(pageSize));
       if (search) params.set('search', search);
+      if (styleId) params.set('styleId', styleId);
       const response = await api.get(`/fg-stock?${params.toString()}`);
       return response.data;
     },
@@ -122,28 +134,54 @@ export default function FGStockList() {
           <CardDescription>Ready-to-ship finished garments by style, color, and size</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by style, color, size..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-8"
-              />
-            </div>
-          </div>
+          <FilterBar
+            className="mb-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px]"
+              placeholder="Search style, buyer's code, colour, size, work order, location..."
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                setPage(1);
+              }}
+            />
+            {/* Any status: stock can outlive a style being archived */}
+            <StyleCombobox
+              value={styleId}
+              onValueChange={(v) => {
+                setStyleId(v);
+                setPage(1);
+              }}
+              status={null}
+              allowAll
+              placeholder="All styles"
+              className="w-[260px]"
+            />
+          </FilterBar>
 
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Loading...</div>
           ) : items.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No finished goods stock found</p>
-              <p className="text-sm mt-2">Stock is created when production batches are completed</p>
+              {activeFilterCount > 0 ? (
+                <>
+                  <p>No finished goods stock matches these filters.</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    Clear filters
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p>No finished goods stock found</p>
+                  <p className="text-sm mt-2">Stock is created when production batches are completed</p>
+                </>
+              )}
             </div>
           ) : (
             <>

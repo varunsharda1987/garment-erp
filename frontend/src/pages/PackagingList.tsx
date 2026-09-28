@@ -8,6 +8,7 @@ import type { Packaging } from '@/types/packaging.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -83,6 +84,19 @@ export default function PackagingList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Every filter change starts again from page 1
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const activeFilterCount = searchQuery ? 1 : 0;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -239,16 +253,20 @@ export default function PackagingList() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search Filter */}
-          <div className="mb-6">
-            <div className="flex-1 max-w-md">
-              <SearchInput
-                placeholder="Search by code, name, or type..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-          </div>
+          {/* Filters */}
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] max-w-md flex-1"
+              placeholder="Search code, name, type, size, material, customer, brand…"
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+          </FilterBar>
 
           {/* DataTable Component */}
           <DataTable
@@ -258,15 +276,22 @@ export default function PackagingList() {
             loading={isLoading}
             error={error}
             onRowClick={(packaging) => navigate(`/materials/packaging/${packaging.id}`)}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No packaging items found',
-              description: searchQuery
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first packaging item',
-              actionLabel: 'Create First Packaging',
-              onAction: () => navigate('/materials/packaging/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No packaging items match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No packaging items found',
+                    description: 'Get started by creating your first packaging item',
+                    actionLabel: 'Create First Packaging',
+                    onAction: () => navigate('/materials/packaging/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

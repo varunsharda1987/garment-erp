@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react';
 import { Combobox } from './ui/combobox';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
-import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
+import { matchesSearch, usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
 import type { GreigeForRateCard } from '@/types/processorRateCardV2.types';
 import { toast } from 'sonner';
 
@@ -18,8 +18,11 @@ interface GreigeComboboxProps {
   disabled?: boolean;
   /** Prepend an "All Greige" option that clears the selection — for filter-bar use. */
   allowAll?: boolean;
-  allLabel?: string;
+  allLabel?: string; // Label of that row (default: "All Greige")
 }
+
+const greigeSearchText = (greige: GreigeForRateCard) =>
+  `${greige.greigeCode} ${greige.greigeName} ${greige.genericGreigeName || ''} ${greige.composition || ''}`;
 
 /**
  * Picks a greige MASTER (the cloth), not a stock lot.
@@ -30,8 +33,9 @@ interface GreigeComboboxProps {
  * ADMIN/MERCHANDISER/ACCOUNTS while `jobWork` is ADMIN/PRODUCTION_MANAGER/PURCHASE; that guard was
  * lifted off the two lookup routes on 2026-09-21.)
  *
- * The endpoint returns every greige in one response (48 live), so the search is client-side —
- * same shape as WarehouseCombobox.
+ * The endpoint returns every greige in one response (48 live), so the search is client-side: every
+ * typed word must match the code, name, generic name or composition. (Until 2026-09-28 the typed text
+ * was ignored — the list is in server-search mode, so the combobox does not filter it either.)
  */
 export function GreigeCombobox({
   value,
@@ -43,12 +47,13 @@ export function GreigeCombobox({
   allowAll = false,
   allLabel = 'All Greige',
 }: GreigeComboboxProps) {
-  // Keeps the last loaded page so a selection can hand back the whole row.
+  // Keeps the last loaded list so a selection can hand back the whole row.
   const rowsRef = useRef<GreigeForRateCard[]>([]);
 
-  const fetch = useCallback(async (): Promise<PickerPage<GreigeForRateCard>> => {
-    const items = await processorRateCardV2Service.getGreigeFabrics();
-    rowsRef.current = items;
+  const fetch = useCallback(async (search: string): Promise<PickerPage<GreigeForRateCard>> => {
+    const rows = await processorRateCardV2Service.getGreigeFabrics();
+    rowsRef.current = rows;
+    const items = search ? rows.filter((greige) => matchesSearch(greigeSearchText(greige), search)) : rows;
     return { items, total: items.length };
   }, []);
 
@@ -57,7 +62,7 @@ export function GreigeCombobox({
     toOption: (greige) => ({
       value: greige.id,
       label: `${greige.greigeCode} — ${greige.greigeName}`,
-      searchText: `${greige.greigeCode} ${greige.greigeName} ${greige.genericGreigeName || ''} ${greige.composition || ''}`,
+      searchText: greigeSearchText(greige),
     }),
     onError: (error) => {
       console.error('Failed to load greige:', error);

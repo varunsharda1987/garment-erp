@@ -19,6 +19,8 @@ interface ColorComboboxProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All colors")
 }
 
 const toColorData = (color: ColorMaster): ColorData => ({
@@ -35,6 +37,8 @@ export function ColorCombobox({
   placeholder = 'Select color...',
   className,
   disabled = false,
+  allowAll = false,
+  allLabel = 'All colors',
 }: ColorComboboxProps) {
   // The paginated list (not /colors/search) so the picker learns how many colours exist in all
   const fetch = useCallback(async (search: string): Promise<PickerPage<ColorMaster>> => {
@@ -84,7 +88,7 @@ export function ColorCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all colors colours' }, ...options] : options}
       value={value}
       onValueChange={handleValueChange}
       placeholder={!initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading colors...') : placeholder}

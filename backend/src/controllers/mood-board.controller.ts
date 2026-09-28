@@ -53,6 +53,7 @@ export const getAll = async (req: Request, res: Response): Promise<void> => {
   const seasonId = req.query.seasonId as string;
   const status = req.query.status as string;
   const createdById = req.query.createdById as string;
+  const search = typeof req.query.search === 'string' ? req.query.search : undefined;
   const page = parseInt(req.query.page as string) || 1;
   const limit = parseInt(req.query.limit as string) || 20;
 
@@ -60,6 +61,7 @@ export const getAll = async (req: Request, res: Response): Promise<void> => {
     seasonId,
     status,
     createdById,
+    search,
     page,
     limit,
   });

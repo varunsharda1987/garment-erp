@@ -8,6 +8,7 @@ import { colorService } from '@/services/colorService';
 import type { ColorMaster } from '@/types/color.types';
 import { COLOR_FAMILIES } from '@/types/color.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -68,6 +69,15 @@ export default function ColorMasterList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const activeFilterCount = [searchQuery, familyFilter !== 'all', statusFilter !== 'all'].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setFamilyFilter('all');
+    setStatusFilter('all');
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -198,57 +208,57 @@ export default function ColorMasterList() {
 
         <CardContent>
           {/* Filters */}
-          <div className="flex flex-wrap gap-4 mb-6">
-            <div className="flex-1 min-w-[200px]">
-              <SearchInput
-                placeholder="Search colors..."
-                value={searchQuery}
-                onChange={(value) => {
-                  setSearchQuery(value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
-            <div className="w-[180px]">
-              <Select
-                value={familyFilter}
-                onValueChange={(value) => {
-                  setFamilyFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Families" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Families</SelectItem>
-                  {COLOR_FAMILIES.map((family) => (
-                    <SelectItem key={family} value={family}>
-                      {family}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-[160px]">
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search code, name, family, hex code, description…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
+            <Select
+              value={familyFilter}
+              onValueChange={(value) => {
+                setFamilyFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All families" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All families</SelectItem>
+                {COLOR_FAMILIES.map((family) => (
+                  <SelectItem key={family} value={family}>
+                    {family}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
 
           {/* Error */}
           {error && <div className="bg-destructive/10 text-destructive p-4 rounded-md mb-4">{error}</div>}
@@ -266,12 +276,20 @@ export default function ColorMasterList() {
             keyExtractor={(item) => item.id}
             loading={isLoading}
             onRowClick={(item) => navigate(`/colors/${item.id}/edit`)}
-            emptyState={{
-              title: 'No colors found',
-              description: 'Add your first color to get started.',
-              actionLabel: 'Add Color',
-              onAction: () => navigate('/colors/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    title: 'No colors match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    title: 'No colors found',
+                    description: 'Add your first color to get started.',
+                    actionLabel: 'Add Color',
+                    onAction: () => navigate('/colors/new'),
+                  }
+            }
             pagination={{
               currentPage,
               pageSize,

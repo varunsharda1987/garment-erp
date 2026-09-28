@@ -3,11 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Edit, Eye, TrendingUp, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@/components/PageHeader';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { OrderCombobox } from '@/components/OrderCombobox';
+import { StyleCombobox } from '@/components/StyleCombobox';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -40,11 +43,13 @@ export default function WorkOrderList() {
   const [overdueOnly, setOverdueOnly] = useState(searchParams.get('overdue') === 'true');
   // Scope to a single order when arriving from the order detail drill-down link
   const [orderIdFilter, setOrderIdFilter] = useState(searchParams.get('orderId') || '');
+  const [styleFilter, setStyleFilter] = useState('');
+  const [warehouseFilter, setWarehouseFilter] = useState('');
 
   useEffect(() => {
     loadWorkOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, priorityFilter, searchQuery, orderIdFilter]);
+  }, [statusFilter, priorityFilter, searchQuery, orderIdFilter, styleFilter, warehouseFilter]);
 
   const loadWorkOrders = async () => {
     try {
@@ -55,6 +60,8 @@ export default function WorkOrderList() {
         priority: priorityFilter || undefined,
         search: searchQuery || undefined,
         orderId: orderIdFilter || undefined,
+        styleId: styleFilter || undefined,
+        warehouseId: warehouseFilter || undefined,
       });
       setWorkOrders(data);
     } catch (err: unknown) {
@@ -108,10 +115,32 @@ export default function WorkOrderList() {
     toDateInputValue(wo.plannedEndDate) < toDateInputValue(new Date()) &&
     !['COMPLETED', 'DISPATCHED', 'CANCELLED', 'SPLIT'].includes(wo.status);
 
-  const clearUrlFilter = (key: string) => {
+  // Drop drill-down params from the URL once their filter is changed or cleared, so a reload does not bring them back
+  const clearUrlFilters = (...keys: string[]) => {
     const next = new URLSearchParams(searchParams);
-    next.delete(key);
+    keys.forEach((key) => next.delete(key));
     setSearchParams(next, { replace: true });
+  };
+
+  const activeFilterCount = [
+    searchQuery,
+    statusFilter,
+    priorityFilter,
+    orderIdFilter,
+    styleFilter,
+    warehouseFilter,
+    overdueOnly,
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setPriorityFilter('');
+    setOrderIdFilter('');
+    setStyleFilter('');
+    setWarehouseFilter('');
+    setOverdueOnly(false);
+    clearUrlFilters('status', 'overdue', 'orderId');
   };
 
   // Overdue is filtered client-side (no backend param); status/priority/search are server-side
@@ -267,95 +296,103 @@ export default function WorkOrderList() {
         </div>
       </PageHeader>
 
-      {/* Active drill-down filter indicators */}
-      {(overdueOnly || orderIdFilter) && (
-        <div className="mb-4 flex items-center gap-2">
-          {overdueOnly && (
-            <Badge variant="destructive" className="gap-1">
-              Overdue only
-              <button
-                type="button"
-                onClick={() => {
-                  setOverdueOnly(false);
-                  clearUrlFilter('overdue');
-                }}
-                className="ml-1 hover:opacity-80"
-                aria-label="Clear overdue filter"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-          {orderIdFilter && (
-            <Badge variant="secondary" className="gap-1">
-              Order: {workOrders.find((wo) => wo.orders)?.orders?.orderNumber || orderIdFilter}
-              <button
-                type="button"
-                onClick={() => {
-                  setOrderIdFilter('');
-                  clearUrlFilter('orderId');
-                }}
-                className="ml-1 hover:opacity-80"
-                aria-label="Clear order filter"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          )}
-        </div>
-      )}
-
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search">Search</Label>
-              <SearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search by work order, order, style or location..."
-              />
-            </div>
-            <div className="w-40">
-              <Label htmlFor="statusFilter">Status</Label>
-              <Select
-                value={statusFilter || 'ALL'}
-                onValueChange={(value) => setStatusFilter(value === 'ALL' ? '' : (value as OrderStatus))}
-              >
-                <SelectTrigger id="statusFilter">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="IN_PRODUCTION">In Production</SelectItem>
-                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                  <SelectItem value="DISPATCHED">Dispatched</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                  <SelectItem value="SPLIT">Split</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-32">
-              <Label htmlFor="priorityFilter">Priority</Label>
-              <Select
-                value={priorityFilter || 'ALL'}
-                onValueChange={(value) => setPriorityFilter(value === 'ALL' ? '' : (value as Priority))}
-              >
-                <SelectTrigger id="priorityFilter">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="LOW">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] max-w-md flex-1"
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search run number, order, customer, SPO, style, buyer style, location…"
+              aria-label="Search production runs"
+            />
+            <Select
+              value={statusFilter || 'ALL'}
+              onValueChange={(value) => {
+                setStatusFilter(value === 'ALL' ? '' : (value as OrderStatus));
+                clearUrlFilters('status');
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="IN_PRODUCTION">In Production</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+                <SelectItem value="DISPATCHED">Dispatched</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="SPLIT">Split</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={priorityFilter || 'ALL'}
+              onValueChange={(value) => setPriorityFilter(value === 'ALL' ? '' : (value as Priority))}
+            >
+              <SelectTrigger className="w-[160px]" aria-label="Priority">
+                <SelectValue placeholder="All priorities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All priorities</SelectItem>
+                <SelectItem value="URGENT">Urgent</SelectItem>
+                <SelectItem value="HIGH">High</SelectItem>
+                <SelectItem value="MEDIUM">Medium</SelectItem>
+                <SelectItem value="LOW">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <OrderCombobox
+              value={orderIdFilter}
+              onValueChange={(v) => {
+                setOrderIdFilter(v || '');
+                clearUrlFilters('orderId');
+              }}
+              allowAll
+              allLabel="All orders"
+              placeholder="All orders"
+              className="w-[220px]"
+            />
+            <StyleCombobox
+              value={styleFilter}
+              onValueChange={(v) => setStyleFilter(v || '')}
+              status={null}
+              allowAll
+              allLabel="All styles"
+              placeholder="All styles"
+              className="w-[220px]"
+            />
+            <WarehouseCombobox
+              value={warehouseFilter}
+              onValueChange={(v) => setWarehouseFilter(v || '')}
+              allowAll
+              allLabel="All locations"
+              placeholder="All locations"
+              className="w-[200px]"
+            />
+            {/* Dashboard drill-down (no backend param — filtered client-side): say so, and let it be removed */}
+            {overdueOnly && (
+              <Badge variant="destructive" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
+                Overdue only
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 hover:bg-transparent hover:opacity-80"
+                  aria-label="Remove the overdue filter"
+                  onClick={() => {
+                    setOverdueOnly(false);
+                    clearUrlFilters('overdue');
+                  }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </Badge>
+            )}
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -367,14 +404,20 @@ export default function WorkOrderList() {
           keyExtractor={(wo) => wo.id}
           loading={isLoading}
           error={error}
-          emptyState={{
-            icon: <ClipboardList className="h-16 w-16" />,
-            title: 'No production runs found',
-            description:
-              searchQuery || statusFilter || priorityFilter || overdueOnly || orderIdFilter
-                ? 'Try adjusting your search or filter criteria'
-                : 'Create a work order manually or start production from a sale order',
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <ClipboardList className="h-16 w-16" />,
+                  title: 'No production runs match these filters.',
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <ClipboardList className="h-16 w-16" />,
+                  title: 'No production runs found',
+                  description: 'Create a work order manually or start production from a sale order',
+                }
+          }
           onRowClick={(wo) => navigate(`/production/work-orders/${wo.id}`)}
         />
       </Card>

@@ -425,7 +425,26 @@ export const getAllLace = async (req: Request, res: Response) => {
   }
 
   if (search) {
-    applySearch(where, String(search), ['laceName', 'laceCode', 'color']);
+    // Every text column the Lace list shows: code, name, type (its greige source and the style it was
+    // processed for), lace type, colour, styles (cost-sheet styles, else direct associations), suppliers
+    applySearch(where, String(search), [
+      'laceName',
+      'laceCode',
+      'description',
+      'laceType',
+      'color',
+      'sourceGreigeLace.laceCode',
+      'processedForStyleCode',
+      'processedForStyle.buyerStyleRef',
+      'lace_style_associations[].style.styleCode',
+      'lace_style_associations[].style.buyerStyleRef',
+      'costingItems[].costing.styles.styleCode',
+      'costingItems[].costing.styles.buyerStyleRef',
+      'greigeCostingItems[].costing.styles.styleCode',
+      'greigeCostingItems[].costing.styles.buyerStyleRef',
+      'lace_suppliers[].supplier.code',
+      'lace_suppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
-import { Label } from '@/components/ui/label';
 import { PageHeader } from '@/components/PageHeader';
+import { FilterBar, DateRangeFilter, type DateRangeValue } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
 import stockCountService from '../services/stockCount.service';
 import type { StockCount, CountStatus, CountType } from '../types/inventory.types';
@@ -33,11 +34,23 @@ export default function StockCountList() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<CountStatus | ''>('');
   const [typeFilter, setTypeFilter] = useState<CountType | ''>('');
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: '', to: '' });
+
+  const activeFilterCount = [statusFilter, typeFilter, warehouseFilter, dateRange.from || dateRange.to].filter(
+    Boolean
+  ).length;
+  const clearFilters = () => {
+    setStatusFilter('');
+    setTypeFilter('');
+    setWarehouseFilter('');
+    setDateRange({ from: '', to: '' });
+  };
 
   useEffect(() => {
     loadCounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, warehouseFilter, dateRange]);
 
   const loadCounts = async () => {
     try {
@@ -46,6 +59,9 @@ export default function StockCountList() {
       const data = await stockCountService.getAll({
         status: statusFilter || undefined,
         countType: typeFilter || undefined,
+        warehouseId: warehouseFilter || undefined,
+        startDate: dateRange.from || undefined,
+        endDate: dateRange.to || undefined,
       });
       setCounts(data);
     } catch (err: unknown) {
@@ -157,47 +173,53 @@ export default function StockCountList() {
 
       {/* Filters */}
       <Card className="mb-4">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="w-48">
-              <Label htmlFor="statusFilter">Status</Label>
-              <Select
-                value={statusFilter || 'all'}
-                onValueChange={(value) => setStatusFilter(value === 'all' ? '' : (value as CountStatus))}
-              >
-                <SelectTrigger id="statusFilter">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="COUNTED">Counted</SelectItem>
-                  <SelectItem value="VERIFIED">Verified</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-48">
-              <Label htmlFor="typeFilter">Count Type</Label>
-              <Select
-                value={typeFilter || 'all'}
-                onValueChange={(value) => setTypeFilter(value === 'all' ? '' : (value as CountType))}
-              >
-                <SelectTrigger id="typeFilter">
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="FULL">Full</SelectItem>
-                  <SelectItem value="PARTIAL">Partial</SelectItem>
-                  <SelectItem value="CYCLE">Cycle</SelectItem>
-                  <SelectItem value="SPOT_CHECK">Spot Check</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        <CardContent className="pt-4 pb-4">
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <Select
+              value={statusFilter || 'all'}
+              onValueChange={(value) => setStatusFilter(value === 'all' ? '' : (value as CountStatus))}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                <SelectItem value="COUNTED">Counted</SelectItem>
+                <SelectItem value="VERIFIED">Verified</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={typeFilter || 'all'}
+              onValueChange={(value) => setTypeFilter(value === 'all' ? '' : (value as CountType))}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Count type">
+                <SelectValue placeholder="All count types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All count types</SelectItem>
+                <SelectItem value="FULL">Full</SelectItem>
+                <SelectItem value="PARTIAL">Partial</SelectItem>
+                <SelectItem value="CYCLE">Cycle</SelectItem>
+                <SelectItem value="SPOT_CHECK">Spot Check</SelectItem>
+              </SelectContent>
+            </Select>
+            <WarehouseCombobox
+              value={warehouseFilter}
+              onValueChange={setWarehouseFilter}
+              allowAll
+              placeholder="All warehouses"
+              className="w-[220px]"
+            />
+            <DateRangeFilter label="Count date" from={dateRange.from} to={dateRange.to} onChange={setDateRange} />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -210,16 +232,22 @@ export default function StockCountList() {
           loading={loading}
           error={error}
           onRowClick={(count) => navigate(`/inventory/stock-counts/${count.id}`)}
-          emptyState={{
-            icon: <ClipboardList className="h-16 w-16" />,
-            title: 'No stock counts found',
-            description:
-              statusFilter || typeFilter
-                ? 'Try adjusting your filter criteria'
-                : 'Create your first stock count to get started',
-            actionLabel: !statusFilter && !typeFilter ? 'Create First Stock Count' : undefined,
-            onAction: !statusFilter && !typeFilter ? () => navigate('/inventory/stock-counts/new') : undefined,
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <ClipboardList className="h-16 w-16" />,
+                  title: 'No stock counts match these filters.',
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <ClipboardList className="h-16 w-16" />,
+                  title: 'No stock counts found',
+                  description: 'Create your first stock count to get started',
+                  actionLabel: 'Create First Stock Count',
+                  onAction: () => navigate('/inventory/stock-counts/new'),
+                }
+          }
         />
       </Card>
 

@@ -23,6 +23,9 @@ export const getAllFGStock = async (req: Request, res: Response) => {
       'color_options.colorName',
       'size_options.sizeName',
       'work_orders.workOrderNumber',
+      // The list's Location column
+      'locations.locationName',
+      'locations.locationCode',
     ]);
   }
 

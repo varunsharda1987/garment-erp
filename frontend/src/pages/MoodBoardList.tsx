@@ -5,11 +5,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Plus, Search, Trash2, Edit2, Calendar, Filter } from 'lucide-react';
+import { LayoutGrid, Plus, Trash2, Edit2, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
@@ -22,6 +21,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { useToast } from '@/hooks/use-toast';
 import { moodBoardService } from '@/services/moodBoard.service';
 import type { MoodBoard, MoodBoardStatus } from '@/types/moodBoard.types';
@@ -125,6 +126,13 @@ export function MoodBoardList() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
+  const activeFilterCount = [search, statusFilter !== 'all'].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+  };
+
   // Load mood boards
   const loadMoodBoards = useCallback(async () => {
     try {
@@ -193,31 +201,30 @@ export function MoodBoardList() {
       {/* Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search mood boards..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="DRAFT">Draft</SelectItem>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="ARCHIVED">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search name, description, season…"
+              value={search}
+              onChange={setSearch}
+              aria-label="Search mood boards"
+            />
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="ARCHIVED">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -228,6 +235,16 @@ export function MoodBoardList() {
             <Skeleton key={i} className="aspect-[4/3]" />
           ))}
         </div>
+      ) : moodBoards.length === 0 && activeFilterCount > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center h-64">
+            <LayoutGrid className="h-12 w-12 text-gray-300 mb-4" />
+            <p className="text-muted-foreground mb-4">No mood boards match these filters.</p>
+            <Button variant="outline" onClick={clearFilters}>
+              Clear filters
+            </Button>
+          </CardContent>
+        </Card>
       ) : moodBoards.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-64">

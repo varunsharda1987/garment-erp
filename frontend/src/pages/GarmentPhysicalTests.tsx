@@ -1,24 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import {
-  Shirt,
-  Plus,
-  Search,
-  Filter,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  RefreshCw,
-  RotateCcw,
-  X,
-} from 'lucide-react';
+import { Shirt, Plus, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, RotateCcw, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import { garmentPhysicalTestsService } from '@/services/testing.service';
 import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -43,6 +33,7 @@ export default function GarmentPhysicalTests() {
     (searchParams.get('status') as TestResult) || 'all'
   );
   const [pendingBuyerApproval, setPendingBuyerApproval] = useState(searchParams.get('pendingBuyerApproval') === 'true');
+  const [styleFilter, setStyleFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -51,10 +42,27 @@ export default function GarmentPhysicalTests() {
   const canWrite = can('testing');
   const [pageSize, setPageSize] = useState(20);
 
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPage(1);
+    };
+
+  const activeFilterCount = [search, statusFilter !== 'all', styleFilter, pendingBuyerApproval].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setStyleFilter('');
+    setPendingBuyerApproval(false);
+    setPage(1);
+  };
+
   useEffect(() => {
     fetchTests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, search, statusFilter, pendingBuyerApproval]);
+  }, [page, pageSize, search, statusFilter, styleFilter, pendingBuyerApproval]);
 
   const fetchTests = async () => {
     try {
@@ -64,6 +72,7 @@ export default function GarmentPhysicalTests() {
         limit: pageSize,
         search: search || undefined,
         overallTestResult: statusFilter === 'all' ? undefined : statusFilter,
+        styleId: styleFilter || undefined,
         pendingBuyerApproval: pendingBuyerApproval ? 'true' : undefined,
       });
       setTests(result.data);
@@ -74,11 +83,6 @@ export default function GarmentPhysicalTests() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
   };
 
   const getStatusBadge = (result: TestResult) => {
@@ -121,17 +125,6 @@ export default function GarmentPhysicalTests() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
-          <p className="text-muted-foreground mt-4">Loading garment tests...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -153,29 +146,26 @@ export default function GarmentPhysicalTests() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by test number, batch, work order..."
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+        <FilterBar
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="flex-1 min-w-[240px]"
+            placeholder="Search test, TRF or sample number, work order, style or buyer ref..."
+            value={search}
+            onChange={changeFilter(setSearch)}
+          />
           <Select
             value={statusFilter}
-            onValueChange={(value) => {
-              setStatusFilter(value as TestResult | 'all');
-              setPage(1);
-            }}
+            onValueChange={changeFilter((value: string) => setStatusFilter(value as TestResult | 'all'))}
           >
-            <SelectTrigger className="w-48">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Test Status" />
+            <SelectTrigger className="w-[180px]" aria-label="Status">
+              <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="PASS">Pass</SelectItem>
               <SelectItem value="FAIL">Fail</SelectItem>
@@ -183,30 +173,46 @@ export default function GarmentPhysicalTests() {
               <SelectItem value="CONDITIONAL_PASS">Conditional Pass</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        {pendingBuyerApproval && (
-          <div className="mt-3">
-            <Badge className="bg-info-muted text-info border-info/30 gap-1">
+          <StyleCombobox
+            value={styleFilter}
+            onValueChange={changeFilter(setStyleFilter)}
+            status={null}
+            allowAll
+            placeholder="All styles"
+            className="w-[220px]"
+          />
+          {pendingBuyerApproval && (
+            <Badge className="h-9 bg-info-muted text-info border-info/30 gap-1">
               <Clock className="h-3 w-3" />
               Pending buyer approval
               <button
                 type="button"
-                onClick={() => {
-                  setPendingBuyerApproval(false);
-                  setPage(1);
-                }}
+                onClick={() => changeFilter(setPendingBuyerApproval)(false)}
                 className="ml-1 hover:opacity-80"
                 aria-label="Clear buyer approval filter"
               >
                 <X className="h-3 w-3" />
               </button>
             </Badge>
-          </div>
-        )}
+          )}
+        </FilterBar>
       </Card>
 
       {/* Tests List */}
-      {tests.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading garment tests...</p>
+        </div>
+      ) : tests.length === 0 && activeFilterCount > 0 ? (
+        <Card className="p-12 text-center">
+          <Shirt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-4">No garment tests match these filters.</h3>
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </Card>
+      ) : tests.length === 0 ? (
         <Card className="p-12 text-center">
           <Shirt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Garment Tests Found</h3>

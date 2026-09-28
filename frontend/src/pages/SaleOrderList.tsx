@@ -1,8 +1,6 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { Plus, Trash2, ShoppingBag, Eye, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
@@ -28,9 +26,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { Combobox } from '@/components/ui/combobox';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import { SaleOrderForm } from '@/components/sale-order';
 import { orderSeasonLabels } from '@/components/sale-order/sale-order-lines';
@@ -93,20 +92,15 @@ export default function SaleOrderList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [customerFilter, setCustomerFilter] = useState<string>('all');
-  const [seasonFilter, setSeasonFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  // '' = all customers / all seasons
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [seasonFilter, setSeasonFilter] = useState('');
+  // Sale date range — ISO yyyy-MM-dd, '' = open end
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [soToDelete, setSoToDelete] = useState<SaleOrder | null>(null);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
-
-  // Reset to page 1 when any filter changes
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, customerFilter, seasonFilter, dateRange]);
-
-  const fromDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
-  const toDate = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
 
   // BUG-ORD14 fix: standardized query key
   const { data, isLoading, isError } = useQuery({
@@ -126,10 +120,10 @@ export default function SaleOrderList() {
         limit: pageSize,
         search: search || undefined,
         status: statusFilter !== 'all' ? (statusFilter as SaleOrderStatus) : undefined,
-        customerId: customerFilter !== 'all' ? customerFilter : undefined,
-        seasonId: seasonFilter !== 'all' ? seasonFilter : undefined,
-        fromDate,
-        toDate,
+        customerId: customerFilter || undefined,
+        seasonId: seasonFilter || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       }),
   });
 
@@ -172,9 +166,21 @@ export default function SaleOrderList() {
     createMutation.mutate(data as CreateSORequest);
   };
 
-  const filtersActive = Boolean(
-    search || statusFilter !== 'all' || customerFilter !== 'all' || seasonFilter !== 'all' || dateRange
-  );
+  const activeFilterCount = [search, statusFilter !== 'all', customerFilter, seasonFilter, fromDate || toDate].filter(
+    Boolean
+  ).length;
+  const filtersActive = activeFilterCount > 0;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setCustomerFilter('');
+    setSeasonFilter('');
+    setFromDate('');
+    setToDate('');
+    setPage(1);
+  };
 
   const columns: Column<SaleOrder>[] = [
     {
@@ -389,48 +395,80 @@ export default function SaleOrderList() {
 
       <Card>
         <CardHeader>
-          <div className="space-y-4">
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={filtersActive}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
             <SearchInput
-              placeholder="Search by SO number, buyer PO, customer, style code or season..."
+              placeholder="Search SO number, buyer PO, customer, style, buyer style, season…"
               value={search}
-              onChange={setSearch}
-              className="max-w-md"
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search sale orders"
             />
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <CustomerCombobox
-                value={customerFilter === 'all' ? '' : customerFilter}
-                onValueChange={(v) => setCustomerFilter(v || 'all')}
-                placeholder="All Customers"
-              />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {STATUS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={seasonFilter} onValueChange={setSeasonFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Seasons" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Seasons</SelectItem>
-                  {(seasons ?? []).map((season) => (
-                    <SelectItem key={season.id} value={season.id}>
-                      {season.code} — {season.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Sale date range" />
-            </div>
-          </div>
+            <CustomerCombobox
+              value={customerFilter}
+              onValueChange={(v) => {
+                setCustomerFilter(v || '');
+                setPage(1);
+              }}
+              allowAll
+              allLabel="All customers"
+              placeholder="All customers"
+              className="w-[220px]"
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Combobox
+              options={[
+                { value: '', label: 'All seasons', searchText: 'all seasons' },
+                ...(seasons ?? []).map((season) => ({
+                  value: season.id,
+                  label: `${season.code} — ${season.name}`,
+                })),
+              ]}
+              value={seasonFilter}
+              onValueChange={(v) => {
+                setSeasonFilter(v || '');
+                setPage(1);
+              }}
+              placeholder="All seasons"
+              searchPlaceholder="Search season…"
+              emptyText="No seasons found."
+              className="w-[220px]"
+            />
+            <DateRangeFilter
+              label="Sale date"
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+                setPage(1);
+              }}
+            />
+          </FilterBar>
         </CardHeader>
         <CardContent>
           <DataTable
@@ -441,12 +479,18 @@ export default function SaleOrderList() {
             error={isError ? 'Failed to load sale orders' : null}
             emptyState={{
               icon: <ShoppingBag className="h-16 w-16" />,
-              title: 'No sale orders found',
-              description: filtersActive
-                ? 'Try adjusting your search or filter criteria'
-                : 'Sale orders pushed from the B2B app will appear here',
-              actionLabel: 'New Sale Order',
-              onAction: () => setCreateSheetOpen(true),
+              ...(filtersActive
+                ? {
+                    title: 'No sale orders match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    title: 'No sale orders found',
+                    description: 'Sale orders pushed from the B2B app will appear here',
+                    actionLabel: 'New Sale Order',
+                    onAction: () => setCreateSheetOpen(true),
+                  }),
             }}
             pagination={{
               currentPage: page,

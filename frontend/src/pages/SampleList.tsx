@@ -3,37 +3,36 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { sampleService } from '@/services/sample.service';
 import type { Sample, SampleType, SampleStatus, SampleSummary } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors, isVersionedSampleType } from '@/types/sample.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import {
-  TestTube,
-  Plus,
-  Eye,
-  Pencil,
-  Trash2,
-  RefreshCcw,
-  Filter,
-  Clock,
-  AlertCircle,
-  CheckCircle,
-  Layers,
-} from 'lucide-react';
+import { TestTube, Plus, Eye, Pencil, Trash2, Filter, Clock, AlertCircle, CheckCircle, Layers, X } from 'lucide-react';
 import { SampleVersionBadge } from '@/components/SampleVersionBadge';
 import { SampleSLABadge } from '@/components/SampleSLABadge';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SampleActionMenu } from '@/components/samples/SampleActionMenu';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { formatDate } from '@/lib/date';
 
 type GroupByMode = 'none' | 'type' | 'customer' | 'overdue';
+
+// The types GET /api/samples accepts (sampleQuerySchema's SampleTypeEnum). Original and Look samples
+// are refused there (400), so the Type filter must not offer them.
+const FILTERABLE_SAMPLE_TYPES: SampleType[] = [
+  'FIT_SAMPLE',
+  'PP_SAMPLE',
+  'SIZE_SET_SAMPLE',
+  'PHOTO_SAMPLE',
+  'PRODUCTION_SAMPLE',
+  'SHIPMENT_SAMPLE',
+];
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -59,15 +58,52 @@ export default function SampleList() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // Filter state
+  // Filter state. A type/status in the URL is used only when it is a real value: the Dashboard links
+  // here with ?status=pending / ?status=overdue, which the API refuses (400) — the list then never loaded.
+  const urlType = searchParams.get('type');
+  const urlStatus = searchParams.get('status');
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<string>(searchParams.get('type') || 'all');
-  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  const [typeFilter, setTypeFilter] = useState<string>(
+    urlType && (FILTERABLE_SAMPLE_TYPES as string[]).includes(urlType) ? urlType : 'all'
+  );
+  const [statusFilter, setStatusFilter] = useState<string>(
+    urlStatus && Object.keys(SampleStatusLabels).includes(urlStatus) ? urlStatus : 'all'
+  );
   const [customerFilter, setCustomerFilter] = useState<string>(searchParams.get('customerId') || '');
+  const [styleFilter, setStyleFilter] = useState('');
 
-  // Grouping and view state
-  const [groupBy, setGroupBy] = useState<GroupByMode>('none');
-  const [runningStylesOnly, setRunningStylesOnly] = useState(false);
+  // Grouping and view state (not a filter — Clear filters keeps it). The Dashboard's Overdue card opens overdue-first.
+  const [groupBy, setGroupBy] = useState<GroupByMode>(urlStatus === 'overdue' ? 'overdue' : 'none');
+
+  const activeFilterCount = [
+    searchQuery,
+    typeFilter !== 'all',
+    statusFilter !== 'all',
+    customerFilter,
+    styleFilter,
+  ].filter(Boolean).length;
+
+  // Every filter change goes back to page 1
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setCurrentPage(1);
+    };
+
+  // Clears every filter; grouping and page size stay as chosen
+  const clearFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setStatusFilter('all');
+    setCustomerFilter('');
+    setStyleFilter('');
+    setCurrentPage(1);
+    searchParams.delete('type');
+    searchParams.delete('status');
+    searchParams.delete('customerId');
+    setSearchParams(searchParams);
+  };
 
   // Group samples based on groupBy mode
   const groupedSamples = useMemo(() => {
@@ -142,7 +178,7 @@ export default function SampleList() {
     fetchSamples();
     fetchSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, typeFilter, statusFilter, customerFilter]);
+  }, [currentPage, pageSize, searchQuery, typeFilter, statusFilter, customerFilter, styleFilter]);
 
   const fetchSamples = async () => {
     try {
@@ -155,6 +191,7 @@ export default function SampleList() {
         sampleType: typeFilter !== 'all' ? (typeFilter as SampleType) : undefined,
         status: statusFilter !== 'all' ? (statusFilter as SampleStatus) : undefined,
         customerId: customerFilter || undefined,
+        styleId: styleFilter || undefined,
       });
       setSamples(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -440,86 +477,78 @@ export default function SampleList() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <div className="w-64">
-              <SearchInput placeholder="Search samples..." value={searchQuery} onChange={setSearchQuery} />
-            </div>
-            <div className="w-48">
-              <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sample Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="FIT_SAMPLE">FIT Sample</SelectItem>
-                  <SelectItem value="PP_SAMPLE">PP Sample</SelectItem>
-                  <SelectItem value="SIZE_SET_SAMPLE">Size Set Sample</SelectItem>
-                  <SelectItem value="SHIPMENT_SAMPLE">Shipment Sample</SelectItem>
-                  <SelectItem value="PHOTO_SAMPLE">Photoshoot Sample</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-48">
-              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="REQUESTED">Requested</SelectItem>
-                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                  <SelectItem value="SUBMITTED">Submitted</SelectItem>
-                  <SelectItem value="SENT">Sent</SelectItem>
-                  <SelectItem value="FEEDBACK_PENDING">Feedback Pending</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                  <SelectItem value="REVISION_NEEDED">Revision Needed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-56">
-              <CustomerCombobox value={customerFilter} onValueChange={setCustomerFilter} placeholder="All Customers" />
-            </div>
-            <div className="w-48">
-              <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupByMode)}>
-                <SelectTrigger>
-                  <Layers className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Group By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Grouping</SelectItem>
-                  <SelectItem value="type">By Sample Type</SelectItem>
-                  <SelectItem value="customer">By Customer</SelectItem>
-                  <SelectItem value="overdue">Overdue First</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center space-x-2 px-2">
-              <Checkbox
-                id="runningStyles"
-                checked={runningStylesOnly}
-                onCheckedChange={(checked) => setRunningStylesOnly(checked === true)}
-              />
-              <Label htmlFor="runningStyles" className="text-sm cursor-pointer">
-                Running Styles Only
-              </Label>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchQuery('');
-                setTypeFilter('all');
-                setStatusFilter('all');
-                setCustomerFilter('');
-                setGroupBy('none');
-                setRunningStylesOnly(false);
-                setSearchParams(new URLSearchParams());
-              }}
-            >
-              <RefreshCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
-          </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px]"
+              placeholder="Search sample number, style, buyer's code, style name, customer…"
+              value={searchQuery}
+              onChange={changeFilter(setSearchQuery)}
+              // The API refuses a longer search (sampleQuerySchema: max 100)
+              maxLength={100}
+              aria-label="Search samples"
+            />
+            <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
+              <SelectTrigger className="w-[200px]" aria-label="Sample type">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {FILTERABLE_SAMPLE_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {SampleTypeLabels[type]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="w-[200px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(SampleStatusLabels) as SampleStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {SampleStatusLabels[status]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <CustomerCombobox
+              value={customerFilter}
+              onValueChange={changeFilter(setCustomerFilter)}
+              placeholder="All customers"
+              allowAll
+              allLabel="All customers"
+              className="w-[220px]"
+            />
+            {/* Any status: a sample can belong to a draft or archived style */}
+            <StyleCombobox
+              value={styleFilter}
+              onValueChange={changeFilter(setStyleFilter)}
+              status={null}
+              allowAll
+              allLabel="All styles"
+              placeholder="All styles"
+              className="w-[220px]"
+            />
+            {/* A view choice, not a filter: Clear filters keeps it */}
+            <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupByMode)}>
+              <SelectTrigger className="w-[180px]" aria-label="Group by">
+                <Layers className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Group by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No grouping</SelectItem>
+                <SelectItem value="type">By sample type</SelectItem>
+                <SelectItem value="customer">By customer</SelectItem>
+                <SelectItem value="overdue">Overdue first</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -559,9 +588,21 @@ export default function SampleList() {
               </CardContent>
             </Card>
           ))}
-          {groupedSamples.length === 0 && (
+          {groupedSamples.length === 0 && !isLoading && (
             <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">No samples found</CardContent>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                {activeFilterCount > 0 ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <p>No samples match these filters.</p>
+                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  'No samples found'
+                )}
+              </CardContent>
             </Card>
           )}
         </div>
@@ -574,10 +615,11 @@ export default function SampleList() {
               keyExtractor={(sample) => sample.id}
               loading={isLoading}
               onRowClick={(sample) => navigate(`/samples/${sample.id}`)}
-              emptyState={{
-                title: 'No samples found',
-                description: 'Get started by creating a new sample',
-              }}
+              emptyState={
+                activeFilterCount > 0
+                  ? { title: 'No samples match these filters.', actionLabel: 'Clear filters', onAction: clearFilters }
+                  : { title: 'No samples found', description: 'Get started by creating a new sample' }
+              }
               pagination={{
                 currentPage,
                 totalPages,

@@ -27,6 +27,8 @@ import {
   isDyeLabDip,
 } from '@/types/processing.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { ProcessorCombobox } from '@/components/ProcessorCombobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { ReturnUnprocessedDialog } from '@/components/processing';
@@ -38,7 +40,6 @@ import {
   Plus,
   Eye,
   Trash2,
-  RefreshCcw,
   Beaker,
   Send,
   Package,
@@ -91,6 +92,33 @@ export default function ProcessingList() {
   const [processTypeFilter, setProcessTypeFilter] = useState<ProcessTypeFilter>(
     (searchParams.get('processType') as ProcessTypeFilter) || 'ALL'
   );
+  // Lab Dips only — the job work order lists take no processor filter
+  const [processorFilter, setProcessorFilter] = useState('');
+
+  const activeFilterCount = [
+    searchQuery,
+    statusFilter !== 'all',
+    processTypeFilter !== 'ALL',
+    activeTab === 'lab-dips' && processorFilter,
+  ].filter(Boolean).length;
+  const clearText = `Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`;
+
+  // Clears every filter and goes back to page 1; the tab and page size stay
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setProcessTypeFilter('ALL');
+    setProcessorFilter('');
+    setCurrentPage(1);
+    searchParams.delete('status');
+    searchParams.delete('processType');
+    setSearchParams(searchParams);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -116,7 +144,7 @@ export default function ProcessingList() {
     }
     fetchSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, currentPage, pageSize, searchQuery, statusFilter, processTypeFilter]);
+  }, [activeTab, currentPage, pageSize, searchQuery, statusFilter, processTypeFilter, processorFilter]);
 
   const fetchLabDips = async () => {
     try {
@@ -128,6 +156,7 @@ export default function ProcessingList() {
         limit: pageSize,
         search: searchQuery || undefined,
         status: statusFilter !== 'all' ? (statusFilter as DyeLabDip['status']) : undefined,
+        processorId: processorFilter || undefined,
       };
 
       // Fetch from both services based on filter
@@ -221,6 +250,7 @@ export default function ProcessingList() {
     setActiveTab(value as 'lab-dips' | 'process-pos');
     setCurrentPage(1);
     setStatusFilter('all');
+    setProcessorFilter('');
     searchParams.set('tab', value);
     searchParams.delete('status');
     setSearchParams(searchParams);
@@ -769,55 +799,50 @@ export default function ProcessingList() {
         <TabsContent value="lab-dips" className="mt-4">
           <Card className="mb-4">
             <CardContent className="p-4">
-              <div className="flex flex-wrap gap-4">
-                <div className="w-64">
-                  <SearchInput placeholder="Search lab dips..." value={searchQuery} onChange={setSearchQuery} />
-                </div>
-                <div className="w-40">
-                  <Select
-                    value={processTypeFilter}
-                    onValueChange={(v) => handleProcessTypeFilterChange(v as ProcessTypeFilter)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Process Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Types</SelectItem>
-                      <SelectItem value="DYEING">Dyeing</SelectItem>
-                      <SelectItem value="PRINTING">Printing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-48">
-                  <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="PENDING">Pending</SelectItem>
-                      <SelectItem value="SUBMITTED">Submitted</SelectItem>
-                      <SelectItem value="APPROVED">Approved</SelectItem>
-                      <SelectItem value="REJECTED">Rejected</SelectItem>
-                      <SelectItem value="RESUBMIT">Resubmit Needed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setStatusFilter('all');
-                    setProcessTypeFilter('ALL');
-                    searchParams.delete('status');
-                    searchParams.delete('processType');
-                    setSearchParams(searchParams);
-                  }}
+              <FilterBar onClear={clearFilters} hasActiveFilters={activeFilterCount > 0} clearText={clearText}>
+                <SearchInput
+                  className="w-80"
+                  placeholder="Search lab dip, style, buyer ref, fabric, colour, design, processor…"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+                <Select
+                  value={processTypeFilter}
+                  onValueChange={(v) => handleProcessTypeFilterChange(v as ProcessTypeFilter)}
                 >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Reset
-                </Button>
-              </div>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All types</SelectItem>
+                    <SelectItem value="DYEING">Dyeing</SelectItem>
+                    <SelectItem value="PRINTING">Printing</SelectItem>
+                  </SelectContent>
+                </Select>
+                <ProcessorCombobox
+                  value={processorFilter}
+                  onValueChange={(v) => {
+                    setProcessorFilter(v || '');
+                    setCurrentPage(1);
+                  }}
+                  allowAll
+                  placeholder="All processors"
+                  className="w-[220px]"
+                />
+                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(LabDipStatusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterBar>
             </CardContent>
           </Card>
 
@@ -844,10 +869,15 @@ export default function ProcessingList() {
                         : `/manufacturing/printing/lab-dips/${labDip.id}`;
                     navigate(route);
                   }}
-                  emptyState={{
-                    title: 'No lab dips found',
-                    description: 'Get started by creating a new lab dip',
-                  }}
+                  emptyState={
+                    activeFilterCount > 0
+                      ? {
+                          title: 'No lab dips match these filters.',
+                          actionLabel: 'Clear filters',
+                          onAction: clearFilters,
+                        }
+                      : { title: 'No lab dips found', description: 'Get started by creating a new lab dip' }
+                  }
                   pagination={{
                     currentPage,
                     totalPages,
@@ -865,58 +895,40 @@ export default function ProcessingList() {
         <TabsContent value="process-pos" className="mt-4">
           <Card className="mb-4">
             <CardContent className="p-4">
-              <div className="flex flex-wrap gap-4">
-                <div className="w-64">
-                  <SearchInput placeholder="Search job work orders..." value={searchQuery} onChange={setSearchQuery} />
-                </div>
-                <div className="w-40">
-                  <Select
-                    value={processTypeFilter}
-                    onValueChange={(v) => handleProcessTypeFilterChange(v as ProcessTypeFilter)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Process Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ALL">All Types</SelectItem>
-                      <SelectItem value="DYEING">Dyeing</SelectItem>
-                      <SelectItem value="PRINTING">Printing</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-48">
-                  <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="DRAFT">Draft</SelectItem>
-                      <SelectItem value="AT_MILL">At Mill</SelectItem>
-                      <SelectItem value="PARTIALLY_RECEIVED">Partial Receipt</SelectItem>
-                      <SelectItem value="RECEIVED">Received</SelectItem>
-                      <SelectItem value="QUALITY_CHECKED">QC Done</SelectItem>
-                      <SelectItem value="STOCK_UPDATED">Stock Updated</SelectItem>
-                      <SelectItem value="RETURNED">Returned</SelectItem>
-                      <SelectItem value="CANCELLED">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setStatusFilter('all');
-                    setProcessTypeFilter('ALL');
-                    searchParams.delete('status');
-                    searchParams.delete('processType');
-                    setSearchParams(searchParams);
-                  }}
+              <FilterBar onClear={clearFilters} hasActiveFilters={activeFilterCount > 0} clearText={clearText}>
+                <SearchInput
+                  className="w-80"
+                  placeholder="Search order number, style, buyer ref, processor, fabric…"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+                <Select
+                  value={processTypeFilter}
+                  onValueChange={(v) => handleProcessTypeFilterChange(v as ProcessTypeFilter)}
                 >
-                  <RefreshCcw className="h-4 w-4 mr-2" />
-                  Reset
-                </Button>
-              </div>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All types</SelectItem>
+                    <SelectItem value="DYEING">Dyeing</SelectItem>
+                    <SelectItem value="PRINTING">Printing</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(ProcessPOStatusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterBar>
             </CardContent>
           </Card>
 
@@ -943,10 +955,18 @@ export default function ProcessingList() {
                         : `/manufacturing/printing/job-work/${po.id}`;
                     navigate(route);
                   }}
-                  emptyState={{
-                    title: 'No job work orders found',
-                    description: 'Get started by creating a new job work order',
-                  }}
+                  emptyState={
+                    activeFilterCount > 0
+                      ? {
+                          title: 'No job work orders match these filters.',
+                          actionLabel: 'Clear filters',
+                          onAction: clearFilters,
+                        }
+                      : {
+                          title: 'No job work orders found',
+                          description: 'Get started by creating a new job work order',
+                        }
+                  }
                   pagination={{
                     currentPage,
                     totalPages,

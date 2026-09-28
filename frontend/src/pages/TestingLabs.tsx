@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Building2, Plus, Search, Edit, CheckCircle, XCircle } from 'lucide-react';
+import { Building2, Plus, Edit, CheckCircle, XCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import {
   Dialog,
   DialogContent,
@@ -55,6 +58,7 @@ export default function TestingLabs() {
   const [labs, setLabs] = useState<TestingLab[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'true' | 'false'>('all');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -66,10 +70,25 @@ export default function TestingLabs() {
   const [form, setForm] = useState<LabFormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPage(1);
+    };
+
+  const activeFilterCount = [search, activeFilter !== 'all'].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearch('');
+    setActiveFilter('all');
+    setPage(1);
+  };
+
   useEffect(() => {
     fetchLabs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, activeFilter]);
 
   const fetchLabs = async () => {
     try {
@@ -78,6 +97,7 @@ export default function TestingLabs() {
         page,
         limit: pageSize,
         search: search || undefined,
+        isActive: activeFilter === 'all' ? undefined : activeFilter,
       });
       setLabs(result.data);
       setTotalPages(result.pagination.totalPages);
@@ -87,11 +107,6 @@ export default function TestingLabs() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
   };
 
   const openCreate = () => {
@@ -173,17 +188,6 @@ export default function TestingLabs() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
-          <p className="text-muted-foreground mt-4">Loading testing labs...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -201,23 +205,50 @@ export default function TestingLabs() {
         </Button>
       </div>
 
-      {/* Search Bar */}
+      {/* Filters */}
       <Card className="p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by lab code, name, city..."
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
+        <FilterBar
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="flex-1 min-w-[240px]"
+            placeholder="Search lab code, name, contact, city, state or accreditation..."
+            value={search}
+            onChange={changeFilter(setSearch)}
+          />
+          <Select
+            value={activeFilter}
+            onValueChange={changeFilter((value: string) => setActiveFilter(value as 'all' | 'true' | 'false'))}
+          >
+            <SelectTrigger className="w-[160px]" aria-label="Status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="true">Active</SelectItem>
+              <SelectItem value="false">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterBar>
       </Card>
 
       {/* Labs List */}
-      {labs.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
+          <p className="text-muted-foreground mt-4">Loading testing labs...</p>
+        </div>
+      ) : labs.length === 0 && activeFilterCount > 0 ? (
+        <Card className="p-12 text-center">
+          <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-4">No testing labs match these filters.</h3>
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </Card>
+      ) : labs.length === 0 ? (
         <Card className="p-12 text-center">
           <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Testing Labs Found</h3>

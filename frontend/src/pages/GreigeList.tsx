@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { useState, useCallback, useMemo, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Layers, Upload, Download } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -100,16 +100,10 @@ export default function GreigeList() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [greigeToDelete, setGreigeToDelete] = useState<{ id: string; name: string } | null>(null);
 
-  // SearchInput lists onChange in its debounce deps, so it fires ~300ms after MOUNT with the
-  // current value. Without this guard that unchanged fire would strip `page` from the URL and
-  // bounce anyone who opened a deep-linked page 3 back to page 1.
-  const searchRef = useRef(filters.search);
-  searchRef.current = filters.search;
+  // A new search starts again from page 1. SearchInput reports only text the user typed (since
+  // 2026-09-27), so opening a deep-linked page 3 no longer bounces back to page 1 on mount.
   const handleSearchChange = useCallback(
-    (value: string) => {
-      if (value === searchRef.current) return;
-      updateURLParams({ search: value || undefined, page: undefined });
-    },
+    (value: string) => updateURLParams({ search: value || undefined, page: undefined }),
     [updateURLParams]
   );
 
@@ -127,8 +121,17 @@ export default function GreigeList() {
   }, [filters]);
 
   const clearFilters = useCallback(() => {
-    // Emptying the URL restores every default, including isActive -> 'true'
-    setSearchParams(new URLSearchParams(), { replace: true });
+    // Emptying the URL restores every default, including isActive -> 'true' and page 1. The rows-per-
+    // page choice is not a filter, so it stays.
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams();
+        const limit = prev.get('limit');
+        if (limit) next.set('limit', limit);
+        return next;
+      },
+      { replace: true }
+    );
   }, [setSearchParams]);
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -359,14 +362,15 @@ export default function GreigeList() {
           <FilterBar
             onClear={clearFilters}
             hasActiveFilters={activeFilterCount > 0}
-            clearText={`Clear ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}`}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
           >
             <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
               <Label htmlFor="search" className="text-sm font-medium">
                 Search
               </Label>
               <SearchInput
-                placeholder="Search by code, name, or composition..."
+                id="search"
+                placeholder="Search code, name, generic name, weave, composition…"
                 value={filters.search ?? ''}
                 onChange={handleSearchChange}
               />
@@ -377,14 +381,15 @@ export default function GreigeList() {
               value={filters.isActive ?? 'true'}
               onChange={(value) => updateURLParams({ isActive: value === 'true' ? undefined : value, page: undefined })}
               options={[
-                { value: 'true', label: 'Active Only' },
-                { value: 'false', label: 'Inactive Only' },
-                { value: 'all', label: 'All' },
+                { value: 'all', label: 'All statuses' },
+                { value: 'true', label: 'Active only' },
+                { value: 'false', label: 'Inactive only' },
               ]}
             />
 
             <MultiSelectFilter
               label="Quality"
+              placeholder="All qualities"
               value={filters.greigeQuality ?? []}
               onChange={(value) => updateURLParams({ greigeQuality: value, page: undefined })}
               options={toFacetOptions(facets?.greigeQuality, GREIGE_QUALITY_LABELS)}
@@ -392,13 +397,15 @@ export default function GreigeList() {
 
             <MultiSelectFilter
               label="Weave"
+              placeholder="All weaves"
               value={filters.weaveType ?? []}
               onChange={(value) => updateURLParams({ weaveType: value, page: undefined })}
               options={toFacetOptions(facets?.weaveType)}
             />
 
             <MultiSelectFilter
-              label="Generic Name"
+              label="Generic name"
+              placeholder="All generic names"
               value={filters.genericGreigeName ?? []}
               onChange={(value) => updateURLParams({ genericGreigeName: value, page: undefined })}
               options={toFacetOptions(facets?.genericGreigeName)}
@@ -435,16 +442,22 @@ export default function GreigeList() {
           keyExtractor={(greige) => greige.id}
           loading={isLoading}
           error={error}
-          emptyState={{
-            icon: <Layers className="h-16 w-16" />,
-            title: 'No greige masters found',
-            description:
-              activeFilterCount > 0
-                ? 'Try adjusting your search or filter criteria'
-                : 'Create your first greige master to get started',
-            actionLabel: activeFilterCount === 0 ? 'Create First Greige' : undefined,
-            onAction: activeFilterCount === 0 ? () => navigate('/greige/new') : undefined,
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <Layers className="h-16 w-16" />,
+                  title: 'No greige masters match these filters.',
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <Layers className="h-16 w-16" />,
+                  title: 'No greige masters found',
+                  description: 'Create your first greige master to get started',
+                  actionLabel: 'Create First Greige',
+                  onAction: () => navigate('/greige/new'),
+                }
+          }
           pagination={{
             currentPage: filters.page ?? 1,
             totalPages,

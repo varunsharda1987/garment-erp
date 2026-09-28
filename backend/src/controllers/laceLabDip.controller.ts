@@ -55,7 +55,7 @@ export async function createLabDip(req: Request, res: Response) {
  * Get all lace lab dips with filters
  */
 export async function getLabDips(req: Request, res: Response) {
-  const { status, greigeLaceId, processorId, styleId, costSheetId, page = '1', limit = '20' } = req.query;
+  const { status, greigeLaceId, processorId, styleId, costSheetId, search, page = '1', limit = '20' } = req.query;
 
   const filters: any = {
     page: parseInt(page as string),
@@ -67,6 +67,7 @@ export async function getLabDips(req: Request, res: Response) {
   if (processorId) filters.processorId = processorId as string;
   if (styleId) filters.styleId = styleId as string;
   if (costSheetId) filters.costSheetId = costSheetId as string;
+  if (typeof search === 'string' && search.trim()) filters.search = search;
 
   const result = await laceLabDipService.getLaceLabDips(filters);
 

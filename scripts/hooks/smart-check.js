@@ -425,6 +425,28 @@ function checkOwnPager(tsFiles) {
   );
 }
 
+/** Check: a plain <SelectItem value={x.id}> mapped over a growable record list (suppliers, customers, styles, orders…) — BLOCKING new + ratchet. */
+function checkRecordSelect(tsFiles) {
+  console.log(`\n${c.cyan}Checking record dropdowns use the searchable pickers...${c.reset}`);
+  return runRatchetedCheck(
+    'plain record dropdown(s) (cannot be searched, stop at the first page fetched)',
+    detectors.recordSelect(tsFiles),
+    'record-select-baseline.json',
+    'Use the shared searchable picker — SupplierCombobox, CustomerCombobox, StyleCombobox, OrderCombobox, ProcessorCombobox, MaterialCombobox… (allowAll for a filter; see CLAUDE.md → Enforced Guardrails → List filters). A genuinely small list: add // allow-plain-select: <why> above the item.'
+  );
+}
+
+/** Check: a list page search box that is a raw <Input placeholder="Search…"> instead of SearchInput — BLOCKING new + ratchet. */
+function checkRawListSearch(tsFiles) {
+  console.log(`\n${c.cyan}Checking list search boxes use SearchInput...${c.reset}`);
+  return runRatchetedCheck(
+    'raw list search box(es)',
+    detectors.rawListSearch(tsFiles),
+    'raw-search-baseline.json',
+    "Use the shared debounced search box: import SearchInput from '@/components/SearchInput', inside FilterBar (see CLAUDE.md → Enforced Guardrails → List filters). A box filtering a small in-memory list in a dialog/form: add // allow-raw-search: <why> above it."
+  );
+}
+
 /** Check (D3): `moneyOrQty || null/undefined/""` — a real 0 becomes the fallback — BLOCKING new + ratchet. */
 function checkNumericOrFallback(tsFiles) {
   console.log(`\n${c.cyan}Checking for || fallbacks that lose a real 0...${c.reset}`);
@@ -1337,6 +1359,8 @@ function runAllModeChecks() {
   if (!checkStockSyncNoWarehouse(tsFiles)) ok = false;
   if (!checkSilentCatchFrontend(tsFiles)) ok = false;
   if (!checkOwnPager(tsFiles)) ok = false;
+  if (!checkRecordSelect(tsFiles)) ok = false;
+  if (!checkRawListSearch(tsFiles)) ok = false;
   if (!checkNumericOrFallback(tsFiles)) ok = false;
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
@@ -1464,6 +1488,8 @@ function main() {
     if (!checkStockSyncNoWarehouse(categories.typescript)) allPassed = false;
     if (!checkSilentCatchFrontend(categories.typescript)) allPassed = false;
     if (!checkOwnPager(categories.typescript)) allPassed = false;
+    if (!checkRecordSelect(categories.typescript)) allPassed = false;
+    if (!checkRawListSearch(categories.typescript)) allPassed = false;
     if (!checkNumericOrFallback(categories.typescript)) allPassed = false;
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;

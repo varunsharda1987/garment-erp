@@ -21,6 +21,7 @@ import {
   TrendingDown,
   Plus,
   MessageCircle,
+  X,
 } from 'lucide-react';
 import { JobWorkOrderCreateDialog } from '@/components/JobWorkOrderCreateDialog';
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
@@ -29,6 +30,8 @@ import { openPDF } from '@/lib/document-utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import SearchInput from '@/components/SearchInput';
 import Pagination from '@/components/Pagination';
+import { FilterBar } from '@/components/filters';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -42,7 +45,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
-import type { JobWorkOrder, JobWorkOrderQueryParams } from '@/types/jobWorkOrder.types';
+import type { JobWorkOrder, JobWorkOrderQueryParams, JobWorkOrderStatus } from '@/types/jobWorkOrder.types';
 import { formatDate } from '@/lib/date';
 
 const PROCESS_TYPES = [
@@ -81,6 +84,22 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secon
   CANCELLED: { label: 'Cancelled', variant: 'destructive' },
 };
 
+// The job's lifecycle (Prisma JobWorkOrderStatus) — STATUS_CONFIG also labels retired values for old rows
+const STATUS_FILTER_OPTIONS: JobWorkOrderStatus[] = [
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'ISSUED',
+  'IN_TRANSIT',
+  'AT_PROCESSOR',
+  'PARTIALLY_RECEIVED',
+  'RECEIVED',
+  'QUALITY_CHECKED',
+  'STOCK_UPDATED',
+  'CLOSED',
+  'CANCELLED',
+];
+
 function getStatusBadge(status: string) {
   const config = STATUS_CONFIG[status] || { label: status, variant: 'outline' as const };
   return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -108,9 +127,12 @@ export default function JobWorkOrderList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Phase 5b: nav links can pre-filter (e.g. Embroidery → ?processType=EMBROIDERY)
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [processType, setProcessType] = useState<string>(searchParams.get('processType') || 'all');
+  // '' = all statuses / all processors
+  const [statusFilter, setStatusFilter] = useState<JobWorkOrderStatus | ''>('');
+  const [processorFilter, setProcessorFilter] = useState('');
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [waJwo, setWaJwo] = useState<JobWorkOrder | null>(null);
@@ -121,6 +143,29 @@ export default function JobWorkOrderList() {
     limit,
     search: search || undefined,
     processType: processType !== 'all' ? processType : undefined,
+    jwoStatus: statusFilter || undefined,
+    processorId: processorFilter || undefined,
+  };
+
+  // A nav link's ?processType= pre-filter leaves the URL once the filter is changed or cleared,
+  // so a reload does not bring it back
+  const clearProcessTypeParam = () => {
+    if (!searchParams.has('processType')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('processType');
+    setSearchParams(next, { replace: true });
+  };
+
+  const activeFilterCount = [search, processType !== 'all', statusFilter, processorFilter].filter(Boolean).length;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setProcessType('all');
+    setStatusFilter('');
+    setProcessorFilter('');
+    clearProcessTypeParam();
+    setPage(1);
   };
 
   const { data, isLoading, error } = useQuery({
@@ -214,28 +259,34 @@ export default function JobWorkOrderList() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
             <SearchInput
-              className="flex-1"
-              placeholder="Search by number, processor, style or fabric..."
+              className="min-w-[220px] max-w-md flex-1"
+              placeholder="Search JWO number, challan, processor, style, buyer style, fabric…"
               value={search}
               onChange={(value) => {
                 setSearch(value);
                 setPage(1);
               }}
+              aria-label="Search job work orders"
             />
             <Select
               value={processType}
               onValueChange={(value) => {
                 setProcessType(value);
+                clearProcessTypeParam();
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Process Type" />
+              <SelectTrigger className="w-[180px]" aria-label="Process type">
+                <SelectValue placeholder="All process types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="all">All process types</SelectItem>
                 {PROCESS_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
@@ -243,7 +294,38 @@ export default function JobWorkOrderList() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+            <Select
+              value={statusFilter || 'all'}
+              onValueChange={(value) => {
+                setStatusFilter(value === 'all' ? '' : (value as JobWorkOrderStatus));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                {STATUS_FILTER_OPTIONS.map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {STATUS_CONFIG[status]?.label ?? status}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {/* Any supplier: embroiderers, stitching and transport contractors hold jobs too, not only dyers */}
+            <SupplierCombobox
+              value={processorFilter}
+              onValueChange={(v) => {
+                setProcessorFilter(v || '');
+                setPage(1);
+              }}
+              allowAll
+              allLabel="All processors"
+              placeholder="All processors"
+              className="w-[220px]"
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -291,7 +373,17 @@ export default function JobWorkOrderList() {
                 ) : data?.data.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={13} className="text-center text-muted-foreground">
-                      No job work orders found
+                      {activeFilterCount > 0 ? (
+                        <div className="flex flex-col items-center gap-2 py-6">
+                          <p>No job work orders match these filters.</p>
+                          <Button variant="outline" size="sm" onClick={clearFilters}>
+                            <X className="h-4 w-4 mr-1" />
+                            Clear filters
+                          </Button>
+                        </div>
+                      ) : (
+                        'No job work orders found'
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (

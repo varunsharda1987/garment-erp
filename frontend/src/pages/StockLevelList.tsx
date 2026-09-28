@@ -1,23 +1,32 @@
 // Stock Level List - View all stock levels
 import { unitShort } from '@/lib/units';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, TrendingDown, Package, X } from 'lucide-react';
+import { AlertTriangle, TrendingDown, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/PageHeader';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
+import { matchesSearch } from '@/hooks/usePickerOptions';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatMaterialType } from '@/lib/formatters';
+import { MaterialTypeLabels } from '@/types/material.types';
 import stockLevelService from '../services/stockLevel.service';
 import type { StockLevel } from '../types/inventory-exports';
+
+/** At or below its reorder level — the same test as the API's low-stock list */
+const isBelowReorder = (stock: StockLevel) =>
+  stock.reorderLevel != null && Number(stock.quantity) <= Number(stock.reorderLevel);
+
+/** What the table shows, for the search: material code and name, warehouse code and name */
+const searchText = (stock: StockLevel) =>
+  `${stock.materials?.code ?? ''} ${stock.materials?.name ?? ''} ${stock.warehouses?.warehouseCode ?? ''} ${stock.warehouses?.warehouseName ?? ''}`;
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -34,11 +43,42 @@ export default function StockLevelList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const initialMaterialType = searchParams.get('materialType') || 'all';
+  // '' = all types; kept in the URL (?materialType=) so a link can open one type
   const [warehouseFilter, setWarehouseFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const [materialTypeFilter, setMaterialTypeFilter] = useState(initialMaterialType);
+  const [materialTypeFilter, setMaterialTypeFilter] = useState(searchParams.get('materialType') || '');
+
+  const materialTypeOptions: ComboboxOption[] = useMemo(
+    () => [
+      { value: '', label: 'All material types', searchText: 'All material types' },
+      ...Object.entries(MaterialTypeLabels)
+        .sort(([, a], [, b]) => a.localeCompare(b))
+        .map(([value, label]) => ({ value, label })),
+    ],
+    []
+  );
+
+  const changeMaterialType = (value: string) => {
+    setMaterialTypeFilter(value);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value) next.set('materialType', value);
+        else next.delete('materialType');
+        return next;
+      },
+      { replace: true }
+    );
+  };
+
+  const activeFilterCount = [searchTerm, materialTypeFilter, warehouseFilter, showLowStockOnly].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setWarehouseFilter('');
+    setShowLowStockOnly(false);
+    changeMaterialType('');
+  };
 
   useEffect(() => {
     loadStockLevels();
@@ -49,22 +89,9 @@ export default function StockLevelList() {
     try {
       setLoading(true);
       setError(null);
-      let data;
-      if (materialTypeFilter && materialTypeFilter !== 'all') {
-        // Filter by material type
+      let data: StockLevel[];
+      if (materialTypeFilter) {
         data = await stockLevelService.getByMaterialType(materialTypeFilter);
-        // Apply warehouse filter client-side if needed
-        if (warehouseFilter) {
-          data = data.filter((sl: StockLevel) => sl.warehouseId === warehouseFilter);
-        }
-        // Apply search filter client-side if needed
-        if (searchTerm) {
-          const search = searchTerm.toLowerCase();
-          data = data.filter(
-            (sl: StockLevel) =>
-              sl.materials?.code?.toLowerCase().includes(search) || sl.materials?.name?.toLowerCase().includes(search)
-          );
-        }
       } else if (showLowStockOnly) {
         data = await stockLevelService.getBelowReorderLevel(warehouseFilter || undefined);
       } else {
@@ -73,6 +100,14 @@ export default function StockLevelList() {
           search: searchTerm || undefined,
         });
       }
+      // The type and low-stock lists take no search (and the type list no warehouse or low-stock either), so
+      // every filter is applied here too — combining two used to drop one of them without a word
+      data = data.filter(
+        (sl) =>
+          (!warehouseFilter || sl.warehouseId === warehouseFilter) &&
+          (!showLowStockOnly || isBelowReorder(sl)) &&
+          matchesSearch(searchText(sl), searchTerm)
+      );
       setStockLevels(data);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load stock levels', false);
@@ -199,87 +234,49 @@ export default function StockLevelList() {
 
   return (
     <>
-      <PageHeader title="Stock Levels">
-        <Button
-          variant={showLowStockOnly ? 'default' : 'outline'}
-          onClick={() => setShowLowStockOnly(!showLowStockOnly)}
-        >
-          <AlertTriangle className="mr-2 h-4 w-4" />
-          Low Stock Only
-        </Button>
-      </PageHeader>
-
-      {/* Filtered State Indicator */}
-      {materialTypeFilter && materialTypeFilter !== 'all' && (
-        <Alert className="mb-4">
-          <Package className="h-4 w-4" />
-          <AlertDescription className="flex items-center justify-between">
-            <span>
-              Showing stock for:{' '}
-              <Badge variant="secondary" className="ml-2">
-                {formatMaterialType(materialTypeFilter)}
-              </Badge>
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setMaterialTypeFilter('all');
-                setSearchParams({});
-              }}
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear filter
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      <PageHeader title="Stock Levels" />
 
       {/* Filters */}
       <Card className="mb-4">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search">Search Material</Label>
-              <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search materials..." />
-            </div>
-            <div className="w-64">
-              <Label htmlFor="materialTypeFilter">Material Type</Label>
-              <Select
-                value={materialTypeFilter}
-                onValueChange={(value) => {
-                  setMaterialTypeFilter(value);
-                  setSearchParams(value !== 'all' ? { materialType: value } : {});
-                }}
-              >
-                <SelectTrigger id="materialTypeFilter">
-                  <SelectValue placeholder="All Material Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Material Types</SelectItem>
-                  <SelectItem value="GREIGE">Greige</SelectItem>
-                  <SelectItem value="FABRIC">Fabric</SelectItem>
-                  <SelectItem value="THREAD">Thread</SelectItem>
-                  <SelectItem value="BUTTON">Button</SelectItem>
-                  <SelectItem value="ZIPPER">Zipper</SelectItem>
-                  <SelectItem value="ELASTIC">Elastic</SelectItem>
-                  <SelectItem value="LACE">Lace</SelectItem>
-                  <SelectItem value="LABEL">Label</SelectItem>
-                  <SelectItem value="PACKAGING">Packaging</SelectItem>
-                  <SelectItem value="MACHINE_PART">Machine Parts</SelectItem>
-                  <SelectItem value="OTHER">Other Materials</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-64">
-              <Label htmlFor="warehouseFilter">Warehouse</Label>
-              <WarehouseCombobox
-                value={warehouseFilter}
-                onValueChange={setWarehouseFilter}
-                placeholder="All Warehouses"
-              />
-            </div>
-          </div>
+        <CardContent className="pt-4 pb-4">
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[220px]"
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search material code or name, warehouse..."
+              // The API refuses a longer search (stockLevelQuerySchema: max 100)
+              maxLength={100}
+            />
+            <Combobox
+              options={materialTypeOptions}
+              value={materialTypeFilter}
+              onValueChange={changeMaterialType}
+              placeholder="All material types"
+              searchPlaceholder="Material type..."
+              emptyText="No material type matches"
+              className="w-[200px]"
+            />
+            <WarehouseCombobox
+              value={warehouseFilter}
+              onValueChange={setWarehouseFilter}
+              allowAll
+              placeholder="All warehouses"
+              className="w-[220px]"
+            />
+            <Button
+              variant={showLowStockOnly ? 'default' : 'outline'}
+              aria-pressed={showLowStockOnly}
+              onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Low stock only
+            </Button>
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -288,19 +285,25 @@ export default function StockLevelList() {
         <DataTable
           data={stockLevels}
           columns={columns}
-          keyExtractor={(stock) => stock.id}
+          // The type and low-stock lists send no id — key those rows by material + warehouse, as the API does
+          keyExtractor={(stock) => stock.id || `${stock.materialId}_${stock.warehouseId}`}
           loading={loading}
           error={error}
-          emptyState={{
-            icon: <Package className="h-16 w-16" />,
-            title: showLowStockOnly ? 'No low stock items' : 'No stock levels found',
-            description:
-              searchTerm || warehouseFilter || materialTypeFilter !== 'all'
-                ? 'Try adjusting your search or filter criteria'
-                : showLowStockOnly
-                  ? 'All materials are adequately stocked'
-                  : 'Stock levels will appear here once materials are added to warehouses',
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <Package className="h-16 w-16" />,
+                  title: 'No stock levels match these filters.',
+                  description: showLowStockOnly ? 'Nothing here is at or below its reorder level.' : undefined,
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <Package className="h-16 w-16" />,
+                  title: 'No stock levels found',
+                  description: 'Stock levels will appear here once materials are added to warehouses',
+                }
+          }
         />
       </Card>
 

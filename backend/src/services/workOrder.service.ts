@@ -292,11 +292,13 @@ class WorkOrderService {
       where.orderId = filters.orderId;
     }
 
-    // The list shows Order/Source and Location columns that were not searchable.
+    // The list shows Order/Source and Location columns that were not searchable. A make-to-stock run
+    // shows its SPO number in the Order/Source column instead of an order.
     applySearch(where as Record<string, unknown>, filters?.search, [
       'workOrderNumber',
       'orders.orderNumber',
       'orders.customers.name',
+      'stock_production_orders.spoNumber',
       'styles.styleCode',
       'styles.buyerStyleRef',
       'styles.styleName',

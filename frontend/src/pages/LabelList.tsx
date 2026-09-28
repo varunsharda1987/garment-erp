@@ -5,18 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllLabels, deleteLabel } from '@/services/label.service';
-import { getAllCustomers } from '@/services/customer.service';
 import type { Label } from '@/types/label.types';
-import type { Customer } from '@/types/customer.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { Package, X } from 'lucide-react';
+import { Package } from 'lucide-react';
 import { ViewStockButton } from '@/components/ViewStockButton';
 import stockLevelService from '@/services/stockLevel.service';
 import { compareSizes } from '@/utils/sku-generator';
@@ -47,9 +48,7 @@ export default function LabelList() {
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
   const [customerId, setCustomerId] = useState<string>('');
   const [labelCategory, setLabelCategory] = useState<string>('');
-
-  // Dropdown data
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [supplierId, setSupplierId] = useState('');
 
   // Stock count state
   const [stockCount, setStockCount] = useState<number | undefined>(undefined);
@@ -62,20 +61,7 @@ export default function LabelList() {
     fetchLabelItems();
     fetchStockCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, customerId, labelCategory]);
-
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await getAllCustomers({ limit: 200 });
-      setCustomers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load customers for the filter');
-    }
-  };
+  }, [currentPage, pageSize, searchQuery, customerId, labelCategory, supplierId]);
 
   const fetchStockCount = async () => {
     try {
@@ -97,6 +83,7 @@ export default function LabelList() {
         search: searchQuery || undefined,
         customerId: customerId || undefined,
         labelCategory: labelCategory || undefined,
+        supplierId: supplierId || undefined,
       });
       setLabelItems(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -113,10 +100,11 @@ export default function LabelList() {
     setSearchQuery('');
     setCustomerId('');
     setLabelCategory('');
+    setSupplierId('');
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = searchQuery || customerId || labelCategory;
+  const activeFilterCount = [searchQuery, customerId, labelCategory, supplierId].filter(Boolean).length;
 
   const handleDeleteClick = (id: string, name: string) => {
     setLabelToDelete({ id, name });
@@ -333,71 +321,65 @@ export default function LabelList() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-6 space-y-4">
-            <div className="flex flex-wrap items-center gap-4">
-              {/* Search */}
-              <div className="flex-1 min-w-[200px] max-w-md">
-                <SearchInput
-                  placeholder="Search by code, name, or type..."
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                />
-              </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1 max-w-md"
+              placeholder="Search code, name, customer, brand, type, size, color, supplier…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
 
-              {/* Customer Filter */}
-              <div className="w-[200px]">
-                <Select
-                  value={customerId || '_all_'}
-                  onValueChange={(val) => {
-                    setCustomerId(val === '_all_' ? '' : val);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Customers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all_">All Customers</SelectItem>
-                    <SelectItem value="_generic_">Generic Only</SelectItem>
-                    {customers.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* A customer shows its own labels plus the generic ones (no customer) */}
+            <CustomerCombobox
+              value={customerId}
+              onValueChange={(value) => {
+                setCustomerId(value || '');
+                setCurrentPage(1);
+              }}
+              allowAll
+              allLabel="All customers"
+              placeholder="All customers"
+              className="w-[220px]"
+            />
 
-              {/* Label Category Filter */}
-              <div className="w-[180px]">
-                <Select
-                  value={labelCategory || '_all_'}
-                  onValueChange={(val) => {
-                    setLabelCategory(val === '_all_' ? '' : val);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_all_">All Categories</SelectItem>
-                    <SelectItem value="SEWN_IN">Sewn-in Labels</SelectItem>
-                    <SelectItem value="HANGTAG">Hangtags</SelectItem>
-                    <SelectItem value="PRICE_TAG">Price Tags</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <Select
+              value={labelCategory || '_all_'}
+              onValueChange={(val) => {
+                setLabelCategory(val === '_all_' ? '' : val);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Category">
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all_">All categories</SelectItem>
+                <SelectItem value="SEWN_IN">Sewn-in labels</SelectItem>
+                <SelectItem value="HANGTAG">Hangtags</SelectItem>
+                <SelectItem value="PRICE_TAG">Price tags</SelectItem>
+              </SelectContent>
+            </Select>
 
-              {/* Clear Filters */}
-              {hasActiveFilters && (
-                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10">
-                  <X className="h-4 w-4 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-          </div>
+            <SupplierCombobox
+              value={supplierId}
+              onValueChange={(value) => {
+                setSupplierId(value || '');
+                setCurrentPage(1);
+              }}
+              allowAll
+              allLabel="All suppliers"
+              placeholder="All suppliers"
+              className="w-[220px]"
+            />
+          </FilterBar>
 
           {/* DataTable Component */}
           <DataTable
@@ -407,15 +389,22 @@ export default function LabelList() {
             loading={isLoading}
             error={error}
             onRowClick={(label) => navigate(`/materials/label/${label.id}`)}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No label items found',
-              description: searchQuery
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first label item',
-              actionLabel: 'Create First Label',
-              onAction: () => navigate('/materials/label/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No labels match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No label items found',
+                    description: 'Get started by creating your first label item',
+                    actionLabel: 'Create First Label',
+                    onAction: () => navigate('/materials/label/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

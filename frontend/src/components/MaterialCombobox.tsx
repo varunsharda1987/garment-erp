@@ -13,6 +13,8 @@ interface MaterialComboboxProps {
   disabled?: boolean;
   categoryFilter?: string; // Optional filter by material category/type
   supplierId?: string; // Optional filter by supplier
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All materials")
 }
 
 export function MaterialCombobox({
@@ -23,6 +25,8 @@ export function MaterialCombobox({
   disabled = false,
   categoryFilter,
   supplierId,
+  allowAll = false,
+  allLabel = 'All materials',
 }: MaterialComboboxProps) {
   // 352 materials exceed one picker page, so the server must hand back the alphabetically FIRST
   // 200 — otherwise "A…" codes would be the ones missing.
@@ -56,7 +60,7 @@ export function MaterialCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all materials' }, ...options] : options}
       value={value}
       onValueChange={onValueChange}
       placeholder={

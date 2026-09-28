@@ -319,9 +319,12 @@ export const getAllDeliveryNotes = async (req: Request, res: Response) => {
     'sale_orders.buyerPoNumber',
     'customers.name',
     'customers.code',
+    // The Customer column prints the billing name when there is one, and the list has a Customer GRN column
+    'customers.billingName',
     'delivery_note_items[].styles.styleCode',
     'delivery_note_items[].styles.buyerStyleRef',
     'vehicleNumber',
+    'delivery_notes_ext.pod.customerGrnNumber',
   ]);
 
   if (status) {

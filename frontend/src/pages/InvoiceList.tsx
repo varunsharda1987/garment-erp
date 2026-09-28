@@ -5,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getInvoices, deleteInvoice, getInvoiceSummary } from '@/services/invoice.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { OrderCombobox } from '@/components/OrderCombobox';
 import type { Invoice, InvoiceStatus, InvoiceSummary } from '@/types/invoice.types';
 import { InvoiceStatusLabels } from '@/types/invoice.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -43,7 +45,11 @@ export default function InvoiceList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [customerFilter, setCustomerFilter] = useState<string>('');
+  const [orderFilter, setOrderFilter] = useState(''); // '' = all orders
   const [statusFilter, setStatusFilter] = useState<string>(statusParam || 'all');
+  // Invoice date range — ISO yyyy-MM-dd, '' = open end
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -53,15 +59,10 @@ export default function InvoiceList() {
     fetchSummary();
   }, []);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, customerFilter, statusFilter]);
-
   useEffect(() => {
     fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);
+  }, [currentPage, pageSize, searchQuery, customerFilter, orderFilter, statusFilter, fromDate, toDate]);
 
   const fetchSummary = async () => {
     try {
@@ -81,7 +82,10 @@ export default function InvoiceList() {
         limit: pageSize,
         search: searchQuery || undefined,
         customerId: customerFilter || undefined,
+        orderId: orderFilter || undefined,
         status: statusFilter !== 'all' ? (statusFilter as InvoiceStatus) : undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       });
       setInvoices(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -92,6 +96,25 @@ export default function InvoiceList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const activeFilterCount = [
+    searchQuery,
+    customerFilter,
+    orderFilter,
+    statusFilter !== 'all',
+    fromDate || toDate,
+  ].filter(Boolean).length;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCustomerFilter('');
+    setOrderFilter('');
+    setStatusFilter('all');
+    setFromDate('');
+    setToDate('');
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, invoiceNumber: string) => {
@@ -318,29 +341,76 @@ export default function InvoiceList() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <SearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search by invoice number, customer or order..."
-              />
-            </div>
-            <CustomerCombobox value={customerFilter} onValueChange={setCustomerFilter} placeholder="All Customers" />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search invoice number, customer, order, sale order, style, buyer style…"
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search invoices"
+            />
+            <CustomerCombobox
+              value={customerFilter}
+              onValueChange={(v) => {
+                setCustomerFilter(v || '');
+                // The order list below is this customer's — a previously chosen order may not be
+                setOrderFilter('');
+                setCurrentPage(1);
+              }}
+              allowAll
+              allLabel="All customers"
+              placeholder="All customers"
+              className="w-[220px]"
+            />
+            <OrderCombobox
+              value={orderFilter}
+              onValueChange={(v) => {
+                setOrderFilter(v || '');
+                setCurrentPage(1);
+              }}
+              customerId={customerFilter || undefined}
+              allowAll
+              allLabel="All orders"
+              placeholder="All orders"
+              className="w-[220px]"
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
-                <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="OVERDUE">Overdue</SelectItem>
-                <SelectItem value="SETTLED_WITH_CREDIT">Settled with Credit</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(InvoiceStatusLabels) as InvoiceStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {InvoiceStatusLabels[status]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-          </div>
+            <DateRangeFilter
+              label="Invoice date"
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+                setCurrentPage(1);
+              }}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -353,6 +423,16 @@ export default function InvoiceList() {
             keyExtractor={(invoice) => invoice.id}
             loading={isLoading}
             error={error}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <FileText className="h-16 w-16" />,
+                    title: 'No invoices match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : undefined
+            }
             pagination={{
               currentPage,
               pageSize,

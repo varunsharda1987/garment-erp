@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import Pagination from '../components/Pagination';
+import SearchInput from '../components/SearchInput';
+import { FilterBar } from '../components/filters';
 import { laceDefectService } from '../services/laceDefect.service';
 import type { LaceDefect, DefectType, ClaimStatus, DiscoveredAt, DefectFilters } from '../types/laceDefect.types';
 import {
@@ -26,18 +28,7 @@ import {
 } from '../types/laceDefect.types';
 import { notify } from '../lib/notify';
 import { formatDate } from '@/lib/date';
-import {
-  Plus,
-  Search,
-  RefreshCw,
-  Eye,
-  AlertTriangle,
-  DollarSign,
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Clock,
-} from 'lucide-react';
+import { Plus, RefreshCw, Eye, AlertTriangle, DollarSign, FileText, CheckCircle2, XCircle, Clock } from 'lucide-react';
 
 export default function LaceDefectList() {
   const navigate = useNavigate();
@@ -55,6 +46,25 @@ export default function LaceDefectList() {
   const [claimStatusFilter, setClaimStatusFilter] = useState<ClaimStatus | ''>('');
   const [discoveredAtFilter, setDiscoveredAtFilter] = useState<DiscoveredAt | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    };
+
+  const activeFilterCount = [searchTerm, defectTypeFilter, claimStatusFilter, discoveredAtFilter].filter(
+    Boolean
+  ).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDefectTypeFilter('');
+    setClaimStatusFilter('');
+    setDiscoveredAtFilter('');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
 
   // Summary
   const [summary, setSummary] = useState({
@@ -123,12 +133,7 @@ export default function LaceDefectList() {
   useEffect(() => {
     fetchDefects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, defectTypeFilter, claimStatusFilter, discoveredAtFilter]);
-
-  const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    fetchDefects();
-  };
+  }, [pagination.page, pagination.limit, searchTerm, defectTypeFilter, claimStatusFilter, discoveredAtFilter]);
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value === null || value === undefined) return '-';
@@ -216,7 +221,7 @@ export default function LaceDefectList() {
 
         <Card
           className={`cursor-pointer transition-all ${claimStatusFilter === 'PENDING' ? 'ring-2 ring-gray-500' : ''}`}
-          onClick={() => setClaimStatusFilter(claimStatusFilter === 'PENDING' ? '' : 'PENDING')}
+          onClick={() => changeFilter(setClaimStatusFilter)(claimStatusFilter === 'PENDING' ? '' : 'PENDING')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -231,7 +236,7 @@ export default function LaceDefectList() {
 
         <Card
           className={`cursor-pointer transition-all ${claimStatusFilter === 'SUBMITTED' ? 'ring-2 ring-blue-500' : ''}`}
-          onClick={() => setClaimStatusFilter(claimStatusFilter === 'SUBMITTED' ? '' : 'SUBMITTED')}
+          onClick={() => changeFilter(setClaimStatusFilter)(claimStatusFilter === 'SUBMITTED' ? '' : 'SUBMITTED')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -246,7 +251,7 @@ export default function LaceDefectList() {
 
         <Card
           className={`cursor-pointer transition-all ${claimStatusFilter === 'RESOLVED' ? 'ring-2 ring-green-500' : ''}`}
-          onClick={() => setClaimStatusFilter(claimStatusFilter === 'RESOLVED' ? '' : 'RESOLVED')}
+          onClick={() => changeFilter(setClaimStatusFilter)(claimStatusFilter === 'RESOLVED' ? '' : 'RESOLVED')}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -261,27 +266,30 @@ export default function LaceDefectList() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by description, claim reference..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="pl-10"
-          />
-        </div>
+      <FilterBar
+        className="mb-6"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="flex-1 min-w-[200px] max-w-md"
+          placeholder="Search defect description or claim reference..."
+          value={searchTerm}
+          onChange={changeFilter(setSearchTerm)}
+          // The API refuses a longer search (laceDefectQuerySchema: max 100)
+          maxLength={100}
+        />
 
         <Select
           value={defectTypeFilter || '__all__'}
-          onValueChange={(value) => setDefectTypeFilter(value === '__all__' ? '' : (value as DefectType))}
+          onValueChange={(value) => changeFilter(setDefectTypeFilter)(value === '__all__' ? '' : (value as DefectType))}
         >
-          <SelectTrigger className="w-[170px]">
-            <SelectValue placeholder="All Defect Types" />
+          <SelectTrigger className="w-[170px]" aria-label="Defect type">
+            <SelectValue placeholder="All defect types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Defect Types</SelectItem>
+            <SelectItem value="__all__">All defect types</SelectItem>
             {Object.entries(DEFECT_TYPE_LABELS).map(([type, label]) => (
               <SelectItem key={type} value={type}>
                 {label}
@@ -292,13 +300,15 @@ export default function LaceDefectList() {
 
         <Select
           value={claimStatusFilter || '__all__'}
-          onValueChange={(value) => setClaimStatusFilter(value === '__all__' ? '' : (value as ClaimStatus))}
+          onValueChange={(value) =>
+            changeFilter(setClaimStatusFilter)(value === '__all__' ? '' : (value as ClaimStatus))
+          }
         >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="All Statuses" />
+          <SelectTrigger className="w-[150px]" aria-label="Claim status">
+            <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Statuses</SelectItem>
+            <SelectItem value="__all__">All statuses</SelectItem>
             {Object.entries(CLAIM_STATUS_LABELS).map(([status, label]) => (
               <SelectItem key={status} value={status}>
                 {label}
@@ -309,13 +319,15 @@ export default function LaceDefectList() {
 
         <Select
           value={discoveredAtFilter || '__all__'}
-          onValueChange={(value) => setDiscoveredAtFilter(value === '__all__' ? '' : (value as DiscoveredAt))}
+          onValueChange={(value) =>
+            changeFilter(setDiscoveredAtFilter)(value === '__all__' ? '' : (value as DiscoveredAt))
+          }
         >
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="All Stages" />
+          <SelectTrigger className="w-[150px]" aria-label="Discovered at">
+            <SelectValue placeholder="All stages" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Stages</SelectItem>
+            <SelectItem value="__all__">All stages</SelectItem>
             {Object.entries(DISCOVERED_AT_LABELS).map(([stage, label]) => (
               <SelectItem key={stage} value={stage}>
                 {label}
@@ -328,13 +340,20 @@ export default function LaceDefectList() {
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+      </FilterBar>
 
       {/* Table */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
             <div className="text-center py-12">Loading...</div>
+          ) : defects.length === 0 && activeFilterCount > 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="mb-4">No defects match these filters.</p>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            </div>
           ) : defects.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No defects found</div>
           ) : (

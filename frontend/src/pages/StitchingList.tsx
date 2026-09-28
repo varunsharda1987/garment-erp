@@ -3,8 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Shirt,
   Plus,
-  Search,
-  Filter,
+  X,
   Eye,
   Play,
   CheckCircle,
@@ -16,13 +15,14 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { stitchingIssueService, stitchingSummaryService } from '@/services/stitching.service';
 import type {
   StitchingIssue,
@@ -38,7 +38,7 @@ import { formatDate } from '@/lib/date';
 
 export default function StitchingList() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Scope the list to a work order when arriving from a work-order drill-down link
   const workOrderId = searchParams.get('workOrderId') || '';
 
@@ -119,15 +119,10 @@ export default function StitchingList() {
     }
   };
 
-  // Reset to page 1 when status filter changes
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter]);
-
   useEffect(() => {
     fetchIssuesData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, statusFilter, workOrderId]);
+  }, [page, pageSize, search, statusFilter, workOrderId]);
 
   // Fetch tab data when tab changes
   useEffect(() => {
@@ -138,9 +133,22 @@ export default function StitchingList() {
     }
   }, [activeTab]);
 
-  const handleSearch = () => {
+  // Filters: search, status, and the run a work-order drill-down link scoped the list to (?workOrderId=)
+  const activeFilterCount = [search, statusFilter, workOrderId].filter(Boolean).length;
+
+  const clearWorkOrderFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('workOrderId');
+    setSearchParams(next, { replace: true });
     setPage(1);
-    fetchIssuesData();
+  };
+
+  // Clears every filter; the tab and page size stay as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    if (workOrderId) clearWorkOrderFilter();
+    setPage(1);
   };
 
   const handleRefresh = async () => {
@@ -222,18 +230,6 @@ export default function StitchingList() {
         </div>
       </div>
 
-      {/* Work-order drill-down filter indicator */}
-      {workOrderId && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">
-            Filtered to work order: {issues.find((i) => i.workOrder)?.workOrder?.workOrderNumber || workOrderId}
-          </Badge>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/manufacturing/stitching">Clear filter</Link>
-          </Button>
-        </div>
-      )}
-
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
@@ -310,32 +306,57 @@ export default function StitchingList() {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by issue number, work order, or style..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="pl-9"
-                  />
-                </div>
-                <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v)}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="All Statuses" />
+              <FilterBar
+                onClear={clearFilters}
+                hasActiveFilters={activeFilterCount > 0}
+                clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+              >
+                <SearchInput
+                  className="min-w-[220px] max-w-md flex-1"
+                  placeholder="Search issue number, run number, style, buyer style…"
+                  value={search}
+                  onChange={(value) => {
+                    setSearch(value);
+                    setPage(1);
+                  }}
+                  // The API refuses a longer search (max 100)
+                  maxLength={100}
+                  aria-label="Search stitching issues"
+                />
+                <Select
+                  value={statusFilter || 'all'}
+                  onValueChange={(v) => {
+                    setStatusFilter(v === 'all' ? '' : v);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]" aria-label="Status">
+                    <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="PENDING_RECEIPT">Pending Receipt</SelectItem>
-                    <SelectItem value="RECEIVED">Received</SelectItem>
-                    <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                    <SelectItem value="COMPLETED">Completed</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="PENDING_RECEIPT">{StitchingIssueStatusLabels.PENDING_RECEIPT}</SelectItem>
+                    <SelectItem value="RECEIVED">{StitchingIssueStatusLabels.RECEIVED}</SelectItem>
+                    <SelectItem value="IN_PROGRESS">{StitchingIssueStatusLabels.IN_PROGRESS}</SelectItem>
+                    <SelectItem value="COMPLETED">{StitchingIssueStatusLabels.COMPLETED}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={handleSearch}>Search</Button>
-              </div>
+                {/* Scoped to one production run by a drill-down link — say so, and let it be removed on its own */}
+                {workOrderId && (
+                  <Badge variant="secondary" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
+                    Run: {issues.find((row) => row.workOrder)?.workOrder?.workOrderNumber ?? 'this run'}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      aria-label="Remove the run filter"
+                      onClick={clearWorkOrderFilter}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </Badge>
+                )}
+              </FilterBar>
             </CardContent>
           </Card>
 
@@ -347,7 +368,17 @@ export default function StitchingList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : issues.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No stitching issues found</div>
+                activeFilterCount > 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                    <p>No stitching issues match these filters.</p>
+                    <Button variant="outline" size="sm" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No stitching issues found</div>
+                )
               ) : (
                 <Table>
                   <TableHeader>

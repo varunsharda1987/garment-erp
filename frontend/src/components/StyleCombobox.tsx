@@ -16,12 +16,18 @@ import type { Style } from '@/types/style.types';
 export { PICKER_LIMIT };
 
 interface StyleComboboxProps {
-  value: string;
-  onChange: (styleId: string, style?: Style) => void;
+  value?: string;
+  /** The picked style and its record — form callers. Called together with `onValueChange` when both are given. */
+  onChange?: (styleId: string, style?: Style) => void;
+  /** The picked style's id ('' = none / "All styles") — the same contract as every other picker, for filters. */
+  onValueChange?: (styleId: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  className?: string;
   /** Status filter for styles. Defaults to 'ACTIVE' (published). Pass null to include drafts too. */
   status?: string | null;
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All styles")
 }
 
 function styleOption(s: Style): ComboboxOption {
@@ -32,7 +38,17 @@ function styleOption(s: Style): ComboboxOption {
   };
 }
 
-export function StyleCombobox({ value, onChange, disabled, placeholder, status = 'ACTIVE' }: StyleComboboxProps) {
+export function StyleCombobox({
+  value,
+  onChange,
+  onValueChange,
+  disabled,
+  placeholder,
+  className,
+  status = 'ACTIVE',
+  allowAll = false,
+  allLabel = 'All styles',
+}: StyleComboboxProps) {
   // If status is null, don't filter by status (include all)
   const effectiveStatus = status === null ? undefined : status;
 
@@ -48,7 +64,7 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
     [effectiveStatus]
   );
 
-  const { options, byId, addItem, isLoading, load, footer } = usePickerOptions<Style>({
+  const { options, byId, addItem, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<Style>({
     fetch,
     toOption: styleOption,
     // The server already orders by code; keeping the client sort makes a preselected style slot in
@@ -73,20 +89,27 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
   }, [value, byId, addItem]);
 
   const handleSelect = (styleId: string) => {
-    onChange(styleId, byId.get(styleId));
+    onChange?.(styleId, byId.get(styleId));
+    onValueChange?.(styleId);
   };
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all styles' }, ...options] : options}
       value={value}
       onValueChange={handleSelect}
       onSearchChange={load}
       isLoading={isLoading}
       disabled={disabled}
-      placeholder={placeholder || 'Search by style code...'}
+      className={className}
+      placeholder={
+        !initialLoaded && loadError ? 'Could not load — open to retry' : placeholder || 'Search by style code...'
+      }
       searchPlaceholder="Type style code..."
       emptyText="No styles found"
+      onOpenChange={(open) => {
+        if (open && !initialLoaded && !isLoading) load('');
+      }}
       footer={footer}
     />
   );

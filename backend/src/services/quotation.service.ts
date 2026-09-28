@@ -83,6 +83,8 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
     'quotationNumber',
     'customers.name',
     'customers.code',
+    // The Customer column shows the billing name first
+    'customers.billingName',
     'quotation_items[].styles.styleCode',
     'quotation_items[].styles.buyerStyleRef',
     'quotation_items[].styles.styleName',
@@ -393,12 +395,15 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
 
       // Date range filter
       if (fromDate || toDate) {
-        where.quotationDate = {} as { gte?: Date; lte?: Date };
+        where.quotationDate = {} as { gte?: Date; lt?: Date };
         if (fromDate) {
-          (where.quotationDate as { gte?: Date; lte?: Date }).gte = new Date(fromDate);
+          (where.quotationDate as { gte?: Date; lt?: Date }).gte = new Date(fromDate);
         }
         if (toDate) {
-          (where.quotationDate as { gte?: Date; lte?: Date }).lte = new Date(toDate);
+          // quotationDate is a timestamp (defaults to now) — bump to next day so the whole toDate day is included
+          const end = new Date(toDate);
+          end.setDate(end.getDate() + 1);
+          (where.quotationDate as { gte?: Date; lt?: Date }).lt = end;
         }
       }
 

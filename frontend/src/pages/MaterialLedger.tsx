@@ -8,12 +8,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Printer, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { PageHeader } from '@/components/PageHeader';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import { MaterialCombobox } from '@/components/MaterialCombobox';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -112,6 +112,13 @@ export default function MaterialLedgerPage() {
 
   const params = { from: from || undefined, to: to || undefined, warehouseId: warehouseId || undefined };
 
+  const activeFilterCount = [warehouseId, from || to].filter(Boolean).length;
+  const clearFilters = () => {
+    setWarehouseId('');
+    setFrom('');
+    setTo('');
+  };
+
   const load = useCallback(async () => {
     if (!materialId) return;
     setLoading(true);
@@ -156,35 +163,42 @@ export default function MaterialLedgerPage() {
       </p>
 
       <Card className="mb-6">
-        <CardContent className="grid gap-4 pt-6 md:grid-cols-4">
-          <div>
-            <Label>Material</Label>
-            <MaterialCombobox value={materialId} onValueChange={setMaterialId} placeholder="Pick a material…" />
-          </div>
-          <div>
-            <Label>Warehouse</Label>
-            <div className="flex gap-1">
+        <CardContent className="pt-4 pb-4">
+          {/* The material is what the ledger is OF, not a filter — Clear keeps it */}
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <div className="flex flex-col gap-1.5">
+              <Label>Material</Label>
+              <MaterialCombobox
+                value={materialId}
+                onValueChange={setMaterialId}
+                placeholder="Pick a material…"
+                className="w-[300px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Warehouse</Label>
               <WarehouseCombobox
                 value={warehouseId}
                 onValueChange={setWarehouseId}
+                allowAll
                 placeholder="All warehouses"
-                className="flex-1"
+                className="w-[220px]"
               />
-              {warehouseId && (
-                <Button variant="ghost" size="icon" onClick={() => setWarehouseId('')} title="All warehouses">
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
             </div>
-          </div>
-          <div>
-            <Label htmlFor="ml-from">From</Label>
-            <Input id="ml-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div>
-            <Label htmlFor="ml-to">To</Label>
-            <Input id="ml-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
+            <DateRangeFilter
+              label="Date"
+              from={from}
+              to={to}
+              onChange={(range) => {
+                setFrom(range.from);
+                setTo(range.to);
+              }}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -298,7 +312,19 @@ export default function MaterialLedgerPage() {
                   {ledger.rows.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                        {loading ? 'Loading…' : 'No movements for this material in this period.'}
+                        {loading ? (
+                          'Loading…'
+                        ) : activeFilterCount > 0 ? (
+                          <div className="space-y-3">
+                            <p>No movements match these filters.</p>
+                            <Button variant="outline" size="sm" onClick={clearFilters}>
+                              <X className="h-4 w-4 mr-1" />
+                              Clear filters
+                            </Button>
+                          </div>
+                        ) : (
+                          'No movements for this material yet.'
+                        )}
                       </TableCell>
                     </TableRow>
                   )}

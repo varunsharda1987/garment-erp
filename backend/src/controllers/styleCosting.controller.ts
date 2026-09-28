@@ -15,6 +15,7 @@ import { processorRateValidationService } from '../services/processor-rate-valid
 import { findRateCardsForShrinkage } from '../services/processor-rate-v2.service';
 import { lineUnit, loadLineUnits } from '../services/helpers/material-unit.helper';
 import { computeCostSheetTotals } from '../services/helpers/cost-sheet-totals.helper';
+import { applySearch } from '../utils/search-filter';
 import {
   StyleCostingWhereInput,
   FabricDetail,
@@ -513,15 +514,17 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
   // Build where clause
   const where: StyleCostingWhereInput = {};
 
-  // Search by style code or style name
+  // Search what each card shows: the style (code, buyer ref, name) and its linked order number — the
+  // order-level link or the order line's order. Word by word, so a style code and an order number
+  // typed together narrow by both.
   if (search) {
-    where.styles = {
-      OR: [
-        { styleCode: { contains: search as string, mode: 'insensitive' } },
-        { buyerStyleRef: { contains: search as string, mode: 'insensitive' } },
-        { styleName: { contains: search as string, mode: 'insensitive' } },
-      ],
-    };
+    applySearch(where, search as string, [
+      'styles.styleCode',
+      'styles.buyerStyleRef',
+      'styles.styleName',
+      'order.orderNumber',
+      'orderItem.orders.orderNumber',
+    ]);
   }
 
   // Filter by approval status

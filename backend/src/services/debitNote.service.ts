@@ -264,7 +264,14 @@ export class DebitNoteService {
     const where: Prisma.debit_notesWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['debitNoteNumber', 'supplier.name']);
+      // Every handle the list shows: the note, the supplier and the PO / job work order it is against
+      applySearch(where, search, [
+        'debitNoteNumber',
+        'supplier.name',
+        'supplier.code',
+        'purchaseOrder.poNumber',
+        'jobWorkOrder.jobWorkNumber',
+      ]);
     }
 
     if (status) {
@@ -281,7 +288,10 @@ export class DebitNoteService {
         where.debitNoteDate.gte = new Date(fromDate);
       }
       if (toDate) {
-        where.debitNoteDate.lte = new Date(toDate);
+        // debitNoteDate is a timestamp (@default(now())) — bump to next day so the whole toDate day is included
+        const end = new Date(toDate);
+        end.setDate(end.getDate() + 1);
+        where.debitNoteDate.lt = end;
       }
     }
 

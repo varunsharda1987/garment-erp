@@ -6,14 +6,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import processingBatchService from '../services/processingBatch.service';
 import type { ProcessingBatch, MaterialType, BatchStatus, ProcessingBatchFilters } from '../types/processing.types';
 import { notify } from '../lib/notify';
-import { Search, RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, Layers, Plus } from 'lucide-react';
+import { RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, Layers, Plus, X } from 'lucide-react';
 import { formatDate } from '@/lib/date';
 
 // Status colors
@@ -39,6 +40,13 @@ export default function ProcessingBatchList() {
   const [statusFilter, setStatusFilter] = useState<BatchStatus | ''>('');
   const [materialTypeFilter, setMaterialTypeFilter] = useState<MaterialType | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const activeFilterCount = [statusFilter, materialTypeFilter, searchTerm].filter(Boolean).length;
+  const clearFilters = () => {
+    setStatusFilter('');
+    setMaterialTypeFilter('');
+    setSearchTerm('');
+  };
 
   // Summary
   const [summary, setSummary] = useState({
@@ -84,11 +92,7 @@ export default function ProcessingBatchList() {
   useEffect(() => {
     fetchBatches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, materialTypeFilter]);
-
-  const handleSearch = () => {
-    fetchBatches();
-  };
+  }, [statusFilter, materialTypeFilter, searchTerm]);
 
   const getMaterialName = (batch: ProcessingBatch): string => {
     if (batch.materialType === 'LACE' && batch.laceMaster) {
@@ -203,27 +207,28 @@ export default function ProcessingBatchList() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-6">
-        <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by batch number..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="pl-10"
-          />
-        </div>
+      <FilterBar
+        className="mb-6"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="flex-1 min-w-[220px] max-w-md"
+          placeholder="Search batch number, material, target colour…"
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
 
         <Select
           value={statusFilter || '__all__'}
           onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : (value as BatchStatus))}
         >
           <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="All Statuses" />
+            <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Statuses</SelectItem>
+            <SelectItem value="__all__">All statuses</SelectItem>
             <SelectItem value="ACTIVE">Active</SelectItem>
             <SelectItem value="COMPLETED">Completed</SelectItem>
             <SelectItem value="CANCELLED">Cancelled</SelectItem>
@@ -235,13 +240,15 @@ export default function ProcessingBatchList() {
           onValueChange={(value) => setMaterialTypeFilter(value === '__all__' ? '' : (value as MaterialType))}
         >
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="All Materials" />
+            <SelectValue placeholder="All materials" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Materials</SelectItem>
-            <SelectItem value="GREIGE">Greige Fabric</SelectItem>
-            <SelectItem value="FABRIC">Fabric</SelectItem>
-            <SelectItem value="LACE">Lace</SelectItem>
+            <SelectItem value="__all__">All materials</SelectItem>
+            {Object.entries(MATERIAL_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -249,7 +256,7 @@ export default function ProcessingBatchList() {
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+      </FilterBar>
 
       {/* Table */}
       <Card>
@@ -257,7 +264,19 @@ export default function ProcessingBatchList() {
           {loading ? (
             <div className="text-center py-12">Loading...</div>
           ) : batches.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">No processing batches found</div>
+            <div className="text-center py-12 text-muted-foreground">
+              {activeFilterCount > 0 ? (
+                <>
+                  <p>No processing batches match these filters.</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                    <X className="h-4 w-4 mr-1" />
+                    Clear filters
+                  </Button>
+                </>
+              ) : (
+                'No processing batches found'
+              )}
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

@@ -1356,6 +1356,293 @@ function ownPager(relFiles) {
   return out;
 }
 
+// ─── List filters (2026-09-28) ───────────────────────────────────────────────────────────────────
+// On 2026-09-28 101 list pages filtered 101 ways: 35 raw search boxes, 28 with no search, 4 used
+// FilterBar, 9 could clear filters — and record filters were plain <Select>s over a fetched list,
+// which cannot be searched and silently stop at the first 100 records. Two detectors hold the line:
+// `recordSelect` (a record dropdown must be the shared searchable *Combobox) and `rawListSearch`
+// (a list page's search box must be the shared debounced SearchInput).
+
+// From the index of a `<Tag`, the index just past the tag's closing `>` — skipping `{…}` attribute
+// expressions (an `onChange={(e) => …}` holds a `>`) and quoted strings.
+function jsxTagEnd(content, startIdx) {
+  let depth = 0;
+  let str = null;
+  for (let i = startIdx + 1; i < content.length; i++) {
+    const ch = content[i];
+    if (str) {
+      if (ch === '\\') i++;
+      else if (ch === str) str = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') str = ch;
+    else if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+    else if (depth === 0 && ch === '>') return i + 1;
+    else if (depth === 0 && ch === '<') return i; // malformed — stop at the next tag
+  }
+  return content.length;
+}
+
+// The raw text of a JSX attribute's value inside one tag: `"x"` → `x`, `{expr}` → `expr`. Only
+// attributes at brace depth 0 count (an `onValueChange={(value) => …}` is not a `value=`).
+function jsxAttrValue(tag, name) {
+  let depth = 0;
+  let str = null;
+  for (let i = 0; i < tag.length; i++) {
+    const ch = tag[i];
+    if (str) {
+      if (ch === '\\') i++;
+      else if (ch === str) str = null;
+      continue;
+    }
+    if (depth === 0 && /\s/.test(ch) && tag.startsWith(name, i + 1)) {
+      const eq = /^\s*=\s*/.exec(tag.slice(i + 1 + name.length));
+      if (eq) {
+        const at = i + 1 + name.length + eq[0].length;
+        const q = tag[at];
+        if (q === '"' || q === "'") {
+          const end = tag.indexOf(q, at + 1);
+          return tag.slice(at + 1, end < 0 ? tag.length : end);
+        }
+        if (q !== '{') return null;
+        let d = 0;
+        let s = null;
+        for (let j = at; j < tag.length; j++) {
+          const cj = tag[j];
+          if (s) {
+            if (cj === '\\') j++;
+            else if (cj === s) s = null;
+            continue;
+          }
+          if (cj === '"' || cj === "'" || cj === '`') s = cj;
+          else if (cj === '{') d++;
+          else if (cj === '}' && --d === 0) return tag.slice(at + 1, j);
+        }
+        return tag.slice(at + 1);
+      }
+    }
+    if (ch === '"' || ch === "'" || ch === '`') str = ch;
+    else if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+  }
+  return null;
+}
+
+// Record filters — a plain shadcn `<SelectItem value={x.id}>` rendered inside a `.map(` over a
+// GROWABLE record list (suppliers, customers, styles, orders, materials…). A plain Select cannot be
+// searched, and the list it maps is whatever the page fetched — usually the first 100 — so record
+// #101 silently cannot be picked. Small reference lists (warehouses, seasons, categories, size charts,
+// accounts, users, labs, units…) are not flagged. The map must sit inside the item's <SelectContent>.
+// Opt out with an `allow-plain-select` comment (// or {/* */}) within the 10 lines above the item.
+const RECORD_ID_CHAIN = String.raw`[\w$]+(?:\??\.[\w$]+)*\??\.(?:id|[a-z][\w$]*Id)`;
+const RECORD_ID_VALUE_RES = [
+  new RegExp(`^${RECORD_ID_CHAIN}$`), // x.id, x?.supplier.id, x.supplierId
+  new RegExp(String.raw`^String\(${RECORD_ID_CHAIN}\)$`), // String(x.id)
+  new RegExp(String.raw`^${RECORD_ID_CHAIN}\??\.toString\(\)$`), // x.id.toString()
+  new RegExp('^`\\$\\{' + RECORD_ID_CHAIN + '\\}`$'), // `${x.id}`
+];
+// Longest first, so `saleOrders` is named before `orders`.
+const GROWABLE_RECORD_LISTS = [
+  'saleOrders',
+  'workOrders',
+  'suppliers',
+  'vendors',
+  'customers',
+  'buyers',
+  'styles',
+  'orders',
+  'materials',
+  'processors',
+  'greiges',
+  'laces',
+  'fabrics',
+  'trims',
+  'agents',
+  'agencies',
+  'weavers',
+  'colors',
+  'colours',
+];
+// The growable list a receiver names, as a whole camelCase word (`activeSuppliers`, `suppliersData`,
+// `(customers?.data || [])`, and the singular + Options/List form `supplierOptions`, `styleList` —
+// but not `places`, `borders`, `stylesheet`), named by its plural; or null.
+const GROWABLE_RECORD_FORMS = GROWABLE_RECORD_LISTS.flatMap((w) => {
+  const singular = w === 'agencies' ? 'agency' : w.replace(/s$/, '');
+  return [w, `${singular}Options`, `${singular}List`].map((form) => ({ form: form.toLowerCase(), list: w }));
+});
+function growableListIn(text) {
+  const lower = text.toLowerCase();
+  for (const { form, list } of GROWABLE_RECORD_FORMS) {
+    let k = lower.indexOf(form);
+    while (k !== -1) {
+      const prev = text[k - 1];
+      const next = text[k + form.length];
+      const startOk = k === 0 || !/[A-Za-z]/.test(prev) || (/[a-z]/.test(prev) && /[A-Z]/.test(text[k]));
+      const endOk = next === undefined || !/[a-z]/.test(next);
+      if (startOk && endOk) return list;
+      k = lower.indexOf(form, k + 1);
+    }
+  }
+  return null;
+}
+function matchOpenBack(content, closeIdx) {
+  const close = content[closeIdx];
+  const open = close === ')' ? '(' : close === ']' ? '[' : '{';
+  let depth = 0;
+  for (let i = closeIdx; i >= 0; i--) {
+    if (content[i] === close) depth++;
+    else if (content[i] === open && --depth === 0) return i;
+  }
+  return -1;
+}
+// The expression a `.map` at `dotIdx` is called on: identifiers, `.`/`?.`/`!`, balanced `(…)`/`[…]`,
+// and a chain broken across lines (`suppliers\n  .filter(…)\n  .map(`).
+function mapReceiverBefore(content, dotIdx) {
+  let i = dotIdx - 1;
+  while (i >= 0) {
+    const ch = content[i];
+    if (/[\w$.!]/.test(ch) || (ch === '?' && content[i + 1] === '.')) {
+      i--;
+      continue;
+    }
+    if (ch === ')' || ch === ']') {
+      const open = matchOpenBack(content, i);
+      if (open < 0) break;
+      i = open - 1;
+      continue;
+    }
+    if (/\s/.test(ch) && (content[i + 1] === '.' || (content[i + 1] === '?' && content[i + 2] === '.'))) {
+      while (i >= 0 && /\s/.test(content[i])) i--;
+      continue;
+    }
+    break;
+  }
+  return content.slice(i + 1, dotIdx);
+}
+// Collapse call arguments (`suppliers.filter((s) => …)` → `suppliers.filter()`) so a word inside a
+// callback does not count as the list; a grouping paren keeps its contents (`(suppliers || [])`).
+function normalizeMapReceiver(expr) {
+  let out = '';
+  for (let i = 0; i < expr.length; i++) {
+    const ch = expr[i];
+    if (ch === '(') {
+      let depth = 0;
+      let close = expr.length - 1;
+      for (let j = i; j < expr.length; j++) {
+        if (expr[j] === '(') depth++;
+        else if (expr[j] === ')' && --depth === 0) {
+          close = j;
+          break;
+        }
+      }
+      const isCall = /[\w$)\]]$/.test(out);
+      out += isCall ? '()' : `(${normalizeMapReceiver(expr.slice(i + 1, close))})`;
+      i = close;
+      continue;
+    }
+    if (!/\s/.test(ch)) out += ch;
+  }
+  return out;
+}
+// The receiver of the nearest `.map(` whose call encloses `idx`, not climbing past `floor`.
+const MAP_BACK_WINDOW = 2000;
+function enclosingMapReceiver(content, idx, floor) {
+  let depth = 0;
+  const stop = Math.max(0, floor, idx - MAP_BACK_WINDOW);
+  for (let i = idx - 1; i >= stop; i--) {
+    const ch = content[i];
+    if (ch === ')') depth++;
+    else if (ch === '(') {
+      if (depth > 0) {
+        depth--;
+        continue;
+      }
+      // An unclosed '(' enclosing idx: a `.map(` call, or a group (`=> (`, a ternary) — keep climbing.
+      const head = content.slice(Math.max(0, i - 24), i);
+      const mm = /(\?\.|\.)\s*map\s*(?:<[^<>()]*>)?\s*$/.exec(head);
+      if (mm) return normalizeMapReceiver(mapReceiverBefore(content, i - head.length + mm.index));
+    }
+  }
+  return null;
+}
+function recordSelect(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^frontend\/src\/.*\.tsx$/.test(norm)) continue;
+    if (/\.test\.|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content || !content.includes('<SelectItem')) continue;
+    // Opt-out read from the RAW source (blankComments blanks `{/* allow-plain-select */}`).
+    const rawLines = (readRel(rel) || '').split('\n');
+    const optedOut = (line) => rawLines.slice(Math.max(0, line - 11), line).some((l) => /allow-plain-select/.test(l));
+    const seen = new Map();
+    const re = /<SelectItem(?![\w$.])/g;
+    let m;
+    while ((m = re.exec(content))) {
+      const tag = content.slice(m.index, jsxTagEnd(content, m.index));
+      const value = jsxAttrValue(tag, 'value');
+      if (value == null) continue;
+      const v = value.replace(/\s+/g, '');
+      if (!RECORD_ID_VALUE_RES.some((r) => r.test(v))) continue;
+      const receiver = enclosingMapReceiver(content, m.index, content.lastIndexOf('<SelectContent', m.index));
+      if (!receiver) continue;
+      const list = growableListIn(receiver);
+      if (!list) continue;
+      const line = lineOf(content, m.index);
+      if (optedOut(line)) continue;
+      let key = `${rel} :: record-select :: ${list}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({
+        key,
+        file: rel,
+        line,
+        detail: `plain <SelectItem value={${v}}> over ${receiver} — cannot be searched and stops at what the page fetched; use the shared searchable picker (SupplierCombobox, CustomerCombobox, StyleCombobox, OrderCombobox, ProcessorCombobox, MaterialCombobox… with allowAll for a filter) or mark \`// allow-plain-select: <why>\``,
+      });
+    }
+  }
+  return out;
+}
+
+// Raw list search — on a list page (frontend/src/pages), an `<Input>` whose placeholder says
+// "search". A list's search box is the shared debounced `SearchInput` (one debounce, page reset to 1,
+// same look everywhere); a raw Input either fires a request per keystroke or hand-rolls its own
+// debounce. A box that filters a small in-memory list inside a dialog/form opts out with an
+// `allow-raw-search` comment (// or {/* */}) within the 10 lines above it.
+function rawListSearch(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^frontend\/src\/pages\/.*\.tsx$/.test(norm)) continue;
+    if (/\.test\.|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content || !content.includes('<Input')) continue;
+    const rawLines = (readRel(rel) || '').split('\n');
+    const optedOut = (line) => rawLines.slice(Math.max(0, line - 11), line).some((l) => /allow-raw-search/.test(l));
+    let n = 0;
+    const re = /<Input(?![\w$.])/g;
+    let m;
+    while ((m = re.exec(content))) {
+      const tag = content.slice(m.index, jsxTagEnd(content, m.index));
+      const placeholder = jsxAttrValue(tag, 'placeholder');
+      if (placeholder == null || !/search/i.test(placeholder)) continue;
+      const line = lineOf(content, m.index);
+      if (optedOut(line)) continue;
+      n++;
+      out.push({
+        key: `${rel} :: raw-search :: ${n}`,
+        file: rel,
+        line,
+        detail: `raw search box <Input placeholder=${JSON.stringify(placeholder.trim().slice(0, 60))}> — use the shared debounced SearchInput (import SearchInput from '@/components/SearchInput') inside FilterBar, or mark \`// allow-raw-search: <why>\` for a box filtering a small in-memory list in a dialog/form`,
+      });
+    }
+  }
+  return out;
+}
+
 // D3 — `someQty || null` / `|| undefined` / `|| ''` on a money/quantity identifier: `||` treats a
 // REAL 0 as missing, so a genuine zero price/qty is replaced by the fallback and lost (BUG-BEL1,
 // BUG-FC2 class). Use `??` (only null/undefined trigger the fallback). Only literal null/undefined/
@@ -2448,6 +2735,8 @@ module.exports = {
   stockSyncNoWarehouse,
   silentCatchFrontend,
   ownPager,
+  recordSelect,
+  rawListSearch,
   numericOrFallback,
   hardcodedDefault,
   itemWriteFieldDrift,

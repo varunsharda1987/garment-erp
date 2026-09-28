@@ -206,6 +206,28 @@ const TRIM_TYPE_FK_MAP: Record<string, string> = {
   other_functional: 'otherFunctionalId',
 };
 
+// The text columns each trim's list shows besides code, name and colour (the first four fields of its
+// frontend TRIM_TYPE_CONFIGS entry). Every one is a String column on that model — a number or boolean
+// here would make `contains` a 500.
+const TRIM_SEARCH_FIELDS: Record<string, readonly string[]> = {
+  hook_eye: ['size', 'material', 'finish'],
+  snap_button: ['size', 'type', 'material'],
+  buckle: ['width', 'type', 'material', 'finish'],
+  belt: ['width', 'type', 'material', 'buckleType'],
+  velcro: ['width', 'type'],
+  drawstring: ['width', 'material'],
+  ribbon: ['width', 'type', 'pattern'],
+  sequin: ['size', 'shape', 'finish'],
+  bead: ['size', 'shape', 'material'],
+  motif: ['size', 'type', 'design'],
+  interlining: ['weight', 'type', 'width'],
+  padding: ['type', 'size', 'thickness', 'material'],
+  other_fastener: ['type', 'size', 'material'],
+  other_tape: ['type', 'width', 'material'],
+  other_decorative: ['type', 'size', 'material'],
+  other_functional: ['type', 'size', 'material'],
+};
+
 // Helper to get Prisma model dynamically
 const getPrismaModel = (modelName: string) => {
   return (prisma as any)[modelName];
@@ -239,7 +261,15 @@ export const getAll = async (req: Request, res: Response) => {
 
   if (search) {
     // The name/code columns differ per trim type, so the paths are built at runtime
-    applySearch(where, String(search), [config.nameField, config.codeField, 'color']);
+    applySearch(where, String(search), [
+      config.nameField,
+      config.codeField,
+      'description',
+      'color',
+      ...(TRIM_SEARCH_FIELDS[trimType] ?? []),
+      'supplier.code',
+      'supplier.name',
+    ]);
   }
 
   const [total, items] = await Promise.all([

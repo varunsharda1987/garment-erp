@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import {
   getAllHSNSACMasters,
   createHSNSACMaster,
@@ -37,6 +39,7 @@ export default function HSNSACMasterList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [typeFilter, setTypeFilter] = useState<HSNSACType | ''>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<HSNSACMaster | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -54,15 +57,26 @@ export default function HSNSACMasterList() {
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['hsn-sac-masters', { page, pageSize, search, type: typeFilter }],
+    queryKey: ['hsn-sac-masters', { page, pageSize, search, type: typeFilter, statusFilter }],
     queryFn: () =>
       getAllHSNSACMasters({
         page,
         limit: pageSize,
         search: search || undefined,
         type: typeFilter || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
       }),
   });
+
+  const activeFilterCount = [search, typeFilter, statusFilter !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  function clearFilters() {
+    setSearch('');
+    setTypeFilter('');
+    setStatusFilter('all');
+    setPage(1);
+  }
 
   const createMutation = useMutation({
     mutationFn: createHSNSACMaster,
@@ -172,19 +186,20 @@ export default function HSNSACMasterList() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by code or description..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="w-full max-w-sm"
+              placeholder="Search code, description, chapter, section, unit…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+            />
             <Select
               value={typeFilter || 'ALL'}
               onValueChange={(val) => {
@@ -192,16 +207,32 @@ export default function HSNSACMasterList() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Types" />
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
+                <SelectItem value="ALL">All types</SelectItem>
                 <SelectItem value="HSN">HSN (Goods)</SelectItem>
                 <SelectItem value="SAC">SAC (Services)</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(val) => {
+                setStatusFilter(val as 'all' | 'active' | 'inactive');
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
         </CardHeader>
         <CardContent>
           <Table>
@@ -223,6 +254,15 @@ export default function HSNSACMasterList() {
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Loading...
+                  </TableCell>
+                </TableRow>
+              ) : records.length === 0 && activeFilterCount > 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <p>No HSN/SAC codes match these filters.</p>
+                    <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>
+                      Clear filters
+                    </Button>
                   </TableCell>
                 </TableRow>
               ) : records.length === 0 ? (

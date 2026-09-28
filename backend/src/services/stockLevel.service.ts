@@ -84,10 +84,16 @@ class StockLevelService {
       rows = rows.filter((r) => r.reorderLevel != null && Number(r.quantity) <= Number(r.reorderLevel));
     }
     if (filters?.search) {
-      const s = filters.search.toLowerCase();
-      rows = rows.filter(
-        (r) => r.materials?.code?.toLowerCase().includes(s) || r.materials?.name?.toLowerCase().includes(s)
-      );
+      // What the Stock Levels table shows — material code and name, the warehouse's code and name — with
+      // every typed word required somewhere (the list-search rule), so "lace main" finds lace in Main Store
+      const words = filters.search.toLowerCase().split(/\s+/).filter(Boolean);
+      rows = rows.filter((r) => {
+        const text = [r.materials?.code, r.materials?.name, r.warehouses?.warehouseCode, r.warehouses?.warehouseName]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        return words.every((word) => text.includes(word));
+      });
     }
     // Synthetic composite id, same scheme as the sibling by-material/by-warehouse endpoints — the
     // frontend list keys on stock.id and the detail/update routes accept exactly this format.

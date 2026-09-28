@@ -15,6 +15,8 @@ interface AgentComboboxProps {
   className?: string;
   disabled?: boolean;
   agencyId?: string; // Filter agents by agency (for cascading dropdown)
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All agents")
 }
 
 export function AgentCombobox({
@@ -24,6 +26,8 @@ export function AgentCombobox({
   className,
   disabled = false,
   agencyId,
+  allowAll = false,
+  allLabel = 'All agents',
 }: AgentComboboxProps) {
   const fetch = useCallback(
     async (search: string): Promise<PickerPage<AgentSearchResult>> => {
@@ -54,7 +58,7 @@ export function AgentCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all agents' }, ...options] : options}
       value={value}
       onValueChange={onValueChange}
       placeholder={!initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading agents...') : placeholder}

@@ -69,10 +69,11 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
     where.isActive = isActive === 'true';
   }
 
-  // Search filter (code, name, composition). applySearch appends under where.AND, so every facet
-  // set below still narrows the result and can never be OR-ed away.
+  // Search filter (code, name, generic name, weave, composition — every text column the Greige
+  // Master list shows). applySearch appends under where.AND, so every facet set below still narrows
+  // the result and can never be OR-ed away.
   if (search) {
-    applySearch(where, search, ['greigeCode', 'greigeName', 'composition']);
+    applySearch(where, search, ['greigeCode', 'greigeName', 'genericGreigeName', 'weaveType', 'composition']);
   }
 
   // Supplier filter (via junction table)

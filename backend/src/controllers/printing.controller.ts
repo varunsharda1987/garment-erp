@@ -238,7 +238,17 @@ export const getAllLabDips = async (req: Request, res: Response, _next: NextFunc
   };
 
   if (search) {
-    applySearch(where, search as string, ['labDipNumber', 'style.styleCode', 'style.buyerStyleRef', 'style.styleName']);
+    // Every column the Lab Dips tables show: style, fabric, design, mill
+    applySearch(where, search as string, [
+      'labDipNumber',
+      'style.styleCode',
+      'style.buyerStyleRef',
+      'style.styleName',
+      'designArtwork',
+      'fabric.fabricCode',
+      'fabric.fabricName',
+      'processor.name',
+    ]);
   }
 
   if (status) {
@@ -1249,16 +1259,19 @@ export const getProcessPOs = async (req: Request, res: Response, _next: NextFunc
   };
 
   if (search) {
-    where.AND = [
-      {
-        OR: [
-          { jobWorkNumber: { contains: search as string, mode: 'insensitive' } },
-          { purchaseOrder: { poNumber: { contains: search as string, mode: 'insensitive' } } },
-          { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
-          { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
-        ],
-      },
-    ];
+    // Every column the Job Work Orders tables show: order number, style, mill, fabric (sent or finished)
+    applySearch(where, search as string, [
+      'jobWorkNumber',
+      'purchaseOrder.poNumber',
+      'style.styleCode',
+      'style.buyerStyleRef',
+      'style.styleName',
+      'processor.name',
+      'fabric.fabricCode',
+      'fabric.fabricName',
+      'finishedFabric.fabricCode',
+      'finishedFabric.fabricName',
+    ]);
   }
 
   if (status && status !== 'ALL') {

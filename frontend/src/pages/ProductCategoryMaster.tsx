@@ -30,12 +30,13 @@ import {
   Folder,
   FolderOpen,
   Tag,
-  Search,
   RefreshCw,
   Layers,
   X,
 } from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { productCategoryService } from '../services/productCategory.service';
 import { getAllComponentMasters } from '../services/componentMaster.service';
 import type { ComponentMaster } from '../types/componentMaster.types';
@@ -488,6 +489,22 @@ export default function ProductCategoryMaster() {
 
   const filteredHierarchy = filterHierarchy(hierarchy, searchTerm);
 
+  const activeFilterCount = [searchTerm].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (!value) return;
+    // A match can sit under a collapsed branch — open every branch on the way to one so it shows
+    const branchIds = (cats: ProductCategoryHierarchy[]): string[] =>
+      cats.flatMap((cat) => [cat.id, ...branchIds(cat.children || [])]);
+    const matchedIds = branchIds(filterHierarchy(hierarchy, value));
+    setExpandedIds((prev) => new Set([...prev, ...matchedIds]));
+  };
+
   // BUG-PC2 FIX: Flatten hierarchy to get all eligible parent categories (level < 3)
   // This allows creating level 2 AND level 3 categories from the dropdown
   const getEligibleParents = (cats: ProductCategoryHierarchy[], currentEditId?: string): ProductCategory[] => {
@@ -531,17 +548,21 @@ export default function ProductCategoryMaster() {
         </Button>
       </div>
 
-      {/* Search & Actions */}
-      <div className="flex gap-4 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search categories..."
+      {/* Filters & Actions */}
+      <div className="flex flex-wrap items-end gap-4 mb-4">
+        <FilterBar
+          className="flex-1"
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="min-w-[220px] flex-1"
+            placeholder="Search category code, name…"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            onChange={handleSearchChange}
           />
-        </div>
+        </FilterBar>
         <Button variant="outline" onClick={handleExpandAll}>
           Expand All
         </Button>
@@ -561,9 +582,16 @@ export default function ProductCategoryMaster() {
           <div className="p-8 text-center text-muted-foreground">Loading categories...</div>
         ) : filteredHierarchy.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
-            {searchTerm
-              ? 'No categories found matching your search.'
-              : 'No categories found. Click "Add Category" to create one.'}
+            {activeFilterCount > 0 ? (
+              <div className="flex flex-col items-center gap-2">
+                <span>No categories match these filters.</span>
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
+              'No categories found. Click "Add Category" to create one.'
+            )}
           </div>
         ) : (
           <div>

@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Truck,
   Plus,
-  Filter,
   Eye,
   Send,
   CheckCircle,
@@ -13,10 +12,14 @@ import {
   Package,
   FileText,
   ClipboardList,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SearchInput from '@/components/SearchInput';
 import Pagination from '@/components/Pagination';
+import { FilterBar } from '@/components/filters';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { OrderCombobox } from '@/components/OrderCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +46,9 @@ export default function DispatchList() {
   const [dnTotal, setDnTotal] = useState(0);
   const [dnSearch, setDnSearch] = useState('');
   const [dnStatusFilter, setDnStatusFilter] = useState<string>('');
+  // '' = all customers / all orders
+  const [dnCustomerFilter, setDnCustomerFilter] = useState('');
+  const [dnOrderFilter, setDnOrderFilter] = useState('');
 
   // ASN state
   const [asnApplications, setAsnApplications] = useState<ASNApplication[]>([]);
@@ -52,6 +58,7 @@ export default function DispatchList() {
   const [asnTotal, setAsnTotal] = useState(0);
   const [asnSearch, setAsnSearch] = useState('');
   const [asnStatusFilter, setAsnStatusFilter] = useState<string>('');
+  const [asnOrderFilter, setAsnOrderFilter] = useState('');
 
   // Shared state
   const [summary, setSummary] = useState<DispatchSummary | null>(null);
@@ -69,6 +76,8 @@ export default function DispatchList() {
         limit: dnPageSize,
         search: dnSearch || undefined,
         status: (dnStatusFilter as DeliveryStatus) || undefined,
+        customerId: dnCustomerFilter || undefined,
+        orderId: dnOrderFilter || undefined,
       });
       setDeliveryNotes(response.data);
       setDnTotalPages(response.pagination.totalPages);
@@ -77,7 +86,7 @@ export default function DispatchList() {
       console.error('Error fetching delivery notes:', error);
       handleApiError(error, 'Failed to load delivery notes');
     }
-  }, [dnPage, dnPageSize, dnSearch, dnStatusFilter]);
+  }, [dnPage, dnPageSize, dnSearch, dnStatusFilter, dnCustomerFilter, dnOrderFilter]);
 
   const fetchASNApplications = useCallback(async () => {
     try {
@@ -86,6 +95,7 @@ export default function DispatchList() {
         limit: asnPageSize,
         search: asnSearch || undefined,
         status: (asnStatusFilter as ASNStatus) || undefined,
+        orderId: asnOrderFilter || undefined,
       });
       setAsnApplications(response.data);
       setAsnTotalPages(response.pagination.totalPages);
@@ -94,7 +104,7 @@ export default function DispatchList() {
       console.error('Error fetching ASN applications:', error);
       handleApiError(error, 'Failed to load ASN applications');
     }
-  }, [asnPage, asnPageSize, asnSearch, asnStatusFilter]);
+  }, [asnPage, asnPageSize, asnSearch, asnStatusFilter, asnOrderFilter]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -115,15 +125,6 @@ export default function DispatchList() {
     fetchData();
   }, [fetchData]);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setDnPage(1);
-  }, [dnStatusFilter]);
-
-  useEffect(() => {
-    setAsnPage(1);
-  }, [asnStatusFilter]);
-
   useEffect(() => {
     fetchDeliveryNotes();
   }, [fetchDeliveryNotes]);
@@ -131,6 +132,24 @@ export default function DispatchList() {
   useEffect(() => {
     fetchASNApplications();
   }, [fetchASNApplications]);
+
+  // Each tab has its own filters; clearing one tab's keeps the other tab and the page sizes as they are
+  const dnFilterCount = [dnSearch, dnStatusFilter, dnCustomerFilter, dnOrderFilter].filter(Boolean).length;
+  const clearDnFilters = () => {
+    setDnSearch('');
+    setDnStatusFilter('');
+    setDnCustomerFilter('');
+    setDnOrderFilter('');
+    setDnPage(1);
+  };
+
+  const asnFilterCount = [asnSearch, asnStatusFilter, asnOrderFilter].filter(Boolean).length;
+  const clearAsnFilters = () => {
+    setAsnSearch('');
+    setAsnStatusFilter('');
+    setAsnOrderFilter('');
+    setAsnPage(1);
+  };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -264,30 +283,65 @@ export default function DispatchList() {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
+              <FilterBar
+                onClear={clearDnFilters}
+                hasActiveFilters={dnFilterCount > 0}
+                clearText={`Clear ${dnFilterCount} ${dnFilterCount === 1 ? 'filter' : 'filters'}`}
+              >
                 <SearchInput
-                  className="flex-1"
-                  placeholder="Search by note #, order, customer or style..."
+                  className="min-w-[220px] max-w-md flex-1"
+                  placeholder="Search DN number, order, customer, style, buyer PO, customer GRN…"
                   value={dnSearch}
                   onChange={(value) => {
                     setDnSearch(value);
                     setDnPage(1);
                   }}
+                  // The API refuses a longer search (deliveryNoteQuerySchema: max 100)
+                  maxLength={100}
+                  aria-label="Search delivery notes"
                 />
-                <Select value={dnStatusFilter || 'all'} onValueChange={(v) => setDnStatusFilter(v === 'all' ? '' : v)}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="All Statuses" />
+                <Select
+                  value={dnStatusFilter || 'all'}
+                  onValueChange={(v) => {
+                    setDnStatusFilter(v === 'all' ? '' : v);
+                    setDnPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]" aria-label="Status">
+                    <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="IN_TRANSIT">In Transit</SelectItem>
-                    <SelectItem value="DELIVERED">Delivered</SelectItem>
-                    <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(DeliveryStatusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
+                <CustomerCombobox
+                  value={dnCustomerFilter}
+                  onValueChange={(v) => {
+                    setDnCustomerFilter(v || '');
+                    setDnPage(1);
+                  }}
+                  allowAll
+                  allLabel="All customers"
+                  placeholder="All customers"
+                  className="w-[220px]"
+                />
+                <OrderCombobox
+                  value={dnOrderFilter}
+                  onValueChange={(v) => {
+                    setDnOrderFilter(v || '');
+                    setDnPage(1);
+                  }}
+                  allowAll
+                  allLabel="All orders"
+                  placeholder="All orders"
+                  className="w-[220px]"
+                />
+              </FilterBar>
             </CardContent>
           </Card>
 
@@ -299,7 +353,17 @@ export default function DispatchList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : deliveryNotes.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No delivery notes found</div>
+                dnFilterCount > 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                    <p>No delivery notes match these filters.</p>
+                    <Button variant="outline" size="sm" onClick={clearDnFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No delivery notes found</div>
+                )
               ) : (
                 <Table>
                   <TableHeader>
@@ -420,34 +484,55 @@ export default function DispatchList() {
           {/* Filters */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-4">
+              <FilterBar
+                onClear={clearAsnFilters}
+                hasActiveFilters={asnFilterCount > 0}
+                clearText={`Clear ${asnFilterCount} ${asnFilterCount === 1 ? 'filter' : 'filters'}`}
+              >
                 <SearchInput
-                  className="flex-1"
-                  placeholder="Search by ASN #, order, customer or buyer ref..."
+                  className="min-w-[220px] max-w-md flex-1"
+                  placeholder="Search ASN number, buyer ref, order, customer, style, buyer style…"
                   value={asnSearch}
                   onChange={(value) => {
                     setAsnSearch(value);
                     setAsnPage(1);
                   }}
+                  // The API refuses a longer search (asnQuerySchema: max 100)
+                  maxLength={100}
+                  aria-label="Search ASN applications"
                 />
+                {/* Options come from the label map, which holds the API's own values (RESCHEDULE, not RESCHEDULED) */}
                 <Select
                   value={asnStatusFilter || 'all'}
-                  onValueChange={(v) => setAsnStatusFilter(v === 'all' ? '' : v)}
+                  onValueChange={(v) => {
+                    setAsnStatusFilter(v === 'all' ? '' : v);
+                    setAsnPage(1);
+                  }}
                 >
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="All Statuses" />
+                  <SelectTrigger className="w-[180px]" aria-label="Status">
+                    <SelectValue placeholder="All statuses" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="PENDING">Pending</SelectItem>
-                    <SelectItem value="APPLIED">Applied</SelectItem>
-                    <SelectItem value="APPROVED">Approved</SelectItem>
-                    <SelectItem value="REJECTED">Rejected</SelectItem>
-                    <SelectItem value="RESCHEDULED">Rescheduled</SelectItem>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {Object.entries(ASNStatusLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
+                <OrderCombobox
+                  value={asnOrderFilter}
+                  onValueChange={(v) => {
+                    setAsnOrderFilter(v || '');
+                    setAsnPage(1);
+                  }}
+                  allowAll
+                  allLabel="All orders"
+                  placeholder="All orders"
+                  className="w-[220px]"
+                />
+              </FilterBar>
             </CardContent>
           </Card>
 
@@ -459,7 +544,17 @@ export default function DispatchList() {
                   <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : asnApplications.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No ASN applications found</div>
+                asnFilterCount > 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
+                    <p>No ASN applications match these filters.</p>
+                    <Button variant="outline" size="sm" onClick={clearAsnFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filters
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">No ASN applications found</div>
+                )
               ) : (
                 <Table>
                   <TableHeader>

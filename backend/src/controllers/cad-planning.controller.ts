@@ -4262,14 +4262,20 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
     }
   }
 
-  // Add search filter
+  // Add search filter — every column the list shows: code/name, buyer ref, buyer (the brand's
+  // customer, else the style's own name for it), brand, and the Greige column (the CAD row's greige,
+  // else the style fabric's generic greige name)
   if (search) {
     applySearch(where, search as string, [
       'styleCode',
       'buyerStyleRef',
       'styleName',
       'customerName',
+      'brand_categories.customer.name',
       'brand_categories.brandName',
+      'style_components[].style_fabrics[].genericGreigeName',
+      'style_components[].style_fabrics[].cadRows[].greige.greigeName',
+      'style_components[].style_fabrics[].cadRows[].greige.greigeCode',
     ]);
   }
 

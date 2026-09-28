@@ -180,7 +180,20 @@ export const getAllButtons = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    applySearch(where, String(search), ['buttonName', 'buttonCode', 'color']);
+    // Every column the Buttons list shows: code, name, size, colour, material, shape, styles, suppliers
+    applySearch(where, String(search), [
+      'buttonName',
+      'buttonCode',
+      'description',
+      'size',
+      'color',
+      'material',
+      'shape',
+      'button_style_associations[].style.styleCode',
+      'button_style_associations[].style.buyerStyleRef',
+      'buttonSuppliers[].supplier.code',
+      'buttonSuppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

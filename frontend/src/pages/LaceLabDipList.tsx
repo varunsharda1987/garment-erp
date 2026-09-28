@@ -6,16 +6,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import Pagination from '../components/Pagination';
+import SearchInput from '../components/SearchInput';
+import { FilterBar } from '../components/filters';
+import { ProcessorCombobox } from '../components/ProcessorCombobox';
 import { laceLabDipService } from '../services/laceLabDip.service';
 import type { LaceLabDip, LabDipStatus, LabDipListFilters } from '../types/laceLabDip.types';
 import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS } from '../types/laceLabDip.types';
 import { notify } from '../lib/notify';
-import { Plus, Search, Eye, Trash2, RefreshCw, ArrowRight } from 'lucide-react';
+import { Plus, Eye, Trash2, RefreshCw, ArrowRight } from 'lucide-react';
 import { formatDate } from '@/lib/date';
 
 export default function LaceLabDipList() {
@@ -31,7 +33,24 @@ export default function LaceLabDipList() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<LabDipStatus | ''>('');
+  const [processorFilter, setProcessorFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    };
+
+  const activeFilterCount = [searchTerm, statusFilter, processorFilter].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('');
+    setProcessorFilter('');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
 
   // Summary counts
   const [statusCounts, setStatusCounts] = useState<Record<LabDipStatus, number>>({
@@ -46,13 +65,16 @@ export default function LaceLabDipList() {
   const fetchLabDips = async () => {
     setLoading(true);
     try {
-      const filters: LabDipListFilters = {
+      // The API searches the lab dip number, target color, greige lace and processor
+      const filters: LabDipListFilters & { search?: string } = {
         page: pagination.page,
         limit: pagination.limit,
       };
       if (statusFilter) {
         filters.status = statusFilter;
       }
+      if (processorFilter) filters.processorId = processorFilter;
+      if (searchTerm) filters.search = searchTerm;
 
       const response = await laceLabDipService.getAllLabDips(filters);
       setLabDips(response.data);
@@ -82,7 +104,7 @@ export default function LaceLabDipList() {
   useEffect(() => {
     fetchLabDips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, statusFilter]);
+  }, [pagination.page, pagination.limit, statusFilter, processorFilter, searchTerm]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this lab dip request?')) {
@@ -98,18 +120,6 @@ export default function LaceLabDipList() {
       notify.error(err.response?.data?.error || 'Failed to delete lab dip');
     }
   };
-
-  // Filter lab dips by search term
-  const filteredLabDips = labDips.filter((ld) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      ld.labDipNumber.toLowerCase().includes(search) ||
-      ld.targetColor.toLowerCase().includes(search) ||
-      ld.greigeLace?.laceName?.toLowerCase().includes(search) ||
-      ld.processor?.name?.toLowerCase().includes(search)
-    );
-  });
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -131,7 +141,7 @@ export default function LaceLabDipList() {
           <Card
             key={status}
             className={`cursor-pointer transition-all ${statusFilter === status ? 'ring-2 ring-blue-500' : ''}`}
-            onClick={() => setStatusFilter(statusFilter === status ? '' : (status as LabDipStatus))}
+            onClick={() => changeFilter(setStatusFilter)(statusFilter === status ? '' : (status as LabDipStatus))}
           >
             <CardContent className="p-4">
               <div className="text-2xl font-bold">{statusCounts[status as LabDipStatus]}</div>
@@ -142,25 +152,27 @@ export default function LaceLabDipList() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by number, color, lace, processor..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      <FilterBar
+        className="mb-6"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="flex-1 min-w-[200px] max-w-md"
+          placeholder="Search lab dip number, target color, lace or processor..."
+          value={searchTerm}
+          onChange={changeFilter(setSearchTerm)}
+        />
         <Select
           value={statusFilter || '__all__'}
-          onValueChange={(value) => setStatusFilter(value === '__all__' ? '' : (value as LabDipStatus))}
+          onValueChange={(value) => changeFilter(setStatusFilter)(value === '__all__' ? '' : (value as LabDipStatus))}
         >
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="All Statuses" />
+          <SelectTrigger className="w-[200px]" aria-label="Status">
+            <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">All Statuses</SelectItem>
+            <SelectItem value="__all__">All statuses</SelectItem>
             {Object.entries(LAB_DIP_STATUS_LABELS).map(([status, label]) => (
               <SelectItem key={status} value={status}>
                 {label}
@@ -168,18 +180,32 @@ export default function LaceLabDipList() {
             ))}
           </SelectContent>
         </Select>
+        <ProcessorCombobox
+          value={processorFilter}
+          onValueChange={changeFilter(setProcessorFilter)}
+          allowAll
+          placeholder="All processors"
+          className="w-[220px]"
+        />
         <Button variant="outline" onClick={fetchLabDips} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+      </FilterBar>
 
       {/* Table */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
             <div className="text-center py-12">Loading...</div>
-          ) : filteredLabDips.length === 0 ? (
+          ) : labDips.length === 0 && activeFilterCount > 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p className="mb-4">No lab dips match these filters.</p>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            </div>
+          ) : labDips.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No lab dip requests found.</div>
           ) : (
             <div className="overflow-x-auto">
@@ -210,7 +236,7 @@ export default function LaceLabDipList() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredLabDips.map((labDip) => (
+                  {labDips.map((labDip) => (
                     <tr key={labDip.id} className="hover:bg-muted">
                       <td className="px-4 py-4">
                         <span className="font-mono font-medium">{labDip.labDipNumber}</span>

@@ -73,7 +73,17 @@ class TestingLabsService {
     const where: Prisma.testing_labsWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['labCode', 'labName', 'contactPerson']);
+      // What each card shows: code, name, contact, location and accreditations (stored as a JSON string)
+      applySearch(where, search, [
+        'labCode',
+        'labName',
+        'contactPerson',
+        'contactPhone',
+        'contactEmail',
+        'city',
+        'state',
+        'accreditations',
+      ]);
     }
 
     if (isActive !== undefined) {

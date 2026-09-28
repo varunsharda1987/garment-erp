@@ -8,6 +8,7 @@ import { getQuotations, deleteQuotation, getQuotationSummary } from '@/services/
 import type { Quotation, QuotationStatus, QuotationSummary } from '@/types/quotation.types';
 import { QuotationStatusLabels } from '@/types/quotation.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -41,8 +42,11 @@ export default function QuotationList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState(''); // '' = all customers
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  // Quotation date range — ISO yyyy-MM-dd, '' = open end
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -52,15 +56,10 @@ export default function QuotationList() {
     fetchSummary();
   }, []);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, customerFilter, statusFilter]);
-
   useEffect(() => {
     fetchQuotations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);
+  }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter, fromDate, toDate]);
 
   const fetchSummary = async () => {
     try {
@@ -79,8 +78,10 @@ export default function QuotationList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        customerId: customerFilter !== 'all' ? customerFilter : undefined,
+        customerId: customerFilter || undefined,
         status: statusFilter !== 'all' ? (statusFilter as QuotationStatus) : undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
       });
       setQuotations(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -91,6 +92,20 @@ export default function QuotationList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const activeFilterCount = [searchQuery, customerFilter, statusFilter !== 'all', fromDate || toDate].filter(
+    Boolean
+  ).length;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCustomerFilter('');
+    setStatusFilter('all');
+    setFromDate('');
+    setToDate('');
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, quotationNumber: string) => {
@@ -306,33 +321,62 @@ export default function QuotationList() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <SearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-                placeholder="Search by quotation number, customer or style..."
-              />
-            </div>
-            <CustomerCombobox
-              value={customerFilter === 'all' ? '' : customerFilter}
-              onValueChange={(v) => setCustomerFilter(v || 'all')}
-              placeholder="All Customers"
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+              placeholder="Search quotation number, customer, style, buyer style…"
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search quotations"
             />
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
+            <CustomerCombobox
+              value={customerFilter}
+              onValueChange={(v) => {
+                setCustomerFilter(v || '');
+                setCurrentPage(1);
+              }}
+              allowAll
+              allLabel="All customers"
+              placeholder="All customers"
+              className="w-[220px]"
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="SENT">Sent</SelectItem>
-                <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-                <SelectItem value="EXPIRED">Expired</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(QuotationStatusLabels) as QuotationStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {QuotationStatusLabels[status]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-          </div>
+            <DateRangeFilter
+              label="Quotation date"
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+                setCurrentPage(1);
+              }}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -345,6 +389,16 @@ export default function QuotationList() {
             keyExtractor={(quotation) => quotation.id}
             loading={isLoading}
             error={error}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <FileText className="h-16 w-16" />,
+                    title: 'No quotations match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : undefined
+            }
             pagination={{
               currentPage,
               pageSize,

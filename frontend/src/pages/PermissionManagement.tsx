@@ -8,7 +8,6 @@ import { Download, Filter, RotateCcw, History, ChevronDown, Loader2, ShieldCheck
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +24,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { toast } from 'sonner';
 import { UserRole } from '@/types/user.types';
 import {
@@ -66,6 +67,15 @@ export default function PermissionManagement() {
   const [bulkSaving, setBulkSaving] = useState(false);
 
   const allRoles = Object.values(UserRole);
+
+  const activeFilterCount = [searchTerm, selectedCategory !== 'all', selectedRole !== 'all'].filter(Boolean).length;
+
+  // Clears the search, category and role (a role card's filter too)
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedCategory('all');
+    setSelectedRole('all');
+  };
 
   // Load permission matrix
   useEffect(() => {
@@ -128,7 +138,10 @@ export default function PermissionManagement() {
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       permissions = permissions.filter(
-        (p) => p.displayName.toLowerCase().includes(search) || p.permissionKey.toLowerCase().includes(search)
+        (p) =>
+          p.displayName.toLowerCase().includes(search) ||
+          p.permissionKey.toLowerCase().includes(search) ||
+          p.moduleGroup.toLowerCase().includes(search)
       );
     }
 
@@ -395,22 +408,24 @@ export default function PermissionManagement() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <Input
-                placeholder="Search permissions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-              />
-            </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[200px]"
+              placeholder="Search permission, key, category…"
+              value={searchTerm}
+              onChange={setSearchTerm}
+            />
             <div className="w-[200px]">
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Categories" />
+                  <SelectValue placeholder="All categories" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="all">All categories</SelectItem>
                   {allCategories.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {cat}
@@ -422,10 +437,10 @@ export default function PermissionManagement() {
             <div className="w-[200px]">
               <Select value={selectedRole} onValueChange={setSelectedRole}>
                 <SelectTrigger>
-                  <SelectValue placeholder="All Roles" />
+                  <SelectValue placeholder="All roles" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Roles</SelectItem>
+                  <SelectItem value="all">All roles</SelectItem>
                   {allRoles.map((role) => (
                     <SelectItem key={role} value={role}>
                       {ROLE_CONFIG[role]?.name || role}
@@ -434,7 +449,7 @@ export default function PermissionManagement() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -506,7 +521,16 @@ export default function PermissionManagement() {
                 {filteredPermissions.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={displayRoles.length + 1} className="text-center text-muted-foreground py-8">
-                      No permissions found matching your filters
+                      {activeFilterCount > 0 ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <span>No permissions match these filters.</span>
+                          <Button variant="outline" size="sm" onClick={clearFilters}>
+                            Clear filters
+                          </Button>
+                        </div>
+                      ) : (
+                        'No permissions found matching your filters'
+                      )}
                     </TableCell>
                   </TableRow>
                 )}

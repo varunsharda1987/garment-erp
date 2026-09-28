@@ -18,6 +18,8 @@ interface WarehouseComboboxProps {
    * returns the whole list.
    */
   excludeTypes?: WarehouseType[];
+  allowAll?: boolean; // Put an "All …" row (value '') first — for filter use; picking it clears the filter
+  allLabel?: string; // Label of that row (default: "All warehouses")
 }
 
 export function WarehouseCombobox({
@@ -28,6 +30,8 @@ export function WarehouseCombobox({
   disabled = false,
   warehouseTypeFilter,
   excludeTypes,
+  allowAll = false,
+  allLabel = 'All warehouses',
 }: WarehouseComboboxProps) {
   // Keyed on the joined string, not the array: an inline array literal from the caller is a new
   // identity every render, which would re-create `fetch` and refetch on every keystroke.
@@ -62,7 +66,7 @@ export function WarehouseCombobox({
 
   return (
     <Combobox
-      options={options}
+      options={allowAll ? [{ value: '', label: allLabel, searchText: 'all warehouses' }, ...options] : options}
       value={value}
       onValueChange={onValueChange}
       placeholder={

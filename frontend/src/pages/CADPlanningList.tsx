@@ -57,7 +57,7 @@ const ORDER_FILTER_OPTIONS: Array<{ value: 'all' | CADOrderFilter; label: string
 ];
 
 const CAD_PROGRESS_OPTIONS: Array<{ value: 'all' | CADProgressFilter; label: string }> = [
-  { value: 'all', label: 'Any' },
+  { value: 'all', label: 'All styles' },
   // Short enough for SelectFilter's fixed 180px trigger
   { value: 'NO_CAD', label: 'No CAD yet' },
   { value: 'NO_COSTING', label: 'No Costing CAD' },
@@ -398,11 +398,16 @@ export default function CADPlanningList() {
           className="mb-4"
           onClear={clearFilters}
           hasActiveFilters={activeFilterCount > 0}
-          clearText={`Clear ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'}`}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
         >
           <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
             <Label className="text-sm font-medium">Search</Label>
-            <SearchInput value={searchQuery} onChange={handleSearchChange} placeholder="Code, name, buyer, brand…" />
+            <SearchInput
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search style code, buyer ref, name, buyer, brand, greige…"
+              aria-label="Search styles"
+            />
           </div>
 
           <MultiSelectFilter
@@ -410,6 +415,7 @@ export default function CADPlanningList() {
             value={listFilters.customerId ?? []}
             onChange={(value) => updateURLParams({ customerId: value, page: undefined })}
             options={toOptions(filterOptions?.buyers)}
+            placeholder="All buyers"
           />
 
           <MultiSelectFilter
@@ -417,6 +423,7 @@ export default function CADPlanningList() {
             value={listFilters.brandName ?? []}
             onChange={(value) => updateURLParams({ brandName: value, page: undefined })}
             options={toOptions(filterOptions?.brands)}
+            placeholder="All brands"
           />
 
           <MultiSelectFilter
@@ -424,6 +431,7 @@ export default function CADPlanningList() {
             value={listFilters.productCategoryId ?? []}
             onChange={(value) => updateURLParams({ productCategoryId: value, page: undefined })}
             options={toOptions(filterOptions?.productCategories)}
+            placeholder="All categories"
             className="w-[220px]"
           />
 
@@ -497,14 +505,23 @@ export default function CADPlanningList() {
               {!isLoading && !error && styles.length === 0 && (
                 <div className="text-center py-12 text-muted-foreground">
                   <Ruler className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">No styles found</p>
-                  <p className="text-sm mt-1">
-                    {searchQuery || hasListFilters
-                      ? 'No styles match this search and these filters — try clearing some'
-                      : status === 'PENDING'
-                        ? 'All styles have CAD planning completed'
-                        : 'No styles have completed CAD planning yet'}
-                  </p>
+                  {activeFilterCount > 0 ? (
+                    <>
+                      <p className="text-lg font-medium">No styles match these filters.</p>
+                      <Button variant="outline" size="sm" className="mt-4" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-lg font-medium">No styles found</p>
+                      <p className="text-sm mt-1">
+                        {status === 'PENDING'
+                          ? 'All styles have CAD planning completed'
+                          : 'No styles have completed CAD planning yet'}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 

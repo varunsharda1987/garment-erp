@@ -2,10 +2,8 @@
 import { unitShort } from '@/lib/units';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Plus, ArrowDown, ArrowUp, ArrowLeftRight, Package, Search, FileText, ExternalLink } from 'lucide-react';
+import { Plus, ArrowDown, ArrowUp, ArrowLeftRight, Package, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -15,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/PageHeader';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar, DateRangeFilter, type DateRangeValue } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -40,27 +40,25 @@ export default function StockMovementList() {
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 0 });
 
-  // Filters
+  // Filters (the direction tabs are a view, not a filter — Clear keeps them)
   const [directionFilter, setDirectionFilter] = useState<DirectionFilter>('ALL');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [invoiceSearch, setInvoiceSearch] = useState('');
-  const [materialSearch, setMaterialSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: '', to: '' });
+  const [search, setSearch] = useState('');
   const [supplierId, setSupplierId] = useState('');
+
+  const toFirstPage = () => setPagination((p) => ({ ...p, page: 1 }));
+  const activeFilterCount = [search, supplierId, dateRange.from || dateRange.to].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearch('');
+    setSupplierId('');
+    setDateRange({ from: '', to: '' });
+    toFirstPage();
+  };
 
   useEffect(() => {
     loadMovements();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    directionFilter,
-    startDate,
-    endDate,
-    invoiceSearch,
-    materialSearch,
-    supplierId,
-    pagination.page,
-    pagination.limit,
-  ]);
+  }, [directionFilter, dateRange, search, supplierId, pagination.page, pagination.limit]);
 
   const loadMovements = async () => {
     try {
@@ -68,10 +66,11 @@ export default function StockMovementList() {
       setError(null);
       const result = await stockMovementService.getUnifiedMovements({
         direction: directionFilter === 'ALL' ? undefined : directionFilter,
-        dateFrom: startDate || undefined,
-        dateTo: endDate || undefined,
-        invoiceNumber: invoiceSearch || undefined,
-        search: materialSearch || undefined,
+        // Whole days in IST: movements carry a time, so a bare "to" date (midnight UTC) dropped that day's
+        // movements after 05:30. The picked yyyy-MM-dd values themselves are never reformatted.
+        dateFrom: dateRange.from ? `${dateRange.from}T00:00:00+05:30` : undefined,
+        dateTo: dateRange.to ? `${dateRange.to}T23:59:59.999+05:30` : undefined,
+        search: search || undefined,
         supplierId: supplierId || undefined,
         page: pagination.page,
         limit: pagination.limit,
@@ -302,77 +301,42 @@ export default function StockMovementList() {
 
       {/* Filters */}
       <Card className="mb-4">
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="w-48">
-              <Label htmlFor="supplierFilter">Supplier</Label>
-              <SupplierCombobox
-                value={supplierId}
-                onValueChange={(v) => {
-                  setSupplierId(v);
-                  setPagination((p) => ({ ...p, page: 1 }));
-                }}
-                placeholder="All Suppliers"
-                allowAll
-              />
-            </div>
-            <div className="w-40">
-              <Label htmlFor="invoiceSearch">Invoice#</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="invoiceSearch"
-                  placeholder="Search..."
-                  className="pl-8"
-                  value={invoiceSearch}
-                  onChange={(e) => {
-                    setInvoiceSearch(e.target.value);
-                    setPagination((p) => ({ ...p, page: 1 }));
-                  }}
-                />
-              </div>
-            </div>
-            <div className="w-48">
-              <Label htmlFor="materialSearch">Material</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="materialSearch"
-                  placeholder="Name or code..."
-                  className="pl-8"
-                  value={materialSearch}
-                  onChange={(e) => {
-                    setMaterialSearch(e.target.value);
-                    setPagination((p) => ({ ...p, page: 1 }));
-                  }}
-                />
-              </div>
-            </div>
-            <div className="w-40">
-              <Label htmlFor="startDate">From Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setPagination((p) => ({ ...p, page: 1 }));
-                }}
-              />
-            </div>
-            <div className="w-40">
-              <Label htmlFor="endDate">To Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setPagination((p) => ({ ...p, page: 1 }));
-                }}
-              />
-            </div>
-          </div>
+        <CardContent className="pt-4 pb-4">
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px]"
+              placeholder="Search material, supplier / party, invoice or document number..."
+              value={search}
+              onChange={(v) => {
+                setSearch(v);
+                toFirstPage();
+              }}
+            />
+            <SupplierCombobox
+              value={supplierId}
+              onValueChange={(v) => {
+                setSupplierId(v);
+                toFirstPage();
+              }}
+              placeholder="All suppliers"
+              allowAll
+              allLabel="All suppliers"
+              className="w-[220px]"
+            />
+            <DateRangeFilter
+              label="Date"
+              from={dateRange.from}
+              to={dateRange.to}
+              onChange={(range) => {
+                setDateRange(range);
+                toFirstPage();
+              }}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -384,14 +348,21 @@ export default function StockMovementList() {
           keyExtractor={(mov) => mov.id}
           loading={loading}
           error={error}
-          emptyState={{
-            icon: <Package className="h-16 w-16" />,
-            title: 'No movements found',
-            description:
-              directionFilter !== 'ALL' || startDate || endDate || invoiceSearch || materialSearch
-                ? 'Try adjusting your filter criteria'
-                : 'Material movements will appear here',
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <Package className="h-16 w-16" />,
+                  title: 'No movements match these filters.',
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <Package className="h-16 w-16" />,
+                  title: 'No movements found',
+                  description:
+                    directionFilter !== 'ALL' ? 'Nothing in this direction yet' : 'Material movements will appear here',
+                }
+          }
         />
       </Card>
 

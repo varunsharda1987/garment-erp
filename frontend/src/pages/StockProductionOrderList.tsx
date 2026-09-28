@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Search, Warehouse, Eye } from 'lucide-react';
+import { Plus, Trash2, Warehouse, Eye, X } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import { getAllSPOs, createSPO, deleteSPO } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
@@ -61,6 +64,8 @@ export default function StockProductionOrderList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  // '' = all styles
+  const [styleFilter, setStyleFilter] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [spoToDelete, setSpoToDelete] = useState<StockProductionOrder | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -76,15 +81,32 @@ export default function StockProductionOrderList() {
 
   // BUG-ORD14 fix: standardized query key
   const { data, isLoading } = useQuery({
-    queryKey: queryKeys.stockProductionOrders.list({ page, limit: pageSize, search, status: statusFilter }),
+    queryKey: queryKeys.stockProductionOrders.list({
+      page,
+      limit: pageSize,
+      search,
+      status: statusFilter,
+      styleId: styleFilter,
+    }),
     queryFn: () =>
       getAllSPOs({
         page,
         limit: pageSize,
         search: search || undefined,
         status: statusFilter !== 'all' ? (statusFilter as StockProductionOrderStatus) : undefined,
+        styleId: styleFilter || undefined,
       }),
   });
+
+  const activeFilterCount = [search, statusFilter !== 'all', styleFilter].filter(Boolean).length;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setStyleFilter('');
+    setPage(1);
+  };
 
   const { data: styleResults } = useQuery({
     queryKey: ['styles-search', styleSearch],
@@ -177,19 +199,23 @@ export default function StockProductionOrderList() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by SPO number or style..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-10"
-              />
-            </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] max-w-md flex-1"
+              placeholder="Search SPO number, style, buyer style…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              // The API refuses a longer search (spoQuerySchema: max 100)
+              maxLength={100}
+              aria-label="Search stock production orders"
+            />
             <Select
               value={statusFilter}
               onValueChange={(v) => {
@@ -197,11 +223,11 @@ export default function StockProductionOrderList() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Status" />
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="DRAFT">Draft</SelectItem>
                 <SelectItem value="APPROVED">Approved</SelectItem>
                 <SelectItem value="IN_PRODUCTION">In Production</SelectItem>
@@ -209,7 +235,19 @@ export default function StockProductionOrderList() {
                 <SelectItem value="CANCELLED">Cancelled</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+            <StyleCombobox
+              value={styleFilter}
+              onValueChange={(v) => {
+                setStyleFilter(v || '');
+                setPage(1);
+              }}
+              status={null}
+              allowAll
+              allLabel="All styles"
+              placeholder="All styles"
+              className="w-[220px]"
+            />
+          </FilterBar>
         </CardHeader>
         <CardContent>
           <Table>
@@ -235,7 +273,17 @@ export default function StockProductionOrderList() {
               ) : !data?.data?.length ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No stock production orders found
+                    {activeFilterCount > 0 ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <p>No stock production orders match these filters.</p>
+                        <Button variant="outline" size="sm" onClick={clearFilters}>
+                          <X className="h-4 w-4 mr-1" />
+                          Clear filters
+                        </Button>
+                      </div>
+                    ) : (
+                      'No stock production orders found'
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -325,6 +373,7 @@ export default function StockProductionOrderList() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Style *</Label>
+              {/* allow-raw-search: the create form's style lookup, not a list search */}
               <Input
                 placeholder="Search styles..."
                 value={selectedStyleLabel || styleSearch}

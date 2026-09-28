@@ -31,6 +31,9 @@ import type {
 import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { FilterBar, DateRangeFilter } from '@/components/filters';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
@@ -89,6 +92,10 @@ export default function CreditNoteList() {
   // List state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState(''); // '' = all customers
+  // Credit note date range — ISO yyyy-MM-dd, '' = open end
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
 
@@ -106,6 +113,9 @@ export default function CreditNoteList() {
     limit,
     search: search || undefined,
     status: statusFilter !== 'all' ? (statusFilter as DocumentStatus) : undefined,
+    customerId: customerFilter || undefined,
+    fromDate: fromDate || undefined,
+    toDate: toDate || undefined,
     sortBy: 'createdAt',
     sortOrder: 'desc',
   };
@@ -170,10 +180,17 @@ export default function CreditNoteList() {
     },
   });
 
-  // Reset page on filter change
-  useEffect(() => {
+  const activeFilterCount = [search, statusFilter !== 'all', customerFilter, fromDate || toDate].filter(Boolean).length;
+
+  // Clears every filter; page size stays as chosen
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setCustomerFilter('');
+    setFromDate('');
+    setToDate('');
     setPage(1);
-  }, [search, statusFilter]);
+  };
 
   // -----------------------------------------------------------------------
   // Render
@@ -201,31 +218,62 @@ export default function CreditNoteList() {
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2 relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by credit note number or customer..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              placeholder="Search credit note number, customer, invoice number…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+              className="min-w-[220px] flex-1 max-w-md"
+              aria-label="Search credit notes"
+            />
+            <CustomerCombobox
+              value={customerFilter}
+              onValueChange={(v) => {
+                setCustomerFilter(v || '');
+                setPage(1);
+              }}
+              allowAll
+              allLabel="All customers"
+              placeholder="All customers"
+              className="w-[220px]"
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[180px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="APPROVED">Approved</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
+                {(Object.keys(DocumentStatusLabels) as DocumentStatus[]).map((status) => (
+                  <SelectItem key={status} value={status}>
+                    {DocumentStatusLabels[status]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <div className="flex items-center text-sm text-muted-foreground">
-              {pagination ? `${pagination.total} credit note${pagination.total !== 1 ? 's' : ''} found` : ''}
-            </div>
-          </div>
+            <DateRangeFilter
+              label="Credit note date"
+              from={fromDate}
+              to={toDate}
+              onChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+                setPage(1);
+              }}
+            />
+          </FilterBar>
         </CardContent>
       </Card>
 
@@ -235,6 +283,14 @@ export default function CreditNoteList() {
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : creditNotes.length === 0 && activeFilterCount > 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No credit notes match these filters.</p>
+              <Button variant="outline" className="mt-4" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : creditNotes.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">

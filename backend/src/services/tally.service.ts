@@ -1882,7 +1882,8 @@ export async function getSuppliersWithTallyStatus(
   const where: any = { isActive: true };
 
   if (params.search) {
-    applySearch(where, params.search, ['code', 'name', 'tallyLedgerName']);
+    // Every text the Supplier-Ledger Matching table shows: name, code, phone, Tally ledger
+    applySearch(where, params.search, ['code', 'name', 'phone', 'tallyLedgerName']);
   }
 
   if (params.matchStatus === 'matched') {

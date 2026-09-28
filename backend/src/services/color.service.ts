@@ -43,7 +43,8 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
    * a code and a name together narrow instead of finding nothing. The phrase-only
    * buildSearchFilter below stays only because BaseService declares it abstract.
    */
-  protected readonly searchFields = ['colorCode', 'colorName', 'colorFamily', 'description'] as const;
+  // hexCode: the Color Master list prints it under the name
+  protected readonly searchFields = ['colorCode', 'colorName', 'colorFamily', 'description', 'hexCode'] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [

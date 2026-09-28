@@ -18,6 +18,7 @@ import {
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -77,11 +78,6 @@ export default function CustomerList() {
     }
   };
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [categoryFilter]);
-
   useEffect(() => {
     fetchCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,6 +86,15 @@ export default function CustomerList() {
   // Handle search
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    setPage(1);
+  };
+
+  const activeFilterCount = [searchQuery, categoryFilter].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('');
     setPage(1);
   };
 
@@ -308,30 +313,37 @@ export default function CustomerList() {
         </CardHeader>
         <CardContent>
           {/* Search and Filters */}
-          <div className="flex gap-4 mb-6">
-            <div className="flex-1">
-              <SearchInput
-                placeholder="Search by code, company name, contact person, or email..."
-                value={searchQuery}
-                onChange={handleSearch}
-              />
-            </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search code, company, GST, brand, product category, contact, phone…"
+              value={searchQuery}
+              onChange={handleSearch}
+            />
             <Select
               value={categoryFilter || 'ALL'}
-              onValueChange={(value) => setCategoryFilter(value === 'ALL' ? '' : value)}
+              onValueChange={(value) => {
+                setCategoryFilter(value === 'ALL' ? '' : value);
+                setPage(1);
+              }}
             >
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filter by Category" />
+                <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Categories</SelectItem>
+                <SelectItem value="ALL">All categories</SelectItem>
                 <SelectItem value="DOMESTIC">Domestic</SelectItem>
                 <SelectItem value="EXPORT">Export</SelectItem>
                 <SelectItem value="WHOLESALER">Wholesaler</SelectItem>
                 <SelectItem value="RETAILER">Retailer</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* DataTable */}
           <DataTable
@@ -340,16 +352,22 @@ export default function CustomerList() {
             keyExtractor={(customer) => customer.id}
             loading={loading}
             error={error}
-            emptyState={{
-              icon: <Package className="h-16 w-16" />,
-              title: 'No customers found',
-              description:
-                searchQuery || categoryFilter
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'Get started by creating your first customer',
-              actionLabel: canCreateEdit && !searchQuery && !categoryFilter ? 'Create First Customer' : undefined,
-              onAction: canCreateEdit && !searchQuery && !categoryFilter ? () => navigate('/customers/new') : undefined,
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No customers match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Package className="h-16 w-16" />,
+                    title: 'No customers found',
+                    description: 'Get started by creating your first customer',
+                    actionLabel: canCreateEdit ? 'Create First Customer' : undefined,
+                    onAction: canCreateEdit ? () => navigate('/customers/new') : undefined,
+                  }
+            }
             pagination={{
               currentPage: page,
               totalPages,

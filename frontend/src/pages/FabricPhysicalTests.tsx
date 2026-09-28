@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, FileText, CheckCircle, XCircle, Clock, AlertCircle, RotateCcw } from 'lucide-react';
+import { Plus, FileText, CheckCircle, XCircle, Clock, AlertCircle, RotateCcw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { fabricPhysicalTestsService } from '@/services/testing.service';
 import type { FabricPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -35,6 +36,21 @@ export default function FabricPhysicalTests() {
   const [resultDialog, setResultDialog] = useState<ResultDialogState | null>(null);
   const { can } = usePermissions();
   const canWrite = can('testing');
+
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setPage(1);
+    };
+
+  const activeFilterCount = [search, filterStatus !== 'all'].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearch('');
+    setFilterStatus('all');
+    setPage(1);
+  };
 
   useEffect(() => {
     fetchTests();
@@ -110,40 +126,31 @@ export default function FabricPhysicalTests() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by test number, batch..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-10"
-            />
-          </div>
+        <FilterBar
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="flex-1 min-w-[240px]"
+            placeholder="Search test number, batch, TRF or sample number..."
+            value={search}
+            onChange={changeFilter(setSearch)}
+          />
 
-          <Select
-            value={filterStatus}
-            onValueChange={(value) => {
-              setFilterStatus(value);
-              setPage(1);
-            }}
-          >
-            <SelectTrigger>
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Filter by status" />
+          <Select value={filterStatus} onValueChange={changeFilter(setFilterStatus)}>
+            <SelectTrigger className="w-[180px]" aria-label="Status">
+              <SelectValue placeholder="All statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tests</SelectItem>
+              <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="PASS">Passed</SelectItem>
               <SelectItem value="FAIL">Failed</SelectItem>
               <SelectItem value="RETEST_REQUIRED">Retest Required</SelectItem>
             </SelectContent>
           </Select>
-        </div>
+        </FilterBar>
       </Card>
 
       {/* Tests List */}
@@ -152,6 +159,14 @@ export default function FabricPhysicalTests() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mx-auto"></div>
           <p className="text-muted-foreground mt-4">Loading tests...</p>
         </div>
+      ) : tests.length === 0 && activeFilterCount > 0 ? (
+        <Card className="p-12 text-center">
+          <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-foreground mb-4">No tests match these filters.</h3>
+          <Button variant="outline" onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </Card>
       ) : tests.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />

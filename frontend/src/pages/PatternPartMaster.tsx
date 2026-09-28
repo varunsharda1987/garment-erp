@@ -15,8 +15,11 @@ import {
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { notify } from '../lib/notify';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import {
   getAllPatternParts,
   createPatternPart,
@@ -32,6 +35,7 @@ export default function PatternPartMaster() {
   const [componentGroups, setComponentGroups] = useState<ComponentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPatternPart, setEditingPatternPart] = useState<PatternPart | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -47,12 +51,20 @@ export default function PatternPartMaster() {
     componentGroupIds: [],
   });
 
+  const activeFilterCount = [searchTerm, statusFilter !== 'all'].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+  };
+
   // Load pattern parts
   const loadPatternParts = async () => {
     try {
       setLoading(true);
       const response = await getAllPatternParts({
         search: searchTerm,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
         limit: 100,
       });
       setPatternParts(response.data);
@@ -82,7 +94,7 @@ export default function PatternPartMaster() {
     loadPatternParts();
     loadComponentGroups();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   // Handle create/update
   const handleSubmit = async (e: React.FormEvent) => {
@@ -191,19 +203,30 @@ export default function PatternPartMaster() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="mb-4 max-w-sm">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search pattern parts..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </div>
+      {/* Filters */}
+      <FilterBar
+        className="mb-4"
+        onClear={clearFilters}
+        hasActiveFilters={activeFilterCount > 0}
+        clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+      >
+        <SearchInput
+          className="min-w-[220px] flex-1 max-w-sm"
+          placeholder="Search code, name, component group, description…"
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
+        <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+      </FilterBar>
 
       {/* Table */}
       <div className="border rounded-lg">
@@ -229,7 +252,16 @@ export default function PatternPartMaster() {
             ) : patternParts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No pattern parts found
+                  {activeFilterCount > 0 ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <span>No pattern parts match these filters.</span>
+                      <Button variant="outline" size="sm" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    'No pattern parts found'
+                  )}
                 </TableCell>
               </TableRow>
             ) : (

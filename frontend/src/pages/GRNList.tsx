@@ -9,6 +9,7 @@ import { GRNStatusLabels } from '@/types/grn.types';
 import { MaterialTypeLabels, type MaterialType } from '@/types/material.types';
 import { unitPer } from '@/lib/units';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar, DateRangeFilter, type DateRangeValue } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
@@ -71,16 +72,34 @@ export default function GRNList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [supplierFilter, setSupplierFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: '', to: '' });
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
+  // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
+  const changeFilter =
+    <T,>(set: (value: T) => void) =>
+    (value: T) => {
+      set(value);
+      setCurrentPage(1);
+    };
+
+  const activeFilterCount = [
+    searchQuery,
+    supplierFilter,
+    statusFilter !== 'all',
+    dateRange.from || dateRange.to,
+  ].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSupplierFilter('');
+    setStatusFilter('all');
+    setDateRange({ from: '', to: '' });
     setCurrentPage(1);
-  }, [searchQuery, supplierFilter, statusFilter]);
+  };
 
   useEffect(() => {
     fetchGRNs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, supplierFilter, statusFilter]);
+  }, [currentPage, pageSize, searchQuery, supplierFilter, statusFilter, dateRange]);
 
   const fetchGRNs = async () => {
     try {
@@ -92,6 +111,8 @@ export default function GRNList() {
         search: searchQuery || undefined,
         supplierId: supplierFilter || undefined,
         status: statusFilter !== 'all' ? (statusFilter as GRNStatus) : undefined,
+        startDate: dateRange.from || undefined,
+        endDate: dateRange.to || undefined,
       });
       setGRNs(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -358,37 +379,51 @@ export default function GRNList() {
       </CardHeader>
       <CardContent>
         {/* Filters */}
-        <div className="mb-6 space-y-4">
-          <div className="flex-1">
-            <SearchInput
-              placeholder="Search by GRN, PO or JWO number, material, supplier or warehouse..."
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-          </div>
+        <FilterBar
+          className="mb-6"
+          onClear={clearFilters}
+          hasActiveFilters={activeFilterCount > 0}
+          clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+        >
+          <SearchInput
+            className="flex-1 min-w-[240px]"
+            placeholder="Search GRN, PO or JWO number, invoice, material, supplier, style or warehouse..."
+            value={searchQuery}
+            onChange={changeFilter(setSearchQuery)}
+            // The API refuses a longer search (grnQuerySchema: max 100)
+            maxLength={100}
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SupplierCombobox
-              value={supplierFilter}
-              onValueChange={setSupplierFilter}
-              placeholder="All Suppliers"
-              allowAll
-            />
+          <SupplierCombobox
+            value={supplierFilter}
+            onValueChange={changeFilter(setSupplierFilter)}
+            placeholder="All suppliers"
+            allowAll
+            allLabel="All suppliers"
+            className="w-[220px]"
+          />
 
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="PENDING_QC">Pending QC</SelectItem>
-                <SelectItem value="ACCEPTED">Accepted</SelectItem>
-                <SelectItem value="REJECTED">Rejected</SelectItem>
-                <SelectItem value="PARTIALLY_ACCEPTED">Partially Accepted</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+          <Select value={statusFilter} onValueChange={changeFilter(setStatusFilter)}>
+            <SelectTrigger className="w-[180px]" aria-label="Status">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {(Object.keys(GRNStatusLabels) as GRNStatus[]).map((status) => (
+                <SelectItem key={status} value={status}>
+                  {GRNStatusLabels[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <DateRangeFilter
+            label="Inward date"
+            from={dateRange.from}
+            to={dateRange.to}
+            onChange={changeFilter(setDateRange)}
+          />
+        </FilterBar>
 
         {/* DataTable */}
         <DataTable
@@ -397,23 +432,32 @@ export default function GRNList() {
           keyExtractor={(grn) => grn.id}
           loading={isLoading}
           error={error}
-          emptyState={{
-            icon: <PackageOpen className="h-16 w-16" />,
-            title: 'No GRNs found',
-            description:
-              searchQuery || supplierFilter !== 'all' || statusFilter !== 'all'
-                ? 'Try adjusting your search or filter criteria'
-                : 'Create a GRN when receiving goods against a purchase order',
-            actionLabel: 'Create GRN',
-            onAction: () => navigate('/procurement/grn/new'),
-          }}
+          emptyState={
+            activeFilterCount > 0
+              ? {
+                  icon: <PackageOpen className="h-16 w-16" />,
+                  title: 'No GRNs match these filters.',
+                  actionLabel: 'Clear filters',
+                  onAction: clearFilters,
+                }
+              : {
+                  icon: <PackageOpen className="h-16 w-16" />,
+                  title: 'No GRNs found',
+                  description: 'Create a GRN when receiving goods against a purchase order',
+                  actionLabel: 'Create GRN',
+                  onAction: () => navigate('/procurement/grn/new'),
+                }
+          }
           pagination={{
             currentPage,
             totalPages,
             pageSize,
             totalItems,
             onPageChange: setCurrentPage,
-            onPageSizeChange: setPageSize,
+            onPageSizeChange: (size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            },
           }}
           onRowClick={(grn) => navigate(`/procurement/grn/${grn.id}`)}
         />

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Loader2,
-  Search,
   Upload,
   CheckCircle,
   XCircle,
@@ -23,8 +21,9 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getTallyCreditNotes, pushCreditNoteToTally } from '@/services/tally.service';
 import type { CreditNoteTallyStatus } from '@/types/tally.types';
-import { useDebounce } from '@/hooks/useDebounce';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, formatDateTime } from '@/lib/date';
 
@@ -37,18 +36,26 @@ export default function TallyCreditNotesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkPushing, setBulkPushing] = useState(false);
 
-  const debouncedSearch = useDebounce(search, 300);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['tally-credit-notes', { search: debouncedSearch, pushStatus, page, pageSize }],
+    queryKey: ['tally-credit-notes', { search, pushStatus, page, pageSize }],
     queryFn: () =>
       getTallyCreditNotes({
-        search: debouncedSearch || undefined,
+        search: search || undefined,
         pushStatus: pushStatus === 'all' ? undefined : pushStatus,
         page,
         limit: pageSize,
       }),
   });
+
+  const activeFilterCount = [search, pushStatus !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearch('');
+    setPushStatus('all');
+    setPage(1);
+    setSelectedIds(new Set());
+  };
 
   const pushMutation = useMutation({
     mutationFn: pushCreditNoteToTally,
@@ -207,19 +214,21 @@ export default function TallyCreditNotesPage() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex gap-4 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search credit notes, invoices, customers..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            className="mb-4"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1"
+              placeholder="Search credit note, invoice number, customer…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+            />
             <Select
               value={pushStatus}
               onValueChange={(v) => {
@@ -229,16 +238,16 @@ export default function TallyCreditNotesPage() {
               }}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Credit Notes</SelectItem>
-                <SelectItem value="not_pushed">Not Pushed</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="not_pushed">Not pushed</SelectItem>
                 <SelectItem value="pushed">Pushed</SelectItem>
-                <SelectItem value="error">With Errors</SelectItem>
+                <SelectItem value="error">With errors</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* Table */}
           {isLoading ? (
@@ -276,7 +285,16 @@ export default function TallyCreditNotesPage() {
                     {data?.data.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                          No credit notes found
+                          {activeFilterCount > 0 ? (
+                            <div className="flex flex-col items-center gap-3">
+                              <span>No credit notes match these filters.</span>
+                              <Button variant="outline" size="sm" onClick={clearFilters}>
+                                Clear filters
+                              </Button>
+                            </div>
+                          ) : (
+                            'No credit notes found'
+                          )}
                         </TableCell>
                       </TableRow>
                     ) : (

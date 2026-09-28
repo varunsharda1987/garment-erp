@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllSizeCategories, deleteSizeCategory } from '@/services/sizeCategory.service';
 import type { SizeCategory } from '@/types/sizeCategory.types';
 import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -32,6 +34,7 @@ export default function SizeCategoryList() {
   const [totalItems, setTotalItems] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string } | null>(null);
@@ -39,7 +42,7 @@ export default function SizeCategoryList() {
   useEffect(() => {
     fetchSizeCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery]);
+  }, [currentPage, pageSize, searchQuery, statusFilter]);
 
   const fetchSizeCategories = async () => {
     try {
@@ -49,6 +52,7 @@ export default function SizeCategoryList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
       });
       setSizeCategories(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -59,6 +63,15 @@ export default function SizeCategoryList() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const activeFilterCount = [searchQuery, statusFilter !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -176,15 +189,38 @@ export default function SizeCategoryList() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="mb-6">
-            <div className="flex-1 max-w-md">
-              <SearchInput
-                placeholder="Search by name or description..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-            </div>
-          </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="w-full max-w-md"
+              placeholder="Search category name, description…"
+              value={searchQuery}
+              onChange={(value) => {
+                setSearchQuery(value);
+                setCurrentPage(1);
+              }}
+            />
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value as 'all' | 'active' | 'inactive');
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBar>
 
           <DataTable
             data={sizeCategories}
@@ -193,15 +229,22 @@ export default function SizeCategoryList() {
             loading={isLoading}
             error={error}
             onRowClick={(category) => navigate(`/masters/size-categories/${category.id}/edit`)}
-            emptyState={{
-              icon: <Ruler className="h-16 w-16" />,
-              title: 'No size categories found',
-              description: searchQuery
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first size category',
-              actionLabel: 'Create First Size Category',
-              onAction: () => navigate('/masters/size-categories/new'),
-            }}
+            emptyState={
+              activeFilterCount > 0
+                ? {
+                    icon: <Ruler className="h-16 w-16" />,
+                    title: 'No size categories match these filters.',
+                    actionLabel: 'Clear filters',
+                    onAction: clearFilters,
+                  }
+                : {
+                    icon: <Ruler className="h-16 w-16" />,
+                    title: 'No size categories found',
+                    description: 'Get started by creating your first size category',
+                    actionLabel: 'Create First Size Category',
+                    onAction: () => navigate('/masters/size-categories/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,

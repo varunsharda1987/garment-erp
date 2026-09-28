@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Search, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -19,12 +19,17 @@ import {
 } from '@/components/ui/alert-dialog';
 import { AgentFormDialog } from '@/components/AgentFormDialog';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { AgencyCombobox } from '@/components/AgencyCombobox';
 import { getAllAgents, createAgent, updateAgent, deleteAgent } from '@/services/agent.service';
 import type { Agent, CreateAgentRequest, UpdateAgentRequest } from '@/types/agent.types';
 
 export default function AgentList() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [agencyFilter, setAgencyFilter] = useState<string | undefined>(undefined);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -34,9 +39,26 @@ export default function AgentList() {
 
   // Fetch agents
   const { data, isLoading } = useQuery({
-    queryKey: ['agents', { page, pageSize, search }],
-    queryFn: () => getAllAgents({ page, limit: pageSize, search: search || undefined }),
+    queryKey: ['agents', { page, pageSize, search, agencyFilter, statusFilter }],
+    queryFn: () =>
+      getAllAgents({
+        page,
+        limit: pageSize,
+        search: search || undefined,
+        agencyId: agencyFilter,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
+      }),
   });
+
+  const activeFilterCount = [search, agencyFilter, statusFilter !== 'all'].filter(Boolean).length;
+
+  // Clears every filter and goes back to page 1; the rows-per-page choice is not a filter, so it stays
+  const clearFilters = () => {
+    setSearch('');
+    setAgencyFilter(undefined);
+    setStatusFilter('all');
+    setPage(1);
+  };
 
   // Create mutation
   const createMutation = useMutation({
@@ -134,24 +156,61 @@ export default function AgentList() {
               <CardTitle>Agent List</CardTitle>
               <CardDescription>{pagination?.total || 0} agents total</CardDescription>
             </div>
-            <div className="relative w-64">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search agents..."
+            <FilterBar
+              onClear={clearFilters}
+              hasActiveFilters={activeFilterCount > 0}
+              clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+            >
+              <SearchInput
+                className="w-64"
+                placeholder="Search code, name, agency, phone, email…"
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
+                onChange={(value) => {
+                  setSearch(value);
                   setPage(1);
                 }}
-                className="pl-8"
               />
-            </div>
+              <AgencyCombobox
+                value={agencyFilter || ''}
+                onValueChange={(value) => {
+                  setAgencyFilter(value || undefined);
+                  setPage(1);
+                }}
+                allowAll
+                placeholder="All agencies"
+                className="w-[220px]"
+              />
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value as 'all' | 'active' | 'inactive');
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterBar>
           </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : agents.length === 0 && activeFilterCount > 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">No agents match these filters.</p>
+              <Button variant="outline" className="mt-4" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">

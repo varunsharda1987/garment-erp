@@ -144,7 +144,15 @@ class GarmentPhysicalTestsService {
     const where: Prisma.garment_physical_testsWhereInput = {};
 
     if (search) {
-      applySearch(where, search, ['testNumber']);
+      // What the list shows: test, TRF and sample numbers, the work order, and the style with its buyer ref
+      applySearch(where, search, [
+        'testNumber',
+        'trf.trfNumber',
+        'trf.sample.sampleNumber',
+        'workOrder.workOrderNumber',
+        'style.styleCode',
+        'style.buyerStyleRef',
+      ]);
     }
 
     if (workOrderId) {

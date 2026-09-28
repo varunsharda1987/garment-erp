@@ -136,7 +136,15 @@ export const getAllElastic = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    applySearch(where, String(search), ['elasticName', 'elasticCode', 'color']);
+    // Every text column the Elastics list shows: code, name, colour, suppliers
+    applySearch(where, String(search), [
+      'elasticName',
+      'elasticCode',
+      'description',
+      'color',
+      'elasticSuppliers[].supplier.code',
+      'elasticSuppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

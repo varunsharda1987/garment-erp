@@ -132,7 +132,18 @@ export const getAllMachineParts = async (req: Request, res: Response) => {
   } = { isActive: true };
 
   if (search) {
-    applySearch(where, String(search), ['partName', 'partCode', 'partNumber', 'category']);
+    // Every text column the Machine Parts list shows: code, name, part number, category, machine/brand, suppliers
+    applySearch(where, String(search), [
+      'partName',
+      'partCode',
+      'description',
+      'partNumber',
+      'category',
+      'machine',
+      'brand',
+      'machinePartSuppliers[].supplier.code',
+      'machinePartSuppliers[].supplier.name',
+    ]);
   }
 
   // Filter by supplier via junction table

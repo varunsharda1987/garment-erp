@@ -188,6 +188,9 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       'material_categories.name',
       'label_master.customer.name',
       'packaging_master.customer.name',
+      // The Materials list shows a Preferred Supplier column
+      'suppliers[].supplier.code',
+      'suppliers[].supplier.name',
     ]);
   }
 

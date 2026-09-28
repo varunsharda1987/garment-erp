@@ -124,7 +124,11 @@ export default function IssueReports() {
           ) : reports.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Bug className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p>No issue reports{statusFilter !== 'ALL' ? ` with status "${statusFilter}"` : ''}.</p>
+              <p>
+                {statusFilter !== 'ALL'
+                  ? `No issue reports with status "${STATUS_TABS.find((tab) => tab.value === statusFilter)?.label ?? statusFilter}".`
+                  : 'No issue reports.'}
+              </p>
             </div>
           ) : (
             <Table>

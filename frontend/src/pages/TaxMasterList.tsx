@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
 import { getAllTaxMasters, createTaxMaster, updateTaxMaster, deleteTaxMaster } from '@/services/taxMaster.service';
 import type { TaxMaster, TaxType, CreateTaxMasterRequest, UpdateTaxMasterRequest } from '@/types/taxMaster.types';
 import { formatDate, toDateInputValue } from '@/lib/date';
@@ -33,6 +35,14 @@ export default function TaxMasterList() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [typeFilter, setTypeFilter] = useState<TaxType | ''>('');
+
+  const activeFilterCount = [search, typeFilter].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch('');
+    setTypeFilter('');
+    setPage(1);
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<TaxMaster | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -177,31 +187,32 @@ export default function TaxMasterList() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by code or name..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+          <FilterBar
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="min-w-[220px] flex-1 max-w-sm"
+              placeholder="Search tax code, name, HSN/SAC…"
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+            />
             <Select
-              value={typeFilter}
+              value={typeFilter || 'ALL'}
               onValueChange={(val) => {
                 setTypeFilter(val === 'ALL' ? '' : (val as TaxType));
                 setPage(1);
               }}
             >
               <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="All Types" />
+                <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
+                <SelectItem value="ALL">All types</SelectItem>
                 {TAX_TYPES.map((t) => (
                   <SelectItem key={t} value={t}>
                     {t}
@@ -209,7 +220,7 @@ export default function TaxMasterList() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
         </CardHeader>
         <CardContent>
           <Table>
@@ -236,7 +247,16 @@ export default function TaxMasterList() {
               ) : records.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                    No tax masters found
+                    {activeFilterCount > 0 ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <span>No tax rates match these filters.</span>
+                        <Button variant="outline" size="sm" onClick={clearFilters}>
+                          Clear filters
+                        </Button>
+                      </div>
+                    ) : (
+                      'No tax masters found'
+                    )}
                   </TableCell>
                 </TableRow>
               ) : (

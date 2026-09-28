@@ -1555,10 +1555,11 @@
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/document-data/po-ship-to.ts": "a728edc8d87f",
       "backend/src/services/purchaseOrder.service.ts": "9cf46c2d43c5",
+      "backend/src/services/mrp.service.ts": "64b351719622",
       "frontend/src/pages/ManufacturingControlCenter.tsx": "f61b9e1a2ff0"
     },
-    "contentHash": "e12a06c20f23",
-    "generatedAt": "2026-09-26T19:21:14.058Z"
+    "contentHash": "0584a017178a",
+    "generatedAt": "2026-09-28T05:00:46.697Z"
   },
   "held-stock-move": {
     "sources": {
@@ -1632,10 +1633,10 @@
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
       "frontend/src/pages/UnifiedRequirementsPage.tsx": "eab951208171",
       "frontend/src/types/mrp.types.ts": "5e45ab69d56f",
-      "backend/src/services/mrp.service.ts": "cb3a52a371ed",
+      "backend/src/services/mrp.service.ts": "64b351719622",
       "backend/src/services/helpers/stock-reservation.helper.ts": "d1db0abdf4d4"
     },
     "contentHash": "56b3efe748a5",
-    "generatedAt": "2026-09-26T17:58:46.055Z"
+    "generatedAt": "2026-09-28T05:00:46.918Z"
   }
 }

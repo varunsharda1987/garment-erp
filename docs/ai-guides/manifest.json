@@ -1272,11 +1272,12 @@
   "stock-out-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/StockOutForm.tsx": "3b951f14407a",
-      "frontend/src/pages/StockMovementList.tsx": "a0c50bb56f62"
+      "frontend/src/pages/StockOutForm.tsx": "861722df35bc",
+      "frontend/src/pages/StockMovementList.tsx": "494ff50f1e07",
+      "backend/src/services/challan.service.ts": "376d8864925f"
     },
-    "contentHash": "0f973908079a",
-    "generatedAt": "2026-09-23T06:17:36.300Z"
+    "contentHash": "5ba3d2125b9c",
+    "generatedAt": "2026-09-28T04:41:55.587Z"
   },
   "stock-transfer-create": {
     "sources": {

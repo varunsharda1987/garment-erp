@@ -118,7 +118,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Warehouse } from '@/types/inventory.types';
 import { formatQuantity } from '@/lib/formatters';
-import { foldCounted, hasFold } from '@/lib/fold-length';
+import { FoldCountedField } from '@/components/FoldActualField';
 import { indexSizedLabels, labelDisplay, mergeLabelQuantities, sizeOf } from '@/lib/label-materials';
 import { groupLabelLines, sumRows, type LabelGroup } from '@/lib/label-lines';
 import { formLineLabelKey } from '@/lib/label-line-keys';
@@ -1510,16 +1510,13 @@ export default function PurchaseOrderForm() {
             className="w-full min-w-[110px]"
           />
         )}
-        {/* PO quantities are ACTUAL metres; the GRN converts what the mill counts at L. */}
-        {(poCategory === 'GREIGE' || poCategory === 'FABRIC') &&
-          hasFold(item.foldLengthCm) &&
-          Number(item.orderedQuantity) > 0 && (
-            <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
-              actual · = {formatQuantity(foldCounted(item.orderedQuantity, item.foldLengthCm), item.unit)} counted @ L=
-              {Number(item.foldLengthCm)}
-            </div>
-          )}
       </TableCell>
+      {/* PO quantities are ACTUAL metres; this is the figure the mill will count at L (the GRN converts back). */}
+      {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
+        <TableCell>
+          <FoldCountedField actual={item.orderedQuantity} foldLengthCm={item.foldLengthCm} unit={item.unit} />
+        </TableCell>
+      )}
       <TableCell>
         <Badge variant="secondary" className="font-medium">
           {unitShort(item.unit)}
@@ -1641,6 +1638,7 @@ export default function PurchaseOrderForm() {
           </button>
         </TableCell>
         <TableCell className="font-medium">{qty.toLocaleString()}</TableCell>
+        {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && <TableCell />}
         <TableCell>{unit ? unitShort(unit) : '—'}</TableCell>
         <TableCell>{rate != null ? formatCurrency(rate) : '—'}</TableCell>
         <TableCell className="text-right">{formatCurrency(amount)}</TableCell>
@@ -3071,7 +3069,12 @@ export default function PurchaseOrderForm() {
                     {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
                       <TableHead className="w-[200px]">Weaver</TableHead>
                     )}
-                    <TableHead className="w-[130px]">Quantity</TableHead>
+                    <TableHead className="w-[130px]">
+                      {poCategory === 'GREIGE' || poCategory === 'FABRIC' ? 'Quantity (actual)' : 'Quantity'}
+                    </TableHead>
+                    {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
+                      <TableHead className="w-[130px]">Counted @ L</TableHead>
+                    )}
                     <TableHead className="w-[100px]">Unit</TableHead>
                     <TableHead className="w-[120px]">
                       {isProcessing ? 'Rate/m' : isService ? 'Rate' : 'Unit Price'}

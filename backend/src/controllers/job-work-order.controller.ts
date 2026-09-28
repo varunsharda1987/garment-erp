@@ -126,7 +126,8 @@ const jwoInclude = {
       // The processor's bill for THAT delivery — Close pre-fills the job's invoice from these
       invoiceNumber: true,
       invoiceDate: true,
-      grn_items: { select: { acceptedQuantity: true, receivedWidthInches: true, thanCount: true } },
+      // acceptedQuantity is the processor's COUNTED figure; at foldLengthCm the actual metres are counted × L/100
+      grn_items: { select: { acceptedQuantity: true, receivedWidthInches: true, thanCount: true, foldLengthCm: true } },
     },
     orderBy: { receivingDate: 'asc' as const },
   },

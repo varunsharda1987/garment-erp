@@ -574,8 +574,10 @@ export default function GRNDetail() {
               <TableRow>
                 <TableHead>Material</TableHead>
                 <TableHead className="text-right">Ordered</TableHead>
-                <TableHead className="text-right">Received</TableHead>
-                <TableHead className="text-right">Accepted</TableHead>
+                <TableHead className="text-right">{anyFold ? 'Received (counted)' : 'Received'}</TableHead>
+                <TableHead className="text-right">{anyFold ? 'Accepted (counted)' : 'Accepted'}</TableHead>
+                {/* The metres booked into stock: accepted × L/100 — its own column, not a footnote */}
+                {anyFold && <TableHead className="text-right">Actual accepted (after L)</TableHead>}
                 <TableHead className="text-right">Rejected</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
@@ -587,6 +589,7 @@ export default function GRNDetail() {
               {grn.items?.map((item) => {
                 const hasDetails = item.grnItemDetails && item.grnItemDetails.length > 0;
                 const folded = hasFold(item.foldLengthCm);
+                const lCm = folded ? Number(item.foldLengthCm) : null;
                 const hasMeasurement = item.entryMode || item.foldLengthCm || item.receivedWidthInches;
 
                 // Group details by bale for display
@@ -695,20 +698,18 @@ export default function GRNDetail() {
                     <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.receivedQuantity).toLocaleString()}
-                      {folded && (
-                        <div className="text-xs font-normal text-muted-foreground">
-                          counted @ L={Number(item.foldLengthCm)}
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell className="text-right text-success font-medium">
                       {Number(item.acceptedQuantity).toLocaleString()}
-                      {folded && (
-                        <div className="text-xs font-normal text-info">
-                          → {foldActual(item.acceptedQuantity, item.foldLengthCm).toLocaleString()} actual
-                        </div>
-                      )}
                     </TableCell>
+                    {anyFold && (
+                      <TableCell className={`text-right font-medium ${folded ? 'text-info' : ''}`}>
+                        {foldActual(item.acceptedQuantity, item.foldLengthCm).toLocaleString()}
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {lCm !== null ? `counted × ${lCm}/100` : 'no fold'}
+                        </div>
+                      </TableCell>
+                    )}
                     <TableCell className="text-right text-destructive">
                       {Number(item.rejectedQuantity) > 0 ? Number(item.rejectedQuantity).toLocaleString() : '-'}
                     </TableCell>

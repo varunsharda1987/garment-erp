@@ -211,26 +211,41 @@ export default function GRNList() {
       },
     },
     {
+      // The supplier's / processor's own figure — what their bill and than tags say.
       key: 'qty',
-      header: 'Qty',
+      header: 'Qty (counted)',
       headerClassName: 'text-right',
       className: 'text-right',
       render: (grn) => {
         const items = grn.items ?? [];
         if (items.length === 0) return <span className="text-sm text-muted-foreground">-</span>;
-        const received = sumByUnit(items, 'receivedQuantity');
-        const accepted = sumByUnit(items, 'acceptedQuantity');
-        const folds = [...new Set(items.filter((i) => hasFold(i.foldLengthCm)).map((i) => Number(i.foldLengthCm)))];
+        const received = sumByUnit(items, 'receivedQuantity', 'counted');
+        const accepted = sumByUnit(items, 'acceptedQuantity', 'counted');
         return (
           <div className="whitespace-nowrap">
             <div className="text-sm text-foreground">{received}</div>
-            {/* Actual metres above; the supplier's counted figure beside the L it was counted at. */}
-            {folds.length > 0 && (
-              <div className="text-xs text-muted-foreground">
-                counted {sumByUnit(items, 'receivedQuantity', 'counted')} @ L={folds.join('/')}
-              </div>
-            )}
             {/* Value is on the accepted qty — say so when it differs from what arrived. */}
+            {accepted !== received && <div className="text-xs text-muted-foreground">accepted {accepted}</div>}
+          </div>
+        );
+      },
+    },
+    {
+      // Counted × L/100 — the metres stock, the PO and the value run on. Only where an L applies.
+      key: 'actualQty',
+      header: 'Actual (after L)',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (grn) => {
+        const items = grn.items ?? [];
+        const folds = [...new Set(items.filter((i) => hasFold(i.foldLengthCm)).map((i) => Number(i.foldLengthCm)))];
+        if (folds.length === 0) return <span className="text-sm text-muted-foreground">—</span>;
+        const received = sumByUnit(items, 'receivedQuantity');
+        const accepted = sumByUnit(items, 'acceptedQuantity');
+        return (
+          <div className="whitespace-nowrap">
+            <div className="text-sm font-medium text-info">{received}</div>
+            <div className="text-xs text-muted-foreground">@ L={folds.join('/')}</div>
             {accepted !== received && <div className="text-xs text-muted-foreground">accepted {accepted}</div>}
           </div>
         );

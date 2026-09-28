@@ -75,7 +75,7 @@ import {
   type SelectedDetail,
 } from '@/components/job-work/lot-rows';
 import { ThanPicker } from '@/components/job-work/ThanPicker';
-import { foldActual } from '@/lib/fold-length';
+import { foldActual, hasFold } from '@/lib/fold-length';
 import { formatQuantity } from '@/lib/formatters';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
@@ -449,6 +449,11 @@ export default function JobWorkOrderDetail() {
   const receiptInvoices = [
     ...new Set((jwo?.receivingGRNs ?? []).map((r) => r.invoiceNumber?.trim()).filter((n): n is string => !!n)),
   ];
+  // Fold length L: a return receipt's line keeps the processor's COUNTED figure; "Qty Received" is the
+  // ACTUAL metres (counted × L/100). Both are shown at full size once any receipt was counted at an L.
+  const receiptLines = (jwo?.receivingGRNs ?? []).flatMap((r) => r.items ?? []);
+  const receivedFolded = hasFold(jwo?.foldLengthCm) || receiptLines.some((i) => hasFold(i.foldLengthCm));
+  const receivedCounted = receiptLines.reduce((sum, i) => sum + (Number(i.acceptedQuantity) || 0), 0);
   // Rolls or thans, in the job's own words
   const recordWord =
     thanRecordPending.length > 0 && thanRecordPending.every((lot) => lot.pieceKind === 'ROLL') ? 'rolls' : 'thans';
@@ -1023,7 +1028,7 @@ export default function JobWorkOrderDetail() {
             <CardContent>
               {/* DB-field vocabulary (user 2026-08-17): Greige = qtySentMeters, Fabric = qtyBillable.
                   Non-greige jobs (embroidery pieces etc.) keep the neutral labels. */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className={`grid grid-cols-2 gap-4 ${receivedFolded ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
                 <div>
                   <Label className="text-muted-foreground">
                     {issuesLace ? 'Greige Lace Sent' : jwo.fabricType === 'GREIGE' ? 'Greige' : 'Qty Sent'}
@@ -1040,9 +1045,19 @@ export default function JobWorkOrderDetail() {
                     {jwo.qtyBillable != null ? `${jwo.qtyBillable.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                   </p>
                 </div>
+                {receivedFolded && (
+                  <div>
+                    <Label className="text-muted-foreground">Counted by processor</Label>
+                    <p className="text-xl font-bold">
+                      {receivedCounted.toFixed(2)} {unitShort(jwo.uom)}
+                    </p>
+                  </div>
+                )}
                 <div>
-                  <Label className="text-muted-foreground">Qty Received</Label>
-                  <p className="text-xl font-bold">
+                  <Label className="text-muted-foreground">
+                    {receivedFolded ? 'Qty Received (actual)' : 'Qty Received'}
+                  </Label>
+                  <p className={`text-xl font-bold ${receivedFolded ? 'text-info' : ''}`}>
                     {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${unitShort(jwo.uom)}` : '-'}
                   </p>
                 </div>
@@ -1068,7 +1083,7 @@ export default function JobWorkOrderDetail() {
               )}
 
               {/* Recorded at receipt and stored on the job — shown here rather than only on the receipt. */}
-              {(jwo.thanCount != null || jwo.qualityGrade || jwo.defectMeters != null) && (
+              {(jwo.thanCount != null || jwo.qualityGrade || jwo.defectMeters != null || receivedFolded) && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                   <div>
                     <Label className="text-muted-foreground">Than Count</Label>
@@ -1429,7 +1444,10 @@ export default function JobWorkOrderDetail() {
                       {receipts.length > 1 ? `Return receipts (${receipts.length})` : 'Return receipt'}
                     </Label>
                     {receipts.map((r) => {
-                      const qty = r.items?.[0]?.acceptedQuantity;
+                      // The receipt line keeps the processor's COUNTED figure; at an L, say so and give the actual
+                      const line = r.items?.[0];
+                      const qty = line?.acceptedQuantity;
+                      const lineFolded = hasFold(line?.foldLengthCm);
                       // undefined = an old payload without it; null = the processor's bill is to follow
                       const invoice = 'invoiceNumber' in r ? r.invoiceNumber : undefined;
                       return (
@@ -1444,7 +1462,11 @@ export default function JobWorkOrderDetail() {
                             {r.grnNumber}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {qty != null ? `${Number(qty).toFixed(2)} ${unitShort(jwo.uom)}` : ''}
+                            {qty == null
+                              ? ''
+                              : lineFolded
+                                ? `${Number(qty).toFixed(2)} counted → ${foldActual(qty, line?.foldLengthCm).toFixed(2)} ${unitShort(jwo.uom)}`
+                                : `${Number(qty).toFixed(2)} ${unitShort(jwo.uom)}`}
                             {r.receivingDate ? ` · ${formatDate(new Date(r.receivingDate))}` : ''}
                             {invoice ? ` · Inv ${invoice}` : ''}
                             {invoice === null && <span className="text-amber-700"> · invoice to follow</span>}

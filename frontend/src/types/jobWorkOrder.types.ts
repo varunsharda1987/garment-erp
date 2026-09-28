@@ -198,7 +198,13 @@ export interface JobWorkOrder {
     /** The processor's bill for that delivery — null = "To follow" */
     invoiceNumber?: string | null;
     invoiceDate?: string | null;
-    items?: Array<{ acceptedQuantity: number; receivedWidthInches?: number | null; thanCount?: number | null }>;
+    /** acceptedQuantity is the processor's COUNTED figure; actual = counted × L/100 at foldLengthCm */
+    items?: Array<{
+      acceptedQuantity: number;
+      receivedWidthInches?: number | null;
+      thanCount?: number | null;
+      foldLengthCm?: number | null;
+    }>;
   }>;
 }
 

@@ -32,6 +32,7 @@ import {
   autoAssignProcessorsSchema,
   requirementsQuerySchema,
   requirementStylesQuerySchema,
+  requirementOrdersQuerySchema,
 } from '../schemas/mrp.schema';
 
 const router = Router();
@@ -73,6 +74,18 @@ router.get(
   '/requirements/styles',
   validateQuery(requirementStylesQuerySchema),
   asyncHandler(mrpController.getDistinctRequirementStyles)
+);
+
+/**
+ * @route   GET /api/mrp/requirements/orders
+ * @desc    Get distinct orders that have material requirements (for filter dropdown)
+ * @access  Private
+ * @query   requirementType
+ */
+router.get(
+  '/requirements/orders',
+  validateQuery(requirementOrdersQuerySchema),
+  asyncHandler(mrpController.getDistinctRequirementOrders)
 );
 
 /**

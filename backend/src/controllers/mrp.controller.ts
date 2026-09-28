@@ -447,6 +447,15 @@ export const getDistinctRequirementStyles = async (req: Request, res: Response):
 };
 
 /**
+ * Get distinct orders that have material requirements (for the Order filter)
+ */
+export const getDistinctRequirementOrders = async (req: Request, res: Response): Promise<void> => {
+  const requirementType = req.query.requirementType as string | undefined;
+  const orders = await mrpService.getDistinctRequirementOrders(requirementType);
+  res.json({ success: true, data: orders });
+};
+
+/**
  * Convert a MATERIAL requirement to GREIGE + PROCESSING requirements
  * POST /api/mrp/requirements/:id/convert-to-greige
  */
@@ -513,6 +522,7 @@ export default {
   bulkGeneratePO,
   validateBulkPO,
   getDistinctRequirementStyles,
+  getDistinctRequirementOrders,
   convertToGreigeProcessing,
   previewPOs,
 };

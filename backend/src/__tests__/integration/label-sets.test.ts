@@ -268,6 +268,36 @@ describe('label sets', () => {
     expect(none.body.data).toHaveLength(0);
   });
 
+  it('the Requirements page filters: orders that have requirements, a buyer name in search, statuses checked', async () => {
+    const orders = await request(app)
+      .get('/api/mrp/requirements/orders')
+      .query({ requirementType: 'MATERIAL' })
+      .set(authHeader)
+      .expect(200);
+    expect(orders.body.data).toContainEqual({ id: orderId, orderNumber: `${RUN}ORD`, customerName: `${RUN} Buyer` });
+
+    // The buyer's name finds the order's requirements ("Buyer" is in no other searched field)
+    const byBuyer = await request(app)
+      .get('/api/mrp/requirements')
+      .query({ search: `${RUN} Buyer`, requirementType: 'MATERIAL', limit: '100' })
+      .set(authHeader)
+      .expect(200);
+    expect(byBuyer.body.data.length).toBeGreaterThan(0);
+    for (const r of byBuyer.body.data) expect(r.orderId).toBe(orderId);
+
+    // The page's "Needs action" list includes DECISION_PENDING; an unknown status is a 400, not a Prisma 500
+    await request(app)
+      .get('/api/mrp/requirements')
+      .query({ orderId, status: 'PENDING,SIZE_PENDING,PO_REQUIRED,PARTIAL_STOCK,DECISION_PENDING' })
+      .set(authHeader)
+      .expect(200);
+    await request(app)
+      .get('/api/mrp/requirements')
+      .query({ orderId, status: 'PO_REQUIRED,NOPE' })
+      .set(authHeader)
+      .expect(400);
+  });
+
   it('label-set with the order: sizes summed across colours, the order BOM, missing sizes, open requirements', async () => {
     const res = await request(app)
       .get(`/api/styles/${styleId}/label-set`)

@@ -7,7 +7,10 @@
 
 import { z } from 'zod';
 import { UnitEnum, flexMaterialId } from './common.schema';
-import { MaterialTypeEnum } from './generated/prisma-enums';
+import {
+  MaterialTypeEnum,
+  MaterialRequirementStatusEnum as RequirementStatusFilterEnum,
+} from './generated/prisma-enums';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -288,7 +291,16 @@ export const requirementsQuerySchema = z.object({
   materialId: flexMaterialId('material ID').optional(),
   supplierId: z.string().uuid().optional(),
   styleId: z.string().uuid().optional(),
-  status: z.string().optional(), // Can be comma-separated
+  // Comma-separated statuses. Checked against the FULL Prisma enum (DECISION_PENDING included — the local
+  // MaterialRequirementStatusEnum above leaves it out on purpose, for status writes): an unknown value used to
+  // reach Prisma's `where` and come back as a 500.
+  status: z
+    .string()
+    .refine(
+      (v) => v.split(',').every((s) => RequirementStatusFilterEnum.safeParse(s.trim()).success),
+      'Unknown requirement status'
+    )
+    .optional(),
   source: RequirementSourceEnum.optional(),
   requirementType: RequirementTypeEnum.optional(),
   // Comma-separated material types of the required material (e.g. "LABEL" — the label-set view)
@@ -331,6 +343,14 @@ export const requirementsQuerySchema = z.object({
  * string and passed it into a Prisma `where`.
  */
 export const requirementStylesQuerySchema = z.object({
+  requirementType: RequirementTypeEnum.optional(),
+});
+
+/**
+ * Distinct orders that have requirements (the Requirements page's Order filter)
+ * GET /api/mrp/requirements/orders
+ */
+export const requirementOrdersQuerySchema = z.object({
   requirementType: RequirementTypeEnum.optional(),
 });
 

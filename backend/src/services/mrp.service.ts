@@ -2687,6 +2687,7 @@ export async function getRequirements(
       'materials.code',
       'materials.name',
       'orders.orderNumber',
+      'orders.customers.name',
       'order_items.styles.styleCode',
       'order_items.styles.buyerStyleRef',
       'order_items.styles.styleName',
@@ -2777,6 +2778,39 @@ export async function getDistinctRequirementStyles(requirementType?: string) {
   }
 
   return Array.from(styleMap.values()).sort((a, b) => a.styleCode.localeCompare(b.styleCode));
+}
+
+/**
+ * Distinct orders that have requirements (the Requirements page's Order filter). Only orders that
+ * actually have a live requirement are offered — an order picker over every order would lead to
+ * "no requirements" for most picks. Newest order number first.
+ */
+export async function getDistinctRequirementOrders(requirementType?: string) {
+  const where: Prisma.material_requirementsWhereInput = {
+    orderId: { not: null },
+    status: { not: 'CANCELLED' },
+  };
+  if (requirementType) where.requirementType = requirementType;
+
+  const rows = await prisma.material_requirements.findMany({
+    where,
+    select: {
+      orders: { select: { id: true, orderNumber: true, customers: { select: { name: true } } } },
+    },
+    distinct: ['orderId'],
+    take: 500,
+  });
+
+  const orders: { id: string; orderNumber: string; customerName: string | null }[] = [];
+  for (const row of rows) {
+    if (!row.orders) continue;
+    orders.push({
+      id: row.orders.id,
+      orderNumber: row.orders.orderNumber,
+      customerName: row.orders.customers?.name ?? null,
+    });
+  }
+  return orders.sort((a, b) => b.orderNumber.localeCompare(a.orderNumber));
 }
 
 /**
@@ -6312,6 +6346,7 @@ export default {
   getRequirements,
   getRequirementById,
   getDistinctRequirementStyles,
+  getDistinctRequirementOrders,
   getOrderRequirementsSummary,
   getDashboardStats,
   allocateStock,

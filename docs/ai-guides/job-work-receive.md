@@ -91,6 +91,12 @@ keywords:
   - सीधे दूसरे प्रोसेसर को
   - डायर ने सीधे भेजा
   - अगला प्रोसेसर
+  - processor invoice
+  - processor ka bill
+  - invoice not received yet
+  - bill baad mein
+  - प्रोसेसर का बिल
+  - बिल बाद में
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -117,6 +123,7 @@ sources:
   - backend/src/services/helpers/jwo-status.helper.ts
   - backend/src/services/helpers/held-stock-doors.helper.ts
   - backend/src/controllers/grn.controller.ts
+  - backend/src/services/helpers/receipt-invoice.helper.ts
 route: /job-work-orders
 ---
 
@@ -139,14 +146,15 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. In both, the than count is the number of rows.
 5. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
 6. **Their challan no.** — the processor's challan number.
+   **Processor's invoice no. \*** and **Invoice date \*** — the processor's bill for this delivery. If the bill has not come with the goods, tick **Invoice not received yet** instead (both boxes clear); add the bill later on the receipt with **Add invoice**, or type it when you close the job. The button stays disabled until one or the other is done.
 7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent. If the processor sent the goods straight on to another processor instead of to us, tick **Delivered straight to another processor** first — see below.
 8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
 9. **This is the final delivery — nothing more is expected from …** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. If you tick it while the total is short, the line under it turns red: **Short by … Only tick this if nothing more is coming from …**.
 10. If the total is short beyond the job's tolerance and the box is ticked, a warning names the metres beyond the allowance and the debit note that will be needed against the processor before the job can close.
-11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked) — once. The button stays disabled until you have a quantity, a warehouse and a valid date. When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
+11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked) — once. The button stays disabled until you have a quantity, a warehouse, a valid date and the processor's invoice (or **Invoice not received yet** ticked). When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
 
 ### What that one click does
-- Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date and metres.
+- Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date, metres and invoice ("· Inv …", or "· invoice to follow" in amber).
 - Books the finished fabric into fabric stock (dyed lace into lace stock) in the warehouse you chose, at the processing rate plus the greige cost.
 - Raises the **Inward** challan from the processor — the GST document for goods back from a job worker. **Print Inward Challan** appears on the job.
 - Writes the than count, fold length, width and quality onto the job. On the final delivery it also writes the actual shrinkage % and moves the job to **Stock Updated**; a part leaves it at **Partial Receipt**.
@@ -200,7 +208,8 @@ A job that has already been received cannot be received again: a second click is
 
 ## After receiving
 - If there is abnormal loss you are told when you receive, and an **Abnormal Loss Detected** banner shows on the job work order. A debit note against the processor is required.
-- Click **Close Order** on the job work order and enter **Processor Invoice Number \*** to finish the order. Closing is refused while abnormal loss has no debit note.
+- Click **Close Order** on the job work order and enter **Processor Invoice Number \*** to finish the order. When the return receipts carry the processor's invoices, the box is already filled with them (oldest first, separated by commas) and says "Filled in from the return receipts — change it if … billed the job on another invoice." Closing is refused while abnormal loss has no debit note.
+- A bill that arrives after the goods: open the receipt from **Return receipts** and click **Add invoice** (see *Approve a GRN*).
 - If the count was wrong, ask an admin to reverse the receipt: that takes back that receipt's lot and cancels its inward challan (other parts of the same job stay), and is refused once any of that material has been used or reserved.
 
 ## Traps
@@ -215,6 +224,7 @@ A job that has already been received cannot be received again: a second click is
 - A final delivery that leaves the total short beyond the tolerance cannot go in quietly. If the confirmation was somehow skipped (an old browser tab, for instance), the server refuses it with "This would close … short: … received in total against … expected back from … If more is still to come, receive this as a part. If nothing more is expected, confirm the short close." — reload the page and the confirmation appears.
 - **Close short — nothing more is coming** only appears on a job at **Partial Receipt**. A job with nothing received yet has nothing to close on, and a job already at **Stock Updated** is already closed.
 - A receipt with no quantity is refused with "Received quantity must be greater than 0" — nothing is written.
+- A receipt with neither the processor's invoice nor **Invoice not received yet** is refused: "Enter the processor's invoice number and date — or tick "Invoice not received yet" …" — nothing is written. A page opened before this rule may hit it: reload it and the box appears.
 - A return dated before the day the greige was sent is refused: "Date received 27-Aug-2026 is before the day the greige was sent (19-Sep-2026)". The date field will not go earlier than the send day.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
 - In Than-wise or Bale-wise mode every row needs metres greater than zero before the button enables; an empty row blocks it.

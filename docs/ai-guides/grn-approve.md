@@ -49,6 +49,12 @@ keywords:
   - po close short nahi ho raha
   - po cancel nahi ho raha
   - पीओ कैंसिल नहीं हो रहा
+  - invoice to follow
+  - add invoice
+  - bill baad mein aaya
+  - invoice add karna
+  - बिल जोड़ें
+  - इनवॉइस बाद में
 sources:
   - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
@@ -63,6 +69,8 @@ sources:
   - backend/src/services/helpers/po-delivery-plan.helper.ts
   - backend/src/services/thread-stock.service.ts
   - backend/src/services/helpers/stock-routing.helper.ts
+  - backend/src/services/helpers/receipt-invoice.helper.ts
+  - frontend/src/lib/receipt-invoice.ts
 route: /procurement/grn
 ---
 
@@ -93,6 +101,12 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 - A line received at a fold length shows both figures on the GRN page: **Received** is the counted figure with "counted @ L=98" under it, and **Accepted** shows "→ 9,810.78 actual" under it. Approving books the actual metres into stock; the **Rate** and **Value** columns and the printed GRN (its **Actual** column) use the actual metres too.
 - For a **Job work return** there is nothing to do here: the finished fabric lot (or dyed lace lot), the inward challan, the job's shrinkage, than, fold, width and quality, the loss split and the **Stock Updated** status were all written when it was received on the job. Click the job work order in the **PO / JWO** column to see them.
 - If fabric was waiting for a production run, a banner appears with **Go to Cutting Chart** or **View Cutting**.
+
+## The invoice came later — add it
+A GRN saved with **Invoice not received yet** (or a job work return received the same way) shows **To follow** in the list's **Invoice #** column, and on its page the invoice section reads "Invoice to follow — this delivery came without the supplier's bill" (the processor's, on a job work return). When the bill arrives:
+1. Open the GRN and click **Add invoice** in that section.
+2. Fill **Invoice Number *** and **Invoice Date *** and click **Save invoice**.
+Nothing in stock changes; the invoice now shows on the GRN, its printout and the stock lots it booked. A GRN that already has an invoice shows **Edit** beside it to correct a typo. A reversed or rejected GRN can no longer be changed. You need permission to edit GRNs.
 
 ## Rejecting instead
 Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) and click **Reject**. This reverts the received quantities on the purchase order and creates no stock. It is also the only way to settle a GRN whose purchase order has been cancelled.

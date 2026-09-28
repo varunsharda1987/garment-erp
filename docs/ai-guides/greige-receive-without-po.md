@@ -68,7 +68,7 @@ Use this for any greige you bought from a supplier, even if you forgot to make t
 8. Click **Save & Send** to create and send the PO in one step. Or click **Save as Draft** and later use **Send to Supplier** on the PO page. If Save & Send saves the PO but the send fails, the message says "saved as Draft — sending failed" and the PO's page opens: click **Send to Supplier** there. Do not create the PO again. A Draft cannot be received — send it first.
 9. Now open **Procurement → GRN (Goods Receipt)**. The page title is **Goods Receiving Notes**.
 10. Click **+ Create GRN**. Under **Purchase Order**, search and select your new PO.
-11. Fill the received quantities and click **Save GRN**.
+11. Fill **Invoice Number \*** and **Invoice Date \*** from the supplier's bill — or tick **Invoice not received yet** if the bill has not come; add it later on the GRN with **Add invoice**. For greige, choose **Than-wise**, **Bale-wise** or **Roll-wise** so the lot keeps its list of pieces for issuing (with **Total Meters** an amber note says there will be nothing to tick when it is sent to a dyer). Fill the received quantities and click **Save GRN**.
 12. Open the saved GRN from the list and click **Approve** — stock is added only after approval.
 
 ### Why this is better

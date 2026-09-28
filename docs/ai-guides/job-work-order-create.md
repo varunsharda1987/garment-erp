@@ -47,6 +47,22 @@ keywords:
   - थान
   - बेल
   - थान चुनें
+  - roll
+  - rolls
+  - kaunse roll bheje
+  - pick rolls
+  - रोल
+  - रोल चुनें
+  - send to mill
+  - mill bhejo
+  - मिल भेजें
+  - no than list
+  - than list nahi hai
+  - bale than roll list
+  - थान की सूची नहीं
+  - which bale to send
+  - kaunsi gaanth
+  - गांठ
   - माल भेजना
   - रंगाई
   - कढ़ाई
@@ -62,6 +78,10 @@ sources:
   - frontend/src/components/job-work/GreigeLotRows.tsx
   - frontend/src/components/job-work/ThanPicker.tsx
   - frontend/src/components/job-work/lot-rows.ts
+  - frontend/src/components/job-work/RecordLotPiecesDialog.tsx
+  - frontend/src/components/processing/SendToMillDialog.tsx
+  - frontend/src/components/processing/ProcessPOCreateForm.tsx
+  - frontend/src/pages/ProcessingList.tsx
   - frontend/src/pages/DispatchToProcessor.tsx
   - frontend/src/components/GreigeCombobox.tsx
   - frontend/src/services/processorRateCardV2.service.ts
@@ -107,14 +127,21 @@ Both figures stay editable — type over either one and it will not be overwritt
 3. Click **Issue to Processor**. This button only appears while the order is **Approved** — there is no other status that can issue.
 4. Under **Greige Lots ***, pick the lot and quantity. Use **Add lot** to split across lots, or **Auto-fill**. The total must match the order, shown as "matches the order". Only lots of the greige the order names are offered — that is the cloth its rate and shrinkage were quoted on. On a lace job the list holds the greige lace lots instead, and every lot must be the lace the order names.
    The lots are grouped by where they are: **Already at <processor> — no dispatch needed** first, then one group per store, for example **In Kashaya Fabs**. Each lot shows its metres, width, weaver and place, for example "GRG-0072 — Cotton Flex (5,000 m, 63″) · Weaver … · at Aryan Dyeing since 28-Sep-2026". The badges above the list give the total in each place. **Auto-fill** takes the cloth already at the processor first, oldest first, and then the biggest store lots. An **Elsewhere** line shows the same cloth at other processors; it cannot go on this job.
-   If the lot was received than-wise or bale-wise, its thans open under the lot, grouped by bale. Tick the thans you are sending (you can type fewer metres for the last one), or click **Pick thans for me** to tick whole thans bale by bale until the order is covered. The line under the list shows the metres counted on the tags and the actual metres they come to. Picking thans is optional — close the list to send by quantity only — but it keeps the godown list of thans right.
+   If the lot has a list of its pieces — typed on its GRN (than-wise, bale-wise or roll-wise), or recorded later with **Record bales & thans** — the pieces open under the lot: thans grouped by bale, or its rolls. The words follow the lot: a roll lot says "This lot has 18 rolls", its pieces read "Roll R-55", and the buttons read **Pick rolls for me** and **Best fit (whole rolls)**. Tick the pieces you are sending (you can type fewer metres for the last one), or click **Pick thans for me** / **Pick rolls for me** to tick whole pieces in order until the order is covered. The line under the list shows the metres counted on the tags and the actual metres they come to. Picking is optional — close the list to send by quantity only — but it keeps the godown list right.
 
-   **Best fit (whole thans)** ticks whole thans only — no than is cut — landing within 1% of the order, over or under. It uses whole bales first, finishes bales that are already opened, and breaks as few bales as possible; the note under the button says how many bales it used. The order quantity does not change. If no set of whole thans fits within 1%, it says so — use **Pick thans for me** instead.
+   **Best fit (whole thans)** / **Best fit (whole rolls)** ticks whole pieces only — none is cut — landing within 1% of the order, over or under. For thans it uses whole bales first, finishes bales that are already opened, and breaks as few bales as possible; the note under the button says how many bales (or rolls) it used. The order quantity does not change. If no set of whole pieces fits within 1%, it says so — use **Pick thans for me** instead.
+
+   If the lot has **no list** (for example it was received on its GRN as **Total Meters**), the line under it says so, for example "GRG-0039 has no bale, than or roll list — it goes by quantity. (Received on GRN2608-0004 as Total Meters.)" — the issue is never blocked; it simply goes by quantity. To pick pieces from this lot from now on, click **Record bales & thans** on that line, type the bales / thans / rolls now on the rack, save — the pieces then open under the lot. The link shows only to people allowed to edit greige stock.
 5. Check **Sent date**. It is today unless you change it. It cannot be after today, and it cannot be before the day a chosen lot was received (or reached the processor). A date more than 7 days back shows a reminder to make sure it is the real day. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
 6. Click **Issue & Create Challan**. When every chosen lot is already at the processor the button reads **Allocate at <processor>** instead, and there is no vehicle box. The confirmation shows the challan number that was created (or, for an allocation, "allocated at … under challan …, nothing dispatched"). The challan names the store the goods leave from (for example Kashaya Fabs). Every issue that sends something out gets a challan — greige, lace, a fabric roll or garments; only greige that is already at this processor is allocated without one. Greige or lace the supplier delivered straight to this processor (approved with **Delivered straight to …** on the GRN) is taken from where it lies: no truck and no new challan — the job shows the challan that already covers it, and the one-year return period counts from the day the processor received it. Ready fabric delivered straight to this processor is taken the same way: on a fabric-roll job (for example embroidery) whose lot is already at the processor, the button reads **Allocate at <processor>**, nothing travels and no challan is created. Greige, lace or fabric sitting at a different processor cannot be put on this job as it is: the dialog lists it under **Elsewhere: … at <processor>** with a **Move here** link, which files a challan from that processor to this one — the cloth then shows under **Already at <processor>** and is taken without a truck.
 
+## Send to Mill from the Dyeing / Printing list
+On **Manufacturing → Dyeing & Printing**, tab **Job Work Orders**, a draft order has a **Send to Mill** button (paper-plane icon). The **Send … to Mill** dialog shows the same lot line as the Issue dialog: pick the lot under **Greige Stock Lot *** (one lot must cover the whole order — split across lots from the order's own page), and if the lot has a list of pieces, tick the thans or rolls going, or use **Pick thans for me** / **Best fit**. A lot with no list shows the same "no bale, than or roll list — it goes by quantity" line and **Record bales & thans** link. Fill **Sent Date** and **Vehicle Number**, then **Send & Create Challan** (or **Allocate at <processor>** when the cloth is already there).
+
+On the **New Job Work Order** form of that page, **Create & Send to Mill** with a lot that lists pieces first creates the order and then opens **Send to Mill** so you can tick which pieces go; the form shows "… lists N rolls — Create & Send to Mill will ask which ones go." Close it without sending and the order stays created but not sent — send it from the list when ready.
+
 ## Name the thans after sending
-If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me** / **Best fit (whole thans)**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more than 1% over what the order took.
+If an order was sent by quantity from a lot that has thans, its page shows **Record thans sent** (**Record rolls sent** for a roll lot) with a line such as "0 of 1,340.72 m recorded by than". Click it, tick the thans that actually went (or **Pick thans for me** / **Best fit (whole thans)**) and save. This only marks those thans as sent — the stock was already taken when the order was issued — and you cannot record more than 1% over what the order took. Only pieces that were on the lot's list when the order took its cloth are offered: pieces recorded later with **Record bales & thans** were still on the rack, so they can never be named on an order that had already left (and the button does not show for such an order).
 
 If other orders went to the same processor on the same day from the same lot and their thans are not recorded yet, the dialog lists them and shows **Best fit for all N jobs**. It fits the thans on the total of all those orders — whole bales across the vehicle, a bale shared between two orders rather than two bales broken — then shares them out, each order within 1%. The button at the bottom then reads **Record thans for N jobs** and saves all of them together. Click **Record this job only** to go back to one order.
 

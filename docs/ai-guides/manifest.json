@@ -53,10 +53,10 @@
       "backend/src/services/helpers/po-line-category.helper.ts": "8aba609442ca",
       "backend/src/services/helpers/purchase-unit.helper.ts": "aed50d819a74",
       "frontend/src/types/purchaseOrder.types.ts": "aad024de4757",
-      "backend/src/services/mrp.service.ts": "58690978bf3d"
+      "backend/src/services/mrp.service.ts": "014ac5a3cfa8"
     },
     "contentHash": "86e770237e84",
-    "generatedAt": "2026-09-28T16:06:32.969Z"
+    "generatedAt": "2026-09-28T19:05:38.629Z"
   },
   "cad-approve": {
     "sources": {
@@ -123,11 +123,13 @@
   "challan-receive": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/ChallanDetail.tsx": "3026a0a982ed",
-      "frontend/src/pages/ChallanList.tsx": "d92ba6eadd98"
+      "frontend/src/pages/ChallanDetail.tsx": "63311a6d9e41",
+      "frontend/src/pages/ChallanList.tsx": "d92ba6eadd98",
+      "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
+      "backend/src/services/challan.service.ts": "5f24c75b7fc6"
     },
-    "contentHash": "25011402f70a",
-    "generatedAt": "2026-09-28T16:06:32.986Z"
+    "contentHash": "97065aa67dae",
+    "generatedAt": "2026-09-28T19:05:38.634Z"
   },
   "chart-of-accounts": {
     "sources": {
@@ -553,19 +555,19 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/pages/GRNForm.tsx": "235a78406d05",
-      "frontend/src/pages/GRNList.tsx": "d38273ff72d4",
-      "frontend/src/pages/GRNDetail.tsx": "49f2061645ce",
+      "frontend/src/pages/GRNList.tsx": "968a3eb27f37",
+      "frontend/src/pages/GRNDetail.tsx": "62fa64e1a926",
       "frontend/src/pages/StockInForm.tsx": "dc05c8c9ab3d",
-      "frontend/src/pages/StockMovementList.tsx": "e37a58f4263f",
+      "frontend/src/pages/StockMovementList.tsx": "80d5b420bf90",
       "frontend/src/pages/PurchaseOrderForm.tsx": "e2e647c35d19",
-      "frontend/src/pages/PurchaseOrderList.tsx": "48f84bca2936",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "532fb9e5f9be",
+      "frontend/src/pages/PurchaseOrderList.tsx": "ea2b5cfbc1b0",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
       "backend/src/schemas/grn.schema.ts": "effa74bab6fc",
       "backend/src/schemas/stockMovement.schema.ts": "c25341352d67",
       "docs/STOCK_DOORS_GUIDE.md": "52f7852979a8"
     },
     "contentHash": "c7b349351758",
-    "generatedAt": "2026-09-28T12:26:29.065Z"
+    "generatedAt": "2026-09-28T19:05:38.651Z"
   },
   "greige-stock-entry": {
     "sources": {
@@ -586,43 +588,48 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/GRNList.tsx": "d38273ff72d4",
-      "frontend/src/pages/GRNDetail.tsx": "49f2061645ce",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "532fb9e5f9be",
+      "frontend/src/pages/GRNList.tsx": "968a3eb27f37",
+      "frontend/src/pages/GRNDetail.tsx": "62fa64e1a926",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
       "backend/src/schemas/grn.schema.ts": "effa74bab6fc",
-      "backend/src/services/grn.service.ts": "286aa4007bed",
-      "backend/src/services/purchaseOrder.service.ts": "126e97c48a1f",
+      "backend/src/services/grn.service.ts": "8aff40209454",
+      "backend/src/services/purchaseOrder.service.ts": "0d8a873de79f",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/thread-stock.service.ts": "bd87591f61a7",
-      "backend/src/services/helpers/stock-routing.helper.ts": "03fe9cf54adb",
+      "backend/src/services/helpers/stock-routing.helper.ts": "092a01106b35",
       "backend/src/services/helpers/receipt-invoice.helper.ts": "6cc8412f24f2",
-      "frontend/src/lib/receipt-invoice.ts": "e89183518e32"
+      "frontend/src/lib/receipt-invoice.ts": "e89183518e32",
+      "backend/src/services/helpers/receipt-allocation.helper.ts": "d93d7167ed4a",
+      "backend/src/services/helpers/po-allocation.helper.ts": "695e79f3ef8a"
     },
-    "contentHash": "6b73b9916552",
-    "generatedAt": "2026-09-28T12:26:29.689Z"
+    "contentHash": "86b1ec636937",
+    "generatedAt": "2026-09-28T19:05:38.660Z"
   },
   "grn-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/GRNList.tsx": "8d71ed61bc22",
-      "frontend/src/pages/GRNForm.tsx": "a85829461b99",
-      "frontend/src/pages/GRNDetail.tsx": "965a13867526",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "532fb9e5f9be",
+      "frontend/src/pages/GRNList.tsx": "968a3eb27f37",
+      "frontend/src/pages/GRNForm.tsx": "235a78406d05",
+      "frontend/src/pages/GRNDetail.tsx": "62fa64e1a926",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
       "frontend/src/components/purchase-orders/DeliveryPlanCard.tsx": "e1b42b32a86f",
       "backend/src/schemas/grn.schema.ts": "effa74bab6fc",
-      "backend/src/services/grn.service.ts": "286aa4007bed",
-      "backend/src/services/purchaseOrder.service.ts": "126e97c48a1f",
-      "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
+      "backend/src/services/grn.service.ts": "8aff40209454",
+      "backend/src/services/purchaseOrder.service.ts": "0d8a873de79f",
+      "frontend/src/components/WeaverCombobox.tsx": "0e7f4818b828",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "frontend/src/lib/label-lines.ts": "169c3b0c5007",
       "frontend/src/lib/label-line-keys.ts": "62a10e98a1b6",
       "frontend/src/types/purchaseOrder.types.ts": "aad024de4757",
-      "backend/src/services/helpers/receipt-invoice.helper.ts": "6cc8412f24f2"
+      "backend/src/services/helpers/receipt-invoice.helper.ts": "6cc8412f24f2",
+      "frontend/src/components/filters/DateRangeFilter.tsx": "d50739883fae",
+      "backend/src/services/helpers/receipt-allocation.helper.ts": "d93d7167ed4a",
+      "backend/src/services/helpers/po-allocation.helper.ts": "695e79f3ef8a"
     },
-    "contentHash": "752fcb58f443",
-    "generatedAt": "2026-09-28T11:27:40.259Z"
+    "contentHash": "371d9b074e19",
+    "generatedAt": "2026-09-28T19:05:38.689Z"
   },
   "gst-reports": {
     "sources": {
@@ -692,14 +699,14 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkDashboard.tsx": "ad52b5890a7c",
       "frontend/src/pages/JobWorkOrderList.tsx": "9ff939940fd4",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "20f33baecd54",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "6e0331532c35",
       "frontend/src/pages/StockMovementDashboard.tsx": "329090e734c3",
       "frontend/src/lib/section143.ts": "1a9c5178d0ce",
       "backend/src/services/job-work-statutory.service.ts": "4611960694ff",
       "backend/templates/kf/report-job-work-ageing.hbs": "bedf9dc646b4"
     },
     "contentHash": "95215b3b12a6",
-    "generatedAt": "2026-09-28T16:06:33.326Z"
+    "generatedAt": "2026-09-28T19:05:38.718Z"
   },
   "job-work-order-create": {
     "sources": {
@@ -708,24 +715,28 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/JobWorkOrderList.tsx": "9ff939940fd4",
       "frontend/src/components/JobWorkOrderCreateDialog.tsx": "afdd83c7b4c8",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "20f33baecd54",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "6e0331532c35",
       "frontend/src/components/job-work/GreigeLotRows.tsx": "f311a73150e6",
       "frontend/src/components/job-work/ThanPicker.tsx": "20dda4f2ee97",
       "frontend/src/components/job-work/lot-rows.ts": "1abce27f96fb",
       "frontend/src/components/job-work/RecordLotPiecesDialog.tsx": "5595fc2e1e7c",
-      "frontend/src/components/processing/SendToMillDialog.tsx": "4b3a9efb2891",
-      "frontend/src/components/processing/ProcessPOCreateForm.tsx": "96c668b85392",
+      "frontend/src/components/processing/SendToMillDialog.tsx": "ee0fe927c988",
+      "frontend/src/components/processing/ProcessPOCreateForm.tsx": "3ea6178fbbb8",
       "frontend/src/pages/ProcessingList.tsx": "1cd2b892c3bf",
-      "frontend/src/pages/DispatchToProcessor.tsx": "85382d7840f6",
+      "frontend/src/pages/DispatchToProcessor.tsx": "0a7d77d66967",
       "frontend/src/components/GreigeCombobox.tsx": "e66f840d0a72",
       "frontend/src/services/processorRateCardV2.service.ts": "96a5d03483c6",
-      "backend/src/schemas/jobWorkOrder.schema.ts": "f9cca71a4ca3",
-      "backend/src/controllers/job-work-order.controller.ts": "0a1ef7f067d9",
+      "backend/src/schemas/jobWorkOrder.schema.ts": "553ddf091968",
+      "backend/src/controllers/job-work-order.controller.ts": "ffcaf92ed3d3",
       "backend/src/services/helpers/jwo-rate.helper.ts": "ca4dd5c79195",
-      "backend/src/services/job-work-issuance.service.ts": "343608778eaf"
+      "backend/src/services/job-work-issuance.service.ts": "57efb280ddbd",
+      "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
+      "frontend/src/lib/held-stock-confirm.ts": "1b57f54833fb",
+      "backend/src/controllers/dyeing.controller.ts": "7e8eaffe7310",
+      "backend/src/controllers/printing.controller.ts": "adefc390f3f7"
     },
-    "contentHash": "eaa0b77e962e",
-    "generatedAt": "2026-09-28T16:02:11.730Z"
+    "contentHash": "daed3b449548",
+    "generatedAt": "2026-09-28T19:05:38.741Z"
   },
   "job-work-receive": {
     "sources": {
@@ -735,29 +746,29 @@
       "frontend/src/pages/ProcessingList.tsx": "1cd2b892c3bf",
       "frontend/src/pages/DyeingList.tsx": "e8c5a2ca2e9b",
       "frontend/src/pages/PrintingList.tsx": "958e8653cebc",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "20f33baecd54",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "6e0331532c35",
       "frontend/src/pages/JobWorkOrderList.tsx": "9ff939940fd4",
       "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "8d5089a6b632",
       "frontend/src/components/job-work/ReturnFromProcessorDialog.tsx": "562ae8e9f4cf",
       "frontend/src/components/job-work/ReceiptDetailRows.tsx": "bbef124287de",
       "backend/src/services/helpers/jwo-return-unprocessed.helper.ts": "2ffdb76901f2",
       "frontend/src/components/WarehouseCombobox.tsx": "800e7631b4cb",
-      "frontend/src/services/jobWorkOrder.service.ts": "82256c03aa28",
+      "frontend/src/services/jobWorkOrder.service.ts": "966d05f0d8ac",
       "frontend/src/pages/GRNList.tsx": "968a3eb27f37",
       "frontend/src/pages/GRNDetail.tsx": "62fa64e1a926",
-      "backend/src/schemas/jobWorkOrder.schema.ts": "f9cca71a4ca3",
+      "backend/src/schemas/jobWorkOrder.schema.ts": "553ddf091968",
       "backend/src/schemas/grn.schema.ts": "effa74bab6fc",
       "backend/src/routes/grn.routes.ts": "05cd1c008651",
-      "backend/src/controllers/job-work-order.controller.ts": "0a1ef7f067d9",
-      "backend/src/services/grn.service.ts": "2bf79db5a484",
+      "backend/src/controllers/job-work-order.controller.ts": "ffcaf92ed3d3",
+      "backend/src/services/grn.service.ts": "8aff40209454",
       "backend/src/services/helpers/jwo-arriving-material.helper.ts": "622bf8d344ab",
       "backend/src/services/helpers/jwo-status.helper.ts": "fa58d498a64c",
       "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
-      "backend/src/controllers/grn.controller.ts": "0eba9186a706",
+      "backend/src/controllers/grn.controller.ts": "32eb70abefff",
       "backend/src/services/helpers/receipt-invoice.helper.ts": "6cc8412f24f2"
     },
     "contentHash": "f7439e20249c",
-    "generatedAt": "2026-09-28T16:02:11.753Z"
+    "generatedAt": "2026-09-28T19:05:38.789Z"
   },
   "lab-dip-approve": {
     "sources": {
@@ -1147,42 +1158,44 @@
       "frontend/src/components/OrderCombobox.tsx": "ba7c6eadae22",
       "frontend/src/components/StyleCombobox.tsx": "3b9b5937f25b",
       "frontend/src/components/WarehouseCombobox.tsx": "800e7631b4cb",
-      "backend/src/schemas/workOrder.schema.ts": "14b1e4224e0f"
+      "backend/src/schemas/workOrder.schema.ts": "c10cdc4d0f2f"
     },
     "contentHash": "789b56d2663c",
-    "generatedAt": "2026-09-28T16:06:33.447Z"
+    "generatedAt": "2026-09-28T19:05:38.806Z"
   },
   "purchase-order-close-short": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
-      "frontend/src/pages/PurchaseOrderList.tsx": "e989ec048842",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
+      "frontend/src/pages/PurchaseOrderList.tsx": "ea2b5cfbc1b0",
       "frontend/src/components/purchase-orders/CancelPoDialog.tsx": "bcd1bf9330d0",
-      "frontend/src/types/purchaseOrder.types.ts": "18880ed6623a",
+      "frontend/src/types/purchaseOrder.types.ts": "aad024de4757",
       "frontend/src/hooks/usePermissions.ts": "419bf572e183",
       "backend/src/schemas/purchaseOrder.schema.ts": "e9e23d008435",
-      "backend/src/services/purchaseOrder.service.ts": "204ef930eb58"
+      "backend/src/services/purchaseOrder.service.ts": "0d8a873de79f",
+      "backend/src/services/helpers/po-allocation.helper.ts": "695e79f3ef8a",
+      "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8"
     },
-    "contentHash": "dc01ab3e6e8b",
-    "generatedAt": "2026-09-28T08:01:24.627Z"
+    "contentHash": "b952de20a323",
+    "generatedAt": "2026-09-28T19:05:38.815Z"
   },
   "purchase-order-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/PurchaseOrderList.tsx": "e989ec048842",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "ba91e5fb0930",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
-      "frontend/src/types/purchaseOrder.types.ts": "18880ed6623a",
+      "frontend/src/pages/PurchaseOrderList.tsx": "ea2b5cfbc1b0",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "e2e647c35d19",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
+      "frontend/src/types/purchaseOrder.types.ts": "aad024de4757",
       "backend/src/schemas/purchaseOrder.schema.ts": "e9e23d008435",
       "backend/src/services/helpers/po-line-category.helper.ts": "8aba609442ca",
-      "backend/src/services/unified-po-creation.service.ts": "8f069cd002c6",
+      "backend/src/services/unified-po-creation.service.ts": "fa1b41babc05",
       "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
-      "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
+      "frontend/src/components/WeaverCombobox.tsx": "0e7f4818b828",
       "frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx": "127c69d8cc71",
-      "backend/src/controllers/material.controller.ts": "349858d7fdd5",
+      "backend/src/controllers/material.controller.ts": "6518290a8b44",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e",
       "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "2dbef8936f1d",
       "frontend/src/lib/label-materials.ts": "9a26c39223ed",
@@ -1196,14 +1209,21 @@
       "frontend/src/lib/delivery-plan.ts": "7bf73b97ab8d",
       "frontend/src/components/purchase-orders/DeliveryPlanCard.tsx": "e1b42b32a86f",
       "frontend/src/components/purchase-orders/CancelPoDialog.tsx": "bcd1bf9330d0",
-      "backend/src/services/document-data/purchase-order.doc-data.ts": "af5e36a4c842",
-      "backend/src/services/helpers/material-detail.helper.ts": "4cc54ef7b2ce",
+      "backend/src/services/document-data/purchase-order.doc-data.ts": "142f74bef351",
+      "backend/src/services/helpers/material-detail.helper.ts": "2f5f164d67b2",
       "backend/src/services/helpers/material-hsn.helper.ts": "b1511c6ef6c5",
       "frontend/src/components/SupplierCombobox.tsx": "dac12cef821f",
-      "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1"
+      "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
+      "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
+      "frontend/src/components/SearchInput.tsx": "74289215dac4",
+      "frontend/src/lib/material-detail.ts": "77100f987a05",
+      "backend/src/services/helpers/po-for-buyer.helper.ts": "6f1d2aacd17b",
+      "backend/templates/kf/purchase-order.hbs": "33f559d8a131",
+      "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8",
+      "frontend/src/lib/po-allocation-view.ts": "2eef61732395"
     },
-    "contentHash": "268d79089e2f",
-    "generatedAt": "2026-09-28T08:10:49.660Z"
+    "contentHash": "bf43cc898b22",
+    "generatedAt": "2026-09-28T19:05:38.831Z"
   },
   "quotation-convert": {
     "sources": {
@@ -1411,12 +1431,13 @@
   "stock-out-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/StockOutForm.tsx": "0e2eaad8d02d",
+      "frontend/src/pages/StockOutForm.tsx": "6e412b8d58dc",
       "frontend/src/pages/StockMovementList.tsx": "80d5b420bf90",
-      "backend/src/services/challan.service.ts": "fc0511e1dcc4"
+      "backend/src/services/challan.service.ts": "5f24c75b7fc6",
+      "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db"
     },
-    "contentHash": "09de71071de3",
-    "generatedAt": "2026-09-28T16:06:33.498Z"
+    "contentHash": "e21866d93793",
+    "generatedAt": "2026-09-28T19:05:38.880Z"
   },
   "stock-transfer-create": {
     "sources": {
@@ -1570,13 +1591,13 @@
       "frontend/src/types/thread.types.ts": "d29afb5fa6f7",
       "backend/src/services/thread-conversion.service.ts": "fd8546feb3a0",
       "backend/src/services/supplier.service.ts": "fc06e1ab40d8",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "577e55285846",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "39aa1938c975",
       "backend/src/services/material.service.ts": "a45e078ada26",
       "backend/src/services/helpers/material-hsn.helper.ts": "b1511c6ef6c5",
       "backend/src/services/helpers/po-line-category.helper.ts": "8aba609442ca"
     },
     "contentHash": "915cbbafe940",
-    "generatedAt": "2026-09-28T16:06:33.535Z"
+    "generatedAt": "2026-09-28T19:05:38.894Z"
   },
   "trf-create": {
     "sources": {
@@ -1705,9 +1726,9 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "532fb9e5f9be",
-      "frontend/src/pages/PurchaseOrderList.tsx": "48f84bca2936",
-      "frontend/src/pages/GRNForm.tsx": "a85829461b99",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
+      "frontend/src/pages/PurchaseOrderList.tsx": "ea2b5cfbc1b0",
+      "frontend/src/pages/GRNForm.tsx": "235a78406d05",
       "frontend/src/components/purchase-orders/DeliveryPlanCard.tsx": "e1b42b32a86f",
       "frontend/src/components/purchase-orders/DeliveryPlanDialog.tsx": "7d740a2f76d0",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e",
@@ -1715,12 +1736,15 @@
       "backend/src/schemas/purchaseOrder.schema.ts": "e9e23d008435",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/document-data/po-ship-to.ts": "a728edc8d87f",
-      "backend/src/services/purchaseOrder.service.ts": "126e97c48a1f",
-      "backend/src/services/mrp.service.ts": "993b3a2f122c",
-      "frontend/src/pages/ManufacturingControlCenter.tsx": "f61b9e1a2ff0"
+      "backend/src/services/purchaseOrder.service.ts": "0d8a873de79f",
+      "backend/src/services/mrp.service.ts": "014ac5a3cfa8",
+      "frontend/src/pages/ManufacturingControlCenter.tsx": "f61b9e1a2ff0",
+      "backend/src/services/helpers/po-allocation.helper.ts": "695e79f3ef8a",
+      "frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx": "e1fbde072eec",
+      "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8"
     },
-    "contentHash": "0584a017178a",
-    "generatedAt": "2026-09-28T11:27:40.328Z"
+    "contentHash": "8da4aa445189",
+    "generatedAt": "2026-09-28T19:05:38.851Z"
   },
   "held-stock-move": {
     "sources": {
@@ -1729,33 +1753,36 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GreigeAvailableStock.tsx": "731749234481",
       "frontend/src/pages/StockInForm.tsx": "dc05c8c9ab3d",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "20f33baecd54",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "6e0331532c35",
       "frontend/src/components/job-work/MoveHeldStockDialog.tsx": "c87e39dee0d9",
       "frontend/src/components/job-work/ReceiveFromProcessorDialog.tsx": "8d5089a6b632",
       "backend/src/services/helpers/held-stock-doors.helper.ts": "ab2af05bc990",
       "backend/src/schemas/stockMovement.schema.ts": "c25341352d67"
     },
     "contentHash": "3e7957426e5c",
-    "generatedAt": "2026-09-28T16:34:39.675Z"
+    "generatedAt": "2026-09-28T19:05:38.708Z"
   },
   "requirements-label-set-po": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "577e55285846",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e90faffc71d9",
-      "frontend/src/components/requirements/order-style-groups.ts": "7be4894e96b9",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "39aa1938c975",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "70d1593e4a30",
+      "frontend/src/components/requirements/order-style-groups.ts": "8ee82b6fc23f",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
-      "frontend/src/components/BulkPOGenerationDialog.tsx": "22340645a0ae",
+      "frontend/src/components/BulkPOGenerationDialog.tsx": "2cf2daa8298f",
       "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "2dbef8936f1d",
       "frontend/src/lib/label-lines.ts": "169c3b0c5007",
       "backend/src/schemas/mrp.schema.ts": "09d02f5913fa",
-      "backend/src/services/mrp.service.ts": "58690978bf3d",
+      "backend/src/services/mrp.service.ts": "014ac5a3cfa8",
+      "frontend/src/components/requirements/OpenPOSupplyNote.tsx": "1d70754030b3",
+      "frontend/src/components/requirements/open-po-supply.ts": "f0e11c559ba9",
+      "frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx": "e1fbde072eec",
       "backend/src/services/helpers/po-line-category.helper.ts": "8aba609442ca"
     },
-    "contentHash": "804ac62a2a62",
-    "generatedAt": "2026-09-28T16:06:33.459Z"
+    "contentHash": "086b66ef3c45",
+    "generatedAt": "2026-09-28T19:05:38.864Z"
   },
   "cad-correct": {
     "sources": {
@@ -1796,15 +1823,16 @@
   "requirements-use-stock": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/UnifiedRequirementsPage.tsx": "ae5f9133ce61",
-      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "e90faffc71d9",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "39aa1938c975",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "70d1593e4a30",
       "frontend/src/components/requirements/requirement-list-options.ts": "236d15f8b108",
-      "frontend/src/types/mrp.types.ts": "4b71bfd6e128",
-      "backend/src/services/mrp.service.ts": "993b3a2f122c",
-      "backend/src/services/helpers/stock-reservation.helper.ts": "d1db0abdf4d4"
+      "frontend/src/types/mrp.types.ts": "8b43fd331074",
+      "backend/src/services/mrp.service.ts": "014ac5a3cfa8",
+      "backend/src/services/helpers/stock-reservation.helper.ts": "2453d4aae1a0",
+      "frontend/src/components/requirements/OpenPOSupplyNote.tsx": "1d70754030b3"
     },
-    "contentHash": "5c850bb34c4f",
-    "generatedAt": "2026-09-28T08:01:24.659Z"
+    "contentHash": "1c79ec921496",
+    "generatedAt": "2026-09-28T19:05:38.874Z"
   },
   "requirements-find-filter": {
     "sources": {
@@ -1849,15 +1877,44 @@
       "frontend/src/components/job-work/RecordLotPiecesDialog.tsx": "5595fc2e1e7c",
       "frontend/src/components/job-work/ReceiptDetailRows.tsx": "bbef124287de",
       "frontend/src/components/job-work/lot-rows.ts": "1abce27f96fb",
-      "frontend/src/pages/JobWorkOrderDetail.tsx": "20f33baecd54",
+      "frontend/src/pages/JobWorkOrderDetail.tsx": "6e0331532c35",
       "frontend/src/services/fabricStockService.ts": "7145dc9f8d59",
       "backend/src/schemas/fabricStock.schema.ts": "b24f3a4e867a",
       "backend/src/routes/fabric-stock.routes.ts": "81757f8fa3e9",
-      "backend/src/controllers/fabric-stock.controller.ts": "fc000097a1ed",
+      "backend/src/controllers/fabric-stock.controller.ts": "7f9aa2c531c5",
       "backend/src/services/fabric-lot-pieces.service.ts": "b950476767da",
       "backend/src/services/helpers/lot-pieces.helper.ts": "a4ae3db2a405"
     },
     "contentHash": "d5334bd7c318",
-    "generatedAt": "2026-09-28T16:34:39.508Z"
+    "generatedAt": "2026-09-28T19:05:38.644Z"
+  },
+  "allocate-po-to-orders": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "ca630f08ce15",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
+      "frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx": "e1fbde072eec",
+      "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8",
+      "frontend/src/lib/po-allocation-view.ts": "2eef61732395",
+      "frontend/src/lib/po-allocation-split.ts": "eed5389d933b",
+      "frontend/src/pages/UnifiedRequirementsPage.tsx": "39aa1938c975",
+      "frontend/src/components/requirements/OpenPOSupplyNote.tsx": "1d70754030b3",
+      "frontend/src/components/requirements/open-po-supply.ts": "f0e11c559ba9",
+      "frontend/src/components/requirements/OrderStyleLabelView.tsx": "70d1593e4a30",
+      "frontend/src/components/BulkPOGenerationDialog.tsx": "2cf2daa8298f",
+      "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
+      "frontend/src/lib/held-stock-confirm.ts": "1b57f54833fb",
+      "frontend/src/pages/ChallanDetail.tsx": "63311a6d9e41",
+      "frontend/src/pages/StockOutForm.tsx": "6e412b8d58dc",
+      "frontend/src/components/processing/SendToMillDialog.tsx": "ee0fe927c988",
+      "frontend/src/components/TrimIssuanceSection.tsx": "9ea302356fa2",
+      "frontend/src/components/PackagingIssuanceSection.tsx": "d2a951d04214",
+      "backend/src/routes/po-allocation.routes.ts": "50b5e975879d",
+      "backend/src/schemas/po-allocation.schema.ts": "ecfca37242e5",
+      "backend/src/services/helpers/po-allocation.helper.ts": "695e79f3ef8a",
+      "backend/src/services/mrp.service.ts": "014ac5a3cfa8"
+    },
+    "contentHash": "9b611d115ce6",
+    "generatedAt": "2026-09-28T19:05:38.366Z"
   }
 }

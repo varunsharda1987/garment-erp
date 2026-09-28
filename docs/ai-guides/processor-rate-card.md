@@ -14,6 +14,7 @@ keywords:
   - mill rate
   - fabric processing
   - lace dyeing
+  - rate above last slab
   # Hinglish
   - rate card banana
   - processor ka rate
@@ -22,7 +23,10 @@ keywords:
   - slab banana
   - mill rate card
   - processing rate set karna
+  - bade quantity ka rate
+  - last slab ka rate
   # Devanagari
+  - आखिरी स्लैब का रेट
   - रेट कार्ड
   - प्रोसेसर रेट
   - डाइंग रेट
@@ -103,6 +107,8 @@ For each greige/lace row:
 
 Click "Save Changes" to persist all entries.
 
+**You do not have to fill every slab.** A quantity bigger than a row's last filled slab is charged at that last slab's rate. Example: rates filled up to the 1000-1500m slab and nothing after it — a 2000 m or 4000 m job still gets the 1000-1500m rate. The empty cells after a row's last rate show that rate in grey ("uses 10"); hover a cell to see which slab it comes from.
+
 ## Working with rate cards
 
 ### Copy rates between processors
@@ -155,6 +161,7 @@ Filter and sort options:
 
 ## Traps
 
+- **Last rate carries up, never down**: An empty slab AFTER a row's last rate uses that rate. An empty slab BEFORE a row's first rate stays unpriced — a 400 m job on a row filled only from 1000m up gets no rate, and Fabric Costing says which slab to fill
 - **Save before switching**: Unsaved changes block switching material type, processing type, or processor
 - **Slab deletion warning**: Deleting a slab removes ALL rates for that quantity range
 - **Shrinkage is per-processor**: Each processor can have different shrinkage for the same greige

@@ -146,10 +146,13 @@ export interface RateLookupResult {
   printingType?: PrintingTypeV2; // Only for PRINTING
   greigeId: string;
   greigeName: string;
+  /** The band the RATE comes from — below the quantity's own band when carriedUp */
   slabId: string;
   slabLabel: string;
   minQuantity: number;
   maxQuantity: number;
+  /** The quantity is past this greige's last filled band, whose rate carries up (rate-slab.helper) */
+  carriedUp: boolean;
   ratePerMeter: number;
   totalCost: number;
   shrinkagePercent?: number | null; // Shrinkage percentage for this greige at this processor

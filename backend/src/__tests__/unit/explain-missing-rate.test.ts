@@ -7,6 +7,9 @@
  * simply refused to cost. These tests pin each verdict, and in particular pin NO_SLAB_RATE,
  * the case the previous ad-hoc diagnostic could not express at all: when greige and printing
  * type both matched it produced "Rate for the given criteria." and then trailed off.
+ *
+ * Since 2026-09-28 a row's last filled band carries UP (rate-slab.helper), so lookupRate only
+ * misses a band BELOW the row's first filled one — NO_SLAB_RATE names where the rates start.
  */
 
 jest.mock('../../config/database', () => ({
@@ -42,14 +45,22 @@ const SLAB = {
   maxQuantity: 1500,
 };
 
+/** The band above SLAB — a row filled only from here up has no rate for 1200 m. */
+const UPPER = { id: 'slab-3', slabLabel: '1500-2000m', minQuantity: 1500, maxQuantity: 2000 };
+
 /** A rate-card row as the diagnosis selects it. */
 const card = (overrides: Record<string, unknown> = {}) => ({
   greigeId: GREIGE_ID,
   printingType: null,
   slabId: SLAB.id,
   greige: { greigeName: 'Cotton 60x60' },
+  slab: { slabLabel: SLAB.slabLabel, minQuantity: SLAB.minQuantity, maxQuantity: SLAB.maxQuantity },
   ...overrides,
 });
+
+/** A card for this greige in the UPPER band only. */
+const upperCard = (overrides: Record<string, unknown> = {}) =>
+  card({ slabId: UPPER.id, slab: { slabLabel: UPPER.slabLabel, minQuantity: 1500, maxQuantity: 2000 }, ...overrides });
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -117,23 +128,42 @@ describe('explainMissingRate', () => {
   });
 
   it('NO_SLAB_RATE — rated for this greige, just not at this quantity (the case the old code could not express)', async () => {
-    // A card exists for the greige, but on a different slab than the one 1200m fell into
-    db.processor_rate_card.findMany.mockResolvedValue([card({ slabId: 'slab-1' })]);
+    // The greige is rated only from 1500 m up; 1200 m fell into the empty band below it
+    db.processor_rate_card.findMany.mockResolvedValue([upperCard()]);
 
     const result = await explainMissingRate(query());
 
     expect(result.code).toBe('NO_SLAB_RATE');
     expect(result.message).toContain('1000-1500m'); // the band
     expect(result.message).toContain('1,200 m'); // the quantity that fell into it
+    expect(result.message).toContain('from the 1500-2000m band up'); // where its rates start
     expect(result.slabLabel).toBe('1000-1500m');
   });
 
+  it('asks only for filled cards — a ₹0 placeholder is not a rate', async () => {
+    await explainMissingRate(query());
+
+    expect(db.processor_rate_card.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ ratePerMeter: { gt: 0 } }) })
+    );
+  });
+
   it('a printing query whose greige AND print type both match falls through to NO_SLAB_RATE', async () => {
-    db.processor_rate_card.findMany.mockResolvedValue([card({ printingType: 'PIGMENT', slabId: 'slab-1' })]);
+    db.processor_rate_card.findMany.mockResolvedValue([
+      upperCard({ printingType: 'PIGMENT' }),
+      // A Procian card starting lower must not be named as where the PIGMENT rates start
+      card({
+        printingType: 'PROCIAN',
+        slabId: 'slab-1',
+        slab: { slabLabel: '0-1000m', minQuantity: 0, maxQuantity: 1000 },
+      }),
+    ]);
 
     const result = await explainMissingRate(query({ processingType: 'PRINTING', printingType: 'PIGMENT' }));
 
     expect(result.code).toBe('NO_SLAB_RATE');
+    expect(result.message).toContain('from the 1500-2000m band up');
+    expect(result.message).not.toContain('0-1000m');
   });
 
   it('falls back to SYSTEM_DEFAULT like lookupRate does, so it diagnoses the processor actually used', async () => {
@@ -174,11 +204,14 @@ describe('explainMissingRate', () => {
 
   it('an unnamed slab still reads as a range rather than "null"', async () => {
     db.processor_quantity_slabs.findFirst.mockResolvedValue({ ...SLAB, slabLabel: null });
-    db.processor_rate_card.findMany.mockResolvedValue([card({ slabId: 'slab-1' })]);
+    db.processor_rate_card.findMany.mockResolvedValue([
+      upperCard({ slab: { slabLabel: null, minQuantity: 1500, maxQuantity: 2000 } }),
+    ]);
 
     const result = await explainMissingRate(query());
 
     expect(result.slabLabel).toBe('1000-1500m');
+    expect(result.message).toContain('from the 1500-2000m band up');
     expect(result.message).not.toContain('null');
   });
 });

@@ -38,6 +38,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 // BUG-PRC7 fix: use decimal.js utilities for precise rate calculations
 import { toCurrency, multiplyCurrency } from '../utils/currency';
 import { logWarn } from '../utils/logger';
+import { pickRatedSlab, carriedBandLabel } from './helpers/rate-slab.helper';
 
 // ============================================
 // Rate History Helper Functions
@@ -913,8 +914,39 @@ function slabDisplayLabel(slab: { slabLabel: string | null; minQuantity: Decimal
 }
 
 /**
+ * The band whose card prices this quantity for ONE rate-card row (a greige + print type, or a
+ * lace): the quantity's own band when the row fills it, else the row's last filled band carried
+ * up — the rule itself is `pickRatedSlab` (rate-slab.helper). `filledWhere` must name the row and
+ * require ratePerMeter > 0; the caller then reads its card with the same where + the picked slab.
+ *
+ * Null = the processor has no slabs at all. `pick` null = the row has no rate for this quantity.
+ */
+async function resolveRatedSlab(
+  processorId: string,
+  processingType: ProcessingTypeV2,
+  quantityMeters: number,
+  filledWhere: Prisma.processor_rate_cardWhereInput
+) {
+  const band = await findMatchingSlab(processorId, processingType, quantityMeters);
+  if (!band) return null;
+
+  const filledCards = await prisma.processor_rate_card.findMany({
+    where: { ...filledWhere, slab: { isActive: true } },
+    select: { slabId: true, slab: { select: { maxQuantity: true } } },
+  });
+  const filled = filledCards.flatMap((c) =>
+    c.slabId && c.slab ? [{ id: c.slabId, maxQuantity: toNumber(c.slab.maxQuantity) }] : []
+  );
+  const pick = pickRatedSlab({ id: band.id, maxQuantity: toNumber(band.maxQuantity) }, filled, quantityMeters);
+  return { band, pick };
+}
+
+/**
  * Lookup rate for fabric costing (find best matching slab for quantity)
  * For PRINTING, printingType is required to lookup the rate for a specific printing sub-type
+ *
+ * A quantity past the greige's last filled band takes that band's rate (`carriedUp`), so a
+ * processor with more bands than a greige is filled for still prices large jobs (2026-09-28).
  */
 export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResult | null> {
   let { processorId, processingType, printingType, greigeId, quantityMeters } = query;
@@ -936,28 +968,26 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
     processorId = systemDefault.id;
   }
 
-  // Find the slab that matches the quantity (slabs are shared across printing types)
-  const matchingSlab = await findMatchingSlab(processorId, processingType, quantityMeters);
-
-  if (!matchingSlab) {
-    return null; // No slabs defined at all for this processor/processingType
-  }
-
-  // Build rate card filter with printingType for PRINTING
-  const rateCardFilter: any = {
+  // This greige's filled cards. PIGMENT / PROCIAN / DISCHARGE are separate prices in ONE slab,
+  // so the card's own printing type is part of the row (null for dyeing).
+  const filledWhere: Prisma.processor_rate_cardWhereInput = {
     processorId,
     processingType,
+    printingType: processingType === 'PRINTING' ? (printingType as PrintingType) : null,
     greigeId,
-    slabId: matchingSlab.id,
     isActive: true,
+    ratePerMeter: { gt: 0 }, // ₹0 = the empty placeholder addGreigeToProcessor seeds, not a free rate
   };
-  if (processingType === 'PRINTING') {
-    rateCardFilter.printingType = printingType;
-  }
 
-  // Find the rate card for this greige and slab
+  // The quantity's own band, or this greige's last filled band carried up (slabs are shared across printing types)
+  const resolved = await resolveRatedSlab(processorId, processingType, quantityMeters, filledWhere);
+  if (!resolved?.pick) {
+    return null; // No slabs at all, or no rate for this greige at this quantity — explainMissingRate says which
+  }
+  const { carriedUp } = resolved.pick;
+
   const rateCard = await prisma.processor_rate_card.findFirst({
-    where: rateCardFilter,
+    where: { ...filledWhere, slabId: resolved.pick.slabId },
     include: {
       processor: { select: { id: true, name: true } },
       greige: { select: { id: true, greigeName: true, averageShrinkagePercent: true } },
@@ -986,9 +1016,11 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
     greigeId: rateCard.greigeId,
     greigeName: rateCard.greige.greigeName,
     slabId: rateCard.slabId,
-    slabLabel: rateCard.slab.slabLabel || '',
+    // A carried rate says so wherever the band is shown (costing toast, JWO quote, slab-change notes)
+    slabLabel: carriedUp ? carriedBandLabel(slabDisplayLabel(rateCard.slab)) : rateCard.slab.slabLabel || '',
     minQuantity: Number(rateCard.slab.minQuantity),
     maxQuantity: Number(rateCard.slab.maxQuantity),
+    carriedUp,
     ratePerMeter,
     totalCost,
     shrinkagePercent,
@@ -1086,13 +1118,15 @@ export async function explainMissingRate(query: RateLookupQuery): Promise<Missin
   const slabLabel = slabDisplayLabel(slab);
 
   // 2. What does this processor rate at all? (allow-any-print-type: lists every print type it quotes)
+  // Filled cards only, as lookupRate counts them — a ₹0 placeholder is not a rate.
   const cards = await prisma.processor_rate_card.findMany({
-    where: { processorId, processingType, isActive: true },
+    where: { processorId, processingType, isActive: true, ratePerMeter: { gt: 0 } },
     select: {
       greigeId: true,
       printingType: true,
       slabId: true,
       greige: { select: { greigeName: true } },
+      slab: { select: { slabLabel: true, minQuantity: true, maxQuantity: true } },
     },
   });
 
@@ -1121,8 +1155,10 @@ export async function explainMissingRate(query: RateLookupQuery): Promise<Missin
   }
 
   // 4. Greige is rated, but not for the printing type asked for
+  let forRow = forGreige;
   if (processingType === 'PRINTING') {
     const forPrintingType = forGreige.filter((c) => c.printingType === printingType);
+    forRow = forPrintingType;
     if (forPrintingType.length === 0) {
       const availablePrintingTypes = [
         ...new Set(forGreige.map((c) => c.printingType).filter((p): p is PrintingType => !!p)),
@@ -1137,10 +1173,17 @@ export async function explainMissingRate(query: RateLookupQuery): Promise<Missin
     }
   }
 
-  // 5. Rated for greige (+ printing type), just not in the band this quantity falls into
+  // 5. Rated for greige (+ printing type), just not in the band this quantity falls into. A row's
+  // last rate carries UP to larger quantities, so this is a quantity below its first filled band
+  // (or in a hole between filled bands) — name where its rates start.
+  const filledBands = forRow.flatMap((c) => (c.slab ? [c.slab] : []));
+  const firstFilled = filledBands.length
+    ? filledBands.reduce((low, s) => (toNumber(s.minQuantity) < toNumber(low.minQuantity) ? s : low))
+    : null;
+  const ratedFrom = firstFilled ? ` from the ${slabDisplayLabel(firstFilled)} band up` : '';
   return explain(
     'NO_SLAB_RATE',
-    `${who} rates ${greigeLabel}, but has no rate in the ${slabLabel} band that ${Math.round(quantityMeters).toLocaleString('en-IN')} m falls into. Fill that column on the Processor Rate Cards page.`,
+    `${who} rates ${greigeLabel}${ratedFrom}, but has no rate in the ${slabLabel} band that ${Math.round(quantityMeters).toLocaleString('en-IN')} m falls into. Fill that column on the Processor Rate Cards page.`,
     { slabLabel, availableGreiges }
   );
 }
@@ -1760,6 +1803,8 @@ export interface LaceRateLookupResult {
     minQuantity: number;
     maxQuantity: number;
   };
+  /** The quantity is past this lace's last filled band, whose rate carries up (rate-slab.helper) */
+  carriedUp: boolean;
   processor: {
     id: string;
     name: string;
@@ -1786,46 +1831,24 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
     processorId = systemDefault.id;
   }
 
-  // Find the slab that matches the quantity
-  let matchingSlab = await prisma.processor_quantity_slabs.findFirst({
-    where: {
-      processorId,
-      processingType: 'DYEING',
-      isActive: true,
-      minQuantity: { lte: quantityMeters },
-      // Half-open range [min, max): max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the
-      // slabs are 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
-      // (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule; the `desc` fallback
-      // below still catches quantities at or above the top slab.
-      maxQuantity: { gt: quantityMeters },
-    },
-  });
+  // This lace's filled cards (lace is dyeing only; ₹0 = an unfilled placeholder)
+  const filledWhere: Prisma.processor_rate_cardWhereInput = {
+    processorId,
+    processingType: 'DYEING',
+    laceId,
+    isActive: true,
+    ratePerMeter: { gt: 0 },
+  };
 
-  // If no exact match, use highest slab
-  if (!matchingSlab) {
-    matchingSlab = await prisma.processor_quantity_slabs.findFirst({
-      where: {
-        processorId,
-        processingType: 'DYEING',
-        isActive: true,
-      },
-      orderBy: { maxQuantity: 'desc' },
-    });
-  }
-
-  if (!matchingSlab) {
+  // The quantity's own band, or this lace's last filled band carried up — the same rule as lookupRate
+  const resolved = await resolveRatedSlab(processorId, 'DYEING', quantityMeters, filledWhere);
+  if (!resolved?.pick) {
     return null;
   }
+  const { carriedUp } = resolved.pick;
 
-  // Find the rate card for this lace and slab
   const rateCard = await prisma.processor_rate_card.findFirst({
-    where: {
-      processorId,
-      processingType: 'DYEING',
-      laceId,
-      slabId: matchingSlab.id,
-      isActive: true,
-    },
+    where: { ...filledWhere, slabId: resolved.pick.slabId },
     include: {
       processor: { select: { id: true, name: true } },
       lace: { select: { id: true, laceName: true, expectedShrinkagePercent: true, costPerMeterGreige: true } },
@@ -1849,10 +1872,11 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
     shrinkagePercent,
     slab: {
       id: rateCard.slab.id,
-      label: rateCard.slab.slabLabel || `${Number(rateCard.slab.minQuantity)}-${Number(rateCard.slab.maxQuantity)}m`,
+      label: carriedUp ? carriedBandLabel(slabDisplayLabel(rateCard.slab)) : slabDisplayLabel(rateCard.slab),
       minQuantity: Number(rateCard.slab.minQuantity),
       maxQuantity: Number(rateCard.slab.maxQuantity),
     },
+    carriedUp,
     processor: {
       id: rateCard.processor.id,
       name: rateCard.processor.name,

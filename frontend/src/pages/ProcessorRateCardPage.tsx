@@ -689,6 +689,28 @@ export default function ProcessorRateCardPage() {
 
   const getSlabId = (slab: SlabInput) => slab.id || `temp-${slab.slabOrder}`;
 
+  /**
+   * What an EMPTY cell is priced at: a row's last filled band carries up to every band after it
+   * (the backend rule, rate-slab.helper). Null for a filled cell, a hole between filled bands, or
+   * a band below the row's first rate — those are not filled in. `slabs` is kept sorted by min.
+   */
+  const carriedRateAt = (rates: Record<string, number | null>, slabIndex: number) => {
+    let from: { rate: number; slab: SlabInput } | null = null;
+    for (let i = 0; i < slabs.length; i++) {
+      const rate = rates[getSlabId(slabs[i])];
+      if (rate != null && rate > 0) {
+        if (i >= slabIndex) return null;
+        from = { rate, slab: slabs[i] };
+      }
+    }
+    if (!from) return null;
+    const fromLabel = from.slab.slabLabel || `${from.slab.minQuantity}-${from.slab.maxQuantity}m`;
+    return {
+      placeholder: `uses ${from.rate}`,
+      title: `Empty — larger quantities use ₹${from.rate} from the ${fromLabel} band`,
+    };
+  };
+
   // Copy row data (shrinkage + all rates)
   const copyRowData = (greige: GreigeRow) => {
     setCopiedRowData({
@@ -1112,9 +1134,10 @@ export default function ProcessorRateCardPage() {
                             }
                           />
                         </td>
-                        {slabs.map((slab) => {
+                        {slabs.map((slab, slabIndex) => {
                           const slabId = getSlabId(slab);
                           const rate = greige.rates[slabId];
+                          const carried = carriedRateAt(greige.rates, slabIndex);
                           return (
                             <td key={slabId} className="px-4 py-3 text-center">
                               <Input
@@ -1122,7 +1145,8 @@ export default function ProcessorRateCardPage() {
                                 step="0.01"
                                 value={rate ?? ''}
                                 onChange={(e) => updateRate(greige.id, slabId, e.target.value)}
-                                placeholder="---"
+                                placeholder={carried?.placeholder ?? '---'}
+                                title={carried?.title}
                                 className="w-24 text-center mx-auto"
                               />
                             </td>
@@ -1185,9 +1209,10 @@ export default function ProcessorRateCardPage() {
                       <td className="px-4 py-3 text-center text-sm text-muted-foreground">
                         {lace.expectedShrinkagePercent ? `${lace.expectedShrinkagePercent}%` : '-'}
                       </td>
-                      {slabs.map((slab) => {
+                      {slabs.map((slab, slabIndex) => {
                         const slabId = getSlabId(slab);
                         const rate = lace.rates[slabId];
+                        const carried = carriedRateAt(lace.rates, slabIndex);
                         return (
                           <td key={slabId} className="px-4 py-3 text-center">
                             <Input
@@ -1195,7 +1220,8 @@ export default function ProcessorRateCardPage() {
                               step="0.01"
                               value={rate ?? ''}
                               onChange={(e) => updateLaceRate(lace.laceId, slabId, e.target.value)}
-                              placeholder="---"
+                              placeholder={carried?.placeholder ?? '---'}
+                              title={carried?.title}
                               className="w-24 text-center mx-auto"
                             />
                           </td>
@@ -1220,6 +1246,10 @@ export default function ProcessorRateCardPage() {
               </tbody>
             </table>
           </div>
+          <p className="px-4 py-2 text-xs text-muted-foreground border-t">
+            An empty band after a row's last rate uses that rate (shown in grey), so larger quantities are still priced.
+            An empty band below a row's first rate stays unpriced.
+          </p>
         </div>
       )}
 

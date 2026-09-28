@@ -1058,7 +1058,9 @@ model grn_item_details {
   /// The tag number on this than/roll as printed. Display only — order is sequenceNo.
   thanNo     String? @db.VarChar(30)
 
-  grn_items grn_items @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
+  grn_items    grn_items              @relation(fields: [grnItemId], references: [id], onDelete: Cascade)
+  /// The finished-fabric pieces copied from this receipt piece (relabelled with it)
+  fabricPieces fabric_stock_details[]
 
   @@index([grnItemId])
 }
@@ -3386,6 +3388,7 @@ model users {
   buyerPoDocumentsUploaded                                        sale_order_buyer_pos[]            @relation("buyer_po_document_uploader")
   // Greige issue details (bale/than tracking)
   greigeIssueDetailsIssued                                        greige_issue_details[]            @relation("greige_issue_details_issuedBy")
+  fabricIssueDetailsIssued                                        fabric_issue_details[]            @relation("fabric_issue_details_issuedBy")
   washCareCodesCreated                                            customer_fabric_wash_care[]       @relation("WashCareCreator")
   cadCorrectionsMade                                              cad_corrections[]                 @relation("cad_correction_by")
   cadCorrectionsDecided                                           cad_corrections[]                 @relation("cad_correction_decided_by")
@@ -4819,6 +4822,70 @@ model greige_issue_details {
   @@index([challanId])
 }
 
+/// One roll or than of a finished-fabric lot. Metres are COUNTED (tag) at fabric_stock.foldLengthCm; the lot's
+/// quantityAvailable is ACTUAL. Copied from the receipt line when the lot is created, or written by Record /
+/// Check rolls & thans. A piece never moves stock by itself — every quantity change goes through the lot.
+model fabric_stock_details {
+  id              String   @id @default(uuid())
+  fabricStockId   String
+  /// The receipt piece this was copied from — "Edit roll / than numbers" on the GRN follows it. Null = recorded on the lot.
+  grnItemDetailId String?
+  baleNumber      Int?
+  sequenceNo      Int
+  meters          Decimal  @db.Decimal(10, 3)
+  metersRemaining Decimal  @db.Decimal(10, 3)
+  status          String   @default("AVAILABLE") @db.VarChar(20) // AVAILABLE | PARTIAL | CONSUMED
+  /// THAN | ROLL — wording only; fold, picks and the ±1% tolerance treat them alike (as greige)
+  detailType      String   @default("THAN") @db.VarChar(10)
+  /// RECEIPT (copied from the receipt line) | COUNT (Record / Check rolls & thans) | END (leftover back from cutting)
+  source          String   @default("RECEIPT") @db.VarChar(12)
+  baleNo          String?  @db.VarChar(30)
+  thanNo          String?  @db.VarChar(30)
+  remarks         String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  fabricStock   fabric_stock           @relation(fields: [fabricStockId], references: [id], onDelete: Cascade)
+  grnItemDetail grn_item_details?      @relation(fields: [grnItemDetailId], references: [id], onDelete: SetNull)
+  issues        fabric_issue_details[]
+
+  @@index([fabricStockId])
+  @@index([status])
+  @@index([grnItemDetailId])
+}
+
+/// Which rolls / thans left a finished-fabric lot — on which challan, for which cutting batch or job — and whether
+/// they came back. Metres COUNTED. Unlike greige_issue_details a row is never deleted on a return: metersReturned +
+/// returnedAt + returnChallanId record it, so "R-12 went to CB-… and came back 37 m" stays readable.
+model fabric_issue_details {
+  id                  String    @id @default(uuid())
+  fabricStockDetailId String
+  challanId           String?
+  challanItemId       String?
+  cuttingBatchId      String?
+  jobWorkOrderId      String?
+  metersIssued        Decimal   @db.Decimal(10, 3)
+  metersReturned      Decimal?  @db.Decimal(10, 3)
+  returnedAt          DateTime?
+  returnChallanId     String?
+  issuedAt            DateTime  @default(now())
+  issuedById          String?
+  createdAt           DateTime  @default(now())
+
+  piece         fabric_stock_details @relation(fields: [fabricStockDetailId], references: [id], onDelete: Cascade)
+  challan       challans?            @relation("FabricIssueDetailsChallan", fields: [challanId], references: [id])
+  challanItem   challan_items?       @relation(fields: [challanItemId], references: [id], onDelete: SetNull)
+  cuttingBatch  cutting_batches?     @relation(fields: [cuttingBatchId], references: [id], onDelete: SetNull)
+  jobWorkOrder  job_work_orders?     @relation("FabricIssueDetailsJWO", fields: [jobWorkOrderId], references: [id])
+  returnChallan challans?            @relation("FabricIssueDetailsReturnChallan", fields: [returnChallanId], references: [id])
+  issuedBy      users?               @relation("fabric_issue_details_issuedBy", fields: [issuedById], references: [id])
+
+  @@index([fabricStockDetailId])
+  @@index([challanId])
+  @@index([cuttingBatchId])
+  @@index([jobWorkOrderId])
+}
+
 /// Fabric Master - Finished, ready-to-use fabrics
 /// This represents fabric AFTER dyeing, printing, or other finishing processes
 model fabric_master {
@@ -5409,6 +5476,11 @@ model fabric_stock {
   weaverId                     String?
   /// Processed from greige of SEVERAL weavers: [{ weaverId, weaverName, metres, share }]. weaverId stays null then.
   weaverMix                    Json?
+  /// The fold length L the lot's pieces are counted at, copied from the receipt line. The lot's quantities stay
+  /// ACTUAL metres; only fabric_stock_details are COUNTED. Null = no fold.
+  foldLengthCm                 Decimal?                     @db.Decimal(5, 2)
+  /// The lot's rolls / thans (fabric-lot-pieces.service.ts) — none = the lot has no list
+  pieces                       fabric_stock_details[]
   cutting_batches              cutting_batches[]
   cuttingBatchFabrics          cutting_batch_fabrics[]
   embroideryResultOf           embroidery_send_out?         @relation("EmbroideryResultStock")
@@ -6680,6 +6752,7 @@ model cutting_batches {
   external_process_send_outs external_process_send_outs[] @relation("ExternalProcessCuttingBatch")
   rejectDispositions         reject_dispositions[]        @relation("reject_disposition_cutting")
   stockAllocations           fabric_stock_allocation[]    @relation("allocation_cutting_batch")
+  fabricIssueDetails         fabric_issue_details[]
 
   @@index([workOrderId])
   @@index([componentId])
@@ -7489,6 +7562,7 @@ model job_work_orders {
   externalProcessSendOuts external_process_send_outs[]      @relation("ExternalProcessJWO")
   processingStage         processing_stage?                 @relation("ProcessingStageJWO")
   greigeIssueDetails      greige_issue_details[]            @relation("GreigeIssueDetailsJWO")
+  fabricIssueDetails      fabric_issue_details[]            @relation("FabricIssueDetailsJWO")
 
   // Inventory disposition after cancellation (two-step cancel flow)
   inventoryDisposition      InventoryDisposition?
@@ -9573,6 +9647,8 @@ model challans {
   cuttingBatch         cutting_batches?       @relation("CuttingIssueChallans", fields: [cuttingBatchId], references: [id], onDelete: SetNull)
   greigeStockTransfers greige_stock[]         @relation("GreigeStockSourceChallan")
   greigeIssueDetails   greige_issue_details[] @relation("GreigeIssueDetailsChallan")
+  fabricIssueDetails   fabric_issue_details[] @relation("FabricIssueDetailsChallan")
+  fabricReturnDetails  fabric_issue_details[] @relation("FabricIssueDetailsReturnChallan")
 
   @@index([orderId])
   @@index([productionRunId])
@@ -9646,6 +9722,7 @@ model challan_items {
   serviceRequirement    work_order_service_requirements? @relation(fields: [serviceRequirementId], references: [id])
   jobWorkOrder          job_work_orders?                 @relation("ChallanItemJobWorkOrder", fields: [jobWorkOrderId], references: [id])
   jobWorkOrderComponent job_work_order_components?       @relation("ChallanItemJWOComponent", fields: [jobWorkOrderComponentId], references: [id])
+  fabricIssueDetails    fabric_issue_details[]
 
   @@index([challanId])
   @@index([jobWorkOrderId])

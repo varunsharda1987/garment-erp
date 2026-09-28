@@ -990,12 +990,12 @@
   "processor-rate-card": {
     "sources": {
       "frontend/src/config/navigation.ts": "e20d92cdd59b",
-      "frontend/src/pages/ProcessorRateCardPage.tsx": "5e21d69ce863",
+      "frontend/src/pages/ProcessorRateCardPage.tsx": "8c751af6f726",
       "frontend/src/components/processor-rate-card/ProcessorRateCardSummary.tsx": "93204429711d",
       "frontend/src/types/processorRateCardV2.types.ts": "1dda77501229"
     },
-    "contentHash": "f561dac28113",
-    "generatedAt": "2026-09-23T06:17:36.213Z"
+    "contentHash": "9fb67c336cbd",
+    "generatedAt": "2026-09-28T06:01:42.463Z"
   },
   "processor-statement": {
     "sources": {

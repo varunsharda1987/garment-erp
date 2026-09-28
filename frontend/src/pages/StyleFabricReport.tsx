@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { matchesSearch } from '@/hooks/usePickerOptions';
 import { getStyleStock } from '../services/style-stock.service';
 import type { StyleStockAvailability } from '../types/style-stock.types';
 import { getAllStyles } from '../services/style.service';
-import { ChevronDown, ChevronRight, Search, Package } from 'lucide-react';
+import { ChevronDown, ChevronRight, Package } from 'lucide-react';
 import { logError } from '../lib/logger';
 
 interface Style {
@@ -32,9 +35,19 @@ export default function StyleFabricReport() {
   const [filteredStyles, setFilteredStyles] = useState<StyleWithStock[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBuyer, setFilterBuyer] = useState('all');
+  const [filterBuyer, setFilterBuyer] = useState(''); // '' = all buyers
   const [filterSeason, setFilterSeason] = useState('all');
   const [filterStockStatus, setFilterStockStatus] = useState('all');
+
+  const activeFilterCount = [searchTerm, filterBuyer, filterSeason !== 'all', filterStockStatus !== 'all'].filter(
+    Boolean
+  ).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterBuyer('');
+    setFilterSeason('all');
+    setFilterStockStatus('all');
+  };
 
   useEffect(() => {
     loadStyles();
@@ -48,7 +61,9 @@ export default function StyleFabricReport() {
   const loadStyles = async () => {
     try {
       setIsLoading(true);
-      const response = await getAllStyles(1, 100, undefined, undefined, undefined, undefined, 'ACTIVE');
+      // This report has no pager — it lists and filters every active style on the page. At 100 the
+      // oldest active styles (26 of 126 on 2026-09-28) were never listed, searched or offered as buyers.
+      const response = await getAllStyles(1, 500, undefined, undefined, undefined, undefined, 'ACTIVE');
       const stylesData = response.data.map((style: Style) => ({
         ...style,
         isExpanded: false,
@@ -65,18 +80,20 @@ export default function StyleFabricReport() {
   const applyFilters = () => {
     let filtered = [...styles];
 
-    // Search filter
+    // Search filter — what each row shows: code, buyer ref, name, buyer, season, project
     if (searchTerm) {
-      filtered = filtered.filter(
-        (style) =>
-          style.styleCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          style.styleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          style.buyerStyleRef?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((style) =>
+        matchesSearch(
+          [style.styleCode, style.buyerStyleRef, style.styleName, style.customerName, style.season, style.projectGroup]
+            .filter(Boolean)
+            .join(' '),
+          searchTerm
+        )
       );
     }
 
     // Buyer filter
-    if (filterBuyer && filterBuyer !== 'all') {
+    if (filterBuyer) {
       filtered = filtered.filter((style) => style.customerName === filterBuyer);
     }
 
@@ -131,8 +148,13 @@ export default function StyleFabricReport() {
     }
   };
 
-  const uniqueBuyers = Array.from(new Set(styles.map((s) => s.customerName).filter(Boolean)));
+  const uniqueBuyers = Array.from(new Set(styles.map((s) => s.customerName).filter(Boolean))) as string[];
   const uniqueSeasons = Array.from(new Set(styles.map((s) => s.season).filter(Boolean)));
+  // A searchable picker over the buyers these styles belong to
+  const buyerOptions: ComboboxOption[] = [
+    { value: '', label: 'All buyers' },
+    ...uniqueBuyers.sort((a, b) => a.localeCompare(b)).map((buyer) => ({ value: buyer, label: buyer })),
+  ];
 
   const getStockStatusBadge = (style: StyleWithStock) => {
     if (!style.stockData) {
@@ -166,38 +188,35 @@ export default function StyleFabricReport() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search styles..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px] max-w-md"
+              placeholder="Search style code, buyer ref, name, buyer, season..."
+              value={searchTerm}
+              onChange={setSearchTerm}
+            />
 
-            <Select value={filterBuyer} onValueChange={setFilterBuyer}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Buyers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Buyers</SelectItem>
-                {uniqueBuyers.map((buyer) => (
-                  <SelectItem key={buyer} value={buyer || ''}>
-                    {buyer}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={buyerOptions}
+              value={filterBuyer}
+              onValueChange={(v) => setFilterBuyer(v || '')}
+              placeholder="All buyers"
+              searchPlaceholder="Buyer..."
+              emptyText="No buyer matches"
+              className="w-[220px]"
+            />
 
             <Select value={filterSeason} onValueChange={setFilterSeason}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Seasons" />
+              <SelectTrigger className="w-[180px]" aria-label="Season">
+                <SelectValue placeholder="All seasons" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Seasons</SelectItem>
+                <SelectItem value="all">All seasons</SelectItem>
                 {uniqueSeasons.map((season) => (
                   <SelectItem key={season} value={season || ''}>
                     {season}
@@ -207,22 +226,29 @@ export default function StyleFabricReport() {
             </Select>
 
             <Select value={filterStockStatus} onValueChange={setFilterStockStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Stock Status" />
+              <SelectTrigger className="w-[170px]" aria-label="Stock status">
+                <SelectValue placeholder="All stock statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="has-stock">Has Stock</SelectItem>
-                <SelectItem value="low-stock">Low Stock</SelectItem>
-                <SelectItem value="no-stock">No Stock</SelectItem>
+                <SelectItem value="all">All stock statuses</SelectItem>
+                <SelectItem value="has-stock">Has stock</SelectItem>
+                <SelectItem value="low-stock">Low stock</SelectItem>
+                <SelectItem value="no-stock">No stock</SelectItem>
               </SelectContent>
             </Select>
-          </div>
+          </FilterBar>
 
           {/* Styles List */}
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="text-lg">Loading styles...</div>
+            </div>
+          ) : filteredStyles.length === 0 && activeFilterCount > 0 ? (
+            <div className="flex flex-col justify-center items-center h-64 text-muted-foreground">
+              <p className="mb-4">No styles match these filters.</p>
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : filteredStyles.length === 0 ? (
             <div className="flex justify-center items-center h-64 text-muted-foreground">

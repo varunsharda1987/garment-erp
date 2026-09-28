@@ -13,9 +13,12 @@ import { greigeStockService } from '../services/greigeStock.service';
 import { warehouseService } from '../services/warehouse.service';
 import { WarehouseCombobox } from '../components/WarehouseCombobox';
 import Pagination from '@/components/Pagination';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { matchesSearch } from '@/hooks/usePickerOptions';
 import type { GenericGreigeStock, GreigeStockDetail, UpdateGreigeStockData } from '../types/style-stock.types';
 import {
-  Search,
   Package2,
   Plus,
   ArrowLeft,
@@ -74,11 +77,25 @@ export default function GreigeAvailableStock() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [qualityFilter, setQualityFilter] = useState('all');
-  const [warehouseFilter, setWarehouseFilter] = useState('all');
-  const [weaverFilter, setWeaverFilter] = useState('all');
+  // '' = all warehouses / all weavers
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [weaverFilter, setWeaverFilter] = useState('');
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZE);
+
+  const activeFilterCount = [searchTerm, qualityFilter !== 'all', warehouseFilter, weaverFilter, showAgedOnly].filter(
+    Boolean
+  ).length;
+  // Every filter back to all and page 1 — the page size stays
+  const clearFilters = () => {
+    setSearchTerm('');
+    setQualityFilter('all');
+    setWarehouseFilter('');
+    setWeaverFilter('');
+    setShowAgedOnly(false);
+    setPage(1);
+  };
 
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -146,12 +163,22 @@ export default function GreigeAvailableStock() {
     let filtered = greigeStock.filter((s) => s.totalStock > 0);
 
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (s) =>
-          s.greigeCode?.toLowerCase().includes(term) ||
-          s.greigeName?.toLowerCase().includes(term) ||
-          s.composition?.toLowerCase().includes(term)
+      // What the row and its lots show: code, name, composition, weavers, warehouses, suppliers, processors
+      filtered = filtered.filter((s) =>
+        matchesSearch(
+          [
+            s.greigeCode,
+            s.greigeName,
+            s.composition,
+            ...(s.weavers ?? []).map((w) => w.name),
+            ...(s.warehouses ?? []),
+            ...(s.suppliers ?? []).map((sup) => `${sup.code} ${sup.name}`),
+            ...(s.processors ?? []).map((p) => `${p.code} ${p.name}`),
+          ]
+            .filter(Boolean)
+            .join(' '),
+          searchTerm
+        )
       );
     }
 
@@ -159,11 +186,11 @@ export default function GreigeAvailableStock() {
       filtered = filtered.filter((s) => s.greigeQuality === qualityFilter);
     }
 
-    if (warehouseFilter !== 'all') {
+    if (warehouseFilter) {
       filtered = filtered.filter((s) => s.warehouses?.includes(warehouseFilter));
     }
 
-    if (weaverFilter !== 'all') {
+    if (weaverFilter) {
       filtered = filtered.filter((s) => (s.weavers ?? []).some((w) => (w.weaverId ?? 'none') === weaverFilter));
     }
 
@@ -190,6 +217,15 @@ export default function GreigeAvailableStock() {
       greigeStock.flatMap((s) => s.weavers ?? []).map((w) => [w.weaverId ?? 'none', w.name] as const)
     ).entries(),
   ].sort((a, b) => a[1].localeCompare(b[1]));
+  // Searchable pickers over the warehouses / weavers that actually hold this stock
+  const warehouseOptions: ComboboxOption[] = [
+    { value: '', label: 'All warehouses' },
+    ...uniqueWarehouses.map((wh) => ({ value: wh, label: wh })),
+  ];
+  const weaverOptions: ComboboxOption[] = [
+    { value: '', label: 'All weavers' },
+    ...weaverChoices.map(([key, name]) => ({ value: key, label: name })),
+  ];
 
   const getTotalStock = () => filteredStock.reduce((sum, s) => sum + (s.totalStock || 0), 0);
   const getTotalValue = () => filteredStock.reduce((sum, s) => sum + (s.totalValue || 0), 0);
@@ -429,56 +465,49 @@ export default function GreigeAvailableStock() {
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search greige code, name, composition..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          {/* Filters — every change goes back to page 1 (applyFilters) */}
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px] max-w-md"
+              placeholder="Search greige code, name, composition, weaver, warehouse, supplier..."
+              value={searchTerm}
+              onChange={setSearchTerm}
+            />
             <Select value={qualityFilter} onValueChange={setQualityFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Qualities" />
+              <SelectTrigger className="w-[160px]" aria-label="Greige quality">
+                <SelectValue placeholder="All qualities" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Qualities</SelectItem>
+                <SelectItem value="all">All qualities</SelectItem>
                 <SelectItem value="PRINTING">Printing</SelectItem>
                 <SelectItem value="DYEING">Dyeing</SelectItem>
                 <SelectItem value="SUPER_DYEING">Super Dyeing</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Warehouses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Warehouses</SelectItem>
-                {uniqueWarehouses.map((wh) => (
-                  <SelectItem key={wh} value={wh}>
-                    {wh}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={weaverFilter} onValueChange={setWeaverFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Weavers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Weavers</SelectItem>
-                {weaverChoices.map(([key, name]) => (
-                  <SelectItem key={key} value={key}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-2 px-3">
+            <Combobox
+              options={warehouseOptions}
+              value={warehouseFilter}
+              onValueChange={(v) => setWarehouseFilter(v || '')}
+              placeholder="All warehouses"
+              searchPlaceholder="Warehouse..."
+              emptyText="No warehouse holds this stock"
+              className="w-[200px]"
+            />
+            <Combobox
+              options={weaverOptions}
+              value={weaverFilter}
+              onValueChange={(v) => setWeaverFilter(v || '')}
+              placeholder="All weavers"
+              searchPlaceholder="Weaver..."
+              emptyText="No weaver matches"
+              className="w-[200px]"
+            />
+            <div className="flex h-9 items-center gap-2 px-1">
               <Checkbox
                 id="aged-only"
                 checked={showAgedOnly}
@@ -489,12 +518,19 @@ export default function GreigeAvailableStock() {
                 Show aged only (&gt;{agingThreshold}d)
               </label>
             </div>
-          </div>
+          </FilterBar>
 
           {/* Table */}
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="text-lg">Loading greige stock...</div>
+            </div>
+          ) : filteredStock.length === 0 && activeFilterCount > 0 ? (
+            <div className="flex flex-col justify-center items-center h-64 text-muted-foreground">
+              <p className="mb-4">No greige stock matches these filters.</p>
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : filteredStock.length === 0 ? (
             <div className="flex flex-col justify-center items-center h-64 text-muted-foreground">

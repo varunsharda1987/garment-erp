@@ -4,18 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  Search,
-  Package2,
-  Plus,
-  ArrowLeft,
-  Download,
-  Tag,
-  Pencil,
-  PackagePlus,
-  AlertTriangle,
-  ListChecks,
-} from 'lucide-react';
+import { Package2, Plus, ArrowLeft, Download, Tag, Pencil, PackagePlus, AlertTriangle, ListChecks } from 'lucide-react';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { matchesSearch } from '@/hooks/usePickerOptions';
 import { Label } from '../components/ui/label';
 import { DialogFooter } from '../components/ui/dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -97,6 +90,8 @@ function piecesText(stock: FabricStock): string {
   return piecesSummary(p);
 }
 
+const DEFAULT_STATUS = 'AVAILABLE';
+
 export default function FabricAvailableStock() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -111,8 +106,9 @@ export default function FabricAvailableStock() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [qualityFilter, setQualityFilter] = useState<string>('all');
-  const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('AVAILABLE');
+  const [warehouseFilter, setWarehouseFilter] = useState<string>(''); // '' = all warehouses
+  // The page opens on AVAILABLE lots; Clear filters goes back to that
+  const [statusFilter, setStatusFilter] = useState<string>(DEFAULT_STATUS);
   const [editingStock, setEditingStock] = useState<FabricStock | null>(null);
   const [styleSelectOpen, setStyleSelectOpen] = useState(false);
   const [selectedStyleId, setSelectedStyleId] = useState('');
@@ -153,16 +149,47 @@ export default function FabricAvailableStock() {
     }
   };
 
+  const activeFilterCount = [
+    searchTerm,
+    statusFilter !== DEFAULT_STATUS,
+    qualityFilter !== 'all',
+    warehouseFilter,
+    showAgedOnly,
+  ].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter(DEFAULT_STATUS);
+    setQualityFilter('all');
+    setWarehouseFilter('');
+    setShowAgedOnly(false);
+  };
+
   const applyFilters = () => {
     let filtered = [...fabricStock];
 
     if (searchTerm) {
-      filtered = filtered.filter(
-        (stock) =>
-          stock.fabric?.fabricCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          stock.fabric?.fabricName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          stock.fabric?.colorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          stock.fabric?.greige?.greigeCode.toLowerCase().includes(searchTerm.toLowerCase())
+      // What the row shows: fabric, colour, construction, greige, style / component / parts, location
+      filtered = filtered.filter((stock) =>
+        matchesSearch(
+          [
+            stock.fabric?.fabricCode,
+            stock.fabric?.fabricName,
+            stock.fabric?.colorName,
+            stock.fabric?.finishedConstruction,
+            stock.fabric?.valueAddition,
+            stock.fabric?.greige?.greigeCode,
+            stock.fabric?.greige?.greigeName,
+            stock.fabric?.styleReference,
+            stock.fabric?.componentName,
+            stock.fabric?.componentType,
+            ...(stock.fabric?.patternParts ?? []).map((p) => p.name),
+            stock.warehouseLocation,
+            stock.rackNumber,
+          ]
+            .filter(Boolean)
+            .join(' '),
+          searchTerm
+        )
       );
     }
 
@@ -174,7 +201,7 @@ export default function FabricAvailableStock() {
       filtered = filtered.filter((stock) => stock.qualityGrade === qualityFilter);
     }
 
-    if (warehouseFilter !== 'all') {
+    if (warehouseFilter) {
       filtered = filtered.filter((stock) => stock.warehouseLocation === warehouseFilter);
     }
 
@@ -253,6 +280,11 @@ export default function FabricAvailableStock() {
       .filter((v, i, a) => a.indexOf(v) === i);
     return warehouses as string[];
   };
+  // A searchable picker over the warehouses that actually hold these lots
+  const warehouseOptions: ComboboxOption[] = [
+    { value: '', label: 'All warehouses' },
+    ...getUniqueWarehouses().map((warehouse) => ({ value: warehouse, label: warehouse })),
+  ];
 
   // Fold length L: a lot counted at an L shows its L and what its roll / than tags add up to, beside the actual
   const anyLotFolded = filteredStock.some((s) => hasFold(s.foldLengthCm));
@@ -397,76 +429,79 @@ export default function FabricAvailableStock() {
           </div>
 
           {/* Filters */}
-          <div className="mb-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search fabric code, name, color, greige..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px] max-w-md"
+              placeholder="Search fabric code, name, color, greige, style, location..."
+              value={searchTerm}
+              onChange={setSearchTerm}
+            />
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AVAILABLE">Available</SelectItem>
-                  <SelectItem value="RESERVED">Reserved</SelectItem>
-                  <SelectItem value="EXHAUSTED">Exhausted</SelectItem>
-                  <SelectItem value="ALL">All Status</SelectItem>
-                </SelectContent>
-              </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]" aria-label="Status">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All statuses</SelectItem>
+                <SelectItem value="AVAILABLE">Available</SelectItem>
+                <SelectItem value="RESERVED">Reserved</SelectItem>
+                <SelectItem value="EXHAUSTED">Exhausted</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select value={qualityFilter} onValueChange={setQualityFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by quality" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Qualities</SelectItem>
-                  <SelectItem value="A">Grade A</SelectItem>
-                  <SelectItem value="B">Grade B</SelectItem>
-                  <SelectItem value="DEFECT">Defect</SelectItem>
-                </SelectContent>
-              </Select>
+            <Select value={qualityFilter} onValueChange={setQualityFilter}>
+              <SelectTrigger className="w-[150px]" aria-label="Quality">
+                <SelectValue placeholder="All qualities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All qualities</SelectItem>
+                <SelectItem value="A">Grade A</SelectItem>
+                <SelectItem value="B">Grade B</SelectItem>
+                <SelectItem value="DEFECT">Defect</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Warehouses</SelectItem>
-                  {getUniqueWarehouses().map((warehouse) => (
-                    <SelectItem key={warehouse} value={warehouse}>
-                      {warehouse}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Combobox
+              options={warehouseOptions}
+              value={warehouseFilter}
+              onValueChange={(v) => setWarehouseFilter(v || '')}
+              placeholder="All warehouses"
+              searchPlaceholder="Warehouse..."
+              emptyText="No warehouse holds these lots"
+              className="w-[200px]"
+            />
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="showAgedOnly"
-                  checked={showAgedOnly}
-                  onChange={(e) => setShowAgedOnly(e.target.checked)}
-                  className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
-                />
-                <label htmlFor="showAgedOnly" className="ml-2 text-sm text-foreground">
-                  Show aged only (&gt;180d)
-                </label>
-              </div>
+            <div className="flex h-9 items-center">
+              <input
+                type="checkbox"
+                id="showAgedOnly"
+                checked={showAgedOnly}
+                onChange={(e) => setShowAgedOnly(e.target.checked)}
+                className="h-4 w-4 text-info focus:ring-blue-500 border-border rounded"
+              />
+              <label htmlFor="showAgedOnly" className="ml-2 text-sm text-foreground">
+                Show aged only (&gt;180d)
+              </label>
             </div>
-          </div>
+          </FilterBar>
 
           {/* Stock Table */}
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-info mx-auto"></div>
               <p className="text-muted-foreground mt-2">Loading stock...</p>
+            </div>
+          ) : filteredStock.length === 0 && activeFilterCount > 0 ? (
+            <div className="text-center py-12 bg-muted rounded-lg border-2 border-dashed border-border">
+              <p className="mb-4 text-muted-foreground">No fabric stock lots match these filters.</p>
+              <Button variant="outline" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : filteredStock.length === 0 ? (
             <div className="text-center py-12 bg-muted rounded-lg border-2 border-dashed border-border">

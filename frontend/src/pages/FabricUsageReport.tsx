@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import SearchInput from '@/components/SearchInput';
+import { FilterBar } from '@/components/filters';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { matchesSearch } from '@/hooks/usePickerOptions';
 import {
   getFabricStyles,
   getFabricStockHistory,
   type FabricStyleUsage,
   type FabricStockHistoryEntry,
 } from '../services/style-stock.service';
-import { Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { logError } from '../lib/logger';
 import { formatDate } from '@/lib/date';
@@ -33,7 +37,13 @@ export default function FabricUsageReport() {
   const [filteredFabrics, setFilteredFabrics] = useState<FabricWithUsage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterByStyle, setFilterByStyle] = useState('');
+  const [filterByStyle, setFilterByStyle] = useState(''); // a fabric's style reference; '' = all styles
+
+  const activeFilterCount = [searchTerm, filterByStyle].filter(Boolean).length;
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterByStyle('');
+  };
 
   useEffect(() => {
     loadFabrics();
@@ -65,21 +75,29 @@ export default function FabricUsageReport() {
     let filtered = [...fabrics];
 
     if (searchTerm) {
-      filtered = filtered.filter(
-        (fabric) =>
-          fabric.fabricCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          fabric.fabricName.toLowerCase().includes(searchTerm.toLowerCase())
+      // What each fabric row shows: code, name, style reference
+      filtered = filtered.filter((fabric) =>
+        matchesSearch(
+          [fabric.fabricCode, fabric.fabricName, fabric.styleReference].filter(Boolean).join(' '),
+          searchTerm
+        )
       );
     }
 
     if (filterByStyle) {
-      filtered = filtered.filter((fabric) =>
-        fabric.styleReference?.toLowerCase().includes(filterByStyle.toLowerCase())
-      );
+      filtered = filtered.filter((fabric) => fabric.styleReference === filterByStyle);
     }
 
     setFilteredFabrics(filtered);
   };
+
+  // A searchable picker over the style references these fabrics carry
+  const styleOptions: ComboboxOption[] = [
+    { value: '', label: 'All styles' },
+    ...Array.from(new Set(fabrics.map((f) => f.styleReference).filter(Boolean)) as Set<string>)
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      .map((ref) => ({ value: ref, label: ref })),
+  ];
 
   const toggleExpand = async (fabricId: string) => {
     const updatedFabrics = fabrics.map((fabric) => {
@@ -125,30 +143,41 @@ export default function FabricUsageReport() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search fabrics..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Input
-              type="text"
-              placeholder="Filter by style reference..."
-              value={filterByStyle}
-              onChange={(e) => setFilterByStyle(e.target.value)}
+          <FilterBar
+            className="mb-6"
+            onClear={clearFilters}
+            hasActiveFilters={activeFilterCount > 0}
+            clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
+          >
+            <SearchInput
+              className="flex-1 min-w-[240px] max-w-md"
+              placeholder="Search fabric code, name, style..."
+              value={searchTerm}
+              onChange={setSearchTerm}
             />
-          </div>
+
+            <Combobox
+              options={styleOptions}
+              value={filterByStyle}
+              onValueChange={(v) => setFilterByStyle(v || '')}
+              placeholder="All styles"
+              searchPlaceholder="Style reference..."
+              emptyText="No fabric carries that style"
+              className="w-[220px]"
+            />
+          </FilterBar>
 
           {/* Fabrics List */}
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
               <div className="text-lg">Loading fabrics...</div>
+            </div>
+          ) : filteredFabrics.length === 0 && activeFilterCount > 0 ? (
+            <div className="flex flex-col justify-center items-center h-64 text-muted-foreground">
+              <p className="mb-4">No fabrics match these filters.</p>
+              <Button variant="outline" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
             </div>
           ) : filteredFabrics.length === 0 ? (
             <div className="flex justify-center items-center h-64 text-muted-foreground">

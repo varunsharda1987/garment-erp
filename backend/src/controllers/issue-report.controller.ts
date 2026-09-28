@@ -49,7 +49,10 @@ export class IssueReportController {
 
   async getAll(req: Request, res: Response) {
     try {
-      const { status, page, limit } = req.query as unknown as IssueReportQueryInput;
+      // The COERCED query lives only on req.validatedQuery (Express 5): req.query still holds strings, and a
+      // string `limit` reached Prisma's `take` — every list request with ?limit= was a 500 (found 2026-09-28)
+      const { status, page, limit } = ((req as Request & { validatedQuery?: unknown }).validatedQuery ??
+        req.query) as IssueReportQueryInput;
       const result = await issueReportService.getAll({ status, page, limit });
       res.json(result);
     } catch (error) {

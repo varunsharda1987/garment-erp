@@ -57,6 +57,7 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/jwo-rate.helper';
 import logger, { logWarn } from '../utils/logger';
 import { BusinessError } from '../errors';
+import { applyDeliveryPlan, MAX_DELIVERY_POINTS, type DeliveryPlanPointInput } from './helpers/po-delivery-plan.helper';
 import { QTY_EPSILON, isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit, toQty } from '../utils/quantity';
 import {
   reserveOnLots,
@@ -3445,20 +3446,72 @@ export async function greigeRequirementProcessors(requirementIds: string[]): Pro
 }
 
 /**
- * Where an MRP-raised greige / greige-lace PO delivers by default (direct-to-processor plan, Phase 3):
- * straight to the dyer's "… - Processing Unit" when every requirement on it is processed at that ONE
- * dyer; otherwise null — "to be advised" (several dyers: 4f splits it; none decided: set at dispatch).
+ * The "… - Processing Unit" each greige (or greige-lace) requirement is delivered to: its dyer's active unit.
+ * null = no dyer decided yet, or the dyer has no unit.
  */
-async function defaultGreigeDeliveryUnit(requirementIds: string[]): Promise<string | null> {
-  const processors = new Set((await greigeRequirementProcessors(requirementIds)).values());
-  if (processors.size !== 1) return null;
-  const [processorId] = [...processors];
-  if (!processorId) return null;
-  const unit = await prisma.warehouses.findFirst({
-    where: { supplierId: processorId, warehouseType: 'JOB_WORK', isActive: true },
-    select: { id: true },
-  });
-  return unit?.id ?? null;
+async function greigeRequirementUnits(requirementIds: string[]): Promise<Map<string, string | null>> {
+  const processors = await greigeRequirementProcessors(requirementIds);
+  const processorIds = [...new Set([...processors.values()].filter((p): p is string => !!p))];
+  const units = processorIds.length
+    ? await prisma.warehouses.findMany({
+        where: { supplierId: { in: processorIds }, warehouseType: 'JOB_WORK', isActive: true },
+        select: { id: true, supplierId: true },
+        orderBy: { createdAt: 'asc' },
+      })
+    : [];
+  const unitOf = new Map<string, string>();
+  for (const u of units) if (u.supplierId && !unitOf.has(u.supplierId)) unitOf.set(u.supplierId, u.id);
+  return new Map(
+    [...processors].map(([reqId, processorId]) => [reqId, processorId ? (unitOf.get(processorId) ?? null) : null])
+  );
+}
+
+/**
+ * Where an MRP-raised greige / greige-lace PO delivers (direct-to-processor plan, Phase 3 + 4f):
+ *  - every requirement on it processed at ONE dyer → straight to that dyer's unit (`oneUnit`);
+ *  - at SEVERAL dyers → split, one delivery point per dyer (`split`), built from the requirement links once
+ *    the lines exist — see `deliveryPointsByDyer`;
+ *  - any requirement with no dyer decided (or a dyer with no unit) → "to be advised", for a person to decide.
+ */
+function greigeDeliveryDefault(units: Map<string, string | null>): { oneUnit: string | null; split: boolean } {
+  const all = [...units.values()];
+  if (all.length === 0 || all.some((u) => !u)) return { oneUnit: null, split: false };
+  const distinct = new Set(all);
+  if (distinct.size === 1) return { oneUnit: all[0], split: false };
+  return { oneUnit: null, split: distinct.size <= MAX_DELIVERY_POINTS };
+}
+
+/**
+ * One delivery point per dyer for an MRP-raised PO over several dyers (Phase 4f). Each line is shared among
+ * the dyers of the requirements it covers, in proportion to what each requirement was allocated on it; the
+ * last dyer of a line takes the rounding so every line adds up exactly to what it orders.
+ */
+function deliveryPointsByDyer(
+  lines: Array<{ poItemId: string; ordered: number; allocations: Array<{ requirementId: string; quantity: number }> }>,
+  units: Map<string, string | null>
+): DeliveryPlanPointInput[] {
+  const round3 = (x: number) => Math.round(x * 1000) / 1000;
+  const byUnit = new Map<string, DeliveryPlanPointInput['lines']>();
+  for (const line of lines) {
+    const shares = new Map<string, number>();
+    for (const a of line.allocations) {
+      const unit = units.get(a.requirementId);
+      if (unit) shares.set(unit, (shares.get(unit) ?? 0) + a.quantity);
+    }
+    const total = [...shares.values()].reduce((sum, q) => sum + q, 0);
+    const entries = [...shares];
+    let placed = 0;
+    entries.forEach(([unit, allocated], i) => {
+      const quantity =
+        i === entries.length - 1
+          ? round3(line.ordered - placed)
+          : round3(total > 0 ? (line.ordered * allocated) / total : line.ordered / entries.length);
+      placed = round3(placed + quantity);
+      if (!byUnit.has(unit)) byUnit.set(unit, []);
+      byUnit.get(unit)!.push({ poItemId: line.poItemId, quantity });
+    });
+  }
+  return [...byUnit].map(([warehouseId, pointLines]) => ({ warehouseId, lines: pointLines }));
 }
 
 /**
@@ -3952,12 +4005,15 @@ export async function generatePOFromRequirements(
     materialType: req.materials?.materialType || null,
   }));
   const poCategory = determinePOCategoryFromMaterials(materialTypes);
-  // Greige (or greige lace — a LACE PO) bought for one dyer is delivered straight there by default: every
-  // requirement's processing requirement names the same dyer. The PO page can change it.
-  const defaultDeliveryUnitId =
+  // Greige (or greige lace — a LACE PO) is delivered straight to the dyer that processes it: one dyer → its
+  // unit; several dyers → one delivery point each (4f); a requirement with no dyer yet → "to be advised".
+  // The PO page can change it.
+  const requirementUnits =
     poCategory === POCategory.GREIGE || poCategory === POCategory.GREIGE_LACE || poCategory === POCategory.LACE
-      ? await defaultGreigeDeliveryUnit(requirements.filter((r) => r.requirementType !== 'PROCESSING').map((r) => r.id))
-      : null;
+      ? await greigeRequirementUnits(requirements.filter((r) => r.requirementType !== 'PROCESSING').map((r) => r.id))
+      : new Map<string, string | null>();
+  const deliveryDefault = greigeDeliveryDefault(requirementUnits);
+  const defaultDeliveryUnitId = deliveryDefault.oneUnit;
 
   // Check if these are PROCESSING requirements
   const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
@@ -4447,6 +4503,11 @@ export async function generatePOFromRequirements(
 
     // Create PO items and links
     let linkedCount = 0;
+    const lineAllocations: Array<{
+      poItemId: string;
+      ordered: number;
+      allocations: Array<{ requirementId: string; quantity: number }>;
+    }> = [];
     for (const item of itemsWithGst) {
       const poItem = await tx.purchase_order_items.create({
         data: {
@@ -4504,10 +4565,30 @@ export async function generatePOFromRequirements(
             allocatedQuantity: allocatedQty,
           },
         });
+        const line = lineAllocations.find((l) => l.poItemId === poItem.id);
+        if (line) line.allocations.push({ requirementId: reqId, quantity: allocatedQty });
+        else
+          lineAllocations.push({
+            poItemId: poItem.id,
+            ordered: Number(item.quantity),
+            allocations: [{ requirementId: reqId, quantity: allocatedQty }],
+          });
 
         // P1.6: Status already flipped by the bulk updateMany above (guarded double-order race fix)
         linkedCount++;
       }
+    }
+
+    // Several dyers (Phase 4f): one delivery point each, through the one writer of delivery plans. Composing
+    // the PO, so no revision is written.
+    if (deliveryDefault.split) {
+      const points = deliveryPointsByDyer(lineAllocations, requirementUnits);
+      await applyDeliveryPlan(
+        tx,
+        po.id,
+        points.length > 1 ? { mode: 'SPLIT', points } : { mode: 'ONE_PLACE', warehouseId: points[0].warehouseId },
+        { userId, revision: false }
+      );
     }
 
     // ========================================================================

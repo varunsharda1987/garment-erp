@@ -20,6 +20,7 @@ import { companyProfileService } from '../../services/company-profile.service';
 import { writeFileSync } from 'fs';
 import { manufacturingAlertsService } from '../../services/manufacturing-alerts.service';
 import { join } from 'path';
+import { generatePOFromRequirements } from '../../services/mrp.service';
 
 const RUN = `PSD${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -480,5 +481,147 @@ describe('one place, to be advised, and splitting after a receipt', () => {
       .set(authHeader)
       .send({ deliveryLocationId: unitId });
     expect(amend.body.details.code).toBe('DELIVERY_REASON_REQUIRED');
+  });
+});
+
+describe('an MRP greige PO over two dyers: one delivery point per dyer (Phase 4f)', () => {
+  let dyer2Id: string;
+  let unit2Id: string;
+  const reqIds: string[] = [];
+  const mrpPoIds: string[] = [];
+
+  /** A greige MATERIAL requirement; with a dyer, its PROCESSING child names it (where MRP reads the dyer). */
+  const mkRequirement = async (metres: number, processorId: string | null) => {
+    const n = reqIds.length + 1;
+    const base = {
+      source: 'MANUAL' as const,
+      materialId,
+      orderQuantity: 1,
+      quantityPerUnit: metres,
+      wastagePercent: 0,
+      totalRequired: metres,
+      unit: 'METER' as const,
+      shortfall: metres,
+      requiredDate: new Date(Date.now() + 30 * DAY),
+      createdById: userId,
+    };
+    const material = await prisma.material_requirements.create({
+      data: { ...base, requirementNumber: `${RUN}-MR${n}`, status: 'PO_REQUIRED', requirementType: 'MATERIAL' },
+    });
+    reqIds.push(material.id);
+    if (processorId) {
+      const child = await prisma.material_requirements.create({
+        data: {
+          ...base,
+          requirementNumber: `${RUN}-MR${n}P`,
+          status: 'PENDING',
+          requirementType: 'PROCESSING',
+          processorId,
+          linkedRequirementId: material.id,
+        },
+      });
+      reqIds.push(child.id);
+    }
+    return material.id;
+  };
+
+  const generate = async (ids: string[]) => {
+    const result = await generatePOFromRequirements(
+      {
+        requirementIds: ids,
+        supplierId,
+        expectedDeliveryDate: new Date(Date.now() + 10 * DAY).toISOString(),
+        itemPrices: { [materialId]: 67 }, // keyed by material
+      } as never,
+      userId
+    );
+    mrpPoIds.push(result.purchaseOrder!.id);
+    return prisma.purchase_orders.findUniqueOrThrow({
+      where: { id: result.purchaseOrder!.id },
+      include: {
+        purchase_order_items: true,
+        deliveryPoints: { include: { lines: true }, orderBy: { sequence: 'asc' } },
+        deliveryPlanRevisions: true,
+      },
+    });
+  };
+
+  beforeAll(async () => {
+    dyer2Id = (
+      await prisma.suppliers.create({
+        data: {
+          code: `${RUN}-DY2`,
+          name: `${RUN} Dyer Two`,
+          supplierCategories: ['DYEING_PRINTING'],
+          createdById: userId,
+        },
+      })
+    ).id;
+    unit2Id = (
+      await prisma.warehouses.create({
+        data: {
+          warehouseCode: `${RUN}-JW2`,
+          warehouseName: `${RUN} Dyer Two - Processing Unit`,
+          warehouseType: 'JOB_WORK',
+          supplierId: dyer2Id,
+          isActive: true,
+          createdById: userId,
+        },
+      })
+    ).id;
+  });
+
+  afterAll(async () => {
+    const allReqIds = (
+      await prisma.material_requirements.findMany({
+        where: { OR: [{ id: { in: reqIds } }, { splitFromId: { in: reqIds } }] },
+        select: { id: true },
+      })
+    ).map((r) => r.id);
+    await prisma.requirement_po_links.deleteMany({ where: { requirementId: { in: allReqIds } } });
+    await prisma.po_delivery_plan_revisions.deleteMany({ where: { poId: { in: mrpPoIds } } });
+    await prisma.po_delivery_points.deleteMany({ where: { poId: { in: mrpPoIds } } });
+    await prisma.purchase_order_items.deleteMany({ where: { poId: { in: mrpPoIds } } });
+    await prisma.purchase_orders.deleteMany({ where: { id: { in: mrpPoIds } } });
+    await prisma.material_requirements.deleteMany({ where: { linkedRequirementId: { in: allReqIds } } });
+    await prisma.material_requirements.deleteMany({ where: { splitFromId: { in: allReqIds } } });
+    await prisma.material_requirements.deleteMany({ where: { id: { in: allReqIds } } });
+    await prisma.warehouses.deleteMany({ where: { id: only(unit2Id) } });
+    await prisma.suppliers.deleteMany({ where: { id: only(dyer2Id) } });
+  });
+
+  it("shares one line between the dyers by each requirement's metres; the header mirrors point 1", async () => {
+    const a = await mkRequirement(3000, dyerId);
+    const b = await mkRequirement(1000, dyer2Id);
+    const po = await generate([a, b]);
+    expect(po.purchase_order_items).toHaveLength(1);
+    expect(Number(po.purchase_order_items[0].orderedQuantity)).toBe(4000);
+    expect(po.deliveryPoints.map((p) => ({ warehouseId: p.warehouseId, metres: Number(p.lines[0].quantity) }))).toEqual(
+      [
+        { warehouseId: unitId, metres: 3000 },
+        { warehouseId: unit2Id, metres: 1000 },
+      ]
+    );
+    expect(po).toMatchObject({ deliveryLocationId: unitId, deliveryLocationType: 'PROCESSOR' });
+    expect(po.deliveryPlanRevisions).toHaveLength(0); // composing the PO is not an amendment
+  });
+
+  it('adds up exactly when the shares do not divide evenly', async () => {
+    const a = await mkRequirement(1000, dyerId);
+    const b = await mkRequirement(1000, dyer2Id);
+    const c = await mkRequirement(1000, dyer2Id);
+    const po = await generate([a, b, c]);
+    const ordered = Number(po.purchase_order_items[0].orderedQuantity);
+    const placed = po.deliveryPoints.flatMap((p) => p.lines).reduce((sum, l) => sum + Number(l.quantity), 0);
+    expect(Math.abs(placed - ordered)).toBeLessThan(0.0005);
+    expect(po.deliveryPoints).toHaveLength(2);
+  });
+
+  it('stays "to be advised" while any requirement has no dyer yet', async () => {
+    const a = await mkRequirement(500, dyerId);
+    const b = await mkRequirement(700, null);
+    const po = await generate([a, b]);
+    expect(po.deliveryLocationId).toBeNull();
+    expect(po.deliveryPoints).toHaveLength(0);
   });
 });

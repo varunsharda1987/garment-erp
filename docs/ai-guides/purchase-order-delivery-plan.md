@@ -43,12 +43,19 @@ sources:
   - backend/src/services/helpers/po-delivery-plan.helper.ts
   - backend/src/services/document-data/po-ship-to.ts
   - backend/src/services/purchaseOrder.service.ts
+  - backend/src/services/mrp.service.ts
   - frontend/src/pages/ManufacturingControlCenter.tsx
 route: /procurement/purchase-orders
 ---
 
 ## When to use this
 A purchase order delivers to **one place**, to **several places** with a quantity for each (for example part of the greige straight to a dyer and the rest to Kashaya Fabs), or it is **to be advised** — sent without a place, decided before the supplier dispatches. You can change it until the order is fully received, closed short or cancelled.
+
+A greige or greige-lace PO made from **Requirements** starts with its delivery already filled in from the dyers its requirements are processed at:
+- every requirement at **one dyer** → **One place**: that dyer's **… - Processing Unit**;
+- requirements at **several dyers** → **Split**: one place per dyer, each getting the metres of its own requirements;
+- any requirement whose dyer is not decided yet → **To be advised**.
+Check it on the PO's **Deliver To** card and change it there if needed.
 
 ## Steps
 1. Open **Procurement → Purchase Orders** in the sidebar and click the PO number.

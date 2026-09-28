@@ -8,6 +8,7 @@ import {
   createGreigeStockSchema,
   updateGreigeStockSchema,
   adjustGreigeStockSchema,
+  recordGreigePiecesSchema,
   greigeStockQuerySchema,
   greigeStockIdParamSchema,
   stockIdParamSchema,
@@ -114,6 +115,21 @@ router.post(
   validateParams(stockIdParamSchema),
   validateBody(adjustGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.adjustGreigeStockEntry(req, res))
+);
+
+/**
+ * @route   POST /api/greige/stock/:stockId/pieces
+ * @desc    Record the bales / thans / rolls on hand of a lot that has no list ("Record bales & thans").
+ *          Moves no stock — the lot's metres are unchanged; the pieces become pickable at issue.
+ * @access  Protected - greigeFabricStock write permission (store staff included)
+ */
+router.post(
+  '/stock/:stockId/pieces',
+  authenticateToken,
+  requirePermission('greigeFabricStock'),
+  validateParams(stockIdParamSchema),
+  validateBody(recordGreigePiecesSchema),
+  asyncHandler((req: Request, res: Response) => StyleStockController.recordGreigeStockPieces(req, res))
 );
 
 /**

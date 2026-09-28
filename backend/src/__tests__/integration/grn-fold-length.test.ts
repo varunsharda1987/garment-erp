@@ -36,6 +36,7 @@ let poItemId: string;
 let grnId: string;
 let grnItemId: string;
 let po2Id: string;
+let po3Id: string;
 
 beforeAll(async () => {
   const user = await createTestUser({
@@ -123,7 +124,7 @@ afterAll(async () => {
   await prisma.stock_movements.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_transactions.deleteMany({ where: { materialId: only(materialId) } });
   await prisma.stock_levels.deleteMany({ where: { materialId: only(materialId) } });
-  for (const id of [poId, po2Id]) {
+  for (const id of [poId, po2Id, po3Id]) {
     await prisma.goods_receiving_notes.deleteMany({ where: { poId: only(id) } }); // cascades items + details
     await prisma.purchase_order_items.deleteMany({ where: { poId: only(id) } });
     await prisma.purchase_orders.deleteMany({ where: { id: only(id) } });
@@ -207,6 +208,8 @@ describe('greige received at L=98', () => {
       include: { stockDetails: true },
     });
     expect(lot.stockDetails.map((d) => Number(d.meters)).sort()).toEqual([...THANS].sort());
+    // A than-wise line's pieces are thans (the issue screens and the challan say so)
+    expect(lot.stockDetails.every((d) => d.detailType === 'THAN')).toBe(true);
 
     const result = await greigeStockService.consumeWithDetails(
       lot.id,
@@ -275,6 +278,71 @@ describe('a receipt a few centimetres short of the PO (under-receipt tolerance)'
     expect(Number(line.receivedQuantity)).toBeCloseTo(10105.65, 2);
     const po = await prisma.purchase_orders.findUniqueOrThrow({ where: { id: po2Id } });
     expect(po.status).toBe('RECEIVED');
+  });
+});
+
+describe('greige received roll-wise', () => {
+  it("books the lot's pieces as ROLLS, not thans in one bale (2026-09-28)", async () => {
+    po3Id = (
+      await prisma.purchase_orders.create({
+        data: {
+          id: randomUUID(),
+          poNumber: `${RUN}-PO3`,
+          supplierId,
+          poDate: new Date(),
+          expectedDeliveryDate: new Date(Date.now() + 7 * 86400000),
+          status: 'SENT',
+          poCategory: 'GREIGE',
+          createdById: userId,
+        },
+      })
+    ).id;
+    const poItem = await prisma.purchase_order_items.create({
+      data: {
+        id: randomUUID(),
+        poId: po3Id,
+        materialId,
+        orderedQuantity: 300,
+        receivedQuantity: 0,
+        unitPrice: 50,
+        totalPrice: 15000,
+        unit: 'METER',
+      },
+    });
+    const grn = await grnService.createGRN(
+      {
+        poId: po3Id,
+        warehouseId,
+        items: [
+          {
+            poItemId: poItem.id,
+            materialId,
+            receivedQuantity: 300,
+            acceptedQuantity: 300,
+            rejectedQuantity: 0,
+            unit: 'METER',
+            entryMode: 'ROLL_WISE',
+            details: [100, 100, 100].map((meters, i) => ({
+              detailType: 'ROLL' as const,
+              sequenceNo: i + 1,
+              thanNo: `R-${i + 1}`,
+              meters,
+            })),
+            weaverNotKnown: true,
+          },
+        ],
+      },
+      userId
+    );
+    await grnService.approveGRN(grn.id, userId, warehouseId);
+
+    const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId: grn.id } });
+    const lot = await prisma.greige_stock.findFirstOrThrow({
+      where: { grnItemId: item.id },
+      include: { stockDetails: true },
+    });
+    expect(lot.stockDetails).toHaveLength(3);
+    expect(lot.stockDetails.every((d) => d.detailType === 'ROLL' && d.baleNumber === null)).toBe(true);
   });
 });
 

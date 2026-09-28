@@ -59,14 +59,14 @@
     {{#if ../thanList}}
     <table style="margin-top:6px">
       <thead>
-        <tr><th style="width:150px">Bale</th><th>Than no. (tag metres)</th>
-            <th class="num" style="width:48px">Thans</th><th class="num" style="width:84px">Tag metres</th></tr>
+        <tr><th style="width:150px">{{#if ../thanListLabels}}{{../thanListLabels.group}}{{else}}Bale{{/if}}</th><th>{{#if ../thanListLabels}}{{../thanListLabels.pieceNo}}{{else}}Than no. (tag metres){{/if}}</th>
+            <th class="num" style="width:48px">{{#if ../thanListLabels}}{{../thanListLabels.count}}{{else}}Thans{{/if}}</th><th class="num" style="width:84px">Tag metres</th></tr>
       </thead>
       <tbody>
         {{#each ../thanList}}
         <tr><td><b>{{this.bale}}</b><br><span class="muted">{{this.baleNote}}</span></td><td>{{this.thans}}</td><td class="num">{{this.count}}</td><td class="num">{{this.metres}}</td></tr>
         {{/each}}
-        <tr class="tot"><td colspan="2">Thans despatched</td><td class="num">{{../thanListTotal.count}}</td><td class="num">{{../thanListTotal.metres}}</td></tr>
+        <tr class="tot"><td colspan="2">{{#if ../thanListLabels}}{{../thanListLabels.total}}{{else}}Thans despatched{{/if}}</td><td class="num">{{../thanListTotal.count}}</td><td class="num">{{../thanListTotal.metres}}</td></tr>
         {{#if ../thanListTotal.actualNote}}<tr><td colspan="4" class="muted">{{../thanListTotal.actualNote}}</td></tr>{{/if}}
       </tbody>
     </table>

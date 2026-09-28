@@ -3,7 +3,7 @@ import { BusinessError, NotFoundError, ValidationError, UnauthorizedError } from
 import prisma from '../config/database';
 import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
-import { issueJobWorkOrder } from '../services/job-work-issuance.service';
+import { issueJobWorkOrder, issueForSendToMill } from '../services/job-work-issuance.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
@@ -1769,7 +1769,7 @@ export const deleteProcessPO = async (req: Request, res: Response, _next: NextFu
 // 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
 export const sendProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
-  const { sentDate, challanNumber, vehicleNumber, greigeStockLotId } = req.body;
+  const { sentDate, challanNumber, vehicleNumber, greigeStockLotId, details } = req.body;
   const userId = req.user?.userId || req.user?.id;
   if (!userId) {
     throw new UnauthorizedError();
@@ -1822,13 +1822,15 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
   // statutory date, stamp). A greige JWO without a lot gets a clear 422 instead of the
   // old silent zero-consumption despatch.
   try {
-    await issueJobWorkOrder(job.id, {
+    // Named bales / thans / rolls take the Issue dialog's path; none = the plain quantity issue
+    await issueForSendToMill(job.id, {
       userId,
       sentDate: sentDate ? new Date(sentDate) : undefined,
       greigeStockLotId: greigeStockLotId ?? undefined,
       challanNumber,
       vehicleNumber,
       finishedFabricId,
+      details,
     });
   } catch (e) {
     if (e instanceof JobWorkOrderError) {

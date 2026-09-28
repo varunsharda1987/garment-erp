@@ -22,7 +22,7 @@
 import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { createChallan, type CreateChallanItemInput } from './challan.service';
-import greigeStockService from './greige-stock.service';
+import greigeStockService, { THAN_PICK_TOLERANCE_PCT, pieceKindOf, type GreigePieceKind } from './greige-stock.service';
 import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
@@ -38,7 +38,7 @@ import {
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { foldActual, hasFold } from '../utils/fold-length';
-import { formatDate, toDateInputValue } from '../utils/date';
+import { formatDate, formatDateTime, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
 
 type Tx = Prisma.TransactionClient;
@@ -162,12 +162,9 @@ const JWO_ISSUE_INCLUDE = {
 
 type JwoForIssue = Prisma.job_work_ordersGetPayload<{ include: typeof JWO_ISSUE_INCLUDE }>;
 
-/**
- * Named whole thans rarely add up to the job's exact metres. When an issue names its thans, the
- * lots may total within this share of the planned quantity either way (owner, 2026-09-24: ±1%); the
- * job keeps its planned quantity, while the lot, the components and the challan carry what left.
- */
-export const THAN_PICK_TOLERANCE_PCT = 1;
+// Named whole thans rarely add up to the job's exact metres (owner, 2026-09-24: ±1%). The one
+// definition lives beside the than rows in greige-stock.service — a lot's count uses it too.
+export { THAN_PICK_TOLERANCE_PCT };
 
 export interface IssueBlocker {
   code: string;
@@ -1901,6 +1898,35 @@ export async function issueJobWorkOrderWithDetails(
   return result;
 }
 
+/**
+ * "Send to Mill" (Dyeing / Printing / Processing lists): one lot, the whole job. With named pieces it
+ * takes the Issue dialog's own path (fold conversion, ±1%, a lot already at the mill drawn where it lies);
+ * without, it is the plain quantity issue it always was.
+ */
+export async function issueForSendToMill(
+  jwoId: string,
+  opts: Omit<IssueJwoOptions, 'lots' | 'thanPicks'> & { details?: IssueDetailInput[] }
+): Promise<IssueJwoResult> {
+  const { details, ...plain } = opts;
+  if (!details || details.length === 0) return issueJobWorkOrder(jwoId, plain);
+  const lotId =
+    plain.greigeStockLotId ??
+    (await prisma.job_work_orders.findUnique({ where: { id: jwoId }, select: { greigeStockLotId: true } }))
+      ?.greigeStockLotId;
+  if (!lotId) {
+    throw new JobWorkOrderError(ISSUE_ERROR_CODES.NO_GREIGE_LOT, 'Pick the greige lot the pieces come from.');
+  }
+  return issueJobWorkOrderWithDetails(jwoId, {
+    userId: plain.userId,
+    sentDate: plain.sentDate,
+    lotsWithDetails: [{ greigeStockLotId: lotId, details }],
+    challanNumber: plain.challanNumber,
+    vehicleNumber: plain.vehicleNumber,
+    finishedFabricId: plain.finishedFabricId,
+    acknowledgeWidthMismatch: plain.acknowledgeWidthMismatch,
+  });
+}
+
 // ============================================================================
 // Record thans on a job that was issued by quantity (2026-09-24)
 // ============================================================================
@@ -1929,8 +1955,44 @@ export interface ThanRecordLotStatus {
   /** Thans already named against this job, COUNTED and converted to ACTUAL */
   recordedCounted: number;
   recordedActual: number;
-  /** Does the lot carry than rows at all (a lot received without a breakdown has none) */
+  /**
+   * Did the lot list pieces WHEN THE JOB TOOK ITS CLOTH. Pieces counted later ("Record bales & thans")
+   * were on the rack after the job left — they can never be the ones it took, so they do not count.
+   */
   lotHasThans: boolean;
+  /** When the job took its cloth from this lot (its CONSUMPTION on the lot's ledger) */
+  takenAt: Date;
+  /** THAN / ROLL / MIXED among the pieces listed by then — wording only */
+  pieceKind: GreigePieceKind;
+}
+
+/**
+ * When a job took its cloth from a lot: its first CONSUMPTION on the lot's ledger — the outward challan
+ * for a store lot, the job itself for cloth drawn where it lies. Falls back to the challan's / job's
+ * creation, both no later than the real take, so a piece listed afterwards is never let in.
+ */
+async function jobTookLotAt(
+  client: Tx | typeof prisma,
+  jwo: { id: string; outwardChallanId: string | null; createdAt: Date },
+  lotId: string
+): Promise<Date> {
+  const took = await client.greige_stock_transaction.findFirst({
+    where: {
+      stockId: lotId,
+      transactionType: 'CONSUMPTION',
+      OR: [
+        { referenceType: 'JOB_WORK_ORDER', referenceId: jwo.id },
+        ...(jwo.outwardChallanId ? [{ referenceType: 'CHALLAN' as const, referenceId: jwo.outwardChallanId }] : []),
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { createdAt: true },
+  });
+  if (took) return took.createdAt;
+  const challan = jwo.outwardChallanId
+    ? await client.challans.findUnique({ where: { id: jwo.outwardChallanId }, select: { createdAt: true } })
+    : null;
+  return challan?.createdAt ?? jwo.createdAt;
 }
 
 /** The greige lots a job took, and how much of each is already named by than. */
@@ -1940,7 +2002,15 @@ export async function getThanRecordStatus(
 ): Promise<{ jobWorkNumber: string; jwoStatus: string; lots: ThanRecordLotStatus[] }> {
   const jwo = await client.job_work_orders.findUnique({
     where: { id: jwoId },
-    select: { id: true, jobWorkNumber: true, jwoStatus: true, qtySentMeters: true, greigeStockLotId: true },
+    select: {
+      id: true,
+      jobWorkNumber: true,
+      jwoStatus: true,
+      qtySentMeters: true,
+      greigeStockLotId: true,
+      outwardChallanId: true,
+      createdAt: true,
+    },
   });
   if (!jwo) throw new JobWorkOrderError('NOT_FOUND', `Job work order ${jwoId} not found`);
 
@@ -1960,11 +2030,14 @@ export async function getThanRecordStatus(
   for (const t of taken) {
     const lot = await client.greige_stock.findUnique({
       where: { id: t.id },
-      select: {
-        foldLengthCm: true,
-        greige: { select: { greigeCode: true } },
-        _count: { select: { stockDetails: true } },
-      },
+      select: { foldLengthCm: true, greige: { select: { greigeCode: true } } },
+    });
+    const takenAt = await jobTookLotAt(client, jwo, t.id);
+    // Only pieces listed by the time the job took its cloth can be the ones it took
+    const listedThen = await client.greige_stock_details.groupBy({
+      by: ['detailType'],
+      where: { greigeStockId: t.id, createdAt: { lte: takenAt } },
+      _count: { _all: true },
     });
     const recorded = await client.greige_issue_details.aggregate({
       where: { jobWorkOrderId: jwo.id, greigeStockDetail: { greigeStockId: t.id } },
@@ -1978,7 +2051,9 @@ export async function getThanRecordStatus(
       takenActual: t.qty,
       recordedCounted,
       recordedActual: foldActual(recordedCounted, lot?.foldLengthCm ?? null).toNumber(),
-      lotHasThans: (lot?._count.stockDetails ?? 0) > 0,
+      lotHasThans: listedThen.length > 0,
+      takenAt,
+      pieceKind: pieceKindOf(listedThen.map((g) => g.detailType)),
     });
   }
   return { jobWorkNumber: jwo.jobWorkNumber, jwoStatus: jwo.jwoStatus, lots };
@@ -2084,6 +2159,33 @@ async function recordThansWithinTx(
       throw new JobWorkOrderError(
         'THAN_RECORD_INVALID',
         `${status.jobWorkNumber} did not take cloth from that lot — only its own lots can be recorded.`
+      );
+    }
+    // Pieces counted after the job left were still on the rack — they cannot be what it took
+    if (!s.lotHasThans) {
+      throw new JobWorkOrderError(
+        'THAN_RECORD_INVALID',
+        `${s.greigeCode ?? 'This lot'} had no bale / than / roll list when ${status.jobWorkNumber} took its cloth — ` +
+          `there is nothing to record against this job.`
+      );
+    }
+    const late = await tx.greige_stock_details.findFirst({
+      where: { id: { in: lot.details.map((d) => d.greigeStockDetailId) }, createdAt: { gt: s.takenAt } },
+      orderBy: { createdAt: 'asc' },
+      select: { createdAt: true, detailType: true, baleNumber: true, baleNo: true, thanNo: true, sequenceNo: true },
+    });
+    if (late) {
+      const piece =
+        late.detailType === 'ROLL'
+          ? `Roll ${late.thanNo ?? late.sequenceNo}`
+          : late.baleNumber != null
+            ? `Bale ${late.baleNo ?? late.baleNumber} · than ${late.thanNo ?? late.sequenceNo}`
+            : `Than ${late.thanNo ?? late.sequenceNo}`;
+      throw new JobWorkOrderError(
+        'THAN_RECORD_INVALID',
+        `${piece} was put on ${s.greigeCode ?? 'the lot'}'s list on ${formatDateTime(late.createdAt)}, after ` +
+          `${status.jobWorkNumber} took its cloth (${formatDateTime(s.takenAt)}) — it was still on the rack, so it ` +
+          `cannot have gone on this job.`
       );
     }
     const pickedCounted = lot.details.reduce((sum, d) => sum + d.metersToIssue, 0);

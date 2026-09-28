@@ -10,6 +10,7 @@ import {
   StockStatusEnum as PrismaStockStatusEnum,
   StockEntryTypeEnum as PrismaStockEntryTypeEnum,
 } from './generated/prisma-enums';
+import { formNumber, formNumberRequired } from './common.schema';
 
 // ============================================================================
 // Enums
@@ -184,6 +185,33 @@ export const adjustGreigeStockSchema = z.object({
   reason: AdjustmentReasonEnum,
   remarks: z.string().max(500).optional(),
 });
+
+/**
+ * Record the bales / thans / rolls of a greige lot that has no list ("Record bales & thans")
+ * POST /api/greige/stock/:stockId/pieces
+ */
+export const recordGreigePiecesSchema = z
+  .object({
+    entryMode: z.enum(['THAN_WISE', 'BALE_WISE', 'ROLL_WISE']),
+    pieces: z
+      .array(
+        z.object({
+          // Bale-wise: the dialog's bale 1, 2, 3… (the server numbers them past the lot's own bales)
+          baleNumber: formNumber(z.number().int().positive()),
+          baleNo: z.string().trim().max(30).optional().nullable(), // printed bale number
+          thanNo: z.string().trim().max(30).optional().nullable(), // than tag, or the roll number
+          // COUNTED metres (the tag figure at the lot's fold length)
+          meters: formNumberRequired(z.number().positive('Every piece needs its metres').max(100000)),
+        })
+      )
+      .min(1, 'Count at least one piece')
+      .max(2000),
+    remarks: z.string().trim().max(500).optional().nullable(),
+  })
+  .refine((v) => v.entryMode !== 'BALE_WISE' || v.pieces.every((p) => p.baleNumber != null), {
+    message: 'Bale-wise: every than needs its bale',
+    path: ['pieces'],
+  });
 
 /**
  * Greige Stock Query Params

@@ -38,6 +38,7 @@ const challanDocInclude = {
           meters: true,
           baleNo: true,
           thanNo: true,
+          detailType: true,
         },
       },
     },
@@ -103,6 +104,8 @@ export interface ChallanDocData {
    */
   thanList: Array<{ bale: string; baleNote: string; thans: string; count: number; metres: string }> | null;
   thanListTotal: { count: number; metres: string; actualNote: string | null } | null;
+  /** The packing list's headings — rolls are rolls (2026-09-28); the template falls back to the than words */
+  thanListLabels: { group: string; pieceNo: string; count: string; total: string } | null;
 }
 
 interface PartyDetails {
@@ -348,28 +351,49 @@ async function thanPackingList(
   rows: ChallanWithDetails['greigeIssueDetails'],
   foldLengthCm: number | null,
   lineQty: number | null
-): Promise<Pick<ChallanDocData, 'thanList' | 'thanListTotal'>> {
-  if (rows.length === 0) return { thanList: null, thanListTotal: null };
+): Promise<Pick<ChallanDocData, 'thanList' | 'thanListTotal' | 'thanListLabels'>> {
+  if (rows.length === 0) return { thanList: null, thanListTotal: null, thanListLabels: null };
+  const rolls = rows.filter((r) => r.greigeStockDetail.detailType === 'ROLL').length;
+  const thanListLabels =
+    rolls === 0
+      ? { group: 'Bale', pieceNo: 'Than no. (tag metres)', count: 'Thans', total: 'Thans despatched' }
+      : rolls === rows.length
+        ? { group: 'Rolls', pieceNo: 'Roll No. (tag metres)', count: 'Rolls', total: 'Rolls despatched' }
+        : {
+            group: 'Bale / Rolls',
+            pieceNo: 'Than / Roll No. (tag metres)',
+            count: 'Pieces',
+            total: 'Pieces despatched',
+          };
 
   type Bale = {
     lotId: string;
     baleNumber: number | null;
     label: string;
+    /** A lot's rolls, listed together (rolls are never baled) */
+    isRolls: boolean;
     thans: Array<{ seq: number; text: string }>;
     metres: number;
   };
   const bales = new Map<string, Bale>();
   for (const r of rows) {
     const d = r.greigeStockDetail;
-    const key = d.baleNumber != null ? `${d.greigeStockId}:${d.baleNumber}` : `loose:${d.id}`;
+    const isRoll = d.detailType === 'ROLL';
+    // Rolls are never baled: one line per lot. A loose than keeps its own line; a baled than joins its bale.
+    const key = isRoll
+      ? `rolls:${d.greigeStockId}`
+      : d.baleNumber != null
+        ? `${d.greigeStockId}:${d.baleNumber}`
+        : `loose:${d.id}`;
     const bale = bales.get(key) ?? {
       lotId: d.greigeStockId,
-      baleNumber: d.baleNumber,
-      label: d.baleNo ?? (d.baleNumber != null ? String(d.baleNumber) : 'Loose'),
+      baleNumber: isRoll ? null : d.baleNumber,
+      label: isRoll ? 'Rolls' : (d.baleNo ?? (d.baleNumber != null ? String(d.baleNumber) : 'Loose')),
+      isRolls: isRoll,
       thans: [],
       metres: 0,
     };
-    const tag = d.thanNo ?? `T${d.sequenceNo}`;
+    const tag = d.thanNo ?? `${isRoll ? 'R' : 'T'}${d.sequenceNo}`;
     bale.thans.push({ seq: d.sequenceNo, text: `${tag} (${fmtQty(Number(r.metersIssued), 'MTR')})` });
     bale.metres += Number(r.metersIssued);
     bales.set(key, bale);
@@ -398,6 +422,7 @@ async function thanPackingList(
       : [[], []];
 
   const note = (b: Bale): string => {
+    if (b.isRolls) return '';
     if (b.baleNumber == null) return 'Loose than';
     const size = sizes.find((x) => x.greigeStockId === b.lotId && x.baleNumber === b.baleNumber)?._count._all ?? 0;
     if (b.thans.length >= size) return 'Full bale';
@@ -440,6 +465,7 @@ async function thanPackingList(
       metres: fmtQty(b.metres, 'MTR'),
     })),
     thanListTotal: { count: rows.length, metres: fmtQty(totalTag, 'MTR'), actualNote },
+    thanListLabels,
   };
 }
 

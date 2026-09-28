@@ -14,12 +14,41 @@ import { notInProcessorUnitWhere } from './helpers/lot-location.helper';
 import { systemSettingsService } from './system-settings.service';
 // BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
 import { toCurrency, toNumber, roundToCent, addCurrency } from '../utils/currency';
-import { foldActual } from '../utils/fold-length';
+import { foldActual, hasFold } from '../utils/fold-length';
 import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
+import { BusinessError, NotFoundError } from '../errors';
+import { createAuditLog } from './audit.service';
+import { fmtQty } from './document-data/format';
 
 // Than tags are 3 dp and counted; a lot is 2 dp and actual. A pick that empties every than may differ
 // from what the lot holds by the half-cents each earlier issue rounded away.
 const THAN_ROUNDING_SLACK_M = 0.1;
+
+/**
+ * Named whole pieces rarely add up to an exact figure. When an issue names its thans / rolls, the lots
+ * may total within this share of the job's metres either way (owner, 2026-09-24: ±1%); a lot's count
+ * ("Record bales & thans") must land within it of what the lot holds.
+ */
+export const THAN_PICK_TOLERANCE_PCT = 1;
+
+/** A greige piece: a than (folded, usually baled) or a roll. Wording only — the arithmetic is the same. */
+export type GreigePieceType = 'THAN' | 'ROLL';
+
+/** How pieces of one lot are listed: all thans, all rolls, both (two receipts), or none recorded. */
+export type GreigePieceKind = GreigePieceType | 'MIXED' | null;
+
+export function pieceKindOf(types: Iterable<string>): GreigePieceKind {
+  const set = new Set(types);
+  if (set.size === 0) return null;
+  if (set.size > 1) return 'MIXED';
+  return set.has('ROLL') ? 'ROLL' : 'THAN';
+}
+
+/** "than" / "thans" / "roll" / "rolls" / "piece" / "pieces" */
+export function pieceWord(kind: GreigePieceKind, n: number): string {
+  const word = kind === 'ROLL' ? 'roll' : kind === 'MIXED' ? 'piece' : 'than';
+  return n === 1 ? word : `${word}s`;
+}
 
 // Type for Prisma transaction client (used when operations need to be atomic with caller's transaction)
 type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
@@ -90,6 +119,16 @@ export interface GreigeStockItem {
   processor?: { id: string; name: string; code: string } | null;
   weaverId?: string | null; // Phase 1b: the weaver whose cloth this lot is
   weaver?: { id: string; name: string } | null;
+  /** The lot's bale / than / roll list (only when asked for with `withPieces`) */
+  pieces?: GreigeLotPieces;
+}
+
+/** A lot's piece list at a glance: pieces ever listed, pieces with metres left, live bales, thans vs rolls. */
+export interface GreigeLotPieces {
+  total: number;
+  left: number;
+  bales: number;
+  kind: GreigePieceKind;
 }
 
 export interface UpdateGreigeStockDTO {
@@ -271,6 +310,8 @@ class GreigeStockService {
     sourceType?: string;
     warehouseLocation?: string;
     excludeTransferred?: boolean;
+    /** Attach each lot's piece summary (the Greige Stock page's Pieces column) */
+    withPieces?: boolean;
   }): Promise<GreigeStockItem[]> {
     try {
       const where: Prisma.greige_stockWhereInput = {
@@ -358,6 +399,8 @@ class GreigeStockService {
         orderBy: { receivedDate: 'desc' },
       });
 
+      const piecesByLot = filters?.withPieces ? await this.lotPieces(stocks.map((s) => s.id)) : null;
+
       return stocks.map((stock) => {
         const agingDays = stock.receivedDate
           ? Math.floor((Date.now() - new Date(stock.receivedDate).getTime()) / (1000 * 60 * 60 * 24))
@@ -394,12 +437,53 @@ class GreigeStockService {
           thanCount: stock.thanCount,
           weaverId: stock.weaverId,
           weaver: stock.weaver,
+          ...(piecesByLot ? { pieces: piecesByLot.get(stock.id) ?? { total: 0, left: 0, bales: 0, kind: null } } : {}),
         };
       });
     } catch (error: unknown) {
       logError('Error getting greige stock:', error);
       throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  /** Piece summary per lot, three grouped reads for the whole list (never one query per lot). */
+  private async lotPieces(lotIds: string[]): Promise<Map<string, GreigeLotPieces>> {
+    const out = new Map<string, GreigeLotPieces>();
+    if (lotIds.length === 0) return out;
+    const [byType, leftByLot, liveBales] = await Promise.all([
+      prisma.greige_stock_details.groupBy({
+        by: ['greigeStockId', 'detailType'],
+        where: { greigeStockId: { in: lotIds } },
+        _count: { _all: true },
+      }),
+      prisma.greige_stock_details.groupBy({
+        by: ['greigeStockId'],
+        where: { greigeStockId: { in: lotIds }, metersRemaining: { gt: 0 } },
+        _count: { _all: true },
+      }),
+      prisma.greige_stock_details.groupBy({
+        by: ['greigeStockId', 'baleNumber'],
+        where: { greigeStockId: { in: lotIds }, metersRemaining: { gt: 0 }, baleNumber: { not: null } },
+        _count: { _all: true },
+      }),
+    ]);
+    const typesByLot = new Map<string, string[]>();
+    for (const g of byType) {
+      const entry = out.get(g.greigeStockId) ?? { total: 0, left: 0, bales: 0, kind: null };
+      entry.total += g._count._all;
+      out.set(g.greigeStockId, entry);
+      typesByLot.set(g.greigeStockId, [...(typesByLot.get(g.greigeStockId) ?? []), g.detailType]);
+    }
+    for (const [lotId, types] of typesByLot) out.get(lotId)!.kind = pieceKindOf(types);
+    for (const g of leftByLot) {
+      const entry = out.get(g.greigeStockId);
+      if (entry) entry.left = g._count._all;
+    }
+    for (const g of liveBales) {
+      const entry = out.get(g.greigeStockId);
+      if (entry) entry.bales += 1;
+    }
+    return out;
   }
 
   /**
@@ -944,6 +1028,183 @@ class GreigeStockService {
   }
 
   /**
+   * "Record bales & thans" — list the pieces (thans or rolls, thans optionally in bales) of a lot that has
+   * no list: one received as Total Meters, typed in by hand, or split off another lot. The store counts
+   * what is on the rack NOW; from then on the issue screens let those pieces be picked.
+   *
+   * Moves NO stock: the lot's metres, its ledger and stock_levels stay as they are, so there is nothing to
+   * sync (CLAUDE.md stock rule 5 governs quantity writes). Piece metres are COUNTED at the lot's fold
+   * length and must land within ±THAN_PICK_TOLERANCE_PCT of the lot's on-hand metres — quantityAvailable:
+   * greige reservations only raise quantityReserved, the reserved cloth is still on the rack.
+   *
+   * Refused while the lot still lists pieces with metres left — a count adds a list, it never replaces
+   * one; pieces that left unnamed are named on their job ("Record thans sent").
+   */
+  async recordLotPieces(
+    stockId: string,
+    input: {
+      entryMode: 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+      pieces: Array<{ baleNumber?: number | null; baleNo?: string | null; thanNo?: string | null; meters: number }>;
+      remarks?: string | null;
+    },
+    userId: string
+  ): Promise<{
+    stockId: string;
+    greigeCode: string | null;
+    recorded: number;
+    bales: number;
+    detailType: GreigePieceType;
+    countedTotal: number;
+    actualTotal: number;
+    onHand: number;
+    foldLengthCm: number | null;
+  }> {
+    const exists = await prisma.greige_stock.findUnique({ where: { id: stockId }, select: { id: true } });
+    if (!exists) throw new NotFoundError('Greige lot', stockId);
+
+    const detailType: GreigePieceType = input.entryMode === 'ROLL_WISE' ? 'ROLL' : 'THAN';
+    const baled = input.entryMode === 'BALE_WISE';
+    const cleanLabel = (value?: string | null) => value?.trim() || null;
+    // The dialog's bales in the order they were typed — bale 1, 2, 3… of THIS count
+    const inputBales = baled ? [...new Set(input.pieces.map((p) => Number(p.baleNumber)))] : [];
+
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Lock the lot first: an issue (consumeGreigeStock's guarded update) or a second count waits for this
+        // transaction, so everything read below is current. A refusal rolls the counts back.
+        const lot = await tx.greige_stock.update({
+          where: { id: stockId },
+          data: {
+            thanCount: detailType === 'THAN' ? input.pieces.length : null,
+            baleCount: inputBales.length > 0 ? inputBales.length : null,
+          },
+          select: { quantityAvailable: true, foldLengthCm: true, greige: { select: { greigeCode: true } } },
+        });
+        const code = lot.greige?.greigeCode ?? 'This lot';
+        const onHand = Number(lot.quantityAvailable);
+        const foldLengthCm = lot.foldLengthCm != null ? Number(lot.foldLengthCm) : null;
+
+        if (isQtyZero(onHand)) {
+          throw new BusinessError(`${code} has nothing on hand to count.`, { reason: 'LOT_EMPTY' });
+        }
+
+        const listed = await tx.greige_stock_details.findMany({
+          where: { greigeStockId: stockId, metersRemaining: { gt: 0 } },
+          select: { metersRemaining: true, detailType: true },
+        });
+        if (listed.length > 0) {
+          const kind = pieceKindOf(listed.map((d) => d.detailType));
+          const left = addCurrency(...listed.map((d) => Number(d.metersRemaining))).toNumber();
+          throw new BusinessError(
+            `${code} already lists ${listed.length} ${pieceWord(kind, listed.length)} with ${fmtQty(left, 'METER')} m left. ` +
+              `A lot is counted only when its list is empty — name the pieces that left on their job first ` +
+              `(Record ${pieceWord(kind, 2)} sent on the job's page).`,
+            { reason: 'LOT_HAS_PIECES', listed: listed.length, metersLeft: left }
+          );
+        }
+
+        const countedTotal = addCurrency(...input.pieces.map((p) => p.meters)).toNumber();
+        const actualTotal = foldActual(countedTotal, foldLengthCm).toNumber();
+        const allowed = (onHand * THAN_PICK_TOLERANCE_PCT) / 100;
+        if (qtyExceeds(Math.abs(actualTotal - onHand), allowed)) {
+          const counted = foldLengthCm != null && foldActual(countedTotal, foldLengthCm).toNumber() !== countedTotal;
+          throw new BusinessError(
+            `These ${input.pieces.length} ${pieceWord(detailType, input.pieces.length)} come to ` +
+              `${fmtQty(actualTotal, 'METER')} m actual` +
+              (hasFold(foldLengthCm)
+                ? ` (${fmtQty(countedTotal, 'METER')} m counted at fold ${foldLengthCm} cm)`
+                : '') +
+              `, but ${code} holds ${fmtQty(onHand, 'METER')} m — more than ${THAN_PICK_TOLERANCE_PCT}% apart. ` +
+              `Check the count, or correct the lot's quantity first with Adjust Stock on the Greige Stock page.`,
+            { reason: 'PIECES_OFF_LOT', countedTotal, actualTotal, onHand, tolerancePercent: THAN_PICK_TOLERANCE_PCT }
+          );
+        }
+
+        // Number the new pieces past every number the lot has used: "Edit bale / than numbers" on a GRN
+        // matches pieces by (baleNumber, sequenceNo), so a count must never reuse a receipt's numbers.
+        const [{ _max: baleMax }, { _max: looseMax }] = await Promise.all([
+          tx.greige_stock_details.aggregate({ where: { greigeStockId: stockId }, _max: { baleNumber: true } }),
+          tx.greige_stock_details.aggregate({
+            where: { greigeStockId: stockId, baleNumber: null },
+            _max: { sequenceNo: true },
+          }),
+        ]);
+        const baleOffset = baleMax.baleNumber ?? 0;
+        let looseSeq = looseMax.sequenceNo ?? 0;
+        const seqInBale = new Map<number, number>();
+        // A bale's printed number belongs to the bale: the first one typed in it labels all its thans
+        const baleNoOf = new Map<number, string | null>();
+        for (const p of input.pieces) {
+          const bale = Number(p.baleNumber);
+          if (baled && !baleNoOf.get(bale)) baleNoOf.set(bale, cleanLabel(p.baleNo));
+        }
+
+        const rows = input.pieces.map((p) => {
+          const meters = new Prisma.Decimal(p.meters);
+          const common = {
+            greigeStockId: stockId,
+            meters,
+            metersRemaining: meters,
+            status: 'AVAILABLE',
+            thanNo: cleanLabel(p.thanNo),
+            detailType,
+            remarks: cleanLabel(input.remarks),
+          };
+          if (!baled) return { ...common, baleNumber: null, sequenceNo: ++looseSeq, baleNo: null };
+          const inputBale = Number(p.baleNumber);
+          const seq = (seqInBale.get(inputBale) ?? 0) + 1;
+          seqInBale.set(inputBale, seq);
+          return {
+            ...common,
+            baleNumber: baleOffset + inputBales.indexOf(inputBale) + 1,
+            sequenceNo: seq,
+            baleNo: baleNoOf.get(inputBale) ?? null,
+          };
+        });
+        await tx.greige_stock_details.createMany({ data: rows });
+
+        return {
+          stockId,
+          greigeCode: lot.greige?.greigeCode ?? null,
+          recorded: rows.length,
+          bales: inputBales.length,
+          detailType,
+          countedTotal,
+          actualTotal,
+          onHand,
+          foldLengthCm,
+        };
+      },
+      { timeout: 15000, maxWait: 5000 }
+    );
+
+    // Outside the transaction (the audit writer never throws); each piece's createdAt is the lasting record
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entityType: 'GREIGE',
+      entityId: stockId,
+      newValues: {
+        event: 'PIECES_RECORDED',
+        entryMode: input.entryMode,
+        piecesRecorded: result.recorded,
+        detailType: result.detailType,
+        bales: result.bales,
+        countedTotal: result.countedTotal,
+        actualTotal: result.actualTotal,
+        onHand: result.onHand,
+        foldLengthCm: result.foldLengthCm,
+        remarks: input.remarks ?? null,
+      },
+    });
+    logInfo(
+      `Recorded ${result.recorded} ${pieceWord(detailType, result.recorded)} on greige lot ${stockId} ` +
+        `(${result.countedTotal} m counted vs ${result.onHand} m on hand)`
+    );
+    return result;
+  }
+
+  /**
    * Get greige stock by ID
    */
   async getGreigeStockById(stockId: string): Promise<GreigeStockItem | null> {
@@ -1004,11 +1265,20 @@ class GreigeStockService {
    */
   async getAvailableDetails(stockId: string): Promise<{
     stockId: string;
+    greigeCode: string | null;
+    /** GRN / DIRECT / TRANSFER / MANUAL … — tells the screen why a lot has no list */
+    sourceType: string | null;
     baleCount: number | null;
     thanCount: number | null;
     totalAvailable: number;
     /** The lot's fold length — than meters are COUNTED at it, totalAvailable is ACTUAL */
     foldLengthCm: number | null;
+    /** Every piece ever listed on the lot, any status — 0 = the lot never had a list */
+    piecesRecorded: number;
+    /** THAN / ROLL / MIXED across every listed piece; null when none */
+    pieceKind: GreigePieceKind;
+    /** The receipt the lot came on (flattened — the serializer renames nested relations) */
+    receipt: { grnNumber: string | null; entryMode: string | null } | null;
     details: Array<{
       id: string;
       baleNumber: number | null;
@@ -1022,6 +1292,10 @@ class GreigeStockService {
       remarks: string | null;
       /** The than's bale has already been opened — some of its thans left, or one was cut */
       baleOpen: boolean;
+      /** THAN or ROLL — wording only */
+      detailType: string;
+      /** When the piece was listed — a job can only have taken pieces listed before it took its cloth */
+      createdAt: Date;
     }>;
   }> {
     try {
@@ -1033,6 +1307,9 @@ class GreigeStockService {
           thanCount: true,
           quantityAvailable: true,
           foldLengthCm: true,
+          sourceType: true,
+          greige: { select: { greigeCode: true } },
+          grnItem: { select: { entryMode: true, goods_receiving_notes: { select: { grnNumber: true } } } },
           stockDetails: {
             where: {
               status: { in: ['AVAILABLE', 'PARTIAL'] },
@@ -1054,13 +1331,29 @@ class GreigeStockService {
         distinct: ['baleNumber'],
       });
       const openBales = new Set(touched.map((t) => t.baleNumber));
+      // Every piece ever listed, by type — "never had a list" vs "its list is used up", and thans vs rolls
+      const byType = await prisma.greige_stock_details.groupBy({
+        by: ['detailType'],
+        where: { greigeStockId: stockId },
+        _count: { _all: true },
+      });
 
       return {
         stockId: stock.id,
+        greigeCode: stock.greige?.greigeCode ?? null,
+        sourceType: stock.sourceType,
         baleCount: stock.baleCount,
         thanCount: stock.thanCount,
         totalAvailable: Number(stock.quantityAvailable),
         foldLengthCm: stock.foldLengthCm != null ? Number(stock.foldLengthCm) : null,
+        piecesRecorded: byType.reduce((n, g) => n + g._count._all, 0),
+        pieceKind: pieceKindOf(byType.map((g) => g.detailType)),
+        receipt: stock.grnItem
+          ? {
+              grnNumber: stock.grnItem.goods_receiving_notes?.grnNumber ?? null,
+              entryMode: stock.grnItem.entryMode,
+            }
+          : null,
         details: stock.stockDetails.map((d) => ({
           id: d.id,
           baleNumber: d.baleNumber,
@@ -1072,6 +1365,8 @@ class GreigeStockService {
           thanNo: d.thanNo,
           remarks: d.remarks,
           baleOpen: d.baleNumber != null && openBales.has(d.baleNumber),
+          detailType: d.detailType,
+          createdAt: d.createdAt,
         })),
       };
     } catch (error: unknown) {

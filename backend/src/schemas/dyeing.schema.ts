@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import { thanPickSchema } from './jobWorkOrder.schema';
 
 // Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
 const isValidIdFormat = (val: string) =>
@@ -286,7 +287,7 @@ export const processPoQuerySchema = z.object({
  * Send Process PO to Mill
  * POST /api/dyeing/process-pos/:id/send or /api/printing/process-pos/:id/send
  *
- * Controller destructures: sentDate, challanNumber, vehicleNumber
+ * Controller destructures: sentDate, challanNumber, vehicleNumber, greigeStockLotId, details
  */
 export const sendProcessPoSchema = z
   .object({
@@ -297,6 +298,8 @@ export const sendProcessPoSchema = z
     // for greige JWOs that don't already carry one (MRP-created orders); clear 422
     // instead of the old silent zero-consumption despatch.
     greigeStockLotId: z.string().uuid().optional(),
+    // The bales / thans / rolls of that lot that leave (COUNTED metres) — same picks as the Issue dialog
+    details: z.array(thanPickSchema).min(1).max(2000).optional(),
   })
   .passthrough();
 

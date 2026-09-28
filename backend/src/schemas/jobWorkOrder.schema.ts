@@ -296,7 +296,7 @@ export type IssueJwoInput = z.infer<typeof issueJwoSchema>;
  * and optionally specifies partial meters for splitting a than.
  */
 /** One picked than: which than, and how many COUNTED metres of it (partial thans allowed). */
-const thanPickSchema = z.object({
+export const thanPickSchema = z.object({
   greigeStockDetailId: z.string().uuid(),
   metersToIssue: z.number().positive('metersToIssue must be positive'),
 });

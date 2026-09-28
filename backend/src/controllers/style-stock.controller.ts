@@ -3,9 +3,9 @@
 
 import { Request, Response } from 'express';
 import FabricStockService, { CreateStyleStockDTO, StockStatusFilter } from '../services/fabric-stock.service';
-import GreigeStockService from '../services/greige-stock.service';
+import GreigeStockService, { pieceWord } from '../services/greige-stock.service';
 import prisma from '../config/database';
-import { BusinessError, ValidationError } from '../errors';
+import { BusinessError, UnauthorizedError, ValidationError } from '../errors';
 import logger from '../utils/logger';
 import { addCurrency, toNumber } from '../utils/currency';
 
@@ -365,7 +365,8 @@ class StyleStockController {
   async getGreigeStockByGreigeId(req: Request, res: Response) {
     try {
       const { greigeId } = req.params;
-      const stocks = await GreigeStockService.getGreigeStock({ greigeId, minQuantity: 0 });
+      // withPieces: the page's Pieces column and its "Record bales & thans" action read each lot's list
+      const stocks = await GreigeStockService.getGreigeStock({ greigeId, minQuantity: 0, withPieces: true });
       return res.status(200).json({ success: true, data: stocks });
     } catch (error: unknown) {
       logger.error('Get greige stock by greigeId error:', error);
@@ -436,6 +437,26 @@ class StyleStockController {
       const status = message.includes('not found') ? 404 : message.includes('Cannot decrease') ? 400 : 500;
       return res.status(status).json({ success: false, message });
     }
+  }
+
+  /**
+   * "Record bales & thans": list the pieces on hand of a lot that has no list. No stock moves.
+   * POST /api/greige/stock/:stockId/pieces
+   * BusinessError / NotFoundError reach the error middleware as 422 / 404 with their message.
+   */
+  async recordGreigeStockPieces(req: Request, res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) throw new UnauthorizedError();
+    const { stockId } = req.params;
+    const { entryMode, pieces, remarks } = req.body;
+
+    const result = await GreigeStockService.recordLotPieces(stockId, { entryMode, pieces, remarks }, userId);
+    const word = pieceWord(result.detailType, result.recorded);
+    return res.status(201).json({
+      success: true,
+      data: result,
+      message: `${result.recorded} ${word} recorded on ${result.greigeCode ?? 'the lot'}`,
+    });
   }
 
   /**

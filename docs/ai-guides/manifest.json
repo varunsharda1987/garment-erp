@@ -535,12 +535,12 @@
       "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
       "backend/src/schemas/grn.schema.ts": "6115648f850c",
       "backend/src/services/grn.service.ts": "164570ce1272",
-      "backend/src/services/purchaseOrder.service.ts": "9cf46c2d43c5",
+      "backend/src/services/purchaseOrder.service.ts": "204ef930eb58",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/thread-stock.service.ts": "bd87591f61a7"
     },
     "contentHash": "373897e7f3f4",
-    "generatedAt": "2026-09-28T05:41:53.190Z"
+    "generatedAt": "2026-09-28T07:04:13.766Z"
   },
   "grn-create": {
     "sources": {
@@ -548,20 +548,20 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/GRNList.tsx": "90164e4c7e41",
-      "frontend/src/pages/GRNForm.tsx": "0683d072cb5f",
+      "frontend/src/pages/GRNForm.tsx": "a3574ca5bb54",
       "frontend/src/pages/GRNDetail.tsx": "8eb74516d789",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
       "frontend/src/components/purchase-orders/DeliveryPlanCard.tsx": "e1b42b32a86f",
       "backend/src/schemas/grn.schema.ts": "6115648f850c",
       "backend/src/services/grn.service.ts": "164570ce1272",
-      "backend/src/services/purchaseOrder.service.ts": "9cf46c2d43c5",
+      "backend/src/services/purchaseOrder.service.ts": "204ef930eb58",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "frontend/src/lib/label-lines.ts": "169c3b0c5007",
       "frontend/src/lib/label-line-keys.ts": "62a10e98a1b6"
     },
-    "contentHash": "e11929a46373",
-    "generatedAt": "2026-09-28T05:41:53.218Z"
+    "contentHash": "8de9f76e20f3",
+    "generatedAt": "2026-09-28T07:04:13.911Z"
   },
   "gst-reports": {
     "sources": {
@@ -1055,13 +1055,13 @@
       "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
       "frontend/src/pages/PurchaseOrderList.tsx": "3787bcafeff4",
       "frontend/src/components/purchase-orders/CancelPoDialog.tsx": "bcd1bf9330d0",
-      "frontend/src/types/purchaseOrder.types.ts": "2212abf566b1",
+      "frontend/src/types/purchaseOrder.types.ts": "993573eb1d6f",
       "frontend/src/hooks/usePermissions.ts": "419bf572e183",
-      "backend/src/schemas/purchaseOrder.schema.ts": "d49f106aecd8",
-      "backend/src/services/purchaseOrder.service.ts": "9cf46c2d43c5"
+      "backend/src/schemas/purchaseOrder.schema.ts": "bf314d39372e",
+      "backend/src/services/purchaseOrder.service.ts": "204ef930eb58"
     },
     "contentHash": "dc01ab3e6e8b",
-    "generatedAt": "2026-09-26T19:21:14.036Z"
+    "generatedAt": "2026-09-28T07:04:13.924Z"
   },
   "purchase-order-create": {
     "sources": {
@@ -1069,14 +1069,16 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderList.tsx": "3787bcafeff4",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "a5ab0fbd8f32",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "6d390cfddd9c",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
-      "frontend/src/types/purchaseOrder.types.ts": "2212abf566b1",
-      "backend/src/schemas/purchaseOrder.schema.ts": "d49f106aecd8",
+      "frontend/src/types/purchaseOrder.types.ts": "993573eb1d6f",
+      "backend/src/schemas/purchaseOrder.schema.ts": "bf314d39372e",
+      "backend/src/services/helpers/po-line-category.helper.ts": "563d58ed6afe",
+      "backend/src/services/unified-po-creation.service.ts": "1eaa603dd490",
       "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
       "frontend/src/components/WeaverCombobox.tsx": "e3227de8e41a",
       "frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx": "127c69d8cc71",
-      "backend/src/controllers/material.controller.ts": "8b6a3eef5beb",
+      "backend/src/controllers/material.controller.ts": "ff2a64ff231f",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e",
       "frontend/src/components/purchase-orders/LabelSetDialog.tsx": "2dbef8936f1d",
       "frontend/src/lib/label-materials.ts": "9a26c39223ed",
@@ -1084,7 +1086,7 @@
       "backend/src/services/label-set.service.ts": "b13c4435a32f",
       "frontend/src/types/thread.types.ts": "d29afb5fa6f7",
       "frontend/src/services/thread.service.ts": "e781f273e238",
-      "backend/src/services/helpers/purchase-unit.helper.ts": "74fe0087e9dd",
+      "backend/src/services/helpers/purchase-unit.helper.ts": "aed50d819a74",
       "backend/src/services/helpers/thread-pack.helper.ts": "5c65fcd9b0d4",
       "frontend/src/lib/po-list-stats.ts": "449571285b90",
       "frontend/src/lib/delivery-plan.ts": "7bf73b97ab8d",
@@ -1092,8 +1094,8 @@
       "frontend/src/components/purchase-orders/CancelPoDialog.tsx": "bcd1bf9330d0",
       "backend/src/services/document-data/purchase-order.doc-data.ts": "af5e36a4c842"
     },
-    "contentHash": "9f97023df77a",
-    "generatedAt": "2026-09-26T19:21:14.047Z"
+    "contentHash": "4f4decb360ff",
+    "generatedAt": "2026-09-28T07:04:13.935Z"
   },
   "quotation-convert": {
     "sources": {
@@ -1562,20 +1564,20 @@
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderDetail.tsx": "8a8761b24008",
       "frontend/src/pages/PurchaseOrderList.tsx": "3787bcafeff4",
-      "frontend/src/pages/GRNForm.tsx": "0683d072cb5f",
+      "frontend/src/pages/GRNForm.tsx": "a3574ca5bb54",
       "frontend/src/components/purchase-orders/DeliveryPlanCard.tsx": "e1b42b32a86f",
       "frontend/src/components/purchase-orders/DeliveryPlanDialog.tsx": "7d740a2f76d0",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e",
       "frontend/src/lib/delivery-plan.ts": "7bf73b97ab8d",
-      "backend/src/schemas/purchaseOrder.schema.ts": "d49f106aecd8",
+      "backend/src/schemas/purchaseOrder.schema.ts": "bf314d39372e",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/document-data/po-ship-to.ts": "a728edc8d87f",
-      "backend/src/services/purchaseOrder.service.ts": "9cf46c2d43c5",
+      "backend/src/services/purchaseOrder.service.ts": "204ef930eb58",
       "backend/src/services/mrp.service.ts": "9d4674e3ac42",
       "frontend/src/pages/ManufacturingControlCenter.tsx": "f61b9e1a2ff0"
     },
     "contentHash": "0584a017178a",
-    "generatedAt": "2026-09-28T05:42:16.627Z"
+    "generatedAt": "2026-09-28T07:04:13.948Z"
   },
   "held-stock-move": {
     "sources": {

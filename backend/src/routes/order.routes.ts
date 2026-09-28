@@ -4,7 +4,6 @@ import {
   createOrder,
   getAllOrders,
   getOrderById,
-  updateOrderStatus,
   updateOrder,
   canDeleteOrder,
   hardDeleteOrder,
@@ -43,11 +42,17 @@ router.post('/', validateBody(createOrderSchema), asyncHandler(createOrder));
 router.get('/', validateQuery(orderQuerySchema), asyncHandler(getAllOrders));
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getOrderById));
 router.put('/:id', validateParams(idParamSchema), validateBody(updateOrderSchema), asyncHandler(updateOrder));
-router.patch(
-  '/:id/status',
-  validateParams(idParamSchema),
-  validateBody(updateOrderStatusSchema),
-  asyncHandler(updateOrderStatus)
+/**
+ * RETIRED 2026-09-28. An order's status is DERIVED from its production runs and delivery notes
+ * (services/helpers/order-status.helper.ts) — nothing sets it by hand except Cancel. This route had
+ * no caller; it flipped status with none of the cancel cascade and let admins force any transition.
+ * The body is still validated so an unknown status keeps its 400.
+ */
+router.patch('/:id/status', validateParams(idParamSchema), validateBody(updateOrderStatusSchema), (_req, res) =>
+  res.status(410).json({
+    success: false,
+    message: 'Order status follows its production runs and delivery notes; to cancel an order use Cancel order.',
+  })
 );
 /**
  * RETIRED 2026-09-28. "Delete" used to fall through to a CANCEL whenever the order could not be

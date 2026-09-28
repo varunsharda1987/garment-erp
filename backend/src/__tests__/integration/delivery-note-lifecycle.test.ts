@@ -215,6 +215,10 @@ afterAll(async () => {
     ],
     ['finished_goods_stock', () => prisma.finished_goods_stock.deleteMany({ where: { id: { in: createdStockIds } } })],
     ['production_tracking', () => prisma.production_tracking.deleteMany({ where: { workOrderId: { in: woIds } } })],
+    [
+      'stage_transition_overrides',
+      () => prisma.stage_transition_overrides.deleteMany({ where: { workOrderId: { in: woIds } } }),
+    ],
     ['work_order_breakup', () => prisma.work_order_breakup.deleteMany({ where: { workOrderId: { in: woIds } } })],
     ['work_orders', () => prisma.work_orders.deleteMany({ where: { id: { in: woIds } } })],
     [
@@ -242,6 +246,66 @@ afterAll(async () => {
     }
   }
   await prisma.$disconnect();
+});
+
+/**
+ * The production order's status follows its runs and notes by itself (order-status.helper, 2026-09-28).
+ * Nothing moved it before: every order read PENDING while two were on the cutting table.
+ */
+describe("the production order's status moves by itself", () => {
+  const OVERRIDE = { adminOverride: true, overrideReason: 'Status walk in a test run — gates are not under test' };
+  const orderStatus = async (id: string) => (await prisma.orders.findUniqueOrThrow({ where: { id } })).status;
+
+  it('PENDING → IN_PRODUCTION → COMPLETED → DISPATCHED, and back when a note is cancelled or rejected', async () => {
+    const { soId } = await confirmedOrder([{ sizeId: sizeMId, quantity: 10 }]);
+    const orderId = await startProduction(soId);
+    expect(await orderStatus(orderId)).toBe('PENDING');
+    const run = await prisma.work_orders.findFirstOrThrow({ where: { orderId }, select: { id: true } });
+
+    // Pushed to cutting → the order is in production
+    await request(app).post(`/api/work-orders/${run.id}/push-to-cutting`).set(admin).send(OVERRIDE).expect(200);
+    expect(await orderStatus(orderId)).toBe('IN_PRODUCTION');
+
+    // Nobody sets it by hand any more
+    await request(app).patch(`/api/orders/${orderId}/status`).set(admin).send({ status: 'COMPLETED' }).expect(410);
+    expect(await orderStatus(orderId)).toBe('IN_PRODUCTION');
+
+    // The run finishes → the order is completed
+    await request(app)
+      .post(`/api/work-orders/${run.id}/tracking`)
+      .set(admin)
+      .send({ productionStage: 'READY_TO_SHIP', quantityCompleted: 10, ...OVERRIDE })
+      .expect(201);
+    expect(await orderStatus(orderId)).toBe('COMPLETED');
+
+    // Everything ships (order mode) → dispatched; the note cancelled → completed again
+    const lot = await fgLot(10, sizeMId);
+    const note = await raiseNote({ orderId, items: [{ styleId, colorId, sizeId: sizeMId, quantity: 10 }] }).expect(201);
+    expect(await orderStatus(orderId)).toBe('DISPATCHED');
+    await request(app)
+      .post(`/api/dispatch/delivery-notes/${note.body.data.id}/cancel`)
+      .set(admin)
+      .send({ reason: 'Status walk — cancelled on purpose' })
+      .expect(200);
+    expect(await orderStatus(orderId)).toBe('COMPLETED');
+    expect(await fgQty(lot)).toBe(10);
+
+    // Shipped from the SALE ORDER (the note carries no orderId) → still reaches the order
+    const soNote = await raiseNote({
+      saleOrderId: soId,
+      items: [{ styleId, colorId, sizeId: sizeMId, quantity: 10 }],
+    }).expect(201);
+    expect(soNote.body.data.orderId ?? null).toBeNull();
+    expect(await orderStatus(orderId)).toBe('DISPATCHED');
+
+    // The buyer rejects it → back to completed
+    await dispatchNote(soNote.body.data.id).expect(200);
+    await recordPod(soNote.body.data.id, {
+      deliveryStatus: 'REJECTED',
+      rejectionReason: 'Status walk rejection',
+    }).expect(200);
+    expect(await orderStatus(orderId)).toBe('COMPLETED');
+  });
 });
 
 describe('cancelling a pending delivery note', () => {

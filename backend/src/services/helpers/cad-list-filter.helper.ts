@@ -39,13 +39,17 @@ export interface CadListFilters {
  */
 const CLOSED_SALE_ORDER_STATUSES = ['CANCELLED', 'DISPATCHED', 'DELIVERED'] as const;
 
-/** Production-order lines that are finished. SPLIT is a parent whose children carry the work. */
-const CLOSED_ORDER_ITEM_STATUSES = ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'] as const;
+/**
+ * Production orders that are finished. Read from the ORDER (orders.status, derived by
+ * order-status.helper) — order_items.status is a second home nothing ever writes (always PENDING),
+ * so filtering on it counted cancelled and finished orders as open (2026-09-28).
+ */
+const CLOSED_ORDER_STATUSES = ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'] as const;
 
 const OPEN_ORDER_WHERE: Prisma.stylesWhereInput = {
   OR: [
     { sale_order_items: { some: { saleOrder: { status: { notIn: [...CLOSED_SALE_ORDER_STATUSES] } } } } },
-    { order_items: { some: { status: { notIn: [...CLOSED_ORDER_ITEM_STATUSES] } } } },
+    { order_items: { some: { orders: { isActive: true, status: { notIn: [...CLOSED_ORDER_STATUSES] } } } } },
   ],
 };
 

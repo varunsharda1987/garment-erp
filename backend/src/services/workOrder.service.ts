@@ -17,6 +17,7 @@ import { applySearch } from '../utils/search-filter';
 import { formatDate, toDateInputValue } from '../utils/date';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import { getDefaultWarehouseId } from './helpers/material-sync.helper';
+import { lockOrder, syncOrderStatus } from './helpers/order-status.helper';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -131,109 +132,116 @@ class WorkOrderService {
     // Default to company's production location (Kashaya Fabs) when not specified
     const warehouseId = data.warehouseId || (await getDefaultWarehouseId(prisma)) || null;
 
-    const workOrder = await prisma.work_orders.create({
-      data: {
-        id: randomUUID(),
-        workOrderNumber,
-        orderId: data.orderId || null,
-        orderItemId: data.orderItemId || null,
-        stockProductionOrderId: data.stockProductionOrderId || null,
-        stockProductionOrderItemId: data.stockProductionOrderItemId || null,
-        styleId: data.styleId,
-        warehouseId,
-        plannedStartDate: data.plannedStartDate,
-        plannedEndDate: data.plannedEndDate,
-        totalQuantity: data.totalQuantity,
-        completedQuantity: 0,
-        status: OrderStatus.PENDING,
-        priority: data.priority || Priority.MEDIUM,
-        remarks: data.remarks,
-        createdById: data.createdById,
-        work_order_breakup: {
-          create: data.colorSizeBreakup.map((breakup) => ({
-            id: randomUUID(),
-            colorId: breakup.colorId || null, // Handle nullable colorId
-            sizeId: breakup.sizeId,
-            plannedQuantity: breakup.quantity,
-            completedQuantity: 0,
-          })),
+    // A new run can take a COMPLETED order back to IN_PRODUCTION: create it and re-derive the order's
+    // status in one transaction, order row locked first (order-status.helper).
+    const workOrder = await prisma.$transaction(async (tx) => {
+      if (data.orderId) await lockOrder(tx, data.orderId);
+      const created = await tx.work_orders.create({
+        data: {
+          id: randomUUID(),
+          workOrderNumber,
+          orderId: data.orderId || null,
+          orderItemId: data.orderItemId || null,
+          stockProductionOrderId: data.stockProductionOrderId || null,
+          stockProductionOrderItemId: data.stockProductionOrderItemId || null,
+          styleId: data.styleId,
+          warehouseId,
+          plannedStartDate: data.plannedStartDate,
+          plannedEndDate: data.plannedEndDate,
+          totalQuantity: data.totalQuantity,
+          completedQuantity: 0,
+          status: OrderStatus.PENDING,
+          priority: data.priority || Priority.MEDIUM,
+          remarks: data.remarks,
+          createdById: data.createdById,
+          work_order_breakup: {
+            create: data.colorSizeBreakup.map((breakup) => ({
+              id: randomUUID(),
+              colorId: breakup.colorId || null, // Handle nullable colorId
+              sizeId: breakup.sizeId,
+              plannedQuantity: breakup.quantity,
+              completedQuantity: 0,
+            })),
+          },
         },
-      },
-      include: {
-        orders: {
-          select: {
-            id: true,
-            orderNumber: true,
-            customers: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
+        include: {
+          orders: {
+            select: {
+              id: true,
+              orderNumber: true,
+              customers: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                },
+              },
+            },
+          },
+          order_items: {
+            select: {
+              id: true,
+              itemDescription: true,
+              totalQuantity: true,
+              unitPrice: true,
+            },
+          },
+          stock_production_orders: {
+            select: {
+              id: true,
+              spoNumber: true,
+              status: true,
+              totalQuantity: true,
+            },
+          },
+          styles: {
+            select: {
+              id: true,
+              styleCode: true,
+              buyerStyleRef: true,
+              styleName: true,
+              categoryId: true,
+            },
+          },
+          warehouses: {
+            select: {
+              id: true,
+              warehouseCode: true,
+              warehouseName: true,
+              warehouseType: true,
+              city: true,
+            },
+          },
+          users_work_orders_createdByIdTousers: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          work_order_breakup: {
+            include: {
+              color_options: {
+                select: {
+                  id: true,
+                  colorName: true,
+                  colorCode: true,
+                },
+              },
+              size_options: {
+                select: {
+                  id: true,
+                  sizeName: true,
+                  sizeCode: true,
+                },
               },
             },
           },
         },
-        order_items: {
-          select: {
-            id: true,
-            itemDescription: true,
-            totalQuantity: true,
-            unitPrice: true,
-          },
-        },
-        stock_production_orders: {
-          select: {
-            id: true,
-            spoNumber: true,
-            status: true,
-            totalQuantity: true,
-          },
-        },
-        styles: {
-          select: {
-            id: true,
-            styleCode: true,
-            buyerStyleRef: true,
-            styleName: true,
-            categoryId: true,
-          },
-        },
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-            warehouseType: true,
-            city: true,
-          },
-        },
-        users_work_orders_createdByIdTousers: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-          },
-        },
-        work_order_breakup: {
-          include: {
-            color_options: {
-              select: {
-                id: true,
-                colorName: true,
-                colorCode: true,
-              },
-            },
-            size_options: {
-              select: {
-                id: true,
-                sizeName: true,
-                sizeCode: true,
-              },
-            },
-          },
-        },
-      },
+      });
+      await syncOrderStatus(tx, created.orderId);
+      return created;
     });
 
     // Auto-create production_tracking: ORDER_RECEIVED
@@ -554,7 +562,23 @@ class WorkOrderService {
       }
 
       // Perform update without userRole
-      const workOrder = await prisma.work_orders.update({
+      return this.updateRunAndSyncOrder(id, updateData);
+    }
+
+    // No status change - simple update (exclude userRole from DB write)
+    const { userRole: _userRole, ...updateData } = data;
+    return this.updateRunAndSyncOrder(id, updateData);
+  }
+
+  /**
+   * Write a run's fields and re-derive its order's status in the same transaction (a hand-set run
+   * status or a new quantity can change what the order is — order-status.helper).
+   */
+  private async updateRunAndSyncOrder(id: string, updateData: Prisma.work_ordersUncheckedUpdateInput) {
+    return prisma.$transaction(async (tx) => {
+      const run = await tx.work_orders.findUnique({ where: { id }, select: { orderId: true } });
+      if (run?.orderId) await lockOrder(tx, run.orderId);
+      const workOrder = await tx.work_orders.update({
         where: { id },
         data: updateData,
         include: {
@@ -588,56 +612,22 @@ class WorkOrderService {
           },
         },
       });
-
+      await syncOrderStatus(tx, workOrder.orderId);
       return workOrder;
-    }
-
-    // No status change - simple update (exclude userRole from DB write)
-    const { userRole: _userRole, ...updateData } = data;
-    const workOrder = await prisma.work_orders.update({
-      where: { id },
-      data: updateData,
-      include: {
-        orders: {
-          select: {
-            id: true,
-            orderNumber: true,
-            customers: {
-              select: {
-                id: true,
-                name: true,
-                code: true,
-              },
-            },
-          },
-        },
-        styles: {
-          select: {
-            id: true,
-            styleCode: true,
-            buyerStyleRef: true,
-            styleName: true,
-          },
-        },
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-          },
-        },
-      },
     });
-
-    return workOrder;
   }
 
   /**
    * Delete a work order
    */
   async deleteWorkOrder(id: string) {
-    await prisma.work_orders.delete({
-      where: { id },
+    await prisma.$transaction(async (tx) => {
+      const run = await tx.work_orders.findUnique({ where: { id }, select: { orderId: true } });
+      if (run?.orderId) await lockOrder(tx, run.orderId);
+      await tx.work_orders.delete({
+        where: { id },
+      });
+      await syncOrderStatus(tx, run?.orderId);
     });
 
     return { success: true, message: 'Work order deleted successfully' };
@@ -677,11 +667,13 @@ class WorkOrderService {
       // a stray entry (stale screen, wrong pick, API client) used to resurrect it below.
       const targetWo = await tx.work_orders.findUnique({
         where: { id: data.workOrderId },
-        select: { status: true, workOrderNumber: true },
+        select: { status: true, workOrderNumber: true, orderId: true },
       });
       if (!targetWo) {
         throw new NotFoundError('Work order');
       }
+      // The run's order is locked first: this entry may move the order's status (order-status.helper)
+      if (targetWo.orderId) await lockOrder(tx, targetWo.orderId);
       if (targetWo.status === OrderStatus.CANCELLED) {
         throw new BusinessError(
           `Work order ${targetWo.workOrderNumber} is CANCELLED — production cannot be recorded against it.`
@@ -748,6 +740,7 @@ class WorkOrderService {
               ...(workOrder.status === OrderStatus.PENDING ? { status: OrderStatus.IN_PRODUCTION } : {}),
             },
           });
+          await syncOrderStatus(tx, workOrder.orderId);
         }
       } else if (COMPLETION_STAGES.includes(data.productionStage)) {
         flippedToCompleted = await this.recomputeWorkOrderCompletion(tx, data.workOrderId);
@@ -786,6 +779,9 @@ class WorkOrderService {
     // Lock the WO row BEFORE aggregating so concurrent completion entries serialize — without this,
     // two simultaneous entries each aggregate before the other commits and the last writer persists an
     // undercounted sum (review nit on the original tx version).
+    // The order first (every status-syncing transaction locks it before anything else), then the run.
+    const owner = await tx.work_orders.findUnique({ where: { id: workOrderId }, select: { orderId: true } });
+    if (owner?.orderId) await lockOrder(tx, owner.orderId);
     await tx.$queryRaw`SELECT id FROM work_orders WHERE id = ${workOrderId} FOR UPDATE`;
 
     const workOrder = await tx.work_orders.findUnique({ where: { id: workOrderId } });
@@ -816,6 +812,7 @@ class WorkOrderService {
           : {}),
       },
     });
+    if (canFlipToCompleted) await syncOrderStatus(tx, workOrder.orderId);
     return canFlipToCompleted;
   }
 
@@ -1078,6 +1075,7 @@ class WorkOrderService {
 
     // Use transaction to ensure consistency
     const result = await prisma.$transaction(async (tx) => {
+      if (originalWorkOrder.orderId) await lockOrder(tx, originalWorkOrder.orderId);
       // 1. Create new work order with split quantities (number generated inside THIS tx — production-17)
       const newWorkOrderNumber = await this.generateWorkOrderNumber(tx);
 
@@ -1150,30 +1148,12 @@ class WorkOrderService {
         throw new ValidationError('Cannot split entire quantity - some must remain in original');
       }
 
+      await syncOrderStatus(tx, originalWorkOrder.orderId);
       return newWorkOrder;
     });
 
     // Fetch complete new work order with includes
     return await this.getWorkOrderById(result.id);
-  }
-
-  /**
-   * Cancel all work orders for an order (used when order is cancelled)
-   */
-  async cancelWorkOrdersByOrderId(orderId: string) {
-    const result = await prisma.work_orders.updateMany({
-      where: {
-        orderId,
-        status: {
-          in: [OrderStatus.PENDING, OrderStatus.IN_PRODUCTION],
-        },
-      },
-      data: {
-        status: OrderStatus.CANCELLED,
-      },
-    });
-
-    return { cancelled: result.count };
   }
 
   /**

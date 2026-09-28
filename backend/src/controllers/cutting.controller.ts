@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
+import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
 import { Prisma, Unit } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import {
@@ -439,14 +440,19 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     logWarn(`Warning: Fabric reservation failed for batch ${batch.batchNumber}: ${(reserveError as Error).message}`);
   }
 
-  // Update work order status to IN_PRODUCTION if still PENDING
+  // Update work order status to IN_PRODUCTION if still PENDING — and its order with it, in one
+  // transaction with the order row locked first (order-status.helper)
   if (workOrder.status === 'PENDING') {
-    await prisma.work_orders.update({
-      where: { id: workOrder.id },
-      data: {
-        status: 'IN_PRODUCTION',
-        actualStartDate: new Date(),
-      },
+    await prisma.$transaction(async (tx) => {
+      if (workOrder.orderId) await lockOrder(tx, workOrder.orderId);
+      await tx.work_orders.update({
+        where: { id: workOrder.id },
+        data: {
+          status: 'IN_PRODUCTION',
+          actualStartDate: new Date(),
+        },
+      });
+      await syncOrderStatus(tx, workOrder.orderId);
     });
   }
 

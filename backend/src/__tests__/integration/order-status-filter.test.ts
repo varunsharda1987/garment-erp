@@ -82,4 +82,17 @@ describe('Order list status filter', () => {
     const after = await prisma.orders.findUniqueOrThrow({ where: { id: anyOrder.id } });
     expect(after.status).toBe(anyOrder.status);
   });
+
+  it('no status is set by hand any more — the order status follows its runs and delivery notes (410)', async () => {
+    const anyOrder = await prisma.orders.findFirst({ select: { id: true, status: true } });
+    if (!anyOrder) return;
+    const res = await request(app)
+      .patch(`/api/orders/${anyOrder.id}/status`)
+      .set(authHeader)
+      .send({ status: 'IN_PRODUCTION' });
+    expect(res.status).toBe(410);
+
+    const after = await prisma.orders.findUniqueOrThrow({ where: { id: anyOrder.id } });
+    expect(after.status).toBe(anyOrder.status);
+  });
 });

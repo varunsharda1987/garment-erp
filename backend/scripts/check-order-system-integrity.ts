@@ -33,11 +33,13 @@
  * D23 active processors with no processing unit              (WH-JW code collision, until 26-Sep)
  * D24 label lots not on exactly one materials row / size of another label (label stock per size)
  * D25 materials rows whose name/code differs from their master (renames never synced, until 27-Sep)
+ * D26 production orders whose status is not what their runs / delivery notes say (nothing moved it, until 28-Sep)
  */
 
 import { PrismaClient } from '@prisma/client';
 import { productionBlockingValidationService } from '../src/services/productionBlockingValidation.service';
 import { findMirrorDrift } from './repair-material-mirror-names';
+import { findOrderStatusDrift } from '../src/services/helpers/order-status.helper';
 
 const prisma = new PrismaClient();
 const JSON_OUT = process.argv.includes('--json');
@@ -476,6 +478,20 @@ async function main() {
         materials_code: d.base && d.base.code !== d.code ? d.base.code : null,
         stale_size_pack_rows: d.derived.length,
       }))
+    )
+  );
+
+  // ---- Production order status ------------------------------------------------------------
+
+  // orders.status is DERIVED from the order's runs and delivery notes (order-status.helper). Until
+  // 28-Sep nothing moved it: every order read PENDING while ORD2026080025/026 were being cut. Every run
+  // and delivery-note writer now syncs it; a row here means a writer was missed. Repair:
+  // scripts/repair-order-status.ts.
+  await run(
+    'D26',
+    'Production orders whose status is not what their runs and delivery notes say',
+    findOrderStatusDrift(prisma).then((drift) =>
+      drift.map((d) => ({ order: d.orderNumber, stored: d.stored, derived: d.derived, reason: d.reason }))
     )
   );
 

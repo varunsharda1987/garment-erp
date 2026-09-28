@@ -32,7 +32,10 @@ export interface TransitionResult {
 
 // Map of entity → current status → allowed next statuses
 const TRANSITIONS: Record<string, Record<string, string[]>> = {
-  // BUG-WO7: 'order' entity used for both orders and work_orders (same OrderStatus enum)
+  // BUG-WO7: 'order' entity — since 2026-09-28 it governs hand-set PRODUCTION RUN (work_orders)
+  // transitions only. A production order's own status is DERIVED from its runs and delivery notes
+  // (services/helpers/order-status.helper.ts, documented as `productionOrder` below) and is never
+  // validated here; PATCH /orders/:id/status is a 410.
   order: {
     PENDING: ['IN_PRODUCTION', 'CANCELLED', 'SPLIT'],
     IN_PRODUCTION: ['COMPLETED', 'CANCELLED'],
@@ -73,6 +76,19 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     RECEIVED: [], // Terminal
     PARTIALLY_RECEIVED: ['RECEIVED'],
     CANCELLED: [], // Terminal
+  },
+
+  // Documentation only — never passed to validateTransition. orders.status is DERIVED by
+  // order-status.helper (first match wins: DISPATCHED, COMPLETED, IN_PRODUCTION, PENDING) and moves
+  // back as readily as forward when the facts change (a cancelled delivery note, a new run, every
+  // started run cancelled). CANCELLED is the one hand-made event (POST /orders/:id/cancel); SPLIT is
+  // never stamped on an order.
+  productionOrder: {
+    PENDING: ['IN_PRODUCTION', 'COMPLETED', 'DISPATCHED', 'CANCELLED'],
+    IN_PRODUCTION: ['PENDING', 'COMPLETED', 'DISPATCHED', 'CANCELLED'],
+    COMPLETED: ['IN_PRODUCTION', 'DISPATCHED', 'CANCELLED'],
+    DISPATCHED: ['COMPLETED', 'IN_PRODUCTION', 'PENDING'],
+    CANCELLED: [],
   },
 
   // Landmine №2 note: sale-order PROGRESS states (allocation/dispatch tiers) are DERIVED

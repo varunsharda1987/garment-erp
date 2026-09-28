@@ -20,6 +20,7 @@ import { createChallan, issueChallan, cancelChallan } from '../services/challan.
 // Shared prisma singleton — a private `new PrismaClient()` opened a second connection pool
 // (bug-hunt production-26)
 import prisma from '../config/database';
+import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
 
 /**
  * Issue a freshly created challan; if issuing fails, cancel the just-created DRAFT challan so it
@@ -371,6 +372,9 @@ export const pushToCutting = async (req: Request, res: Response) => {
   // Status flip + tracking insert in ONE transaction (addProductionTracking joins via outerTx and
   // logs the admin override itself when the flag is passed).
   await prisma.$transaction(async (tx) => {
+    // The run's order is locked first — this push puts it in production (order-status.helper)
+    const run = await tx.work_orders.findUnique({ where: { id }, select: { orderId: true } });
+    if (run?.orderId) await lockOrder(tx, run.orderId);
     await tx.work_orders.update({
       where: { id },
       data: {
@@ -393,6 +397,7 @@ export const pushToCutting = async (req: Request, res: Response) => {
       overrideReason,
       tx
     );
+    await syncOrderStatus(tx, run?.orderId);
   });
 
   const updatedWorkOrder = await workOrderService.getWorkOrderById(id);

@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError, UnauthorizedError, BusinessError } from
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
 import { recomputeSaleOrderStatus } from '../services/helpers/sale-order-status.helper';
+import { linkedOrderIdOf, lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
 import {
   DISPATCHABLE_SALE_ORDER_STATUSES,
   assertWithinShipCaps,
@@ -496,9 +497,14 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   // later delete can restore stock precisely (bug-hunt dispatch-2).
   type FgAllocation = { fgStockId: string; quantity: number };
 
+  // The production order whose status this note moves: its own, or the one the sale order is linked to
+  const statusOrderId = orderId ?? (await linkedOrderIdOf(prisma, saleOrderId));
+
   const attemptCreateNote = (deliveryNumber: string, fgShortfalls: FgShortfall[], fgAllocations: FgAllocation[]) =>
     prisma.$transaction(
       async (tx) => {
+        // Order row first — every status-syncing transaction takes it before any other lock
+        if (statusOrderId) await lockOrder(tx, statusOrderId);
         // The buyer's over-shipment allowance (e.g. Easybuy +5 % per size) widens every cap below.
         const allowance = await overShipAllowanceOf(tx, customerId);
 
@@ -701,6 +707,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
         if (saleOrderId) {
           await recomputeSaleOrderStatus(tx, saleOrderId);
         }
+        await syncOrderStatus(tx, statusOrderId);
 
         return created;
       },
@@ -785,7 +792,7 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
 
   const existing = await prisma.delivery_notes.findUnique({
     where: { id },
-    select: { status: true, saleOrderId: true },
+    select: { status: true, saleOrderId: true, orderId: true },
   });
 
   if (!existing) {
@@ -795,6 +802,7 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
   if (existing.status !== 'PENDING') {
     throw new ValidationError('Can only delete pending delivery notes');
   }
+  const statusOrderId = existing.orderId ?? (await linkedOrderIdOf(prisma, existing.saleOrderId));
 
   // Restore + delete in ONE tx, from the note's own allocation records — the exact FG rows and
   // quantities its creation deducted. Deleting used to just drop the note, leaking every deduction
@@ -802,6 +810,7 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
   // quantity a shortfall-creation didn't deduct, and it restores to the same location rows.
   // Notes created BEFORE allocation records existed simply have none — delete behaves as before.
   await prisma.$transaction(async (tx) => {
+    if (statusOrderId) await lockOrder(tx, statusOrderId); // first — the order's status may step back
     const allocations = await tx.delivery_note_fg_allocations.findMany({
       where: { deliveryNoteId: id },
       select: { fgStockId: true, quantity: true },
@@ -840,6 +849,7 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
     if (existing.saleOrderId) {
       await recomputeSaleOrderStatus(tx, existing.saleOrderId);
     }
+    await syncOrderStatus(tx, statusOrderId);
   });
 
   res.json({ message: 'Delivery note deleted successfully (finished-goods stock restored)' });
@@ -875,8 +885,10 @@ export const cancelDeliveryNote = async (req: Request, res: Response) => {
         : `${note.deliveryNumber} has left the factory — record its proof of delivery as Rejected instead of cancelling it.`
     );
   }
+  const statusOrderId = note.orderId ?? (await linkedOrderIdOf(prisma, note.saleOrderId));
 
   const restored = await prisma.$transaction(async (tx) => {
+    if (statusOrderId) await lockOrder(tx, statusOrderId); // first — the order's status may step back
     // Guarded flip: a dispatch or a second cancel racing this one finds the note no longer PENDING
     const flipped = await tx.delivery_notes.updateMany({
       where: { id, status: 'PENDING' },
@@ -926,6 +938,7 @@ export const cancelDeliveryNote = async (req: Request, res: Response) => {
     if (note.saleOrderId) {
       await recomputeSaleOrderStatus(tx, note.saleOrderId);
     }
+    await syncOrderStatus(tx, statusOrderId);
     return allocations.reduce((sum, a) => sum + a.quantity, 0);
   });
 
@@ -1167,6 +1180,8 @@ export const recordPOD = async (req: Request, res: Response) => {
     where: { id },
     select: {
       status: true,
+      orderId: true,
+      saleOrderId: true,
       delivery_note_items: {
         select: { id: true, quantity: true, saleOrderItemId: true, styleId: true, colorId: true, sizeId: true },
       },
@@ -1216,7 +1231,10 @@ export const recordPOD = async (req: Request, res: Response) => {
   // POD + FG restore + note status in ONE transaction (bug-hunt dispatch-12: a PARTIAL/REJECTED POD
   // used to change nothing — rejected/short goods stayed deducted from finished-goods stock forever and
   // kept counting against the order's dispatch cap).
+  // A PARTIAL / REJECTED delivery takes the order's shipped quantity back down (order-status.helper)
+  const statusOrderId = note.orderId ?? (await linkedOrderIdOf(prisma, note.saleOrderId));
   const restoredQty = await prisma.$transaction(async (tx) => {
+    if (statusOrderId) await lockOrder(tx, statusOrderId); // first, before the note and stock rows
     let noteExt = await tx.delivery_notes_ext.findUnique({
       where: { deliveryNoteId: id },
     });
@@ -1353,6 +1371,7 @@ export const recordPOD = async (req: Request, res: Response) => {
         await recomputeSaleOrderStatus(tx, updatedNote.saleOrderId);
       }
     }
+    await syncOrderStatus(tx, statusOrderId);
 
     return restored;
   });
@@ -1891,9 +1910,15 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
   type FgAllocation = { fgStockId: string; quantity: number };
   type FgShortfall = { saleOrderItemId: string; requested: number; deducted: number };
 
+  // The production order the sale order is linked to: this note moves its status too — the note
+  // itself never carries orderId, so the order's own ?orderId= queries cannot see it
+  const statusOrderId = await linkedOrderIdOf(prisma, saleOrderId);
+
   const attemptCreate = async (deliveryNumber: string, fgAllocations: FgAllocation[], fgShortfalls: FgShortfall[]) =>
     prisma.$transaction(
       async (tx) => {
+        // Order row first, before the sale-order line locks below (the order-first rule)
+        if (statusOrderId) await lockOrder(tx, statusOrderId);
         // The colour each line ships in (a colourless line takes the style's only colour, or the
         // one the caller names), then the caps — ordered + the buyer's allowance — on locked lines.
         const lines = [];
@@ -2000,6 +2025,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
 
         // Update sale order status
         await recomputeSaleOrderStatus(tx, saleOrderId);
+        await syncOrderStatus(tx, statusOrderId);
 
         return note;
       },

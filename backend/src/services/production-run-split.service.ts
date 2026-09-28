@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { syncOrderStatus } from './helpers/order-status.helper';
 
 // ============================================
 // TYPES
@@ -199,6 +200,8 @@ export async function splitProductionRun(parentId: string, splits: SplitInput[],
         splitReason: `Split into ${splits.length} runs`,
       },
     });
+    // The parent's children replace it in the order's plan (order-status.helper)
+    await syncOrderStatus(tx, parent.orderId);
 
     return {
       parent: {

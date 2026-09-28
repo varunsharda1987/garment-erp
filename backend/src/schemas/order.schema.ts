@@ -65,14 +65,11 @@ export const createOrderSchema = z.object({
 // (bug-hunt orders-1).
 export const updateOrderSchema = createOrderSchema.omit({ saleOrderId: true }).partial();
 
-// Update order status schema (same: id comes from the route param, not the body).
+// PATCH /orders/:id/status is RETIRED (410) — the status is derived (order-status.helper). The body
+// is still validated so an unknown status (e.g. SPLIT, stamped only on runs) keeps its 400.
 export const updateOrderStatusSchema = z.object({
   status: OrderStatus,
   reason: z.string().max(500).optional(),
-  // Qty-rate audit 2026-08-24: confirming IN_PRODUCTION blocks with RATE_SLAB_CHANGED when the
-  // order's quantity lands in a different processor rate slab than the style was costed at.
-  // Re-sending with acceptRates: true accepts the order-quantity rates (order-scoped).
-  acceptRates: z.boolean().optional(),
 });
 
 // Cancel order with options.

@@ -13,6 +13,14 @@ import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import type { OrderQueryInput } from '../schemas/order.schema';
 import { applySearch } from '../utils/search-filter';
+import {
+  deriveOrderStatus,
+  loadOrderStatusFacts,
+  lockOrder,
+  syncOrderStatus,
+} from '../services/helpers/order-status.helper';
+import { getRunFabricPosition } from '../services/helpers/run-fabric.helper';
+import { orderRequirementBuckets } from '../services/helpers/order-requirements.helper';
 
 // ============================================
 // Types for Order Controller
@@ -565,8 +573,20 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
           order_item_costing: true,
         },
       },
+      // Every BOM, newest version first — the order page shows each style's latest active one; the
+      // order form counts approved ones
       orderBoms: {
-        select: { id: true, status: true, styleId: true },
+        select: {
+          id: true,
+          status: true,
+          styleId: true,
+          version: true,
+          isActive: true,
+          totalMaterialCost: true,
+          style: { select: { styleCode: true, styleName: true, buyerStyleRef: true } },
+          _count: { select: { items: true } },
+        },
+        orderBy: { version: 'desc' },
       },
       // Make-to-order origin (serializes as saleOrder)
       sale_orders: {
@@ -584,274 +604,68 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
     throw new NotFoundError('Order', id);
   }
 
-  res.json({ data: order });
-};
-
-/**
- * Update order status
- * PATCH /api/orders/:id/status
- */
-export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
-  const { status, reason, acceptRates } = req.body;
-
-  // Get the current order with items to check for status change
-  const currentOrder = await prisma.orders.findUnique({
-    where: { id },
-    include: {
-      order_items: {
-        select: {
-          id: true,
-          styleId: true,
-          totalQuantity: true,
-        },
-      },
-    },
+  // Where the order stands, for the order page — each fact from its one helper:
+  //   requirementsSummary  one bucket per live requirement line (order-requirements.helper)
+  //   statusReason/shipment why the (derived) status is what it is, and ordered vs shipped (order-status.helper)
+  //   runFabric            fabric issued to / still at Cutting per run (run-fabric.helper)
+  //   dispatchNotes/orderInvoices  raised against the order OR its sale order — a sale-order dispatch
+  //                        never carries orderId, so an ?orderId= list missed every one of them
+  const soScope = order.saleOrderId ? [{ saleOrderId: order.saleOrderId }] : [];
+  const liveRunIds = await prisma.work_orders.findMany({
+    where: { orderId: id, status: { not: 'CANCELLED' } },
+    select: { id: true },
   });
-
-  if (!currentOrder) {
-    throw new NotFoundError('Order', id);
-  }
-
-  const previousStatus = currentOrder.status;
-
-  // =====================================================
-  // Qty-rate audit 2026-08-24: PRE-TRANSITION rate-slab gate.
-  // This MUST run before orderService.updateStatus — the status flip commits there, and the
-  // RM-clone loop below swallows its errors by design, so any check placed inside it can never
-  // block. If this order's quantity lands in a different processor rate slab than the style was
-  // costed at, confirmation stops until the user accepts the order-quantity rates
-  // (acceptRates: true), which apply to THIS order only — the style costing is never edited.
-  // =====================================================
-  if (status === 'IN_PRODUCTION' && previousStatus !== 'IN_PRODUCTION' && acceptRates !== true) {
-    for (const orderItem of currentOrder.order_items) {
-      const gateCostSheet = await prisma.style_costing.findFirst({
-        where: {
-          styleId: orderItem.styleId,
-          purpose: { in: ['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] },
-          supersededById: null,
-          isApproved: true,
-        },
-        orderBy: { version: 'desc' },
-        select: { id: true },
-      });
-      if (!gateCostSheet) continue; // cost-sheet existence is enforced at order creation
-
-      const slabCheck = await processorRateValidationService.validateQuantitySlabs(
-        gateCostSheet.id,
-        orderItem.totalQuantity
-      );
-      if (slabCheck.driftItems.length > 0) {
-        const driftSummary = slabCheck.driftItems
-          .map(
-            (d) =>
-              `${d.itemName}: costed ₹${d.costSheetRate}/m @ ${d.slabLabelOld ?? 'costed slab'} → this order ` +
-              `₹${d.orderRate}/m @ ${d.slabLabelNew} (${d.percentageChange > 0 ? '+' : ''}${d.percentageChange.toFixed(1)}%)`
-          )
-          .join('; ');
-        throw new BusinessError(
-          `Cannot confirm: this order's quantity (${orderItem.totalQuantity} pcs) falls in a different processor ` +
-            `rate slab than the style was costed at. ${driftSummary}. Confirm again accepting the order-quantity ` +
-            `rates (they apply to this order only).`,
-          { code: 'RATE_SLAB_CHANGED', driftItems: slabCheck.driftItems, styleId: orderItem.styleId }
-        );
-      }
-    }
-  }
-
-  // Delegate to the service so the state machine actually runs (validateTransition + admin-override
-  // logging). The raw prisma.orders.update this replaced allowed ANY transition — e.g. DELIVERED back
-  // to PENDING — silently bypassing the validator that already existed (bug-hunt orders-3).
-  const updated = await orderService.updateStatus(id, status, req.user?.role, reason);
-  const order = { ...updated, order_items: currentOrder.order_items };
-
-  // =====================================================
-  // AUTO-TRIGGER RAW_MATERIAL_CALCULATION CAD
-  // When order status changes to IN_PRODUCTION (confirmation)
-  // Clone COSTING CAD rows to RAW_MATERIAL_CALCULATION purpose
-  // =====================================================
-  const rawMatResults: { styleId: string; clonedCount: number; skipped: boolean; reason?: string }[] = [];
-
-  if (status === 'IN_PRODUCTION' && previousStatus !== 'IN_PRODUCTION') {
-    logInfo(
-      `[updateOrderStatus] Order ${id} confirmed (IN_PRODUCTION) - triggering RAW_MATERIAL_CALCULATION CAD creation`
-    );
-
-    for (const orderItem of order.order_items) {
-      try {
-        // Idempotency guard, scoped to THIS order. The old guard fetched an ARBITRARY RM row
-        // for the style (findFirst, no orderBy) and skipped only if that one row happened to
-        // belong to this order — so a repeat order for the same style always re-cloned the
-        // whole RM set, and re-confirming could duplicate it (qty-rate audit 2026-08-24).
-        const existingRawMat = await prisma.fabric_width_cad.findFirst({
-          where: {
-            purpose: 'RAW_MATERIAL_CALCULATION',
-            clonedFromOrderId: id,
-            styleFabric: {
-              style_components: {
-                styleId: orderItem.styleId,
-              },
-            },
-          } as any,
-          select: { id: true },
-        });
-
-        if (existingRawMat) {
-          rawMatResults.push({
-            styleId: orderItem.styleId,
-            clonedCount: 0,
-            skipped: true,
-            reason: 'RAW_MATERIAL_CALCULATION already exists for this order',
-          });
-          continue;
-        }
-
-        // Find fully-approved COSTING CAD rows for this style.
-        // Two-owner split (2026-08-22): BOTH approvals are required by policy — CAD-geometry
-        // approval (quantities are final) AND the costing PRICE approval with an actual price.
-        // The old `approvedBy: { not: null }` proxy matched either flow and also matched
-        // phantom rows with no price, which cloned ₹0 RM rows.
-        const costingCadRows = await prisma.fabric_width_cad.findMany({
-          where: {
-            purpose: 'COSTING',
-            approvalStatus: 'APPROVED', // allow-cad-approval: CAD half of the both-approvals gate
-            costingApprovalStatus: { in: ['APPROVED', 'ALTERNATE_APPROVED'] },
-            totalCostPerMeter: { not: null },
-            styleFabric: {
-              style_components: {
-                styleId: orderItem.styleId,
-              },
-            },
-          },
-          include: {
-            styleFabric: {
-              select: {
-                id: true,
-                componentId: true,
-                fabricId: true,
-                genericGreigeName: true,
-              },
-            },
-            sizeBreakdowns: true, // Correct relation name
-          },
-        });
-
-        if (costingCadRows.length === 0) {
-          rawMatResults.push({
-            styleId: orderItem.styleId,
-            clonedCount: 0,
-            skipped: true,
-            reason:
-              'No fully-approved COSTING CAD found (needs CAD approval in CAD Planning AND an approved costing price)',
-          });
-          continue;
-        }
-
-        // Clone each COSTING CAD row to RAW_MATERIAL_CALCULATION
-        let clonedCount = 0;
-        for (const costingCad of costingCadRows) {
-          const newCadId = randomUUID();
-
-          // Use type assertion for fields with @map
-          await prisma.fabric_width_cad.create({
-            data: {
-              id: newCadId,
-              styleFabricId: costingCad.styleFabricId,
-              greigeId: costingCad.greigeId,
-              cutableWidth: costingCad.cutableWidth,
-              cadMeters: costingCad.cadMeters,
-              cadYards: costingCad.cadYards,
-              cadAverage: costingCad.cadAverage,
-              cadWastagePercent: costingCad.cadWastagePercent,
-              markerEfficiency: costingCad.markerEfficiency,
-              // RAW_MATERIAL_CALCULATION purpose
-              // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
-              purpose: 'RAW_MATERIAL_CALCULATION',
-              purposeEnum: 'RAW_MATERIAL_CALCULATION' as any,
-              // Link to order - these fields use @map in schema
-              clonedFromOrderId: id,
-              clonedFromCadId: costingCad.id,
-              notes: `Cloned from COSTING CAD ${costingCad.id} when order ${order.orderNumber} was confirmed`,
-              // Cost data — qty-rate audit 2026-08-24: the clone used to DROP the identity of the
-              // price (processorId/rateCardId/costingStyleId/fabricId/componentName/shrinkage/
-              // screen), leaving an unauditable number, an orphan invisible to every
-              // costingStyleId-keyed reader, and R2 phantom-check growth. Copy the full costing
-              // decoration and stamp THIS order's quantity beside the costed basis.
-              costingStyleId: orderItem.styleId,
-              fabricId: costingCad.fabricId,
-              componentName: costingCad.componentName,
-              patternPartId: costingCad.patternPartId,
-              processorId: costingCad.processorId,
-              rateCardId: costingCad.rateCardId,
-              shrinkagePercent: costingCad.shrinkagePercent,
-              shrinkageCostPerMeter: costingCad.shrinkageCostPerMeter,
-              transportCostPerMeter: costingCad.transportCostPerMeter,
-              screenCostPerMeter: costingCad.screenCostPerMeter,
-              screenType: costingCad.screenType,
-              numberOfColors: costingCad.numberOfColors,
-              processingBatchGroupColorId: costingCad.processingBatchGroupColorId,
-              orderQuantityPcs: orderItem.totalQuantity,
-              costedAtQuantityMeters: costingCad.costedAtQuantityMeters,
-              costedRateIsBatch: costingCad.costedRateIsBatch,
-              createdById: req.user?.userId ?? null,
-              greigeCostPerMeter: costingCad.greigeCostPerMeter,
-              processingPricePerMeter: costingCad.processingPricePerMeter,
-              totalCostPerMeter: costingCad.totalCostPerMeter,
-              costInputMode: costingCad.costInputMode,
-              // Clone size breakdowns if they exist
-              sizeBreakdowns:
-                costingCad.sizeBreakdowns.length > 0
-                  ? {
-                      create: costingCad.sizeBreakdowns.map((sb: any) => ({
-                        sizeName: sb.sizeName,
-                        sizeId: sb.sizeId,
-                        quantity: sb.quantity,
-                        cadMeters: sb.cadMeters,
-                        cadYards: sb.cadYards,
-                      })),
-                    }
-                  : undefined,
-            } as any,
-          });
-          clonedCount++;
-        }
-
-        rawMatResults.push({
-          styleId: orderItem.styleId,
-          clonedCount,
-          skipped: false,
-        });
-
-        logInfo(
-          `[updateOrderStatus] Cloned ${clonedCount} COSTING CAD rows to RAW_MATERIAL_CALCULATION for style ${orderItem.styleId}`
-        );
-      } catch (rawMatError) {
-        // allow-swallow — per-item failure is surfaced to the caller via rawMaterialCalculation.results in the response (T2)
-        // Per-item error handling - don't fail the whole status update
-        logWarn(
-          `[updateOrderStatus] Failed to create RAW_MATERIAL_CALCULATION CAD for style ${orderItem.styleId}:`,
-          rawMatError
-        );
-        rawMatResults.push({
-          styleId: orderItem.styleId,
-          clonedCount: 0,
-          skipped: true,
-          reason: `Error during cloning: ${rawMatError instanceof Error ? rawMatError.message : String(rawMatError)}`,
-        });
-      }
-    }
-  }
+  const [requirementsSummary, facts, notes, orderInvoices, runFabric] = await Promise.all([
+    orderRequirementBuckets(prisma, id),
+    loadOrderStatusFacts(prisma, id),
+    prisma.delivery_notes.findMany({
+      where: { OR: [{ orderId: id }, ...soScope] },
+      select: {
+        id: true,
+        deliveryNumber: true,
+        status: true,
+        deliveryDate: true,
+        delivery_note_items: { select: { quantity: true } },
+      },
+      orderBy: { deliveryDate: 'desc' },
+    }),
+    prisma.invoices.findMany({
+      where: { OR: [{ orderId: id }, ...soScope] },
+      select: { id: true, invoiceNumber: true, status: true, totalAmount: true, invoiceDate: true },
+      orderBy: { invoiceDate: 'desc' },
+    }),
+    Promise.all(
+      liveRunIds.map(async ({ id: runId }) => {
+        const lots = [...(await getRunFabricPosition([runId])).lots.values()];
+        return {
+          workOrderId: runId,
+          issued: lots.reduce((sum, l) => sum + l.issued, 0),
+          atCutting: lots.reduce((sum, l) => sum + l.atCutting, 0),
+          consumed: lots.reduce((sum, l) => sum + l.consumed, 0),
+        };
+      })
+    ),
+  ]);
+  const derived = facts ? deriveOrderStatus(facts) : null;
 
   res.json({
-    data: order,
-    message: 'Order status updated successfully',
-    rawMaterialCalculation:
-      rawMatResults.length > 0
+    data: {
+      ...order,
+      requirementsSummary,
+      statusReason: derived?.reason ?? null,
+      shipment: facts
         ? {
-            triggered: true,
-            results: rawMatResults,
+            ordered: facts.shipments.reduce((sum, g) => sum + g.ordered, 0),
+            shipped: facts.shipments.reduce((sum, g) => sum + Math.min(g.shipped, g.ordered), 0),
           }
-        : undefined,
+        : null,
+      dispatchNotes: notes.map(({ delivery_note_items, ...note }) => ({
+        ...note,
+        quantity: delivery_note_items.reduce((sum, i) => sum + i.quantity, 0),
+      })),
+      orderInvoices,
+      runFabric,
+    },
   });
 };
 
@@ -1000,6 +814,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     // top-level writes before, so a mid-loop failure left the order with zero/partial items and
     // stale header totals, and the dependency check above raced concurrent BOM/MRP writes.
     await prisma.$transaction(async (tx) => {
+      await lockOrder(tx, id); // first: this edit re-plans runs, which the order's status reads
       // Delete existing order items and breakup, then create new ones
       await tx.order_item_breakup.deleteMany({
         where: { order_items: { orderId: id } },
@@ -1117,6 +932,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
         where: { id },
         data: updateData as any,
       });
+      await syncOrderStatus(tx, id);
     });
 
     // Existing baselines were preserved inside the transaction above. Styles new to this order
@@ -1599,6 +1415,8 @@ export async function applyOrderItemSizeBreakup(params: {
 
   // Replace this item's breakup only — the order_items row (and every FK pointing at it) stays.
   await prisma.$transaction(async (tx) => {
+    // The order is locked before anything else in a status-syncing transaction (order-status.helper)
+    await lockOrder(tx, orderId);
     // Lock the order item first. Two concurrent calls would otherwise each delete the rows
     // visible in their own snapshot and then insert, merging both breakups into one item
     // (Postgres READ COMMITTED). The loser blocks here and re-reads after the winner commits.
@@ -1673,6 +1491,7 @@ export async function applyOrderItemSizeBreakup(params: {
         });
       }
     }
+    await syncOrderStatus(tx, orderId);
   });
 
   logInfo(

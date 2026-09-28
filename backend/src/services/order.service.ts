@@ -11,7 +11,6 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import workOrderService from './workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
-import { validateTransition } from '../utils/stateMachine';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import { sampleService } from './sample.service';
 import { applySearch } from '../utils/search-filter';
@@ -634,49 +633,6 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   }
 
   /**
-   * Update order status with state machine validation.
-   * Normal users: only valid forward transitions allowed.
-   * Admin users: can override with reason logged.
-   */
-  async updateStatus(id: string, status: OrderStatus, userRole?: string, reason?: string): Promise<orders> {
-    logDebug('Updating order status', { id, status, userRole });
-
-    const existing = await this.findByIdOrThrow(id);
-
-    // Validate transition
-    const transition = validateTransition('order', existing.status, status, userRole);
-    if (!transition.valid) {
-      throw new ValidationError(transition.message || 'Invalid status transition');
-    }
-
-    if (transition.isAdminOverride) {
-      logInfo('Admin override: order status change', {
-        id,
-        from: existing.status,
-        to: status,
-        reason: reason || 'No reason provided',
-      });
-    }
-
-    const order = await this.prisma.orders.update({
-      where: { id },
-      data: { status },
-      include: {
-        customers: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    logInfo('Order status updated', { id, from: existing.status, to: status });
-    return order;
-  }
-
-  /**
    * Cancel order (soft delete) and cascade to work orders
    * Also handles lace allocations based on provided options
    */
@@ -749,7 +705,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       // Cancel the order
       await tx.orders.update({
         where: { id },
-        data: { status: 'CANCELLED' },
+        data: { status: 'CANCELLED' }, // allow-order-status: Cancel is the one hand-made order status event
       });
 
       // Cancel all related work orders

@@ -150,6 +150,15 @@ factory clicks **Start Production**. B2B can use it for an "in production" badge
 exact production `orderNumber` for its PO. No `SaleOrderStatus` values were added — the §4 status
 list and terminal logic are untouched.
 
+**Behaviour change (2026-09-28, backward-compatible):** `productionOrders[].status` now MOVES by
+itself — until then every production order read `PENDING` for ever. It is derived from the order's
+production runs and delivery notes: `IN_PRODUCTION` once a run has started (pushed to cutting / cut),
+`COMPLETED` when every run is finished and the whole order is planned, `DISPATCHED` when every line has
+shipped (net of rejected / short deliveries), and it can step back (a cancelled or rejected delivery
+takes `DISPATCHED` back to `COMPLETED`). The VALUES are unchanged (`PENDING`, `IN_PRODUCTION`,
+`COMPLETED`, `DISPATCHED`, `CANCELLED`). `PATCH /api/orders/:id/status` is retired (410); B2B never
+called it.
+
 **Additive fields (2026-09-25, backward-compatible):** `items[].style` also carries `season`
 (free text, nullable) and `seasonMaster{code,name}` (nullable) — the factory's Sale Order list and
 detail show the style's season. A sale order has no season of its own. B2B may ignore both.

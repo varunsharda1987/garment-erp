@@ -19,8 +19,13 @@ class ManufacturingController {
    * cadence. Separate endpoints also fail separately, which is the whole point of the Control
    * Center rework: a heavy pipeline query must never be able to blank the exceptions inbox.
    */
-  async getPipeline(_req: Request, res: Response) {
-    const data = await manufacturingPipelineService.getPipeline();
+  async getPipeline(req: Request, res: Response) {
+    const orderId = typeof req.query.orderId === 'string' ? req.query.orderId : undefined;
+    if (orderId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId)) {
+      res.status(400).json({ success: false, message: 'orderId must be an order id' });
+      return;
+    }
+    const data = await manufacturingPipelineService.getPipeline({ orderId });
     res.json({ success: true, data });
   }
 }

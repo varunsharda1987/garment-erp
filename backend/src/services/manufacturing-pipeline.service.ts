@@ -73,8 +73,13 @@ export interface PipelineResponse {
 }
 
 class ManufacturingPipelineService {
-  async getPipeline(): Promise<PipelineResponse> {
+  /**
+   * @param opts.orderId  one order's lines only — the order page's "What's stopping it" card asks the
+   *                      same gate for the order it shows
+   */
+  async getPipeline(opts: { orderId?: string } = {}): Promise<PipelineResponse> {
     const openOrderFilter = {
+      ...(opts.orderId ? { orderId: opts.orderId } : {}),
       orders: { isActive: true, status: { notIn: [...CLOSED_ORDER_STATUSES] } },
     };
 

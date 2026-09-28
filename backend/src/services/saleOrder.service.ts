@@ -6,6 +6,7 @@ import { multiplyCurrency, divideCurrency, roundToCent, Decimal } from '../utils
 import { orderService, OrderItemInput, OrderPriority } from './order.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
+import { linkedOrderIdOf, lockOrder, syncOrderStatus } from './helpers/order-status.helper';
 import { processorRateValidationService } from './processor-rate-validation.service';
 import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
@@ -1272,6 +1273,7 @@ export class SaleOrderService {
       // typed in August — ORD2026080026 carried 20-Sep, already past, and its run printed
       // "24-Sep → 20-Sep".
       await prisma.$transaction(async (tx) => {
+        await lockOrder(tx, orderId); // first — linking changes what "shipped" means for the order
         await tx.orders.update({
           where: { id: orderId },
           data: { saleOrderId, ...(so.expectedShipDate ? { expectedDeliveryDate: so.expectedShipDate } : {}) },
@@ -1283,6 +1285,7 @@ export class SaleOrderService {
             data: { plannedEndDate: so.expectedShipDate },
           });
         }
+        await syncOrderStatus(tx, orderId);
       });
     } catch (err) {
       // The partial unique index orders_saleOrderId_active_key catches a simultaneous second link
@@ -1390,7 +1393,10 @@ export class SaleOrderService {
       return m;
     };
 
+    // A changed line quantity can change whether the linked production order has shipped in full
+    const linkedOrderId = await linkedOrderIdOf(prisma, saleOrderId);
     await prisma.$transaction(async (tx) => {
+      if (linkedOrderId) await lockOrder(tx, linkedOrderId); // first, before the sale-order lines
       for (const i of changed) {
         const q = newQty.get(i.id) as number;
         // Guarded against a concurrent allocation/dispatch landing between the check and the write
@@ -1412,6 +1418,7 @@ export class SaleOrderService {
       const subtotal = Number(totals._sum.totalPrice ?? 0);
       await tx.sale_orders.update({ where: { id: saleOrderId }, data: { subtotal, totalAmount: subtotal } });
       await recomputeSaleOrderStatus(tx, saleOrderId);
+      await syncOrderStatus(tx, linkedOrderId);
     });
 
     // The linked production order follows only where it still mirrors the old split

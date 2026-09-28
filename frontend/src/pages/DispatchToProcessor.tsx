@@ -33,8 +33,11 @@ import {
   checkSentDate,
   emptyLotRow,
   evaluateLotRows,
+  fitParts,
   lotHasThans,
   lotRowTarget,
+  pieceKindOf,
+  pieceWord,
   THAN_PICK_TOLERANCE_PCT,
   withPicks,
   picksPayload,
@@ -233,7 +236,7 @@ export default function DispatchToProcessor() {
       const fit = bestFitThansForJobs(lotThans, jobs);
       if (!fit) {
         notes.push(
-          `${label}: no set of whole thans fits ${jobs.length === 1 ? 'the order' : `all ${jobs.length} orders`} within ${THAN_PICK_TOLERANCE_PCT}% — pick those thans by hand.`
+          `${label}: no set of whole ${pieceWord(pieceKindOf(lotThans), 2)} fits ${jobs.length === 1 ? 'the order' : `all ${jobs.length} orders`} within ${THAN_PICK_TOLERANCE_PCT}% — pick those ${pieceWord(pieceKindOf(lotThans), 2)} by hand.`
         );
         continue;
       }
@@ -249,12 +252,8 @@ export default function DispatchToProcessor() {
           ),
         };
       }
-      const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-      const parts = [plural(fit.balesWhole, 'whole bale')];
-      if (fit.balesBroken > 0) parts.push(`${plural(fit.balesBroken, 'bale')} broken`);
-      if (fit.balesShared > 0) parts.push(`${plural(fit.balesShared, 'bale')} shared between orders`);
       notes.push(
-        `${label}: ${jobs.length === 1 ? '1 order' : `${jobs.length} orders fitted on their total`} — ${parts.join(', ')}, no than cut.`
+        `${label}: ${jobs.length === 1 ? '1 order' : `${jobs.length} orders fitted on their total`} — ${fitParts(lotThans, fit)}, no ${pieceWord(pieceKindOf(lotThans), 1)} cut.`
       );
     }
     setSelection(next);

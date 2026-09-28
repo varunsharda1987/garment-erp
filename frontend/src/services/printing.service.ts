@@ -1,4 +1,5 @@
 import api from '@/lib/api';
+import type { IssueDetailInput } from '@/services/jobWorkOrder.service';
 import type {
   LabDip,
   LabDipListResponse,
@@ -228,7 +229,14 @@ export const processPOService = {
   },
   async sendToMill(
     id: string,
-    data: { sentDate: string; challanNumber?: string; vehicleNumber?: string; greigeStockLotId?: string }
+    data: {
+      sentDate: string;
+      challanNumber?: string;
+      vehicleNumber?: string;
+      greigeStockLotId?: string;
+      /** The bales / thans / rolls of that lot that leave (COUNTED metres) */
+      details?: IssueDetailInput[];
+    }
   ): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/printing/process-pos/${id}/send`, data);
     return response.data.data;

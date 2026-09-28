@@ -1,5 +1,6 @@
 /**
- * Than picker — tick which thans (pieces, grouped in bales) of ONE greige lot leave the godown.
+ * Than picker — tick which pieces of ONE greige lot leave the godown: thans (usually grouped in bales) or
+ * rolls. The wording follows the lot's own pieces; the picking is the same.
  *
  * Than metres are COUNTED (the tag figure at the lot's fold length L); lots and jobs are ACTUAL.
  * Per-than checks stay counted-vs-counted; the running total is shown both ways and converted once,
@@ -22,8 +23,11 @@ import {
   bestFitThans,
   THAN_PICK_TOLERANCE_PCT,
   baleCountOf,
+  fitParts,
   groupDetailsByBale,
   hasDetailOverSelection,
+  pieceKindOf,
+  pieceWord,
   thanLabel,
   thanPickActual,
   totalDetailMeters,
@@ -63,6 +67,17 @@ export function ThanPicker({
   const folded = hasFold(lotThans.foldLengthCm);
   const thanCount = lotThans.details.length;
   const baleCount = baleCountOf(lotThans);
+  // Thans or rolls — the same picking, in the lot's own words
+  const kind = pieceKindOf(lotThans);
+  const one = pieceWord(kind, 1);
+  const many = pieceWord(kind, 2);
+  const loose = lotThans.details.filter((d) => d.baleNumber == null);
+  const looseLabel =
+    loose.length > 0 && loose.every((d) => d.detailType === 'ROLL')
+      ? 'Rolls'
+      : baleCount === 0
+        ? 'Thans'
+        : 'Thans outside a bale';
 
   const toggle = (detail: GreigeStockDetail, checked: boolean) => {
     if (checked) {
@@ -76,16 +91,28 @@ export function ThanPicker({
     onChange(selected.map((d) => (d.detailId === detailId ? { ...d, metersToIssue } : d)));
 
   if (thanCount === 0) {
-    return <p className="text-sm text-muted-foreground">No thans of this lot are left in the godown.</p>;
+    return <p className="text-sm text-muted-foreground">No {many} of this lot are left in the godown.</p>;
   }
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="max-w-md text-xs text-muted-foreground">
-          This lot has {thanCount} thans in {baleCount} bales — tick the thans you&apos;re sending so the godown list
-          stays right.
-          {folded && <> Than metres are counted at fold L={lotThans.foldLengthCm} cm; the job is in actual metres.</>}
+          This lot has {thanCount} {pieceWord(kind, thanCount)}
+          {baleCount > 0 && (
+            <>
+              {' '}
+              in {baleCount} {baleCount === 1 ? 'bale' : 'bales'}
+            </>
+          )}{' '}
+          — tick the {many} you&apos;re sending so the godown list stays right.
+          {folded && (
+            <>
+              {' '}
+              {one.charAt(0).toUpperCase() + one.slice(1)} metres are counted at fold L={lotThans.foldLengthCm} cm; the
+              job is in actual metres.
+            </>
+          )}
         </p>
         <Button
           type="button"
@@ -95,7 +122,7 @@ export function ThanPicker({
           disabled={disabled || isQtyZero(targetActual)}
         >
           <Wand2 className="mr-1 h-3.5 w-3.5" />
-          Pick thans for me
+          Pick {many} for me
         </Button>
         <Button
           type="button"
@@ -105,23 +132,19 @@ export function ThanPicker({
             const fit = bestFitThans(lotThans, targetActual);
             if (!fit) {
               setFitNote(
-                `No set of whole thans lands within ${THAN_PICK_TOLERANCE_PCT}% of the job — use Pick thans for me (it cuts the last than).`
+                `No set of whole ${many} lands within ${THAN_PICK_TOLERANCE_PCT}% of the job — use Pick ${many} for me (it cuts the last ${one}).`
               );
               return;
             }
             onChange(fit.picks);
-            const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-            const parts = [plural(fit.balesWhole, 'whole bale')];
-            if (fit.balesBroken > 0) parts.push(plural(fit.balesBroken, 'bale') + ' broken');
-            if (fit.openBalesFinished > 0) parts.push(plural(fit.openBalesFinished, 'opened bale') + ' finished');
             setFitNote(
-              `${parts.join(', ')} — ${formatQuantity(fit.actual, uom)} actual (within ${THAN_PICK_TOLERANCE_PCT}%), no than cut.`
+              `${fitParts(lotThans, fit)} — ${formatQuantity(fit.actual, uom)} actual (within ${THAN_PICK_TOLERANCE_PCT}%), no ${one} cut.`
             );
           }}
           disabled={disabled || isQtyZero(targetActual)}
         >
           <Boxes className="mr-1 h-3.5 w-3.5" />
-          Best fit (whole thans)
+          Best fit (whole {many})
         </Button>
       </div>
       {fitNote && <p className="text-xs text-muted-foreground">{fitNote}</p>}
@@ -130,7 +153,7 @@ export function ThanPicker({
         {groups.map((group) => (
           <div key={group.baleNumber ?? 'unbaled'} className="space-y-1">
             <div className="text-xs font-medium text-muted-foreground">
-              {group.baleLabel ? `Bale ${group.baleLabel}` : 'Thans outside a bale'}
+              {group.baleLabel ? `Bale ${group.baleLabel}` : looseLabel}
             </div>
             <div className="grid gap-1 sm:grid-cols-2">
               {group.thans.map((detail) => {
@@ -177,7 +200,7 @@ export function ThanPicker({
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-sm">
         <span className="font-medium">
-          Selected: {selected.length} than{selected.length === 1 ? '' : 's'} ·{' '}
+          Selected: {selected.length} {pieceWord(kind, selected.length)} ·{' '}
           {folded
             ? `${formatQuantity(pickedCounted, uom)} counted = ${formatQuantity(pickedActual, uom)} actual`
             : formatQuantity(pickedActual, uom)}

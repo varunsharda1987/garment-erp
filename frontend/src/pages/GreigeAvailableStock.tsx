@@ -28,7 +28,11 @@ import {
   Layers,
   Warehouse,
   ArrowRightLeft,
+  ListChecks,
 } from 'lucide-react';
+import { RecordLotPiecesDialog } from '@/components/job-work/RecordLotPiecesDialog';
+import { piecesSummary } from '@/components/job-work/lot-rows';
+import { usePermissions } from '@/hooks/usePermissions';
 import MoveHeldStockDialog, { type MoveLot } from '@/components/job-work/MoveHeldStockDialog';
 import { logError } from '../lib/logger';
 import { toast } from 'sonner';
@@ -90,6 +94,9 @@ export default function GreigeAvailableStock() {
   const [adjustingEntry, setAdjustingEntry] = useState<GreigeStockDetail | null>(null);
   // Move to another processor (Phase 4c): a lot held at one processor goes on to another, on a challan
   const [moveTarget, setMoveTarget] = useState<{ greigeId: string; lot: MoveLot; fromName: string } | null>(null);
+  // "Record bales & thans" on a lot with no list (2026-09-28) — then its pieces can be picked at issue
+  const [piecesTarget, setPiecesTarget] = useState<{ greigeId: string; stockId: string } | null>(null);
+  const { can } = usePermissions();
   const [adjustForm, setAdjustForm] = useState({
     type: 'DECREASE' as 'INCREASE' | 'DECREASE',
     quantity: '',
@@ -678,6 +685,7 @@ export default function GreigeAvailableStock() {
                                         <th className="px-3 py-2 text-right">Cost/m</th>
                                         <th className="px-3 py-2 text-left">Warehouse</th>
                                         <th className="px-3 py-2 text-left">Roll Numbers</th>
+                                        <th className="px-3 py-2 text-left">Pieces</th>
                                         <th className="px-3 py-2 text-left">Received</th>
                                         <th className="px-3 py-2 text-left">Invoice#</th>
                                         <th className="px-3 py-2 text-center">Age</th>
@@ -717,6 +725,9 @@ export default function GreigeAvailableStock() {
                                             title={entry.rollNumbers || ''}
                                           >
                                             {entry.rollNumbers || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-muted-foreground text-xs whitespace-nowrap">
+                                            {piecesSummary(entry.pieces)}
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground">
                                             {entry.receivedDate ? formatDate(new Date(entry.receivedDate)) : '-'}
@@ -775,6 +786,24 @@ export default function GreigeAvailableStock() {
                                               >
                                                 <AlertTriangle className="h-3 w-3" />
                                               </Button>
+                                              {/* No bale / than / roll list (or it is used up): count what is on hand */}
+                                              {can('greigeFabricStock') &&
+                                                qtyExceeds(entry.quantityAvailable, 0) &&
+                                                (entry.pieces?.left ?? 0) < 1 && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 w-7 p-0"
+                                                    title="Record bales & thans"
+                                                    aria-label="Record bales & thans"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setPiecesTarget({ greigeId: stock.greigeId, stockId: entry.id });
+                                                    }}
+                                                  >
+                                                    <ListChecks className="h-3 w-3" />
+                                                  </Button>
+                                                )}
                                               {/* Held at a processor: bring it back into our store (inward challan) */}
                                               {entry.processor?.id && (
                                                 <Button
@@ -1016,6 +1045,14 @@ export default function GreigeAvailableStock() {
           lots={[moveTarget.lot]}
           fromName={moveTarget.fromName}
           onMoved={() => void refreshExpandedRow(moveTarget.greigeId)}
+        />
+      )}
+      {piecesTarget && (
+        <RecordLotPiecesDialog
+          open={!!piecesTarget}
+          onOpenChange={(open) => !open && setPiecesTarget(null)}
+          stockId={piecesTarget.stockId}
+          onRecorded={() => void refreshExpandedRow(piecesTarget.greigeId)}
         />
       )}
     </div>

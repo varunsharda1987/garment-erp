@@ -9,6 +9,7 @@
  */
 import type {
   GreigeLotThans,
+  GreigePieceKind,
   GreigeStockDetail,
   IssueDetailInput,
   JwoIssuePreviewLot,
@@ -442,15 +443,100 @@ export function groupDetailsByBale(
     });
 }
 
-/** "Bale 3 · T27" — the printed bale / than tag when entered at receipt, else the internal numbers. */
+/**
+ * A piece's name on screen — the printed bale / than / roll number when entered, else the internal one:
+ * "Bale 417 · T-27" / "Bale 3 · T5" (baled than), "Than 12" (loose than), "Roll R-55" / "Roll 4".
+ */
 export function thanLabel(detail: GreigeStockDetail): string {
-  const bale = detail.baleNo ?? (detail.baleNumber != null ? String(detail.baleNumber) : '—');
-  return `Bale ${bale} · T${detail.thanNo ?? detail.sequenceNo}`;
+  if (detail.detailType === 'ROLL') return `Roll ${detail.thanNo ?? detail.sequenceNo}`;
+  if (detail.baleNumber == null) return `Than ${detail.thanNo ?? detail.sequenceNo}`;
+  const bale = detail.baleNo ?? String(detail.baleNumber);
+  return `Bale ${bale} · ${detail.thanNo ?? `T${detail.sequenceNo}`}`;
 }
 
-/** Number of distinct bales among the thans still in the godown. */
+/** Number of distinct bales among the pieces still in the godown (loose thans and rolls are in none). */
 export function baleCountOf(lotThans: GreigeLotThans): number {
-  return new Set(lotThans.details.map((d) => d.baleNumber)).size;
+  return new Set(lotThans.details.filter((d) => d.baleNumber != null).map((d) => d.baleNumber)).size;
+}
+
+/** THAN / ROLL / MIXED — from the pieces on the list, else what the server says about the lot. */
+export function pieceKindOf(lotThans: GreigeLotThans | undefined): GreigePieceKind {
+  const types = new Set((lotThans?.details ?? []).map((d) => d.detailType ?? 'THAN'));
+  if (types.size === 0) return lotThans?.pieceKind ?? null;
+  if (types.size > 1) return 'MIXED';
+  return types.has('ROLL') ? 'ROLL' : 'THAN';
+}
+
+/** "than" / "thans" / "roll" / "rolls" / "piece" / "pieces" */
+export function pieceWord(kind: GreigePieceKind | undefined, n: number): string {
+  const word = kind === 'ROLL' ? 'roll' : kind === 'MIXED' ? 'piece' : 'than';
+  return n === 1 ? word : `${word}s`;
+}
+
+/**
+ * The lot's pieces that were on its list by `takenAt` — the only ones a job that left then can have
+ * taken. Pieces counted later ("Record bales & thans") were still on the rack. Mirrors the server.
+ */
+export function piecesListedBy(
+  lotThans: GreigeLotThans | undefined,
+  takenAt: string | undefined
+): GreigeLotThans | undefined {
+  if (!lotThans || !takenAt) return lotThans;
+  const cutOff = new Date(takenAt).getTime();
+  return {
+    ...lotThans,
+    details: lotThans.details.filter((d) => !d.createdAt || new Date(d.createdAt).getTime() <= cutOff),
+  };
+}
+
+/**
+ * The issue screens' one line for a chosen lot with nothing to tick — never a blocker, the lot goes by
+ * quantity: "GRG-0039 has no bale, than or roll list — it goes by quantity. (Received on GRN2608-0004 as
+ * Total Meters.)", or "Every than on GRG-0003's list has gone — the 12.40 m left goes by quantity."
+ */
+export function noListNote(lotThans: GreigeLotThans, uom = 'METER'): string {
+  const code = lotThans.greigeCode ?? 'This lot';
+  if ((lotThans.piecesRecorded ?? 0) > 0) {
+    const kind = pieceKindOf(lotThans);
+    return `Every ${pieceWord(kind, 1)} on ${code}'s list has gone — the ${formatQuantity(lotThans.totalAvailable, uom)} left goes by quantity.`;
+  }
+  const why =
+    lotThans.receipt?.entryMode === 'TOTAL_METERS' && lotThans.receipt.grnNumber
+      ? ` (Received on ${lotThans.receipt.grnNumber} as Total Meters.)`
+      : lotThans.sourceType === 'MANUAL'
+        ? ' (Entered by hand.)'
+        : '';
+  return `${code} has no bale, than or roll list — it goes by quantity.${why}`;
+}
+
+/** A lot's list at a glance: "No list" / "25 rolls" / "64 of 109 thans left · 7 bales" / "All 25 rolls gone". */
+export function piecesSummary(
+  pieces: { total: number; left: number; bales: number; kind: GreigePieceKind } | undefined
+): string {
+  if (!pieces || pieces.total < 1) return 'No list';
+  const word = pieceWord(pieces.kind, pieces.total);
+  if (pieces.left < 1) return `All ${pieces.total} ${word} gone`;
+  const listed =
+    pieces.left === pieces.total ? `${pieces.total} ${word}` : `${pieces.left} of ${pieces.total} ${word} left`;
+  return pieces.bales > 0 ? `${listed} · ${pieces.bales} ${pieces.bales === 1 ? 'bale' : 'bales'}` : listed;
+}
+
+/**
+ * How a best fit took its pieces, in words: "2 whole bales, 1 bale broken" for baled thans; "3 whole
+ * rolls" / "4 whole thans" when the lot has no bales (each piece stands alone in the search).
+ */
+export function fitParts(
+  lotThans: GreigeLotThans,
+  fit: { balesWhole: number; balesBroken: number; openBalesFinished?: number; balesShared?: number },
+  sharedBetween = 'orders'
+): string {
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  if (baleCountOf(lotThans) === 0) return plural(fit.balesWhole, `whole ${pieceWord(pieceKindOf(lotThans), 1)}`);
+  const parts = [plural(fit.balesWhole, 'whole bale')];
+  if (fit.balesBroken > 0) parts.push(`${plural(fit.balesBroken, 'bale')} broken`);
+  if (fit.openBalesFinished) parts.push(`${plural(fit.openBalesFinished, 'opened bale')} finished`);
+  if (fit.balesShared) parts.push(`${plural(fit.balesShared, 'bale')} shared between ${sharedBetween}`);
+  return parts.join(', ');
 }
 
 /**

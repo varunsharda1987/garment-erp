@@ -11,8 +11,12 @@
  * shows: only the cloth the job names, placed by where it lies — already at this mill first (taken
  * where it lies, no dispatch), then our stores — and never another mill's cloth. It used to list every
  * greige lot of every cloth, wherever it was.
+ *
+ * The lot's bales / thans / rolls are offered here too (2026-09-28) — the same lot rows and picker as
+ * the Issue dialog; a lot with no list says so and goes by quantity. One lot covers the whole order.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -24,25 +28,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Send } from 'lucide-react';
 import { jobWorkOrderService, type JwoIssuePreview } from '@/services/jobWorkOrder.service';
+import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
 import {
   checkSentDate,
-  groupLotsForIssue,
+  evaluateLotRows,
   lotIsDrawnWhereItLies,
-  lotOptionLabel,
+  picksPayload,
+  rowHasPicks,
+  type IssueLotRow,
 } from '@/components/job-work/lot-rows';
 import { formatQuantity } from '@/lib/formatters';
-import { qtyAtLeast } from '@/lib/quantity';
+import { prefillQty, qtyAtLeast } from '@/lib/quantity';
 import { dyeingService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -58,8 +56,9 @@ interface SendToMillDialogProps {
 }
 
 export default function SendToMillDialog({ open, onOpenChange, po, processType, onSent }: SendToMillDialogProps) {
+  const queryClient = useQueryClient();
   const [sentDate, setSentDate] = useState<string>(toDateInputValue(new Date()));
-  const [lotId, setLotId] = useState<string>('');
+  const [rows, setRows] = useState<IssueLotRow[]>([]);
   const [challanNumber, setChallanNumber] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
   const [preview, setPreview] = useState<JwoIssuePreview | null>(null);
@@ -67,35 +66,45 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
 
   const jwo = po?.jobWorkOrder;
   const qtyNeeded = Number(jwo?.qtySentMeters ?? 0);
+  // A greige order leaves from a greige lot: its pieces can be named here
+  const isGreigeJob = jwo?.fabricType === 'GREIGE' && !jwo?.fabricStockLotId;
+  const stampedLotId = jwo?.greigeStockLotId ?? '';
   // A greige order that doesn't already carry its lot must pick one here
-  const needsLot = jwo?.fabricType === 'GREIGE' && !jwo?.greigeStockLotId;
+  const needsLot = isGreigeJob && !stampedLotId;
 
   useEffect(() => {
     if (!open) return;
     setSentDate(toDateInputValue(new Date()));
-    setLotId('');
+    setRows([{ lotId: stampedLotId, qty: prefillQty(qtyNeeded) }]);
     setChallanNumber('');
     setVehicleNumber('');
     setPreview(null);
-    if (needsLot && jwo?.id) {
+    if (isGreigeJob && jwo?.id) {
       jobWorkOrderService
         .getIssuePreview(jwo.id)
         .then(setPreview)
         .catch(() => setPreview(null));
     }
-  }, [open, needsLot, jwo?.id]);
+  }, [open, isGreigeJob, jwo?.id, stampedLotId, qtyNeeded]);
 
   const processorName = preview?.processorName ?? 'the mill';
-  // One lot has to cover the order here — a split across lots is issued from the Job Work Order page
+  const uom = preview?.uom ?? 'METER';
+  // One lot has to cover the order here — a split across lots is issued from the Job Work Order page.
+  // A job that carries its lot offers only that lot (its pieces can still be picked).
   const selectableLots = useMemo(
-    () => (preview?.availableLots ?? []).filter((lot) => qtyAtLeast(lot.quantityAvailable, qtyNeeded)),
-    [preview, qtyNeeded]
+    () =>
+      (preview?.availableLots ?? []).filter((lot) =>
+        needsLot ? qtyAtLeast(lot.quantityAvailable, qtyNeeded) : lot.id === stampedLotId
+      ),
+    [preview, qtyNeeded, needsLot, stampedLotId]
   );
-  const lotGroups = groupLotsForIssue(selectableLots, processorName);
-  const chosenLot = selectableLots.find((lot) => lot.id === lotId);
+  const row = rows[0];
+  const chosenLot = selectableLots.find((lot) => lot.id === row?.lotId);
   const drawsHere = lotIsDrawnWhereItLies(chosenLot);
   const today = toDateInputValue(new Date());
   const dateCheck = checkSentDate(sentDate, chosenLot ? [chosenLot] : [], today);
+  const evaluation = evaluateLotRows({ rows, lots: selectableLots, requiredQty: qtyNeeded });
+  const picking = !!row && rowHasPicks(row);
   const elsewhere = (preview?.greigeAnchored ? (preview?.elsewhere ?? []) : []).reduce<Record<string, number>>(
     (acc, lot) => {
       const holder = lot.location?.holderName ?? 'another mill';
@@ -104,6 +113,8 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
     },
     {}
   );
+  // The job's own lot is not in the issue list — say why instead of an empty list; the server decides
+  const stampedMissing = isGreigeJob && !needsLot && !!preview && selectableLots.length === 0;
 
   const handleSend = async () => {
     if (!po) return;
@@ -114,7 +125,8 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
         sentDate,
         challanNumber: challanNumber || undefined,
         vehicleNumber: vehicleNumber || undefined,
-        greigeStockLotId: needsLot && lotId ? lotId : undefined,
+        greigeStockLotId: needsLot && row?.lotId ? row.lotId : undefined,
+        details: picking ? picksPayload(row.selectedDetails) : undefined,
       });
       handleApiSuccess(
         'Sent to Mill',
@@ -122,8 +134,10 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
           ? `${po.poNumber} allocated at ${processorName} — the cloth was already there, nothing dispatched.`
           : `${po.poNumber} issued — outward challan created.`
       );
-      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ['greige-lot-thans'] });
+      // "Sent" first, then close: a caller can tell a sent order from a dialog closed unsent
       onSent();
+      onOpenChange(false);
     } catch (err: unknown) {
       handleApiError(err, 'Failed to send to mill');
     } finally {
@@ -133,41 +147,45 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Send {po?.poNumber ?? ''} to Mill</DialogTitle>
           <DialogDescription>
-            {needsLot
+            {isGreigeJob
               ? drawsHere
                 ? `Takes ${qtyNeeded.toFixed(2)} MTR greige already at ${processorName} — no dispatch and no new challan; the one-year period runs from the day it got there.`
-                : `Issues ${qtyNeeded.toFixed(2)} MTR greige — consumes the selected lot, creates the outward challan, and locks the Section 143 due date.`
+                : `Issues ${qtyNeeded.toFixed(2)} MTR greige — consumes the lot, creates the outward challan, and locks the Section 143 due date.`
               : `Despatches the material, creates the outward challan, and locks the Section 143 due date.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {needsLot && (
+          {isGreigeJob && (
             <div className="space-y-1.5">
-              <Label>Greige Stock Lot *</Label>
-              <Select value={lotId || 'none'} onValueChange={(v) => setLotId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select greige lot" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">-- Select a lot --</SelectItem>
-                  {lotGroups.map((group) => (
-                    <SelectGroup key={group.key}>
-                      <SelectLabel>{group.label}</SelectLabel>
-                      {group.lots.map((lot) => (
-                        <SelectItem key={lot.id} value={lot.id}>
-                          {lotOptionLabel(lot)}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectableLots.length === 0 && (
+              <Label>Greige Stock Lot{needsLot ? ' *' : ''}</Label>
+              {stampedMissing ? (
+                <p className="text-xs text-amber-600">
+                  {preview?.blockers[0]?.message ??
+                    'This order’s lot is not in its issue list, so its pieces cannot be picked here — it goes by quantity.'}
+                </p>
+              ) : (
+                <GreigeLotRows
+                  rows={rows}
+                  onRowsChange={setRows}
+                  lots={selectableLots}
+                  requiredQty={qtyNeeded}
+                  uom={uom}
+                  evaluation={evaluation}
+                  required
+                  hideHeader
+                  lockQty
+                  disabled={sending}
+                  // The bales / thans / rolls that leave — the same picker as the Issue dialog
+                  enableDetailSelection
+                  processorName={processorName}
+                />
+              )}
+              {needsLot && preview && selectableLots.length === 0 && (
                 <p className="text-xs text-amber-600">
                   No single lot covers {qtyNeeded.toFixed(2)} MTR — receive the greige PO first, or issue multiple lots
                   from the Job Work Order page.
@@ -208,7 +226,16 @@ export default function SendToMillDialog({ open, onOpenChange, po, processType, 
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={sending || (needsLot && !lotId) || !!dateCheck.error}>
+          <Button
+            onClick={handleSend}
+            disabled={
+              sending ||
+              (needsLot && !row?.lotId) ||
+              !!dateCheck.error ||
+              // Named pieces must come to the order (±1%) and be valid picks
+              (picking && (!evaluation.totalMatches || evaluation.hasThanErrors))
+            }
+          >
             <Send className="mr-2 h-4 w-4" />
             {sending ? 'Sending...' : drawsHere ? `Allocate at ${processorName}` : 'Send & Create Challan'}
           </Button>

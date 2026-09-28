@@ -44,17 +44,35 @@ export interface GreigeStockDetail {
   remarks: string | null;
   /** The bale has already been opened (some thans left or one was cut) — best fit finishes these first */
   baleOpen?: boolean;
+  /** THAN or ROLL — wording only (a roll is never baled) */
+  detailType?: GreigePieceType;
+  /** When the piece was put on the lot's list (ISO) — a job only took pieces listed before it left */
+  createdAt?: string;
 }
+
+/** A greige piece: a than (folded, usually baled) or a roll. */
+export type GreigePieceType = 'THAN' | 'ROLL';
+/** A lot's pieces: all thans, all rolls, both, or none recorded. */
+export type GreigePieceKind = GreigePieceType | 'MIXED' | null;
 
 /** GET /api/greige/stock/:stockId/available-details — the lot's thans still in the godown. */
 export interface GreigeLotThans {
   stockId: string;
+  greigeCode?: string | null;
+  /** GRN / DIRECT / TRANSFER / MANUAL … */
+  sourceType?: string | null;
   baleCount: number | null;
   thanCount: number | null;
   /** ACTUAL metres available in the lot */
   totalAvailable: number;
   /** The lot's fold length L in cm — than metres are counted at it; null = no fold */
   foldLengthCm: number | null;
+  /** Every piece ever listed on the lot, any status — 0 = the lot never had a list */
+  piecesRecorded?: number;
+  /** THAN / ROLL / MIXED across every listed piece */
+  pieceKind?: GreigePieceKind;
+  /** The receipt the lot came on — "received on GRN… as Total Meters" */
+  receipt?: { grnNumber: string | null; entryMode: string | null } | null;
   details: GreigeStockDetail[];
 }
 
@@ -95,8 +113,15 @@ export interface ThanRecordLot {
   /** Thans already named against the job, COUNTED and ACTUAL */
   recordedCounted: number;
   recordedActual: number;
-  /** false = the lot was received without a than breakdown, so there is nothing to name */
+  /**
+   * false = the lot listed no pieces WHEN THE JOB TOOK ITS CLOTH (received as a total, or counted
+   * later) — there is nothing to name for this job
+   */
   lotHasThans: boolean;
+  /** When the job took its cloth from this lot (ISO) — only pieces listed by then can be named */
+  takenAt?: string;
+  /** THAN / ROLL / MIXED among the pieces listed by then — wording only */
+  pieceKind?: GreigePieceKind;
 }
 
 export interface ThanRecord {

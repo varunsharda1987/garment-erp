@@ -43,6 +43,34 @@ export interface GreigeStockEntry {
   weaver?: { id: string; name: string } | null;
 }
 
+/** POST /greige/stock/:stockId/pieces — "Record bales & thans" on a lot that has no list */
+export interface RecordLotPiecesPayload {
+  entryMode: 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+  pieces: Array<{
+    /** Bale-wise: the dialog's bale 1, 2, 3… */
+    baleNumber?: number | null;
+    /** Printed bale number */
+    baleNo?: string | null;
+    /** Than tag, or the roll number */
+    thanNo?: string | null;
+    /** COUNTED metres (the tag figure at the lot's fold length) */
+    meters: number;
+  }>;
+  remarks?: string;
+}
+
+export interface RecordLotPiecesResult {
+  stockId: string;
+  greigeCode: string | null;
+  recorded: number;
+  bales: number;
+  detailType: 'THAN' | 'ROLL';
+  countedTotal: number;
+  actualTotal: number;
+  onHand: number;
+  foldLengthCm: number | null;
+}
+
 // BUG-GR11 fix: added return type
 export interface GreigeStockAdjustmentResult {
   stockId: string;
@@ -114,6 +142,14 @@ export const greigeStockService = {
       `${BASE_URL}/stock/${stockId}/adjust`,
       data
     );
+    return response.data.data;
+  },
+
+  /**
+   * "Record bales & thans": list the pieces on hand of a lot that has no list. No stock moves.
+   */
+  async recordPieces(stockId: string, data: RecordLotPiecesPayload): Promise<RecordLotPiecesResult> {
+    const response = await api.post<ApiResponse<RecordLotPiecesResult>>(`${BASE_URL}/stock/${stockId}/pieces`, data);
     return response.data.data;
   },
 };

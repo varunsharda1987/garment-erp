@@ -195,6 +195,16 @@ export interface GreigeStockDetail {
   sourceChallan: { id: string; challanNumber: string; challanDate: string } | null;
   weaverId?: string | null; // Phase 1b: whose cloth this lot is
   weaver?: { id: string; name: string } | null;
+  /** The lot's bale / than / roll list at a glance (Greige Stock page) */
+  pieces?: GreigeLotPieces;
+}
+
+/** Pieces ever listed on a lot, those with metres left, live bales, and thans vs rolls. */
+export interface GreigeLotPieces {
+  total: number;
+  left: number;
+  bales: number;
+  kind: 'THAN' | 'ROLL' | 'MIXED' | null;
 }
 
 export interface UpdateGreigeStockData {

@@ -63,8 +63,10 @@ import {
   evaluateLotRows,
   groupLotsForIssue,
   issueMovement,
+  fitParts,
   lotHasThans,
   picksPayload,
+  piecesListedBy,
   rowHasPicks,
   thanPickErrors,
   THAN_PICK_TOLERANCE_PCT,
@@ -434,12 +436,18 @@ export default function JobWorkOrderDetail() {
     (lot) => lot.lotHasThans && qtyExceeds(lot.takenActual, lot.recordedActual)
   );
   const recordLot = thanRecordPending.find((lot) => lot.greigeStockLotId === recordLotId);
-  const { data: recordLotThans, isLoading: recordLotThansLoading } = useQuery({
+  const { data: recordLotAllThans, isLoading: recordLotThansLoading } = useQuery({
     queryKey: ['greige-lot-thans', recordLotId],
     queryFn: () => jobWorkOrderService.getAvailableDetails(recordLotId),
     enabled: recordThansOpen && !!recordLotId,
     staleTime: 0,
   });
+  // Only pieces on the lot's list when this job took its cloth can be the ones it took — a count made
+  // afterwards ("Record bales & thans") lists what stayed on the rack. The server refuses the rest.
+  const recordLotThans = piecesListedBy(recordLotAllThans, recordLot?.takenAt);
+  // Rolls or thans, in the job's own words
+  const recordWord =
+    thanRecordPending.length > 0 && thanRecordPending.every((lot) => lot.pieceKind === 'ROLL') ? 'rolls' : 'thans';
   // ACTUAL metres still to name on this lot
   const recordTarget = recordLot ? qtyRemaining(recordLot.takenActual, recordLot.recordedActual) : 0;
   // The server's own check: everything named on the lot, converted once, must not exceed what the job took
@@ -490,12 +498,8 @@ export default function JobWorkOrderDetail() {
     setRecordGroupPicks(
       Object.fromEntries(recordSiblings.map((sib) => [sib.jwoId, fit.perJob[sib.jwoId]?.picks ?? []]))
     );
-    const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-    const parts = [plural(fit.balesWhole, 'whole bale')];
-    if (fit.balesBroken > 0) parts.push(`${plural(fit.balesBroken, 'bale')} broken`);
-    if (fit.balesShared > 0) parts.push(`${plural(fit.balesShared, 'bale')} shared between jobs`);
     setRecordGroupNote(
-      `Fitted on the total: ${parts.join(', ')} — ${formatQuantity(fit.actual, jwo?.uom ?? 'MTR')} actual, no than cut.` +
+      `Fitted on the total: ${fitParts(recordLotThans, fit, 'jobs')} — ${formatQuantity(fit.actual, jwo?.uom ?? 'MTR')} actual, no ${recordWord.slice(0, -1)} cut.` +
         (fit.combined ? '' : ' (The total would not share out, so the jobs were fitted one after another.)')
     );
   };
@@ -1339,13 +1343,13 @@ export default function JobWorkOrderDetail() {
                 <div className="space-y-1">
                   <Button className="w-full" variant="outline" onClick={openRecordThans}>
                     <ListChecks className="mr-2 h-4 w-4" />
-                    Record thans sent
+                    Record {recordWord} sent
                   </Button>
                   {thanRecordPending.map((lot) => (
                     <p key={lot.greigeStockLotId} className="text-xs text-muted-foreground">
                       {thanRecordPending.length > 1 && lot.greigeCode ? `${lot.greigeCode}: ` : ''}
                       {formatQuantity(lot.recordedActual, jwo.uom)} of {formatQuantity(lot.takenActual, jwo.uom)}{' '}
-                      recorded by than
+                      recorded by {lot.pieceKind === 'ROLL' ? 'roll' : 'than'}
                     </p>
                   ))}
                 </div>
@@ -1814,10 +1818,11 @@ export default function JobWorkOrderDetail() {
       <Dialog open={recordThansOpen} onOpenChange={setRecordThansOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Record thans sent</DialogTitle>
+            <DialogTitle>Record {recordWord} sent</DialogTitle>
             <DialogDescription>
-              {jwo.jobWorkNumber} went out by quantity. Tick the thans that were on the vehicle — this only updates the
-              godown's than list; the lot's stock already moved when the job was issued.
+              {jwo.jobWorkNumber} went out by quantity. Tick the {recordWord} that were on the vehicle — this only
+              updates the godown's list; the lot's stock already moved when the job was issued. Pieces counted after the
+              job left are not offered: they were still on the rack.
             </DialogDescription>
           </DialogHeader>
 
@@ -1944,8 +1949,8 @@ export default function JobWorkOrderDetail() {
               {recordThansMutation.isPending
                 ? 'Recording…'
                 : groupJobs.length > 0
-                  ? `Record thans for ${groupJobs.length + 1} jobs`
-                  : 'Record thans sent'}
+                  ? `Record ${recordWord} for ${groupJobs.length + 1} jobs`
+                  : `Record ${recordWord} sent`}
             </Button>
           </DialogFooter>
         </DialogContent>

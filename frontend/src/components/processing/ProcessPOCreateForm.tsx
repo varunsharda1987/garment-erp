@@ -1,8 +1,12 @@
 // Shared Job Work Order Create Form - works for both Dyeing and Printing
 // Creates a Job Work Order from an approved lab dip OR directly from style+fabric+processor
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import SendToMillDialog from '@/components/processing/SendToMillDialog';
+import { pieceKindOf, pieceWord } from '@/components/job-work/lot-rows';
+import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { ArrowLeft, FileText, Loader2, Check, ChevronsUpDown, Info, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,7 +32,7 @@ import { fabricService } from '@/services/fabricGreigeService';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import type { DyeLabDip } from '@/types/dyeing.types';
-import type { LabDip, CreateProcessPORequest } from '@/types/printing.types';
+import type { LabDip, CreateProcessPORequest, ProcessPO } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
@@ -356,6 +360,19 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGreigeStock, selectedProcessor, effectiveProcessType, qtySentMeters]);
 
+  // The chosen lot's bales / thans / rolls: a lot with a list is sent through Send to Mill, which asks
+  // which pieces go — "Create & Send" never despatches a listed lot blind (2026-09-28)
+  const { data: lotPieces } = useQuery({
+    queryKey: ['greige-lot-thans', selectedGreigeStock?.id],
+    queryFn: () => jobWorkOrderService.getAvailableDetails(selectedGreigeStock!.id),
+    enabled: !!selectedGreigeStock?.id,
+    staleTime: 0,
+  });
+  const lotListedPieces = lotPieces?.details.length ?? 0;
+  const [sendPo, setSendPo] = useState<ProcessPO | null>(null);
+  const sendAfterCreate = useRef(false);
+  const sentFromDialog = useRef(false);
+
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: CreateProcessPORequest) => {
@@ -371,6 +388,15 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
           ? `Job work order ${created.poNumber} created successfully`
           : 'Job work order created successfully'
       );
+      // Created, not yet sent: open Send to Mill so the pieces that go can be ticked
+      if (sendAfterCreate.current && created?.jobWorkOrder) {
+        sentFromDialog.current = false;
+        setSendPo(created);
+        return;
+      }
+      if (sendAfterCreate.current) {
+        toast.info(`${created?.poNumber ?? 'The order'} is created but not sent — send it from the list when ready.`);
+      }
       navigate(backPath);
     },
     onError: (err) => handleApiError(err, 'Failed to create job work order'),
@@ -424,6 +450,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       return;
     }
 
+    // A lot with a bale / than / roll list is created first, then sent through Send to Mill
+    sendAfterCreate.current = autoSend && lotListedPieces > 0;
+    const sendNow = autoSend && !sendAfterCreate.current;
+
     const request: CreateProcessPORequest =
       createMode === 'lab-dip'
         ? {
@@ -436,7 +466,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
             expectedReturnDate: expectedReturnDate || undefined,
             expectedShrinkage: expectedShrinkage || undefined,
             remarks: remarks || undefined,
-            autoSend,
+            autoSend: sendNow,
           }
         : {
             // Style-based PO (no lab dip)
@@ -451,7 +481,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
             expectedReturnDate: expectedReturnDate || undefined,
             expectedShrinkage: expectedShrinkage || undefined,
             remarks: remarks || undefined,
-            autoSend,
+            autoSend: sendNow,
           };
 
     createMutation.mutate(request);
@@ -1064,6 +1094,13 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                 <p className="text-xs text-muted-foreground">
                   Available: {Number(selectedGreigeStock.quantityAvailable).toFixed(2)}m
                 </p>
+                {lotListedPieces > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedGreigeStock.greige.greigeCode} lists {lotListedPieces}{' '}
+                    {pieceWord(pieceKindOf(lotPieces), lotListedPieces)} — Create &amp; Send to Mill will ask which ones
+                    go.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -1274,6 +1311,24 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
           Create & Send to Mill
         </Button>
       </div>
+
+      {/* Created, now sent — the lot lists pieces, so Send to Mill asks which ones go */}
+      <SendToMillDialog
+        open={!!sendPo}
+        onOpenChange={(open) => {
+          if (open) return;
+          if (!sentFromDialog.current && sendPo) {
+            toast.info(`${sendPo.poNumber} is created but not sent — send it from the list when ready.`);
+          }
+          setSendPo(null);
+          navigate(backPath);
+        }}
+        po={sendPo}
+        processType={effectiveProcessType === 'DYEING' ? 'DYEING' : 'PRINTING'}
+        onSent={() => {
+          sentFromDialog.current = true;
+        }}
+      />
     </div>
   );
 }

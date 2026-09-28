@@ -179,6 +179,8 @@ describe('PurchaseOrderList', () => {
       'THREAD',
       'LACE',
       'GREIGE_LACE',
+      'PACKAGING',
+      'MACHINE_PART',
       'GENERAL',
     ]);
   });

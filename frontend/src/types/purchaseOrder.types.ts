@@ -8,7 +8,7 @@
 // ============================================
 
 import { Unit } from './generated/prisma-enums';
-import type { ThreadPackagingType, ThreadPly } from './generated/prisma-enums';
+import type { POCategory, ThreadPackagingType, ThreadPly } from './generated/prisma-enums';
 
 export const PurchaseOrderStatus = {
   DRAFT: 'DRAFT',
@@ -87,7 +87,9 @@ export const POSourceColors: Record<POSource, string> = {
 // are kept for backward compatibility with existing records.
 export type POGroup = 'all' | 'material';
 
-// Material categories only - all new POs must be one of these
+// Material categories only - all new POs must be one of these. One per supplier category (Packaging and
+// Machine Parts suppliers had no PO category until 2026-09-28), General last. The backend keeps the same list
+// (`po-material-categories.test.ts` fails when they differ).
 export const MATERIAL_PO_CATEGORIES = [
   'FABRIC',
   'GREIGE',
@@ -95,6 +97,8 @@ export const MATERIAL_PO_CATEGORIES = [
   'THREAD',
   'LACE',
   'GREIGE_LACE',
+  'PACKAGING',
+  'MACHINE_PART',
   'GENERAL',
 ] as const;
 
@@ -121,6 +125,8 @@ export const PO_GROUP_LABELS: Record<POGroup, string> = {
   material: 'Material',
 };
 
+// Every POCategory value has a label and a colour (`satisfies` refuses a missing one), so no screen prints a
+// raw enum. BUTTON … OTHER_MATERIAL are old specific-trim categories a PO can still carry.
 export const PO_CATEGORY_LABELS: Record<string, string> = {
   FABRIC: 'Fabric',
   GREIGE: 'Greige',
@@ -131,6 +137,13 @@ export const PO_CATEGORY_LABELS: Record<string, string> = {
   GREIGE_LACE: 'Greige Lace',
   LACE_PROCESSING: 'Lace Processing',
   GENERAL: 'General',
+  BUTTON: 'Buttons',
+  ZIPPER: 'Zippers',
+  ELASTIC: 'Elastic',
+  LABEL: 'Labels',
+  PACKAGING: 'Packaging',
+  MACHINE_PART: 'Machine Parts',
+  OTHER_MATERIAL: 'Other Material',
   EMBROIDERY_SERVICE: 'Embroidery',
   WASHING_SERVICE: 'Washing',
   FINISHING_SERVICE: 'Finishing',
@@ -139,7 +152,7 @@ export const PO_CATEGORY_LABELS: Record<string, string> = {
   HANDWORK_SERVICE: 'Handwork',
   SMOCKING_SERVICE: 'Smocking',
   TRANSPORTATION_SERVICE: 'Transport',
-};
+} satisfies Record<POCategory, string>;
 
 export const PO_CATEGORY_COLORS: Record<string, string> = {
   FABRIC: 'bg-info-muted text-info',
@@ -151,6 +164,13 @@ export const PO_CATEGORY_COLORS: Record<string, string> = {
   GREIGE_LACE: 'bg-warning/10 text-warning',
   LACE_PROCESSING: 'bg-violet-100 text-violet-800',
   GENERAL: 'bg-muted text-foreground',
+  BUTTON: 'bg-teal-100 text-teal-800',
+  ZIPPER: 'bg-blue-100 text-blue-800',
+  ELASTIC: 'bg-purple-100 text-purple-800',
+  LABEL: 'bg-green-100 text-green-800',
+  PACKAGING: 'bg-amber-100 text-amber-800',
+  MACHINE_PART: 'bg-zinc-100 text-zinc-800',
+  OTHER_MATERIAL: 'bg-neutral-100 text-neutral-800',
   EMBROIDERY_SERVICE: 'bg-rose-100 text-rose-800',
   WASHING_SERVICE: 'bg-sky-100 text-sky-800',
   FINISHING_SERVICE: 'bg-emerald-100 text-emerald-800',
@@ -159,7 +179,7 @@ export const PO_CATEGORY_COLORS: Record<string, string> = {
   HANDWORK_SERVICE: 'bg-yellow-100 text-yellow-800',
   SMOCKING_SERVICE: 'bg-primary/10 text-primary',
   TRANSPORTATION_SERVICE: 'bg-slate-100 text-slate-800',
-};
+} satisfies Record<POCategory, string>;
 
 // ============================================
 // PO STATS (from /api/purchase-orders/stats)
@@ -492,6 +512,10 @@ export interface CreatePurchaseOrderItemRequest {
   /** A thread line's pack; the server checks it and sets the box size from the packaging table */
   threadPackagingType?: ThreadPackagingType | null;
   threadPly?: ThreadPly | null;
+  /** The line's GST % (0–28) as typed on the form — sent, it IS the rate; omitted = the material's HSN rate */
+  gstRate?: number | null;
+  /** The line's HSN code; omitted = the material's own HSN */
+  hsnCode?: string | null;
   /** Split delivery: this line's share at each place (omit on every line = one place / to be advised) */
   deliveries?: Array<{ warehouseId: string; quantity: number }>;
 }
@@ -520,7 +544,8 @@ export interface UpdatePurchaseOrderRequest {
   poDate?: string;
   expectedDeliveryDate?: string;
   paymentTerms?: string;
-  remarks?: string;
+  /** `null` or `''` clears the remarks; omitted leaves them as they are */
+  remarks?: string | null;
   items?: CreatePurchaseOrderItemRequest[]; // If provided, replaces all existing items
   // Optional traceability links (for Manual POs)
   styleId?: string | null;

@@ -78,6 +78,8 @@ export interface StyleBOMEntry {
   materialCode: string;
   materialName: string;
   materialType: MaterialType;
+  /** A lace line: greige (bought on a Greige Lace PO) or finished (a Lace PO) */
+  laceKind?: 'GREIGE' | 'FINISHED' | null;
   componentName?: string;
   quantityPerGarment: string;
   unit: string;

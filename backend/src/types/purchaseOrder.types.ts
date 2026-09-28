@@ -25,6 +25,9 @@ export { PurchaseOrderStatus, POSource };
  * The frontend keeps its own copy (MATERIAL_PO_CATEGORIES in frontend/src/types/purchaseOrder.types.ts);
  * `__tests__/unit/po-material-categories.test.ts` fails when the two differ. THREAD was missing here
  * until 2026-09-27, so a thread PO would have been listed but never counted on the stat cards.
+ * PACKAGING and MACHINE_PART joined 2026-09-28 — one category per supplier category, so packaging and
+ * machine-part suppliers can be picked at all (General last). Which materials each takes:
+ * helpers/po-line-category.helper.ts.
  */
 export const MATERIAL_PO_CATEGORIES: POCategory[] = [
   POCategory.FABRIC,
@@ -33,6 +36,8 @@ export const MATERIAL_PO_CATEGORIES: POCategory[] = [
   POCategory.THREAD,
   POCategory.LACE,
   POCategory.GREIGE_LACE,
+  POCategory.PACKAGING,
+  POCategory.MACHINE_PART,
   POCategory.GENERAL,
 ];
 
@@ -47,8 +52,6 @@ export const CREATABLE_PO_CATEGORIES: POCategory[] = [
   POCategory.ZIPPER,
   POCategory.ELASTIC,
   POCategory.LABEL,
-  POCategory.PACKAGING,
-  POCategory.MACHINE_PART,
   POCategory.OTHER_MATERIAL,
 ];
 
@@ -62,6 +65,14 @@ export type PurchaseOrderSortField = (typeof PO_SORT_FIELDS)[number];
  */
 export function isPoDateAfterToday(poDate: Date | string): boolean {
   return toDateInputValue(poDate) > toDateInputValue(new Date());
+}
+
+/**
+ * Goods cannot be due before the order was placed (2026-09-28: 8 of 13 POs had it so). The same day is
+ * fine. Compared as IST calendar days, like the PO date itself.
+ */
+export function isDeliveryBeforePoDate(expectedDeliveryDate: Date | string, poDate: Date | string): boolean {
+  return toDateInputValue(expectedDeliveryDate) < toDateInputValue(poDate);
 }
 
 // ============================================
@@ -92,6 +103,13 @@ export interface PurchaseOrderItemDTO {
   threadPackagingType?: ThreadPackagingType | null;
   threadPly?: ThreadPly | null;
   /**
+   * The line's GST % as typed on the form (0 is a rate). Sent = the line's rate; absent / null = the
+   * material's (its own rate, else its HSN's). 2026-09-28: the form's GST box used to be never sent.
+   */
+  gstRate?: number | null;
+  /** The HSN the line is billed under; absent / blank = the material's own HSN */
+  hsnCode?: string | null;
+  /**
    * Split delivery (2026-09-26): how much of this line goes to each place. Absent on every line = one
    * place (the header's deliveryLocationId) or "to be advised". po-delivery-plan.helper builds the plan.
    */
@@ -108,6 +126,10 @@ export interface UpdatePurchaseOrderItemDTO {
   remarks?: string | null;
   threadPackagingType?: ThreadPackagingType | null;
   threadPly?: ThreadPly | null;
+  /** Absent = the line keeps the rate it was saved with; null = back to the material's rate */
+  gstRate?: number | null;
+  /** Absent = the line keeps its HSN; null / blank = the material's own HSN */
+  hsnCode?: string | null;
 }
 
 /**
@@ -160,6 +182,7 @@ export interface UpdatePurchaseOrderDTO {
   /** The PO's own date — omitted = unchanged. Never after today (isPoDateAfterToday). */
   poDate?: Date | string;
   paymentTerms?: string | null;
+  /** null or '' clears it; absent leaves it */
   remarks?: string | null;
   items?: PurchaseOrderItemDTO[]; // If provided, replaces all existing items
   // Optional traceability links (for Manual POs)

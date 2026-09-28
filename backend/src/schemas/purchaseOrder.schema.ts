@@ -7,7 +7,7 @@
 
 import { z } from 'zod';
 import { POCategory } from '@prisma/client';
-import { UnitEnum, flexMaterialId, formNumberRequired } from './common.schema';
+import { UnitEnum, flexMaterialId, formNumber, formNumberRequired } from './common.schema';
 import { POCategoryEnum, ThreadPackagingTypeEnum, ThreadPlyEnum } from './generated/prisma-enums';
 import { isQtyZero } from '../utils/quantity';
 import { CREATABLE_PO_CATEGORIES, PO_SORT_FIELDS, isPoDateAfterToday } from '../types/purchaseOrder.types';
@@ -52,6 +52,18 @@ const poDateSchema = z.preprocess(
     .optional()
 );
 
+/**
+ * Expected delivery (2026-09-28): a real date, not any string — `z.string().or(z.date())` let junk through
+ * to a 400 "Invalid data provided to database". Blank / null = not sent (a bare coerce turns null into
+ * 01-Jan-1970). "Not before the PO date" needs both dates, so the service checks it (422
+ * PO_DELIVERY_BEFORE_PO_DATE) — on edit against the stored PO date when only one is sent.
+ */
+const blankToUndefined = (v: unknown) => (v === '' || v === null ? undefined : v);
+const expectedDeliveryDateSchema = z.preprocess(
+  blankToUndefined,
+  z.coerce.date({ error: 'Pick the expected delivery date' })
+);
+
 export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);
 
 // ============================================================================
@@ -67,7 +79,12 @@ export const purchaseOrderItemSchema = z.object({
   serviceDescription: z.string().max(500).optional(),
   orderedQuantity: z.number().positive('Quantity must be positive'),
   unit: UnitEnum,
-  unitPrice: z.number().positive('Unit price must be greater than 0'),
+  // Kept to paise (the column is 2 dp) — a rate under half a paisa would be saved as ₹0.00
+  unitPrice: z.number().min(0.005, 'Unit price must be at least ₹0.01'),
+  // The line's GST % as typed (0 is a rate); absent / blank = the material's. The HSN it is billed
+  // under; absent / blank = the material's own. The form's GST box was never sent (2026-09-28).
+  gstRate: formNumber(z.number().min(0, 'GST cannot be negative').max(28, 'GST cannot be above 28%')),
+  hsnCode: z.string().trim().max(20, 'HSN code is at most 20 characters').nullish(),
   remarks: z.string().max(500).nullish(),
   foldLengthCm: z.number().positive().max(999.99).nullish(), // "L" - fold length in cm
   // The weaver this line is bought from, when known at ordering (Phase 1b) — the GRN line records the
@@ -114,10 +131,13 @@ const deliveriesAddUp = (
 export const updatePurchaseOrderItemSchema = z.object({
   orderedQuantity: z.number().positive('Quantity must be positive').optional(),
   unit: UnitEnum.optional(),
-  unitPrice: z.number().positive('Unit price must be greater than 0').optional(),
+  unitPrice: z.number().min(0.005, 'Unit price must be at least ₹0.01').optional(),
   remarks: z.string().max(500).nullish(),
   threadPackagingType: ThreadPackagingTypeEnum.nullish(),
   threadPly: ThreadPlyEnum.nullish(),
+  // Absent = the line keeps the rate / HSN it was saved with; null = back to the material's
+  gstRate: formNumber(z.number().min(0, 'GST cannot be negative').max(28, 'GST cannot be above 28%')),
+  hsnCode: z.string().trim().max(20, 'HSN code is at most 20 characters').nullish(),
 });
 
 // ============================================================================
@@ -130,7 +150,7 @@ export const updatePurchaseOrderItemSchema = z.object({
  */
 export const createPurchaseOrderSchema = z.object({
   supplierId: z.string().uuid('Invalid supplier ID'),
-  expectedDeliveryDate: z.string().or(z.date()),
+  expectedDeliveryDate: expectedDeliveryDateSchema,
   poDate: poDateSchema,
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
@@ -150,9 +170,10 @@ export const createPurchaseOrderSchema = z.object({
  */
 export const updatePurchaseOrderSchema = z.object({
   supplierId: z.string().uuid('Invalid supplier ID').optional(),
-  expectedDeliveryDate: z.string().or(z.date()).optional(),
+  expectedDeliveryDate: z.preprocess(blankToUndefined, z.coerce.date().optional()),
   poDate: poDateSchema,
   paymentTerms: z.string().max(100).nullish(),
+  // null or '' clears the remarks; absent leaves them
   remarks: z.string().max(1000).nullish(),
   // Items carry their OWN id on update so the server can update the line in place instead of
   // rebuilding it. Rebuilding mints a new uuid, and every link table pointing at PO items is

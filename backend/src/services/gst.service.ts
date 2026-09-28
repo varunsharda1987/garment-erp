@@ -77,15 +77,8 @@ class GSTServiceClass {
   private readonly APPAREL_HIGH_RATE = 18;
 
   /**
-   * Get GST rate from database sources (replaces hardcoded getDefaultGSTRate)
-   *
-   * Priority:
-   * 1. gstRateOverride (if explicitly provided)
-   * 2. Material's gstRate field (if materialId provided)
-   * 3. hsn_sac_masters table (exact code match, then chapter match)
-   *    3a. Apparel price slab: If HSN chapter 61/62 AND unitPrice > ₹2,500 → override to 18%
-   * 4. tax_masters fallback
-   * 5. Absolute fallback: 5% (GST 2.0 default for textiles/apparel)
+   * Get GST rate from database sources (replaces hardcoded getDefaultGSTRate).
+   * The rate only — resolveGSTRate says which HSN it came from.
    */
   async getGSTRate(
     params: {
@@ -95,58 +88,70 @@ class GSTServiceClass {
       unitPrice?: number | null;
     } = {}
   ): Promise<number> {
+    return (await this.resolveGSTRate(params)).gstRate;
+  }
+
+  /**
+   * A line's GST rate AND the HSN it is billed under. Lines used to save the HSN they were SENT (null for
+   * every PO line — 13/13 printed "—") although the rate had been looked up from the material's HSN.
+   *
+   * Priority:
+   * 1. gstRateOverride (if explicitly provided — 0 is a rate)
+   * 2. Material's gstRate field (if materialId provided — 0 is a rate)
+   * 3. hsn_sac_masters table (exact code, then its 4-digit heading, then its 2-digit chapter)
+   *    3a. Apparel price slab: If HSN chapter 61/62 AND unitPrice > ₹2,500 → override to 18%
+   * 4. tax_masters fallback
+   * 5. Absolute fallback: 5% (GST 2.0 default for textiles/apparel)
+   *
+   * The HSN is the one sent, else the material's own — whichever step supplied the rate.
+   */
+  async resolveGSTRate(
+    params: {
+      hsnSacCode?: string | null;
+      materialId?: string | null;
+      gstRateOverride?: number | null;
+      unitPrice?: number | null;
+    } = {}
+  ): Promise<{ gstRate: number; hsnCode: string | null }> {
     const { hsnSacCode, materialId, gstRateOverride, unitPrice } = params;
+    const hasOverride = gstRateOverride !== null && gstRateOverride !== undefined;
 
-    // 1. Explicit override
-    if (gstRateOverride !== null && gstRateOverride !== undefined) {
-      return gstRateOverride;
-    }
-
-    // 2. Material's own gstRate
-    let resolvedHsnCode = hsnSacCode;
-    if (materialId) {
+    // The material is read for its rate, and — even under an override — for the HSN the line is billed under
+    let resolvedHsnCode = hsnSacCode || null;
+    let materialRate: number | null = null;
+    if (materialId && (!hasOverride || !resolvedHsnCode)) {
       try {
         const material = await prisma.materials.findUnique({
           where: { id: materialId },
           select: { gstRate: true, hsnCode: true },
         });
-        if (material?.gstRate) {
-          return Number(material.gstRate);
-        }
-        if (material?.hsnCode && !resolvedHsnCode) {
-          resolvedHsnCode = material.hsnCode;
-        }
+        // `!= null`, not truthiness: a 0% material was treated as "no rate" and taxed at 5%
+        if (material?.gstRate != null) materialRate = Number(material.gstRate);
+        if (material?.hsnCode && !resolvedHsnCode) resolvedHsnCode = material.hsnCode;
       } catch (error) {
         logDebug('Could not lookup material for GST rate, continuing with other sources');
       }
     }
 
+    // 1. Explicit override
+    if (hasOverride) {
+      return { gstRate: gstRateOverride, hsnCode: resolvedHsnCode };
+    }
+
+    // 2. Material's own gstRate
+    if (materialRate !== null) {
+      return { gstRate: materialRate, hsnCode: resolvedHsnCode };
+    }
+
     // 3. hsn_sac_masters lookup
     if (resolvedHsnCode) {
       try {
-        // Exact code match
-        const exact = await prisma.hsn_sac_masters.findUnique({
-          where: { code: resolvedHsnCode },
-          select: { defaultGstRate: true },
-        });
-        if (exact) {
-          const baseRate = Number(exact.defaultGstRate);
-          return this.applyApparelPriceSlab(baseRate, resolvedHsnCode, unitPrice);
-        }
-
-        // Chapter-level match (4-digit, then 2-digit)
-        for (const len of [4, 2]) {
-          if (resolvedHsnCode.length >= len) {
-            const prefix = resolvedHsnCode.substring(0, len);
-            const chapterMatch = await prisma.hsn_sac_masters.findFirst({
-              where: { chapter: prefix, isActive: true },
-              select: { defaultGstRate: true },
-            });
-            if (chapterMatch) {
-              const baseRate = Number(chapterMatch.defaultGstRate);
-              return this.applyApparelPriceSlab(baseRate, resolvedHsnCode, unitPrice);
-            }
-          }
+        const baseRate = (await this.hsnMasterRates([resolvedHsnCode])).get(resolvedHsnCode);
+        if (baseRate !== undefined) {
+          return {
+            gstRate: this.applyApparelPriceSlab(baseRate, resolvedHsnCode, unitPrice),
+            hsnCode: resolvedHsnCode,
+          };
         }
       } catch (error) {
         logDebug('HSN/SAC lookup failed, falling back to tax_masters');
@@ -165,14 +170,61 @@ class GSTServiceClass {
         orderBy: { taxRate: 'asc' },
       });
       if (defaultTax) {
-        return Number(defaultTax.taxRate);
+        return { gstRate: Number(defaultTax.taxRate), hsnCode: resolvedHsnCode };
       }
     } catch (error) {
       logDebug('tax_masters lookup failed');
     }
 
     // 5. Absolute fallback (GST 2.0: 5% for textiles/apparel)
-    return 5;
+    return { gstRate: 5, hsnCode: resolvedHsnCode };
+  }
+
+  /**
+   * The HSN master's base rate for each code, in ONE query: the exact code, else its 4-digit heading as a
+   * code (5208 for 520811), else its 2-digit chapter — but only when every active code of that chapter
+   * has the same rate. The `chapter` column holds 2 digits, so the old "4-digit chapter" step never
+   * matched, and the 2-digit one took an arbitrary row (chapter 99 mixes 5% and 18%). No guess = absent,
+   * and the caller goes on to its next source. No apparel slab (that needs a unit price). The materials
+   * list reads it for every row at once; resolveGSTRate for one.
+   */
+  async hsnMasterRates(hsnCodes: ReadonlyArray<string>): Promise<Map<string, number>> {
+    const codes = Array.from(new Set(hsnCodes.map((c) => c?.trim()).filter((c): c is string => !!c)));
+    const out = new Map<string, number>();
+    if (codes.length === 0) return out;
+
+    const headings = Array.from(new Set(codes.filter((c) => c.length > 4).map((c) => c.substring(0, 4))));
+    const chapters = Array.from(new Set(codes.filter((c) => c.length > 2).map((c) => c.substring(0, 2))));
+    const rows = await prisma.hsn_sac_masters.findMany({
+      where: {
+        OR: [
+          { code: { in: codes } },
+          { code: { in: headings }, isActive: true },
+          { chapter: { in: chapters }, isActive: true },
+        ],
+      },
+      select: { code: true, chapter: true, defaultGstRate: true, isActive: true },
+    });
+
+    for (const code of codes) {
+      const exact = rows.find((r) => r.code === code);
+      if (exact) {
+        out.set(code, Number(exact.defaultGstRate));
+        continue;
+      }
+      const heading = code.length > 4 ? rows.find((r) => r.isActive && r.code === code.substring(0, 4)) : undefined;
+      if (heading) {
+        out.set(code, Number(heading.defaultGstRate));
+        continue;
+      }
+      if (code.length > 2) {
+        const chapterRates = new Set(
+          rows.filter((r) => r.isActive && r.chapter === code.substring(0, 2)).map((r) => Number(r.defaultGstRate))
+        );
+        if (chapterRates.size === 1) out.set(code, [...chapterRates][0]);
+      }
+    }
+    return out;
   }
 
   /**
@@ -228,7 +280,7 @@ class GSTServiceClass {
   async calculateLineItemGST(params: CalculateLineItemGSTParams): Promise<LineItemGSTResult> {
     const { lineTotal, hsnSacCode, materialId, gstRateOverride, isInterstate, unitPrice } = params;
 
-    const gstRate = await this.getGSTRate({
+    const { gstRate, hsnCode } = await this.resolveGSTRate({
       hsnSacCode,
       materialId,
       gstRateOverride,
@@ -259,7 +311,8 @@ class GSTServiceClass {
     const taxAmount = roundToCent(addCurrency(cgstAmount, sgstAmount, igstAmount)).toNumber();
 
     return {
-      hsnCode: hsnSacCode || null,
+      // The HSN the rate was resolved under (the one sent, else the material's) — not only the one sent
+      hsnCode,
       gstRate,
       cgstRate,
       cgstAmount,

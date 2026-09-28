@@ -1,6 +1,14 @@
-import { COUNT_UNIT_FACTORS, purchaseUnitOf, unitHeader, unitShort, unitWord } from '@/lib/units';
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import {
+  COUNT_UNIT_FACTORS,
+  isCountUnit,
+  normalizeUnit,
+  purchaseUnitOf,
+  unitHeader,
+  unitShort,
+  unitWord,
+} from '@/lib/units';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { DeliverySplitEditor } from '@/components/purchase-orders/DeliverySplitEditor';
@@ -56,9 +64,12 @@ import type {
   CreatePurchaseOrderRequest,
   CreatePurchaseOrderItemRequest,
   PurchaseOrder,
+  PurchaseOrderStatus,
   Unit,
   SupplierSummary,
 } from '@/types/purchaseOrder.types';
+import { MaterialType } from '@/types/generated/prisma-enums';
+import { supplierStateCode } from '@/lib/supplier-state';
 import {
   PurchaseOrderStatusLabels,
   PO_CATEGORY_LABELS,
@@ -69,7 +80,7 @@ import {
 } from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
-import { toDateInputValue } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { queryKeys } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
@@ -93,6 +104,16 @@ import {
 } from 'lucide-react';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Warehouse } from '@/types/inventory.types';
 import { formatQuantity } from '@/lib/formatters';
@@ -126,14 +147,31 @@ import {
  * practice — this matters the day a second entity in another state becomes the default.
  */
 function resolveGstHeads(
-  supplierStateCode: string | undefined,
+  supplierState: string | null,
   homeStateCode: string,
   isPlaceholder: boolean
 ): { pending: boolean; isInterstate: boolean } {
-  if (isPlaceholder || !supplierStateCode) {
-    return { pending: !supplierStateCode ? false : true, isInterstate: false };
+  if (isPlaceholder || !supplierState) {
+    return { pending: !supplierState ? false : true, isInterstate: false };
   }
-  return { pending: false, isInterstate: supplierStateCode !== homeStateCode };
+  return { pending: false, isInterstate: supplierState !== homeStateCode };
+}
+
+/** A line with no rate from its material's HSN is taxed at this until someone types the right one */
+const DEFAULT_GST_RATE = 5;
+
+/**
+ * A rate as the PO keeps it: to the paisa, half up (1.005 → 1.01) — what the server stores. The amount is
+ * worked out from THIS rate, so the screen, the preview and the saved PO show the same amount.
+ */
+function roundToPaise(value: number): number {
+  const rounded = Number(`${Math.round(Number(`${value}e2`))}e-2`);
+  return Number.isFinite(rounded) ? rounded : Math.round(value * 100) / 100;
+}
+
+/** A line's amount: quantity × the rate kept to the paisa */
+function lineAmount(quantity: string, rate: string): number {
+  return (parseFloat(quantity) || 0) * roundToPaise(parseFloat(rate) || 0);
 }
 
 // ============================================
@@ -147,6 +185,8 @@ const PO_CATEGORY_TO_SUPPLIER_CATEGORY: Record<string, string | undefined> = {
   THREAD: 'THREAD_SUPPLIER',
   LACE: 'LACE_SUPPLIER',
   GREIGE_LACE: 'LACE_SUPPLIER',
+  PACKAGING: 'PACKAGING_SUPPLIER',
+  MACHINE_PART: 'MACHINE_PARTS_SUPPLIER',
   PROCESSING: 'DYEING_PRINTING',
   LACE_PROCESSING: 'DYEING_PRINTING',
   EMBROIDERY_SERVICE: 'EMBROIDERY',
@@ -173,13 +213,18 @@ const PO_CATEGORY_TO_SERVICE_TYPE: Record<string, string> = {
   LACE_PROCESSING: 'DYEING',
 };
 
-// PO Category → Material Types mapping
-// Used to show materials matching the PO category type (OR-combined with supplier filter)
+// PO Category → Material Types mapping — the server's rule for which materials a category takes
+// (po-line-category.helper). Used to show materials matching the PO category type (OR-combined with supplier filter).
+// Greige, fabric, lace and thread each have their own lot branch on the GRN, so only their own category takes
+// them; Trims and General take anything else.
+const OWN_LOT_MATERIAL_TYPES: readonly string[] = ['GREIGE', 'FABRIC', 'LACE', 'THREAD'];
 const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
   GREIGE: ['GREIGE'],
   FABRIC: ['FABRIC'],
+  // Labels go on a Trims PO; packaging has its own category (a Trims PO still takes it — MRP files it there)
   TRIMS: [
     'TRIMS',
+    'LABEL',
     'BUTTON',
     'ZIPPER',
     'ELASTIC',
@@ -203,8 +248,27 @@ const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
   THREAD: ['THREAD'],
   LACE: ['LACE'],
   GREIGE_LACE: ['LACE'],
-  GENERAL: undefined, // no type filter — show all
+  PACKAGING: ['PACKAGING'],
+  MACHINE_PART: ['MACHINE_PART'],
+  // Every type a General PO takes — so it really lists them all, not just the supplier's linked ones
+  GENERAL: Object.values(MaterialType).filter((t) => !OWN_LOT_MATERIAL_TYPES.includes(t)),
 };
+
+// Lace and greige lace are both material type LACE — the lace master's own flag tells them apart
+const PO_CATEGORY_LACE_KIND: Record<string, 'GREIGE' | 'FINISHED' | undefined> = {
+  LACE: 'FINISHED',
+  GREIGE_LACE: 'GREIGE',
+};
+
+/**
+ * The PO category a style's BOM line is bought on (the server's rule): lace on Lace, thread on Thread, packaging
+ * on Packaging, greige on Greige, fabric on Fabric, every other trim on Trims. A greige lace goes on Greige Lace.
+ */
+function poCategoryForMaterialType(materialType: string, laceKind?: 'GREIGE' | 'FINISHED' | null): string {
+  if (materialType === 'LACE' && laceKind === 'GREIGE') return 'GREIGE_LACE';
+  if (['LACE', 'THREAD', 'PACKAGING', 'GREIGE', 'FABRIC'].includes(materialType)) return materialType;
+  return 'TRIMS';
+}
 
 // ============================================
 // Types
@@ -227,6 +291,8 @@ interface Material {
   purchaseUnitPrice?: number | null;
   hsnCode?: string | null;
   gstRate?: number | null;
+  /** The material's GST rate — its own, else its HSN's; null = no HSN on file */
+  defaultGstRate?: number | null;
   // A label with sizes arrives as its base row (id === labelId) plus one row per size
   labelId?: string | null;
   sizeVariantId?: string | null;
@@ -250,9 +316,11 @@ interface POItemForm {
   unitPrice: string;
   totalPrice: number;
   remarks: string;
-  // HSN & Tax (for preview/invoice)
+  // HSN & Tax — saved on the line as shown. Blank GST (undefined) is refused on save.
   hsnCode?: string;
   gstRate?: number;
+  /** The rate is the 5% stand-in (no HSN rate on file) and nobody has typed one — the row says so */
+  gstAssumed?: boolean;
   // Source & CAD info
   source?: 'CAD' | 'BOM' | 'MRP' | 'MANUAL';
   cadAverage?: number;
@@ -289,39 +357,108 @@ function withThreadBoxes(item: POItemForm, specs: ThreadPackagingSpec[] | undefi
   const spec = findPackagingSpec(specs, item.threadPackagingType, item.threadPly);
   const units = parseFloat(item.threadUnits ?? '') || 0;
   const boxes = spec && units > 0 ? Math.ceil(units / spec.unitsPerBox - 1e-9) : 0;
-  const boxRate =
-    item.threadPackagingType === 'CONE'
-      ? spec
-        ? Math.round((parseFloat(item.threadRatePerCone ?? '') || 0) * spec.unitsPerBox * 100) / 100
-        : 0
-      : parseFloat(item.unitPrice) || 0;
+  const perCone = item.threadPackagingType === 'CONE';
+  const boxRate = perCone
+    ? spec
+      ? roundToPaise((parseFloat(item.threadRatePerCone ?? '') || 0) * spec.unitsPerBox)
+      : 0
+    : roundToPaise(parseFloat(item.unitPrice) || 0);
   return {
     ...item,
     unit: 'BOX',
     orderedQuantity: String(boxes),
-    unitPrice: String(boxRate),
+    // A tube's box rate is what is being typed — left as typed, and kept to the paisa when the box is left
+    unitPrice: perCone ? String(boxRate) : item.unitPrice,
     totalPrice: boxes * boxRate,
   };
 }
 
-/** A thread line from a BOM entry: cones by default, ply still to choose — its count is typed, never guessed
- *  (a BOM's thread counts GARMENTS: thread consumption is not designed yet). */
-function createThreadItem(bomItem: StyleBOMEntry): POItemForm {
+/** A new line's GST: the material's own rate (its HSN's) when it has one, else 5% — flagged so the row says so */
+function taxOf(
+  material: Pick<Material, 'hsnCode' | 'defaultGstRate'>
+): Pick<POItemForm, 'hsnCode' | 'gstRate' | 'gstAssumed'> {
   return {
-    tempId: Date.now().toString(),
-    materialId: undefined, // BOM entry doesn't have materialId, only materialCode
-    materialCode: bomItem.materialCode || undefined,
-    materialName: bomItem.materialName || 'Thread',
-    materialType: 'THREAD',
-    threadPackagingType: 'CONE',
-    threadUnits: '',
-    threadRatePerCone: '',
-    orderedQuantity: '0',
-    unit: 'BOX',
-    unitPrice: '0',
-    totalPrice: 0,
-    remarks: '',
+    hsnCode: material.hsnCode ?? undefined,
+    gstRate: material.defaultGstRate != null ? Number(material.defaultGstRate) : DEFAULT_GST_RATE,
+    gstAssumed: material.defaultGstRate == null,
   };
+}
+
+/** A line's GST — its own rate on its own amount. Every total on the page adds these up; none averages rates. */
+function lineTax(item: POItemForm): { rate: number; tax: number } {
+  const rate = item.gstRate ?? 0;
+  return { rate, tax: (item.totalPrice * rate) / 100 };
+}
+
+/** The PO's tax by rate — the summary prints one row (or a CGST + SGST pair) per rate on the PO */
+function taxByRate(items: POItemForm[]): Array<{ rate: number; tax: number }> {
+  const byRate = new Map<number, number>();
+  for (const item of items) {
+    const { rate, tax } = lineTax(item);
+    byRate.set(rate, (byRate.get(rate) ?? 0) + tax);
+  }
+  return [...byRate.entries()].sort((a, b) => a[0] - b[0]).map(([rate, tax]) => ({ rate, tax }));
+}
+
+/**
+ * A style's BOM line as the material Quick Add offers, so a Materials Required button builds the SAME PO line:
+ * the material's id, its unit (a BOM line's unit is its material's), and buttons bought by the gross. A BOM's
+ * thread price is per garment, not per cone — the cone rate is typed on the line.
+ */
+function bomMaterial(entry: StyleBOMEntry): Material {
+  const rate = parseFloat(entry.unitPrice) || 0;
+  const purchase = purchaseUnitOf(entry.materialType);
+  return {
+    id: entry.materialId ?? '',
+    code: entry.materialCode,
+    name: entry.materialName,
+    materialType: entry.materialType,
+    unit: normalizeUnit(entry.unit),
+    costPerUnit: entry.materialType === 'THREAD' || !rate ? null : rate,
+    purchaseUnit: purchase?.unit ?? null,
+    stockUnitsPerPurchaseUnit: purchase?.per ?? null,
+    purchaseUnitPrice: purchase ? roundToPaise(rate * purchase.per) : null,
+  };
+}
+
+/**
+ * A Materials Required button. A saved PO's category is fixed, so on one only the buttons for its own category
+ * add lines; the others say why they are off.
+ */
+function StyleShortcut({
+  blockedOn,
+  target,
+  onClick,
+  variant = 'outline',
+  children,
+}: {
+  /** The saved PO's category label when this button is off, else null */
+  blockedOn: string | null;
+  target: string;
+  onClick: () => void;
+  variant?: 'outline' | 'default';
+  children: ReactNode;
+}) {
+  const button = (
+    <Button variant={variant} size="sm" disabled={!!blockedOn} onClick={onClick}>
+      {children}
+    </Button>
+  );
+  if (!blockedOn) return button;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span tabIndex={0}>{button}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            This is a {blockedOn} PO — start a new PO for {target}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
 }
 
 // NOTE: Processing/Service categories deprecated - use Job Work Orders
@@ -368,66 +505,23 @@ function getApprovedCADRowsWithGreige(cadData: CADTableData | null): CADSpreadsh
 // Item Pre-population Helpers
 // ============================================
 
-function createGreigeItem(row: CADSpreadsheetRow, calculatedQty: number | null): POItemForm {
+/**
+ * A greige line from an approved CAD row (the greige master's id IS its materials id). Its metres are typed:
+ * the row gives the FINISHED metres, and greige needs more by the processor's shrinkage, which the row does
+ * not carry — a guessed percentage ordered the wrong amount.
+ */
+function createGreigeItem(row: CADSpreadsheetRow): POItemForm {
   return {
-    tempId: Date.now().toString(),
+    tempId: generateId(),
     materialId: row.greigeId || undefined,
     materialCode: undefined,
     materialName: row.greigeName || 'Greige Fabric',
-    orderedQuantity: calculatedQty ? String(calculatedQty) : '0',
+    orderedQuantity: '0',
     unit: 'METER',
     unitPrice: '0',
     totalPrice: 0,
     remarks: `Width: ${row.cutableWidth || '-'}"`,
-  };
-}
-
-function createProcessingItem(row: CADSpreadsheetRow, calculatedQty: number | null): POItemForm {
-  return {
-    tempId: Date.now().toString(),
-    materialId: row.greigeId || undefined,
-    materialCode: undefined,
-    materialName: row.greigeName || 'Greige Fabric',
-    serviceType: 'DYEING',
-    serviceDescription: `Process ${row.greigeName || 'fabric'} (${row.cutableWidth || '-'}" width)`,
-    orderedQuantity: calculatedQty ? String(calculatedQty) : '0',
-    unit: 'METER',
-    unitPrice: '0',
-    totalPrice: 0,
-    remarks: '',
-  };
-}
-
-function createTrimItem(bomItem: StyleBOMEntry, calculatedQty: number | null): POItemForm {
-  const price = parseFloat(bomItem.unitPrice) || 0;
-  // A BOM counts buttons per piece; they are ordered by the gross — whole gross, rounded up
-  const purchase = purchaseUnitOf(bomItem.materialType);
-  if (purchase) {
-    const gross = calculatedQty ? Math.ceil(calculatedQty / purchase.per - 1e-9) : 0;
-    const grossRate = Math.round(price * purchase.per * 100) / 100;
-    return {
-      tempId: Date.now().toString(),
-      materialId: undefined, // BOM entry doesn't have materialId, only materialCode
-      materialCode: bomItem.materialCode || undefined,
-      materialName: bomItem.materialName || 'Material',
-      orderedQuantity: String(gross),
-      unit: purchase.unit,
-      unitPrice: String(grossRate),
-      totalPrice: gross * grossRate,
-      remarks: calculatedQty ? `${Math.ceil(calculatedQty)} pcs needed` : '',
-    };
-  }
-  const qty = calculatedQty || 0;
-  return {
-    tempId: Date.now().toString(),
-    materialId: undefined, // BOM entry doesn't have materialId, only materialCode
-    materialCode: bomItem.materialCode || undefined,
-    materialName: bomItem.materialName || 'Material',
-    orderedQuantity: calculatedQty ? String(Math.ceil(calculatedQty)) : '0',
-    unit: (bomItem.unit as Unit) || 'PIECE',
-    unitPrice: String(price),
-    totalPrice: qty * price,
-    remarks: '',
+    ...taxOf({}),
   };
 }
 
@@ -489,6 +583,8 @@ export default function PurchaseOrderForm() {
   const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const [duplicateResult, setDuplicateResult] = useState<DuplicateCheckResult | null>(null);
   const [pendingSave, setPendingSave] = useState<{ shouldSend: boolean } | null>(null);
+  // A category change waiting for "Change category?" to be confirmed (it removes the lines)
+  const [pendingCategory, setPendingCategory] = useState<{ category: string; apply: () => void } | null>(null);
   const [materialSearch, setMaterialSearch] = useState('');
   const [quickAddMaterialId, setQuickAddMaterialId] = useState('');
   const [materialDisplayLimit, setMaterialDisplayLimit] = useState(50);
@@ -708,8 +804,10 @@ export default function PurchaseOrderForm() {
   }, [token]);
 
   // Fetch materials when supplier changes (for material POs)
-  // Uses OR logic: materials linked to supplier OR matching the PO category's material types
-  const fetchMaterials = async (forSupplierId?: string, skipSupplierFilter = false) => {
+  // Uses OR logic: materials linked to supplier OR matching the PO category's material types.
+  // The category is passed in, never read from state: the edit load calls this in the same tick it sets the
+  // category, when state still holds the first render's empty one.
+  const fetchMaterials = async (category: string, forSupplierId?: string, skipSupplierFilter = false) => {
     // Cancel any previous fetch request to prevent race conditions
     if (fetchAbortControllerRef.current) {
       fetchAbortControllerRef.current.abort();
@@ -720,11 +818,12 @@ export default function PurchaseOrderForm() {
     setIsLoadingMaterials(true);
     setMaterialDisplayLimit(50); // Reset pagination when fetching new materials
     try {
-      const types = PO_CATEGORY_TO_MATERIAL_TYPES[poCategory];
+      const types = PO_CATEGORY_TO_MATERIAL_TYPES[category];
       const response = await getAllMaterials({
         limit: 500, // Increased limit to get more materials
         supplierId: skipSupplierFilter ? undefined : forSupplierId || undefined,
         materialTypes: types ? types.join(',') : undefined,
+        laceKind: PO_CATEGORY_LACE_KIND[category],
       });
       // Only update state if this request wasn't aborted
       if (!currentController.signal.aborted) {
@@ -769,9 +868,10 @@ export default function PurchaseOrderForm() {
     }
   };
 
-  // Fetch greige masters when in manual GREIGE mode (no style selected)
+  // Fetch greige masters when in manual GREIGE mode (no style selected). A Fabric PO adds fabrics through Quick
+  // Add — a greige on it was never booked into stock.
   useEffect(() => {
-    if ((poCategory === 'GREIGE' || poCategory === 'FABRIC') && !styleId && token) {
+    if (poCategory === 'GREIGE' && !styleId && token) {
       fetchGreigeMasters();
     } else {
       setGreigeMasters([]);
@@ -796,6 +896,31 @@ export default function PurchaseOrderForm() {
     fetchWarehouse();
   }, [deliveryLocationId]);
 
+  // A split place picked in this session gets its name too — the Delivery Details card, the preview and the
+  // split checks name every place. Keyed on the chosen places, not on every quantity typed.
+  const splitPlaceIds = splitPoints.map((p) => p.warehouseId).join(',');
+  useEffect(() => {
+    if (!splitDelivery) return;
+    const missing = [...new Set(splitPlaceIds.split(',').filter((wid) => wid && !splitPlaceNames[wid]))];
+    if (missing.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      missing.map((wid) =>
+        warehouseService
+          .getById(wid)
+          .then((w) => [wid, w.warehouseName] as const)
+          // allow-silent-catch: a name we cannot fetch is shown as "That place", as before
+          .catch(() => null)
+      )
+    ).then((found) => {
+      const named = found.filter((f): f is readonly [string, string] => f !== null);
+      if (!cancelled && named.length > 0) setSplitPlaceNames((prev) => ({ ...prev, ...Object.fromEntries(named) }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [splitDelivery, splitPlaceIds, splitPlaceNames]);
+
   const fetchPurchaseOrder = async (poId: string) => {
     try {
       setIsLoading(true);
@@ -816,11 +941,12 @@ export default function PurchaseOrderForm() {
       }
 
       setSupplierId(po.supplierId);
+      currentSupplierIdRef.current = po.supplierId;
       if (po.supplier && typeof po.supplier === 'object' && 'id' in po.supplier && 'code' in po.supplier) {
         setSelectedSupplier(po.supplier as Supplier);
       }
       if (po.poDate) setPoDate(toDateInputValue(po.poDate));
-      setExpectedDeliveryDate(po.expectedDeliveryDate.split('T')[0]);
+      setExpectedDeliveryDate(toDateInputValue(po.expectedDeliveryDate));
       setRemarks(po.remarks || '');
       // Was never prefilled, so the field rendered EMPTY on a PO that already had a location —
       // inviting the user to re-pick it, and then dropping the value on save.
@@ -847,6 +973,10 @@ export default function PurchaseOrderForm() {
           unitPrice: String(item.unitPrice),
           totalPrice: item.totalPrice,
           remarks: item.remarks || '',
+          // The line's own GST and HSN, as saved
+          hsnCode: item.hsnCode ?? undefined,
+          gstRate: item.gstRate != null ? Number(item.gstRate) : DEFAULT_GST_RATE,
+          gstAssumed: item.gstRate == null,
           // Was absent, so every save rewrote the roll fold length to NULL on every line.
           foldLengthCm: item.foldLengthCm != null ? String(item.foldLengthCm) : '',
           weaverId: item.weaverId ?? '',
@@ -897,7 +1027,7 @@ export default function PurchaseOrderForm() {
 
       // Fetch materials filtered by supplier for material POs
       if (po.supplierId) {
-        fetchMaterials(po.supplierId);
+        fetchMaterials(po.poCategory ?? '', po.supplierId);
       }
     } catch (err) {
       handleApiError(err, 'Failed to load purchase order');
@@ -909,7 +1039,11 @@ export default function PurchaseOrderForm() {
 
   const handleCategoryChange = (newCategory: string) => {
     setPoCategory(newCategory);
-    // Reset downstream: supplier, items, materials, processing state
+    // Reset downstream: supplier, items, materials, processing state. A supplier or materials lookup still
+    // under way belongs to the old category — it must not land.
+    currentSupplierIdRef.current = '';
+    fetchAbortControllerRef.current?.abort();
+    setIsLoadingMaterials(false);
     setSupplierId('');
     setSelectedSupplier(null);
     setItems([]);
@@ -923,36 +1057,55 @@ export default function PurchaseOrderForm() {
     setLockedMaterialName('');
   };
 
-  // Handle clearing the style selection (reset to manual mode)
+  // A category change clears the lines (they belong to the old category). With lines on the PO it asks first;
+  // Cancel keeps everything.
+  const confirmCategoryChange = (category: string, apply: () => void) => {
+    if (items.length === 0) apply();
+    else setPendingCategory({ category, apply });
+  };
+
+  // Handle clearing the style selection (reset to manual mode). A saved PO keeps its category, supplier and
+  // lines — its category cannot be chosen again, so clearing it would leave the PO unsaveable.
   const handleClearStyle = () => {
     setStyleId('');
     setStyleCADData(null);
     setStyleBOMData(null);
     setIsCategoryLocked(false);
     setLockedMaterialName('');
-    setItems([]);
-    setPoCategory('');
-    setSupplierId('');
-    setSelectedSupplier(null);
     setOrderQuantity(0);
     setQuantityMode('direct');
-  };
-
-  // Handle material PO button click - sets category and locks it
-  const handleMaterialPOClick = (category: string, item: POItemForm, materialName: string) => {
-    setPoCategory(category);
-    setIsCategoryLocked(true);
-    setLockedMaterialName(materialName);
+    if (isEditMode) return;
+    setItems([]);
+    setPoCategory('');
+    currentSupplierIdRef.current = '';
     setSupplierId('');
     setSelectedSupplier(null);
-    setItems([item]);
+  };
+
+  // A Materials Required button: its line is ADDED to the PO. Same category — the supplier and the other lines
+  // stay. Another category — the PO switches to it (asking first when it has lines) and the line starts it.
+  const addStyleLine = (category: string, line: POItemForm, materialName: string) => {
+    const lock = () => {
+      setIsCategoryLocked(true);
+      setLockedMaterialName(materialName);
+    };
+    if (category === poCategory) {
+      setItems((prev) => [...prev, line]);
+      lock();
+      return;
+    }
+    confirmCategoryChange(category, () => {
+      handleCategoryChange(category);
+      setItems([line]);
+      lock();
+    });
   };
 
   const handleSupplierChange = async (newSupplierId: string) => {
     // Update ref immediately for race condition protection
     currentSupplierIdRef.current = newSupplierId;
     setSupplierId(newSupplierId);
-    setItems([]);
+    // The lines stay — they are what is being bought, whoever supplies it. Only the list to add from changes.
     setMaterials([]);
 
     if (!newSupplierId) {
@@ -964,16 +1117,18 @@ export default function PurchaseOrderForm() {
     try {
       const supplier = await getSupplierById(newSupplierId);
       // Only update state if this supplier is still the selected one
-      if (currentSupplierIdRef.current === newSupplierId) {
-        setSelectedSupplier(supplier as unknown as Supplier);
-      }
+      if (currentSupplierIdRef.current !== newSupplierId) return;
+      setSelectedSupplier(supplier as unknown as Supplier);
     } catch (err) {
-      console.error('Failed to fetch supplier details:', err);
+      if (currentSupplierIdRef.current !== newSupplierId) return;
+      // Never leave the previous supplier's payment terms and state on screen
+      setSelectedSupplier(null);
+      handleApiError(err, 'Could not load the supplier details');
     }
 
     // Fetch materials filtered by this supplier (for material POs)
     if (isMaterial) {
-      fetchMaterials(newSupplierId);
+      fetchMaterials(poCategory, newSupplierId);
     }
 
     // Fetch greige fabrics for processing POs
@@ -1024,11 +1179,12 @@ export default function PurchaseOrderForm() {
           unitPrice: '0',
           totalPrice: 0,
           remarks: '',
+          ...taxOf(material),
         },
         threadSpecs
       );
     }
-    const rate = material.purchaseUnit ? (material.purchaseUnitPrice ?? 0) : (material.costPerUnit ?? 0);
+    const rate = roundToPaise(material.purchaseUnit ? (material.purchaseUnitPrice ?? 0) : (material.costPerUnit ?? 0));
     const label = material.labelId ? labelDisplay(material) : null;
     return {
       tempId: generateId(),
@@ -1045,8 +1201,52 @@ export default function PurchaseOrderForm() {
       unitPrice: String(rate),
       totalPrice: qty * rate,
       remarks: '',
+      ...taxOf(material),
     };
   };
+
+  // What a style's BOM line needs for the order quantity: whole units for pieces, metres as they come (never
+  // rounded down to a whole metre). Only when the order quantity is given.
+  const bomNeeded = (entry: StyleBOMEntry): number | null => {
+    if (quantityMode !== 'order' || orderQuantity <= 0) return null;
+    const raw = orderQuantity * (parseFloat(entry.quantityPerGarment) || 0);
+    return isCountUnit(entry.unit) ? Math.ceil(raw - 1e-9) : Number(prefillQty(raw));
+  };
+
+  // A Materials Required line — the same line Quick Add makes for the material. Buttons: the pieces needed in
+  // whole gross; thread: cones / tubes are typed (a BOM's thread counts garments).
+  const bomLine = (entry: StyleBOMEntry): POItemForm => {
+    const needed = bomNeeded(entry);
+    const purchase = purchaseUnitOf(entry.materialType);
+    if (!purchase) return materialLine(bomMaterial(entry), needed ?? 0);
+    const line = materialLine(bomMaterial(entry), needed ? Math.ceil(needed / purchase.per - 1e-9) : 0);
+    return needed ? { ...line, remarks: `${formatQuantity(needed, entry.unit)} needed` } : line;
+  };
+
+  // A line added before its material was in the list — a Materials Required line (the style's BOM carries no
+  // tax), a greige from CAD — takes the material's GST rate, HSN and code once the list has them. A typed
+  // rate is left alone.
+  useEffect(() => {
+    if (materials.length === 0) return;
+    const byId = new Map(materials.map((m) => [m.id, m]));
+    setItems((prev) => {
+      let changed = false;
+      const next = prev.map((item) => {
+        const m = item.materialId ? byId.get(item.materialId) : undefined;
+        if (!m) return item;
+        const patch: Partial<POItemForm> = {};
+        if (item.gstAssumed && (m.defaultGstRate != null || (m.hsnCode && !item.hsnCode))) {
+          Object.assign(patch, taxOf(m));
+        }
+        if (!item.materialCode) patch.materialCode = m.code;
+        if (!item.materialName) patch.materialName = m.name;
+        if (Object.keys(patch).length === 0) return item;
+        changed = true;
+        return { ...item, ...patch };
+      });
+      return changed ? next : prev;
+    });
+  }, [materials]);
 
   const addMaterialItem = (material: Material) => {
     setItems([...items, materialLine(material, 1)]);
@@ -1081,7 +1281,7 @@ export default function PurchaseOrderForm() {
         prev,
         sizeRows,
         qtyByMaterialId,
-        (item, qty) => ({ ...item, orderedQuantity: String(qty), totalPrice: qty * (parseFloat(item.unitPrice) || 0) }),
+        (item, qty) => ({ ...item, orderedQuantity: String(qty), totalPrice: lineAmount(String(qty), item.unitPrice) }),
         (row, qty) => materialLine(row, qty)
       )
     );
@@ -1119,7 +1319,7 @@ export default function PurchaseOrderForm() {
             (item, qty) => ({
               ...item,
               orderedQuantity: String(qty),
-              totalPrice: qty * (parseFloat(item.unitPrice) || 0),
+              totalPrice: lineAmount(String(qty), item.unitPrice),
             }),
             (row, qty) => materialLine(row as Material, qty)
           ),
@@ -1204,6 +1404,13 @@ export default function PurchaseOrderForm() {
                 </Select>
               </div>
             )}
+            {item.gstAssumed && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                {item.hsnCode
+                  ? `HSN ${item.hsnCode} has no GST rate on file — ${DEFAULT_GST_RATE}% assumed`
+                  : `No HSN on this material — ${DEFAULT_GST_RATE}% assumed`}
+              </div>
+            )}
           </div>
         )}
       </TableCell>
@@ -1261,7 +1468,7 @@ export default function PurchaseOrderForm() {
               value={item.threadUnits ?? ''}
               onChange={(e) => updateThreadLine(item.tempId, { threadUnits: e.target.value })}
               placeholder={unitHeader(item.threadPackagingType ?? 'CONE')}
-              className="w-full"
+              className="w-full min-w-[110px]"
             />
             <div className="mt-1 text-xs text-muted-foreground whitespace-nowrap">
               {(() => {
@@ -1276,10 +1483,10 @@ export default function PurchaseOrderForm() {
           <Input
             type="number"
             min="0"
-            step="0.001"
+            step="any"
             value={item.orderedQuantity}
             onChange={(e) => updateItem(item.tempId, 'orderedQuantity', e.target.value)}
-            className="w-full"
+            className="w-full min-w-[110px]"
           />
         )}
         {/* PO quantities are ACTUAL metres; the GRN converts what the mill counts at L. */}
@@ -1336,6 +1543,7 @@ export default function PurchaseOrderForm() {
                   ? updateThreadLine(item.tempId, { unitPrice: e.target.value })
                   : updateItem(item.tempId, 'unitPrice', e.target.value)
               }
+              onBlur={() => keepRateToPaise(item.tempId)}
               className="w-full"
             />
             {item.materialType === 'THREAD' && (
@@ -1348,22 +1556,19 @@ export default function PurchaseOrderForm() {
       </TableCell>
       <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
       <TableCell>
+        {/* 0 is a rate (exempt goods); blank is refused on save */}
         <Input
           type="number"
           min="0"
           max="28"
           step="0.5"
-          value={item.gstRate ?? 5}
-          onChange={(e) => updateItem(item.tempId, 'gstRate', parseFloat(e.target.value) || 5)}
-          className="w-full text-right"
+          value={item.gstRate ?? ''}
+          onChange={(e) => setLineGstRate(item.tempId, e.target.value)}
+          className="w-full min-w-[72px] text-right"
         />
       </TableCell>
-      <TableCell className="text-right text-muted-foreground">
-        {formatCurrency((item.totalPrice * (item.gstRate ?? 5)) / 100)}
-      </TableCell>
-      <TableCell className="text-right font-medium">
-        {formatCurrency(item.totalPrice + (item.totalPrice * (item.gstRate ?? 5)) / 100)}
-      </TableCell>
+      <TableCell className="text-right text-muted-foreground">{formatCurrency(lineTax(item).tax)}</TableCell>
+      <TableCell className="text-right font-medium">{formatCurrency(item.totalPrice + lineTax(item).tax)}</TableCell>
       <TableCell>
         <Input
           value={item.remarks}
@@ -1392,10 +1597,10 @@ export default function PurchaseOrderForm() {
       lines.every((l) => pick(l) === pick(lines[0])) ? pick(lines[0]) : null;
     const qty = sumRows(group.rows, (l) => parseFloat(l.orderedQuantity) || 0);
     const amount = sumRows(group.rows, (l) => l.totalPrice);
-    const tax = sumRows(group.rows, (l) => (l.totalPrice * (l.gstRate ?? 5)) / 100);
+    const tax = sumRows(group.rows, (l) => lineTax(l).tax);
     const unit = same((l) => l.unit);
     const rate = same((l) => parseFloat(l.unitPrice) || 0);
-    const gst = same((l) => l.gstRate ?? 5);
+    const gst = same((l) => lineTax(l).rate);
     const collapsed = collapsedLabels.has(group.labelId);
     return (
       <TableRow key={group.key} className="bg-muted/40">
@@ -1452,8 +1657,7 @@ export default function PurchaseOrderForm() {
 
   const renderPreviewRow = (item: POItemForm, size?: string | null) => {
     const amount = item.totalPrice;
-    const gstRate = item.gstRate || 5; // Default 5% for textiles
-    const taxAmount = (amount * gstRate) / 100;
+    const { rate: gstRate, tax: taxAmount } = lineTax(item);
     return (
       <TableRow key={item.tempId}>
         <TableCell>
@@ -1489,7 +1693,7 @@ export default function PurchaseOrderForm() {
 
   const renderPreviewHeadingRow = (group: LabelGroup<POItemForm>) => {
     const amount = sumRows(group.rows, (l) => l.totalPrice);
-    const tax = sumRows(group.rows, (l) => (l.totalPrice * (l.gstRate || 5)) / 100);
+    const tax = sumRows(group.rows, (l) => lineTax(l).tax);
     return (
       <TableRow key={group.key} className="bg-muted/40">
         <TableCell colSpan={2}>
@@ -1526,6 +1730,7 @@ export default function PurchaseOrderForm() {
       unitPrice: '0',
       totalPrice: 0,
       remarks: '',
+      ...taxOf({}),
     };
     setItems([...items, newItem]);
   };
@@ -1540,16 +1745,19 @@ export default function PurchaseOrderForm() {
     if (!greige) return;
 
     // Allow multiple items with same greige (user might want different quantities at different prices)
+    const rate = roundToPaise(Number(greige.costPerMeter) || 0);
     const newItem: POItemForm = {
-      tempId: Date.now().toString(),
+      tempId: generateId(),
       materialId: greige.id,
       materialCode: greige.greigeCode,
       materialName: `${greige.greigeName} (${greige.greigeWidth}")`,
       orderedQuantity: '1',
       unit: 'METER',
-      unitPrice: greige.costPerMeter ? String(greige.costPerMeter) : '0',
-      totalPrice: greige.costPerMeter || 0,
+      unitPrice: String(rate),
+      totalPrice: rate,
       remarks: `Shrinkage: ${greige.averageShrinkagePercent}%`,
+      // The GST follows from the greige's material row when the list has it
+      ...taxOf({}),
     };
     setItems((prev) => [...prev, newItem]);
   };
@@ -1576,6 +1784,7 @@ export default function PurchaseOrderForm() {
       unitPrice: '0',
       totalPrice: 0,
       remarks: '',
+      ...taxOf({}),
     };
     setItems((prev) => [...prev, newItem]);
 
@@ -1599,7 +1808,7 @@ export default function PurchaseOrderForm() {
         setItems((prev) =>
           prev.map((item) => {
             if (item.tempId !== tempId) return item;
-            const rate = result.ratePerMeter;
+            const rate = roundToPaise(result.ratePerMeter);
             const qty = parseFloat(item.orderedQuantity) || 0;
             return {
               ...item,
@@ -1642,9 +1851,7 @@ export default function PurchaseOrderForm() {
         const updatedItem = { ...item, [field]: value };
 
         if (field === 'orderedQuantity' || field === 'unitPrice') {
-          const qty = parseFloat(String(updatedItem.orderedQuantity)) || 0;
-          const price = parseFloat(String(updatedItem.unitPrice)) || 0;
-          updatedItem.totalPrice = qty * price;
+          updatedItem.totalPrice = lineAmount(String(updatedItem.orderedQuantity), String(updatedItem.unitPrice));
         }
 
         return updatedItem;
@@ -1680,6 +1887,28 @@ export default function PurchaseOrderForm() {
       })
     );
 
+  // Leaving a rate box keeps the rate to the paisa (as the server will) — the amount already follows that rate
+  const keepRateToPaise = (tempId: string) =>
+    setItems((prev) =>
+      prev.map((row) => {
+        if (row.tempId !== tempId || row.unitPrice === '') return row;
+        const kept: POItemForm = { ...row, unitPrice: String(roundToPaise(parseFloat(row.unitPrice) || 0)) };
+        return row.materialType === 'THREAD'
+          ? withThreadBoxes(kept, threadSpecs)
+          : { ...kept, totalPrice: lineAmount(kept.orderedQuantity, kept.unitPrice) };
+      })
+    );
+
+  // A typed GST rate is the line's rate — 0 included (exempt goods). Blank stays blank until filled.
+  const setLineGstRate = (tempId: string, value: string) => {
+    const rate = parseFloat(value);
+    setItems((prev) =>
+      prev.map((row) =>
+        row.tempId === tempId ? { ...row, gstRate: Number.isFinite(rate) ? rate : undefined, gstAssumed: false } : row
+      )
+    );
+  };
+
   const calculateGrandTotal = () => {
     return items.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
   };
@@ -1708,6 +1937,15 @@ export default function PurchaseOrderForm() {
     // ISO yyyy-mm-dd strings compare in date order
     if (poDate > toDateInputValue(new Date())) {
       handleApiError(new Error('The PO date cannot be in the future'), 'Validation Error');
+      return false;
+    }
+    if (expectedDeliveryDate < poDate) {
+      handleApiError(
+        new Error(
+          `The expected delivery date (${formatDate(expectedDeliveryDate)}) is before the PO date (${formatDate(poDate)})`
+        ),
+        'Validation Error'
+      );
       return false;
     }
     if (items.length === 0) {
@@ -1762,6 +2000,16 @@ export default function PurchaseOrderForm() {
         );
         return false;
       }
+      // The GST shown is the GST saved — so it must be there, and a rate the server takes (0 to 28)
+      if (item.gstRate == null || item.gstRate < 0 || item.gstRate > 28) {
+        handleApiError(
+          new Error(
+            `Enter the GST % for ${item.materialName || item.serviceDescription || 'the item'} — 0 to 28 (0 if exempt)`
+          ),
+          'Validation Error'
+        );
+        return false;
+      }
     }
     // A split must place every line fully, across at least two places
     if (splitDelivery) {
@@ -1798,9 +2046,14 @@ export default function PurchaseOrderForm() {
         serviceDescription: item.serviceDescription || undefined,
         orderedQuantity: parseFloat(item.orderedQuantity),
         unit: item.unit,
-        unitPrice: parseFloat(item.unitPrice),
+        // The rate the amount was worked out from — kept to the paisa
+        unitPrice: roundToPaise(parseFloat(item.unitPrice)),
         remarks: item.remarks || undefined,
-        foldLengthCm: item.foldLengthCm ? parseFloat(item.foldLengthCm) : undefined,
+        // The line's GST as shown (0 is a rate); its HSN when known — left out, the server finds the material's
+        gstRate: item.gstRate,
+        hsnCode: item.hsnCode || undefined,
+        // Blank or 0 = no fold length: left out, the line saves none (the server refuses an L of 0)
+        foldLengthCm: parseFloat(item.foldLengthCm ?? '') > 0 ? parseFloat(item.foldLengthCm!) : undefined,
         weaverId: item.weaverId || null,
         // Thread: the pack the boxes are of (the server checks it and sets the box size)
         ...(item.materialType === 'THREAD'
@@ -1840,7 +2093,8 @@ export default function PurchaseOrderForm() {
           poDate,
           expectedDeliveryDate,
           paymentTerms: selectedSupplier?.paymentTerms || undefined,
-          remarks: remarks || undefined,
+          // null clears remarks that were emptied — undefined would leave the old ones in place
+          remarks: remarks || null,
           items: itemsData,
           // Optional traceability links
           styleId: styleId || null,
@@ -1974,7 +2228,77 @@ export default function PurchaseOrderForm() {
   }));
 
   // Check if we're in manual greige mode (GREIGE category without style)
-  const isManualGreigeMode = (poCategory === 'GREIGE' || poCategory === 'FABRIC') && !styleId;
+  const isManualGreigeMode = poCategory === 'GREIGE' && !styleId;
+
+  // CGST + SGST or IGST: the supplier's state (primary GSTIN → any GSTIN → billing state) against ours.
+  // Unknown = CGST + SGST, with a warning — the server does the same.
+  const supplierState = selectedSupplier ? supplierStateCode(selectedSupplier) : null;
+  const gstHeads = resolveGstHeads(supplierState, company.stateCode, isCompanyPlaceholder);
+
+  // On a saved PO only the Materials Required buttons for its own category work (its category is fixed)
+  const shortcutBlockedOn = (category: string) =>
+    isEditMode && category !== poCategory ? (PO_CATEGORY_LABELS[poCategory] ?? poCategory) : null;
+  const shortcutLabel = (category: string) => `${(PO_CATEGORY_LABELS[category] ?? category).toUpperCase()} PO`;
+  // Labels go on a Trims (or General) PO
+  const labelsBlockedOn =
+    isEditMode && poCategory !== 'TRIMS' && poCategory !== 'GENERAL'
+      ? (PO_CATEGORY_LABELS[poCategory] ?? poCategory)
+      : null;
+
+  // The split places, in order, with their names — for the Delivery Details card and the preview
+  const splitPlaces = splitPoints
+    .map((p, i) => ({ p, place: i + 1 })) // numbered as the Split delivery card numbers them
+    .filter(({ p }) => p.warehouseId)
+    .map(({ p, place }) => ({
+      key: p.key,
+      place,
+      name: splitPlaceNames[p.warehouseId] ?? 'Loading…',
+      lines: items
+        .filter((item) => !isQtyZero(toQty(p.qty[item.tempId])))
+        .map((item) => ({
+          tempId: item.tempId,
+          label: item.materialCode || item.materialName || item.serviceDescription || 'Item',
+          quantity: formatQuantity(toQty(p.qty[item.tempId]), item.unit, 3),
+        })),
+    }));
+
+  // Subtotal, tax per rate (never an average rate) and grand total — the lines table and the preview both show this
+  const renderTaxSummary = () => {
+    const subtotal = calculateGrandTotal();
+    const byRate = taxByRate(items);
+    const totalTax = byRate.reduce((sum, r) => sum + r.tax, 0);
+    const row = (label: string, amount: number, key?: string) => (
+      <div key={key} className="flex justify-between text-sm">
+        <span className="text-muted-foreground">{label}</span>
+        <span>{formatCurrency(amount)}</span>
+      </div>
+    );
+    return (
+      <>
+        {row('Subtotal:', subtotal)}
+        {byRate.flatMap(({ rate, tax }) =>
+          gstHeads.pending
+            ? [row(`GST (${rate}%):`, tax, `gst-${rate}`)]
+            : gstHeads.isInterstate
+              ? [row(`IGST (${rate}%):`, tax, `igst-${rate}`)]
+              : [
+                  row(`CGST (${rate / 2}%):`, tax / 2, `cgst-${rate}`),
+                  row(`SGST (${rate / 2}%):`, tax / 2, `sgst-${rate}`),
+                ]
+        )}
+        <div className="flex justify-between pt-2 border-t font-bold text-lg">
+          <span>Grand Total:</span>
+          <span>{formatCurrency(subtotal + totalTax)}</span>
+        </div>
+        {selectedSupplier && !supplierState && (
+          <p className="text-xs text-warning">
+            Supplier&apos;s state is not on file — tax shown as CGST + SGST. Add the supplier&apos;s GSTIN or billing
+            state.
+          </p>
+        )}
+      </>
+    );
+  };
 
   // ============================================
   // Render
@@ -2049,7 +2373,8 @@ export default function PurchaseOrderForm() {
                   searchText: `${s.styleCode} ${s.styleName} ${s.buyerStyleRef || ''}`,
                 }))}
                 value={styleId}
-                onValueChange={setStyleId}
+                // Clearing it here (re-clicking the chosen style) is the same as Clear Style — it unlocks the category
+                onValueChange={(value) => (value ? setStyleId(value) : handleClearStyle())}
                 placeholder={isLoadingStyles ? 'Loading styles...' : 'Search and select a style...'}
                 searchPlaceholder="Search by code or name..."
                 emptyText={isLoadingStyles ? 'Loading...' : 'No styles found.'}
@@ -2132,7 +2457,7 @@ export default function PurchaseOrderForm() {
                         <Input
                           type="number"
                           min="0"
-                          step="0.01"
+                          step="any"
                           value={directQuantity || ''}
                           onChange={(e) => setDirectQuantity(parseFloat(e.target.value) || 0)}
                           placeholder="Enter quantity"
@@ -2157,7 +2482,8 @@ export default function PurchaseOrderForm() {
                   </div>
                   {quantityMode === 'direct' && directQuantity > 0 && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      Greige quantity will include shrinkage buffer (typically 5-10% extra)
+                      These are finished metres. Greige needs more by the processor&apos;s shrinkage — type the greige
+                      metres on the PO line.
                     </p>
                   )}
                 </div>
@@ -2166,9 +2492,6 @@ export default function PurchaseOrderForm() {
                 {(() => {
                   const approvedRows = getApprovedCADRowsWithGreige(styleCADData);
                   if (approvedRows.length === 0) return null;
-
-                  // Shrinkage factor for greige (default 8% - can be made configurable)
-                  const SHRINKAGE_PERCENT = 8;
 
                   return (
                     <div className="p-3 border rounded-lg">
@@ -2190,9 +2513,6 @@ export default function PurchaseOrderForm() {
                             fabricQty = directQuantity;
                           }
 
-                          // Greige needs shrinkage buffer (more raw material than finished)
-                          const greigeQty = fabricQty ? fabricQty * (1 + SHRINKAGE_PERCENT / 100) : null;
-
                           return (
                             <div key={row.id} className="p-3 bg-muted/30 rounded border">
                               <div className="flex items-start justify-between gap-4">
@@ -2204,41 +2524,30 @@ export default function PurchaseOrderForm() {
                                   {fabricQty && (
                                     <div className="text-sm mt-1 space-y-0.5">
                                       <p className="text-primary font-medium">
-                                        Finished Fabric: {fabricQty.toFixed(2)} meters
+                                        Finished Fabric: {formatQuantity(fabricQty, 'METER')}
                                       </p>
-                                      <p className="text-orange-600 font-medium">
-                                        Greige (with {SHRINKAGE_PERCENT}% shrinkage): {greigeQty?.toFixed(2)} meters
+                                      {/* The CAD row carries no shrinkage — a guessed % ordered the wrong greige */}
+                                      <p className="text-xs text-muted-foreground">
+                                        Greige: finished metres plus the processor&apos;s shrinkage — type it on the
+                                        line
                                       </p>
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex gap-2 flex-wrap justify-end">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      handleMaterialPOClick(
-                                        'GREIGE',
-                                        createGreigeItem(row, greigeQty),
-                                        row.greigeName || 'Greige'
-                                      );
-                                    }}
+                                <div className="flex flex-col items-end gap-1">
+                                  <StyleShortcut
+                                    blockedOn={shortcutBlockedOn('GREIGE')}
+                                    target={PO_CATEGORY_LABELS.GREIGE}
+                                    onClick={() =>
+                                      addStyleLine('GREIGE', createGreigeItem(row), row.greigeName || 'Greige')
+                                    }
                                   >
-                                    GREIGE PO
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      handleMaterialPOClick(
-                                        'PROCESSING',
-                                        createProcessingItem(row, fabricQty),
-                                        row.greigeName || 'Processing'
-                                      );
-                                    }}
-                                  >
-                                    PROCESSING PO
-                                  </Button>
+                                    {shortcutLabel('GREIGE')}
+                                  </StyleShortcut>
+                                  {/* Dyeing / printing is sent out on a job work order, not bought on a PO */}
+                                  <Link to="/job-work-orders" className="text-xs text-primary underline">
+                                    Dyeing / printing → Job Work Orders
+                                  </Link>
                                 </div>
                               </div>
                               <p className="text-xs text-muted-foreground mt-2">
@@ -2252,7 +2561,7 @@ export default function PurchaseOrderForm() {
                   );
                 })()}
 
-                {/* Trims & Accessories Section */}
+                {/* Trims Section — the style's trims (its Trims & Materials tab); labels and packaging have their own */}
                 {styleBOMData &&
                   (() => {
                     // Labels have their own section below (ordered as a set, size by size)
@@ -2265,7 +2574,7 @@ export default function PurchaseOrderForm() {
                     return (
                       <div className="p-3 border rounded-lg">
                         <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
-                          <span className="text-lg">🔘</span> Trims & Accessories
+                          <span className="text-lg">🔘</span> Trims
                           <Badge variant="secondary" className="text-xs">
                             {allTrims.length} items
                           </Badge>
@@ -2273,10 +2582,8 @@ export default function PurchaseOrderForm() {
                         <div className="space-y-2">
                           {allTrims.map((item: StyleBOMEntry) => {
                             const qtyPerGarment = parseFloat(item.quantityPerGarment) || 0;
-                            const calculatedQty =
-                              quantityMode === 'order' && orderQuantity > 0
-                                ? (orderQuantity * qtyPerGarment).toFixed(0)
-                                : null;
+                            const needed = bomNeeded(item);
+                            const category = poCategoryForMaterialType(item.materialType, item.laceKind);
 
                             return (
                               <div
@@ -2288,33 +2595,21 @@ export default function PurchaseOrderForm() {
                                   <p className="text-xs text-muted-foreground">
                                     {item.materialCode} | {qtyPerGarment} {unitShort(item.unit)}/garment @{' '}
                                     {formatCurrency(parseFloat(item.unitPrice) || 0)}
-                                    {calculatedQty && (
+                                    {needed != null && (
                                       <span className="ml-2 text-primary font-medium">
-                                        → {calculatedQty} {unitShort(item.unit)} needed
+                                        → {formatQuantity(needed, item.unit, 3)} needed
                                       </span>
                                     )}
                                   </p>
                                 </div>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    // Thread is ordered in cones / tubes on a Thread PO — its BOM quantity counts garments
-                                    if (item.materialType === 'THREAD') {
-                                      handleMaterialPOClick('THREAD', createThreadItem(item), item.materialName);
-                                      return;
-                                    }
-                                    const category = item.materialType === 'LACE' ? 'LACE' : 'TRIMS';
-                                    const qtyNum = calculatedQty ? parseFloat(calculatedQty) : null;
-                                    handleMaterialPOClick(category, createTrimItem(item, qtyNum), item.materialName);
-                                  }}
+                                {/* Thread is ordered in cones / tubes on a Thread PO — its BOM quantity counts garments */}
+                                <StyleShortcut
+                                  blockedOn={shortcutBlockedOn(category)}
+                                  target={PO_CATEGORY_LABELS[category] ?? category}
+                                  onClick={() => addStyleLine(category, bomLine(item), item.materialName)}
                                 >
-                                  {item.materialType === 'LACE'
-                                    ? 'LACE PO'
-                                    : item.materialType === 'THREAD'
-                                      ? 'THREAD PO'
-                                      : 'TRIMS PO'}
-                                </Button>
+                                  {shortcutLabel(category)}
+                                </StyleShortcut>
                               </div>
                             );
                           })}
@@ -2338,9 +2633,14 @@ export default function PurchaseOrderForm() {
                           </span>
                         )}
                       </h4>
-                      <Button size="sm" onClick={() => openLabelSet(null)}>
+                      <StyleShortcut
+                        variant="default"
+                        blockedOn={labelsBlockedOn}
+                        target={PO_CATEGORY_LABELS.LABEL}
+                        onClick={() => openLabelSet(null)}
+                      >
                         Order label set…
-                      </Button>
+                      </StyleShortcut>
                     </div>
                     <div className="space-y-2">
                       {currentLabelSet.labels.map((l) => (
@@ -2358,9 +2658,13 @@ export default function PurchaseOrderForm() {
                                 : 'no supplier on its Label page'}
                             </p>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => openLabelSet([l.labelId])}>
+                          <StyleShortcut
+                            blockedOn={labelsBlockedOn}
+                            target={PO_CATEGORY_LABELS.LABEL}
+                            onClick={() => openLabelSet([l.labelId])}
+                          >
                             {l.sizes.length > 0 ? 'Sizes…' : 'Add'}
-                          </Button>
+                          </StyleShortcut>
                         </div>
                       ))}
                     </div>
@@ -2381,10 +2685,8 @@ export default function PurchaseOrderForm() {
                         .filter((i) => !i.labelId)
                         .map((item: StyleBOMEntry) => {
                           const qtyPerGarment = parseFloat(item.quantityPerGarment) || 0;
-                          const calculatedQty =
-                            quantityMode === 'order' && orderQuantity > 0
-                              ? (orderQuantity * qtyPerGarment).toFixed(0)
-                              : null;
+                          const needed = bomNeeded(item);
+                          const category = poCategoryForMaterialType(item.materialType, item.laceKind);
 
                           return (
                             <div
@@ -2395,23 +2697,20 @@ export default function PurchaseOrderForm() {
                                 <p className="font-medium text-sm">{item.materialName}</p>
                                 <p className="text-xs text-muted-foreground">
                                   {item.materialCode} | {qtyPerGarment} {unitShort(item.unit)}/garment
-                                  {calculatedQty && (
+                                  {needed != null && (
                                     <span className="ml-2 text-primary font-medium">
-                                      → {calculatedQty} {unitShort(item.unit)} needed
+                                      → {formatQuantity(needed, item.unit, 3)} needed
                                     </span>
                                   )}
                                 </p>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const qtyNum = calculatedQty ? parseFloat(calculatedQty) : null;
-                                  handleMaterialPOClick('GENERAL', createTrimItem(item, qtyNum), item.materialName);
-                                }}
+                              <StyleShortcut
+                                blockedOn={shortcutBlockedOn(category)}
+                                target={PO_CATEGORY_LABELS[category] ?? category}
+                                onClick={() => addStyleLine(category, bomLine(item), item.materialName)}
                               >
-                                GENERAL PO
-                              </Button>
+                                {shortcutLabel(category)}
+                              </StyleShortcut>
                             </div>
                           );
                         })}
@@ -2459,7 +2758,11 @@ export default function PurchaseOrderForm() {
                 )}
               </div>
               {/* NOTE: Processing/Service categories removed - use Job Work Orders for those */}
-              <Select value={poCategory} onValueChange={handleCategoryChange} disabled={isEditMode || isCategoryLocked}>
+              <Select
+                value={poCategory}
+                onValueChange={(category) => confirmCategoryChange(category, () => handleCategoryChange(category))}
+                disabled={isEditMode || isCategoryLocked}
+              >
                 <SelectTrigger className={isCategoryLocked ? 'bg-muted/50' : ''}>
                   <SelectValue placeholder="Select PO category..." />
                 </SelectTrigger>
@@ -2485,21 +2788,33 @@ export default function PurchaseOrderForm() {
                 placeholder={poCategory ? 'Select a supplier...' : 'Select a category first...'}
                 disabled={!poCategory}
                 categoryFilter={PO_CATEGORY_TO_SUPPLIER_CATEGORY[poCategory]}
+                // The PO's own supplier shows even when it is outside this category's list (an MRP Trims PO from
+                // a packaging supplier)
+                selectedSupplier={selectedSupplier}
               />
             </div>
 
-            {/* Delivery Location */}
+            {/* Delivery Location — with a split, the places are chosen in the Split delivery card (place 1 is the
+                header) */}
             <div className="space-y-2">
               <Label>Delivery Location</Label>
-              <WarehouseCombobox
-                value={deliveryLocationId}
-                onValueChange={setDeliveryLocationId}
-                placeholder="Decide at dispatch (to be advised)"
-              />
+              {!splitDelivery && (
+                <WarehouseCombobox
+                  value={deliveryLocationId}
+                  onValueChange={setDeliveryLocationId}
+                  placeholder="Decide at dispatch (to be advised)"
+                />
+              )}
               {!deliveryLocationId && !splitDelivery && (
                 <p className="text-xs text-muted-foreground">
                   Leave it empty to decide at dispatch — the PO prints "to be advised before dispatch", and you can set
                   it later from the PO page.
+                </p>
+              )}
+              {splitDelivery && (
+                <p className="text-xs text-muted-foreground">
+                  Split across places — choose them in the Split delivery card below. Place 1 is the PO&apos;s delivery
+                  location.
                 </p>
               )}
               {!isProcessing && !isService && (
@@ -2508,6 +2823,8 @@ export default function PurchaseOrderForm() {
                     checked={splitDelivery}
                     onCheckedChange={(on) => {
                       setSplitDelivery(on);
+                      // Back to one place: place 1 becomes the delivery location again
+                      if (!on && splitPoints[0]?.warehouseId) setDeliveryLocationId(splitPoints[0].warehouseId);
                       if (on && splitPoints.length === 0) {
                         // Place 1 = the chosen location with everything; the user moves part to place 2
                         setSplitPoints([
@@ -2584,6 +2901,8 @@ export default function PurchaseOrderForm() {
                 id="expectedDeliveryDate"
                 type="date"
                 value={expectedDeliveryDate}
+                // Goods cannot be due before they were ordered
+                min={poDate || undefined}
                 onChange={(e) => setExpectedDeliveryDate(e.target.value)}
               />
             </div>
@@ -2630,21 +2949,6 @@ export default function PurchaseOrderForm() {
                 <p className="text-xs text-muted-foreground mt-2">
                   You can add multiple different greige types to this PO. Price is pre-filled from master if available.
                 </p>
-                {items.length > 0 && (
-                  <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        // Focus on the combobox to add another item - it's already cleared after each selection
-                      }}
-                      className="text-amber-700 border-amber-300 hover:bg-amber-100"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Another Greige Type
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -2670,8 +2974,10 @@ export default function PurchaseOrderForm() {
                 </div>
                 {materials.length > 0 && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Showing {pickerMaterials.length} materials matching supplier or{' '}
-                    {PO_CATEGORY_LABELS[poCategory] || poCategory} category.
+                    {/* A General PO lists every material it takes, whoever the supplier */}
+                    {poCategory === 'GENERAL'
+                      ? `Showing ${pickerMaterials.length} materials.`
+                      : `Showing ${pickerMaterials.length} materials matching supplier or ${PO_CATEGORY_LABELS[poCategory] || poCategory} category.`}
                   </p>
                 )}
                 {!isLoadingMaterials && materials.length === 0 && (
@@ -2681,7 +2987,7 @@ export default function PurchaseOrderForm() {
                       variant="link"
                       size="sm"
                       className="p-0 h-auto text-warning underline"
-                      onClick={() => fetchMaterials(undefined, true)}
+                      onClick={() => fetchMaterials(poCategory, undefined, true)}
                     >
                       Browse all materials instead
                     </Button>
@@ -2748,13 +3054,13 @@ export default function PurchaseOrderForm() {
                     {(poCategory === 'GREIGE' || poCategory === 'FABRIC') && (
                       <TableHead className="w-[200px]">Weaver</TableHead>
                     )}
-                    <TableHead className="w-[120px]">Quantity</TableHead>
+                    <TableHead className="w-[130px]">Quantity</TableHead>
                     <TableHead className="w-[100px]">Unit</TableHead>
                     <TableHead className="w-[120px]">
                       {isProcessing ? 'Rate/m' : isService ? 'Rate' : 'Unit Price'}
                     </TableHead>
                     <TableHead className="w-[100px]">Amount</TableHead>
-                    <TableHead className="w-[80px]">GST %</TableHead>
+                    <TableHead className="w-[90px]">GST %</TableHead>
                     <TableHead className="w-[100px]">Tax</TableHead>
                     <TableHead className="w-[120px]">Total</TableHead>
                     <TableHead className="w-[150px]">Remarks</TableHead>
@@ -2778,62 +3084,7 @@ export default function PurchaseOrderForm() {
             {/* Tax Summary & Grand Total */}
             {items.length > 0 && (
               <div className="flex justify-end mt-4 pt-4 border-t">
-                <div className="w-72 space-y-2">
-                  {(() => {
-                    const subtotal = calculateGrandTotal();
-                    const totalTax = items.reduce((sum, item) => {
-                      const gstRate = item.gstRate ?? 5;
-                      return sum + (item.totalPrice * gstRate) / 100;
-                    }, 0);
-                    const grandTotal = subtotal + totalTax;
-                    const avgGstRate =
-                      items.length > 0 ? items.reduce((sum, item) => sum + (item.gstRate ?? 5), 0) / items.length : 5;
-                    // Check if interstate
-                    const supplierStateCode =
-                      selectedSupplier?.gstNumbers?.find((g) => g.isPrimary)?.stateCode ||
-                      selectedSupplier?.gstNumbers?.[0]?.stateCode;
-                    const { pending: gstPending, isInterstate } = resolveGstHeads(
-                      supplierStateCode,
-                      company.stateCode,
-                      isCompanyPlaceholder
-                    );
-
-                    return (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Subtotal:</span>
-                          <span>{formatCurrency(subtotal)}</span>
-                        </div>
-                        {gstPending ? (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">GST ({avgGstRate.toFixed(1)}%):</span>
-                            <span>{formatCurrency(totalTax)}</span>
-                          </div>
-                        ) : isInterstate ? (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">IGST ({avgGstRate.toFixed(1)}%):</span>
-                            <span>{formatCurrency(totalTax)}</span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">CGST ({(avgGstRate / 2).toFixed(1)}%):</span>
-                              <span>{formatCurrency(totalTax / 2)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">SGST ({(avgGstRate / 2).toFixed(1)}%):</span>
-                              <span>{formatCurrency(totalTax / 2)}</span>
-                            </div>
-                          </>
-                        )}
-                        <div className="flex justify-between pt-2 border-t font-bold text-lg">
-                          <span>Grand Total:</span>
-                          <span>{formatCurrency(grandTotal)}</span>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
+                <div className="w-72 space-y-2">{renderTaxSummary()}</div>
               </div>
             )}
           </CardContent>
@@ -2900,8 +3151,30 @@ export default function PurchaseOrderForm() {
         </Card>
       )}
 
-      {/* Delivery Details */}
-      {selectedWarehouse && (
+      {/* Delivery Details — a split lists its places (the header location is not where the goods go) */}
+      {splitDelivery && splitPlaces.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Delivery Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              {splitPlaces.map((p) => (
+                <div key={p.key}>
+                  <span className="text-muted-foreground block mb-1">Place {p.place}</span>
+                  <p className="font-medium">{p.name}</p>
+                  {p.lines.map((l) => (
+                    <p key={l.tempId} className="text-xs text-muted-foreground">
+                      {l.label}: {l.quantity}
+                    </p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {!splitDelivery && selectedWarehouse && (
         <Card>
           <CardHeader>
             <CardTitle>Delivery Details</CardTitle>
@@ -2986,7 +3259,9 @@ export default function PurchaseOrderForm() {
           </DialogHeader>
 
           {/* Company & Supplier & Delivery Details - Side by Side */}
-          <div className={`grid gap-4 mt-4 ${selectedWarehouse ? 'grid-cols-3' : 'grid-cols-2'}`}>
+          <div
+            className={`grid gap-4 mt-4 ${(splitDelivery ? splitPlaces.length > 0 : selectedWarehouse) ? 'grid-cols-3' : 'grid-cols-2'}`}
+          >
             {/* Company (Bill From) */}
             <Card className="bg-muted/30">
               <CardHeader className="py-3">
@@ -3050,8 +3325,32 @@ export default function PurchaseOrderForm() {
               </CardContent>
             </Card>
 
-            {/* Deliver To (Warehouse) */}
-            {selectedWarehouse && (
+            {/* Deliver To — every split place, or the one warehouse */}
+            {splitDelivery && splitPlaces.length > 0 && (
+              <Card className="bg-muted/30">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Deliver To ({splitPlaces.length} places)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-2 text-sm">
+                  {splitPlaces.map((p) => (
+                    <div key={p.key}>
+                      <p className="font-semibold">
+                        {p.place}. {p.name}
+                      </p>
+                      {p.lines.map((l) => (
+                        <p key={l.tempId} className="text-xs text-muted-foreground">
+                          {l.label}: {l.quantity}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+            {!splitDelivery && selectedWarehouse && (
               <Card className="bg-muted/30">
                 <CardHeader className="py-3">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -3081,7 +3380,7 @@ export default function PurchaseOrderForm() {
           </div>
 
           {/* PO Details Row */}
-          <div className="grid grid-cols-4 gap-4 mt-4 p-3 bg-muted/30 rounded-lg">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4 p-3 bg-muted/30 rounded-lg">
             <div>
               <p className="text-xs text-muted-foreground">Category</p>
               <Badge className={PO_CATEGORY_COLORS[poCategory] || 'bg-muted'}>
@@ -3089,8 +3388,12 @@ export default function PurchaseOrderForm() {
               </Badge>
             </div>
             <div>
+              <p className="text-xs text-muted-foreground">PO Date</p>
+              <p className="font-medium">{formatDate(poDate)}</p>
+            </div>
+            <div>
               <p className="text-xs text-muted-foreground">Delivery Date</p>
-              <p className="font-medium">{expectedDeliveryDate || '-'}</p>
+              <p className="font-medium">{formatDate(expectedDeliveryDate)}</p>
             </div>
             {styleId && styles.find((s) => s.id === styleId) && (
               <div>
@@ -3137,59 +3440,7 @@ export default function PurchaseOrderForm() {
 
           {/* Tax Summary & Grand Total */}
           <div className="flex justify-end mt-4">
-            <div className="w-72 space-y-2">
-              {(() => {
-                const subtotal = calculateGrandTotal();
-                const avgGstRate =
-                  items.length > 0 ? items.reduce((sum, item) => sum + (item.gstRate || 5), 0) / items.length : 5;
-                const totalTax = (subtotal * avgGstRate) / 100;
-                const grandTotal = subtotal + totalTax;
-                // Check if interstate (different state codes)
-                const supplierStateCode =
-                  selectedSupplier?.gstNumbers?.find((g) => g.isPrimary)?.stateCode ||
-                  selectedSupplier?.gstNumbers?.[0]?.stateCode;
-                const { pending: gstPending, isInterstate } = resolveGstHeads(
-                  supplierStateCode,
-                  company.stateCode,
-                  isCompanyPlaceholder
-                );
-
-                return (
-                  <>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal:</span>
-                      <span>{formatCurrency(subtotal)}</span>
-                    </div>
-                    {gstPending ? (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">GST ({avgGstRate}%):</span>
-                        <span>{formatCurrency(totalTax)}</span>
-                      </div>
-                    ) : isInterstate ? (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">IGST ({avgGstRate}%):</span>
-                        <span>{formatCurrency(totalTax)}</span>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">CGST ({avgGstRate / 2}%):</span>
-                          <span>{formatCurrency(totalTax / 2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">SGST ({avgGstRate / 2}%):</span>
-                          <span>{formatCurrency(totalTax / 2)}</span>
-                        </div>
-                      </>
-                    )}
-                    <div className="flex justify-between pt-2 border-t font-bold text-lg">
-                      <span>Grand Total:</span>
-                      <span>{formatCurrency(grandTotal)}</span>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+            <div className="w-72 space-y-2">{renderTaxSummary()}</div>
           </div>
 
           {/* Remarks */}
@@ -3242,7 +3493,13 @@ export default function PurchaseOrderForm() {
                         {po.poNumber} ({po.supplierName || 'Unknown supplier'})
                       </span>
                       <Badge variant="outline" className="text-[10px]">
-                        {po.status} - {po.pendingQuantity} pending
+                        {PurchaseOrderStatusLabels[po.status as PurchaseOrderStatus] ?? po.status} –{' '}
+                        {formatQuantity(
+                          po.pendingQuantity,
+                          items.find((i) => i.materialId === dup.materialId)?.unit,
+                          3
+                        )}{' '}
+                        pending
                       </Badge>
                     </div>
                   ))}
@@ -3261,94 +3518,117 @@ export default function PurchaseOrderForm() {
         </DialogContent>
       </Dialog>
 
-      {/* Material Picker Modal */}
-      {showMaterialPicker && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Select Material</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setShowMaterialPicker(false)}>
-                ✕
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Input
-                placeholder="Search materials..."
-                value={materialSearch}
-                onChange={(e) => setMaterialSearch(e.target.value)}
-                className="mb-4"
-              />
-              <div className="max-h-[400px] overflow-y-auto">
-                {filteredMaterials.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">No materials found for this supplier</div>
-                ) : (
-                  <>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Code</TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Unit</TableHead>
-                          <TableHead></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredMaterials.slice(0, materialDisplayLimit).map((material) => {
-                          const { code, name } = labelDisplay(material);
-                          const sized = sizedRowsOf(material);
-                          const added = sized
-                            ? items.some((i) => sized.some((r) => r.id === i.materialId))
-                            : items.some((i) => i.materialId === material.id);
-                          return (
-                            <TableRow key={material.id}>
-                              <TableCell className="font-medium">{code}</TableCell>
-                              <TableCell>
-                                {name}
-                                {sized && (
-                                  <span className="ml-1 text-xs text-muted-foreground">· {sized.length} sizes</span>
-                                )}
-                              </TableCell>
-                              <TableCell>{material.materialType}</TableCell>
-                              <TableCell>{unitShort(material.unit || '-')}</TableCell>
-                              <TableCell>
-                                {sized ? (
-                                  <Button
-                                    size="sm"
-                                    variant={added ? 'outline' : 'default'}
-                                    onClick={() => pickMaterial(material)}
-                                  >
-                                    {added ? 'Edit sizes' : 'Sizes…'}
-                                  </Button>
-                                ) : (
-                                  <Button size="sm" onClick={() => addMaterialItem(material)} disabled={added}>
-                                    {added ? 'Added' : 'Add'}
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                    {filteredMaterials.length > materialDisplayLimit && (
-                      <div className="flex justify-center py-3 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setMaterialDisplayLimit((prev) => prev + 50)}
-                        >
-                          Load More ({filteredMaterials.length - materialDisplayLimit} remaining)
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Changing the category removes the lines — asked first; Cancel keeps everything */}
+      <AlertDialog open={!!pendingCategory} onOpenChange={(open) => !open && setPendingCategory(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {items.length === 1
+                ? 'The 1 line on this PO will be removed.'
+                : `The ${items.length} lines on this PO will be removed.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                pendingCategory?.apply();
+                setPendingCategory(null);
+              }}
+            >
+              Change to{' '}
+              {pendingCategory ? (PO_CATEGORY_LABELS[pendingCategory.category] ?? pendingCategory.category) : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Material Picker — a real dialog: Esc closes it and focus stays inside while it is open */}
+      <Dialog
+        open={showMaterialPicker}
+        onOpenChange={(open) => {
+          setShowMaterialPicker(open);
+          if (!open) setMaterialSearch('');
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Select Material</DialogTitle>
+          </DialogHeader>
+          <div>
+            <Input
+              placeholder="Search materials..."
+              value={materialSearch}
+              onChange={(e) => setMaterialSearch(e.target.value)}
+              className="mb-4"
+            />
+            <div className="max-h-[400px] overflow-y-auto">
+              {filteredMaterials.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">No materials found for this supplier</div>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMaterials.slice(0, materialDisplayLimit).map((material) => {
+                        const { code, name } = labelDisplay(material);
+                        const sized = sizedRowsOf(material);
+                        const added = sized
+                          ? items.some((i) => sized.some((r) => r.id === i.materialId))
+                          : items.some((i) => i.materialId === material.id);
+                        return (
+                          <TableRow key={material.id}>
+                            <TableCell className="font-medium">{code}</TableCell>
+                            <TableCell>
+                              {name}
+                              {sized && (
+                                <span className="ml-1 text-xs text-muted-foreground">· {sized.length} sizes</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{material.materialType}</TableCell>
+                            <TableCell>{unitShort(material.unit || '-')}</TableCell>
+                            <TableCell>
+                              {sized ? (
+                                <Button
+                                  size="sm"
+                                  variant={added ? 'outline' : 'default'}
+                                  onClick={() => pickMaterial(material)}
+                                >
+                                  {added ? 'Edit sizes' : 'Sizes…'}
+                                </Button>
+                              ) : (
+                                <Button size="sm" onClick={() => addMaterialItem(material)} disabled={added}>
+                                  {added ? 'Added' : 'Add'}
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  {filteredMaterials.length > materialDisplayLimit && (
+                    <div className="flex justify-center py-3 border-t">
+                      <Button variant="outline" size="sm" onClick={() => setMaterialDisplayLimit((prev) => prev + 50)}>
+                        Load More ({filteredMaterials.length - materialDisplayLimit} remaining)
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* The style's label set — every label, every size, on one PO */}
       {labelSetOpen && currentLabelSet && (

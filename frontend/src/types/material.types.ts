@@ -151,6 +151,11 @@ export interface Material {
   categoryData?: CategoryData;
   hsnCode?: string | null;
   gstRate?: number | null;
+  /**
+   * GET /materials (list) only — the GST % a PO line starts at: the material's own rate, else the HSN master's
+   * rate for its HSN code; null when it has neither (the PO form then assumes 5% and says so).
+   */
+  defaultGstRate?: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

@@ -15,7 +15,7 @@ import { formLineLabelKey } from '@/lib/label-line-keys';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { WeaverCombobox } from '@/components/WeaverCombobox';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { DeliveryProgress, PurchaseOrder } from '@/types/purchaseOrder.types';
+import { PO_CATEGORY_LABELS, type DeliveryProgress, type PurchaseOrder } from '@/types/purchaseOrder.types';
 import { notify } from '@/lib/notify';
 import type {
   CreateGRNRequest,
@@ -1175,7 +1175,7 @@ export default function GRNForm() {
                       : 'bg-background border-border hover:bg-muted'
                   }`}
                 >
-                  {cat === 'ALL' ? `All (${receivablePOs.length})` : cat}
+                  {cat === 'ALL' ? `All (${receivablePOs.length})` : PO_CATEGORY_LABELS[cat] || cat}
                 </button>
               ))}
             </div>

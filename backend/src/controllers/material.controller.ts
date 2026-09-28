@@ -30,6 +30,7 @@ import { applySearch } from '../utils/search-filter';
 import type { Unit } from '../schemas/generated/prisma-enums';
 import { materialUsage } from '../services/helpers/material-unit.helper';
 import { purchaseUnitFor } from '../services/helpers/purchase-unit.helper';
+import { gstService } from '../services/gst.service';
 import { unitLabel } from '../utils/units';
 
 // ============================================
@@ -230,6 +231,20 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
     whereClause.unit = unit as Unit;
   }
 
+  // Lace and Greige Lace POs each take one kind of lace (lace_master.isGreige) — both offered all 34.
+  // Other types are untouched; a lace with no lace master fits neither (po-line-category.helper).
+  const laceKind = req.query.laceKind as string | undefined;
+  if (laceKind === 'GREIGE' || laceKind === 'FINISHED') {
+    // ANDed beside the search (applySearch) — the supplier / type OR above keeps its own key
+    const existing = whereClause.AND;
+    whereClause.AND = [
+      ...(Array.isArray(existing) ? existing : existing ? [existing] : []),
+      {
+        OR: [{ materialType: { not: 'LACE' } }, { lace_master: { is: { isGreige: laceKind === 'GREIGE' } } }],
+      },
+    ];
+  }
+
   const [materials, total] = await Promise.all([
     prisma.materials.findMany({
       where: whereClause,
@@ -336,6 +351,12 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
 
   const totalPages = Math.ceil(total / limit);
 
+  // The GST % a PO line pre-fills: the material's own rate, else its HSN's master rate — one query for
+  // the page (hsnMasterRates), none when no row has an HSN
+  const hsnRates = await gstService.hsnMasterRates(
+    materials.filter((m) => m.gstRate == null && m.hsnCode).map((m) => m.hsnCode!)
+  );
+
   // Transform materials - extract customer and costPerUnit from linked master tables
   const transformedMaterials = materials.map((material) => {
     // Get customer from whichever master table has data (only label and packaging have customer)
@@ -383,6 +404,14 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
       purchaseUnit: purchase?.unit ?? null,
       stockUnitsPerPurchaseUnit: purchase?.stockUnitsPerUnit ?? null,
       purchaseUnitPrice,
+      hsnCode: material.hsnCode ?? null,
+      // null = no rate on the material and no HSN the master knows — the PO form assumes 5% and says so
+      defaultGstRate:
+        material.gstRate != null
+          ? Number(material.gstRate)
+          : material.hsnCode
+            ? (hsnRates.get(material.hsnCode.trim()) ?? null)
+            : null,
       customer, // Add customer to the response
       // Clean up - remove master table objects from response
       label_master: undefined,

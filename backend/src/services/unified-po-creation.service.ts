@@ -29,7 +29,10 @@ import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
 import { resolvePoLineUnits, toStockQty } from './helpers/purchase-unit.helper';
+import { assertPoLinesFitCategory, linesOutsideCategory } from './helpers/po-line-category.helper';
 import { CREATABLE_PO_CATEGORIES, isPoDateAfterToday } from '../types/purchaseOrder.types';
+import { roundToCent } from '../utils/currency';
+import { isQtyZero, qtyRemaining } from '../utils/quantity';
 
 // ============================================
 // Types & Interfaces
@@ -324,6 +327,11 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
     });
   }
 
+  // Each material line belongs on the category (po-line-category.helper — the rule every PO writer shares)
+  for (const wrong of await linesOutsideCategory(input.poCategory, input.items ?? [])) {
+    errors.push({ field: 'items', message: wrong.message });
+  }
+
   // 5. Linked Greige PO validation (for Processing POs)
   if (input.linkedGreigePOId) {
     const greigePO = await prisma.purchase_orders.findUnique({
@@ -357,7 +365,8 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
 
 /**
  * Check for duplicate/overlapping POs for same materials
- * Returns active POs (not CANCELLED, not fully RECEIVED) for the same materials
+ * Returns POs out with a supplier (sent, acknowledged, part received) whose line for the same material
+ * still has goods to come
  */
 export async function checkForDuplicatePOs(
   materialIds: string[],
@@ -367,13 +376,14 @@ export async function checkForDuplicatePOs(
     return { hasDuplicates: false, duplicates: [] };
   }
 
-  // Build purchase_orders filter — TERMINAL statuses are not duplicates. SHORT_CLOSED belongs here
-  // with CANCELLED and RECEIVED: that order is finished, and the balance it did not deliver is
-  // exactly what the replacement PO exists to buy. Counting it as open would raise a permanent
-  // "duplicate PO" warning on the re-order the short-close itself offered.
+  // Only a PO the supplier is working on is a duplicate: SENT, ACKNOWLEDGED or PARTIALLY_RECEIVED.
+  // TERMINAL statuses are not — SHORT_CLOSED belongs with CANCELLED and RECEIVED: that order is
+  // finished, and the balance it did not deliver is exactly what the replacement PO exists to buy.
+  // Nor is a DRAFT / PENDING_GREIGE one, which nobody has been asked to supply yet (2026-09-28: they
+  // were counted, and so was a fully received line on a part-received PO).
   const poFilter: Prisma.purchase_ordersWhereInput = {
     status: {
-      notIn: ['CANCELLED', 'RECEIVED', 'SHORT_CLOSED'],
+      in: ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'],
     },
   };
 
@@ -418,6 +428,8 @@ export async function checkForDuplicatePOs(
 
   for (const item of existingItems) {
     if (!item.materialId) continue;
+    // A line that has had all its goods is not a duplicate of anything
+    if (isQtyZero(qtyRemaining(Number(item.orderedQuantity), Number(item.receivedQuantity)))) continue;
 
     const existing = duplicateMap.get(item.materialId) || {
       materialName: item.materials?.name,
@@ -436,7 +448,7 @@ export async function checkForDuplicatePOs(
       source: item.purchase_orders.poSource,
       status: item.purchase_orders.status,
       orderedQuantity: Number(item.orderedQuantity),
-      pendingQuantity: Number(item.orderedQuantity) - Number(item.receivedQuantity),
+      pendingQuantity: qtyRemaining(Number(item.orderedQuantity), Number(item.receivedQuantity)),
       supplierId: item.purchase_orders.supplierId,
       supplierName: item.purchase_orders.suppliers?.name,
     })),
@@ -462,7 +474,9 @@ export async function createUnifiedPO(
   input: UnifiedPOCreationInput,
   options: UnifiedPOCreationOptions = {}
 ): Promise<UnifiedPOCreationResult> {
-  // 1. Validate inputs
+  // 1. Validate inputs. A line on the wrong category is refused first, with its own code (422
+  // PO_LINE_WRONG_CATEGORY) — its receipt would book no stock
+  await assertPoLinesFitCategory(input.poCategory, input.items ?? []);
   const validation = await validateUnifiedPOInput(input);
   if (!validation.isValid) {
     throw new Error(`Validation failed: ${validation.errors.map((e) => e.message).join(', ')}`);
@@ -508,11 +522,13 @@ export async function createUnifiedPO(
       }
     }
 
-    // Calculate total amount
-    let totalAmount = 0;
-    for (const item of input.items) {
-      totalAmount += item.orderedQuantity * item.unitPrice;
-    }
+    // Each line's rate kept to paise (the column is 2 dp) and its amount from that rate — the same rule
+    // as a manual PO, so the saved rate × quantity is the saved amount
+    const priced = input.items.map((item) => {
+      const rate = roundToCent(item.unitPrice);
+      return { unitPrice: rate.toNumber(), totalPrice: roundToCent(rate.times(item.orderedQuantity)) };
+    });
+    const totalAmount = roundToCent(priced.reduce((sum, p) => sum.plus(p.totalPrice), roundToCent(0))).toNumber();
 
     // Create PO header
     const po = await tx.purchase_orders.create({
@@ -549,7 +565,7 @@ export async function createUnifiedPO(
     const lineUnits = await resolvePoLineUnits(input.items, tx);
 
     for (const [i, item] of input.items.entries()) {
-      const totalPrice = item.orderedQuantity * item.unitPrice;
+      const { unitPrice, totalPrice } = priced[i];
 
       const poItem = await tx.purchase_order_items.create({
         data: {
@@ -564,8 +580,8 @@ export async function createUnifiedPO(
           stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
           threadPackagingType: lineUnits[i].threadPackagingType,
           threadPly: lineUnits[i].threadPly,
-          unitPrice: item.unitPrice,
-          totalPrice,
+          unitPrice,
+          totalPrice: totalPrice.toNumber(),
           remarks: item.remarks,
         },
       });
@@ -795,11 +811,14 @@ export function mapMaterialTypeToPOCategory(materialType: string): POCategory {
     LACE: 'LACE',
     GREIGE_LACE: 'GREIGE_LACE',
     BUTTON: 'TRIMS',
-    THREAD: 'TRIMS',
+    // Thread, packaging and machine parts have their own categories (po-line-category.helper) — a
+    // Trims PO refuses thread, whose receipt books its own lots
+    THREAD: 'THREAD',
     ELASTIC: 'TRIMS',
     LABEL: 'TRIMS',
     ZIPPER: 'TRIMS',
-    PACKAGING: 'TRIMS',
+    PACKAGING: 'PACKAGING',
+    MACHINE_PART: 'MACHINE_PART',
     INTERLINING: 'TRIMS',
     TAPE: 'TRIMS',
     CORD: 'TRIMS',

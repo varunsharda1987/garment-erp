@@ -25,10 +25,12 @@ import {
   PurchaseOrderItemDTO,
   UpdatePurchaseOrderItemDTO,
   PurchaseOrderFilters,
+  isDeliveryBeforePoDate,
   isPoDateAfterToday,
 } from '../types/purchaseOrder.types';
-import { generateAtomicPONumber, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { addCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
+import { generateAtomicPONumberInTx, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { roundToCent, subtractCurrency, toNumber } from '../utils/currency';
+import { formatDate } from '../utils/date';
 import { validateTransition } from '../utils/stateMachine';
 import { systemSettingsService } from './system-settings.service';
 import { isReceiptComplete } from './helpers/receipt-split.helper';
@@ -36,6 +38,7 @@ import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from '.
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
 import { resolvePoLineUnits } from './helpers/purchase-unit.helper';
+import { assertPoLinesFitCategory } from './helpers/po-line-category.helper';
 import { applySearch } from '../utils/search-filter';
 import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER } from './helpers/label-line.helper';
 import {
@@ -56,6 +59,60 @@ function assertPoDateNotFuture(poDate: Date | string | undefined | null): void {
   if (poDate && isPoDateAfterToday(poDate)) {
     throw new BusinessError('The PO date cannot be after today.', { code: 'PO_DATE_IN_FUTURE' });
   }
+}
+
+/** Refuse goods due before the PO's own date (IST days; the same day is fine). */
+function assertDeliveryNotBeforePoDate(
+  expectedDeliveryDate: Date | string | undefined | null,
+  poDate: Date | string | undefined | null
+): void {
+  if (expectedDeliveryDate && poDate && isDeliveryBeforePoDate(expectedDeliveryDate, poDate)) {
+    throw new BusinessError(
+      `The expected delivery date (${formatDate(expectedDeliveryDate)}) is before the PO date ` +
+        `(${formatDate(poDate)}) — goods cannot be due before they are ordered.`,
+      { code: 'PO_DELIVERY_BEFORE_PO_DATE' }
+    );
+  }
+}
+
+/**
+ * A line's rate kept to paise — the column is 2 dp — and its amount worked out from THAT rate, so the
+ * saved rate × quantity is the saved amount. 0.125 × 10,000 used to save rate 0.13 beside amount 1,250.
+ */
+function priceLine(quantity: number, unitPrice: number): { unitPrice: number; totalPrice: number } {
+  const rate = roundToCent(unitPrice);
+  return { unitPrice: rate.toNumber(), totalPrice: roundToCent(rate.times(quantity)).toNumber() };
+}
+
+type Money = Prisma.Decimal | number | null | undefined;
+
+/**
+ * A PO's header totals from its lines: Decimal sums of the stored (already rounded) line amounts. The one
+ * way every writer adds a PO up — create summed raw floats with toFixed, edit used roundToCent, the item
+ * endpoints Decimal; three ways that could disagree by a paisa.
+ */
+function poTotalsOf(
+  lines: ReadonlyArray<{ totalPrice: Money; cgstAmount: Money; sgstAmount: Money; igstAmount: Money }>
+) {
+  let subtotal = new Decimal(0);
+  let totalCgst = new Decimal(0);
+  let totalSgst = new Decimal(0);
+  let totalIgst = new Decimal(0);
+  for (const line of lines) {
+    subtotal = subtotal.add(line.totalPrice || 0);
+    totalCgst = totalCgst.add(line.cgstAmount || 0);
+    totalSgst = totalSgst.add(line.sgstAmount || 0);
+    totalIgst = totalIgst.add(line.igstAmount || 0);
+  }
+  const totalTax = totalCgst.add(totalSgst).add(totalIgst);
+  return {
+    subtotal: subtotal.toDecimalPlaces(2),
+    totalCgst: totalCgst.toDecimalPlaces(2),
+    totalSgst: totalSgst.toDecimalPlaces(2),
+    totalIgst: totalIgst.toDecimalPlaces(2),
+    totalTax: totalTax.toDecimalPlaces(2),
+    totalAmount: subtotal.add(totalTax).toDecimalPlaces(2),
+  };
 }
 
 /**
@@ -189,17 +246,12 @@ async function mintBalanceRequirement(
 class PurchaseOrderService {
   /**
    * Generate unique PO number - Format: PO2511-0001
-   * Uses atomic sequence generator to prevent duplicate numbers under concurrency.
+   * Uses atomic sequence generator to prevent duplicate numbers under concurrency. Taken INSIDE the
+   * create transaction, after every check: a refused or failed PO rolls its number back instead of
+   * burning it (the counter stood at 159 with PO2609-0009 the highest, 2026-09-28).
    */
-  private async generatePONumber(): Promise<string> {
-    return generateAtomicPONumber();
-  }
-
-  /**
-   * Calculate total price for an item
-   */
-  private calculateItemTotal(quantity: number, unitPrice: number): number {
-    return quantity * unitPrice;
+  private async generatePONumber(tx: Prisma.TransactionClient): Promise<string> {
+    return generateAtomicPONumberInTx(tx);
   }
 
   /**
@@ -212,36 +264,55 @@ class PurchaseOrderService {
       where: { poId },
     });
 
-    // Use Decimal arithmetic to avoid floating-point rounding errors
-    let subtotal = new Decimal(0);
-    let totalCgst = new Decimal(0);
-    let totalSgst = new Decimal(0);
-    let totalIgst = new Decimal(0);
-
     for (const item of items) {
       if (!item.totalPrice || Number(item.totalPrice) === 0) {
         logWarn(`[PurchaseOrder] PO item ${item.id} has ₹0 total price — PO total will be understated.`);
       }
-      subtotal = subtotal.add(item.totalPrice || 0);
-      totalCgst = totalCgst.add(item.cgstAmount || 0);
-      totalSgst = totalSgst.add(item.sgstAmount || 0);
-      totalIgst = totalIgst.add(item.igstAmount || 0);
     }
-
-    const totalTax = totalCgst.add(totalSgst).add(totalIgst);
-    const totalAmount = subtotal.add(totalTax);
 
     await tx.purchase_orders.update({
       where: { id: poId },
-      data: {
-        subtotal: subtotal.toDecimalPlaces(2),
-        totalCgst: totalCgst.toDecimalPlaces(2),
-        totalSgst: totalSgst.toDecimalPlaces(2),
-        totalIgst: totalIgst.toDecimalPlaces(2),
-        totalTax: totalTax.toDecimalPlaces(2),
-        totalAmount: totalAmount.toDecimalPlaces(2),
-      },
+      data: poTotalsOf(items),
     });
+  }
+
+  /**
+   * A new supplier can change the tax head — CGST + SGST in our state, IGST outside it. Re-split every line
+   * at the rate and HSN it was saved with, then the header. An edit that changed only the supplier used to
+   * keep the old supplier's split (PO form bug hunt #25).
+   */
+  private async resplitLineTax(tx: Prisma.TransactionClient, poId: string, supplierId: string): Promise<void> {
+    const { isInterstate } = await gstService.isInterstatePO(supplierId);
+    const lines = await tx.purchase_order_items.findMany({
+      where: { poId },
+      select: { id: true, materialId: true, unitPrice: true, totalPrice: true, gstRate: true, hsnCode: true },
+    });
+    for (const line of lines) {
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: Number(line.totalPrice),
+        hsnSacCode: line.hsnCode,
+        materialId: line.materialId,
+        gstRateOverride: line.gstRate != null ? Number(line.gstRate) : null,
+        isInterstate,
+        unitPrice: Number(line.unitPrice),
+      });
+      await tx.purchase_order_items.update({
+        where: { id: line.id },
+        data: {
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+        },
+      });
+    }
+    await tx.purchase_orders.update({ where: { id: poId }, data: { isInterstate } });
+    await this.recalculatePOTotal(poId, tx);
   }
 
   /**
@@ -249,9 +320,8 @@ class PurchaseOrderService {
    */
   async createPurchaseOrder(data: CreatePurchaseOrderDTO, userId: string) {
     assertPoDateNotFuture(data.poDate);
-    // The number is still today's series (PO2609-…) whatever PO date is typed — the date is the
-    // document's, the number is the order it was entered in.
-    const poNumber = await this.generatePONumber();
+    // Against the typed PO date, or today when none is typed (the column default)
+    assertDeliveryNotBeforePoDate(data.expectedDeliveryDate, data.poDate ?? new Date());
 
     // Validate supplier exists
     const supplier = await prisma.suppliers.findUnique({
@@ -284,35 +354,30 @@ class PurchaseOrderService {
       }
     }
 
+    // Each line's material belongs on this category — a Lace PO holding a button received it into no
+    // stock at all. Omitted category = the column default, GENERAL.
+    await assertPoLinesFitCategory(data.poCategory ?? POCategory.GENERAL, data.items);
+
     // Determine interstate status for GST calculation
     const { isInterstate } = await gstService.isInterstatePO(data.supplierId);
-
-    // Calculate totals with GST per item
-    let subtotal = 0;
-    let poTotalCgst = 0;
-    let poTotalSgst = 0;
-    let poTotalIgst = 0;
 
     // The line's unit + stock units per unit (buttons by the gross = 144) — decided here, never by the body
     const lineUnits = await resolvePoLineUnits(data.items);
 
     const itemsWithTotals = await Promise.all(
       data.items.map(async (item, i) => {
-        const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
-        subtotal += totalPrice;
+        const { unitPrice, totalPrice } = priceLine(item.orderedQuantity, item.unitPrice);
 
-        // Calculate GST for this item (unitPrice passed for apparel price-slab logic)
+        // GST for this line: a typed rate IS its rate (0 included); else the material's, by its HSN.
+        // unitPrice is passed for the apparel price-slab logic.
         const gst = await gstService.calculateLineItemGST({
           lineTotal: totalPrice,
-          hsnSacCode: null, // Will be resolved from materialId
+          hsnSacCode: item.hsnCode || null, // blank = the material's own HSN
           materialId: item.materialId || null,
+          gstRateOverride: item.gstRate ?? null,
           isInterstate,
-          unitPrice: item.unitPrice,
+          unitPrice,
         });
-
-        poTotalCgst += gst.cgstAmount;
-        poTotalSgst += gst.sgstAmount;
-        poTotalIgst += gst.igstAmount;
 
         return {
           id: randomUUID(),
@@ -325,7 +390,7 @@ class PurchaseOrderService {
           stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
           threadPackagingType: lineUnits[i].threadPackagingType,
           threadPly: lineUnits[i].threadPly,
-          unitPrice: item.unitPrice,
+          unitPrice,
           totalPrice,
           hsnCode: gst.hsnCode,
           gstRate: gst.gstRate,
@@ -345,8 +410,7 @@ class PurchaseOrderService {
       })
     );
 
-    const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
-    const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+    const totals = poTotalsOf(itemsWithTotals);
 
     // Derive delivery location type from warehouse if provided
     let deliveryLocationType: 'WAREHOUSE' | 'PROCESSOR' | null = null;
@@ -368,6 +432,9 @@ class PurchaseOrderService {
     // Create PO with items in transaction
     const poId = randomUUID();
     const purchaseOrder = await prisma.$transaction(async (tx) => {
+      // Numbered only now, every check passed. The number is still today's series (PO2609-…) whatever
+      // PO date is typed — the date is the document's, the number is the order it was entered in.
+      const poNumber = await this.generatePONumber(tx);
       await tx.purchase_orders.create({
         data: {
           id: poId,
@@ -379,12 +446,7 @@ class PurchaseOrderService {
           status: PurchaseOrderStatus.DRAFT,
           poSource: POSource.MANUAL,
           poCategory: (data.poCategory as POCategory | undefined) || undefined,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          totalCgst: parseFloat(poTotalCgst.toFixed(2)),
-          totalSgst: parseFloat(poTotalSgst.toFixed(2)),
-          totalIgst: parseFloat(poTotalIgst.toFixed(2)),
-          totalTax,
-          totalAmount,
+          ...totals,
           isInterstate,
           paymentTerms: data.paymentTerms || supplier.paymentTerms || null,
           remarks: data.remarks || null,
@@ -599,9 +661,17 @@ class PurchaseOrderService {
     }
 
     assertPoDateNotFuture(data.poDate);
+    // Whichever of the two dates is sent, against the other as sent or as stored
+    if (data.expectedDeliveryDate || data.poDate) {
+      assertDeliveryNotBeforePoDate(
+        data.expectedDeliveryDate ?? existingPO.expectedDeliveryDate,
+        data.poDate ?? existingPO.poDate
+      );
+    }
 
     // Validate supplier if being changed
-    if (data.supplierId && data.supplierId !== existingPO.supplierId) {
+    const supplierChanged = !!data.supplierId && data.supplierId !== existingPO.supplierId;
+    if (supplierChanged) {
       const supplier = await prisma.suppliers.findUnique({
         where: { id: data.supplierId },
       });
@@ -633,6 +703,9 @@ class PurchaseOrderService {
           }
         }
       }
+
+      // The category is the PO's own (an edit never changes it) — each line must belong on it
+      await assertPoLinesFitCategory(existingPO.poCategory, data.items);
     }
 
     // The lines as saved (existing ids kept, new ids minted) — so a split's per-line places can be
@@ -649,7 +722,8 @@ class PurchaseOrderService {
           expectedDeliveryDate: data.expectedDeliveryDate ? new Date(data.expectedDeliveryDate) : undefined,
           poDate: data.poDate ? new Date(data.poDate) : undefined,
           paymentTerms: data.paymentTerms,
-          remarks: data.remarks,
+          // null or '' clears them; absent leaves them
+          remarks: data.remarks === undefined ? undefined : data.remarks?.trim() || null,
           // Optional traceability links (for Manual POs)
           styleId: data.styleId !== undefined ? data.styleId : undefined,
           orderId: data.orderId !== undefined ? data.orderId : undefined,
@@ -729,11 +803,6 @@ class PurchaseOrderService {
           const supplierId = data.supplierId || existingPO.supplierId;
           const { isInterstate } = await gstService.isInterstatePO(supplierId);
 
-          let subtotal = 0;
-          let poTotalCgst = 0;
-          let poTotalSgst = 0;
-          let poTotalIgst = 0;
-
           // Every kept or new line re-derives its unit + factor (a line added on edit got no factor before).
           // A kept thread line the client re-sends without its pack keeps the pack it was ordered in.
           const lineUnits = await resolvePoLineUnits(
@@ -749,23 +818,22 @@ class PurchaseOrderService {
           );
 
           for (const [i, { item, existingId }] of resolved.entries()) {
-            const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
-            subtotal += totalPrice;
+            const { unitPrice, totalPrice } = priceLine(item.orderedQuantity, item.unitPrice);
 
-            // Calculate GST based on material or service type
+            // GST: a typed rate IS the line's rate (0 included); else the material's, by its HSN — the
+            // HSN sent, else the service's SAC, else the material's own
             const gst = await gstService.calculateLineItemGST({
               lineTotal: totalPrice,
               materialId: item.materialId || null,
-              hsnSacCode: item.serviceType
-                ? (await gstService.getSACCodeForService(item.serviceType as ServiceType)).sacCode
-                : null,
+              hsnSacCode:
+                item.hsnCode ||
+                (item.serviceType
+                  ? (await gstService.getSACCodeForService(item.serviceType as ServiceType)).sacCode
+                  : null),
+              gstRateOverride: item.gstRate ?? null,
               isInterstate,
-              unitPrice: item.unitPrice,
+              unitPrice,
             });
-
-            poTotalCgst += gst.cgstAmount;
-            poTotalSgst += gst.sgstAmount;
-            poTotalIgst += gst.igstAmount;
 
             const lineData = {
               materialId: item.materialId || null,
@@ -776,7 +844,7 @@ class PurchaseOrderService {
               stockUnitsPerUnit: lineUnits[i].stockUnitsPerUnit,
               threadPackagingType: lineUnits[i].threadPackagingType,
               threadPly: lineUnits[i].threadPly,
-              unitPrice: item.unitPrice,
+              unitPrice,
               totalPrice,
               hsnCode: gst.hsnCode,
               gstRate: gst.gstRate,
@@ -807,22 +875,12 @@ class PurchaseOrderService {
             }
           }
 
-          // Update PO header with GST totals, rounded to 2dp like the create path
-          // (bug-hunt procurement-22: unrounded float sums persisted paise-level dust)
-          const totalTax = roundToCent(addCurrency(poTotalCgst, poTotalSgst, poTotalIgst)).toNumber();
-          await tx.purchase_orders.update({
-            where: { id },
-            data: {
-              subtotal: roundToCent(subtotal).toNumber(),
-              totalCgst: roundToCent(poTotalCgst).toNumber(),
-              totalSgst: roundToCent(poTotalSgst).toNumber(),
-              totalIgst: roundToCent(poTotalIgst).toNumber(),
-              totalTax,
-              totalAmount: roundToCent(addCurrency(subtotal, totalTax)).toNumber(),
-              isInterstate,
-            },
-          });
+          // The header from the lines now on the PO, the one way every writer adds it up
+          await tx.purchase_orders.update({ where: { id }, data: { isInterstate } });
+          await this.recalculatePOTotal(id, tx);
         }
+      } else if (supplierChanged) {
+        await this.resplitLineTax(tx, id, data.supplierId!);
       }
 
       // Where it delivers (not yet sent — composing the PO, so no revision). Per-line places win; else
@@ -969,16 +1027,21 @@ class PurchaseOrderService {
       }
     }
 
-    const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
+    // The new line must belong on the PO's own category
+    await assertPoLinesFitCategory(existingPO.poCategory, [item]);
+
+    const { unitPrice, totalPrice } = priceLine(item.orderedQuantity, item.unitPrice);
     const [lineUnit] = await resolvePoLineUnits([item]);
 
-    // Calculate GST for this item
+    // GST: a typed rate IS the line's rate (0 included); else the material's, by its HSN
     const { isInterstate } = await gstService.isInterstatePO(existingPO.supplierId);
     const gst = await gstService.calculateLineItemGST({
       lineTotal: totalPrice,
+      hsnSacCode: item.hsnCode || null,
       materialId: item.materialId,
+      gstRateOverride: item.gstRate ?? null,
       isInterstate,
-      unitPrice: item.unitPrice,
+      unitPrice,
     });
 
     // Item write + header recompute atomically (bug-hunt procurement-19)
@@ -996,7 +1059,7 @@ class PurchaseOrderService {
           stockUnitsPerUnit: lineUnit.stockUnitsPerUnit,
           threadPackagingType: lineUnit.threadPackagingType,
           threadPly: lineUnit.threadPly,
-          unitPrice: item.unitPrice,
+          unitPrice,
           totalPrice,
           hsnCode: gst.hsnCode,
           gstRate: gst.gstRate,
@@ -1064,8 +1127,7 @@ class PurchaseOrderService {
     }
 
     const orderedQuantity = data.orderedQuantity ?? Number(existingItem.orderedQuantity);
-    const unitPrice = data.unitPrice ?? Number(existingItem.unitPrice);
-    const totalPrice = this.calculateItemTotal(orderedQuantity, unitPrice);
+    const priced = priceLine(orderedQuantity, data.unitPrice ?? Number(existingItem.unitPrice));
     // A unit change re-derives the factor with it (the old factor must never outlive its unit)
     const [lineUnit] = await resolvePoLineUnits([
       {
@@ -1076,13 +1138,18 @@ class PurchaseOrderService {
       },
     ]);
 
-    // Recalculate GST if price changed
+    // Recalculate GST on the new amount. A line keeps the rate and HSN it was saved with unless new ones are
+    // sent — re-resolving from the material would silently drop a rate typed on the form. null = the
+    // material's again.
     const { isInterstate } = await gstService.isInterstatePO(existingPO.supplierId);
+    const keptRate = existingItem.gstRate != null ? Number(existingItem.gstRate) : null;
     const gst = await gstService.calculateLineItemGST({
-      lineTotal: totalPrice,
+      lineTotal: priced.totalPrice,
+      hsnSacCode: data.hsnCode !== undefined ? data.hsnCode || null : existingItem.hsnCode,
       materialId: existingItem.materialId || undefined,
+      gstRateOverride: data.gstRate !== undefined ? data.gstRate : keptRate,
       isInterstate,
-      unitPrice,
+      unitPrice: priced.unitPrice,
     });
 
     // Item write + header recompute atomically (bug-hunt procurement-19)
@@ -1095,8 +1162,9 @@ class PurchaseOrderService {
           stockUnitsPerUnit: lineUnit.stockUnitsPerUnit,
           threadPackagingType: lineUnit.threadPackagingType,
           threadPly: lineUnit.threadPly,
-          unitPrice: data.unitPrice,
-          totalPrice,
+          unitPrice: priced.unitPrice,
+          totalPrice: priced.totalPrice,
+          hsnCode: gst.hsnCode,
           gstRate: gst.gstRate,
           cgstRate: gst.cgstRate,
           cgstAmount: gst.cgstAmount,
@@ -1762,7 +1830,9 @@ class PurchaseOrderService {
           address: true,
           billingPincode: true,
           billing_city: { select: { cityName: true } },
-          billing_state: { select: { stateName: true } },
+          // stateCode: the form reads the supplier's state as the server does (primary GSTIN → any GSTIN →
+          // billing state) to say CGST + SGST or IGST before saving
+          billing_state: { select: { stateName: true, stateCode: true } },
           gst_numbers: {
             select: {
               id: true,

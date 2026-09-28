@@ -40,6 +40,26 @@ describe('PO material categories', () => {
     expect(MATERIAL_PO_CATEGORIES).toContain('THREAD');
   });
 
+  it('offer one category per supplier category — Packaging and Machine Parts too, General last', () => {
+    // 7 packaging and 2 machine-part suppliers could not be picked on any PO until 2026-09-28
+    expect(MATERIAL_PO_CATEGORIES).toEqual([
+      'FABRIC',
+      'GREIGE',
+      'TRIMS',
+      'THREAD',
+      'LACE',
+      'GREIGE_LACE',
+      'PACKAGING',
+      'MACHINE_PART',
+      'GENERAL',
+    ]);
+    expect(frontendMaterialCategories()).toEqual([...MATERIAL_PO_CATEGORIES]);
+  });
+
+  it('list each creatable category once', () => {
+    expect(new Set(CREATABLE_PO_CATEGORIES).size).toBe(CREATABLE_PO_CATEGORIES.length);
+  });
+
   it('can all be created — every category the page shows is one a PO may be made with', () => {
     for (const category of MATERIAL_PO_CATEGORIES) {
       expect(CREATABLE_PO_CATEGORIES).toContain(category);

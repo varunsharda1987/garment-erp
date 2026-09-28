@@ -591,7 +591,9 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
       isActive: true,
     },
     include: {
-      lace_master: { select: { laceCode: true, laceName: true, pricePerMeter: true } },
+      lace_master: { select: { laceCode: true, laceName: true, pricePerMeter: true, isGreige: true } },
+      // Types without a master relation here (interlining, drawstring, belts…) take their code and name from here
+      materials: { select: { code: true, name: true } },
       button_master: { select: { buttonCode: true, buttonName: true, pricePerPiece: true } },
       thread_master: { select: { threadCode: true, threadName: true, pricePerCone: true } },
       zipper_master: { select: { zipperCode: true, zipperName: true, pricePerPiece: true } },
@@ -638,6 +640,9 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
     } else if (item.packagingId && item.packaging_master) {
       materialCode = item.packaging_master.packagingCode;
       materialName = item.packaging_master.packagingName;
+    } else if (item.materials) {
+      materialCode = item.materials.code;
+      materialName = item.materials.name;
     }
 
     const bomEntry = {
@@ -649,6 +654,8 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
       materialCode,
       materialName,
       materialType: item.materialType,
+      // Greige lace and finished lace are both LACE — the PO form buys them on different categories
+      laceKind: item.lace_master ? (item.lace_master.isGreige ? 'GREIGE' : 'FINISHED') : null,
       componentName: item.componentName,
       quantityPerGarment: item.quantityPerGarment.toString(),
       unit: item.unit,

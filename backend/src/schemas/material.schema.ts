@@ -109,6 +109,8 @@ export const materialQuerySchema = z.object({
   categoryId: z.string().uuid('Invalid category ID format').optional(),
   supplierId: z.string().uuid('Invalid supplier ID format').optional(),
   unit: UnitEnum.optional(),
+  // Lace only — GREIGE = greige lace, FINISHED = finished lace (lace_master.isGreige); other types unaffected
+  laceKind: z.enum(['GREIGE', 'FINISHED']).optional(),
   // Pickers list alphabetically by code; the Materials page keeps newest-first (the default)
   sortBy: z.enum(['code', 'name', 'createdAt']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),

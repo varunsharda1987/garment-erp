@@ -22,6 +22,8 @@ export const getAllMaterials = async (params?: {
   categoryId?: string;
   supplierId?: string;
   materialTypes?: string;
+  /** Lace only: GREIGE = greige lace (lace_master.isGreige), FINISHED = finished lace. Other types unaffected. */
+  laceKind?: 'GREIGE' | 'FINISHED';
   unit?: string;
   sortBy?: 'code' | 'name' | 'createdAt';
   sortOrder?: 'asc' | 'desc';

@@ -305,6 +305,160 @@ describe('?orderId= and style search reach an MRP PO through its requirement lin
   });
 });
 
+/**
+ * The Create Purchase Order form (bug hunt 2026-09-28): a line saves what the form shows, and a line the
+ * PO cannot receive is refused before anything is written.
+ */
+describe('PO lines save what the form shows', () => {
+  let interstateSupplierId: string;
+
+  beforeAll(async () => {
+    // Outside our state (a Maharashtra GSTIN) — IGST, where the fixture supplier with no state is CGST + SGST
+    interstateSupplierId = (
+      await prisma.suppliers.create({
+        data: {
+          code: `${RUN}SUP2`,
+          name: `${RUN} Supplier MH`,
+          createdById: userId,
+          gst_numbers: {
+            create: { stateName: 'Maharashtra', stateCode: '27', gstNumber: '27ABCDE1234F1Z5', isPrimary: true },
+          },
+        },
+      })
+    ).id;
+  });
+
+  afterAll(async () => {
+    const theirPos = (
+      await prisma.purchase_orders.findMany({ where: { supplierId: only(interstateSupplierId) }, select: { id: true } })
+    ).map((p) => p.id);
+    if (theirPos.length > 0) {
+      await prisma.po_delivery_plan_revisions.deleteMany({ where: { poId: { in: theirPos } } });
+      await prisma.po_delivery_points.deleteMany({ where: { poId: { in: theirPos } } });
+      await prisma.purchase_order_items.deleteMany({ where: { poId: { in: theirPos } } });
+      await prisma.purchase_orders.deleteMany({ where: { id: { in: theirPos } } });
+    }
+    await prisma.suppliers.deleteMany({ where: { id: only(interstateSupplierId) } });
+  });
+
+  // Each of these POs has one line
+  const lineOf = async (poId: string) => prisma.purchase_order_items.findFirstOrThrow({ where: { poId } });
+
+  it('refuses a line whose material does not belong on the category (422 PO_LINE_WRONG_CATEGORY)', async () => {
+    const res = await createPo({ poCategory: 'LACE' });
+    expect(res.status).toBe(422);
+    expect(res.body.details?.code).toBe('PO_LINE_WRONG_CATEGORY');
+    expect(res.body.message).toMatch(new RegExp(`${RUN}-MAT .* not a Lace PO`));
+  });
+
+  it('saves a typed GST rate with its HSN, and 0% as 0%', async () => {
+    const typed = await createPo({
+      items: [{ materialId, orderedQuantity: 10, unit: 'METER', unitPrice: 100, gstRate: 18, hsnCode: '96062100' }],
+    });
+    expect(typed.status).toBe(201);
+    const line = await lineOf(typed.body.data.id);
+    expect(Number(line.gstRate)).toBe(18);
+    expect(line.hsnCode).toBe('96062100');
+    // No state on file → CGST + SGST, 9% each on ₹1,000
+    expect([Number(line.cgstAmount), Number(line.sgstAmount), Number(line.taxAmount)]).toEqual([90, 90, 180]);
+
+    const zero = await createPo({
+      items: [{ materialId, orderedQuantity: 10, unit: 'METER', unitPrice: 100, gstRate: '0' }],
+    });
+    expect(zero.status).toBe(201);
+    const zeroLine = await lineOf(zero.body.data.id);
+    expect([Number(zeroLine.gstRate), Number(zeroLine.taxAmount)]).toEqual([0, 0]);
+  });
+
+  it('keeps the rate to paise and works the amount out from it (0.125 × 10,000 → 0.13, 1,300)', async () => {
+    const res = await createPo({
+      items: [{ materialId, orderedQuantity: 10000, unit: 'METER', unitPrice: 0.125, gstRate: 0 }],
+    });
+    expect(res.status).toBe(201);
+    const line = await lineOf(res.body.data.id);
+    expect([Number(line.unitPrice), Number(line.totalPrice)]).toEqual([0.13, 1300]);
+    const po = await prisma.purchase_orders.findUniqueOrThrow({ where: { id: res.body.data.id } });
+    expect([Number(po.subtotal), Number(po.totalAmount)]).toEqual([1300, 1300]);
+  });
+
+  it('refuses goods due before the PO date (422 PO_DELIVERY_BEFORE_PO_DATE), on create and on edit', async () => {
+    const created = await createPo({
+      poDate: toDateInputValue(new Date(Date.now() - DAY)),
+      expectedDeliveryDate: toDateInputValue(new Date(Date.now() - 3 * DAY)),
+    });
+    expect(created.status).toBe(422);
+    expect(created.body.details?.code).toBe('PO_DELIVERY_BEFORE_PO_DATE');
+
+    const ok = await createPo({ poDate: toDateInputValue(new Date(Date.now() - DAY)) });
+    expect(ok.status).toBe(201);
+    const edited = await request(app)
+      .put(`/api/purchase-orders/${ok.body.data.id}`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: toDateInputValue(new Date(Date.now() - 5 * DAY)) });
+    expect(edited.status).toBe(422);
+    expect(edited.body.details?.code).toBe('PO_DELIVERY_BEFORE_PO_DATE');
+
+    // Junk is a 400 naming the field, not "Invalid data provided to database"
+    const junk = await createPo({ expectedDeliveryDate: 'soon' });
+    expect(junk.status).toBe(400);
+    expect(JSON.stringify(junk.body.details)).toMatch(/expectedDeliveryDate/);
+  });
+
+  it('refuses a unit the material is not counted in (KG on a metre material)', async () => {
+    const res = await createPo({ items: [{ materialId, orderedQuantity: 10, unit: 'KILOGRAM', unitPrice: 5 }] });
+    expect(res.status).toBe(422);
+    expect(res.body.details?.code).toBe('PO_LINE_WRONG_UNIT');
+  });
+
+  it('clears the remarks with an empty value on edit', async () => {
+    const res = await createPo({ remarks: 'call before delivery' });
+    expect(res.status).toBe(201);
+    const id = res.body.data.id;
+    expect((await request(app).put(`/api/purchase-orders/${id}`).set(authHeader).send({ remarks: '' })).status).toBe(
+      200
+    );
+    expect((await prisma.purchase_orders.findUniqueOrThrow({ where: { id } })).remarks).toBeNull();
+  });
+
+  it('the material picker offers one kind of lace per category and pre-fills each line’s GST', async () => {
+    const laceCount = (isGreige: boolean) =>
+      prisma.materials.count({ where: { isActive: true, materialType: 'LACE', lace_master: { is: { isGreige } } } });
+    const pick = (laceKind: string) =>
+      request(app).get('/api/materials').query({ materialTypes: 'LACE', laceKind, limit: '500' }).set(authHeader);
+
+    const greige = await pick('GREIGE');
+    expect(greige.status).toBe(200);
+    expect(greige.body.pagination.total).toBe(await laceCount(true));
+    const finished = await pick('FINISHED');
+    expect(finished.body.pagination.total).toBe(await laceCount(false));
+    for (const m of [...greige.body.data, ...finished.body.data]) {
+      expect(m.materialType).toBe('LACE');
+      expect(m).toHaveProperty('hsnCode');
+      expect(m).toHaveProperty('defaultGstRate');
+    }
+    expect((await pick('BOTH')).status).toBe(400);
+  });
+
+  it('re-splits the tax when only the supplier changes (CGST + SGST → IGST), keeping the typed rate', async () => {
+    const res = await createPo({
+      items: [{ materialId, orderedQuantity: 10, unit: 'METER', unitPrice: 100, gstRate: 12 }],
+    });
+    expect(res.status).toBe(201);
+    const id = res.body.data.id;
+    const moved = await request(app)
+      .put(`/api/purchase-orders/${id}`)
+      .set(authHeader)
+      .send({ supplierId: interstateSupplierId });
+    expect(moved.status).toBe(200);
+
+    const line = await lineOf(id);
+    expect([Number(line.gstRate), Number(line.cgstAmount), Number(line.igstAmount)]).toEqual([12, 0, 120]);
+    const po = await prisma.purchase_orders.findUniqueOrThrow({ where: { id } });
+    expect(po.isInterstate).toBe(true);
+    expect([Number(po.totalCgst), Number(po.totalIgst), Number(po.totalAmount)]).toEqual([0, 120, 1120]);
+  });
+});
+
 describe('The list query refuses what Prisma would choke on', () => {
   it('checks every poCategories value against the POCategory enum', async () => {
     expect((await list({ poCategories: 'GREIGE,NOT_A_CATEGORY' })).status).toBe(400);

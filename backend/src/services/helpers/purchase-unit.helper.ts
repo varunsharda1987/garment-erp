@@ -121,7 +121,11 @@ export async function resolvePoLineUnits(
   return out;
 }
 
-/** A non-thread line: the purchase unit its type is bought in, or a dozen / gross of pieces, or as sent. */
+/**
+ * A non-thread line: the purchase unit its type is bought in, or a dozen / gross of pieces, or the
+ * material's own unit. Any other unit is refused — the line used to keep whatever the body said, so a
+ * metre greige could be ordered in KG and received as metres (PO form bug hunt #13, 2026-09-28).
+ */
 function resolveCountedLine(
   material: { name: string; unit: Unit; materialType: string },
   requested: Unit
@@ -139,6 +143,16 @@ function resolveCountedLine(
   }
   const factor = COUNT_UNIT_FACTORS[requested];
   if (factor && factor.of === material.unit) return { unit: requested, stockUnitsPerUnit: factor.per };
+  if (requested !== material.unit) {
+    const counts = Object.entries(COUNT_UNIT_FACTORS)
+      .filter(([, f]) => f?.of === material.unit)
+      .map(([u]) => unitLabel(u));
+    throw new BusinessError(
+      `${material.name} is counted in ${unitLabel(material.unit)} — order it in ` +
+        `${[unitLabel(material.unit), ...counts].join(' or ')}, not ${unitLabel(requested)}.`,
+      { code: 'PO_LINE_WRONG_UNIT', unit: requested, materialUnit: material.unit }
+    );
+  }
   return { unit: requested, stockUnitsPerUnit: null };
 }
 

@@ -501,8 +501,10 @@ export async function validateIssue(
           message: `Lot ${row.greige?.greigeCode ?? row.id.slice(0, 8)} is transferred stock at main warehouse — it was meant for another processor.`,
         });
       }
-      // R6: the processor's own supplied material cannot be issued back to them as ours
-      if (row.supplierId != null && row.supplierId === jwo.processorId) {
+      // R6: the processor's own supplied material cannot be issued back to them as ours — except goods it sold
+      // us and kept to process (Phase 4g): a DIRECT lot held at this same processor, covered by its challan
+      const retainedHere = row.sourceType === 'DIRECT' && heldHere;
+      if (row.supplierId != null && row.supplierId === jwo.processorId && !retainedHere) {
         blockers.push({
           code: ISSUE_ERROR_CODES.PURCHASED_ITEM_AS_COMPONENT,
           message: `Lot ${row.greige?.greigeCode ?? row.id.slice(0, 8)} was supplied by this processor — it cannot be free-issued back to them (R6).`,

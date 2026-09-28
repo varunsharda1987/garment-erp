@@ -36,6 +36,7 @@ import { recomputeCoveringChallansForJwo } from '../../services/helpers/jwo-chal
 import { getRequirements } from '../../services/mrp.service';
 import { listHeldLots } from '../../services/helpers/held-stock-doors.helper';
 import { toDateInputValue } from '../../utils/date';
+import { RETAINED_BY_SUPPLIER_REASON } from '../../services/helpers/direct-supply-challan.helper';
 
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
@@ -55,13 +56,13 @@ const poIds: string[] = [];
 
 const RECEIVED_ON = new Date(Date.now() - 20 * DAY); // the dyer got it 20 days ago
 
-async function makePo(qty: number, deliveryLocationId: string | null) {
+async function makePo(qty: number, deliveryLocationId: string | null, poSupplierId: string = supplierId) {
   const poId = (
     await prisma.purchase_orders.create({
       data: {
         id: randomUUID(),
         poNumber: `${RUN}-PO${poIds.length + 1}`,
-        supplierId,
+        supplierId: poSupplierId,
         poDate: new Date(),
         expectedDeliveryDate: new Date(Date.now() + 7 * DAY),
         status: 'SENT',
@@ -90,8 +91,13 @@ async function makePo(qty: number, deliveryLocationId: string | null) {
   return { poId, poItemId };
 }
 
-async function receiveInto(unit: string, qty: number, deliveryLocationId: string | null = null) {
-  const { poId, poItemId } = await makePo(qty, deliveryLocationId);
+async function receiveInto(
+  unit: string,
+  qty: number,
+  deliveryLocationId: string | null = null,
+  poSupplierId: string = supplierId
+) {
+  const { poId, poItemId } = await makePo(qty, deliveryLocationId, poSupplierId);
   const grn = await grnService.createGRN(
     {
       poId,
@@ -972,5 +978,61 @@ describe('processed goods delivered straight to the next processor (Phase 4d)', 
     const item = await prisma.grn_items.findFirstOrThrow({ where: { grnId } });
     expect(await prisma.fabric_stock.count({ where: { grnItemId: item.id } })).toBe(0);
     expect((await listHeldLots(dyerB)).some((l) => l.lotType === 'FABRIC')).toBe(false);
+  });
+});
+
+describe('a dyer who also sold us the goods and keeps them to process (Phase 4g)', () => {
+  let retainedLotId: string;
+
+  it('asks "<dyer> sold us this and keeps it to process" — never implicit, not even when the PO delivers there', async () => {
+    const { grnId } = await receiveInto(unitA, 600, unitA, dyerA);
+    await expect(grnService.approveGRN(grnId, userId, unitA)).rejects.toMatchObject({
+      details: expect.objectContaining({ reason: 'DIRECT_DELIVERY_SELF_SUPPLY_UNCONFIRMED' }),
+    });
+    await expect(
+      grnService.approveGRN(grnId, userId, unitA, undefined, { directDeliveryConfirmed: true })
+    ).rejects.toMatchObject({
+      details: expect.objectContaining({ reason: 'DIRECT_DELIVERY_SELF_SUPPLY_UNCONFIRMED' }),
+    });
+    expect(await prisma.greige_stock.count({ where: { grnItem: { grnId } } })).toBe(0); // nothing written
+
+    await grnService.approveGRN(grnId, userId, unitA, undefined, {
+      directDeliveryConfirmed: true,
+      selfSupplyConfirmed: true,
+    });
+    const lot = await prisma.greige_stock.findFirstOrThrow({ where: { grnItem: { grnId } } });
+    expect(lot).toMatchObject({ sourceType: 'DIRECT', processorId: dyerA, supplierId: dyerA, warehouseId: unitA });
+    retainedLotId = lot.id;
+    const challan = await prisma.challans.findFirstOrThrow({ where: { directSupplyGrnId: grnId } });
+    expect(challan).toMatchObject({
+      status: 'ISSUED',
+      toType: 'VENDOR',
+      toId: dyerA,
+      reasonForTransport: RETAINED_BY_SUPPLIER_REASON,
+    });
+    expect(challan.fromName).toMatch(/^Purchased from .* retained at its premises$/);
+    expect(challan.remarks).toMatch(/retained at its premises for job work/);
+    expect(lot.sourceChallanId).toBe(challan.id);
+  });
+
+  it("goes on that dyer's job where it lies; a store lot bought from the same dyer is still refused (R6)", async () => {
+    const jwo = await createJwo(dyerA, 600);
+    const drawn = await request(app)
+      .post(`/api/job-work-orders/${jwo}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: retainedLotId, qty: 600 }] });
+    expect(drawn.status).toBe(200);
+    expect(drawn.body.challanCreated).toBe(false);
+
+    // Bought from dyer A but delivered to OUR store: sending it to A as issued material stays refused
+    const { grnId } = await receiveInto(storeId, 300, null, dyerA);
+    await grnService.approveGRN(grnId, userId, storeId);
+    const storeLot = await prisma.greige_stock.findFirstOrThrow({ where: { grnItem: { grnId } } });
+    const jwo2 = await createJwo(dyerA, 300);
+    const refused = await request(app)
+      .post(`/api/job-work-orders/${jwo2}/issue`)
+      .set(authHeader)
+      .send({ lots: [{ greigeStockLotId: storeLot.id, qty: 300 }] });
+    expect(refused.body.code).toBe('PURCHASED_ITEM_AS_COMPONENT');
   });
 });

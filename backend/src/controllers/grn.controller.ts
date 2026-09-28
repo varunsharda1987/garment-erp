@@ -201,7 +201,7 @@ export const receiveJwoToStock = async (req: Request, res: Response) => {
  */
 export const approveGRN = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { warehouseId, processingQC, directDeliveryConfirmed } = req.body; // Optional - can be provided if not set on GRN
+  const { warehouseId, processingQC, directDeliveryConfirmed, selfSupplyConfirmed } = req.body; // Optional - can be provided if not set on GRN
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -210,6 +210,7 @@ export const approveGRN = async (req: Request, res: Response) => {
 
   const grn = await grnService.approveGRN(id, userId, warehouseId, processingQC as ProcessingQCData | undefined, {
     directDeliveryConfirmed: directDeliveryConfirmed === true,
+    selfSupplyConfirmed: selfSupplyConfirmed === true,
   });
 
   logInfo(`GRN approved: ${grn.grnNumber} - Stock movements created`);

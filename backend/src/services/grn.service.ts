@@ -121,6 +121,8 @@ interface DirectDelivery {
   processorName: string;
   supplierName: string;
   warehouseId: string;
+  /** The supplier IS the processor: it sold us the goods and keeps them to process (Phase 4g) */
+  retainedBySupplier: boolean;
 }
 
 /**
@@ -218,7 +220,8 @@ class GRNService {
    * STRAIGHT to that job worker (direct-to-processor plan, Phase 2). Returns who holds them, or null for
    * our own stores. Refuses — before anything is written — what cannot be booked truthfully:
    *  - a unit linked to no processor;
-   *  - a supplier who IS the processor (bought from and kept by the same party: Phase 4g);
+   *  - a supplier who IS the processor (it sold us the goods and keeps them to process, Phase 4g) unless the
+   *    approval says so in words (selfSupplyConfirmed) — never implicit, even when the PO delivers there;
    *  - a job-work return into a unit on this two-step path (processed goods going on to the next processor
    *    are received with the job's Receive from processor → "Delivered straight to another processor", 4d);
    *  - an unconfirmed delivery: implicit when the PO's Deliver To is this unit, else the approval must
@@ -227,7 +230,8 @@ class GRNService {
   private async resolveDirectDelivery(
     grn: { poId: string | null; jobWorkOrderId: string | null; supplierId: string | null; grnNumber: string },
     warehouse: { id: string; warehouseType: string; warehouseName: string; supplierId: string | null },
-    confirmed: boolean
+    confirmed: boolean,
+    selfSupplyConfirmed = false
   ): Promise<DirectDelivery | null> {
     if (!DIRECT_DELIVERY_BOOKING || warehouse.warehouseType !== 'JOB_WORK') return null;
     if (!warehouse.supplierId) {
@@ -256,11 +260,30 @@ class GRNService {
         reason: 'DIRECT_DELIVERY_UNIT_UNLINKED',
       });
     }
-    if (grn.supplierId && grn.supplierId === processor.id) {
-      throw new BusinessError(
-        `${processor.name} is both the supplier and the processor on ${grn.grnNumber}. Booking goods a processor sold us and keeps is not supported yet — receive them into our store.`,
-        { reason: 'DIRECT_DELIVERY_SELF_SUPPLY' }
-      );
+    // The processor sold us the goods and keeps them to process (Phase 4g): never implicit — the approval
+    // says so in words ("<dyer> sold us this and keeps it to process"), and the challan reads "purchased
+    // from you and retained at your premises for job work".
+    const retainedBySupplier = !!grn.supplierId && grn.supplierId === processor.id;
+    if (retainedBySupplier) {
+      if (!selfSupplyConfirmed) {
+        throw new BusinessError(
+          `${processor.name} is both the supplier and the processor on ${grn.grnNumber}. Confirm ${processor.name} ` +
+            `sold us these goods and keeps them to process ("${processor.name} sold us this and keeps it to process"), ` +
+            `or approve into our store.`,
+          {
+            reason: 'DIRECT_DELIVERY_SELF_SUPPLY_UNCONFIRMED',
+            processorName: processor.name,
+            warehouseName: warehouse.warehouseName,
+          }
+        );
+      }
+      return {
+        processorId: processor.id,
+        processorName: processor.name,
+        supplierName: processor.name,
+        warehouseId: warehouse.id,
+        retainedBySupplier: true,
+      };
     }
     // Implicit when the PO's plan delivers here: its one place, or one of its split places (Phase 3)
     const implicit =
@@ -276,6 +299,7 @@ class GRNService {
       processorName: processor.name,
       supplierName: supplier?.name ?? 'the supplier',
       warehouseId: warehouse.id,
+      retainedBySupplier: false,
     };
   }
 
@@ -1054,7 +1078,7 @@ class GRNService {
     userId: string,
     warehouseId?: string,
     processingQC?: ProcessingQCData,
-    opts?: { directDeliveryConfirmed?: boolean }
+    opts?: { directDeliveryConfirmed?: boolean; selfSupplyConfirmed?: boolean }
   ) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
@@ -1109,7 +1133,12 @@ class GRNService {
 
     // Goods booked at a processor's unit were delivered STRAIGHT to that job worker (Phase 2): decide
     // it — and refuse what we cannot book truthfully — before anything is written.
-    const direct = await this.resolveDirectDelivery(grn, warehouse, opts?.directDeliveryConfirmed === true);
+    const direct = await this.resolveDirectDelivery(
+      grn,
+      warehouse,
+      opts?.directDeliveryConfirmed === true,
+      opts?.selfSupplyConfirmed === true
+    );
 
     // Collector for non-critical, best-effort work that must run AFTER the transaction commits — its
     // failure must not roll back a valid receipt, and it must never open a nested tx inside ours.
@@ -2378,9 +2407,10 @@ class GRNService {
         challanDate: receivedOn,
         lines: directLines,
         userId,
+        retainedBySupplier: direct.retainedBySupplier,
       });
       logInfo(
-        `GRN ${grn.grnNumber}: goods delivered straight to ${direct.processorName} — challan ${challan.challanNumber}`,
+        `GRN ${grn.grnNumber}: goods ${direct.retainedBySupplier ? 'bought from and retained by' : 'delivered straight to'} ${direct.processorName} — challan ${challan.challanNumber}`,
         {
           grnId: grn.id,
           challanId: challan.id,

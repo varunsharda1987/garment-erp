@@ -96,7 +96,7 @@ export const approveGRN = async (
   warehouseId?: string,
   processingQC?: ProcessingQCData,
   /** Approving into a processor's unit: "the supplier delivered these straight to the processor". */
-  opts?: { directDeliveryConfirmed?: boolean }
+  opts?: { directDeliveryConfirmed?: boolean; selfSupplyConfirmed?: boolean }
 ): Promise<{ grn: GRN; pendingCutting?: PendingCuttingInfo[] }> => {
   const { data } = await api.patch<GRNResponse & { pendingCutting?: PendingCuttingInfo[] }>(
     `${BASE_URL}/${id}/approve`,
@@ -104,6 +104,8 @@ export const approveGRN = async (
       ...(warehouseId && { warehouseId }),
       ...(processingQC && { processingQC }),
       ...(opts?.directDeliveryConfirmed && { directDeliveryConfirmed: true }),
+      // The supplier IS the processor: "<dyer> sold us this and keeps it to process"
+      ...(opts?.selfSupplyConfirmed && { selfSupplyConfirmed: true }),
     }
   );
   return { grn: data.data, pendingCutting: data.pendingCutting };

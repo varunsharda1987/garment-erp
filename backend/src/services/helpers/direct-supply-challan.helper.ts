@@ -25,6 +25,10 @@ type Tx = Prisma.TransactionClient;
 export const DIRECT_SUPPLY_REASON =
   'Job work — inputs supplied directly to the job worker on our account (CGST Rule 45(1)) — not a supply';
 
+/** Phase 4g: the processor sold us the goods and keeps them to process for us. Wording for the CA to confirm. */
+export const RETAINED_BY_SUPPLIER_REASON =
+  'Purchased from you and retained at your premises for job work on our account (CGST Rule 45(1)) — not a supply';
+
 export interface DirectSupplyLine {
   itemType: 'GREIGE' | 'LACE' | 'FABRIC' | 'TRIM';
   greigeStockId?: string;
@@ -57,6 +61,8 @@ export interface DirectSupplyChallanInput {
   userId: string;
   /** Extra wording for the remarks, e.g. why a challan is issued late. */
   note?: string;
+  /** The supplier IS the processor (Phase 4g): it sold us the goods and keeps them to process. */
+  retainedBySupplier?: boolean;
 }
 
 const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
@@ -86,9 +92,11 @@ export async function createDirectSupplyChallanInTx(
     ? `invoice ${input.invoiceNumber}${input.invoiceDate ? ` dated ${formatDate(input.invoiceDate)}` : ''}, `
     : '';
   const remarks =
-    `Supplied directly by ${input.supplierName} vide ${invoice}GRN ${input.grnNumber}; ` +
-    `received by job worker on ${formatDate(input.receivedOn)}.` +
-    (input.note ? ` ${input.note}` : '');
+    (input.retainedBySupplier
+      ? `Purchased from ${input.supplierName} vide ${invoice}GRN ${input.grnNumber} and retained at its premises ` +
+        `for job work from ${formatDate(input.receivedOn)}.`
+      : `Supplied directly by ${input.supplierName} vide ${invoice}GRN ${input.grnNumber}; ` +
+        `received by job worker on ${formatDate(input.receivedOn)}.`) + (input.note ? ` ${input.note}` : '');
 
   const challan = await createChallan(
     {
@@ -96,7 +104,9 @@ export async function createDirectSupplyChallanInTx(
       challanDate: input.challanDate,
       fromType: 'SUPPLIER',
       fromId: input.supplierId ?? undefined,
-      fromName: `Supplied directly by ${input.supplierName}`,
+      fromName: input.retainedBySupplier
+        ? `Purchased from ${input.supplierName} — retained at its premises`
+        : `Supplied directly by ${input.supplierName}`,
       toType: 'VENDOR',
       toId: input.processorId,
       toName: input.processorName,
@@ -106,7 +116,7 @@ export async function createDirectSupplyChallanInTx(
       // The return period runs from the job worker's receipt, not from the challan's own date.
       expectedDate: new Date(input.receivedOn.getTime() + ONE_YEAR_MS),
       directSupplyGrnId: input.grnId,
-      reasonForTransport: DIRECT_SUPPLY_REASON,
+      reasonForTransport: input.retainedBySupplier ? RETAINED_BY_SUPPLIER_REASON : DIRECT_SUPPLY_REASON,
       totalDeclaredValue: toNumber(roundToCent(totalDeclared)),
       unit: input.lines.every((l) => l.unit === input.lines[0].unit) ? input.lines[0].unit : Unit.PIECE,
       remarks,

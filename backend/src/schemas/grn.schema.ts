@@ -181,6 +181,8 @@ export const approveGRNSchema = z
     // Approving into a processor's unit: "the supplier delivered these straight to the processor"
     // (implicit when the PO's Deliver To is that unit). Phase 2, 2026-09-25.
     directDeliveryConfirmed: z.boolean().optional(),
+    // The supplier IS the processor: "<dyer> sold us this and keeps it to process" (Phase 4g)
+    selfSupplyConfirmed: z.boolean().optional(),
   })
   .passthrough();
 

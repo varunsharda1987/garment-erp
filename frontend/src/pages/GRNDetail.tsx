@@ -65,7 +65,12 @@ export default function GRNDetail() {
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   // The server's "these go to a processor's unit — confirm they were delivered straight there" refusal
-  const [directConfirm, setDirectConfirm] = useState<{ processorName: string; warehouseName: string } | null>(null);
+  const [directConfirm, setDirectConfirm] = useState<{
+    processorName: string;
+    warehouseName: string;
+    /** The supplier IS the processor: it sold us the goods and keeps them to process */
+    selfSupply: boolean;
+  } | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -116,7 +121,8 @@ export default function GRNDetail() {
   // through the gap: no QC dialog, and processingQC never sent, so every lot got the default grade.
   const isProcessingReceipt = (g: typeof grn) => g?.purchaseOrders?.poCategory === 'PROCESSING' || !!g?.jobWorkOrderId;
 
-  const handleApprove = async (directDeliveryConfirmed = false) => {
+  const handleApprove = async (confirmed: 'direct' | 'selfSupply' | null = null) => {
+    const directDeliveryConfirmed = confirmed !== null;
     const wId = (grn?.warehouseId as string | undefined) || approveWarehouseId;
     if (!wId) {
       handleApiError(new Error('Please select a warehouse before approving'), 'Validation Error');
@@ -134,12 +140,17 @@ export default function GRNDetail() {
             remarks: qcRemarks || undefined,
           }
         : undefined;
-      const result = await approveGRN(id!, wId, qcData, { directDeliveryConfirmed });
+      const result = await approveGRN(id!, wId, qcData, {
+        directDeliveryConfirmed,
+        selfSupplyConfirmed: confirmed === 'selfSupply',
+      });
       handleApiSuccess(
         'GRN approved',
-        directDeliveryConfirmed
-          ? 'Booked as held by the processor, with the job-work challan dated the receipt day.'
-          : 'The goods have been accepted and stock has been updated.'
+        confirmed === 'selfSupply'
+          ? 'Booked as bought from the processor and kept there to process, with the job-work challan dated the receipt day.'
+          : directDeliveryConfirmed
+            ? 'Booked as held by the processor, with the job-work challan dated the receipt day.'
+            : 'The goods have been accepted and stock has been updated.'
       );
       if (result.pendingCutting && result.pendingCutting.length > 0) {
         setPendingCutting(result.pendingCutting);
@@ -152,10 +163,14 @@ export default function GRNDetail() {
           response?: { data?: { details?: { reason?: string; processorName?: string; warehouseName?: string } } };
         }
       )?.response?.data?.details;
-      if (d?.reason === 'DIRECT_DELIVERY_UNCONFIRMED' && !directDeliveryConfirmed) {
+      if (
+        (d?.reason === 'DIRECT_DELIVERY_UNCONFIRMED' || d?.reason === 'DIRECT_DELIVERY_SELF_SUPPLY_UNCONFIRMED') &&
+        !directDeliveryConfirmed
+      ) {
         setDirectConfirm({
           processorName: d.processorName ?? 'the processor',
           warehouseName: d.warehouseName ?? 'their unit',
+          selfSupply: d.reason === 'DIRECT_DELIVERY_SELF_SUPPLY_UNCONFIRMED',
         });
       } else {
         handleApiError(err, 'Failed to approve GRN');
@@ -743,13 +758,26 @@ export default function GRNDetail() {
       <ConfirmDialog
         open={!!directConfirm}
         onOpenChange={(open) => !open && setDirectConfirm(null)}
-        title={`Delivered straight to ${directConfirm?.processorName ?? 'the processor'}?`}
-        description={`This GRN books the goods at ${directConfirm?.warehouseName ?? 'the processor'}. If the supplier delivered them straight to ${directConfirm?.processorName ?? 'the processor'}, they are recorded as ours, held there, and a job-work challan dated the receipt day is raised. If they came to our store, choose Go back and approve into our store instead.`}
-        confirmText={`Yes — delivered straight to ${directConfirm?.processorName ?? 'the processor'}`}
+        title={
+          directConfirm?.selfSupply
+            ? `${directConfirm.processorName} sold us this and keeps it to process?`
+            : `Delivered straight to ${directConfirm?.processorName ?? 'the processor'}?`
+        }
+        description={
+          directConfirm?.selfSupply
+            ? `${directConfirm.processorName} is both the supplier on this GRN and the processor whose unit it books the goods at. If they sold us these goods and are keeping them at their premises to process for us, the goods are recorded as ours, held there, and a job-work challan reading "Purchased from you and retained at your premises for job work" is raised, dated the receipt day. Otherwise choose Go back and approve into our store.`
+            : `This GRN books the goods at ${directConfirm?.warehouseName ?? 'the processor'}. If the supplier delivered them straight to ${directConfirm?.processorName ?? 'the processor'}, they are recorded as ours, held there, and a job-work challan dated the receipt day is raised. If they came to our store, choose Go back and approve into our store instead.`
+        }
+        confirmText={
+          directConfirm?.selfSupply
+            ? `Yes — ${directConfirm.processorName} keeps it to process`
+            : `Yes — delivered straight to ${directConfirm?.processorName ?? 'the processor'}`
+        }
         cancelText="Go back"
         onConfirm={() => {
+          const selfSupply = directConfirm?.selfSupply;
           setDirectConfirm(null);
-          void handleApprove(true);
+          void handleApprove(selfSupply ? 'selfSupply' : 'direct');
         }}
       />
 

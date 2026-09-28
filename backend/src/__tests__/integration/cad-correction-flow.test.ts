@@ -20,6 +20,7 @@ import { only } from '../../utils/prisma-test-guard';
 import { ensureMaterialRecord } from '../../services/helpers/material-sync.helper';
 import { orderBomService } from '../../services/order-bom.service';
 import { calculateRequirementsFromOrder } from '../../services/mrp.service';
+import { giveMarkerImage } from '../helpers/marker-fixture';
 
 const RUN = `CCF${Date.now().toString(36).toUpperCase()}`;
 const QTY = 1000;
@@ -114,12 +115,25 @@ async function approvedSheetOn(cadId: string, width: number, draft = false) {
   return sheet;
 }
 
-const correct = (cadId: string, expected: number) =>
-  request(app)
+/**
+ * Submit the correction with the corrected marker's image — a Raw Mat CAD's layer length, sizes and width come
+ * from its marker (cad-marker.helper); the image's reading says exactly what the correction sets.
+ */
+const correct = async (cadId: string, expected: number) => {
+  const cad = await cadOf(cadId);
+  const marker = await giveMarkerImage(prisma, {
+    cadId: null,
+    styleId,
+    lengthM: CORRECTION.layerLengthMeters,
+    widthIn: Number(cad.cutableWidth),
+    sizes: SIZES,
+  });
+  return request(app)
     .post(`/api/cad-planning/${styleId}/row/${cadId}/correction`)
     .set(authHeader)
-    .send(CORRECTION)
+    .send({ ...CORRECTION, markerFileId: marker.id })
     .expect(expected);
+};
 
 const decide = (sheetId: string, body: Record<string, unknown>) =>
   request(app).patch(`/api/style-costing/${sheetId}/approve`).set(authHeader).send(body).expect(200);
@@ -226,6 +240,14 @@ describe('Correct a CAD nothing approved is built on', () => {
       .expect(200);
     expect(preview.body.data.needsApproval).toBe(false);
     expect(preview.body.data.after.cadAverage).toBeCloseTo(NEW_AVG, 4);
+    // A Raw Mat marker that changes needs the corrected marker's image (cad-marker.helper)
+    expect(preview.body.data.markerCheck).toMatchObject({ required: true, fileId: null });
+    const noImage = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${cad.id}/correction`)
+      .set(authHeader)
+      .send(CORRECTION);
+    expect(noImage.status).toBe(422);
+    expect(noImage.body.details?.code).toBe('CAD_MARKER_IMAGE_REQUIRED');
 
     const res = await correct(cad.id, 201);
     expect(res.body.data.status).toBe('APPLIED');
@@ -235,9 +257,14 @@ describe('Correct a CAD nothing approved is built on', () => {
     expect(Number(after.cadMeters)).toBeCloseTo(4.17, 4);
     expect(Number(after.totalCostPerMeter)).toBe(70); // no rate card, same greige → same ₹/m
     expect(after.costingApprovalStatus).toBe('APPROVED');
+    // …and the corrected marker's image is now the row's marker, matching it
+    const marker = await prisma.cad_purpose_files.findFirst({ where: { cadId: cad.id, replacedAt: null } });
+    expect(Number(marker?.readLengthM)).toBe(4.17);
+    expect(after.markerOverrideReason).toBeNull();
 
     const events = await prisma.audit_logs.findMany({ where: { entityType: 'fabric_width_cad', entityId: cad.id } });
     expect(events.some((e) => e.action === 'CORRECT')).toBe(true);
+    expect(events.some((e) => e.action === 'MARKER_IMAGE')).toBe(true);
   });
 });
 

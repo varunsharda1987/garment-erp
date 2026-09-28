@@ -157,6 +157,30 @@ export const attachMarkerImage = async (req: MulterRequest, res: Response): Prom
 };
 
 /**
+ * Upload the corrected marker's image for Correct CAD — read now, the row's marker once the correction applies
+ * POST /api/cad-planning/:styleId/row/:rowId/correction/marker
+ */
+export const attachCorrectionMarker = async (req: MulterRequest, res: Response): Promise<void> => {
+  const { styleId, rowId } = req.params;
+  if (!req.file) {
+    throw new ValidationError('Choose the corrected marker image (JPG, PNG or PDF)');
+  }
+  const fileUrl = `/uploads/cad-files/${req.file.filename}`;
+  try {
+    const result = await cadFileService.uploadForCorrection(
+      styleId,
+      rowId,
+      { fileUrl, fileName: req.file.originalname, fileSize: req.file.size },
+      req.user?.userId
+    );
+    res.status(201).json({ data: result, message: 'Marker image read' });
+  } catch (error) {
+    deleteCadFile(fileUrl);
+    throw error;
+  }
+};
+
+/**
  * Use an image already uploaded for the style as a CAD row's marker
  * POST /api/cad-planning/:styleId/row/:rowId/marker/link
  */

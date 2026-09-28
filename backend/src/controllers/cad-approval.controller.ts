@@ -7,6 +7,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
+import { checkMarkerOnApprove, copyMarkerImage } from '../services/helpers/cad-marker.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
 import {
   EMPTY_CAD_SNAPSHOT,
@@ -139,6 +140,9 @@ export async function approveCADPurpose(req: Request, res: Response) {
   if (cadRecord.approvalStatus === 'APPROVED') {
     throw new BusinessError('CAD record is already approved');
   }
+
+  // Its marker image: a Raw Mat / Production row needs one, and values that differ from it need a reason
+  await checkMarkerOnApprove(prisma, [rowId]);
 
   // An approved Production CAD is what unlocks cutting (2026-09-23), so it must be the marker of a
   // received lot — rows made with no lot (Copy / Promote / a purpose edit, before 2026-09-25) never
@@ -550,6 +554,8 @@ export async function copyCADPurpose(req: Request, res: Response) {
       },
     });
     await copyCadChildren(tx, sourceCad.id, created.id);
+    // The copy is the same marker: it carries the source's image (a Raw Mat row cannot be saved without one)
+    await copyMarkerImage(tx, sourceCad.id, created.id, targetPurpose);
     await recomputeStyleCadStatus(tx, styleId);
     return created;
   });

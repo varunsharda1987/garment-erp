@@ -154,6 +154,15 @@ export function MiniMarkerDialog({ styleId, open, onOpenChange, editable = true 
             {file.fileName || 'Unnamed file'}
           </p>
           <p className="text-xs text-muted-foreground">{formatFileSize(file.fileSize)}</p>
+          {/* Which CAD row this image is the marker of (set from the row's CAD Image column) */}
+          <p
+            className={`text-[11px] truncate ${file.cadRow?.current ? 'text-primary' : 'text-muted-foreground'}`}
+            title={file.cadRow?.label}
+          >
+            {file.cadRow
+              ? `${file.cadRow.current ? 'Marker of' : 'Was marker of'} ${file.cadRow.label}`
+              : 'Not on a CAD row'}
+          </p>
         </div>
 
         {/* Actions overlay */}

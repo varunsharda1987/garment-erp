@@ -13,6 +13,7 @@ import { systemSettingsService } from '../services/system-settings.service';
 import { ALL_PARTS_CODE, getDefaultLayerMargin } from './cad-planning.utils';
 import { resolveProductionLot } from '../services/helpers/production-cad-lot.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
+import { copyMarkerImage } from '../services/helpers/cad-marker.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
 // ============================================================================
@@ -561,6 +562,9 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       },
     });
     if (source) await copyCadChildren(tx, source.id, created.id);
+    // The planning marker's image comes too — but only when its width fits the lot (its length was copied);
+    // a marker planned at another width is re-made for the lot, with its own image
+    if (source && widthMatches) await copyMarkerImage(tx, source.id, created.id, 'PRODUCTION');
     await recomputeStyleCadStatus(tx, styleId);
     return created;
   });

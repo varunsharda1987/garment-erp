@@ -15,6 +15,7 @@ import {
   markerSummaryForRow,
   readingColumns,
   recordMarkerImage,
+  storedReading,
   type MarkerSummary,
 } from './helpers/cad-marker.helper';
 
@@ -354,6 +355,39 @@ class CadFileService {
     return file.readStatus
       ? (await recordMarkerImage(cadId, userId, file), { file, summary: await markerSummaryForRow(prisma, cadId) })
       : this.readAndRecord(file, cadId, userId);
+  }
+
+  /**
+   * The corrected marker's image for Correct CAD: stored and read, but NOT the row's marker yet — it becomes
+   * the row's current image when the correction applies (cad-correction.service), possibly after an admin
+   * approves. Until then it sits in the style's gallery with no row.
+   */
+  async uploadForCorrection(
+    styleId: string,
+    cadId: string,
+    upload: CreateCadFileDTO,
+    userId?: string
+  ): Promise<{ file: cad_purpose_files; reading: ReturnType<typeof storedReading> }> {
+    const row = await this.rowOfStyle(styleId, cadId);
+    const created = await prisma.$transaction(async (tx) =>
+      tx.cad_purpose_files.create({
+        data: {
+          styleId,
+          purpose: row.purpose,
+          fileUrl: upload.fileUrl,
+          fileName: upload.fileName,
+          fileSize: upload.fileSize,
+          sortOrder: await this.nextSortOrder(tx, styleId, row.purpose),
+          uploadedById: userId,
+        },
+      })
+    );
+    const fullPath = markerFilePath(created.fileUrl);
+    const reading = fullPath
+      ? await readMarkerFile(fullPath)
+      : normalizeReading({ status: 'UNREADABLE', error: 'The image file is not in the uploads folder' });
+    const file = await prisma.cad_purpose_files.update({ where: { id: created.id }, data: readingColumns(reading) });
+    return { file, reading: storedReading(file) };
   }
 
   /** Read the row's current marker image again (after the reader was installed or updated) */

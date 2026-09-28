@@ -5,7 +5,7 @@
  * Base path: /api/cad-planning
  */
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import {
   // List & query operations
   getPendingCADStyles,
@@ -23,15 +23,12 @@ import {
   calculateCADCost,
   selectGreigeForGroup,
   // CAD row CRUD
-  addCADWidth,
   deleteCADWidth,
   addCADTableRow,
   addCombinedCADRow,
   updateCADTableRow,
   deleteCADTableRow,
   getCADRowHistory,
-  updateCADValues,
-  updateCADValuesWithBreakdown,
   getCADGroupDetails,
   syncBomFabricFromCAD,
 } from '../controllers/cad-planning.controller';
@@ -79,6 +76,7 @@ import {
   linkMarkerImage,
   rereadMarkerImage,
   getRowMarkers,
+  attachCorrectionMarker,
 } from '../controllers/cad-file.controller';
 import {
   authenticateToken as authenticate,
@@ -104,9 +102,6 @@ import {
   addCADTableRowSchema,
   addCombinedCADRowSchema,
   updateCADTableRowSchema,
-  addCADWidthSchema,
-  updateCADValuesWithBreakdownSchema,
-  updateCADValuesSchema,
   cadPurposeActionSchema,
   cadCorrectionSchema,
   cadCorrectionPreviewSchema,
@@ -357,17 +352,17 @@ router.put(
  */
 router.delete('/:styleId/row/:rowId', validateParams(styleIdAndRowIdParamSchema), asyncHandler(deleteCADTableRow));
 
-/**
- * @route   POST /api/cad-planning/:styleId/add-width
- * @desc    Add a new CAD width entry for a fabric group (legacy)
- * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- */
-router.post(
-  '/:styleId/add-width',
-  validateParams(styleIdParamSchema),
-  validateBody(addCADWidthSchema),
-  asyncHandler(addCADWidth)
-);
+// RETIRED 2026-09-28 (CAD marker image rule): POST /:styleId/add-width, PUT /cad/:cadId and
+// PUT /update-cad/:cadId wrote CAD values (and a free-text markerPlanFile) around the marker check, and no
+// screen called them. CAD values are saved on the CAD table's row (PUT /:styleId/row/:rowId), checked against
+// the row's marker image (helpers/cad-marker.helper.ts).
+const retiredCadWriter = (_req: Request, res: Response) =>
+  res.status(410).json({
+    success: false,
+    message: "CAD values are saved on the CAD table's row, checked against its marker image",
+  });
+// no-body — 410 tombstone, nothing read from the request
+router.post('/:styleId/add-width', retiredCadWriter);
 
 /**
  * @route   DELETE /api/cad-planning/cad/:cadId
@@ -376,29 +371,10 @@ router.post(
  */
 router.delete('/cad/:cadId', validateParams(cadIdParamSchema), asyncHandler(deleteCADWidth));
 
-/**
- * @route   PUT /api/cad-planning/cad/:cadId
- * @desc    Update CAD values with size breakdown support
- * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- */
-router.put(
-  '/cad/:cadId',
-  validateParams(cadIdParamSchema),
-  validateBody(updateCADValuesWithBreakdownSchema),
-  asyncHandler(updateCADValuesWithBreakdown)
-);
-
-/**
- * @route   PUT /api/cad-planning/update-cad/:cadId
- * @desc    Update CAD values (legacy - without size breakdown)
- * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- */
-router.put(
-  '/update-cad/:cadId',
-  validateParams(cadIdParamSchema),
-  validateBody(updateCADValuesSchema),
-  asyncHandler(updateCADValues)
-);
+// no-body — 410 tombstone (see retiredCadWriter above)
+router.put('/cad/:cadId', retiredCadWriter);
+// no-body — 410 tombstone (see retiredCadWriter above)
+router.put('/update-cad/:cadId', retiredCadWriter);
 
 // set-preferred route RETIRED (landmine №9): the preferred mark is written only by
 // Fabric Costing's approve flow (owner rule 2026-08-24); this endpoint had no caller.
@@ -764,6 +740,20 @@ router.post(
   uploadCadFile,
   validateBody(attachMarkerImageSchema),
   asyncHandler(attachMarkerImage)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/correction/marker
+ * @desc    Upload + read the corrected marker's image for Correct CAD; it becomes the row's marker when the
+ *          correction applies (cad-correction.service)
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/correction/marker',
+  validateParams(styleIdAndRowIdParamSchema),
+  uploadCadFile,
+  validateBody(attachMarkerImageSchema),
+  asyncHandler(attachCorrectionMarker)
 );
 
 /**

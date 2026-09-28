@@ -17,6 +17,7 @@ import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
+import { giveMarkerImage } from '../helpers/marker-fixture';
 
 const RUN = `CRG${Date.now().toString(36).toUpperCase()}`;
 
@@ -222,6 +223,14 @@ describe('CAD saves write history', () => {
       totalCostPerMeter: null,
       cadMeters: 3.47,
       cadAverage: 0.7033,
+    });
+    // A Raw Mat row's values are saved from its marker image (cad-marker.helper) — one that says 4.17 m
+    await giveMarkerImage(prisma, {
+      cadId: cad.id,
+      styleId,
+      lengthM: 4.17,
+      widthIn: 52,
+      sizes: ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ sizeName, quantity: 1 })),
     });
 
     await request(app)

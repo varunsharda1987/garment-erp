@@ -26,6 +26,7 @@ import {
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
 import { recordCadEvent, refuseRejectWhenInUse } from './helpers/cad-history.helper';
+import { checkMarkerOnApprove } from './helpers/cad-marker.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { multiplyCurrency, toNumber } from '../utils/currency';
@@ -2660,6 +2661,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // touched row-level approval — the purest producer of the style-vs-row drift
     // (landmine №3), and under the derived model the button would have been a no-op.
     const mappedCadIds = [...new Set(expandedMappings.map((m) => m.fabricCADId))];
+
+    // Every row approved here passes the marker-image rule first (cad-marker.helper) — the plan-level button
+    // is not a way around the row-level one
+    await checkMarkerOnApprove(this.prisma, mappedCadIds);
     await this.prisma.$transaction(async (tx) => {
       await Promise.all(
         expandedMappings.map((mapping) =>

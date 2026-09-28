@@ -158,6 +158,9 @@ export const updateCADTableRowSchema = z.object({
     .nullable(),
   // Notes
   notes: z.string().max(500).optional().nullable(),
+  // Why CAD values that differ from the row's marker image (or an image that could not be read) are right —
+  // required then, 409 CAD_MARKER_MISMATCH otherwise (helpers/cad-marker.helper.ts)
+  markerOverrideReason: z.string().trim().max(500).optional(),
 });
 
 /**
@@ -317,6 +320,11 @@ const cadCorrectionFields = {
     .optional(),
   greigeId: z.string().uuid('Invalid greige ID').optional().nullable(),
   cutableWidth: formNumber(z.number().positive()),
+  /** The corrected marker's image (uploaded through .../correction/marker) — required on a Raw Mat row whose
+   *  layer length, sizes or width change (cad-marker.helper) */
+  markerFileId: z.string().uuid().optional(),
+  /** Why corrected values that differ from that image are right */
+  markerOverrideReason: z.string().trim().max(500).optional(),
 };
 export const cadCorrectionPreviewSchema = z.object({
   ...cadCorrectionFields,

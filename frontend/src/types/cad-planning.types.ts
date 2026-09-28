@@ -440,6 +440,11 @@ export interface UpdateCADRowRequest {
   piecesPerMarker?: number;
   /** null clears the layer length (backend schema is .optional().nullable()) */
   layerLengthMeters?: number | null;
+  /**
+   * Why values that differ from the row's CAD image are right — required when they differ, or when the image
+   * could not be read (backend helpers/cad-marker.helper.ts, 409 CAD_MARKER_MISMATCH)
+   */
+  markerOverrideReason?: string;
 }
 
 /**

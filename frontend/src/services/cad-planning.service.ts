@@ -6,6 +6,7 @@
  */
 
 import api from '../lib/api';
+import type { MarkerDifference, MarkerReading } from '@/types/cadFile.types';
 import type {
   CADTableData,
   CADSpreadsheetRow,
@@ -182,6 +183,19 @@ export interface CadCorrectionRequest {
   greigeId?: string | null;
   cutableWidth?: number;
   reason?: string;
+  /** The corrected marker's image (miniMarkerService.uploadForCorrection) — needed on a Raw Mat row whose
+   *  layer length, sizes or width change */
+  markerFileId?: string;
+  /** Why corrected values that differ from that image are right */
+  markerOverrideReason?: string;
+}
+
+/** The corrected values against the corrected marker's image (backend cad-correction.service) */
+export interface CadCorrectionMarkerCheck {
+  required: boolean;
+  fileId: string | null;
+  reading: MarkerReading | null;
+  differences: MarkerDifference[];
 }
 
 /** What a correction would change (POST …/correction/preview) */
@@ -217,6 +231,8 @@ export interface CadCorrectionImpact {
   carryForwardOnly: boolean;
   nothingToCorrect?: boolean;
   cuttingNote: string;
+  /** The corrected values against the corrected marker's image */
+  markerCheck?: CadCorrectionMarkerCheck;
 }
 
 export interface PendingCadCorrection {

@@ -17,6 +17,8 @@ import {
   GreigeRateProvenance,
 } from '../services/helpers/greige-live-rate.helper';
 import { logInfo } from '../utils/logger';
+import { copyCadChildren } from '../services/helpers/cad-copy.helper';
+import { copyMarkerImage } from '../services/helpers/cad-marker.helper';
 import { applySearch } from '../utils/search-filter';
 
 /**
@@ -942,7 +944,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
         }
 
         // Create new record with cloned CAD data + new cost values
-        return prisma.fabric_width_cad.create({
+        const clone = await prisma.fabric_width_cad.create({
           data: {
             // Copy CAD-owned fields from source
             fabricId: sourceRecord.fabricId,
@@ -1003,6 +1005,10 @@ export async function saveFabricCosting(req: Request, res: Response) {
             isPreferred: false,
           },
         });
+        // The clone is the same marker: its sizes / parts and its marker image come too (cad-marker.helper)
+        await copyCadChildren(prisma, sourceRecord.id, clone.id);
+        await copyMarkerImage(prisma, sourceRecord.id, clone.id);
+        return clone;
       }
 
       // UPDATE MODE: Normal update of existing CAD record
@@ -1890,6 +1896,10 @@ export async function promoteCostingOption(req: Request, res: Response) {
       greige: { select: { id: true, greigeName: true, greigeCode: true } },
     },
   });
+  // The promoted row is the same marker: its sizes / parts and its marker image come too — a Raw Mat row is
+  // saved and approved against its image (cad-marker.helper)
+  await copyCadChildren(prisma, option.id, promoted.id);
+  await copyMarkerImage(prisma, option.id, promoted.id, targetPurpose);
 
   res.json(
     serialize({

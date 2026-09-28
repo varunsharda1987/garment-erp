@@ -17,7 +17,7 @@ import { Textarea } from '../components/ui/textarea';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
-import { miniMarkerService } from '@/services/miniMarker.service';
+import { miniMarkerService, markerRefusalFromError } from '@/services/miniMarker.service';
 import {
   Dialog,
   DialogContent,
@@ -435,9 +435,12 @@ export default function CADPlanningPage() {
       // Refresh data to get updated calculations from backend
       await loadCADTableData();
     } catch (error: unknown) {
-      console.error('Failed to update row:', error);
-      const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      notify.error(axiosMsg || 'Failed to update row');
+      // The CAD table handles a CAD image refusal itself (asks for the reason / opens the image)
+      if (!markerRefusalFromError(error)) {
+        console.error('Failed to update row:', error);
+        const axiosMsg = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        notify.error(axiosMsg || 'Failed to update row');
+      }
       throw error;
     }
   };

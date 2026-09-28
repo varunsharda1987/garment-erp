@@ -9,7 +9,8 @@
  * Cutable Width | Print Direction | Size Breakup | No. of Pcs | Layer Margin | Layer(M) | CAD Average
  */
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,6 +48,8 @@ import {
   MoreHorizontal,
   History,
   PencilLine,
+  ImageIcon,
+  ImagePlus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
@@ -62,6 +65,11 @@ import { CadInUseNotice } from './CadInUseNotice';
 import { CadHistoryDialog } from './CadHistoryDialog';
 import { SizeBreakdownPopup } from './SizeBreakdownPopup';
 import { CorrectCadDialog } from './CorrectCadDialog';
+import { MarkerImageDialog, MarkerStateBadge, type MarkerValuesForRow } from './MarkerImageDialog';
+import { miniMarkerService, markerRefusalFromError } from '@/services/miniMarker.service';
+import type { MarkerDifference } from '@/types/cadFile.types';
+import { Textarea } from '@/components/ui/textarea';
+import { isQtyZero } from '@/lib/quantity';
 import { fabricStockService, type FabricStockForCAD } from '@/services/fabricStockService';
 import type {
   CADSpreadsheetRow,
@@ -173,6 +181,24 @@ export function CADSpreadsheetTable({
   // Correct CAD dialog (an approved row, fixed and carried to its cost sheets / orders)
   const [correctRow, setCorrectRow] = useState<CADSpreadsheetRow | null>(null);
   const pendingByCad = useMemo(() => new Map(pendingCorrections.map((c) => [c.cadId, c])), [pendingCorrections]);
+  // CAD image of each row (backend helpers/cad-marker.helper.ts): its state, what was read, the differences
+  const [markerRowId, setMarkerRowId] = useState<string | null>(null);
+  // A save refused because the values differ from the row's CAD image — asks for the reason, then saves
+  const [markerReasonPrompt, setMarkerReasonPrompt] = useState<{
+    rowId: string;
+    differences: MarkerDifference[];
+  } | null>(null);
+  const [markerReason, setMarkerReason] = useState('');
+  const { data: rowMarkers, refetch: refetchMarkers } = useQuery({
+    queryKey: ['cadRowMarkers', styleId],
+    queryFn: () => miniMarkerService.getRowMarkers(styleId),
+    enabled: !!styleId,
+  });
+  const markerByRow = useMemo(() => new Map((rowMarkers ?? []).map((m) => [m.cadId, m])), [rowMarkers]);
+  // The rows reload after every save, approve and correction — the image states follow them
+  useEffect(() => {
+    void refetchMarkers();
+  }, [rows, refetchMarkers]);
   const [rejectionReason, setRejectionReason] = useState('');
   // Version reason dialog state (BUG-CAD6: replaces native prompt())
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
@@ -338,50 +364,9 @@ export function CADSpreadsheetTable({
     };
   }, [selectedStyleFabrics, styleFabrics]);
 
-  // Track which componentIds have been synced to prevent infinite loops
-  const syncedComponentIds = useRef<Set<string>>(new Set());
-
-  // Auto-sync size breakdowns for rows that are missing them
-  // This handles cases where rows are added after size breakdowns were filled
-  useEffect(() => {
-    // Group rows by componentId
-    const rowsByComponent = new Map<string, CADSpreadsheetRow[]>();
-    rows.forEach((row) => {
-      if (!rowsByComponent.has(row.componentId)) {
-        rowsByComponent.set(row.componentId, []);
-      }
-      rowsByComponent.get(row.componentId)!.push(row);
-    });
-
-    // For each component group, find rows with missing breakdowns
-    rowsByComponent.forEach((componentRows, componentId) => {
-      // Skip if already synced for this componentId
-      if (syncedComponentIds.current.has(componentId)) {
-        return;
-      }
-
-      // Find first row with size breakdowns
-      const rowWithBreakdowns = componentRows.find((r) => r.sizeBreakdowns && r.sizeBreakdowns.length > 0);
-
-      // Find rows that need size breakdowns
-      const rowsNeedingSync = componentRows.filter(
-        (r) => r.id !== rowWithBreakdowns?.id && (!r.sizeBreakdowns || r.sizeBreakdowns.length === 0)
-      );
-
-      if (rowWithBreakdowns && rowsNeedingSync.length > 0) {
-        // Mark this componentId as synced
-        syncedComponentIds.current.add(componentId);
-
-        // Sync each row that needs it
-        rowsNeedingSync.forEach((targetRow) => {
-          onUpdateRow(targetRow.id, {
-            sizeBreakdowns: rowWithBreakdowns.sizeBreakdowns,
-            piecesPerMarker: rowWithBreakdowns.piecesPerMarker || 0,
-          });
-        });
-      }
-    });
-  }, [rows, onUpdateRow]);
+  // RETIRED 2026-09-28: an effect here copied one row's size breakdown into every sibling row with none,
+  // saving it without the user seeing it. Each row's sizes now come from its own marker image (CAD Image →
+  // Use these values) and are checked against it on save (backend helpers/cad-marker.helper.ts).
 
   // Group and sort rows by purpose for visual separation
   const groupedRows = useMemo(() => {
@@ -650,9 +635,19 @@ export function CADSpreadsheetTable({
       });
       setEditingRow(null);
       notify.success('CAD row updated successfully');
-    } catch {
-      // allow-silent-catch: the page's handler has already shown the server's reason (it names the next
-      // click); a second, vaguer toast here only buried it
+    } catch (error) {
+      // The CAD image rule (cad-marker.helper): values that differ from the image ask for a reason; a row
+      // with no image opens the image dialog. The pending edit stays so nothing typed is lost.
+      const refusal = markerRefusalFromError(error);
+      if (refusal?.code === 'CAD_MARKER_MISMATCH') {
+        setMarkerReason('');
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences });
+      } else if (refusal?.code === 'CAD_MARKER_IMAGE_REQUIRED') {
+        notify.warning(refusal.message, { duration: 7000 });
+        setMarkerRowId(rowId);
+      }
+      // allow-silent-catch: otherwise the page's handler has already shown the server's reason (it names the
+      // next click); a second, vaguer toast here only buried it
     } finally {
       setSavingRow(null);
     }
@@ -813,6 +808,52 @@ export function CADSpreadsheetTable({
     }
   };
 
+  // "Use these values" in the CAD image dialog: the marker's length, width and sizes go into the row's
+  // pending edit; nothing is saved until the user clicks Save
+  const handleUseMarkerValues = (rowId: string, values: MarkerValuesForRow) => {
+    if (values.layerLengthMeters !== null) handleFieldChange(rowId, 'layerLengthMeters', values.layerLengthMeters);
+    if (values.cutableWidth !== null) handleFieldChange(rowId, 'cutableWidth', values.cutableWidth);
+    if (values.sizeBreakdowns) {
+      handleFieldChange(rowId, 'sizeBreakdowns', values.sizeBreakdowns);
+      handleFieldChange(
+        rowId,
+        'piecesPerMarker',
+        values.sizeBreakdowns.reduce((sum, s) => sum + s.quantity, 0)
+      );
+    }
+    setEditingRow(rowId);
+    notify.info('Values from the CAD image are filled in — check them and click Save');
+  };
+
+  // The reason given for saving values that differ from the row's CAD image
+  const handleSaveWithMarkerReason = async () => {
+    if (!markerReasonPrompt) return;
+    const { rowId } = markerReasonPrompt;
+    const changes = pendingChanges[rowId] ?? {};
+    setSavingRow(rowId);
+    try {
+      await onUpdateRow(rowId, { ...changes, markerOverrideReason: markerReason.trim() });
+      setPendingChanges((prev) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { [rowId]: _, ...rest } = prev;
+        return rest;
+      });
+      setEditingRow(null);
+      setMarkerReasonPrompt(null);
+      setMarkerReason('');
+      notify.success('CAD row saved with your reason');
+    } catch (error) {
+      const refusal = markerRefusalFromError(error);
+      if (refusal?.code === 'CAD_MARKER_MISMATCH') {
+        setMarkerReasonPrompt({ rowId, differences: refusal.differences });
+      } else if (!refusal) {
+        notify.error(getErrorMessage(error));
+      }
+    } finally {
+      setSavingRow(null);
+    }
+  };
+
   // Handle size breakdown save - each row maintains its own Pcs independently
   const handleSizeBreakdownSave = (rowId: string, breakdowns: CADSizeBreakdown[]) => {
     const totalPieces = breakdowns.reduce((sum, b) => sum + b.quantity, 0);
@@ -952,7 +993,9 @@ export function CADSpreadsheetTable({
       onDataRefresh?.();
     } catch (error: unknown) {
       // BUG-CAD11 fix: use error utility instead of inline extraction
-      notify.error(getErrorMessage(error));
+      notify.error(getErrorMessage(error), { duration: 7000 });
+      // Refused by the CAD image rule — show the row's image and what differs
+      if (markerRefusalFromError(error)) setMarkerRowId(rowId);
     } finally {
       setApprovingRow(null);
     }
@@ -1180,13 +1223,14 @@ export function CADSpreadsheetTable({
               <TableHead className="px-2 py-2 text-right whitespace-nowrap">Pcs</TableHead>
               <TableHead className="px-2 py-2 text-right whitespace-nowrap">Layer(M)</TableHead>
               <TableHead className="px-2 py-2 text-right whitespace-nowrap">CAD Avg</TableHead>
+              <TableHead className="px-2 py-2 whitespace-nowrap">CAD Image</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} className="text-center py-6 text-muted-foreground text-sm">
+                <TableCell colSpan={17} className="text-center py-6 text-muted-foreground text-sm">
                   No CAD entries yet. Click "Add Row" to create one.
                 </TableCell>
               </TableRow>
@@ -1197,7 +1241,7 @@ export function CADSpreadsheetTable({
                   <TableRow
                     className={cn('bg-slate-200 hover:bg-slate-200', groupIndex > 0 && 'border-t-2 border-gray-400')}
                   >
-                    <TableCell colSpan={16} className="py-3 px-4">
+                    <TableCell colSpan={17} className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">
                           {CAD_PURPOSE_LABELS[group.purpose as CADPurpose]}
@@ -1795,6 +1839,23 @@ export function CADSpreadsheetTable({
                           ) : (
                             <span className="text-xs">{row.layerLengthMeters?.toFixed(2) || '-'}</span>
                           )}
+                          {/* What the row's CAD image says, when the typed length is not that */}
+                          {(() => {
+                            const imageLength = markerByRow.get(row.id)?.reading?.lengthM;
+                            const typed = getDisplayValue<number | null>(
+                              row,
+                              'layerLengthMeters',
+                              row.layerLengthMeters
+                            );
+                            return imageLength != null && (typed == null || !isQtyZero(Number(typed) - imageLength)) ? (
+                              <div
+                                className="text-[10px] text-warning whitespace-nowrap"
+                                title="What the CAD image says"
+                              >
+                                Image: {imageLength} m
+                              </div>
+                            ) : null;
+                          })()}
                         </TableCell>
 
                         {/* CAD Average - Calculated */}
@@ -1802,6 +1863,56 @@ export function CADSpreadsheetTable({
                           className={cn('px-2 py-1.5 text-right text-xs font-medium', FIELD_STYLES.calculated.cell)}
                         >
                           {row.cadAverage?.toFixed(2) || '-'}
+                        </TableCell>
+
+                        {/* CAD Image — the marker the row's values come from (cad-marker.helper) */}
+                        <TableCell className="px-2 py-1.5">
+                          {(() => {
+                            const found = markerByRow.get(row.id);
+                            // An approved row is left as it is (owner, 28-Sep): no image is not an alarm there —
+                            // a correction (Correct…) brings its marker image
+                            const marker =
+                              found && isRowLocked && found.state === 'NEEDS_IMAGE'
+                                ? { ...found, state: 'NONE' as const }
+                                : found;
+                            const tip = marker?.differences.length
+                              ? marker.differences.map((d) => d.label).join('\n') +
+                                (marker.overrideReason ? `\nReason: ${marker.overrideReason}` : '')
+                              : marker?.state === 'MATCHES'
+                                ? 'The row matches its CAD image'
+                                : marker?.state === 'NEEDS_IMAGE'
+                                  ? 'This row is saved from its marker — attach the CAD image'
+                                  : isRowLocked
+                                    ? marker?.file
+                                      ? 'The CAD image of this approved row'
+                                      : 'Approved without a CAD image — Correct… brings one'
+                                    : 'Attach the CAD image (Nest EXPERT screenshot or PDF)';
+                            return (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-1.5 gap-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMarkerRowId(row.id);
+                                }}
+                                title={tip}
+                              >
+                                {marker?.file ? (
+                                  <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                ) : (
+                                  <ImagePlus className="h-3.5 w-3.5 text-muted-foreground" />
+                                )}
+                                {marker && marker.state !== 'NONE' ? (
+                                  <MarkerStateBadge state={marker.state} differences={marker.differences} />
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {marker?.file ? 'View' : isRowLocked ? 'No image' : 'Add'}
+                                  </span>
+                                )}
+                              </Button>
+                            );
+                          })()}
                         </TableCell>
 
                         {/* Actions */}
@@ -1860,7 +1971,21 @@ export function CADSpreadsheetTable({
                                     (row.purpose !== 'PRODUCTION' ||
                                       !!(row as CADSpreadsheetRowExtended).fabricStockId) && (
                                       <DropdownMenuItem
-                                        onClick={() => handleApproveCAD(row.id)}
+                                        onClick={() => {
+                                          // The CAD image rule refuses these on the server too — send the user to the image
+                                          const state = markerByRow.get(row.id)?.state;
+                                          if (state === 'NEEDS_IMAGE' || state === 'DIFFERS') {
+                                            notify.warning(
+                                              state === 'NEEDS_IMAGE'
+                                                ? "Attach this row's CAD image before approving"
+                                                : 'The values differ from the CAD image — correct them, or save them with a reason, before approving',
+                                              { duration: 6000 }
+                                            );
+                                            setMarkerRowId(row.id);
+                                            return;
+                                          }
+                                          void handleApproveCAD(row.id);
+                                        }}
                                         disabled={approvingRow === row.id}
                                         className="text-success focus:text-success"
                                       >
@@ -2564,6 +2689,81 @@ export function CADSpreadsheetTable({
         onClose={() => setCorrectRow(null)}
         onDone={() => onDataRefresh?.()}
       />
+
+      {/* CAD image of a row — upload / pick, read, compare, use its values */}
+      {(() => {
+        const markerRow = markerRowId ? (rows.find((r) => r.id === markerRowId) ?? null) : null;
+        const locked =
+          !!markerRow &&
+          (markerRow.approvalStatus === CADApprovalStatus.APPROVED ||
+            markerRow.costingApprovalStatus === 'APPROVED' ||
+            markerRow.costingApprovalStatus === 'ALTERNATE_APPROVED');
+        return (
+          <MarkerImageDialog
+            styleId={styleId}
+            row={markerRow}
+            marker={markerRow ? markerByRow.get(markerRow.id) : undefined}
+            sizeOptions={sizeOptions}
+            readOnly={locked || disabled}
+            onClose={() => setMarkerRowId(null)}
+            onChanged={() => void refetchMarkers()}
+            onUseValues={(values) => markerRow && handleUseMarkerValues(markerRow.id, values)}
+          />
+        );
+      })()}
+
+      {/* Values that differ from the row's CAD image are saved only with a reason */}
+      <Dialog
+        open={!!markerReasonPrompt}
+        onOpenChange={(open) => {
+          if (!open) setMarkerReasonPrompt(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>These values differ from the CAD image</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <ul className="list-disc pl-5 text-sm space-y-1">
+              {markerReasonPrompt?.differences.map((d) => (
+                <li key={`${d.field}-${d.label}`}>{d.label}</li>
+              ))}
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              Correct them to match the marker (CAD image → Use these values), or say why they are right and save.
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="marker-reason">Reason</Label>
+              <Textarea
+                id="marker-reason"
+                value={markerReason}
+                onChange={(e) => setMarkerReason(e.target.value)}
+                placeholder="e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const rowId = markerReasonPrompt?.rowId ?? null;
+                setMarkerReasonPrompt(null);
+                setMarkerRowId(rowId);
+              }}
+            >
+              Open CAD image
+            </Button>
+            <Button
+              onClick={handleSaveWithMarkerReason}
+              disabled={markerReason.trim().length < 3 || savingRow === markerReasonPrompt?.rowId}
+            >
+              {savingRow === markerReasonPrompt?.rowId && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Save with this reason
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Rejection Reason Dialog (BUG-CAD6: replaces native prompt()) */}
       <Dialog

@@ -28,6 +28,16 @@ import { createCostSheetVersionTx } from './helpers/cost-sheet-version.helper';
 import { recomputeStoredCostSheetTotals } from './helpers/cost-sheet-totals.helper';
 import { cadSnapshot, recordCadEvent } from './helpers/cad-history.helper';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
+import {
+  markerDifferences,
+  markerRequired,
+  recordMarkerImage,
+  recordMarkerOverride,
+  storedReading,
+  styleSizeNames,
+  type MarkerDifference,
+  type StoredReading,
+} from './helpers/cad-marker.helper';
 import { orderBomService } from './order-bom.service';
 
 type Tx = Prisma.TransactionClient;
@@ -42,6 +52,20 @@ export interface CadCorrectionInput {
   /** New cuttable width (inches); omitted / blank = keep */
   cutableWidth?: number | null;
   reason: string;
+  /** The corrected marker's image (uploaded through .../correction/marker) — needed on a Raw Mat row whose
+   *  layer length, sizes or width change (helpers/cad-marker.helper.ts) */
+  markerFileId?: string;
+  /** Why corrected values that differ from that image are right */
+  markerOverrideReason?: string;
+}
+
+/** The corrected marker checked against its image — shown by Check impact, enforced by Submit */
+export interface CorrectionMarkerCheck {
+  /** A Raw Mat row whose marker changes needs the corrected marker's image */
+  required: boolean;
+  fileId: string | null;
+  reading: StoredReading | null;
+  differences: MarkerDifference[];
 }
 
 /** The marker + identity of a CAD row, before or after a correction */
@@ -60,6 +84,8 @@ interface CorrectionAfter extends CadMarker {
   costing: RecostedCosting;
   priceChanged: boolean;
   wasCosted: boolean;
+  /** The corrected marker's image — it becomes the row's marker when the correction applies */
+  marker?: { fileId: string; overrideReason: string | null; differences: MarkerDifference[] } | null;
 }
 
 const num = (v: Prisma.Decimal | number | null | undefined): number | null =>
@@ -180,6 +206,8 @@ export interface CorrectionImpact {
   needsApproval: boolean;
   /** The CAD row already reads the corrected values; this only carries them down (e.g. ESSKY082LS) */
   carryForwardOnly: boolean;
+  /** The corrected values against the corrected marker's image (cad-marker.helper) */
+  markerCheck?: CorrectionMarkerCheck;
   cuttingNote: string;
 }
 
@@ -345,6 +373,52 @@ async function writeCad(
       data: after.sizeBreakdowns.map((s) => ({ cadId: cad.id, sizeName: s.sizeName, quantity: s.quantity })),
     });
   }
+  await linkCorrectionMarker(tx, cad.id, after, opts.approvedBy);
+}
+
+/**
+ * The corrected marker's image becomes the row's marker (the previous one is kept as history), with the reason
+ * for any difference the corrector accepted. A correction made without an image leaves the row's image as is.
+ */
+async function linkCorrectionMarker(tx: Tx, cadId: string, after: CorrectionAfter, userId: string): Promise<void> {
+  if (!after.marker) return;
+  const file = await tx.cad_purpose_files.findUnique({ where: { id: after.marker.fileId } });
+  if (!file) {
+    logError('[CadCorrection] the corrected marker image is gone — the row keeps its previous image', undefined, {
+      cadId,
+      fileId: after.marker.fileId,
+    });
+    return;
+  }
+  await tx.cad_purpose_files.updateMany({
+    where: { cadId, replacedAt: null, NOT: { id: file.id } },
+    data: { replacedAt: new Date() },
+  });
+  await tx.cad_purpose_files.update({ where: { id: file.id }, data: { cadId, replacedAt: null } });
+  const differs = after.marker.differences.length > 0;
+  await tx.fabric_width_cad.update({
+    where: { id: cadId },
+    data: {
+      ...(file.readEfficiencyPct !== null ? { markerEfficiency: file.readEfficiencyPct } : {}),
+      markerOverrideReason: differs ? after.marker.overrideReason : null,
+      markerOverrideById: differs ? userId : null,
+      markerOverrideAt: differs ? new Date() : null,
+      markerOverrideDifferences: differs ? JSON.stringify(after.marker.differences) : null,
+    },
+  });
+}
+
+/** History lines for the image a correction put on the row (after the write commits) */
+async function recordCorrectionMarker(cadId: string, userId: string, after: CorrectionAfter): Promise<void> {
+  if (!after.marker) return;
+  const file = await prisma.cad_purpose_files.findUnique({ where: { id: after.marker.fileId } });
+  if (file) await recordMarkerImage(cadId, userId, file);
+  if (after.marker.differences.length > 0 && after.marker.overrideReason) {
+    await recordMarkerOverride(cadId, userId, {
+      reason: after.marker.overrideReason,
+      differences: after.marker.differences,
+    });
+  }
 }
 
 interface FabricDetailJson {
@@ -451,6 +525,34 @@ async function prepare(styleId: string, cadId: string, input: CadCorrectionInput
       (s) => s.cadAverageOnSheet !== null && Math.abs(s.cadAverageOnSheet - marker.cadAverage!) > 0.00005
     ) || impact.orders.some((o) => o.metresBefore !== o.metresAfter);
   impact.carryForwardOnly = !geometryChanged && drift;
+
+  // The corrected marker against its image: a Raw Mat row whose length, sizes or width change needs the
+  // corrected marker's image; any image given is checked (cad-marker.helper — one rule with the CAD table)
+  const markerChanged =
+    before.cadMeters !== marker.cadMeters ||
+    before.cutableWidth !== marker.cutableWidth ||
+    sizesKey(before.sizeBreakdowns) !== sizesKey(marker.sizeBreakdowns);
+  const markerCheck: CorrectionMarkerCheck = {
+    required: markerRequired(cad.purposeEnum ?? cad.purpose) && markerChanged,
+    fileId: null,
+    reading: null,
+    differences: [],
+  };
+  if (input.markerFileId) {
+    const file = await prisma.cad_purpose_files.findFirst({
+      where: { id: input.markerFileId, styleId, OR: [{ cadId: null }, { cadId }] },
+    });
+    if (!file) throw new NotFoundError('Marker image', input.markerFileId);
+    markerCheck.fileId = file.id;
+    markerCheck.reading = storedReading(file);
+    markerCheck.differences = markerDifferences(
+      { layerLengthM: marker.cadMeters, widthIn: marker.cutableWidth, sizes: marker.sizeBreakdowns },
+      markerCheck.reading,
+      await styleSizeNames(prisma, styleId)
+    );
+  }
+  impact.markerCheck = markerCheck;
+
   const after: CorrectionAfter = {
     ...marker,
     costing: recost.costing,
@@ -482,6 +584,32 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
     throw new BusinessError('Nothing to correct — the CAD and everything built on it already agree.');
   }
 
+  // The corrected marker's image (cad-marker.helper): required when a Raw Mat marker changes; values that
+  // differ from it need their own reason
+  const markerCheck = impact.markerCheck!;
+  if (markerCheck.required && !markerCheck.fileId) {
+    throw new BusinessError(
+      "Attach the corrected marker's image — a Raw Mat CAD's layer length, sizes and width come from its marker.",
+      { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId }
+    );
+  }
+  const markerReason = input.markerOverrideReason?.trim() ?? '';
+  if (markerCheck.fileId && markerCheck.differences.length > 0 && markerReason.length < 3) {
+    throw new ConflictError(
+      `The corrected values differ from the corrected marker's image: ${markerCheck.differences
+        .map((d) => d.label)
+        .join('; ')}. Correct them, or give a reason to save them anyway.`,
+      { code: 'CAD_MARKER_MISMATCH', cadId, differences: markerCheck.differences }
+    );
+  }
+  after.marker = markerCheck.fileId
+    ? {
+        fileId: markerCheck.fileId,
+        overrideReason: markerCheck.differences.length > 0 ? markerReason : null,
+        differences: markerCheck.differences,
+      }
+    : null;
+
   const beforeJson = {
     ...before,
     costing: {
@@ -512,6 +640,7 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
           after: after as unknown as Prisma.InputJsonValue,
           impact: impact as unknown as Prisma.InputJsonValue,
           newCostSheetIds: [],
+          markerFileId: after.marker?.fileId ?? null,
           correctedById: userId,
           decidedById: userId,
           decidedAt: new Date(),
@@ -529,6 +658,7 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
       },
       reason,
     });
+    await recordCorrectionMarker(cadId, userId, after);
     return { correction, impact, status: 'APPLIED' as const };
   }
 
@@ -570,6 +700,7 @@ export async function submitCorrection(styleId: string, cadId: string, input: Ca
         after: after as unknown as Prisma.InputJsonValue,
         impact: impact as unknown as Prisma.InputJsonValue,
         newCostSheetIds: newIds,
+        markerFileId: after.marker?.fileId ?? null,
         correctedById: userId,
       },
     });
@@ -713,6 +844,7 @@ export async function onCostSheetApproved(costSheetId: string, adminId: string):
       newValues: { correctionId: correction.id, outcome: 'Approved — the CAD now reads the corrected values' },
       reason: correction.reason,
     });
+    await recordCorrectionMarker(correction.cadId, correction.correctedById, after);
     progress.cadApplied = true;
   }
 

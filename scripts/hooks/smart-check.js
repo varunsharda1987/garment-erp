@@ -502,6 +502,17 @@ function checkUnguardedCadDelete(tsFiles) {
   );
 }
 
+/** Check: a CAD layer-length writer that skips the marker-image rule (IT00254 3.85 vs 3.82) — BLOCKING new + ratchet. */
+function checkCadMarkerRuleBypass(tsFiles) {
+  console.log(`\n${c.cyan}Checking CAD writers go through the marker-image rule...${c.reset}`);
+  return runRatchetedCheck(
+    'CAD layer-length writer(s) that skip the marker-image rule (values not checked against the CAD image)',
+    detectors.cadMarkerRuleBypass(tsFiles),
+    'cad-marker-rule-baseline.json',
+    "Save CAD values through services/helpers/cad-marker.helper.ts (checkMarkerOnSave before the write; copyMarkerImage when copying a row), or mark the write `// allow-no-marker-rule: <why>` (e.g. a fabric-level width that is no style's Raw Mat / Production row). If intentional, add the key to scripts/hooks/cad-marker-rule-baseline.json."
+  );
+}
+
 /** Check: a rate-card lookup blind to printing type (false RATES_OUTDATED, ESSKY082LS) — BLOCKING new + ratchet. */
 function checkRateCardPrintingType(tsFiles) {
   console.log(`\n${c.cyan}Checking rate-card lookups for printing type...${c.reset}`);
@@ -1365,6 +1376,7 @@ function runAllModeChecks() {
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
+  if (!checkCadMarkerRuleBypass(tsFiles)) ok = false;
   if (!checkRateCardPrintingType(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
@@ -1494,6 +1506,7 @@ function main() {
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
+    if (!checkCadMarkerRuleBypass(categories.typescript)) allPassed = false;
     if (!checkRateCardPrintingType(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;

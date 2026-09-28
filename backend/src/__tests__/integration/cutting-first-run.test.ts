@@ -28,6 +28,7 @@ import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
+import { giveMarkerImage } from '../helpers/marker-fixture';
 
 const RUN = `CUT${Date.now().toString(36).toUpperCase()}`;
 
@@ -539,9 +540,29 @@ describe('the first cut: from greige to a cutting batch', () => {
     expect(tooSoon.status).toBe(422);
     expect(tooSoon.body.message).toMatch(/no average yet/);
 
-    await prisma.fabric_width_cad.update({
+    const lotRow = await prisma.fabric_width_cad.update({
       where: { id: cadRowId },
       data: { cadMeters: CAD_METERS, piecesPerMarker: PIECES_PER_MARKER },
+    });
+    // A Production CAD is approved against its marker image (cad-marker.helper): the lot's marker, S×50 + M×50
+    const MARKER_SIZES = [
+      { sizeName: 'S', quantity: PIECES_PER_MARKER / 2 },
+      { sizeName: 'M', quantity: PIECES_PER_MARKER / 2 },
+    ];
+    await prisma.cad_size_breakdown.createMany({ data: MARKER_SIZES.map((s) => ({ cadId: cadRowId, ...s })) });
+    const noImage = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${cadRowId}/approve`)
+      .set(authHeader)
+      .send({});
+    expect(noImage.status).toBe(422);
+    expect(noImage.body.details?.code).toBe('CAD_MARKER_IMAGE_REQUIRED');
+    await giveMarkerImage(prisma, {
+      cadId: cadRowId,
+      styleId,
+      purpose: 'PRODUCTION',
+      lengthM: CAD_METERS,
+      widthIn: Number(lotRow.cutableWidth),
+      sizes: MARKER_SIZES,
     });
     const approved = await request(app)
       .post(`/api/cad-planning/${styleId}/row/${cadRowId}/approve`)

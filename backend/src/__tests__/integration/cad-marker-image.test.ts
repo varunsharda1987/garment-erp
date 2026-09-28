@@ -23,14 +23,20 @@ const itRead = READER_INSTALLED ? it : it.skip;
 let authHeader: Record<string, string>;
 let userId: string;
 let styleId: string;
+let componentId: string;
+let styleFabricId: string;
+let rowCount = 0;
 
 async function createRow(overrides: Record<string, unknown> = {}, sizes: string[] = []) {
   const row = await prisma.fabric_width_cad.create({
     data: {
       id: randomUUID(),
       cutableWidth: 52,
-      componentName: `${RUN}-ROW`,
+      // unique per row: (costingStyleId, componentName, styleFabricId, width, purpose, approval) is a unique key
+      componentName: `${RUN}-ROW-${++rowCount}`,
       costingStyleId: styleId,
+      // Approve checks a row belongs to the style through its fabric slot
+      styleFabricId,
       purpose: 'RAW_MATERIAL_CALCULATION',
       purposeEnum: 'RAW_MATERIAL_CALCULATION',
       approvalStatus: 'PENDING',
@@ -67,6 +73,11 @@ beforeAll(async () => {
     data: { id: randomUUID(), styleCode: `${RUN}S`, styleName: `${RUN} Style`, createdById: userId },
   });
   styleId = style.id;
+  const component = await prisma.style_components.create({
+    data: { id: randomUUID(), styleId, componentName: `${RUN}-COMP`, componentType: 'MAIN' },
+  });
+  componentId = component.id;
+  styleFabricId = (await prisma.style_fabrics.create({ data: { id: randomUUID(), componentId } })).id;
 });
 
 afterAll(async () => {
@@ -86,6 +97,9 @@ afterAll(async () => {
     await prisma.fabric_width_cad.deleteMany({ where: { id: { in: ids } } });
   }
   await prisma.audit_logs.deleteMany({ where: { entityType: 'fabric_width_cad', entityId: { in: ids } } });
+  // the rows are gone, so nothing cascades from the slot
+  await prisma.style_fabrics.deleteMany({ where: { id: only(styleFabricId) } });
+  await prisma.style_components.deleteMany({ where: { id: only(componentId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
   await prisma.users.deleteMany({ where: { id: only(userId) } });
   await prisma.$disconnect();
@@ -240,5 +254,137 @@ describe('CAD row marker image — endpoints', () => {
     } finally {
       delete process.env.MARKER_READER_DISABLED;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The rule on save, approve and copies (owner decisions 28-Sep-2026)
+// ---------------------------------------------------------------------------
+
+const put = (rowId: string, body: Record<string, unknown>) =>
+  request(app).put(`/api/cad-planning/${styleId}/row/${rowId}`).set(authHeader).send(body);
+const approve = (rowId: string) =>
+  request(app).post(`/api/cad-planning/${styleId}/row/${rowId}/approve`).set(authHeader).send({});
+const codeOf = (res: request.Response) => res.body?.details?.code;
+const S_TO_XXL = ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ sizeName, quantity: 1 }));
+
+describe('CAD values are saved from the marker image', () => {
+  it('a Raw Mat row with no image cannot take a layer length; a Costing row can', async () => {
+    const rawMat = await createRow();
+    const refused = await put(rawMat.id, { layerLengthMeters: 3.82 });
+    expect(refused.status).toBe(422);
+    expect(codeOf(refused)).toBe('CAD_MARKER_IMAGE_REQUIRED');
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: rawMat.id } }))?.cadMeters).toBeNull();
+
+    const costing = await createRow({ purpose: 'COSTING', purposeEnum: 'COSTING' });
+    await put(costing.id, { layerLengthMeters: 3.82 }).expect(200);
+  });
+
+  it('an edit that touches no CAD value needs no image (a Raw Mat row saved before the rule)', async () => {
+    const legacy = await createRow({ cadMeters: 3.85 }, ['S', 'M']);
+    await put(legacy.id, { printDirection: 'ONE_WAY' }).expect(200);
+    const refused = await put(legacy.id, { layerLengthMeters: 3.82 });
+    expect(codeOf(refused)).toBe('CAD_MARKER_IMAGE_REQUIRED');
+  });
+
+  it('an image that could not be read is "not checked": the save needs a reason, then it is EXPLAINED', async () => {
+    process.env.MARKER_READER_DISABLED = '1';
+    try {
+      const row = await createRow();
+      await attach(row.id).expect(201);
+      const refused = await put(row.id, { layerLengthMeters: 3.82 });
+      expect(refused.status).toBe(409);
+      expect(codeOf(refused)).toBe('CAD_MARKER_MISMATCH');
+      expect(refused.body.details.differences[0].field).toBe('image');
+
+      await put(row.id, {
+        layerLengthMeters: 3.82,
+        markerOverrideReason: 'CAD PC offline — screenshot from a phone',
+      }).expect(200);
+      const saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+      expect(saved).toMatchObject({ markerOverrideReason: 'CAD PC offline — screenshot from a phone' });
+      expect(Number(saved?.cadMeters)).toBe(3.82);
+      expect((await rowMarkers()).get(row.id).state).toBe('EXPLAINED');
+      const history = await prisma.audit_logs.findFirst({
+        where: { entityType: 'fabric_width_cad', entityId: row.id, action: 'MARKER_OVERRIDE' },
+      });
+      expect((history?.newValues as any)?.reason).toBe('CAD PC offline — screenshot from a phone');
+    } finally {
+      delete process.env.MARKER_READER_DISABLED;
+    }
+  });
+
+  itRead(
+    "IP00138: its marker's values save clean; 8.30 m needs a reason; an unexplained difference cannot be approved",
+    async () => {
+      const row = await createRow();
+      await attach(row.id).expect(201);
+
+      await put(row.id, {
+        layerLengthMeters: 8.29,
+        cutableWidth: 52,
+        sizeBreakdowns: S_TO_XXL,
+        piecesPerMarker: 5,
+      }).expect(200);
+      let saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+      expect(Number(saved?.markerEfficiency)).toBe(89.05);
+      expect(saved?.markerOverrideReason).toBeNull();
+      expect(Number(saved?.cadAverage)).toBeCloseTo((8.29 + 0.1) / 5, 4);
+      expect((await rowMarkers()).get(row.id).state).toBe('MATCHES');
+
+      const refused = await put(row.id, { layerLengthMeters: 8.3 });
+      expect(refused.status).toBe(409);
+      expect(refused.body.details.differences).toEqual([
+        expect.objectContaining({ field: 'length', image: '8.29 m', row: '8.3 m' }),
+      ]);
+
+      // The unexplained state cannot be approved: give the reason on a save first
+      await prisma.fabric_width_cad.update({ where: { id: row.id }, data: { cadMeters: 8.3 } });
+      const notApproved = await approve(row.id);
+      expect(notApproved.status).toBe(409);
+      expect(codeOf(notApproved)).toBe('CAD_MARKER_MISMATCH');
+
+      await put(row.id, { layerLengthMeters: 8.3, markerOverrideReason: 'rounded by the CAD room' }).expect(200);
+      await approve(row.id).expect(200);
+      saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+      expect(saved?.approvalStatus).toBe('APPROVED');
+    },
+    180_000
+  );
+
+  it('a Raw Mat row with values and no image cannot be approved', async () => {
+    const row = await createRow({ cadMeters: 3.85, cadAverage: 0.78 }, ['S', 'M', 'L', 'XL', 'XS']);
+    const res = await approve(row.id);
+    expect(res.status).toBe(422);
+    expect(codeOf(res)).toBe('CAD_MARKER_IMAGE_REQUIRED');
+  });
+
+  it("Copy to Raw Mat carries the Costing row's image (same file, its own record)", async () => {
+    process.env.MARKER_READER_DISABLED = '1';
+    try {
+      const costing = await createRow({ purpose: 'COSTING', purposeEnum: 'COSTING', cadMeters: 3.82 }, ['S']);
+      const image = (await attach(costing.id).expect(201)).body.data.file;
+      const res = await request(app)
+        .post(`/api/cad-planning/${styleId}/copy`)
+        .set(authHeader)
+        .send({ sourceCadId: costing.id, targetPurpose: 'RAW_MATERIAL_CALCULATION' });
+      expect(res.status).toBeLessThan(300);
+      const copy = await prisma.fabric_width_cad.findFirst({
+        where: { copiedFromId: costing.id, purposeEnum: 'RAW_MATERIAL_CALCULATION' },
+      });
+      expect(copy).not.toBeNull();
+      const copied = await prisma.cad_purpose_files.findFirst({ where: { cadId: copy!.id, replacedAt: null } });
+      expect(copied).toMatchObject({ fileUrl: image.fileUrl, purpose: 'RAW_MATERIAL_CALCULATION' });
+      expect(copied?.id).not.toBe(image.id);
+    } finally {
+      delete process.env.MARKER_READER_DISABLED;
+    }
+  });
+
+  it('the writers that went around the rule are gone (410)', async () => {
+    const row = await createRow();
+    await request(app).put(`/api/cad-planning/cad/${row.id}`).set(authHeader).send({ cadMeters: 3 }).expect(410);
+    await request(app).put(`/api/cad-planning/update-cad/${row.id}`).set(authHeader).send({ cadMeters: 3 }).expect(410);
+    await request(app).post(`/api/cad-planning/${styleId}/add-width`).set(authHeader).send({}).expect(410);
   });
 });

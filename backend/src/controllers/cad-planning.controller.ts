@@ -29,6 +29,7 @@ import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
 import { resolveLiveGreigeRates, greigeRateProvenance } from '../services/helpers/greige-live-rate.helper';
 import { EMPTY_CAD_SNAPSHOT, cadSnapshot, getCadHistory, recordCadEdit } from '../services/helpers/cad-history.helper';
+import { checkMarkerOnSave, recordMarkerOverride } from '../services/helpers/cad-marker.helper';
 import { applySearch } from '../utils/search-filter';
 import {
   applyCadListFilters,
@@ -3187,6 +3188,8 @@ export async function updateCADTableRow(req: Request, res: Response) {
     cadMeters,
     piecesPerMarker,
     layerLengthMeters,
+    // Why CAD values that differ from the row's marker image are right (cad-marker.helper)
+    markerOverrideReason,
     // Greige rate override fields
   } = req.body;
 
@@ -3285,8 +3288,38 @@ export async function updateCADTableRow(req: Request, res: Response) {
     layerMarginMetersValue = new Prisma.Decimal(getDefaultLayerMargin(effectiveLayerLength));
   }
 
+  // The row's marker image (cad-marker.helper): a Raw Mat / Production row's CAD values — layer length, width,
+  // sizes — are saved only with its image, and values that differ from it only with a reason. Checked BEFORE
+  // anything is written; a save that touches no CAD value (greige, part, print, notes) is not checked.
+  const markerCheck = await checkMarkerOnSave(prisma, {
+    cadId: rowId,
+    after: {
+      ...(effectiveLayerLength !== undefined
+        ? { layerLengthM: effectiveLayerLength === null ? null : Number(effectiveLayerLength) }
+        : {}),
+      ...(validatedWidth !== undefined ? { widthIn: validatedWidth === null ? null : Number(validatedWidth) } : {}),
+      ...(Array.isArray(sizeBreakdowns)
+        ? {
+            sizes: sizeBreakdowns.map((sb: { sizeName: string; quantity: number }) => ({
+              sizeName: sb.sizeName,
+              quantity: sb.quantity,
+            })),
+          }
+        : {}),
+    },
+    purpose: purpose !== undefined ? purpose : undefined,
+    triggered:
+      effectiveLayerLength !== undefined ||
+      validatedWidth !== undefined ||
+      sizeBreakdowns !== undefined ||
+      piecesPerMarker !== undefined ||
+      (purpose !== undefined && purpose !== currentPurpose),
+    overrideReason: markerOverrideReason,
+    userId: req.user?.userId,
+  });
+
   // Update CAD entry
-  const updateData: Prisma.fabric_width_cadUpdateInput = {};
+  const updateData: Prisma.fabric_width_cadUpdateInput = { ...markerCheck.patch };
 
   if (purpose !== undefined) {
     updateData.purpose = purpose;
@@ -3454,6 +3487,8 @@ export async function updateCADTableRow(req: Request, res: Response) {
       sizeBreakdowns: updatedBreakdowns,
     }),
   });
+  // …and when those values were saved although they differ from the marker image, why
+  await recordMarkerOverride(rowId, req.user?.userId, markerCheck.override);
 
   // =====================================================
   // AUTO-TRIGGER FABRIC COSTING on CAD save

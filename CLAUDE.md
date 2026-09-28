@@ -142,6 +142,7 @@ This schema routinely keeps **two columns for the same idea**, and consumers pic
 | The exact greige a style uses | `style_fabrics.selectedGreigeId` (**0/350 — written only by the legacy `select-greige` endpoint**) | `fabric_width_cad.greigeId` (**137/188 — what CAD Planning's Greige/Fabric column actually writes**) |
 | Which style a CAD row belongs to | `fabric_width_cad.costingStyleId` (legacy writer) | `fabric_width_cad.styleFabricId` (modern writer) — hence the 3-path `OR` in `cutting.controller.ts` |
 | Which costing run a fabric belongs to | `fabric_width_cad.costingRunId` = the row's LATEST run (moves when the row is saved into a later run) | `fabric_costing_run_items` = each run's OWN frozen record (2026-09-26) — read this for "what was Run N"; written only by `freezeRunItems` |
+| A CAD row's marker image | `cad_purpose_files.cadId` — the row's CURRENT image is the one with `replacedAt` null (one per row, partial unique index `cad_marker_one_current`, raw SQL — do not drop); a copied row gets its own record on the SAME `file_url`; images with no `cadId` are only in the style's gallery | `fabric_width_cad.markerPlanFile` — RETIRED 2026-09-28 (null on every row), never written. See *CAD values come from the marker image* |
 | "The result of processing" | `finishedFabricId` / `processedFabricId` / `createdFabricId` / `resultFabricStockId` — four names, one meaning | |
 | Where a PO delivers | `purchase_orders.deliveryLocationId` — ONE place, empty = "to be advised"; on a split PO it only MIRRORS point 1 | `po_delivery_points` + `po_delivery_point_lines` — the split plan. Read and write through `helpers/po-delivery-plan.helper.ts` (2026-09-26) |
 | Where a receipt went | `goods_receiving_notes.warehouseId` — the ACTUAL place, stock is booked there | `goods_receiving_notes.poDeliveryPointId` — the PLANNED place on a split PO. They differ when goods landed elsewhere (warned, allowed) |
@@ -290,6 +291,26 @@ A row "is a costing option" when `costingStyleId` and `totalCostPerMeter` are bo
 5. **PRODUCTION is a CAD-only purpose (2026-09-25).** A Production CAD is the marker for one received lot (CAD Planning → *Create CAD* on the lot), approved for cutting, and **never costed** — cutting reads its geometry, never a price. Fabric Costing, Costing Options, costing runs and cost sheets offer only `COSTING` / `RAW_MATERIAL_CALCULATION`; the API refuses PRODUCTION on every costing write (save, clone, promote, run, cost-sheet create), and `saveFabricCosting` refuses any row whose CAD is PRODUCTION before writing anything. `CostSheetPurpose.PRODUCTION` stays in the Prisma enum for history only. Tests: `fabric-costing-approval.test.ts` → *PRODUCTION is CAD-only*.
 
 Rules 1, 2 and 4 are enforced by smart-checks below.
+
+### CAD values come from the marker image (2026-09-28)
+
+A CAD row's layer length, width and sizes are what its Nest EXPERT marker says — they were typed by hand and
+drifted (IT00254 Top 52": marker 3.82 m, saved 3.85 m). ONE rule, `services/helpers/cad-marker.helper.ts`:
+**Raw Mat and Production rows** need their marker image before those values are saved or the row approved
+(Costing rows may have one; when they do it is checked too); values that differ from the image — length/width
+beyond 0.005, sizes, pieces left unplaced, an image that could not be read — are saved only with a reason
+(`markerOverrideReason`, kept on the row + History). Every writer and approver calls it:
+`checkMarkerOnSave` (CAD table row save), `checkMarkerOnApprove` (row Approve, Approve CAD plan), the Correct CAD
+flow (its own corrected-marker image), and `copyMarkerImage` for rows made from others (Copy to Raw Mat, Create CAD
+on a lot when the width matches, Fabric Costing clone / promote). Enforced by the *CAD marker rule bypass*
+smart-check. Tests: `unit/cad-marker.helper.test.ts`, `integration/cad-marker-image.test.ts`; tests that save or
+approve Raw Mat / Production values give the row an image with `__tests__/helpers/marker-fixture.ts`.
+
+**The reader** is `backend/ocr/read_marker.py` (PaddleOCR PP-OCR models via RapidOCR, CPU, ~6 s an image, one at a
+time), run by `services/marker-reader.service.ts` from `backend/ocr/.venv`. That venv is set up ONCE by hand, like
+`npm ci`: `powershell -ExecutionPolicy Bypass -File backend\ocr\setup.ps1` (again whenever
+`backend/ocr/requirements.txt` changes; it ends with a self-test on the fixtures). Deploys never touch it. Missing or
+broken, every image reads as "not checked" and saves ask for a reason — nothing 500s.
 
 ## CRITICAL: Enforced Guardrails (schema-drift + money-math)
 

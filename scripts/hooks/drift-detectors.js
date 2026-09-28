@@ -2022,6 +2022,56 @@ function unguardedCadDelete(relFiles) {
   return out;
 }
 
+// CAD marker rule bypass (2026-09-28) — a Raw Mat / Production CAD row's values (layer length, width, sizes)
+// are saved from its marker image and checked against it by backend/src/services/helpers/cad-marker.helper.ts
+// (checkMarkerOnSave / checkMarkerOnApprove / copyMarkerImage). Until then they were typed by hand and drifted
+// from their own marker (IT00254 Top 52": image 3.82 m, saved 3.85 m). A new writer of cadMeters that does not
+// go through that helper re-opens the gap. Sanctioned: import cad-marker.helper in the file, or mark the write
+// `// allow-no-marker-rule: <why>` (e.g. a fabric-level CAD width that is no style's Raw Mat / Production row).
+function cadMarkerRuleBypass(relFiles) {
+  const out = [];
+  const writeRe = /\b(?:prisma|tx|db)\.fabric_width_cad\.(create|createMany|update|updateMany|upsert)\s*\(/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    if (/cad-marker\.helper['"]/.test(content)) continue; // the file goes through the rule
+    // `updateData.cadMeters = …` then `.update({ data: updateData })`
+    const assignedVars = new Set([...content.matchAll(/\b(\w+)\.cadMeters\s*=/g)].map((m) => m[1]));
+    const lines = content.split('\n');
+    writeRe.lastIndex = 0;
+    let m;
+    while ((m = writeRe.exec(content))) {
+      // The call's own argument: from its "(" to the matching ")"
+      const open = m.index + m[0].length - 1;
+      let depth = 0;
+      let end = open;
+      for (; end < content.length && end < open + 6000; end++) {
+        if (content[end] === '(') depth++;
+        else if (content[end] === ')' && --depth === 0) break;
+      }
+      const snippet = content.slice(open, end + 1);
+      const writesLength =
+        /\bcadMeters\s*:(?!\s*(?:true|false|null)\b)/.test(snippet) ||
+        /\.\.\.\s*cadMarkerFields\s*\(/.test(snippet) ||
+        [...assignedVars].some((v) => new RegExp(`\\bdata\\s*:\\s*${v}\\b`).test(snippet));
+      if (!writesLength) continue;
+      const lineNo = lineOf(content, m.index);
+      const context = lines.slice(Math.max(0, lineNo - 4), lineNo).join('\n');
+      if (/allow-no-marker-rule/.test(context)) continue;
+      out.push({
+        key: `${rel} :: fabric_width_cad.${m[1]} :: L${lineNo}`,
+        file: rel,
+        line: lineNo,
+        detail: `fabric_width_cad.${m[1]} writes a layer length without cad-marker.helper — the value is not checked against the row's marker image`,
+      });
+    }
+  }
+  return out;
+}
+
 // Rate-card printing type (2026-09-26) — PIGMENT / PROCIAN / DISCHARGE / PIGMENT_DISCHARGE are
 // separate open-ended cards in ONE slab. A processor_rate_card lookup that filters on
 // processingType but not printingType picks whichever print type sorts first: ESSKY082LS
@@ -2726,6 +2776,7 @@ module.exports = {
   manualMaterialCreate,
   colourSentinelLiteral,
   unguardedCadDelete,
+  cadMarkerRuleBypass,
   rateCardPrintingTypeDrift,
   costingCadApprovalDrift,
   saleOrderStatusWrite,

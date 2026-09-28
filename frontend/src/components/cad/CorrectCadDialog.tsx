@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { AlertTriangle, Calculator, CheckCircle2, Loader2, PencilLine } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Calculator, CheckCircle2, Loader2, PencilLine, Upload } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,8 @@ import {
   type CadCorrectionRequest,
 } from '@/services/cad-planning.service';
 import type { CADGreigeOption, CADSizeBreakdown, CADSizeOption, CADSpreadsheetRow } from '@/types/cad-planning.types';
+import type { MarkerReading } from '@/types/cadFile.types';
+import { miniMarkerService } from '@/services/miniMarker.service';
 import { SizeBreakdownPopup } from './SizeBreakdownPopup';
 
 const PURPOSE_LABEL: Record<string, string> = { COSTING: 'Costing', RAW_MATERIAL_CALCULATION: 'Raw material' };
@@ -94,6 +96,60 @@ function CorrectCadForm({
   const [impact, setImpact] = useState<CadCorrectionImpact | null>(null);
   const [checking, setChecking] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // The corrected marker's image (Raw Mat: required when the marker changes) — read on upload
+  const [markerFile, setMarkerFile] = useState<{ id: string; fileName: string | null; reading: MarkerReading } | null>(
+    null
+  );
+  const [uploadingMarker, setUploadingMarker] = useState(false);
+  const [markerReason, setMarkerReason] = useState('');
+  const markerInput = useRef<HTMLInputElement>(null);
+  const markerRequiredHere = row.purpose === 'RAW_MATERIAL_CALCULATION';
+
+  const onMarkerFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const chosen = event.target.files?.[0];
+    event.target.value = '';
+    if (!chosen) return;
+    if (!['image/jpeg', 'image/png', 'application/pdf'].includes(chosen.type)) {
+      notify.error('Only JPG, PNG and PDF files are allowed');
+      return;
+    }
+    setUploadingMarker(true);
+    try {
+      const res = await miniMarkerService.uploadForCorrection(styleId, row.id, chosen);
+      setMarkerFile({ id: res.file.id, fileName: res.file.fileName, reading: res.reading });
+      invalidate();
+      if (res.reading.status === 'READ' || res.reading.status === 'PARTIAL') {
+        notify.success('Marker read — use its values, then check the impact');
+      } else {
+        notify.warning('The image was kept, but it could not be read — submitting will ask for a reason');
+      }
+    } catch (error) {
+      notify.error(getErrorMessage(error));
+    } finally {
+      setUploadingMarker(false);
+    }
+  };
+
+  // The marker's length, width and sizes into the form; sizes the style does not offer are left out
+  const useMarkerValues = () => {
+    const r = markerFile?.reading;
+    if (!r) return;
+    if (r.lengthM !== null) setLayer(String(r.lengthM));
+    if (r.widthIn !== null) setWidth(String(r.widthIn));
+    if (r.sizes.length > 0) {
+      const offered = new Map(sizeOptions.map((s) => [s.name.trim().toUpperCase(), s]));
+      setSizes(
+        r.sizes
+          .filter((s) => offered.size === 0 || offered.has(s.sizeName.toUpperCase()))
+          .map((s) => ({
+            sizeName: offered.get(s.sizeName.toUpperCase())?.name ?? s.sizeName,
+            sizeId: offered.get(s.sizeName.toUpperCase())?.id ?? null,
+            quantity: s.quantity,
+          }))
+      );
+    }
+    invalidate();
+  };
 
   const greiges = useMemo(
     () => availableGreiges.filter((g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName),
@@ -117,6 +173,7 @@ function CorrectCadForm({
     if (greigeId !== row.greigeId) req.greigeId = greigeId;
     const widthNum = width === '' ? null : Number(width);
     if (widthNum !== null && widthNum !== row.cutableWidth) req.cutableWidth = widthNum;
+    if (markerFile) req.markerFileId = markerFile.id;
     return req;
   };
 
@@ -139,6 +196,7 @@ function CorrectCadForm({
       const result = await cadPlanningService.submitCadCorrection(styleId, row.id, {
         ...request(),
         reason: reason.trim(),
+        ...(markerReason.trim() ? { markerOverrideReason: markerReason.trim() } : {}),
       });
       notify.success(result.message, { duration: 7000 });
       onDone();
@@ -150,7 +208,17 @@ function CorrectCadForm({
     }
   };
 
-  const canSubmit = !!impact && !impact.nothingToCorrect && reason.trim().length >= 3 && !submitting;
+  const markerCheck = impact?.markerCheck;
+  const markerMissing = !!markerCheck?.required && !markerCheck.fileId;
+  const markerNeedsReason = !!markerCheck?.fileId && markerCheck.differences.length > 0;
+  const canSubmit =
+    !!impact &&
+    !impact.nothingToCorrect &&
+    reason.trim().length >= 3 &&
+    !markerMissing &&
+    (!markerNeedsReason || markerReason.trim().length >= 3) &&
+    !submitting &&
+    !uploadingMarker;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -224,6 +292,87 @@ function CorrectCadForm({
                   invalidate();
                 }}
               />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2 rounded-md border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label>
+                  Corrected marker image{' '}
+                  {markerRequiredHere ? (
+                    <span className="text-muted-foreground font-normal">
+                      (needed when the length, sizes or width change)
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground font-normal">(optional — checked when given)</span>
+                  )}
+                </Label>
+                <div className="flex gap-2">
+                  <input
+                    ref={markerInput}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="hidden"
+                    onChange={onMarkerFile}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => markerInput.current?.click()}
+                    disabled={uploadingMarker}
+                  >
+                    {uploadingMarker ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-1.5" />
+                    )}
+                    {markerFile ? 'Replace' : 'Upload'}
+                  </Button>
+                  {markerFile && (markerFile.reading.status === 'READ' || markerFile.reading.status === 'PARTIAL') && (
+                    <Button variant="secondary" size="sm" onClick={useMarkerValues}>
+                      Use these values
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {uploadingMarker && (
+                <p className="text-xs text-muted-foreground">Reading the marker — about 10 seconds…</p>
+              )}
+              {markerFile && (
+                <p className="text-xs text-muted-foreground">
+                  {markerFile.fileName ?? 'image'}:{' '}
+                  {markerFile.reading.lengthM !== null
+                    ? [
+                        `Length ${markerFile.reading.lengthM} m`,
+                        markerFile.reading.widthIn !== null ? `Width ${markerFile.reading.widthIn} in` : null,
+                        markerFile.reading.sizes
+                          .map((s) => (s.quantity > 1 ? `${s.sizeName} ×${s.quantity}` : s.sizeName))
+                          .join(', ') || null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    : 'could not be read'}
+                </p>
+              )}
+              {markerMissing && (
+                <p className="text-xs text-destructive">
+                  Upload the corrected marker's image — a Raw Mat CAD's values come from its marker.
+                </p>
+              )}
+              {markerNeedsReason && (
+                <div className="space-y-1">
+                  <p className="text-xs text-warning">The corrected values differ from this image:</p>
+                  <ul className="list-disc pl-5 text-xs text-warning">
+                    {markerCheck!.differences.map((d) => (
+                      <li key={`${d.field}-${d.label}`}>{d.label}</li>
+                    ))}
+                  </ul>
+                  <Textarea
+                    rows={2}
+                    placeholder="Why are these values right although the image says otherwise?"
+                    value={markerReason}
+                    onChange={(e) => setMarkerReason(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="correct-reason">

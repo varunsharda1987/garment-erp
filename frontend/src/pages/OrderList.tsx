@@ -1,16 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { getAllOrders, hardDeleteOrder, canDeleteOrder } from '@/services/order.service';
-import { createFromCostSheet } from '@/services/orderBom.service';
-import { getCostSheetVersionsByStyle } from '@/services/costSheet.service';
-import type { Order, OrderStatus, Priority } from '@/types/order.types';
-import { OrderStatusLabels, PriorityLabels } from '@/types/order.types';
+import type { Order, OrderStatus } from '@/types/order.types';
+import { OrderStatusLabels } from '@/types/order.types';
 import ExportButton from '@/components/ExportButton';
-import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -27,10 +25,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuthStore } from '@/stores/auth.store';
 import { StatusBadge } from '@/components/StatusBadge';
-import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { extractRateSlabChange } from '@/lib/rate-slab-change';
+import { getErrorMessage, handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { useCreateOrderBom } from '@/hooks/useCreateOrderBom';
+import { queryKeys } from '@/hooks/useQuery';
 import { ShoppingCart, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { formatQuantity } from '@/lib/formatters';
 import { formatDate } from '@/lib/date';
 
 // Local type definition to avoid import issues
@@ -41,6 +41,9 @@ type Column<T> = {
   className?: string;
   headerClassName?: string;
 };
+
+/** Statuses an order does no more BOM / edit work in. */
+const CLOSED_STATUSES: OrderStatus[] = ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'];
 
 // One entry per distinct style on the order, in line order — the Style and Buyer Style columns
 // both render from this list so a multi-style order's two stacks line up row for row.
@@ -55,23 +58,93 @@ function uniqueStyles(order: Order): Array<{ code: string; ref?: string | null }
   return [...uniqueByCode.values()];
 }
 
+type WorkflowAction =
+  | { type: 'create'; label: string; styleId: string; orderItemId?: string }
+  | { type: 'navigate'; label: string; path: string };
+
+/**
+ * The next BOM step for the order, across ALL its styles (one BOM per style). A style with no BOM
+ * comes first, then a draft to review. An APPROVED BOM is enough to buy and cut from (owner,
+ * 2026-09-28 — Lock is optional), so approved and locked both lead to the requirements.
+ */
+function getWorkflowAction(order: Order): WorkflowAction | null {
+  if (CLOSED_STATUSES.includes(order.status)) return null;
+  const boms = order.orderBoms ?? [];
+  const missing = (order.orderItems ?? []).find(
+    (item) => item.styleId && !boms.some((b) => b.styleId === item.styleId)
+  );
+  if (missing?.styleId) {
+    return { type: 'create', label: 'Create BOM', styleId: missing.styleId, orderItemId: missing.id };
+  }
+  const draft = boms.find((b) => b.status === 'DRAFT');
+  if (draft) return { type: 'navigate', label: 'Review BOM', path: `/order-bom/${draft.id}` };
+  if (boms.length === 0) return null;
+  return {
+    type: 'navigate',
+    label: 'Requirements',
+    path: `/procurement/requirements?tab=material&orderId=${order.id}`,
+  };
+}
+
+const getStatusVariant = (status: OrderStatus) => {
+  switch (status) {
+    case 'PENDING':
+      return 'warning';
+    case 'IN_PRODUCTION':
+      return 'info';
+    case 'COMPLETED':
+      return 'success';
+    case 'DISPATCHED':
+      return 'success';
+    case 'CANCELLED':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
+
 export default function OrderList() {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Pagination state
+  // Pagination + filters. Every filter setter resets the page in the same update, so one change is
+  // one request — two effects used to fire the old page and then page 1, and the slower one won.
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalOrders, setTotalOrders] = useState(0);
-
-  // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+
+  const filters = {
+    page: currentPage,
+    limit: pageSize,
+    search: searchQuery || undefined,
+    customerId: customerFilter || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+  };
+  const hasFilters = Boolean(searchQuery || customerFilter || statusFilter !== 'all');
+
+  const {
+    data: response,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.orders.list(filters),
+    queryFn: () => getAllOrders(filters),
+    placeholderData: keepPreviousData,
+  });
+  const orders = response?.data ?? [];
+  const totalOrders = response?.pagination.total ?? 0;
+  const totalPages = response?.pagination.totalPages ?? 1; // backend key is totalPages (bug-hunt orders-13)
+
+  // A page past the end (rows-per-page raised, or the last row of the last page deleted) would
+  // show the empty state INSTEAD of the pager, with no way back. Step back to the last real page.
+  const pastTheEnd = Boolean(response) && orders.length === 0 && currentPage > 1 && currentPage > totalPages;
+  useEffect(() => {
+    if (pastTheEnd) setCurrentPage(Math.max(1, totalPages));
+  }, [pastTheEnd, totalPages]);
+
+  const refreshOrders = () => queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
 
   // Delete is only ever a delete (admin). A refusal shows its reason; cancelling is a separate,
   // explicit decision (CancelOrderDialog) — never what a Delete click falls through to.
@@ -85,45 +158,7 @@ export default function OrderList() {
   } | null>(null);
   const [orderToCancel, setOrderToCancel] = useState<{ id: string; orderNumber: string } | null>(null);
 
-  // BOM creation loading state
-  const [bomLoadingId, setBomLoadingId] = useState<string | null>(null);
-
-  // RATE_SLAB_CHANGED prompt: order quantity prices in a different processor rate slab than
-  // the style was costed at — BOM creation blocked until accepted (order-scoped)
-  const [rateChangePrompt, setRateChangePrompt] = useState<{ order: Order; message: string } | null>(null);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, customerFilter, statusFilter, priorityFilter]);
-
-  useEffect(() => {
-    fetchOrders();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter, priorityFilter]);
-
-  const fetchOrders = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await getAllOrders({
-        page: currentPage,
-        limit: pageSize,
-        search: searchQuery || undefined,
-        customerId: customerFilter !== 'all' ? customerFilter : undefined,
-        status: statusFilter !== 'all' ? statusFilter : undefined,
-        priority: priorityFilter !== 'all' ? priorityFilter : undefined,
-      });
-      setOrders(response.data);
-      setTotalPages(response.pagination.totalPages); // backend key is totalPages (bug-hunt orders-13)
-      setTotalOrders(response.pagination.total);
-    } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load orders', false);
-      setError(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { createBom, creatingOrderId, dialog: createBomDialog } = useCreateOrderBom();
 
   const handleDeleteClick = async (order: Order) => {
     try {
@@ -149,101 +184,11 @@ export default function OrderList() {
     try {
       await hardDeleteOrder(orderToDelete.id);
       handleApiSuccess('Order deleted', `Order ${orderToDelete.orderNumber} has been permanently deleted.`);
-      fetchOrders();
+      refreshOrders();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete order');
     } finally {
       setOrderToDelete(null);
-    }
-  };
-
-  const getPriorityVariant = (priority: Priority) => {
-    switch (priority) {
-      case 'LOW':
-        return 'secondary';
-      case 'MEDIUM':
-        return 'info';
-      case 'HIGH':
-        return 'warning';
-      case 'URGENT':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
-
-  const getStatusVariant = (status: OrderStatus) => {
-    switch (status) {
-      case 'PENDING':
-        return 'warning';
-      case 'IN_PRODUCTION':
-        return 'info';
-      case 'COMPLETED':
-        return 'success';
-      case 'DISPATCHED':
-        return 'success';
-      case 'CANCELLED':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
-
-  // Returns the next workflow action for an order based on its BOM status
-  const getWorkflowAction = (order: Order) => {
-    const bom = order.orderBoms?.[0];
-    if (!bom) return { label: 'Create BOM', type: 'create' as const };
-    if (bom.status === 'DRAFT') return { label: 'Review BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
-    if (bom.status === 'APPROVED')
-      return { label: 'Lock BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
-    if (bom.status === 'LOCKED')
-      return {
-        label: 'View MRP',
-        type: 'navigate' as const,
-        path: `/procurement/requirements?tab=material&orderId=${order.id}`,
-      };
-    return null;
-  };
-
-  const handleCreateBOM = async (order: Order, acceptRateChanges = false) => {
-    const styleId = order.orderItems?.[0]?.styleId;
-    if (!styleId) {
-      handleApiError(new Error('No order items found'), 'Cannot create BOM');
-      return;
-    }
-    setBomLoadingId(order.id);
-    try {
-      const costSheets = await getCostSheetVersionsByStyle(styleId);
-      const approved = costSheets.find(
-        (cs) =>
-          (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
-          (['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] as string[]).includes(cs.purpose)
-      );
-      if (!approved?.id) {
-        handleApiError(
-          new Error('No approved cost sheet found'),
-          'Please approve a RAW_MATERIAL_CALCULATION or PRODUCTION cost sheet first'
-        );
-        return;
-      }
-      const bom = await createFromCostSheet(order.id, {
-        styleId,
-        costSheetId: approved.id,
-        acceptRateChanges,
-      });
-      handleApiSuccess('BOM Created', 'BOM created successfully. Redirecting to review...');
-      navigate(`/order-bom/${bom.id}`);
-    } catch (err) {
-      const slabMessage = extractRateSlabChange(err);
-      if (slabMessage && !acceptRateChanges) {
-        // Order-quantity rate-slab change (qty-rate audit 2026-08-24): show the diff, retry
-        // with acceptance — the accepted rates apply to THIS order's BOM only.
-        setRateChangePrompt({ order, message: slabMessage });
-      } else {
-        handleApiError(err, 'Failed to create BOM');
-      }
-    } finally {
-      setBomLoadingId(null);
     }
   };
 
@@ -332,7 +277,7 @@ export default function OrderList() {
       key: 'quantity',
       header: 'Quantity',
       render: (order) => (
-        <div className="text-sm font-medium text-foreground">{order.totalQuantity?.toLocaleString() || 0} pcs</div>
+        <div className="text-sm font-medium text-foreground">{formatQuantity(order.totalQuantity, 'PIECE', 0)}</div>
       ),
     },
     {
@@ -349,13 +294,6 @@ export default function OrderList() {
       ),
     },
     {
-      key: 'priority',
-      header: 'Priority',
-      render: (order) => (
-        <StatusBadge status={PriorityLabels[order.priority]} variant={getPriorityVariant(order.priority)} />
-      ),
-    },
-    {
       key: 'status',
       header: 'Status',
       render: (order) => (
@@ -368,7 +306,7 @@ export default function OrderList() {
       headerClassName: 'text-right',
       className: 'text-right',
       render: (order) => {
-        const workflowAction = order.status !== 'CANCELLED' ? getWorkflowAction(order) : null;
+        const workflowAction = getWorkflowAction(order);
         return (
           <div className="flex justify-end gap-2">
             <Button
@@ -386,13 +324,17 @@ export default function OrderList() {
                 <Button
                   variant="default"
                   size="sm"
-                  disabled={bomLoadingId === order.id}
+                  disabled={creatingOrderId === order.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleCreateBOM(order);
+                    void createBom({
+                      orderId: order.id,
+                      styleId: workflowAction.styleId,
+                      orderItemId: workflowAction.orderItemId,
+                    });
                   }}
                 >
-                  {bomLoadingId === order.id ? 'Creating...' : 'Create BOM'}
+                  {creatingOrderId === order.id ? 'Creating...' : 'Create BOM'}
                 </Button>
               ) : (
                 <Button
@@ -400,13 +342,13 @@ export default function OrderList() {
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate(workflowAction.path!);
+                    navigate(workflowAction.path);
                   }}
                 >
                   {workflowAction.label} <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               ))}
-            {order.status !== 'CANCELLED' && (
+            {(order.status === 'PENDING' || order.status === 'IN_PRODUCTION') && (
               <Button
                 variant="outline"
                 size="sm"
@@ -446,12 +388,11 @@ export default function OrderList() {
               <ExportButton
                 module="orders"
                 filters={{
-                  customerId: customerFilter !== 'all' ? customerFilter : undefined,
+                  search: searchQuery || undefined,
+                  customerId: customerFilter || undefined,
                   status: statusFilter !== 'all' ? statusFilter : undefined,
-                  priority: priorityFilter !== 'all' ? priorityFilter : undefined,
                 }}
               />
-              <ImportButton module="orders" onSuccess={fetchOrders} />
               <Button onClick={() => navigate('/orders/new')}>+ Create New Order</Button>
             </div>
           </div>
@@ -463,18 +404,31 @@ export default function OrderList() {
               <SearchInput
                 placeholder="Search by order number, customer or style..."
                 value={searchQuery}
-                onChange={setSearchQuery}
+                maxLength={100}
+                onChange={(v) => {
+                  setSearchQuery(v);
+                  setCurrentPage(1);
+                }}
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <CustomerCombobox
-                value={customerFilter === 'all' ? '' : customerFilter}
-                onValueChange={(v) => setCustomerFilter(v || 'all')}
+                value={customerFilter}
+                onValueChange={(v) => {
+                  setCustomerFilter(v || '');
+                  setCurrentPage(1);
+                }}
                 placeholder="All Customers"
               />
 
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => {
+                  setStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
@@ -487,19 +441,6 @@ export default function OrderList() {
                   <SelectItem value="CANCELLED">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Priorities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="LOW">Low</SelectItem>
-                  <SelectItem value="MEDIUM">Medium</SelectItem>
-                  <SelectItem value="HIGH">High</SelectItem>
-                  <SelectItem value="URGENT">Urgent</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 
@@ -509,24 +450,32 @@ export default function OrderList() {
             columns={columns}
             keyExtractor={(order) => order.id}
             loading={isLoading}
-            error={error}
-            emptyState={{
-              icon: <ShoppingCart className="h-16 w-16" />,
-              title: 'No orders found',
-              description:
-                searchQuery || customerFilter || statusFilter || priorityFilter
-                  ? 'Try adjusting your search or filter criteria'
-                  : 'Get started by creating your first order',
-              actionLabel: 'Create First Order',
-              onAction: () => navigate('/orders/new'),
-            }}
+            error={error ? getErrorMessage(error) : null}
+            emptyState={
+              hasFilters
+                ? {
+                    icon: <ShoppingCart className="h-16 w-16" />,
+                    title: 'No orders found',
+                    description: 'Try adjusting your search or filter criteria',
+                  }
+                : {
+                    icon: <ShoppingCart className="h-16 w-16" />,
+                    title: 'No orders yet',
+                    description: 'Get started by creating your first order',
+                    actionLabel: 'Create First Order',
+                    onAction: () => navigate('/orders/new'),
+                  }
+            }
             pagination={{
               currentPage,
               totalPages,
               pageSize,
               totalItems: totalOrders,
               onPageChange: setCurrentPage,
-              onPageSizeChange: setPageSize,
+              onPageSizeChange: (size) => {
+                setPageSize(size);
+                setCurrentPage(1);
+              },
             }}
             onRowClick={(order) => navigate(`/orders/${order.id}`)}
           />
@@ -583,28 +532,12 @@ export default function OrderList() {
           }}
           orderId={orderToCancel.id}
           orderNumber={orderToCancel.orderNumber}
-          onCancelled={fetchOrders}
+          onCancelled={refreshOrders}
         />
       )}
 
-      {/* Order-quantity rate-slab change (RATE_SLAB_CHANGED): accepting applies the
-          order-quantity rates to THIS order's BOM only — style costing is untouched. */}
-      <ConfirmDialog
-        open={rateChangePrompt != null}
-        onOpenChange={(open) => {
-          if (!open) setRateChangePrompt(null);
-        }}
-        title="Processor rate differs at this order quantity"
-        description={rateChangePrompt?.message ?? ''}
-        confirmText="Accept order-quantity rates"
-        cancelText="Cancel"
-        onConfirm={() => {
-          const target = rateChangePrompt?.order;
-          setRateChangePrompt(null);
-          if (target) void handleCreateBOM(target, true);
-        }}
-        variant="default"
-      />
+      {/* Order-quantity rate-slab change (RATE_SLAB_CHANGED) — asked by the shared Create BOM */}
+      {createBomDialog}
     </>
   );
 }

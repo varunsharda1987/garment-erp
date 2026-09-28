@@ -383,28 +383,13 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
- * Get all orders with pagination, search, and filters
- * GET /api/orders
+ * The Orders list's filter, shared with its Excel export so "Export" writes exactly the rows the
+ * list shows (the export used to ignore search).
  */
-export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
-  // Read from the Zod-validated query so fromDate/toDate are real Dates — the schema previously
-  // validated startDate/endDate that nobody sent, letting garbage dates through raw (bug-hunt orders-12)
-  const {
-    page = 1,
-    limit = 10,
-    search = '',
-    customerId,
-    status,
-    priority,
-    fromDate,
-    toDate,
-  } = (req.validatedQuery || req.query) as unknown as OrderQueryInput;
-
-  const pageNum = Number(page);
-  const limitNum = Number(limit);
-  const skip = (pageNum - 1) * limitNum;
-
-  // Build where clause
+export function buildOrderListWhere(
+  query: Pick<OrderQueryInput, 'search' | 'customerId' | 'status' | 'priority' | 'fromDate' | 'toDate'>
+): Prisma.ordersWhereInput {
+  const { search = '', customerId, status, priority, fromDate, toDate } = query;
   const where: Prisma.ordersWhereInput = {};
 
   // The list renders a Style(s) column that was not searchable at all — the same gap the Sale
@@ -443,13 +428,39 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
       where.orderDate.lte = toDate;
     }
   }
+  return where;
+}
 
-  const [orders, total] = await Promise.all([
+/**
+ * Newest first, with a unique tie-break: orders created the same day share one orderDate (the form
+ * sends a bare date), and skip/take over tied rows can repeat or drop an order between pages.
+ */
+export function orderListOrderBy(
+  sortBy: OrderQueryInput['sortBy'] = 'orderDate',
+  sortOrder: OrderQueryInput['sortOrder'] = 'desc'
+): Prisma.ordersOrderByWithRelationInput[] {
+  return [{ [sortBy]: sortOrder }, { orderNumber: sortOrder }, { id: sortOrder }];
+}
+
+/**
+ * Get all orders with pagination, search, and filters
+ * GET /api/orders
+ */
+export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
+  // Read from the Zod-validated query so fromDate/toDate are real Dates — the schema previously
+  // validated startDate/endDate that nobody sent, letting garbage dates through raw (bug-hunt orders-12)
+  const query = (req.validatedQuery || req.query) as unknown as OrderQueryInput;
+  const pageNum = Number(query.page ?? 1);
+  const limitNum = Number(query.limit ?? 10);
+  const skip = (pageNum - 1) * limitNum;
+  const where = buildOrderListWhere(query);
+
+  const [rows, total] = await Promise.all([
     prisma.orders.findMany({
       where,
       skip,
       take: limitNum,
-      orderBy: { orderDate: 'desc' },
+      orderBy: orderListOrderBy(query.sortBy, query.sortOrder),
       include: {
         customers: {
           select: {
@@ -475,11 +486,12 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
             },
           },
         },
+        // Every active BOM, newest first — reduced below to the latest per style (BOMs are per
+        // style; `take: 1` showed one arbitrary style's BOM for a multi-style order).
         orderBoms: {
           where: { isActive: true },
-          select: { id: true, status: true },
+          select: { id: true, status: true, styleId: true, version: true },
           orderBy: { version: 'desc' as const },
-          take: 1,
         },
         // Make-to-order origin (serializes as saleOrder)
         sale_orders: {
@@ -492,6 +504,14 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
     }),
     prisma.orders.count({ where }),
   ]);
+
+  const orders = rows.map((order) => {
+    const latestPerStyle = new Map<string, (typeof order.orderBoms)[number]>();
+    for (const bom of order.orderBoms) {
+      if (!latestPerStyle.has(bom.styleId)) latestPerStyle.set(bom.styleId, bom);
+    }
+    return { ...order, orderBoms: [...latestPerStyle.values()] };
+  });
 
   res.json({
     data: orders,

@@ -429,6 +429,8 @@ class TemplateService {
         { fieldName: 'orderNumber', displayName: 'Order Number', type: 'text' },
         { fieldName: 'orderDate', displayName: 'Order Date', type: 'date' },
         { fieldName: 'customerName', displayName: 'Customer Name', type: 'text' },
+        { fieldName: 'styleCodes', displayName: 'Style', type: 'text' },
+        { fieldName: 'totalQuantity', displayName: 'Quantity (pcs)', type: 'number' },
         { fieldName: 'status', displayName: 'Status', type: 'text' },
         { fieldName: 'totalAmount', displayName: 'Total Amount', type: 'number' },
         { fieldName: 'deliveryDate', displayName: 'Delivery Date', type: 'date' },

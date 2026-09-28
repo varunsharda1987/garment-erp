@@ -288,6 +288,33 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
    * Create Order BOM from approved Cost Sheet
    * This is the primary method for creating Order BOM
    */
+  /**
+   * The cost sheet an order's BOM is built from, when the caller does not name one: the style's
+   * RAW_MATERIAL_CALCULATION sheet that is APPROVED and not superseded, this order's own sheet
+   * before a style-level one, newest version first. The screens used to pick this themselves and
+   * took retired purposes and superseded versions (ESSKY082LS: v1 superseded by a v2 still awaiting
+   * approval) — the BOM would then have been built from numbers the correction had replaced.
+   */
+  async resolveCostSheetForOrder(orderId: string, styleId: string): Promise<string> {
+    const sheets = await this.prisma.style_costing.findMany({
+      where: { styleId, purpose: 'RAW_MATERIAL_CALCULATION', OR: [{ orderId: null }, { orderId }] },
+      select: { id: true, version: true, approvalStatus: true, supersededById: true, orderId: true },
+      orderBy: { version: 'desc' },
+    });
+    const live = sheets.filter((s) => s.supersededById === null);
+    const usable = live.filter((s) => s.approvalStatus === 'APPROVED');
+    const pick = usable.find((s) => s.orderId === orderId) ?? usable[0];
+    if (pick) return pick.id;
+
+    const waiting = live.find((s) => s.approvalStatus !== 'APPROVED');
+    throw new BusinessError(
+      waiting
+        ? `Raw-material cost sheet v${waiting.version} for this style is waiting for approval — approve it, then create the BOM.`
+        : 'This style has no approved raw-material cost sheet — approve one, then create the BOM.',
+      { code: 'NO_APPROVED_COST_SHEET' }
+    );
+  }
+
   async createFromCostSheet(input: CreateOrderBOMFromCostSheetInput): Promise<order_bom> {
     logDebug('Creating Order BOM from Cost Sheet', {
       orderId: input.orderId,

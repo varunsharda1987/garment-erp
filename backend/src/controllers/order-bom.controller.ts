@@ -44,10 +44,15 @@ export const createFromCostSheet = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
 
+  // No sheet named → the server picks it (approved, not superseded, raw-material), so every screen
+  // builds from the same sheet instead of each applying its own filter.
+  const costSheetId =
+    validatedData.costSheetId ?? (await orderBomService.resolveCostSheetForOrder(orderId, validatedData.styleId));
+
   const bom = await orderBomService.createFromCostSheet({
     orderId,
     styleId: validatedData.styleId,
-    costSheetId: validatedData.costSheetId,
+    costSheetId,
     orderItemId: validatedData.orderItemId,
     createdById: userId,
     acceptRateChanges: validatedData.acceptRateChanges,

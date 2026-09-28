@@ -995,6 +995,32 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       return { canDelete: false, reason: 'Order has processed ASN applications' };
     }
 
+    // Records that point at the order (or its runs) with no cascade: the delete below would hit the
+    // foreign key and roll back with a generic "Referenced record does not exist". Refuse up front,
+    // and name them. Requirements already on a PO / job work would otherwise vanish from under it.
+    const [fabricAllocations, laceAllocations, laceIssues, cuttingBatches, poLinks, jwoLinks] = await Promise.all([
+      this.prisma.fabric_stock_allocation.count({ where: { orderId: id } }),
+      this.prisma.lace_stock_allocation.count({ where: { orderId: id } }),
+      this.prisma.lace_issue_note.count({ where: { orderId: id } }),
+      this.prisma.cutting_batches.count({ where: { workOrder: { orderId: id } } }),
+      this.prisma.requirement_po_links.count({ where: { material_requirements: { orderId: id } } }),
+      this.prisma.requirement_jwo_links.count({ where: { material_requirements: { orderId: id } } }),
+    ]);
+    const held = [
+      fabricAllocations > 0 && `${fabricAllocations} fabric allocation(s)`,
+      laceAllocations > 0 && `${laceAllocations} lace allocation(s)`,
+      laceIssues > 0 && `${laceIssues} lace issue note(s)`,
+      cuttingBatches > 0 && `${cuttingBatches} cutting batch(es)`,
+      poLinks > 0 && `${poLinks} requirement line(s) already on a purchase order`,
+      jwoLinks > 0 && `${jwoLinks} requirement line(s) already on a job work order`,
+    ].filter(Boolean);
+    if (held.length > 0) {
+      return {
+        canDelete: false,
+        reason: `Order has ${held.join(', ')}. Cancel the order instead, so these records keep their history.`,
+      };
+    }
+
     return { canDelete: true };
   }
 
@@ -1010,72 +1036,94 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       throw new BusinessError(reason || 'Cannot delete this order');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      // Delete ASN SKUs first (child of ASN applications)
-      await tx.asn_skus.deleteMany({
-        where: { asn: { orderId: id } },
-      });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Delete ASN SKUs first (child of ASN applications)
+        await tx.asn_skus.deleteMany({
+          where: { asn: { orderId: id } },
+        });
 
-      // Delete ASN applications
-      await tx.asn_applications.deleteMany({
-        where: { orderId: id },
-      });
+        // Delete ASN applications
+        await tx.asn_applications.deleteMany({
+          where: { orderId: id },
+        });
 
-      // Delete delivery note items first (child of delivery notes)
-      await tx.delivery_note_items.deleteMany({
-        where: { delivery_notes: { orderId: id } },
-      });
+        // Delete delivery note items first (child of delivery notes)
+        await tx.delivery_note_items.deleteMany({
+          where: { delivery_notes: { orderId: id } },
+        });
 
-      // Delete delivery notes
-      await tx.delivery_notes.deleteMany({
-        where: { orderId: id },
-      });
+        // Delete delivery notes
+        await tx.delivery_notes.deleteMany({
+          where: { orderId: id },
+        });
 
-      // Delete invoices (no payments at this point based on canDelete check)
-      await tx.invoices.deleteMany({
-        where: { orderId: id },
-      });
+        // Delete invoices (no payments at this point based on canDelete check)
+        await tx.invoices.deleteMany({
+          where: { orderId: id },
+        });
 
-      // Delete work orders (only PENDING/CANCELLED at this point)
-      await tx.work_orders.deleteMany({
-        where: { orderId: id },
-      });
+        // Delete work orders (only PENDING/CANCELLED at this point)
+        await tx.work_orders.deleteMany({
+          where: { orderId: id },
+        });
 
-      // Delete material requirements (generated from BOM via MRP)
-      await tx.material_requirements.deleteMany({
-        where: { orderId: id },
-      });
+        // Give back any stock the requirements still hold — stock_reservations point at them by a
+        // plain referenceId (no foreign key), so deleting the requirements would leave the lots
+        // reserved for an order that no longer exists. Same call cancelOrder makes.
+        const requirementIds = (
+          await tx.material_requirements.findMany({ where: { orderId: id }, select: { id: true } })
+        ).map((r) => r.id);
+        if (requirementIds.length > 0) {
+          await releaseReservations(tx, requirementIds);
+        }
 
-      // Delete order BOM items first (child of order BOMs)
-      await tx.order_bom_items.deleteMany({
-        where: { orderBom: { orderId: id } },
-      });
+        // Delete material requirements (generated from BOM via MRP)
+        await tx.material_requirements.deleteMany({
+          where: { orderId: id },
+        });
 
-      // Delete order BOMs
-      await tx.order_bom.deleteMany({
-        where: { orderId: id },
-      });
+        // Delete order BOM items first (child of order BOMs)
+        await tx.order_bom_items.deleteMany({
+          where: { orderBom: { orderId: id } },
+        });
 
-      // Delete order item breakup (child of order items)
-      await tx.order_item_breakup.deleteMany({
-        where: { order_items: { orderId: id } },
-      });
+        // Delete order BOMs
+        await tx.order_bom.deleteMany({
+          where: { orderId: id },
+        });
 
-      // Delete order item costing (child of order items)
-      await tx.order_item_costing.deleteMany({
-        where: { order_item: { orderId: id } },
-      });
+        // Delete order item breakup (child of order items)
+        await tx.order_item_breakup.deleteMany({
+          where: { order_items: { orderId: id } },
+        });
 
-      // Delete order items
-      await tx.order_items.deleteMany({
-        where: { orderId: id },
-      });
+        // Delete order item costing (child of order items)
+        await tx.order_item_costing.deleteMany({
+          where: { order_item: { orderId: id } },
+        });
 
-      // Finally delete the order
-      await tx.orders.delete({
-        where: { id },
+        // Delete order items
+        await tx.order_items.deleteMany({
+          where: { orderId: id },
+        });
+
+        // Finally delete the order
+        await tx.orders.delete({
+          where: { id },
+        });
       });
-    });
+    } catch (err) {
+      // A record we did not check for still points at the order: the transaction rolled back.
+      // Say which, instead of the middleware's generic "Referenced record does not exist".
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        const constraint = String((err.meta as { field_name?: string } | undefined)?.field_name ?? 'a linked record');
+        throw new BusinessError(
+          `Order cannot be deleted: it is still referenced by ${constraint}. Cancel the order instead.`
+        );
+      }
+      throw err;
+    }
 
     logInfo('Order hard deleted successfully', { id });
   }

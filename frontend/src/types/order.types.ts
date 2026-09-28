@@ -183,7 +183,8 @@ export interface Order {
     email: string;
   } | null;
   orderItems?: OrderItem[];
-  orderBoms?: Array<{ id: string; status: string }>;
+  /** The latest ACTIVE BOM of each style on the order (one entry per style) */
+  orderBoms?: Array<{ id: string; status: string; styleId: string; version: number }>;
   /** Make-to-order origin: the HOK B2B sale order this production order fulfils */
   saleOrder?: {
     id: string;

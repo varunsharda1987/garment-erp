@@ -208,7 +208,8 @@ export interface OrderBOM {
 
 export interface CreateOrderBOMFromCostSheetRequest {
   styleId: string;
-  costSheetId: string;
+  /** Omit to let the server pick the approved, not-superseded raw-material sheet */
+  costSheetId?: string;
   orderItemId?: string;
   // RATE_SLAB_CHANGED acceptance: apply the order-quantity processor rates to this order's BOM
   acceptRateChanges?: boolean;

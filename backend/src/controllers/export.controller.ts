@@ -5,6 +5,8 @@ import templateService from '../services/template.service';
 import prisma from '../config/database';
 import { NotFoundError, ValidationError } from '../errors';
 import { toDateInputValue } from '../utils/date';
+import { buildOrderListWhere, orderListOrderBy } from './order.controller';
+import { OrderStatus } from '@prisma/client';
 
 /**
  * Validate and sanitize columnConfig from JSON storage.
@@ -137,7 +139,7 @@ const EXPORT_FILTER_ALLOWLIST: Record<string, string[]> = {
   suppliers: ['category', 'rating'],
   materials: ['categoryId', 'unit'],
   styles: ['stage', 'cadStatus'],
-  orders: ['customerId', 'status', 'priority'],
+  orders: ['search', 'customerId', 'status'], // read by buildOrderListWhere, never spread into a where
   bom: [],
   chart_of_accounts: [],
   tax_masters: [],
@@ -195,17 +197,32 @@ async function fetchModuleData(
       result = await prisma.styles.findMany({ where });
       break;
 
-    case 'orders':
-      result = await prisma.orders.findMany({
-        where,
+    case 'orders': {
+      // Exactly the rows (and order) the Orders list shows — same filter builder, search included.
+      // The raw rows carried `customers.name` / `expectedDeliveryDate` while the default columns ask
+      // for customerName / deliveryDate, so both exported blank.
+      const orderFilters = safeFilters as { search?: unknown; customerId?: unknown; status?: unknown };
+      const status = Object.values(OrderStatus).find((s) => s === orderFilters.status);
+      const rows = await prisma.orders.findMany({
+        where: buildOrderListWhere({
+          search: typeof orderFilters.search === 'string' ? orderFilters.search.slice(0, 100) : undefined,
+          customerId: typeof orderFilters.customerId === 'string' ? orderFilters.customerId : undefined,
+          status,
+        }),
+        orderBy: orderListOrderBy(),
         include: {
           customers: true,
-          users_orders_createdByIdTousers: {
-            select: { firstName: true, lastName: true },
-          },
+          order_items: { select: { styles: { select: { styleCode: true } } } },
         },
       });
+      result = rows.map((order) => ({
+        ...order,
+        customerName: order.customers?.name ?? '',
+        deliveryDate: order.expectedDeliveryDate,
+        styleCodes: [...new Set(order.order_items.map((i) => i.styles?.styleCode).filter(Boolean))].join(', '),
+      }));
       break;
+    }
 
     case 'bom':
       result = await prisma.order_bom.findMany({

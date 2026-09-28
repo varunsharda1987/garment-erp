@@ -120,7 +120,9 @@ export const orderBOMItemSchema = z.object({
  */
 export const createFromCostSheetSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
-  costSheetId: z.string().min(1, 'Cost sheet ID is required'), // CS-TIMESTAMP format
+  // CS-TIMESTAMP format. Optional: omitted, the server resolves the approved, not-superseded
+  // raw-material sheet (orderBomService.resolveCostSheetForOrder).
+  costSheetId: z.string().min(1).optional(),
   orderItemId: z.string().uuid().optional(),
   // Qty-rate audit 2026-08-24: creation blocks with RATE_SLAB_CHANGED when the order quantity
   // lands in a different processor rate slab than the style was costed at; re-send with true

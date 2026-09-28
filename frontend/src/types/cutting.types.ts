@@ -241,8 +241,27 @@ export interface CompleteCuttingBatchRequest {
   remarks?: string;
   fabricReturns?: Array<{
     fabricStockId: string;
+    /** ACTUAL metres coming back to the lot */
     returnedQuantity: number;
+    /** Optional, rare: rolls / thans that came back WHOLE — the rest of the metres is one end piece */
+    wholePieceIds?: string[];
   }>;
+}
+
+/** A roll / than that went to this batch whole and has not come back (COUNTED metres) */
+export interface IssuedFabricPiece {
+  id: string;
+  baleNumber: number | null;
+  sequenceNo: number;
+  meters: number;
+  /** Always 0 here — the piece is out; present so the picker words (thanLabel) read it */
+  metersRemaining: number;
+  status: 'AVAILABLE' | 'PARTIAL' | 'CONSUMED';
+  baleNo: string | null;
+  thanNo: string | null;
+  remarks: string | null;
+  detailType: 'THAN' | 'ROLL';
+  source?: 'RECEIPT' | 'COUNT' | 'END';
 }
 
 // Issued fabric data for completion dialog
@@ -255,6 +274,10 @@ export interface IssuedFabricItem {
   issuedQty: number;
   consumedInLays: number;
   balance: number;
+  /** The fold the lot's pieces are counted at — a ticked roll's actual metres = its tag × L/100 */
+  foldLengthCm?: number | null;
+  /** The rolls / thans that went to this batch whole and are still out ("Whole rolls / thans back") */
+  piecesOut?: IssuedFabricPiece[];
 }
 
 // Style actual consumption (computed from cutting batches)

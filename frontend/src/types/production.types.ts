@@ -1,4 +1,5 @@
 // Production Planning Types (Phase 5.4)
+import type { FabricPiecePick, GreigePieceKind, LotListState } from '@/services/jobWorkOrder.service';
 
 // Enums
 export const OrderStatus = {
@@ -361,10 +362,19 @@ export interface OrderItemForWorkOrder {
 export interface FabricIssuanceLot {
   lotId: string;
   lotNumber: number;
+  /** "FAB-ESSKY075LS-001 · GRN2609-1228" — how the pickers and notes name the lot */
+  lotLabel?: string;
   rollNumbers: string;
   actualWidth: number;
   quantityAvailable: number;
   qualityGrade: string | null;
+  /** The fold L the lot's rolls / thans are counted at (null = none) */
+  foldLengthCm?: number | null;
+  /** The lot's rolls / thans at a glance — null / total 0 = no list: the lot goes whole, by quantity */
+  pieces?: { total: number; left: number; kind: GreigePieceKind } | null;
+  listState?: LotListState;
+  /** ACTUAL metres of the pieces left on the list */
+  listActual?: number;
 }
 
 export interface FabricIssuanceFabric {
@@ -437,8 +447,11 @@ export interface FabricIssuanceData {
   maxCuttablePcs: number;
   bottleneckFabric: string | null;
   totalOrderQty: number;
-  /** The run's open cutting batches — fabric is issued for one of them */
-  openBatches?: Array<{ id: string; batchNumber: string; status: string }>;
+  /**
+   * The run's open cutting batches — fabric is issued for one of them. `plannedByLot`: the metres the Cutting
+   * Chart planned from each lot for the batch (lot id → ACTUAL metres) — what "Pick for this batch" fits.
+   */
+  openBatches?: Array<{ id: string; batchNumber: string; status: string; plannedByLot?: Record<string, number> }>;
   issuedChallans: IssuedChallan[];
 }
 
@@ -446,8 +459,11 @@ export interface IssueFabricRequest {
   lots: Array<{
     fabricStockId: string;
     fabricId: string;
+    /** ACTUAL metres; with `details` the server takes the quantity from the picked rolls / thans */
     quantity: number;
     description: string;
+    /** The rolls / thans going to cutting — a lot with a list always sends them */
+    details?: FabricPiecePick[];
   }>;
   /** The cutting batch this fabric is for (needed when the run has more than one open batch) */
   cuttingBatchId?: string;

@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-export type ReceiptEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
+export type ReceiptEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
 
 /** The piece-by-piece modes: loose thans, thans in bales, or rolls (never baled). */
 export type DetailEntryMode = 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';

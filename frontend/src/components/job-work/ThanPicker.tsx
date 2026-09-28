@@ -19,6 +19,7 @@ import { hasFold } from '@/lib/fold-length';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero, prefillQty, qtyExceeds, qtyRemaining } from '@/lib/quantity';
 import {
+  allPiecesPicked,
   autoPickThans,
   bestFitThans,
   THAN_PICK_TOLERANCE_PCT,
@@ -47,6 +48,12 @@ export interface ThanPickerProps {
    * left, so taking every than must not snap the total to what the lot now holds.
    */
   snapToLot?: boolean;
+  /**
+   * CUTTING — a finished-fabric lot going to a cutting batch (owner, 2026-09-28): every piece starts ticked
+   * and the store unticks what stays; "Pick for this batch" fits whole pieces to the batch's planned metres
+   * (`targetActual`, 0 = not known).
+   */
+  purpose?: 'JOB' | 'CUTTING';
 }
 
 export function ThanPicker({
@@ -57,7 +64,9 @@ export function ThanPicker({
   uom,
   disabled = false,
   snapToLot = true,
+  purpose = 'JOB',
 }: ThanPickerProps) {
+  const forCutting = purpose === 'CUTTING';
   const [fitNote, setFitNote] = useState<string | null>(null);
   const groups = groupDetailsByBale(lotThans.details);
   const selectedById = new Map(selected.map((d) => [d.detailId, d]));
@@ -94,6 +103,20 @@ export function ThanPicker({
     return <p className="text-sm text-muted-foreground">No {many} of this lot are left in the godown.</p>;
   }
 
+  const pickForBatch = () => {
+    const fit = bestFitThans(lotThans, targetActual);
+    if (!fit) {
+      setFitNote(
+        `No set of whole ${many} lands within ${THAN_PICK_TOLERANCE_PCT}% of the ${formatQuantity(targetActual, uom)} planned — tick them yourself.`
+      );
+      return;
+    }
+    onChange(fit.picks);
+    setFitNote(
+      `${fitParts(lotThans, fit)} — ${formatQuantity(fit.actual, uom)} actual, within ${THAN_PICK_TOLERANCE_PCT}% of the batch's plan.`
+    );
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -105,47 +128,74 @@ export function ThanPicker({
               in {baleCount} {baleCount === 1 ? 'bale' : 'bales'}
             </>
           )}{' '}
-          — tick the {many} you&apos;re sending so the godown list stays right.
+          {forCutting
+            ? `— every ${one} is ticked; untick the ${many} that stay in the store.`
+            : `— tick the ${many} you're sending so the godown list stays right.`}
           {folded && (
             <>
               {' '}
               {one.charAt(0).toUpperCase() + one.slice(1)} metres are counted at fold L={lotThans.foldLengthCm} cm; the
-              job is in actual metres.
+              {forCutting ? ' lot' : ' job'} is in actual metres.
             </>
           )}
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => onChange(autoPickThans(lotThans, targetActual))}
-          disabled={disabled || isQtyZero(targetActual)}
-        >
-          <Wand2 className="mr-1 h-3.5 w-3.5" />
-          Pick {many} for me
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            const fit = bestFitThans(lotThans, targetActual);
-            if (!fit) {
-              setFitNote(
-                `No set of whole ${many} lands within ${THAN_PICK_TOLERANCE_PCT}% of the job — use Pick ${many} for me (it cuts the last ${one}).`
-              );
-              return;
-            }
-            onChange(fit.picks);
-            setFitNote(
-              `${fitParts(lotThans, fit)} — ${formatQuantity(fit.actual, uom)} actual (within ${THAN_PICK_TOLERANCE_PCT}%), no ${one} cut.`
-            );
-          }}
-          disabled={disabled || isQtyZero(targetActual)}
-        >
-          <Boxes className="mr-1 h-3.5 w-3.5" />
-          Best fit (whole {many})
-        </Button>
+        {forCutting ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFitNote(null);
+                onChange(allPiecesPicked(lotThans));
+              }}
+              disabled={disabled || selected.length === thanCount}
+            >
+              Tick all
+            </Button>
+            {!isQtyZero(targetActual) && (
+              <Button type="button" variant="outline" size="sm" onClick={pickForBatch} disabled={disabled}>
+                <Boxes className="mr-1 h-3.5 w-3.5" />
+                Pick for this batch
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onChange(autoPickThans(lotThans, targetActual))}
+              disabled={disabled || isQtyZero(targetActual)}
+            >
+              <Wand2 className="mr-1 h-3.5 w-3.5" />
+              Pick {many} for me
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const fit = bestFitThans(lotThans, targetActual);
+                if (!fit) {
+                  setFitNote(
+                    `No set of whole ${many} lands within ${THAN_PICK_TOLERANCE_PCT}% of the job — use Pick ${many} for me (it cuts the last ${one}).`
+                  );
+                  return;
+                }
+                onChange(fit.picks);
+                setFitNote(
+                  `${fitParts(lotThans, fit)} — ${formatQuantity(fit.actual, uom)} actual (within ${THAN_PICK_TOLERANCE_PCT}%), no ${one} cut.`
+                );
+              }}
+              disabled={disabled || isQtyZero(targetActual)}
+            >
+              <Boxes className="mr-1 h-3.5 w-3.5" />
+              Best fit (whole {many})
+            </Button>
+          </>
+        )}
       </div>
       {fitNote && <p className="text-xs text-muted-foreground">{fitNote}</p>}
 
@@ -207,9 +257,9 @@ export function ThanPicker({
         </span>
         {!isQtyZero(targetActual) && (
           <span className="text-xs text-muted-foreground">
-            Needed: {formatQuantity(targetActual, uom)}
+            {forCutting ? 'Planned for this batch' : 'Needed'}: {formatQuantity(targetActual, uom)}
             {folded ? ' actual' : ''}
-            {selected.length > 0 && qtyExceeds(targetActual, pickedActual)
+            {!forCutting && selected.length > 0 && qtyExceeds(targetActual, pickedActual)
               ? ` · ${formatQuantity(qtyRemaining(targetActual, pickedActual), uom)} still to pick`
               : ''}
           </span>

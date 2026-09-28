@@ -8,6 +8,7 @@
  * different ideas of what a valid issue looks like.
  */
 import type {
+  FabricPiecePick,
   GreigeLotThans,
   GreigePieceKind,
   GreigeStockDetail,
@@ -377,6 +378,14 @@ export function picksPayload(selectedDetails: SelectedDetail[] | undefined): Iss
     .filter((d) => !isQtyZero(d.metersToIssue));
 }
 
+/** A finished-fabric lot's picks as the API takes them (COUNTED metres; blank / zero picks dropped). */
+export function fabricPicksPayload(selectedDetails: SelectedDetail[] | undefined): FabricPiecePick[] {
+  return picksPayload(selectedDetails).map((p) => ({
+    fabricStockDetailId: p.greigeStockDetailId,
+    metersToIssue: p.metersToIssue,
+  }));
+}
+
 /**
  * Any picked than asking for more COUNTED metres than it has left (counted vs counted).
  */
@@ -448,10 +457,23 @@ export function groupDetailsByBale(
  * "Bale 417 · T-27" / "Bale 3 · T5" (baled than), "Than 12" (loose than), "Roll R-55" / "Roll 4".
  */
 export function thanLabel(detail: GreigeStockDetail): string {
+  // A finished-fabric end piece: what a cutting batch sent back that was not a whole roll ("End · CB-…")
+  if (detail.source === 'END') return `End · ${endPieceFrom(detail.remarks) ?? detail.sequenceNo}`;
   if (detail.detailType === 'ROLL') return `Roll ${detail.thanNo ?? detail.sequenceNo}`;
   if (detail.baleNumber == null) return `Than ${detail.thanNo ?? detail.sequenceNo}`;
   const bale = detail.baleNo ?? String(detail.baleNumber);
   return `Bale ${bale} · ${detail.thanNo ?? `T${detail.sequenceNo}`}`;
+}
+
+/** Every piece still on the lot's list, whole — how a finished-fabric lot going to cutting starts. */
+export function allPiecesPicked(lotThans: GreigeLotThans): SelectedDetail[] {
+  return lotThans.details.map((d) => ({ detailId: d.id, metersToIssue: prefillQty(d.metersRemaining) }));
+}
+
+/** The batch an end piece came back from — the server names it "End from <batch>". */
+export function endPieceFrom(remarks: string | null | undefined): string | null {
+  const from = remarks?.replace(/^End from\s+/i, '').trim();
+  return from ? from : null;
 }
 
 /** Number of distinct bales among the pieces still in the godown (loose thans and rolls are in none). */
@@ -495,7 +517,7 @@ export function piecesListedBy(
  * Total Meters.)", or "Every than on GRG-0003's list has gone — the 12.40 m left goes by quantity."
  */
 export function noListNote(lotThans: GreigeLotThans, uom = 'METER'): string {
-  const code = lotThans.greigeCode ?? 'This lot';
+  const code = lotThans.lotLabel ?? lotThans.greigeCode ?? 'This lot';
   if ((lotThans.piecesRecorded ?? 0) > 0) {
     const kind = pieceKindOf(lotThans);
     return `Every ${pieceWord(kind, 1)} on ${code}'s list has gone — the ${formatQuantity(lotThans.totalAvailable, uom)} left goes by quantity.`;

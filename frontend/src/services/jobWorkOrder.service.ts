@@ -48,6 +48,11 @@ export interface GreigeStockDetail {
   detailType?: GreigePieceType;
   /** When the piece was put on the lot's list (ISO) — a job only took pieces listed before it left */
   createdAt?: string;
+  /**
+   * Finished-fabric lots only: RECEIPT (copied from the receipt), COUNT (Record / Check rolls & thans) or END
+   * (what a cutting batch sent back that was not a whole roll — its remarks say "End from <batch>")
+   */
+  source?: 'RECEIPT' | 'COUNT' | 'END';
 }
 
 /** A greige piece: a than (folded, usually baled) or a roll. */
@@ -74,6 +79,48 @@ export interface GreigeLotThans {
   /** The receipt the lot came on — "received on GRN… as Total Meters" */
   receipt?: { grnNumber: string | null; entryMode: string | null } | null;
   details: GreigeStockDetail[];
+  /**
+   * What the screens call the lot when it is not a greige code — a finished-fabric lot is
+   * "FAB-ESSKY075LS-001 · GRN2609-1228". Notes and summaries read `lotLabel ?? greigeCode`.
+   */
+  lotLabel?: string;
+  /** Finished-fabric lots: the pieces left on the list, in ACTUAL metres, and whether they match the lot */
+  listActual?: number;
+  listState?: LotListState;
+  /** Finished-fabric lots: every piece ever listed with where it went ("View rolls & thans") */
+  allPieces?: Array<GreigeStockDetail & { moves: LotPieceMove[] }>;
+}
+
+/**
+ * Does a lot's list still describe the rack? NO_LIST (never had one) · LIST_EMPTY (every piece gone, metres on
+ * hand) · OUT_OF_STEP (more than 1% apart — "Check rolls & thans") · IN_STEP. Flag, never refuse.
+ */
+export type LotListState = 'NO_LIST' | 'IN_STEP' | 'LIST_EMPTY' | 'OUT_OF_STEP';
+
+/** Where a finished-fabric piece went: one issue, and its return when it came back. Metres COUNTED. */
+export interface LotPieceMove {
+  challanNumber: string | null;
+  batchNumber: string | null;
+  batchStatus: string | null;
+  jobWorkNumber: string | null;
+  metersIssued: number;
+  metersReturned: number | null;
+  issuedAt: string;
+  returnedAt: string | null;
+  returnChallanNumber: string | null;
+}
+
+/**
+ * The same shapes for any lot — greige or finished fabric (GET /api/stock/:id/pieces answers with them).
+ * New code uses these names; the greige ones stay because 20+ files already import them.
+ */
+export type LotPieces = GreigeLotThans;
+export type LotPiece = GreigeStockDetail;
+
+/** One picked roll / than of a finished-fabric lot — COUNTED metres (a part piece is allowed) */
+export interface FabricPiecePick {
+  fabricStockDetailId: string;
+  metersToIssue: number;
 }
 
 /** One picked than: which than, and how many COUNTED metres of it (a partial than is allowed). */
@@ -170,9 +217,19 @@ export interface ReceiveToStockPayload {
    * refuses a short close that was not confirmed (details.reason SHORT_CLOSE_UNCONFIRMED).
    */
   shortCloseConfirmed?: boolean;
-  entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
-  /** Than-/bale-wise rows; the server sums them for the quantity and counts them for thanCount. */
-  details?: Array<{ detailType: 'THAN'; baleNumber: number | null; sequenceNo: number; meters: number }>;
+  entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+  /**
+   * Than-/bale-/roll-wise rows; the server sums them for the quantity and counts them. The fabric lot keeps
+   * them as its roll / than list, with the processor's printed bale number and than / roll tag when typed.
+   */
+  details?: Array<{
+    detailType: 'THAN' | 'ROLL';
+    baleNumber: number | null;
+    sequenceNo: number;
+    meters: number;
+    baleNo?: string | null;
+    thanNo?: string | null;
+  }>;
   processingQC?: { qualityGrade?: 'A' | 'B' | 'Reject'; defectMeters?: number };
   /**
    * One key per opening of the dialog. The same submission arriving twice (a retry after a timeout,

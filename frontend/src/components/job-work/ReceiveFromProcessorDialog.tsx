@@ -213,11 +213,14 @@ export default function ReceiveFromProcessorDialog({
               thanCount: thanCount > 0 ? thanCount : undefined,
             }
           : {
+              // The lot keeps these pieces (rolls are rolls), with the processor's tags when typed
               details: rows.map((r, i) => ({
-                detailType: 'THAN' as const,
+                detailType: entryMode === 'ROLL_WISE' ? ('ROLL' as const) : ('THAN' as const),
                 baleNumber: entryMode === 'BALE_WISE' ? r.baleNumber : null,
                 sequenceNo: i + 1,
                 meters: r.meters,
+                baleNo: entryMode === 'BALE_WISE' ? r.baleNo?.trim() || null : null,
+                thanNo: r.thanNo?.trim() || null,
               })),
             }),
         foldLengthCm: foldLengthCm > 0 ? foldLengthCm : undefined,
@@ -452,7 +455,20 @@ export default function ReceiveFromProcessorDialog({
                   Bale-wise
                 </Label>
               </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="ROLL_WISE" id="rfp-mode-roll" />
+                <Label htmlFor="rfp-mode-roll" className="font-normal">
+                  Roll-wise
+                </Label>
+              </div>
             </RadioGroup>
+            {entryMode !== 'TOTAL_METERS' && (
+              <p className="text-xs text-muted-foreground">
+                The fabric lot keeps these {entryMode === 'ROLL_WISE' ? 'rolls' : 'thans'} — cutting picks them later.{' '}
+                {entryMode === 'ROLL_WISE' ? 'Roll No.' : 'Than No.'}
+                {entryMode === 'BALE_WISE' ? ' and Bale No. are' : ' is'} optional.
+              </p>
+            )}
           </div>
 
           {entryMode === 'TOTAL_METERS' ? (
@@ -509,7 +525,7 @@ export default function ReceiveFromProcessorDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              <ReceiptDetailRows mode={entryMode} rows={rows} onChange={setRows} unit={unitShort(uom)} />
+              <ReceiptDetailRows mode={entryMode} rows={rows} onChange={setRows} unit={unitShort(uom)} withTags />
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="rfp-fold" className="text-xs">

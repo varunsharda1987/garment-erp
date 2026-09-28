@@ -4,6 +4,7 @@
  */
 
 import api from '@/lib/api';
+import type { GreigePieceKind, LotListState, LotPieces } from './jobWorkOrder.service';
 
 // Type definitions for stock operations
 export interface UpdateStockData {
@@ -125,4 +126,57 @@ export const fabricStockService = {
     const response = await api.delete(`/stock/${id}`);
     return response.data;
   },
+
+  /**
+   * A lot's rolls & thans: what can be picked, whether the list matches the lot, where each piece went.
+   * Backend: GET /api/stock/:id/pieces — the same shape as a greige lot's list.
+   */
+  getPieces: async (id: string): Promise<LotPieces> => {
+    const response = await api.get<{ data: LotPieces }>(`/stock/${id}/pieces`);
+    return response.data.data;
+  },
+
+  /**
+   * "Record rolls & thans" (a lot with no list) / "Check rolls & thans" (tick what is on the rack). Never
+   * changes the lot's metres. Backend: POST /api/stock/:id/pieces
+   */
+  recordPieces: async (id: string, data: RecordFabricPiecesPayload): Promise<RecordFabricPiecesResult> => {
+    const response = await api.post<{ data: RecordFabricPiecesResult; message: string }>(`/stock/${id}/pieces`, data);
+    return { ...response.data.data, message: response.data.message };
+  },
 };
+
+/** A fabric lot's list at a glance (GET /api/stock rows) */
+export interface FabricLotPiecesSummary {
+  total: number;
+  left: number;
+  bales: number;
+  kind: GreigePieceKind;
+  /** ACTUAL metres of the pieces left on the list */
+  listActual: number;
+  state: LotListState;
+}
+
+export interface RecordFabricPiecesPayload {
+  entryMode: 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+  /** Check: the listed pieces that are really on the rack — every other listed piece leaves the list */
+  keepPieceIds?: string[];
+  /** New pieces, COUNTED metres at the lot's fold */
+  pieces: Array<{ baleNumber: number | null; baleNo?: string | null; thanNo?: string | null; meters: number }>;
+  remarks?: string;
+}
+
+export interface RecordFabricPiecesResult {
+  stockId: string;
+  lotLabel: string;
+  wasCheck: boolean;
+  recorded: number;
+  kept: number;
+  dropped: number;
+  detailType: 'THAN' | 'ROLL';
+  countedTotal: number;
+  actualTotal: number;
+  onHand: number;
+  /** The server's own sentence: "8 thans recorded on …" / "List checked — …" */
+  message?: string;
+}

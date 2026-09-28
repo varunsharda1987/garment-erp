@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { Fragment, useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateControlCenter } from '@/lib/control-center-keys';
@@ -49,6 +49,13 @@ import {
 } from 'lucide-react';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { foldActual } from '@/lib/fold-length';
+import { formatQuantity } from '@/lib/formatters';
+import { isQtyZero, qtyExceeds, qtyRemaining } from '@/lib/quantity';
+import { thanLabel } from '@/components/job-work/lot-rows';
+
+/** Mirrors THAN_ROUNDING_SLACK_M on the server: ticked whole rolls may exceed the metres back by this much */
+const WHOLE_BACK_SLACK_M = 0.1;
 
 export default function CuttingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -88,6 +95,9 @@ export default function CuttingDetail() {
   const [issuedFabrics, setIssuedFabrics] = useState<IssuedFabricItem[]>([]);
   const [returnQtys, setReturnQtys] = useState<Record<string, number>>({});
   const [loadingIssued, setLoadingIssued] = useState(false);
+  // Optional, rare (owner 2026-09-28): rolls / thans that came back WHOLE, per lot — the rest is one end piece
+  const [wholeBack, setWholeBack] = useState<Record<string, string[]>>({});
+  const [wholeOpen, setWholeOpen] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (id) {
@@ -160,6 +170,8 @@ export default function CuttingDetail() {
   const handleOpenCompleteDialog = async () => {
     setShowCompleteDialog(true);
     setLoadingIssued(true);
+    setWholeBack({});
+    setWholeOpen({});
     try {
       const data = await cuttingBatchService.getIssuedFabric(id!);
       setIssuedFabrics(data);
@@ -177,6 +189,23 @@ export default function CuttingDetail() {
     }
   };
 
+  /** A lot's rolls ticked as back whole: their ACTUAL metres, the end piece the rest makes, and whether they overrun */
+  const wholeBackOf = (f: IssuedFabricItem) => {
+    const ids = wholeBack[f.fabricStockId] ?? [];
+    const ticked = (f.piecesOut ?? []).filter((p) => ids.includes(p.id));
+    const actual = foldActual(
+      ticked.reduce((s, p) => s + p.meters, 0),
+      f.foldLengthCm
+    );
+    const returned = returnQtys[f.fabricStockId] || 0;
+    return {
+      ticked,
+      actual,
+      end: qtyRemaining(returned, actual),
+      over: ticked.length > 0 && qtyExceeds(actual, returned + WHOLE_BACK_SLACK_M),
+    };
+  };
+
   const handleComplete = async () => {
     try {
       setIsActioning(true);
@@ -185,6 +214,7 @@ export default function CuttingDetail() {
         .map((f) => ({
           fabricStockId: f.fabricStockId,
           returnedQuantity: returnQtys[f.fabricStockId] || 0,
+          ...((wholeBack[f.fabricStockId]?.length ?? 0) > 0 ? { wholePieceIds: wholeBack[f.fabricStockId] } : {}),
         }));
       await cuttingBatchService.complete(id!, { fabricReturns });
       handleApiSuccess('Batch Completed', 'Cutting batch completed. Fabric returns processed.');
@@ -1250,32 +1280,93 @@ export default function CuttingDetail() {
                     {issuedFabrics.map((f) => {
                       const returnQty = returnQtys[f.fabricStockId] || 0;
                       const actualCons = Math.max(0, f.issuedQty - returnQty);
+                      const piecesOut = f.piecesOut ?? [];
+                      const whole = wholeBackOf(f);
                       return (
-                        <TableRow key={f.fabricStockId}>
-                          <TableCell>
-                            <div className="font-medium text-sm">{f.fabricName}</div>
-                            {f.rollNumbers && <div className="text-xs text-muted-foreground">{f.rollNumbers}</div>}
-                          </TableCell>
-                          <TableCell className="text-right">{f.issuedQty.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{f.consumedInLays.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              step="any"
-                              min="0"
-                              max={f.issuedQty}
-                              value={returnQty}
-                              onChange={(e) =>
-                                setReturnQtys((prev) => ({
-                                  ...prev,
-                                  [f.fabricStockId]: Math.min(Number(e.target.value) || 0, f.issuedQty),
-                                }))
-                              }
-                              className="w-[120px] text-right ml-auto"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">{actualCons.toFixed(2)}</TableCell>
-                        </TableRow>
+                        <Fragment key={f.fabricStockId}>
+                          <TableRow>
+                            <TableCell>
+                              <div className="font-medium text-sm">{f.fabricName}</div>
+                              {f.rollNumbers && <div className="text-xs text-muted-foreground">{f.rollNumbers}</div>}
+                            </TableCell>
+                            <TableCell className="text-right">{f.issuedQty.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{f.consumedInLays.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                step="any"
+                                min="0"
+                                max={f.issuedQty}
+                                value={returnQty}
+                                onChange={(e) =>
+                                  setReturnQtys((prev) => ({
+                                    ...prev,
+                                    [f.fabricStockId]: Math.min(Number(e.target.value) || 0, f.issuedQty),
+                                  }))
+                                }
+                                className="w-[120px] text-right ml-auto"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">{actualCons.toFixed(2)}</TableCell>
+                          </TableRow>
+                          {piecesOut.length > 0 && (
+                            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                              <TableCell colSpan={5} className="py-2">
+                                <button
+                                  type="button"
+                                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                                  onClick={() =>
+                                    setWholeOpen((prev) => ({ ...prev, [f.fabricStockId]: !prev[f.fabricStockId] }))
+                                  }
+                                >
+                                  {wholeOpen[f.fabricStockId] ? '▾' : '▸'} Whole rolls / thans back (optional)
+                                  {whole.ticked.length > 0 ? ` — ${whole.ticked.length} ticked` : ''}
+                                </button>
+                                {wholeOpen[f.fabricStockId] && (
+                                  <div className="mt-2 grid gap-1 sm:grid-cols-3">
+                                    {piecesOut.map((p) => {
+                                      const ticked = (wholeBack[f.fabricStockId] ?? []).includes(p.id);
+                                      return (
+                                        <label key={p.id} className="flex cursor-pointer items-center gap-2 text-xs">
+                                          <Checkbox
+                                            checked={ticked}
+                                            onCheckedChange={(checked) =>
+                                              setWholeBack((prev) => {
+                                                const current = prev[f.fabricStockId] ?? [];
+                                                return {
+                                                  ...prev,
+                                                  [f.fabricStockId]:
+                                                    checked === true
+                                                      ? [...current, p.id]
+                                                      : current.filter((pid) => pid !== p.id),
+                                                };
+                                              })
+                                            }
+                                            aria-label={`${thanLabel(p)} came back whole`}
+                                          />
+                                          <span>
+                                            {thanLabel(p)} · {formatQuantity(p.meters, 'METER')}
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                {!isQtyZero(returnQty) && (
+                                  <p
+                                    className={`mt-1 text-xs ${whole.over ? 'text-destructive' : 'text-muted-foreground'}`}
+                                  >
+                                    {whole.over
+                                      ? `The rolls ticked as back whole come to ${formatQuantity(whole.actual, 'METER')} — more than the ${formatQuantity(returnQty, 'METER')} being returned.`
+                                      : isQtyZero(whole.end)
+                                        ? 'Everything returned is whole rolls / thans.'
+                                        : `${formatQuantity(whole.end, 'METER')} comes back as one end piece.`}
+                                  </p>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
                       );
                     })}
                     {/* Totals row */}
@@ -1353,7 +1444,7 @@ export default function CuttingDetail() {
             <Button variant="outline" onClick={() => setShowCompleteDialog(false)}>
               Cancel
             </Button>
-            <Button onClick={handleComplete} disabled={isActioning}>
+            <Button onClick={handleComplete} disabled={isActioning || issuedFabrics.some((f) => wholeBackOf(f).over)}>
               {isActioning ? 'Completing...' : 'Complete Batch'}
             </Button>
           </DialogFooter>

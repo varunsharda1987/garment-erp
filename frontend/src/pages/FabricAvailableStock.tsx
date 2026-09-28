@@ -4,7 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Search, Package2, Plus, ArrowLeft, Download, Tag, Pencil, PackagePlus, AlertTriangle } from 'lucide-react';
+import {
+  Search,
+  Package2,
+  Plus,
+  ArrowLeft,
+  Download,
+  Tag,
+  Pencil,
+  PackagePlus,
+  AlertTriangle,
+  ListChecks,
+} from 'lucide-react';
 import { Label } from '../components/ui/label';
 import { DialogFooter } from '../components/ui/dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -13,10 +24,17 @@ import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 import { EditStockModal } from '../components/fabric/EditStockModal';
-import { fabricStockService } from '../services/fabricStockService';
+import { fabricStockService, type FabricLotPiecesSummary } from '../services/fabricStockService';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
+import { foldCounted, hasFold } from '@/lib/fold-length';
+import { formatQuantity } from '@/lib/formatters';
+import { usePermissions } from '@/hooks/usePermissions';
+import { piecesSummary } from '@/components/job-work/lot-rows';
+import { RecordLotPiecesDialog } from '@/components/job-work/RecordLotPiecesDialog';
+import { FabricLotPiecesDialog } from '@/components/fabric/FabricLotPiecesDialog';
 
 interface PatternPart {
   id: string;
@@ -63,10 +81,30 @@ interface FabricStock {
   stockType: string;
   status: string;
   needsEmbroidery?: boolean;
+  /** The fold L the lot's rolls / thans are counted at (null = none) — the lot's metres are ACTUAL */
+  foldLengthCm?: number | null;
+  /** The lot's rolls / thans at a glance (null / total 0 = no list) */
+  pieces?: FabricLotPiecesSummary | null;
+}
+
+/** A lot's list in words: "26 thans" / "12 of 20 thans left" / "No list" / "List out of step — …" */
+function piecesText(stock: FabricStock): string {
+  const p = stock.pieces;
+  if (!p || p.total < 1) return 'No list';
+  if (p.state === 'OUT_OF_STEP') {
+    return `List out of step — ${formatQuantity(p.listActual, 'METER')} listed, ${formatQuantity(stock.quantityAvailable, 'METER')} on hand`;
+  }
+  return piecesSummary(p);
 }
 
 export default function FabricAvailableStock() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { can } = usePermissions();
+  const canCount = can('greigeFabricStock');
+  // "View rolls & thans" (read-only) and "Record / Check rolls & thans" on one lot
+  const [viewPiecesId, setViewPiecesId] = useState<string | null>(null);
+  const [countPiecesId, setCountPiecesId] = useState<string | null>(null);
   const [fabricStock, setFabricStock] = useState<FabricStock[]>([]);
   const [filteredStock, setFilteredStock] = useState<FabricStock[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -161,6 +199,8 @@ export default function FabricAvailableStock() {
         notes: adjustForm.remarks || undefined,
       });
       toast.success(`Stock ${adjustForm.type === 'INCREASE' ? 'increased' : 'decreased'} by ${qty} meters`);
+      // A write-off that empties the lot takes its rolls / thans with it
+      queryClient.invalidateQueries({ queryKey: ['fabric-lot-pieces', adjustingStock.id] });
       setAdjustingStock(null);
       setAdjustForm({ type: 'DECREASE', quantity: '', reason: 'CORRECTION', remarks: '' });
       await loadFabricStock();
@@ -214,6 +254,9 @@ export default function FabricAvailableStock() {
     return warehouses as string[];
   };
 
+  // Fold length L: a lot counted at an L shows its L and what its roll / than tags add up to, beside the actual
+  const anyLotFolded = filteredStock.some((s) => hasFold(s.foldLengthCm));
+
   const handleExport = () => {
     // Export to CSV
     const headers = [
@@ -226,7 +269,10 @@ export default function FabricAvailableStock() {
       'Component',
       'Pattern Parts',
       'Greige Base',
-      'Quantity',
+      'Quantity (actual)',
+      'L (cm)',
+      'Counted @ L',
+      'Rolls / thans',
       'Width',
       'Cutable Width',
       'Quality',
@@ -248,6 +294,9 @@ export default function FabricAvailableStock() {
       stock.fabric?.patternParts?.map((p) => p.name).join('; ') || '',
       stock.fabric?.greige?.greigeCode || '',
       stock.quantityAvailable,
+      hasFold(stock.foldLengthCm) ? Number(stock.foldLengthCm) : '',
+      hasFold(stock.foldLengthCm) ? foldCounted(stock.quantityAvailable, stock.foldLengthCm).toFixed(2) : '',
+      piecesText(stock),
       `${stock.width}"`,
       stock.fabric?.cutableWidth ? `${stock.fabric.cutableWidth}"` : '',
       stock.qualityGrade,
@@ -430,7 +479,7 @@ export default function FabricAvailableStock() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[1400px]">
+              <table className="w-full text-sm min-w-[1700px]">
                 <thead className="bg-muted border-b">
                   <tr>
                     <th className="px-3 py-3 text-left font-medium text-foreground whitespace-nowrap">Fabric Code</th>
@@ -441,7 +490,18 @@ export default function FabricAvailableStock() {
                     <th className="px-3 py-3 text-left font-medium text-foreground whitespace-nowrap">
                       Style / Component
                     </th>
-                    <th className="px-3 py-3 text-right font-medium text-foreground whitespace-nowrap">Quantity</th>
+                    <th className="px-3 py-3 text-right font-medium text-foreground whitespace-nowrap">
+                      {anyLotFolded ? 'Quantity (actual)' : 'Quantity'}
+                    </th>
+                    {anyLotFolded && (
+                      <>
+                        <th className="px-3 py-3 text-center font-medium text-foreground whitespace-nowrap">L (cm)</th>
+                        <th className="px-3 py-3 text-right font-medium text-foreground whitespace-nowrap">
+                          Counted @ L
+                        </th>
+                      </>
+                    )}
+                    <th className="px-3 py-3 text-left font-medium text-foreground whitespace-nowrap">Rolls / thans</th>
                     <th className="px-3 py-3 text-center font-medium text-foreground whitespace-nowrap">Width</th>
                     <th className="px-3 py-3 text-center font-medium text-foreground whitespace-nowrap">Quality</th>
                     <th className="px-3 py-3 text-left font-medium text-foreground whitespace-nowrap">Location</th>
@@ -511,6 +571,32 @@ export default function FabricAvailableStock() {
                       <td className="px-3 py-3 text-right font-medium whitespace-nowrap">
                         {stock.quantityAvailable.toFixed(2)} m
                       </td>
+                      {anyLotFolded && (
+                        <>
+                          <td className="px-3 py-3 text-center">
+                            {hasFold(stock.foldLengthCm) ? Number(stock.foldLengthCm) : '—'}
+                          </td>
+                          {/* What the lot's roll / than tags add up to: actual at L */}
+                          <td className="px-3 py-3 text-right font-medium text-info whitespace-nowrap">
+                            {hasFold(stock.foldLengthCm)
+                              ? `${foldCounted(stock.quantityAvailable, stock.foldLengthCm).toFixed(2)} m`
+                              : '—'}
+                          </td>
+                        </>
+                      )}
+                      <td className="px-3 py-3 text-xs">
+                        <span
+                          className={
+                            !stock.pieces || stock.pieces.total < 1
+                              ? 'text-muted-foreground'
+                              : stock.pieces.state === 'OUT_OF_STEP' || stock.pieces.state === 'LIST_EMPTY'
+                                ? 'text-warning'
+                                : 'text-foreground'
+                          }
+                        >
+                          {piecesText(stock)}
+                        </span>
+                      </td>
                       <td className="px-3 py-3 text-center">
                         <div className="text-foreground">{stock.width}"</div>
                         {stock.fabric?.cutableWidth && (
@@ -548,6 +634,33 @@ export default function FabricAvailableStock() {
                           <Button variant="ghost" size="sm" onClick={() => setEditingStock(stock)} title="Edit stock">
                             <Pencil className="h-4 w-4" />
                           </Button>
+                          {(stock.pieces?.total ?? 0) > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              title="View rolls & thans"
+                              onClick={() => setViewPiecesId(stock.id)}
+                            >
+                              <ListChecks className="mr-1 h-3.5 w-3.5" />
+                              View
+                            </Button>
+                          )}
+                          {canCount &&
+                            qtyExceeds(stock.quantityAvailable, 0) &&
+                            (!stock.pieces ||
+                              stock.pieces.total < 1 ||
+                              stock.pieces.state === 'LIST_EMPTY' ||
+                              stock.pieces.state === 'OUT_OF_STEP') && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-xs"
+                                onClick={() => setCountPiecesId(stock.id)}
+                              >
+                                {stock.pieces?.state === 'OUT_OF_STEP' ? 'Check rolls & thans' : 'Record rolls & thans'}
+                              </Button>
+                            )}
                         </div>
                       </td>
                     </tr>
@@ -581,6 +694,32 @@ export default function FabricAvailableStock() {
             setEditingStock(null);
             loadFabricStock(); // Refresh the list
           }}
+        />
+      )}
+
+      {/* A lot's rolls & thans: view, and Record / Check what is on the rack (never changes the metres) */}
+      {viewPiecesId && (
+        <FabricLotPiecesDialog
+          open={!!viewPiecesId}
+          onOpenChange={(open) => !open && setViewPiecesId(null)}
+          stockId={viewPiecesId}
+          onCheck={
+            canCount
+              ? () => {
+                  setCountPiecesId(viewPiecesId);
+                  setViewPiecesId(null);
+                }
+              : undefined
+          }
+        />
+      )}
+      {countPiecesId && (
+        <RecordLotPiecesDialog
+          open={!!countPiecesId}
+          onOpenChange={(open) => !open && setCountPiecesId(null)}
+          stockId={countPiecesId}
+          stock="FABRIC"
+          onRecorded={() => loadFabricStock()}
         />
       )}
 

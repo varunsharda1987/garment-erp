@@ -5,8 +5,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  allPiecesPicked,
   baleCountOf,
   bestFitThans,
+  endPieceFrom,
+  fabricPicksPayload,
   fitParts,
   noListNote,
   pieceKindOf,
@@ -125,5 +128,44 @@ describe('pieces a job can have taken', () => {
     const listed = piecesListedBy(lot([early, counted]), '2026-09-25T07:34:04.790Z')!;
     expect(listed.details.map((d) => d.id)).toEqual([early.id]);
     expect(piecesListedBy(lot([early, counted]), undefined)!.details).toHaveLength(2);
+  });
+});
+
+// Dyed / printed fabric lots keep their rolls & thans too — the same words, plus the end piece
+describe('finished-fabric lots (2026-09-28)', () => {
+  it('names an end piece back from cutting by its batch', () => {
+    expect(thanLabel(piece({ source: 'END', remarks: 'End from CB-WO2609-0087-002', detailType: 'ROLL' }))).toBe(
+      'End · CB-WO2609-0087-002'
+    );
+    expect(endPieceFrom('End from CB-1')).toBe('CB-1');
+    expect(endPieceFrom(null)).toBeNull();
+  });
+
+  it('names the lot by its label in the no-list note', () => {
+    const fabricLot = lot([], {
+      greigeCode: null,
+      lotLabel: 'FAB-ESSKY082LS-001 · GRN2609-1212',
+      totalAvailable: 1893.5,
+      piecesRecorded: 0,
+    });
+    expect(noListNote(fabricLot)).toMatch(/^FAB-ESSKY082LS-001 · GRN2609-1212 has no bale, than or roll list/);
+  });
+
+  it('starts a lot going to cutting with every piece ticked, whole', () => {
+    const a = piece({ metersRemaining: 45.5 });
+    const b = piece({ metersRemaining: 100 });
+    expect(allPiecesPicked(lot([a, b]))).toEqual([
+      { detailId: a.id, metersToIssue: '45.5' },
+      { detailId: b.id, metersToIssue: '100' },
+    ]);
+  });
+
+  it('posts fabric picks by their fabric piece id, blanks dropped', () => {
+    expect(
+      fabricPicksPayload([
+        { detailId: 'f1', metersToIssue: '100' },
+        { detailId: 'f2', metersToIssue: '' },
+      ])
+    ).toEqual([{ fabricStockDetailId: 'f1', metersToIssue: 100 }]);
   });
 });

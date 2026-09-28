@@ -694,6 +694,18 @@ export default function GRNDetail() {
                           <Tag className="h-3 w-3 mr-1" /> Edit bale / than numbers
                         </Button>
                       )}
+                      {/* A fabric lot keeps these pieces (2026-09-28): its rolls / thans take the tags typed here */}
+                      {hasDetails && (grn.purchaseOrders?.poCategory === 'FABRIC' || !!grn.jobWorkOrderId) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 h-7 text-xs"
+                          onClick={() => openLabelsDialog(item)}
+                        >
+                          <Tag className="h-3 w-3 mr-1" /> Edit roll / than numbers
+                        </Button>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">{Number(item.orderedQuantity).toLocaleString()}</TableCell>
                     <TableCell className="text-right font-medium">
@@ -996,10 +1008,12 @@ export default function GRNDetail() {
       <Dialog open={!!labelsItem} onOpenChange={(open) => !open && !isSavingLabels && setLabelsItem(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit bale / than numbers</DialogTitle>
+            <DialogTitle>
+              {grn.purchaseOrders?.poCategory === 'GREIGE' ? 'Edit bale / than numbers' : 'Edit roll / than numbers'}
+            </DialogTitle>
             <DialogDescription>
-              {labelsItem?.materials?.code} — the numbers printed on the supplier&apos;s bales and than tags. Metres are
-              not changed.
+              {labelsItem?.materials?.code} — the numbers printed on the {grn.jobWorkOrderId ? 'processor' : 'supplier'}
+              &apos;s bales and tags. Metres are not changed; the lot&apos;s rolls / thans take the same numbers.
             </DialogDescription>
           </DialogHeader>
           {labelsItem && (

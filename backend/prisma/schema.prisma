@@ -3953,35 +3953,39 @@ model stock_transactions {
 
 /// Stock Reservations - Reserve stock for orders/work orders
 model stock_reservations {
-  id               String            @id @default(uuid())
+  id               String                @id @default(uuid())
   materialId       String
   warehouseId      String
   reservationType  ReservationType
   referenceType    String
   referenceId      String
   referenceNumber  String?
-  reservedQuantity Decimal           @db.Decimal(10, 3)
-  consumedQuantity Decimal           @default(0) @db.Decimal(10, 3)
+  reservedQuantity Decimal               @db.Decimal(10, 3)
+  consumedQuantity Decimal               @default(0) @db.Decimal(10, 3)
   unit             Unit
-  status           ReservationStatus @default(ACTIVE)
+  status           ReservationStatus     @default(ACTIVE)
   expiryDate       DateTime?
   remarks          String?
   reservedById     String
-  reservedAt       DateTime          @default(now())
+  reservedAt       DateTime              @default(now())
   completedAt      DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
   /// The lot this reservation holds — one row per lot (2026-09-26). Exactly one is set for greige / fabric /
   /// lace; all null for trims (allocateStock bumps no lot for them). A release decrements THIS lot, never
   /// "whatever lot the stock was later taken from".
-  greigeStockId    String?           @db.VarChar(50)
+  greigeStockId    String?               @db.VarChar(50)
   fabricStockId    String?
   laceStockId      String?
-  materials        materials         @relation(fields: [materialId], references: [id])
-  warehouses       warehouses        @relation(fields: [warehouseId], references: [id])
-  greigeStock      greige_stock?     @relation(fields: [greigeStockId], references: [id], onDelete: SetNull)
-  fabricStock      fabric_stock?     @relation(fields: [fabricStockId], references: [id], onDelete: SetNull)
-  laceStock        lace_stock?       @relation(fields: [laceStockId], references: [id], onDelete: SetNull)
+  /// Set = a RECEIPT hold: goods that arrived on a linked PO line, held for that link's requirement (2026-09-29,
+  /// helpers/receipt-allocation.helper.ts). Null = a Use Stock hold.
+  poLinkId         String?
+  materials        materials             @relation(fields: [materialId], references: [id])
+  warehouses       warehouses            @relation(fields: [warehouseId], references: [id])
+  greigeStock      greige_stock?         @relation(fields: [greigeStockId], references: [id], onDelete: SetNull)
+  fabricStock      fabric_stock?         @relation(fields: [fabricStockId], references: [id], onDelete: SetNull)
+  laceStock        lace_stock?           @relation(fields: [laceStockId], references: [id], onDelete: SetNull)
+  poLink           requirement_po_links? @relation(fields: [poLinkId], references: [id], onDelete: SetNull)
 
   @@index([materialId])
   @@index([warehouseId])
@@ -3990,6 +3994,7 @@ model stock_reservations {
   @@index([greigeStockId])
   @@index([fabricStockId])
   @@index([laceStockId])
+  @@index([poLinkId])
 }
 
 /// Stock Counts - Physical inventory count management
@@ -4140,14 +4145,19 @@ model requirement_po_links {
   purchaseOrderItemId   String
   allocatedQuantity     Decimal               @db.Decimal(12, 3)
   receivedQuantity      Decimal               @default(0) @db.Decimal(12, 3)
+  /// Earliest-delivery rank of this link on its PO line (2026-09-29). A receipt fills the line's links in this
+  /// order (helpers/receipt-allocation.helper.ts); frozen once the link has been credited.
+  fillOrder             Int?
   createdAt             DateTime              @default(now())
   purchase_orders       purchase_orders       @relation(fields: [purchaseOrderId], references: [id])
   purchase_order_items  purchase_order_items  @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Cascade)
   material_requirements material_requirements @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  stock_reservations    stock_reservations[]
 
   @@unique([requirementId, purchaseOrderItemId])
   @@index([purchaseOrderId])
   @@index([requirementId])
+  @@index([purchaseOrderItemId, fillOrder])
 }
 
 /// Phase 4a: Links PROCESSING Requirements to Job Work Orders (JWO IS the PO endgame).

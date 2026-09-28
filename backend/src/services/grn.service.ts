@@ -2138,6 +2138,8 @@ class GRNService {
                 remarks: detail.remarks,
                 baleNo: detail.baleNo ?? null,
                 thanNo: detail.thanNo ?? null,
+                // A roll-wise line's pieces are rolls — the issue screens and the challan say so
+                detailType: detail.detailType === 'ROLL' ? 'ROLL' : 'THAN',
               })),
             });
 

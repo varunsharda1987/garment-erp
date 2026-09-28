@@ -4772,6 +4772,9 @@ model greige_stock_details {
   baleNo          String? @db.VarChar(30)
   /// The tag number on this than as printed. Display only — order is sequenceNo.
   thanNo          String? @db.VarChar(30)
+  /// THAN (a folded piece, usually baled) | ROLL. Copied from the GRN line's detail at approval; written by
+  /// "Record bales & thans". Wording only — fold, picks and the ±1% tolerance treat rolls and thans alike.
+  detailType      String  @default("THAN") @db.VarChar(10)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

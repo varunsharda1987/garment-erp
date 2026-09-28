@@ -84,7 +84,7 @@ route: /fabric-costing
 
 ## Before you start
 
-- The style must have CAD data from **CAD Planning** (fabric consumption per piece)
+- The style must have CAD data from **CAD Planning** (fabric consumption per piece). A Raw Mat row's Layer(M), width and sizes come from its marker image there (**CAD Image** column)
 - If CAD is not done, go to **Pre-Production > CAD Planning** first
 - CAD approval is NOT required for costing, but costing cannot be approved without CAD approval
 
@@ -211,7 +211,7 @@ Total per meter = Greige + Transport + Shrinkage Cost + Processing + Screen
 - **Rows with no processor rate are not saved**: Save skips them and names them, because the
   total would otherwise be greige + transport only and would understate the fabric cost in
   the cost sheet and MRP. Add the missing rate, fetch it again, then save.
-- **Quantity matters**: Rate slabs depend on quantity - higher quantity = better rate
+- **Quantity matters**: Rate slabs depend on quantity - higher quantity = better rate. A new quantity makes a new costing option; it keeps the CAD row's sizes and marker image
 - **Approved rows**: You cannot modify a row with approved costing - unapprove first on the Options page
 - **The CAD itself is wrong (layer, sizes, greige or width) and a cost sheet or order already uses it**: do not re-cost here. In **CAD Planning**, open the row menu (three dots) > **Correct…**. It works out the new price per metre for you and carries the change to the cost sheets, order BOMs and requirements (see the guide "Correct an approved CAD")
 - **Price approval disappeared**: rejecting the CAD in CAD Planning (row **Reject** or **Reject CAD Plan**) clears the fabric price approval of those rows. The cost figures stay; approve the option again on the Costing Options page after the CAD is re-approved. A **Correct…** that is applied straight away (nothing approved uses the CAD) also clears it when the price per metre changes. When the correction goes to an admin, approving the new cost sheet version gives the price approval back by itself

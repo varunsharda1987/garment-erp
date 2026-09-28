@@ -36,6 +36,18 @@ keywords:
   - CAD in use
   - correct CAD
   - correction pending
+  - CAD image
+  - marker image
+  - marker screenshot
+  - Nest EXPERT
+  - mini marker
+  - attach CAD image
+  - use these values
+  - differs from the CAD image
+  - needs image
+  - not checked
+  - save with a reason
+  - cad imgae
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -54,6 +66,11 @@ keywords:
   - CAD kisne badla
   - CAD ki history
   - CAD galat hai
+  - CAD ki photo lagana
+  - marker ka screenshot dalna
+  - image se value lena
+  - image se match nahi ho raha
+  - reason dekar save karna
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -76,6 +93,12 @@ keywords:
   - कैड हिस्ट्री
   - कैड किसने बदला
   - कैड सुधारना
+  - कैड इमेज
+  - मार्कर इमेज
+  - मार्कर फोटो
+  - स्क्रीनशॉट
+  - इमेज से वैल्यू
+  - कारण के साथ सेव
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -85,6 +108,9 @@ sources:
   - frontend/src/components/cad/CadInUseNotice.tsx
   - frontend/src/components/cad/CadHistoryDialog.tsx
   - frontend/src/components/cad/CorrectCadDialog.tsx
+  - frontend/src/components/cad/MarkerImageDialog.tsx
+  - frontend/src/components/cad/MiniMarkerDialog.tsx
+  - frontend/src/components/cad/MiniMarkerBadge.tsx
 route: /cad-planning
 ---
 
@@ -147,51 +173,62 @@ A style must exist with:
 
 ### 5. Fill in CAD row data
 
-Each row has these columns (left to right):
+The columns, left to right: **Purpose**, **Ver**, **Component**, **Part**, **Finish**, **Emb.**, **Generic Greige**, **Greige / Fabric**, **Design Name**, **Width**, **Print**, **Sizes**, **Pcs**, **Layer(M)**, **CAD Avg**, **CAD Image**, **Actions**.
 
-**Pre-populated (gray background, auto-filled):**
-- **Purpose** - Costing / Raw Mat / Production. A row cannot be switched into or out of Production: a Production CAD comes only from a received lot
-- **Component** - Auto-filled from style fabric
-- **Fabric Finish** - e.g., PLAIN, PRINTED, DYED
-- **Embroidery** - Shows if fabric has embroidery
-- **Generic Greige** - Base greige name
+Open the row menu (three dots) > **Edit** to change a row, then click the save icon (or the cross to cancel).
 
-**Editable (blue background, you fill these):**
-- **Part** * - Select pattern part (e.g., All Parts, Body, Sleeve)
-- **Greige Name** * - Select specific greige (dropdown from available greiges)
-- **Cutable Width** * - Enter width in inches (e.g., 42, 44, 58)
-- **Print Direction** - Select if applicable (LENGTHWISE / WIDTHWISE)
-- **Size Breakdown** * - Click to open size popup, enter quantity per size
-- **Layer Margin (m)** - Optional margin added per layer
+**Pre-populated (grey):** **Purpose** (a row cannot be switched into or out of Production: a Production CAD comes only from a received lot), **Component**, **Finish**, **Emb.**, **Generic Greige**.
 
-**Calculated (green background, auto-computed):**
-- **No. of Pcs** - Total pieces from size breakdown
-- **Layer (M)** - Marker length in meters
-- **CAD Average** - Fabric consumption per piece in meters
+**Editable (blue):**
+- **Part** * - the pattern part (e.g. All Parts, Body, Sleeve)
+- **Greige / Fabric** * - the exact greige (or ready fabric)
+- **Width** * - cuttable width in inches, as on the marker
+- **Print** - 1-Way or 2-Way
+- **Sizes** * - click the calculator button to set the pieces per size
+- **Layer(M)** * - the marker length in metres, as printed on the marker
 
-### 6. Enter size breakdown
+**Calculated (green):** **Pcs** (total pieces in the marker) and **CAD Avg** (metres per piece).
 
-1. Click the **Size Breakdown** cell (shows current values or "Click to set").
-2. In the popup:
-   - Each size shows +/- buttons and an input field
-   - Enter quantity for each size in the marker (e.g., S:1, M:2, L:2, XL:1)
-   - Use **+ Add 1 to all** to quickly increment all sizes
-   - Use **Clear** to reset all to zero
-   - **Total Pieces** shows at the bottom
-3. Click **Save**.
+> **Raw Mat and Production rows are filled from their marker image** — see section 6. Their Layer(M), Width and Sizes cannot be saved without it.
 
-### 7. Verify CAD calculations
+### 6. Attach the marker image (CAD Image column)
 
-After filling cutable width and size breakdown, the system auto-calculates:
-- **No. of Pcs** = sum of all sizes in the marker
-- **Layer (M)** = marker length based on greige and width
-- **CAD Average** = Layer(M) / No. of Pcs = meters per piece
+Each row's **CAD Image** column shows its marker image state:
+- **Needs image** (red) - a Raw Mat or Production row with values but no image. It cannot be saved or approved like this
+- **Add** - no image yet (a Costing row may have one; it is optional there)
+- **Matches** (green) - the row is what its image says
+- **Differs** / **Not checked** (red) - the row differs from its image, or the image could not be read, and no reason was given
+- **Differs · reason given** / **Not checked · reason given** (amber) - saved with a reason
+- **No image** (grey) - an approved row from before images were required. It keeps its values; **Correct…** brings its image
 
-> **Important**: CAD Average is the key output used in cost sheets and MRP.
+To attach it:
+1. Make the marker in Nest EXPERT and take a screenshot of the whole window (the title bar with the sizes and the status bar with Placed, Eff, Length and Width must show). A PDF export also works.
+2. Click the row's **CAD Image** cell. The **CAD image** window opens.
+3. Click **Upload image** (JPG, PNG or PDF, up to 10 MB). Or pick one already uploaded for the style in **…or use an uploaded image** and click **Use**.
+4. Wait while it reads: "Reading the marker — about 10 seconds…".
+5. The window shows the image and a table: **Image** against **Row** for **Layer length**, **Width**, **Sizes**, **Pieces**, **Placed** and **Efficiency**. Lines that differ are highlighted.
+6. Click **Use these values**. The row opens for editing with Layer(M), Width and Sizes filled from the marker ("Values from the CAD image are filled in — check them and click Save").
+7. Click the save icon on the row. The chip turns **Matches**.
+
+Other buttons in the window: **Replace image** (a new screenshot replaces the old; the old one is kept in the history) and **Read again**.
+
+If the marker has a size the style does not offer (e.g. XXL on a style with XS–XL), that size is not put on the row: "The marker has XXL — this style has no such size". Add the size to the style, or save with a reason.
+
+### 7. Saving values that differ from the image
+
+If you save a Layer(M), Width or Sizes that differ from the row's image (or the image could not be read), the window **These values differ from the CAD image** lists each difference (e.g. "Layer length: image 3.82 m, row 3.85 m"). Either:
+- click **Open CAD image** and use the marker's values, or
+- type the **Reason** and click **Save with this reason**. The reason is kept on the row (hover the chip) and in its **History**.
+
+A reason covers only those differences. If you later change the values again and they still differ, a new reason is asked for.
+
+**How the average is worked out:** **CAD Avg** = (**Layer(M)** + layer margin) ÷ **Pcs**. The layer margin is added automatically from the length (2 cm up to 1 m, 5 cm up to 5 m, 10 cm up to 10 m, 20 cm up to 20 m, else 30 cm). So Layer(M) must be the marker's own length — never add a margin to it by hand.
+
+> **Important**: CAD Avg is the key output used in cost sheets, MRP and cutting.
 
 ### 8. Approve the CAD plan
 
-Once all rows have CAD values:
+Once all rows have CAD values — and every Raw Mat and Production row has its marker image, with any difference saved with a reason:
 
 1. The status card shows: "All CAD entries complete. Ready to approve!"
 2. Click **Actions** dropdown > **Approve CAD Plan**.
@@ -225,9 +262,9 @@ After approval, to create fabric costing records:
 When processed fabric has been received for the style, a green **Fabric Stock Available** box appears above the spreadsheet. It lists every lot with its GRN number, cutable width and metres, e.g. `GRN2609-0080 · 52" • 852.1m`, and a badge such as **2 need CAD**.
 
 1. Click **Create CAD** next to a lot. There is one Production CAD per lot.
-2. A new **Production** row appears, already filled from the approved Raw Mat (or Costing) marker: size breakdown, No. of Pcs, Layer (M) and CAD Average, at the lot's width.
-   - If the lot's width differs from the planned marker, a warning says so. The sizes are copied, but **Layer (M)** and **CAD Average** are left empty — enter the layer length for the new width.
-3. Check the row. Then open the row menu (three dots) > **Approve**.
+2. A new **Production** row appears, already filled from the approved Raw Mat (or Costing) marker: Sizes, Pcs, Layer(M) and CAD Avg, at the lot's width — with that marker's image when it has one.
+   - If the lot's width differs from the planned marker, a warning says so. The sizes are copied, but **Layer(M)** and **CAD Avg** are left empty and no image comes with it — make the marker for the lot's width, then attach its image in the **CAD Image** column and use its values (section 6).
+3. Check the row and its **CAD Image** chip (it must not say **Needs image** or **Differs**). Then open the row menu (three dots) > **Approve**.
 4. Repeat for every lot in the box.
 
 **Cutting needs an APPROVED Production CAD with a CAD Average.** A pending or rejected Production CAD does not count, and Push to Cutting / Create Batch will refuse until one is approved.
@@ -235,7 +272,11 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
 ## Traps
 
 - **Missing greige selection**: Each row must have a greige selected. Without it, CAD calculations cannot run.
-- **Zero size breakdown**: If no sizes are entered, No. of Pcs = 0 and CAD Average cannot be calculated.
+- **Zero size breakdown**: If no sizes are entered, Pcs = 0 and CAD Avg cannot be calculated.
+- **"Attach this Raw Mat CAD's marker image first"** (or Production): the row's Layer(M), Width or Sizes cannot be saved without its image. The **CAD image** window opens — upload the screenshot and click **Use these values**. Changing only the greige, part, print or notes needs no image.
+- **Approve refused — "Attach this row's CAD image before approving"** or **"The values differ from the CAD image — correct them, or save them with a reason, before approving"**: attach the image, or save the values with a reason, then approve.
+- **"The image was kept, but it could not be read"**: a phone photo, another CAD program or a cut-off screenshot. The chip says **Not checked**. Upload a clear screenshot of the whole Nest EXPERT window, or save with a reason.
+- **"Only 4 of the marker's 60 pieces are placed"**: the marker was not finished in Nest EXPERT. Finish it and upload a new screenshot, or save with a reason (e.g. an embroidery-panel marker).
 - **Wrong cutable width**: Using greige width instead of cutable width leads to wrong fabric consumption. Cutable width is typically 1-2 inches less than greige width due to selvedge.
 - **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but cutting needs an APPROVED Production CAD made from the received lot.
 - **"Cannot tell which fabric of … this lot belongs to"**: Create CAD could not match the lot to one of the style's fabrics (same greige and finish). Check the style's fabrics, then press **Create CAD** again. Nothing was created.
@@ -260,6 +301,10 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
   - Create or update **Cost Sheet** with fabric costs
   - When orders are placed, Production CAD is used for cutting
 
+## Where the images are kept
+
+The paperclip badge next to the status badge at the top (**Mini markers**) opens every CAD image of the style by purpose. Each shows **Marker of** its row (e.g. "Raw Mat · Pants · All Parts · 52″"), **Was marker of** (replaced), or **Not on a CAD row**. The marker of an approved row, or of a Raw Mat / Production row with values, cannot be deleted — replace it from the row's **CAD Image** instead.
+
 ## Row actions
 
 Click the row menu (three dots) for:
@@ -268,7 +313,7 @@ Click the row menu (three dots) for:
   - If a yellow box **This CAD is already in use — it cannot be rejected** appears, an approved cost sheet or an order's BOM is built on this CAD, and the row is NOT rejected. Click **Correct instead** to fix it with **Correct…**
 - **Correct…** - Fix an approved Costing or Raw Mat row (layer length, size breakup, greige or width) and carry the fix to the cost sheets, order BOMs and requirements built on it. Enter the new values and a **Reason**, click **Check impact**, then **Submit correction** (or **Send for approval** when an approved cost sheet or order uses it — an admin then approves the new cost sheet version). While it waits, the row shows a **Correction pending** badge and **Correct…** is hidden. Not shown on Production rows. See the guide "Correct an approved CAD"
 - **Create Version** - New version of an approved Costing or Raw Mat entry. A Production CAD has no versions: **Reject** it, edit the row, then **Approve** it again
-- **Copy to Raw Mat** (on Costing rows) - Copies the marker and size breakdown. There is no Copy to Production: a Production CAD is made with **Create CAD** on the received lot (section 10)
+- **Copy to Raw Mat** (on Costing rows) - Copies the marker, size breakdown and marker image. There is no Copy to Production: a Production CAD is made with **Create CAD** on the received lot (section 10)
 - **Link to Stock** - Attach one of the style's own received lots to a pending Production row
 - **History** - Opens **CAD history**: who created, edited, approved, rejected or corrected the row, with date and time, the old and new values (CAD average, layer length, pieces, width, greige, sizes) and the reason. A correction also shows where it stands (waiting for the admin, approved, or rejected). Changes are recorded from 26-Sep-2026; the row's creator and creation date are shown at the top
 - **Edit** / **Delete** - Not available on approved rows (the Size Breakup button is greyed out too) — use **Correct…** on an approved Costing or Raw Mat row. A pending or rejected row can be deleted while nothing uses it (a cost sheet line, an order BOM line, an order, or a fabric stock reservation)

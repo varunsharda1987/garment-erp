@@ -26,6 +26,8 @@ keywords:
   - cad corection
   - avrage wrong
   - averge change
+  - corrected marker image
+  - upload marker for correction
   # Hinglish
   - CAD galat hai
   - CAD sahi karna
@@ -39,6 +41,7 @@ keywords:
   - CAD correction approve karna
   - correction pending kyun hai
   - order ka BOM update karna
+  - correction mein CAD image lagana
   # Devanagari (MANDATORY)
   - कैड सुधारना
   - कैड गलत है
@@ -51,6 +54,8 @@ keywords:
   - कैड करेक्शन
   - करेक्शन पेंडिंग
   - कॉस्ट शीट वर्जन अप्रूव
+  - कैड इमेज
+  - मार्कर इमेज
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -83,12 +88,14 @@ Reject no longer works once an approved cost sheet or an order's BOM uses the CA
    - **Size breakup** — click the button, set the pieces per size in the popup and click **Save**
    - **Greige** — only greiges of the row's own generic greige are listed
    - **Cuttable width (in)**
-5. Type the **Reason** * — at least 3 characters. It is kept in the CAD history.
-6. Click **Check impact**. The result appears under the fields (see the next section).
-7. Click the last button. Its label tells you what will happen:
+5. **Corrected marker image** — on a **Raw Mat** row, needed when the layer length, sizes or width change (on a Costing row it is optional, and checked when given). Click **Upload** and choose the new Nest EXPERT screenshot (or PDF). It is read — "Reading the marker — about 10 seconds…" — and the values it read show under the heading. Click **Use these values** to put its length, width and sizes into the fields above. A greige-only correction needs no image.
+6. Type the **Reason** * — at least 3 characters. It is kept in the CAD history.
+7. Click **Check impact**. The result appears under the fields (see the next section). If the corrected values differ from the uploaded image, the image box lists each difference ("The corrected values differ from this image:") and asks **Why are these values right although the image says otherwise?** — type that reason too.
+8. Click the last button. Its label tells you what will happen:
    - **Submit correction** — nothing approved uses this CAD yet. The row is corrected at once and stays approved. You see "CAD corrected." If the price per metre changed, the row's fabric price approval is cleared — approve it again on **Pre-Production > Costing Options**.
    - **Send for approval** — an approved cost sheet or an order's BOM uses this CAD. The CAD row is NOT changed yet. A new cost sheet version is made for each approved cost sheet and waits for an admin. You see "Correction sent for approval — … Orders and requirements update when it is approved."
-8. When sent for approval, the row shows a **Correction pending** badge. Hover it to see who corrected it, when and why.
+9. When sent for approval, the row shows a **Correction pending** badge. Hover it to see who corrected it, when and why.
+10. When the correction applies (at once, or when the admin approves), its image becomes the row's marker — the **CAD Image** column shows it.
 
 ## What Check impact shows
 
@@ -110,14 +117,14 @@ If the CAD already shows the right values but a cost sheet or order still has th
 
 Only an admin can approve or reject a cost sheet.
 
-1. Open **Pre-Production > Cost Sheets**. Set **Approval Status** to **Pending** and find the style's new version.
+1. Open **Pre-Production > Cost Sheets**. Set **Approval status** to **Pending** and find the style's new version.
 2. Click **View**. The **Cost Sheet Details** page shows a box **Made by a CAD correction**: the old → new CAD average, who corrected it, when, and the reason. It also says what approving does.
 3. Check the fabric line and the totals.
 4. Click **Approve** and confirm in **Approve Cost Sheet**. Or click **Reject**, enter the **Rejection Notes** (required) and click **Reject**.
 
 ## What updates by itself when the admin approves
 
-- The CAD row takes the corrected values and stays approved.
+- The CAD row takes the corrected values and stays approved, and the corrected marker's image becomes its marker image.
 - If the row has a fabric costing, its new price per metre is saved and its fabric price approval is given (the admin saw the price on the sheet).
 - Every running order built on the previous cost sheet version gets a new Order BOM version from the new sheet, already approved.
 - Each of those orders' requirements is recalculated. Requirement numbers stay the same. Stock already reserved stays reserved, and what is no longer needed is given back.
@@ -157,7 +164,8 @@ Row menu (three dots) > **History**. Each step is a **Corrected** entry with the
 - **Two approved cost sheets (Costing and Raw material) make two new versions.** The CAD row changes as soon as the first one is approved, and the badge stays **Correction pending** until the second is decided. Rejecting the second one then keeps that cost sheet on its previous figures; the CAD stays corrected.
 - **"An order is built on this CAD but no approved cost sheet is — approve (or discard) the pending cost sheet first, then correct."** Decide the pending cost sheet on the Cost Sheets page, then correct again.
 - **"The corrected marker gives no CAD average — enter a layer length and a size breakdown."** Fill in both.
-- **The submit button stays greyed out** until you have clicked **Check impact** and typed a **Reason** of at least 3 characters.
+- **The submit button stays greyed out** until you have clicked **Check impact** and typed a **Reason** of at least 3 characters — and, on a Raw Mat row whose length, sizes or width change, uploaded the corrected marker's image ("Upload the corrected marker's image — a Raw Mat CAD's values come from its marker."), plus a reason when the values differ from it.
+- **"Attach the corrected marker's image"** after Submit: the image was not uploaded. Upload it in **Corrected marker image**, click **Check impact** again, then submit.
 - **Changing a value after Check impact clears the result.** Click **Check impact** again.
 - **The correction's cost sheet version cannot be deleted** ("… made by a CAD correction that is waiting for a decision. Reject it …"). **Reject** it instead — that restores the previous version.
 - **Reject says "This CAD is already in use — it cannot be rejected".** That is expected once a cost sheet or order uses the CAD. Click **Correct instead** (row Reject) or use row menu > **Correct…**.

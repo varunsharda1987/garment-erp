@@ -24,6 +24,10 @@ keywords:
   - who approved the CAD
   - aprove CAD
   - rejct CAD
+  - approve refused CAD image
+  - needs image
+  - differs from the CAD image
+  - cannot approve CAD
   # Hinglish
   - CAD approve karna
   - marker approve
@@ -36,6 +40,8 @@ keywords:
   - approved CAD badalna
   - CAD kisne badla
   - CAD ki history
+  - CAD approve nahi ho raha
+  - CAD image lagana padega
   # Devanagari
   - कैड अप्रूव
   - मार्कर अप्रूवल
@@ -48,6 +54,8 @@ keywords:
   - कैड सुधारना
   - कैड हिस्ट्री
   - कैड किसने बदला
+  - कैड इमेज
+  - कैड अप्रूव नहीं हो रहा
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -55,6 +63,7 @@ sources:
   - frontend/src/components/cad/CadInUseNotice.tsx
   - frontend/src/components/cad/CadHistoryDialog.tsx
   - frontend/src/components/cad/CorrectCadDialog.tsx
+  - frontend/src/components/cad/MarkerImageDialog.tsx
 route: /cad-planning
 ---
 
@@ -65,6 +74,7 @@ The CAD plan must be complete before you can approve it:
 1. **All rows must have a Part assigned** - Each CAD row needs a pattern part selected
 2. **All rows must have CAD values** - The CAD Average (m/pc) must be calculated and greater than zero
 3. **All fabric groups must be covered** - Every style fabric must have at least one CAD row with values
+4. **Every Raw Mat and Production row must have its marker image** - The **CAD Image** column must not say **Needs image**, and a row that differs from its image (**Differs** / **Not checked**) must first be saved with a reason. Costing rows need no image (when they have one, it is checked the same way). See the guide "Create a CAD Plan (Marker)" for attaching the image
 
 If any of these are missing, you will see an error when trying to approve.
 
@@ -110,7 +120,9 @@ When you approve a CAD plan:
 - **Rejection clears the fabric price approval** - The fabric costing figures are kept, but their approval is removed and must be done again on the Costing Options page
 - **Every change is recorded** - Row menu (three dots) > **History** shows who created, edited, approved, rejected or corrected the row, what changed (old → new) and why
 - **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
-- **A Production CAD with no average cannot be approved** - Fill in Layer (M) and the Size Breakdown, save, then Approve
+- **A Production CAD with no average cannot be approved** - Fill in Layer(M) and the Size Breakdown, save, then Approve
+- **Approve is refused for the CAD image** - A single row: "This Raw Mat CAD has no marker image…" (or Production) — the **CAD image** window opens; attach the image and use its values. Or "…values differ from its marker image: … Correct them, or save them with a reason, then approve." **Approve CAD Plan** names every row that is not ready ("2 CAD rows cannot be approved yet: …")
+- **Approved rows from before 28-Sep-2026 show "No image"** - They keep their values and stay approved. To give one its image, use row menu > **Correct…** (Costing / Raw Mat)
 - **A Production CAD must be on a received lot** - Approve does not show on a Production row with no lot. Use **Link to Stock** on the row, or delete it and press **Create CAD** on the lot in the **Fabric Stock Available** box
 - **A Production CAD is never corrected** - **Correct…** does not show on Production rows. To change one: row menu > **Reject**, edit the row, then **Approve** it again
 

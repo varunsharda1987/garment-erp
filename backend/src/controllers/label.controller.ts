@@ -6,6 +6,7 @@ import { trimStockService } from '../services/trim-stock.service';
 import { getDerivedOnHandMap, getDerivedStockDetailed } from '../services/helpers/derived-stock.helper';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { generateLabelName, isGeneratedLabelName } from '../services/helpers/label-name.helper';
 
 // Type for supplier input
 interface LabelSupplierInput {
@@ -79,26 +80,16 @@ export const createLabel = async (req: Request, res: Response) => {
   // Auto-generate label code
   const labelCode = await generateCode('LBL', 'label_master', 'labelCode');
 
-  // Auto-generate labelName if not provided
-  let finalLabelName = labelName;
-  if (!finalLabelName || finalLabelName.trim() === '') {
-    const parts = [];
-    if (buyerCode) parts.push(`[${buyerCode}]`);
-    if (labelType) parts.push(labelType);
-    if (color) parts.push(color);
-
-    // Only add "Label" suffix for SEWN_IN category
-    // Price Tags and Hangtags should NOT have "Label" appended
-    const shouldAppendLabel = labelCategory === 'SEWN_IN' && (!labelType || !labelType.toLowerCase().includes('label'));
-
-    if (shouldAppendLabel) {
-      parts.push('Label');
-    }
-
-    if (material) parts.push(material);
-    if (size) parts.push(size);
-    finalLabelName = parts.join(' ').trim() || `Label ${labelCode}`;
-  }
+  // Auto-generate labelName using structured format: {code} | {type/category} | {brand} | {color} | {material} | {size}
+  const finalLabelName = await generateLabelName({
+    labelCode,
+    labelType,
+    labelCategory,
+    brandCategoryId,
+    color,
+    material,
+    size,
+  });
 
   // Create label_master + ALL its materials rows atomically (materials.id === master.id —
   // material-identity invariant). Labels are the one type with MULTIPLE materials rows:
@@ -700,10 +691,37 @@ export const updateLabel = async (req: Request, res: Response) => {
     },
   });
 
-  // BUG-MM13 fix: sync code to materials
-  // Note: labelCode is not updated (auto-generated), only sync name changes
-  if (labelName && labelName !== existing.labelName) {
-    await syncMasterToMaterials(id, 'LABEL', { name: labelName });
+  // Regenerate name if component fields changed and the current name is a generated one
+  // (If user typed a custom name, don't overwrite it)
+  const nameComponentsChanged =
+    labelType !== undefined ||
+    labelCategory !== undefined ||
+    brandCategoryId !== undefined ||
+    color !== undefined ||
+    material !== undefined ||
+    size !== undefined;
+
+  let finalLabelName = updated.labelName;
+  if (nameComponentsChanged && isGeneratedLabelName(existing.labelCode, existing.labelName)) {
+    finalLabelName = await generateLabelName({
+      labelCode: existing.labelCode,
+      labelType: updated.labelType,
+      labelCategory: updated.labelCategory,
+      brandCategoryId: updated.brandCategoryId,
+      color: updated.color,
+      material: updated.material,
+      size: updated.size,
+    });
+    // Update the label name in database
+    await prisma.label_master.update({
+      where: { id },
+      data: { labelName: finalLabelName },
+    });
+  }
+
+  // Sync name to materials if it changed
+  if (finalLabelName !== existing.labelName) {
+    await syncMasterToMaterials(id, 'LABEL', { name: finalLabelName });
   }
 
   // Handle size variant generation on update (only if no variants exist yet)

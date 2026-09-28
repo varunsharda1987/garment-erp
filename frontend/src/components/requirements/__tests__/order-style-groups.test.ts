@@ -15,6 +15,7 @@ function req(p: {
   qty?: number;
   shortfall?: number;
   status?: MaterialRequirement['status'];
+  requiredDate?: string | null;
 }): MaterialRequirement {
   n += 1;
   return {
@@ -28,6 +29,7 @@ function req(p: {
     status: p.status ?? 'PO_REQUIRED',
     label: p.label ?? null,
     size: p.size ?? null,
+    requiredDate: p.requiredDate ?? null,
     order: { id: p.order ?? 'o1', orderNumber: `ORD-${p.order ?? 'o1'}`, customerId: 'c1', customerName: 'Easybuy' },
     orderItem: { id: 'oi', styleId: p.style ?? 's1', styleCode: `ST-${p.style ?? 's1'}`, totalQuantity: 100 },
   } as unknown as MaterialRequirement;
@@ -76,6 +78,21 @@ describe('groupRequirementsByOrderStyle', () => {
     if (main.kind !== 'label') throw new Error('expected a label group');
     expect(main.rows.map((r) => r.size)).toEqual([null, 'S']);
     expect(main.rows[0].line.head.status).toBe('SIZE_PENDING');
+  });
+
+  it('puts the soonest-needed set first, then by order number; a set with no date goes last', () => {
+    const rows = [
+      req({ order: 'o3', materialId: 'a', requiredDate: null }),
+      req({ order: 'o2', materialId: 'b', requiredDate: '2026-10-20T00:00:00.000Z' }),
+      req({ order: 'o1', materialId: 'c', requiredDate: '2026-10-20T00:00:00.000Z' }),
+      req({ order: 'o4', materialId: 'd', requiredDate: '2026-11-01T00:00:00.000Z' }),
+      // o4's earliest date is the one that counts
+      req({ order: 'o4', materialId: 'e', requiredDate: '2026-10-07T00:00:00.000Z' }),
+    ];
+    const groups = groupRequirementsByOrderStyle(rows);
+    expect(groups.map((g) => g.orderNumber)).toEqual(['ORD-o4', 'ORD-o1', 'ORD-o2', 'ORD-o3']);
+    expect(groups[0].earliestRequiredDate).toBe('2026-10-07T00:00:00.000Z');
+    expect(groups[3].earliestRequiredDate).toBeNull();
   });
 
   it('rounds merged quantities to 3 decimals', () => {

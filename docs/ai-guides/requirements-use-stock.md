@@ -33,6 +33,8 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/UnifiedRequirementsPage.tsx
+  - frontend/src/components/requirements/OrderStyleLabelView.tsx
+  - frontend/src/components/requirements/requirement-list-options.ts
   - frontend/src/types/mrp.types.ts
   - backend/src/services/mrp.service.ts
   - backend/src/services/helpers/stock-reservation.helper.ts
@@ -48,12 +50,12 @@ This way two orders can never both count the same cloth.
 ## Steps
 
 1. Open **Procurement > Requirements** in the sidebar.
-2. On the **Material Requirements** tab, find the requirement. The **Current Stock** column shows the free stock. A green **Can Fulfill** badge means the stock covers the whole shortfall.
+2. On the **Material Requirements** tab, find the requirement. The page opens on **Show: Order & Style** — open the order + style card (for a sized label, click the label's heading to see its sizes). To find one material quickly, pick the order in **All orders** or type the material in the search box. The **Current Stock** column shows the free stock. In the **Material**, **Vendor** and **List** views a green **Can Fulfill** badge means the stock covers the whole shortfall.
 3. Click **Use Stock** on the row. The button shows only when there is free stock and the row is **PO Required** or **Partially from Stock**.
 4. The **Allocate from Stock** window shows the Material, Required, Current Shortfall and Available in Stock.
 5. Check **Quantity to Allocate**. It is filled in with the most you can take (the shortfall or the free stock, whichever is less; the **Max** is shown under the box).
 6. Click **Allocate Stock**.
-7. The row now reads **Fulfilled from Stock** or **Partially from Stock**, and its Shortfall drops by what you took.
+7. The row now reads **Fulfilled from Stock** or **Partially from Stock**, and its Shortfall drops by what you took. A fully covered row leaves the **Needs action** list — choose **Received / from stock** in the status box to see it.
 
 ## Traps
 

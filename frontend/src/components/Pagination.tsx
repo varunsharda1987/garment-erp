@@ -12,6 +12,10 @@ interface PaginationProps {
   pageSizeOptions?: number[];
   showPageNumbers?: boolean;
   maxPageButtons?: number;
+  /** What is being counted in "Showing 1 to 10 of 23 …" (default "results"; a grouped list says "sets") */
+  itemLabel?: string;
+  /** The page-size selector's caption (default "Rows per page:") */
+  pageSizeLabel?: string;
 }
 
 export default function Pagination({
@@ -24,6 +28,8 @@ export default function Pagination({
   pageSizeOptions = [10, 20, 50, 100],
   showPageNumbers = true,
   maxPageButtons = 5,
+  itemLabel = 'results',
+  pageSizeLabel = 'Rows per page:',
 }: PaginationProps) {
   // Calculate the range of items being shown
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -86,14 +92,14 @@ export default function Pagination({
       {/* Items info */}
       <div className="text-sm text-muted-foreground">
         Showing <span className="font-medium">{startItem}</span> to <span className="font-medium">{endItem}</span> of{' '}
-        <span className="font-medium">{totalItems}</span> results
+        <span className="font-medium">{totalItems}</span> {itemLabel}
       </div>
 
       <div className="flex items-center gap-4">
         {/* Page size selector */}
         {onPageSizeChange && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Rows per page:</span>
+            <span className="text-sm text-muted-foreground">{pageSizeLabel}</span>
             <Select value={pageSize?.toString() || '10'} onValueChange={(value) => onPageSizeChange(Number(value))}>
               <SelectTrigger className="w-[70px]">
                 <SelectValue />

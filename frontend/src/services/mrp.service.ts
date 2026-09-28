@@ -308,11 +308,26 @@ export async function validateBulkPOGeneration(requirementIds: string[]): Promis
  */
 export async function getRequirementStyles(
   requirementType?: string
-): Promise<{ id: string; styleCode: string; styleName: string }[]> {
+): Promise<{ id: string; styleCode: string; buyerStyleRef: string | null; styleName: string }[]> {
   const params = requirementType ? `?requirementType=${requirementType}` : '';
-  const response = await api.get<{ success: boolean; data: { id: string; styleCode: string; styleName: string }[] }>(
-    `${BASE_URL}/requirements/styles${params}`
-  );
+  const response = await api.get<{
+    success: boolean;
+    data: { id: string; styleCode: string; buyerStyleRef: string | null; styleName: string }[];
+  }>(`${BASE_URL}/requirements/styles${params}`);
+  return response.data.data;
+}
+
+/**
+ * Orders that have requirements — the Requirements page's Order filter (newest order number first)
+ */
+export async function getRequirementOrders(
+  requirementType?: string
+): Promise<{ id: string; orderNumber: string; customerName: string | null }[]> {
+  const params = requirementType ? `?requirementType=${requirementType}` : '';
+  const response = await api.get<{
+    success: boolean;
+    data: { id: string; orderNumber: string; customerName: string | null }[];
+  }>(`${BASE_URL}/requirements/orders${params}`);
   return response.data.data;
 }
 

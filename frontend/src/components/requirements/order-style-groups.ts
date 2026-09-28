@@ -5,6 +5,9 @@
  * order lists XS twice. For ordering, a size is one line: rows of the same material within one order + style
  * are merged into one size row (it keeps every requirement, so selecting it selects them all). The size rows
  * are then grouped by label (lib/label-lines): base / SIZE_PENDING row first, sizes in size order.
+ *
+ * The sets themselves come soonest-needed first (earliest required date, then order number) — the page opens on
+ * this view as a to-do list (2026-09-28).
  */
 import { groupLabelLines, type GroupedLine } from '@/lib/label-lines';
 import { requirementLabelKey } from '@/lib/label-line-keys';
@@ -31,6 +34,8 @@ export interface OrderStyleGroup {
   styleCode: string | null;
   buyerStyleRef: string | null;
   styleName: string | null;
+  /** The earliest required date of any requirement in the set (ISO), or null when none has one */
+  earliestRequiredDate: string | null;
   lines: GroupedLine<MergedRequirementRow>[];
   requirements: MaterialRequirement[];
 }
@@ -53,6 +58,7 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
           styleCode: r.orderItem?.styleCode ?? null,
           buyerStyleRef: r.orderItem?.buyerStyleRef ?? null,
           styleName: r.orderItem?.styleName ?? null,
+          earliestRequiredDate: null,
           lines: [],
           requirements: [],
         },
@@ -61,6 +67,9 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
       groups.set(key, entry);
     }
     entry.group.requirements.push(r);
+    if (r.requiredDate && (!entry.group.earliestRequiredDate || r.requiredDate < entry.group.earliestRequiredDate)) {
+      entry.group.earliestRequiredDate = r.requiredDate;
+    }
     const row = entry.rows.get(r.materialId);
     if (row) {
       row.requirements.push(r);
@@ -78,8 +87,22 @@ export function groupRequirementsByOrderStyle(requirements: readonly MaterialReq
       });
     }
   }
-  return [...groups.values()].map(({ group, rows }) => ({
-    ...group,
-    lines: groupLabelLines([...rows.values()], (row) => requirementLabelKey(row.head)),
-  }));
+  return [...groups.values()]
+    .map(({ group, rows }) => ({
+      ...group,
+      lines: groupLabelLines([...rows.values()], (row) => requirementLabelKey(row.head)),
+    }))
+    .sort(
+      (a, b) =>
+        compareNullsLast(a.earliestRequiredDate, b.earliestRequiredDate) ||
+        compareNullsLast(a.orderNumber, b.orderNumber)
+    );
 }
+
+/** Ascending; a missing value sorts after every real one. Equal → 0, so the sort keeps arrival order. */
+const compareNullsLast = (a: string | null, b: string | null) => {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a < b ? -1 : 1;
+};

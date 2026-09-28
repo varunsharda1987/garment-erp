@@ -1,5 +1,5 @@
 /**
- * Requirements page — "By Order & Style (label sets)".
+ * Requirements page — the "Order & Style" view, which the page opens on (2026-09-28).
  *
  * One card per order + style; inside it every label is one heading row (its sizes' totals) with a row per size
  * beneath, in size order. A whole set, one label, or one size can be ticked — the selection is the page's own
@@ -47,6 +47,14 @@ const vendorOf = (reqs: MaterialRequirement[]) => {
   const names = distinct(reqs.map((r) => r.preferredSupplier?.name ?? null));
   if (names.length === 1) return names[0] ?? 'Not Assigned';
   return 'Mixed';
+};
+
+/** A folded set's vendor, in words — "Mixed" alone on a card header reads as a colour or a status */
+const setVendorText = (reqs: MaterialRequirement[]) => {
+  const vendor = vendorOf(reqs);
+  if (vendor === 'Mixed') return 'Several vendors';
+  if (vendor === 'Not Assigned') return 'No vendor yet';
+  return vendor;
 };
 
 const poNumbersOf = (reqs: MaterialRequirement[]) =>
@@ -341,7 +349,15 @@ export function OrderStyleLabelView({
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
+                    {/* A folded card still says where the set stands: its statuses, vendor and first date */}
+                    <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
+                      <StatusChips reqs={group.requirements} />
+                      <span className="text-muted-foreground">{setVendorText(group.requirements)}</span>
+                      {group.earliestRequiredDate && (
+                        <span className="text-muted-foreground whitespace-nowrap">
+                          Needed {formatDate(group.earliestRequiredDate)}
+                        </span>
+                      )}
                       {labels > 0 && (
                         <Badge variant="secondary">
                           {labels} {labels === 1 ? 'label' : 'labels'} · {sizes} {sizes === 1 ? 'size' : 'sizes'}

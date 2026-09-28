@@ -357,3 +357,98 @@ describe('a style with no colour goes from stitching to dispatch', () => {
     expect(lines.every((l) => l.colorId === null)).toBe(true);
   });
 });
+
+/**
+ * A delivery-note row left without a colour on a ONE-colour style takes that colour (the colour rule,
+ * settleRowColours) — before 2026-09-28 evening it was capped by colour and read "ordered 0".
+ */
+describe('a blank delivery-note row on a one-colour style', () => {
+  const tag = `${RUN}K`;
+  let kStyleId: string;
+  let kColourId: string;
+  let kSizeId: string;
+  let kOrderId: string;
+  let kFgId: string;
+
+  beforeAll(async () => {
+    kStyleId = (
+      await prisma.styles.create({
+        data: { id: randomUUID(), styleCode: `${tag}S`, styleName: `${tag} Black Top`, createdById: userId },
+      })
+    ).id;
+    kColourId = (
+      await prisma.color_options.create({ data: { id: randomUUID(), styleId: kStyleId, colorName: 'Black' } })
+    ).id;
+    kSizeId = (
+      await prisma.size_options.create({ data: { id: randomUUID(), styleId: kStyleId, sizeName: 'L', sizeCode: 'L' } })
+    ).id;
+    kOrderId = randomUUID();
+    await prisma.orders.create({
+      data: {
+        id: kOrderId,
+        orderNumber: `${tag}ORD`,
+        customerId,
+        expectedDeliveryDate: new Date(Date.now() + 30 * 86400000),
+        totalQuantity: 8,
+        totalAmount: 80,
+        createdById: userId,
+        order_items: {
+          create: {
+            id: randomUUID(),
+            styleId: kStyleId,
+            totalQuantity: 8,
+            unitPrice: 10,
+            totalPrice: 80,
+            order_item_breakup: { create: { id: randomUUID(), colorId: kColourId, sizeId: kSizeId, quantity: 8 } },
+          },
+        },
+      },
+    });
+    const location = await prisma.locations.findFirstOrThrow({
+      where: { locationType: 'WAREHOUSE', isActive: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    kFgId = randomUUID();
+    await prisma.finished_goods_stock.create({
+      data: { id: kFgId, styleId: kStyleId, colorId: kColourId, sizeId: kSizeId, quantity: 8, locationId: location.id },
+    });
+  });
+
+  afterAll(async () => {
+    const steps: Array<() => Promise<unknown>> = [
+      () => prisma.delivery_note_fg_allocations.deleteMany({ where: { delivery_note: { orderId: only(kOrderId) } } }),
+      () => prisma.delivery_note_items.deleteMany({ where: { delivery_notes: { orderId: only(kOrderId) } } }),
+      () => prisma.delivery_notes.deleteMany({ where: { orderId: only(kOrderId) } }),
+      () => prisma.finished_goods_stock.deleteMany({ where: { id: only(kFgId) } }),
+      () => prisma.orders.deleteMany({ where: { id: only(kOrderId) } }),
+      () => prisma.size_options.deleteMany({ where: { styleId: only(kStyleId) } }),
+      () => prisma.color_options.deleteMany({ where: { styleId: only(kStyleId) } }),
+      () => prisma.styles.deleteMany({ where: { id: only(kStyleId) } }),
+    ];
+    for (const step of steps) {
+      try {
+        await step();
+      } catch (err) {
+        console.error('[colourless-style-chain one-colour teardown]', err);
+      }
+    }
+  });
+
+  it('ships in the style colour instead of reading "ordered 0"', async () => {
+    const res = await request(app)
+      .post('/api/dispatch/delivery-notes')
+      .set(authHeader)
+      .send({
+        orderId: kOrderId,
+        customerId,
+        deliveryDate: '2026-09-28',
+        items: [{ styleId: kStyleId, colorId: null, sizeId: kSizeId, quantity: 5 }],
+      });
+    expect({ status: res.status, body: res.body }).toMatchObject({ status: 201 });
+    const item = await prisma.delivery_note_items.findFirstOrThrow({
+      where: { delivery_notes: { orderId: kOrderId } },
+    });
+    expect(item.colorId).toBe(kColourId);
+    expect((await prisma.finished_goods_stock.findUniqueOrThrow({ where: { id: kFgId } })).quantity).toBe(3);
+  });
+});

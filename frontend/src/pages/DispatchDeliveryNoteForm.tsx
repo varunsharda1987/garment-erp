@@ -316,7 +316,8 @@ export default function DispatchDeliveryNoteForm() {
               const mapped: ItemRow[] = [];
               for (const sku of skus) {
                 const idx = prev.findIndex(
-                  (r, i) => !used.has(i) && r.colorId === sku.colorId && r.sizeId === sku.sizeId
+                  // A blank colour is '' on a row and null on the ASN (colour is optional)
+                  (r, i) => !used.has(i) && (r.colorId || null) === (sku.colorId || null) && r.sizeId === sku.sizeId
                 );
                 if (idx >= 0) {
                   used.add(idx);

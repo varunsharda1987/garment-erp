@@ -74,3 +74,28 @@ export async function resolveSizeLineColours<T extends { colorId?: string | null
   }
   return settled;
 }
+
+/**
+ * The colour rule for rows that each name their style (delivery-note items): every row settled by
+ * `resolveSizeLineColours` for its own style, in the original order. A row left blank on a one-colour
+ * style takes that colour — so it is capped, matched and drawn as the colour its order was sized in.
+ */
+export async function settleRowColours<T extends { styleId: string; colorId?: string | null }>(
+  db: Db,
+  rows: T[]
+): Promise<Array<T & { colorId: string | null }>> {
+  const out = rows.map((row) => ({ ...row, colorId: row.colorId || null }));
+  const byStyle = new Map<string, number[]>();
+  rows.forEach((row, i) => byStyle.set(row.styleId, [...(byStyle.get(row.styleId) ?? []), i]));
+  for (const [styleId, indexes] of byStyle) {
+    const settled = await resolveSizeLineColours(
+      db,
+      styleId,
+      indexes.map((i) => rows[i])
+    );
+    settled.forEach((row, k) => {
+      out[indexes[k]] = row;
+    });
+  }
+  return out;
+}

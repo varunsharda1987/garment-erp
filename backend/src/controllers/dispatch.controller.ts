@@ -20,7 +20,7 @@ import {
   shippingColourFor,
 } from '../services/helpers/sale-order-dispatch.helper';
 import { resolveAdminOverride } from '../utils/admin-override';
-import { skuKey, stockColourMatches } from '../services/helpers/sku-colour.helper';
+import { settleRowColours, skuKey, stockColourMatches } from '../services/helpers/sku-colour.helper';
 import { createAuditLog } from '../services/audit.service';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { applySearch } from '../utils/search-filter';
@@ -390,7 +390,14 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   if (!userId) {
     throw new UnauthorizedError('User not authenticated');
   }
-  const { orderId, customerId, deliveryDate, remarks, items, cartonIds } = req.body;
+  const { orderId, customerId, deliveryDate, remarks, cartonIds } = req.body;
+  // The colour rule (sku-colour.helper): a row left without a colour takes the style's only colour, so
+  // it is capped, matched to its sale order line and drawn as the colour its order was sized in; a
+  // style with none stays blank, one with several must be told which
+  const items = await settleRowColours(
+    prisma,
+    (req.body.items ?? []) as Array<{ styleId: string; colorId?: string | null; sizeId: string; quantity: number }>
+  );
   // Short finished-goods stock refuses the note unless an administrator overrides with a reason
   const override = resolveAdminOverride(req.user, req.body);
 

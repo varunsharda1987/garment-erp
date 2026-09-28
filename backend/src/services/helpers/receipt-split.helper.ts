@@ -1,6 +1,14 @@
 /**
  * Receipt splitting — how one physical receipt is divided across the allocation links it satisfies.
  *
+ * TWO RULES LIVE HERE (2026-09-29):
+ *  - PO links (requirement_po_links) FILL IN ORDER — `fillLineReceipts`: the earliest-delivery order is
+ *    filled first (owner decision D1), recomputed from the line's approved total on every event, so a
+ *    reversal is exact whatever order the receipts came and went in. The engine that drives it is
+ *    helpers/receipt-allocation.helper.ts.
+ *  - Job-work and service links, and PROCESSING PO lines, stay PRO-RATA — `splitReceiptAcrossLinks`,
+ *    documented below and unchanged.
+ *
  * A job work order or PO line can serve several material requirements at once, so the receipt
  * tracking tables (requirement_po_links, requirement_jwo_links, service_requirement_jwo_links) hold
  * one row per (requirement, document) pair, each carrying the slice of the document that requirement
@@ -43,7 +51,7 @@
  * so nothing is silently re-rounded on write.
  */
 import { Decimal, toCurrency } from '../../utils/currency';
-import { QTY_EPSILON } from '../../utils/quantity';
+import { QTY_EPSILON, qtyExceeds } from '../../utils/quantity';
 
 /** Every link table stores allocatedQuantity/receivedQuantity as Decimal(12,3). */
 export const RECEIPT_SPLIT_DP = 3;
@@ -133,4 +141,188 @@ export function splitReceiptAcrossLinks(links: AllocationLink[], receivedQuantit
   shares.push({ id: last.id, qty: received.minus(creditedSoFar).toNumber() });
 
   return shares;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// PO links fill in order (D1, 2026-09-29) — pure, no DB. The engine that loads and writes is
+// helpers/receipt-allocation.helper.ts.
+//
+// A PO line's receipts are ONE number per location pool (what its approved GRN lines booked there).
+// Each link's credit is a greedy fill of those totals over the links in their frozen `fillOrder`,
+// recomputed from the totals on every approve / reverse / order cancel / link. So the state is a pure
+// function of (totals, links in order, eligibility): approving and reversing in any order lands on the
+// same credits, and a reversal takes back exactly what its approval gave — no record of which receipt
+// filled which link is needed.
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Goods in our own stores: every link may draw on them. The only pool a trim line has. */
+export const STORE_POOL = 'STORE';
+/** Goods booked into a processor's unit that is linked to no processor: nobody can be placed there. */
+export const UNPLACED_POOL = 'UNPLACED';
+
+/**
+ * The pool a receipt fills, by the warehouse its GRN booked it into: a processor's unit → that processor's id;
+ * a unit linked to no processor → UNPLACED; anything else → STORE. For a warehouse it is the same answer as
+ * `greigeHolderId` (lot-location.helper), plus UNPLACED where that one says "cannot be placed"
+ * (`greigeCountsForPlanning` never counts such a lot). Asserted equal in receipt-fill.test.ts.
+ */
+export function receiptPoolOf(
+  warehouse: { warehouseType: string; supplierId: string | null } | null | undefined
+): string {
+  if (!warehouse || warehouse.warehouseType !== 'JOB_WORK') return STORE_POOL;
+  return warehouse.supplierId ?? UNPLACED_POOL;
+}
+
+/** A pool that belongs to a processor (not STORE / UNPLACED). */
+export function isProcessorPool(pool: string): boolean {
+  return pool !== STORE_POOL && pool !== UNPLACED_POOL;
+}
+
+export interface FillLink {
+  id: string;
+  /** What the link was allocated on the line, in the stock unit */
+  allocated: number;
+  /** Earliest-delivery rank on the line; null sorts last */
+  fillOrder: number | null;
+  /** The processor the link's requirement is processed at (greige / lace lines); null = none decided, or a trim */
+  dyer: string | null;
+  /** false = its requirement or order is cancelled: it keeps what it issued, the rest passes on */
+  eligible: boolean;
+  /** What the link already issued, per pool — a floor its credit never goes below */
+  floors: Record<string, number>;
+}
+
+export interface FillResult {
+  /** Each link's total credit (its floors included), 3 dp */
+  credit: Map<string, number>;
+  /** Each link's credit per pool (floors included), 3 dp */
+  creditByPool: Map<string, Record<string, number>>;
+  /** What each pool has left after the fill — plain stock, nobody's */
+  plainStock: Record<string, number>;
+  /** Pools whose floors are more than the pool now holds, and by how much. Empty = none */
+  deficits: Record<string, number>;
+}
+
+/** Fill order: `fillOrder` ascending with nulls last, then id — a stable total order. */
+export function sortByFillOrder<T extends { id: string; fillOrder: number | null }>(links: readonly T[]): T[] {
+  return [...links].sort((a, b) => {
+    if (a.fillOrder !== b.fillOrder) {
+      if (a.fillOrder == null) return 1;
+      if (b.fillOrder == null) return -1;
+      return a.fillOrder - b.fillOrder;
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+const dec = (n: number | undefined) => toCurrency(n ?? 0);
+
+/**
+ * Greedy fill of a line's pool totals over its links (design §4):
+ *  1. each pool starts at its total less every link's floor there (below −ε is a deficit);
+ *  2. every link starts at its floors;
+ *  A. each processor's pool fills its own eligible links, in fill order, up to their allocation;
+ *  B. what the processor pools have left, pool id by pool id, fills links with no processor decided;
+ *  C. STORE fills every eligible link, in fill order.
+ * What is left in each pool is plain stock. Each take is rounded DOWN to 3 dp so no pool goes negative.
+ * UNPLACED fills nobody. A trim line has only STORE, so for it this is simply pass C.
+ */
+export function fillLineReceipts(links: readonly FillLink[], poolTotals: Readonly<Record<string, number>>): FillResult {
+  const ordered = sortByFillOrder(links);
+  const pools = new Set<string>(Object.keys(poolTotals));
+  for (const link of links) for (const pool of Object.keys(link.floors)) pools.add(pool);
+
+  const left = new Map<string, Decimal>();
+  const deficits: Record<string, number> = {};
+  for (const pool of pools) {
+    const floorSum = links.reduce((sum, l) => sum.plus(dec(l.floors[pool])), new Decimal(0));
+    const net = dec(poolTotals[pool]).minus(floorSum);
+    if (net.lt(-QTY_EPSILON)) deficits[pool] = net.neg().toDecimalPlaces(RECEIPT_SPLIT_DP).toNumber();
+    left.set(pool, Decimal.max(net, 0));
+  }
+
+  const byPool = new Map<string, Map<string, Decimal>>();
+  const total = new Map<string, Decimal>();
+  for (const link of links) {
+    const own = new Map<string, Decimal>();
+    let sum = new Decimal(0);
+    for (const [pool, floor] of Object.entries(link.floors)) {
+      if (!qtyExceeds(floor, 0)) continue;
+      own.set(pool, dec(floor));
+      sum = sum.plus(dec(floor));
+    }
+    byPool.set(link.id, own);
+    total.set(link.id, sum);
+  }
+
+  const take = (link: FillLink, pool: string) => {
+    const room = dec(link.allocated).minus(total.get(link.id)!);
+    const inPool = left.get(pool);
+    if (!inPool || room.lte(0) || inPool.lte(0)) return;
+    const qty = Decimal.min(room, inPool).toDecimalPlaces(RECEIPT_SPLIT_DP, Decimal.ROUND_DOWN);
+    if (qty.lte(0)) return;
+    left.set(pool, inPool.minus(qty));
+    total.set(link.id, total.get(link.id)!.plus(qty));
+    const own = byPool.get(link.id)!;
+    own.set(pool, (own.get(pool) ?? new Decimal(0)).plus(qty));
+  };
+
+  const eligible = ordered.filter((l) => l.eligible);
+  // A — a processor's cloth goes first to the orders processed there
+  for (const link of eligible) if (link.dyer && isProcessorPool(link.dyer)) take(link, link.dyer);
+  // B — cloth at a processor may serve an order whose processor is not decided yet (planning's rule)
+  const processorPools = [...pools].filter(isProcessorPool).sort();
+  for (const pool of processorPools) for (const link of eligible) if (link.dyer == null) take(link, pool);
+  // C — our store serves anyone
+  for (const link of eligible) take(link, STORE_POOL);
+
+  const credit = new Map<string, number>();
+  const creditByPool = new Map<string, Record<string, number>>();
+  for (const link of links) {
+    credit.set(link.id, total.get(link.id)!.toDecimalPlaces(RECEIPT_SPLIT_DP).toNumber());
+    const rec: Record<string, number> = {};
+    for (const [pool, qty] of byPool.get(link.id)!) rec[pool] = qty.toDecimalPlaces(RECEIPT_SPLIT_DP).toNumber();
+    creditByPool.set(link.id, rec);
+  }
+  const plainStock: Record<string, number> = {};
+  for (const [pool, qty] of left) plainStock[pool] = qty.toDecimalPlaces(RECEIPT_SPLIT_DP).toNumber();
+  return { credit, creditByPool, plainStock, deficits };
+}
+
+/**
+ * New fill ranks after the links on a line changed (design §4, change C4). The links up to the LAST one
+ * with credit keep their ranks (zero-credit links among them too); every link after it — new links
+ * included — is sorted by `compare` and numbered on from there.
+ *
+ * Why no credit moves: every link after the last credited one has credit 0, so at its position each pool
+ * it may draw on is already empty in every pass; re-ordering those links among themselves leaves each of
+ * them looking at the same empty pools. Why the rest keep their places: an earlier-dated link to another
+ * processor that sits before a credited link must not be demoted behind later orders.
+ *
+ * @param credit each link's current credit (`receivedQuantity`; what it issued is inside it)
+ * @returns a rank for EVERY link; write only the ones that changed
+ */
+export function rankTail<T extends { id: string; fillOrder: number | null }>(
+  links: readonly T[],
+  credit: ReadonlyMap<string, number>,
+  compare: (a: T, b: T) => number
+): Map<string, number> {
+  const ordered = sortByFillOrder(links);
+  let lastCredited = -1;
+  ordered.forEach((link, i) => {
+    if (qtyExceeds(credit.get(link.id) ?? 0, 0)) lastCredited = i;
+  });
+
+  const ranks = new Map<string, number>();
+  let rank = 0;
+  for (const link of ordered.slice(0, lastCredited + 1)) {
+    // Keep the stored rank while it still reads in order; a missing or repeated one takes the next number
+    rank = link.fillOrder != null && link.fillOrder > rank ? link.fillOrder : rank + 1;
+    ranks.set(link.id, rank);
+  }
+  const tail = ordered
+    .slice(lastCredited + 1)
+    .sort((a, b) => compare(a, b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  for (const link of tail) ranks.set(link.id, ++rank);
+  return ranks;
 }

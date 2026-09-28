@@ -24,6 +24,7 @@ import {
   Prisma,
   ThreadPackagingType,
   ThreadPly,
+  type material_requirements,
 } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -33,6 +34,10 @@ import { assertPoLinesFitCategory, linesOutsideCategory } from './helpers/po-lin
 import { CREATABLE_PO_CATEGORIES, isPoDateAfterToday } from '../types/purchaseOrder.types';
 import { roundToCent } from '../utils/currency';
 import { isQtyZero, qtyRemaining } from '../utils/quantity';
+import { BusinessError } from '../errors';
+import { logWarn } from '../utils/logger';
+import { assignLineFillOrder, mintBalanceChild, sizeLinksForLine } from './helpers/po-allocation.helper';
+import { PO_LINK_REQUIREMENT_STATUSES } from './helpers/receipt-allocation.helper';
 
 // ============================================
 // Types & Interfaces
@@ -257,13 +262,49 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
 
   // 3. Source-specific validation
   if (input.source === 'MRP' && input.sourceLinks?.materialRequirementIds) {
+    const requirementIds = input.sourceLinks.materialRequirementIds;
     const requirements = await prisma.material_requirements.findMany({
-      where: { id: { in: input.sourceLinks.materialRequirementIds } },
-      select: { id: true, status: true },
+      where: { id: { in: requirementIds } },
+      select: {
+        id: true,
+        requirementNumber: true,
+        status: true,
+        materialId: true,
+        requirement_po_links: { select: { purchase_orders: { select: { poNumber: true } } } },
+        requirement_jwo_links: { select: { job_work_orders: { select: { jobWorkNumber: true, jwoStatus: true } } } },
+      },
     });
+    const orderedMaterials = new Set((input.items ?? []).map((i) => i.materialId).filter(Boolean));
+
+    for (const id of requirementIds.filter((rid) => !requirements.some((r) => r.id === rid))) {
+      errors.push({ field: 'sourceLinks.materialRequirementIds', message: `Requirement ${id} was not found` });
+    }
 
     const validStatuses = ['PO_REQUIRED', 'PARTIAL_STOCK'];
     for (const req of requirements) {
+      // Already on a PO or a live job: a second PO would buy it twice. Every PO link counts — a kept link on
+      // a closed PO is the record of what that PO delivered for it (po-allocation design §6.9, M8).
+      const linkedTo = [
+        ...req.requirement_po_links.map((l) => l.purchase_orders.poNumber),
+        ...req.requirement_jwo_links
+          .filter((l) => l.job_work_orders.jwoStatus !== 'CANCELLED')
+          .map((l) => l.job_work_orders.jobWorkNumber),
+      ];
+      if (linkedTo.length > 0) {
+        errors.push({
+          field: 'sourceLinks.materialRequirementIds',
+          message: `Requirement ${req.requirementNumber} is already on ${linkedTo.join(', ')} — undo that allocation or close that order before ordering it again.`,
+        });
+        continue;
+      }
+      // Linked only through a line for its material — a requirement left unlinked must not be marked ordered
+      if (!req.materialId || !orderedMaterials.has(req.materialId)) {
+        errors.push({
+          field: 'sourceLinks.materialRequirementIds',
+          message: `Requirement ${req.requirementNumber} is for a material that has no line on this PO.`,
+        });
+        continue;
+      }
       if (req.status === 'SIZE_PENDING') {
         // Hard error, not a warning: a size-wise label carries its sizes in print. Ordering the
         // aggregate row buys labels whose sizes nobody has decided yet, and it permanently
@@ -600,12 +641,9 @@ export async function createUnifiedPO(
 
     if (input.source === 'MRP' && input.sourceLinks?.materialRequirementIds) {
       // Link each requirement to corresponding PO item
-      for (const reqId of input.sourceLinks.materialRequirementIds) {
-        // Find the requirement to get materialId
-        const req = await tx.material_requirements.findUnique({
-          where: { id: reqId },
-          select: { materialId: true, shortfall: true },
-        });
+      const byItem = new Map<string, { item: (typeof createdItems)[number]; reqs: material_requirements[] }>();
+      for (const reqId of new Set(input.sourceLinks.materialRequirementIds)) {
+        const req = await tx.material_requirements.findUnique({ where: { id: reqId } });
 
         if (req) {
           // Find matching PO item by materialId
@@ -632,23 +670,13 @@ export async function createUnifiedPO(
               quantityLinked: Number(link.quantityLinked),
             });
 
-            // Also create legacy link in requirement_po_links for backward compatibility. A link is in the
-            // REQUIREMENT's unit (pieces) — the PO line may be in gross, so convert.
-            await tx.requirement_po_links.create({
-              data: {
-                id: randomUUID(),
-                requirementId: reqId,
-                purchaseOrderId: po.id,
-                purchaseOrderItemId: matchingItem.id,
-                allocatedQuantity: toStockQty(
-                  Number(matchingItem.orderedQuantity),
-                  matchingItem.stockUnitsPerUnit ? Number(matchingItem.stockUnitsPerUnit) : null
-                ),
-              },
-            });
+            const group = byItem.get(matchingItem.id) ?? { item: matchingItem, reqs: [] };
+            group.reqs.push(req);
+            byItem.set(matchingItem.id, group);
           }
         }
       }
+      await linkMrpRequirements(tx, po.id, [...byItem.values()], input.createdById);
     } else if (input.source === 'SERVICE_REQUIREMENT' && input.sourceLinks?.serviceRequirementIds) {
       // Link each service requirement to corresponding PO item
       for (const reqId of input.sourceLinks.serviceRequirementIds) {
@@ -772,8 +800,91 @@ export async function createUnifiedPO(
 // Helper Functions
 // ============================================
 
+interface MrpSourceLine {
+  item: { id: string; orderedQuantity: Prisma.Decimal; stockUnitsPerUnit: Prisma.Decimal | null };
+  reqs: material_requirements[];
+}
+
 /**
- * Update source requirement statuses after PO creation
+ * The requirement links of an MRP-sourced PO, written in the PO's own transaction (po-allocation design
+ * §6.9). A line's links are sized by `sizeLinksForLine`: each requirement gets its need when the line covers
+ * them all — the rest stays free on the line — else its pro-rata share. Every requirement used to be given
+ * the WHOLE line, so one delivery "filled" all of them at once. A part cover leaves a balance row (the MRP-12
+ * shape), and the links are ranked earliest need first.
+ *
+ * The move to PO_GENERATED is here too, guarded: two POs made at once for the same requirement cannot both
+ * take it (it ran after the commit, unguarded, and marked a requirement ordered even when no line had linked
+ * it). A link is in the REQUIREMENT's unit (pieces) — the PO line may be in gross, so convert.
+ */
+async function linkMrpRequirements(
+  tx: Prisma.TransactionClient,
+  poId: string,
+  lines: MrpSourceLine[],
+  createdById: string
+): Promise<void> {
+  const plan: Array<{ itemId: string; req: material_requirements; qty: number }> = [];
+  for (const { item, reqs } of lines) {
+    const lineStock = toStockQty(
+      Number(item.orderedQuantity),
+      item.stockUnitsPerUnit ? Number(item.stockUnitsPerUnit) : null
+    );
+    const sizes = sizeLinksForLine(
+      lineStock,
+      reqs.map((r) => ({ id: r.id, need: Number(r.shortfall) }))
+    );
+    for (const req of reqs) {
+      const qty = sizes.get(req.id) ?? 0;
+      if (isQtyZero(qty)) {
+        // Nothing left to buy for it: not linked, so not marked ordered either
+        logWarn(`[Unified PO] ${req.requirementNumber} needs nothing more — not linked to the new PO`);
+        continue;
+      }
+      plan.push({ itemId: item.id, req, qty });
+    }
+  }
+  if (plan.length === 0) return;
+
+  const ids = plan.map((p) => p.req.id);
+  const flipped = await tx.material_requirements.updateMany({
+    where: { id: { in: ids }, status: { notIn: [...PO_LINK_REQUIREMENT_STATUSES, 'SIZE_PENDING'] } },
+    data: { status: 'PO_GENERATED' },
+  });
+  if (flipped.count !== ids.length) {
+    throw new BusinessError(
+      `${ids.length - flipped.count} of ${ids.length} requirement(s) went on another purchase order while this ` +
+        `one was being made — reload them and try again.`,
+      { code: 'PO_REQUIREMENT_ALREADY_ORDERED' }
+    );
+  }
+
+  for (const { itemId, req, qty } of plan) {
+    await tx.requirement_po_links.create({
+      data: {
+        id: randomUUID(),
+        requirementId: req.id,
+        purchaseOrderId: poId,
+        purchaseOrderItemId: itemId,
+        allocatedQuantity: new Prisma.Decimal(qty.toFixed(3)),
+      },
+    });
+    const balance = qtyRemaining(Number(req.shortfall), qty);
+    // Below a paise of dust there is nothing worth ordering again (the MRP-12 threshold)
+    if (balance > 0.01) {
+      await mintBalanceChild(tx, req, balance, createdById);
+      // The requirement now stands for what this PO buys; the balance row is still to be ordered
+      await tx.material_requirements.update({ where: { id: req.id }, data: { shortfall: qty } });
+    }
+  }
+
+  await assignLineFillOrder(
+    tx,
+    lines.map((l) => l.item.id)
+  );
+}
+
+/**
+ * Update source requirement statuses after PO creation. MRP requirements are moved inside the PO's
+ * transaction (linkMrpRequirements), not here.
  */
 async function updateSourceRequirementStatuses(
   source: POSource,
@@ -781,13 +892,6 @@ async function updateSourceRequirementStatuses(
   poId?: string
 ): Promise<void> {
   if (!sourceLinks || !poId) return;
-
-  if (source === 'MRP' && sourceLinks.materialRequirementIds) {
-    await prisma.material_requirements.updateMany({
-      where: { id: { in: sourceLinks.materialRequirementIds } },
-      data: { status: 'PO_GENERATED' },
-    });
-  }
 
   if (source === 'SERVICE_REQUIREMENT' && sourceLinks.serviceRequirementIds) {
     await prisma.work_order_service_requirements.updateMany({

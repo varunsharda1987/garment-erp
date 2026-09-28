@@ -12,7 +12,6 @@ import {
   DeliveryLocationType,
   MaterialRequirementStatus,
   UserRole,
-  material_requirements,
 } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
@@ -28,7 +27,7 @@ import {
   isDeliveryBeforePoDate,
   isPoDateAfterToday,
 } from '../types/purchaseOrder.types';
-import { generateAtomicPONumberInTx, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import { formatDate } from '../utils/date';
 import { validateTransition } from '../utils/stateMachine';
@@ -57,6 +56,10 @@ import {
   type DeliveryPlanInput,
 } from './helpers/po-delivery-plan.helper';
 import { createAuditLog } from './audit.service';
+import { freezeClosedPoLinks, mintBalanceChild, returnDemandAfterUnlink } from './helpers/po-allocation.helper';
+import { PO_LINK_REQUIREMENT_STATUSES } from './helpers/receipt-allocation.helper';
+import { releaseLinkHolds } from './helpers/stock-reservation.helper';
+import { isQtyZero } from '../utils/quantity';
 
 type Tx = Prisma.TransactionClient;
 
@@ -179,7 +182,10 @@ interface RequirementShare {
  * Aggregate them first — handling each link separately let the last one overwrite the earlier ones'
  * shortfall, silently losing part of the delivery (cd710041, short-close; cancel repeated the per-link
  * loop until 2026-09-27). A negative receivedQuantity (an over-shot reversal) is floored at zero so a
- * requirement can never fall between the "nothing delivered" and "part delivered" branches.
+ * requirement can never fall between the "nothing delivered" and "part delivered" branches, and a link
+ * never counts more than it was allocated: goods delivered past it (a pro-rata processing line over-credits
+ * its links) are not more of THIS requirement, so the short-close shortfall can never rise above the
+ * allocation (po-allocation design §6.9).
  */
 async function loadRequirementShares(tx: Tx, poId: string): Promise<RequirementShare[]> {
   const rawLinks = await tx.requirement_po_links.findMany({
@@ -189,89 +195,70 @@ async function loadRequirementShares(tx: Tx, poId: string): Promise<RequirementS
   const byRequirement = new Map<string, { allocated: number; received: number }>();
   for (const l of rawLinks) {
     const agg = byRequirement.get(l.requirementId) ?? { allocated: 0, received: 0 };
-    agg.allocated += Number(l.allocatedQuantity);
-    agg.received += Math.max(0, Number(l.receivedQuantity));
+    const allocated = Number(l.allocatedQuantity);
+    agg.allocated += allocated;
+    agg.received += Math.min(Math.max(0, Number(l.receivedQuantity)), allocated);
     byRequirement.set(l.requirementId, agg);
   }
   return [...byRequirement.entries()].map(([requirementId, agg]) => ({ requirementId, ...agg }));
 }
 
 /**
- * Nothing delivered against these requirements — the material is still genuinely needed, so revert
- * them to PO_REQUIRED AND drop their links to this PO (MRP's duplicate guard skips a requirement that
- * still holds a link, so a reverted requirement with a stale link would stay unbuyable).
+ * Nothing delivered against these requirements — the material is still genuinely needed, so drop their
+ * links to this PO and hand the demand back (MRP's duplicate guard skips a requirement that still holds a
+ * link, so a reverted requirement with a stale link would stay unbuyable). The link's receipt holds go
+ * first: the hold's FK is SET NULL, so a hold left behind would turn into a Use Stock hold. What the row
+ * goes back to is `returnDemandAfterUnlink`'s one rule — PO_REQUIRED, PARTIAL_STOCK when part came from
+ * stock, CANCELLED when its order was cancelled — not a blanket PO_REQUIRED.
  */
 async function freeUndeliveredRequirements(
   tx: Tx,
   poId: string,
   poNumber: string,
   verb: 'cancel' | 'short-close',
-  shares: RequirementShare[]
+  shares: RequirementShare[],
+  userId: string | undefined
 ): Promise<void> {
   if (shares.length === 0) return;
   const ids = shares.map((s) => s.requirementId);
-  const reverted = await tx.material_requirements.updateMany({
-    where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] } },
-    data: { status: 'PO_REQUIRED' },
+  const links = await tx.requirement_po_links.findMany({
+    where: { purchaseOrderId: poId, requirementId: { in: ids } },
+    select: { id: true },
   });
+  const linkIds = links.map((l) => l.id);
+  await releaseLinkHolds(tx, linkIds);
+  await tx.requirement_po_links.deleteMany({ where: { id: { in: linkIds } } });
+  const outcomes = await returnDemandAfterUnlink(
+    tx,
+    ids.map((id) => ({ id })),
+    { userId, label: `${poNumber} ${verb}` }
+  );
   // A silent count:0 is exactly how the original cancel bug hid. Say so rather than assume success.
-  if (reverted.count !== ids.length) {
+  const returned = outcomes.filter((o) => o.changed).length;
+  if (returned !== ids.length) {
     logWarn(
-      `[PO ${poNumber}] ${verb} reverted ${reverted.count} of ${ids.length} undelivered ` +
-        `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+      `[PO ${poNumber}] ${verb} returned ${returned} of ${ids.length} undelivered requirement(s) to demand — ` +
+        `the rest are still on another PO or job, or were in an unexpected status and may need manual re-planning`
     );
   }
-  await tx.requirement_po_links.deleteMany({ where: { purchaseOrderId: poId, requirementId: { in: ids } } });
 }
 
 /**
- * The undelivered balance of a part-delivered requirement, carried forward as its own orderable
- * requirement (the MRP-12 split-remainder shape). Returns the new requirement number.
+ * Close a part-delivered requirement at what this PO delivered: RECEIVED, `shortfall` := delivered (plus the
+ * short-close record when given). Guarded — only a row still in a PO status moves. Returns false when it had
+ * already left one, and the caller carries no balance forward for it.
  */
-async function mintBalanceRequirement(
+async function settleAtDelivered(
   tx: Tx,
-  requirement: material_requirements,
-  balance: number,
-  createdById: string | undefined
-): Promise<string> {
-  const childNumber = await generateAtomicDocNumber('MR', tx);
-  await tx.material_requirements.create({
-    data: {
-      requirementNumber: childNumber,
-      source: requirement.source,
-      orderId: requirement.orderId,
-      orderItemId: requirement.orderItemId,
-      materialId: requirement.materialId,
-      orderBomId: requirement.orderBomId,
-      orderBomItemId: requirement.orderBomItemId,
-      orderQuantity: requirement.orderQuantity,
-      quantityPerUnit: requirement.quantityPerUnit,
-      wastagePercent: requirement.wastagePercent,
-      totalRequired: balance,
-      unit: requirement.unit,
-      availableStock: 0,
-      allocatedFromStock: 0,
-      shortfall: balance,
-      preferredSupplierId: requirement.preferredSupplierId,
-      status: MaterialRequirementStatus.PO_REQUIRED,
-      requirementType: requirement.requirementType,
-      processorId: requirement.processorId,
-      processingCost: requirement.processingCost,
-      printingType: requirement.printingType,
-      linkedRequirementId: requirement.linkedRequirementId,
-      // Shrinkage provenance must survive the split or the child silently re-derives 0%.
-      shrinkagePercentUsed: requirement.shrinkagePercentUsed,
-      shrinkageSource: requirement.shrinkageSource,
-      colorName: requirement.colorName,
-      componentName: requirement.componentName,
-      requiredDate: requirement.requiredDate,
-      createdById: createdById ?? requirement.createdById,
-      unitPrice: requirement.unitPrice,
-      rateSource: requirement.rateSource,
-      splitFromId: requirement.id,
-    },
+  requirementId: string,
+  delivered: number,
+  extra: Prisma.material_requirementsUpdateManyMutationInput = {}
+): Promise<boolean> {
+  const settled = await tx.material_requirements.updateMany({
+    where: { id: requirementId, status: { in: [...PO_LINK_REQUIREMENT_STATUSES] } },
+    data: { status: MaterialRequirementStatus.RECEIVED, shortfall: delivered, ...extra },
   });
-  return childNumber;
+  return settled.count > 0;
 }
 
 class PurchaseOrderService {
@@ -1481,42 +1468,55 @@ class PurchaseOrderService {
       //
       // Split by what actually arrived (per requirement — its links to this PO summed), mirroring
       // short-close and the job-work-order cancel path:
-      //   nothing received → revert the requirement outright and drop the link;
-      //   part received    → leave the delivered part booked and carry the balance forward as its
-      //                      own orderable requirement (the MRP-12 split-remainder shape).
+      //   nothing received → drop the link and hand the demand back;
+      //   part received    → the requirement closes RECEIVED at what arrived, and the balance is carried
+      //                      forward as its own orderable requirement (the MRP-12 split-remainder shape).
       const shares = await loadRequirementShares(tx, id);
       await freeUndeliveredRequirements(
         tx,
         id,
         poNumber,
         'cancel',
-        shares.filter((s) => s.received === 0)
+        shares.filter((s) => isQtyZero(s.received)),
+        cancelledById
       );
 
-      for (const share of shares.filter((s) => s.received > 0)) {
-        const requirement = await tx.material_requirements.findUnique({ where: { id: share.requirementId } });
+      for (const share of shares.filter((s) => !isQtyZero(s.received))) {
+        const requirement = await tx.material_requirements.findUnique({
+          where: { id: share.requirementId },
+          include: { orders: { select: { status: true } } },
+        });
         if (!requirement) continue;
 
         // Link basis, not the requirement's shortfall: one consolidated PO line can serve several
         // requirements, and a requirement can be allocated across several lines (summed above).
         const balance = toNumber(subtractCurrency(share.allocated, share.received));
 
-        // Below a paise of dust there is nothing worth re-ordering (same threshold and reasoning
-        // as the MRP split-remainder path and short-close).
-        if (balance > 0.01) {
-          const childNumber = await mintBalanceRequirement(tx, requirement, balance, cancelledById);
-          // The original now represents only what was actually delivered.
-          await tx.material_requirements.update({
-            where: { id: requirement.id },
-            data: { shortfall: share.received },
-          });
+        // The original now represents only what was actually delivered — and all of that has arrived.
+        // Left PARTIALLY_RECEIVED it waited for goods a cancelled PO will never bring.
+        if (!(await settleAtDelivered(tx, requirement.id, share.received))) {
+          logWarn(
+            `[PO ${poNumber}] cancel: ${requirement.requirementNumber} is ${requirement.status}, not on a PO — ` +
+              `left as it is, no balance carried forward`
+          );
+          continue;
+        }
+
+        // Below a paise of dust there is nothing worth re-ordering (same threshold and reasoning as the
+        // MRP split-remainder path and short-close). A cancelled order needs nothing more.
+        if (balance > 0.01 && requirement.orders?.status !== 'CANCELLED') {
+          const child = await mintBalanceChild(tx, requirement, balance, cancelledById);
           logWarn(
             `[PO ${poNumber}] cancelled after ${share.received} of ${share.allocated} received ` +
-              `for ${requirement.requirementNumber}; balance ${balance} carried forward as ${childNumber}`
+              `for ${requirement.requirementNumber}; balance ${balance} carried forward as ${child.requirementNumber}`
           );
         }
         // The links are deliberately KEPT: they are the record of what this PO actually delivered.
       }
+
+      // ...and closed at it (change C3): allocated := received on every kept link, so a later order
+      // cancel can pass its goods on only as plain stock, never above the shortfall written here.
+      await freezeClosedPoLinks(tx, id);
 
       // 3. Revert linked service requirements → PENDING and drop their links (a kept link would keep
       // the service looking ordered). IN_PROGRESS included for the same reason as above. Only a service
@@ -1653,46 +1653,57 @@ class PurchaseOrderService {
       const links = await loadRequirementShares(tx, id);
 
       // Nothing delivered on this line — the material is still genuinely needed, so free it
-      // exactly as cancellation does (revert AND drop the link, or MRP's duplicate guard keeps
-      // skipping it).
+      // exactly as cancellation does (drop the link and hand the demand back, or MRP's duplicate
+      // guard keeps skipping it).
       await freeUndeliveredRequirements(
         tx,
         id,
         existingPO.poNumber,
         'short-close',
-        links.filter((l) => l.received === 0)
+        links.filter((l) => isQtyZero(l.received)),
+        shortClosedById
       );
 
       // Part-delivered — close at what actually arrived and RECORD the short rather than leaving
       // it to arithmetic. The link is kept: it is the record of what this PO did deliver.
-      for (const link of links.filter((l) => l.received > 0)) {
-        const requirement = await tx.material_requirements.findUnique({ where: { id: link.requirementId } });
+      for (const link of links.filter((l) => !isQtyZero(l.received))) {
+        const requirement = await tx.material_requirements.findUnique({
+          where: { id: link.requirementId },
+          include: { orders: { select: { status: true } } },
+        });
         if (!requirement) continue;
 
         // Link basis, not the PO item's: one consolidated PO line can serve several requirements.
         const received = link.received;
         const short = toNumber(subtractCurrency(link.allocated, received));
 
-        await tx.material_requirements.update({
-          where: { id: requirement.id },
-          data: {
-            status: MaterialRequirementStatus.RECEIVED,
-            shortfall: received,
-            // Same 0.01 threshold the re-order branch uses below: an allocation-split rounding
-            // sliver is not a short supply, and recording it would show a phantom balance.
-            shortQuantity: short > 0.01 ? short : null,
-            shortCloseReason: short > 0.01 ? reason : null,
-          },
+        const settled = await settleAtDelivered(tx, requirement.id, received, {
+          // Same 0.01 threshold the re-order branch uses below: an allocation-split rounding
+          // sliver is not a short supply, and recording it would show a phantom balance.
+          shortQuantity: short > 0.01 ? short : null,
+          shortCloseReason: short > 0.01 ? reason : null,
         });
+        if (!settled) {
+          logWarn(
+            `[PO ${existingPO.poNumber}] short-close: ${requirement.requirementNumber} is ${requirement.status}, ` +
+              `not on a PO — left as it is`
+          );
+          continue;
+        }
 
-        if (reorderBalance && short > 0.01) {
-          const childNumber = await mintBalanceRequirement(tx, requirement, short, shortClosedById);
+        // A cancelled order needs nothing re-ordered
+        if (reorderBalance && short > 0.01 && requirement.orders?.status !== 'CANCELLED') {
+          const child = await mintBalanceChild(tx, requirement, short, shortClosedById);
           logWarn(
             `[PO ${existingPO.poNumber}] short-closed ${short} short on ${requirement.requirementNumber}; ` +
-              `re-order requested, carried forward as ${childNumber}`
+              `re-order requested, carried forward as ${child.requirementNumber}`
           );
         }
       }
+
+      // The kept links close at what arrived (change C3): a later order cancel passes its goods on only
+      // as plain stock, never pushing another link's credit above the shortfall written here.
+      await freezeClosedPoLinks(tx, id);
 
       // Service requirements: same widened filter as cancellation — PO_GENERATED alone left an
       // in-progress service pinned to a closed PO.

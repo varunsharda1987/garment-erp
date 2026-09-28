@@ -17,6 +17,7 @@ import { applySearch } from '../utils/search-filter';
 import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
 import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit, notInProcessorUnitWhere } from './helpers/lot-location.helper';
 import { BusinessError } from '../errors';
+import { unitShort } from '../utils/units';
 
 // ============================================================================
 // INTERFACES
@@ -298,8 +299,10 @@ export async function getAllLaceStock(filters: LaceStockFilters = {}) {
       'lotNumber',
       'dyeLotNumber',
       'originStyleCode',
+      'originStyle.buyerStyleRef',
       'laceMaster.laceName',
       'laceMaster.laceCode',
+      'laceMaster.color',
     ]);
   }
 
@@ -542,6 +545,57 @@ export function assertLaceInOurStore(
 }
 
 /**
+ * Refuse a lace allocation on a lot that is held for material requirements (stock_reservations: Use Stock, or
+ * goods that arrived on a PO line linked to an order). The two keep "reserved" differently — a hold is a claimed
+ * part of what is still available, an allocation moves metres out of available into reserved — so an allocation
+ * on top of a hold would take the same metres off twice (po-allocation design C13). The lot row is locked first,
+ * so a hold being placed on it at the same moment is seen.
+ */
+async function assertLaceLotNotHeld(
+  tx: Prisma.TransactionClient,
+  lot: { id: string; lotNumber?: string | null },
+  action: string
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM lace_stock WHERE id = ${lot.id} FOR UPDATE`;
+  const holds = (
+    await tx.stock_reservations.findMany({
+      where: { laceStockId: lot.id, status: 'ACTIVE' },
+      select: { referenceId: true, reservedQuantity: true, consumedQuantity: true, unit: true, poLinkId: true },
+    })
+  )
+    .map((h) => ({ ...h, qty: Number(h.reservedQuantity) - Number(h.consumedQuantity) }))
+    .filter((h) => qtyExceeds(h.qty, 0));
+  if (holds.length === 0) return;
+
+  const requirements = await tx.material_requirements.findMany({
+    where: { id: { in: [...new Set(holds.map((h) => h.referenceId))] } },
+    select: { id: true, requirementNumber: true, orders: { select: { orderNumber: true } } },
+  });
+  const byId = new Map(requirements.map((r) => [r.id, r]));
+  const holders = holds.map((h) => {
+    const r = byId.get(h.referenceId);
+    return {
+      requirementNumber: r?.requirementNumber ?? null,
+      orderNumber: r?.orders?.orderNumber ?? null,
+      kind: h.poLinkId ? 'receipt' : 'stock',
+      quantity: Math.round(h.qty * 100) / 100,
+      unit: h.unit,
+    };
+  });
+  const names = holders
+    .map(
+      (h) =>
+        `${h.orderNumber ?? 'no order'} (${h.requirementNumber ?? 'a requirement'}) ${h.quantity} ${unitShort(h.unit)}`
+    )
+    .join('; ');
+  throw new BusinessError(
+    `Lace lot ${lot.lotNumber ?? ''} is held for ${names}, so it cannot be ${action}. ` +
+      `Issue it against that order, or release the hold on the Requirements page first.`,
+    { code: 'LACE_LOT_HELD', holders }
+  );
+}
+
+/**
  * Allocate stock to an order/style
  */
 export async function allocateStock(input: AllocateStockInput) {
@@ -585,6 +639,8 @@ export async function allocateStock(input: AllocateStockInput) {
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    await assertLaceLotNotHeld(tx, stock, 'allocated to an order');
+
     // Create allocation
     const allocation = await tx.lace_stock_allocation.create({
       data: {
@@ -684,6 +740,8 @@ export async function transferStock(input: TransferStockInput) {
   input.quantityToTransfer = snapToLimit(input.quantityToTransfer, available);
 
   const result = await prisma.$transaction(async (tx) => {
+    await assertLaceLotNotHeld(tx, stock, 'transferred to another style');
+
     // Create new allocation for target style
     const allocation = await tx.lace_stock_allocation.create({
       data: {

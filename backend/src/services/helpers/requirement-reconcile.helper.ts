@@ -242,9 +242,11 @@ export async function reconcileRequirementLineage(
       );
       const keep = extras[0];
       if (!keep) continue; // only decision rows (now cancelled) — the normal path creates the new row
-      let held = await heldForRequirement(tx, keep.id);
+      // Use Stock holds only: goods that arrived on a linked PO line are held for the row too (poLinkId), but
+      // they never count in allocatedFromStock — the receipt engine owns them (po-allocation design, inv. 6)
+      let held = await heldForRequirement(tx, keep.id, 'stock');
       if (held > need && !isQtyZero(held - need)) {
-        held -= await releaseReservations(tx, [keep.id], round3(held - need));
+        held -= await releaseReservations(tx, [keep.id], round3(held - need), { kind: 'stock' });
       }
       // A row holding a real reservation keeps it (and shows what is still short); a row that never reserved
       // is PO Required — MRP suggests stock, only Use Stock claims it (owner decision 26-Sep-2026)
@@ -301,8 +303,9 @@ export async function reconcileRequirementLineage(
         extrasTotal -= total;
       } else {
         const next = round3(total - over);
-        const held = await heldForRequirement(tx, r.id);
-        if (held > next) await releaseReservations(tx, [r.id], round3(held - next));
+        // Use Stock holds only, as above: a receipt hold is not part of allocatedFromStock
+        const held = await heldForRequirement(tx, r.id, 'stock');
+        if (held > next) await releaseReservations(tx, [r.id], round3(held - next), { kind: 'stock' });
         const allocated = Math.min(Number(r.allocatedFromStock), next);
         await tx.material_requirements.update({
           where: { id: r.id },

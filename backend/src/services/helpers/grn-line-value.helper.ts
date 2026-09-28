@@ -17,6 +17,7 @@ import Decimal from 'decimal.js';
 import { Prisma } from '@prisma/client';
 import { addCurrency, multiplyCurrency, toCurrency } from '../../utils/currency';
 import { foldActual } from '../../utils/fold-length';
+import { toStockQty } from './purchase-unit.helper';
 
 type DecimalLike = Prisma.Decimal | Decimal | number | string;
 
@@ -43,6 +44,24 @@ export interface GrnLineQtyInput {
 /** Actual accepted quantity of a GRN line — the counted figure converted at its fold length. */
 export function grnLineActualQty(item: GrnLineQtyInput): Decimal {
   return foldActual(item.acceptedQuantity, item.foldLengthCm ?? null);
+}
+
+export interface GrnLineStockQtyInput extends GrnLineQtyInput {
+  /** What approval booked, in stock units (NULL on receipts approved before 2026-09-26) */
+  stockQuantity?: DecimalLike | null;
+  purchase_order_items?: { stockUnitsPerUnit?: DecimalLike | null } | null;
+}
+
+/**
+ * What ONE approved GRN line put into stock, in the STOCK unit — the figure a PO line's links are filled from
+ * (receipt-allocation.helper). The stored `stockQuantity` when there is one: reversal takes back exactly that,
+ * so filling from anything else would drift. Else the same rule approval uses (`grnLineStock`, grn.service):
+ * the actual accepted quantity × the PO line's stock units per unit (16 gross → 2,304 pieces).
+ */
+export function grnLineStockQty(item: GrnLineStockQtyInput): number {
+  if (item.stockQuantity != null) return Number(item.stockQuantity);
+  const factor = item.purchase_order_items?.stockUnitsPerUnit;
+  return toStockQty(grnLineActualQty(item).toNumber(), factor != null ? Number(factor) : null);
 }
 
 /** Kaaj-button prices two per-unit operations, so it has no single rate per unit received. */

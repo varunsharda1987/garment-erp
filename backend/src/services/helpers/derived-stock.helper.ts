@@ -87,12 +87,19 @@ export async function getDerivedOnHand(materialId: string, warehouseId?: string)
   return rows[0]?.total ?? 0;
 }
 
+/** Anything that can run a raw read: the app client, or a transaction client (which sees its own writes). */
+type RawReader = Pick<Prisma.TransactionClient, '$queryRawUnsafe'>;
+
 /** Batch derived on-hand: materialId -> total derived qty across warehouses, for a set of materials.
- *  Replaces a stock_levels.findMany({ where: { materialId: { in } } }) + in-memory sum (e.g. work-order BOM shortage). */
-export async function getDerivedOnHandMap(materialIds: string[]): Promise<Map<string, number>> {
+ *  Replaces a stock_levels.findMany({ where: { materialId: { in } } }) + in-memory sum (e.g. work-order BOM shortage).
+ *  Pass the transaction client to read stock the transaction itself just moved (receipt-allocation.helper). */
+export async function getDerivedOnHandMap(
+  materialIds: string[],
+  client: RawReader = prisma
+): Promise<Map<string, number>> {
   const map = new Map<string, number>();
   if (!materialIds.length) return map;
-  const rows: any[] = await prisma.$queryRawUnsafe(
+  const rows: any[] = await client.$queryRawUnsafe(
     `SELECT "materialId", COALESCE(SUM(quantity), 0)::float AS total
      FROM derived_stock_view
      WHERE "materialId" = ANY($1::text[])

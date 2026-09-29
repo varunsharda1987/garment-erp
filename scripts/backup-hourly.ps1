@@ -77,6 +77,20 @@ try {
     $sizeKb = [math]::Round((Get-Item $file).Length / 1KB)
     Log "OK: $(Split-Path $file -Leaf) ($sizeKb KB, $styles styles)"
 
+    # 3b. Change-log archiving health (scripts/pg-enable-wal-archive.ps1). When archiving fails, Postgres
+    #     keeps every change-log file on C: (95% full) until it fills and EVERY database on this PC stops.
+    $arch = & "$PgBin\psql.exe" -h $DbHost -p $DbPort -U $DbUser -d $DbName -tAc "select current_setting('archive_mode') || '|' || coalesce(extract(epoch from now() - last_archived_time)::int::text, '') || '|' || coalesce(extract(epoch from now() - last_failed_time)::int::text, '') || '|' || coalesce(last_failed_wal, '') from pg_stat_archiver" 2>$null
+    $mode, $sinceOk, $sinceFail, $failedWal = (($arch | Out-String).Trim()).Split('|')
+    if ($mode -eq 'on') {
+        if ($sinceFail -ne '' -and ($sinceOk -eq '' -or [int]$sinceFail -lt [int]$sinceOk)) {
+            Log "WARNING: change-log archiving is FAILING (last failure $failedWal, ${sinceFail}s ago) - files are piling up on C:"
+        } elseif ($sinceOk -eq '' -or [int]$sinceOk -gt 1800) {
+            Log "WARNING: no change-log file archived for $sinceOk s (archive_timeout is 300 s) - check F:\pg-wal-archive"
+        }
+    }
+    $freeGb = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+    if ($freeGb -lt 5) { Log "WARNING: only $freeGb GB free on C: - Postgres stops if C: fills" }
+
     # 4. Off-machine copy (best effort)
     if (Test-Path '\\synology\DATA STORAGE') {
         try {

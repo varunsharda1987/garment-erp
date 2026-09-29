@@ -24,6 +24,8 @@ import { buyerTrfService } from '@/services/buyerTrf.service';
 import { openPDF } from '@/lib/document-utils';
 import { handleApiError } from '@/lib/api-error-handler';
 import type { BuyerTrf, TrfSampleStage, TrfStatus } from '@/types/buyerTrf.types';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 const STATUS_VARIANT: Record<TrfStatus, 'default' | 'secondary' | 'outline'> = {
   DRAFT: 'outline',
@@ -137,7 +139,7 @@ export default function BuyerTrfList() {
           >
             <SearchInput
               className="flex-1 min-w-[240px]"
-              placeholder="Search TRF number, style, buyer's code, buyer, order number, SO / WO, colour…"
+              placeholder="Search TRF number, style, buyer style code, buyer, order number, SO / WO, colour…"
               value={search}
               onChange={changeFilter(setSearch)}
               aria-label="Search forms"
@@ -219,7 +221,8 @@ export default function BuyerTrfList() {
               <TableHeader>
                 <TableRow>
                   <TableHead>TRF No.</TableHead>
-                  <TableHead>Style</TableHead>
+                  <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                  <TableHead>{STYLE_CODE_LABEL}</TableHead>
                   <TableHead>Buyer</TableHead>
                   <TableHead>Order No.</TableHead>
                   <TableHead>Stage</TableHead>
@@ -237,11 +240,16 @@ export default function BuyerTrfList() {
                   >
                     <TableCell className="font-mono font-medium">{trf.trfNumber}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{trf.styleNo ?? trf.style?.styleCode ?? '—'}</div>
-                      {trf.style?.styleName && (
-                        <div className="text-xs text-muted-foreground">{trf.style.styleName}</div>
-                      )}
+                      {/* The form's own snapshot of the buyer's code wins, then its printed Style No. */}
+                      <StyleIdentity
+                        style={trf.style}
+                        lineRef={trf.buyerStyleRef?.trim() || trf.styleNo}
+                        name={trf.style?.styleName}
+                        layout="stacked"
+                        showStyleCode={false}
+                      />
                     </TableCell>
+                    <TableCell className="text-sm">{ourStyleCode(trf.style)}</TableCell>
                     <TableCell>{trf.customer?.name ?? '—'}</TableCell>
                     <TableCell className="font-mono text-sm">{trf.orderNumber ?? '—'}</TableCell>
                     <TableCell>{STAGE_LABEL[trf.sampleStage] ?? trf.sampleStage}</TableCell>

@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { compareSizes } from '@/utils/sku-generator';
 import { labelPieces, sizeOf, type LabelMaterialRow } from '@/lib/label-materials';
+import { styleCodeLabel } from '@/lib/style-code';
 import type { LabelSetLabel, StyleLabelSet } from '@/types/style-material-bom.types';
 
 /** One label's quantities to put on the PO: every row of it this supplier supplies, and the pieces per row. */
@@ -172,7 +173,7 @@ export function LabelSetDialog({
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {labels.length === 1 ? `${labels[0].code} - ${labels[0].name}` : `Label set — ${labelSet.styleCode}`}
+            {labels.length === 1 ? `${labels[0].code} - ${labels[0].name}` : `Label set — ${styleCodeLabel(labelSet)}`}
           </DialogTitle>
           <DialogDescription>
             {labelSet.order

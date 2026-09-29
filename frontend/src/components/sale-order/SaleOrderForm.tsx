@@ -74,6 +74,8 @@ export function SaleOrderForm({
           // Drop it here and the backend would re-capture today's code on every edit.
           buyerStyleRef: item.buyerStyleRef ?? null,
           styleCode: item.style?.styleCode,
+          // Display only: the style's current buyer code, for a line taken before lines kept their own
+          styleBuyerStyleRef: item.style?.buyerStyleRef ?? null,
           styleName: item.style?.styleName,
           colorName: item.color?.colorName,
           sizeName: item.size?.sizeName,

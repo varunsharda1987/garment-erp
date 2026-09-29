@@ -26,6 +26,7 @@ import QuickActions from './QuickActions';
 import ProductionTrackingInlineForm from '@/components/production/ProductionTrackingInlineForm';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatDate } from '@/lib/date';
+import { buyerStyleCode, ourStyleCode, styleCodeIfDifferent } from '@/lib/style-code';
 
 interface OrderStatusListItemProps {
   item: OrderStatusItem;
@@ -129,7 +130,7 @@ export default function OrderStatusListItem({
 
               {/* Style Info */}
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-xl font-bold text-foreground">{item.styleCode}</h3>
+                <h3 className="text-xl font-bold text-foreground">{buyerStyleCode(item)}</h3>
                 {item.internalCode && <span className="text-sm text-muted-foreground">• {item.internalCode}</span>}
                 {item.brandName && (
                   <span className="text-base font-semibold text-info bg-info-muted px-2 py-0.5 rounded">
@@ -138,9 +139,9 @@ export default function OrderStatusListItem({
                 )}
               </div>
               <p className="text-lg font-medium text-foreground mt-1">{item.styleName}</p>
-              {item.buyerStyleRef && (
+              {styleCodeIfDifferent(item) && (
                 <p className="text-sm text-muted-foreground">
-                  Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                  Style Code: <span className="font-medium text-foreground">{ourStyleCode(item)}</span>
                 </p>
               )}
               {item.season && <p className="text-sm text-muted-foreground mt-0.5">{item.season}</p>}

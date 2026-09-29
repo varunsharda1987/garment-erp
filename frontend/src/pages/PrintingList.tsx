@@ -44,6 +44,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -251,24 +253,24 @@ export default function PrintingList() {
     },
     {
       key: 'style',
-      header: 'Style',
-      render: (item) => (
-        <div>
-          {item.style ? (
-            <>
-              <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
-              <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
-            </>
-          ) : (
-            <span className="text-muted-foreground">-</span>
-          )}
-        </div>
-      ),
+      header: BUYER_STYLE_CODE_LABEL,
+      render: (item) =>
+        item.style ? (
+          <StyleIdentity
+            style={item.style}
+            name={item.style.styleName}
+            layout="stacked"
+            showStyleCode={false}
+            codeClassName="text-sm text-foreground"
+          />
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (item) => <span className="text-sm">{item.style?.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (item) => <span className="text-sm">{ourStyleCode(item.style)}</span>,
     },
     {
       key: 'fabric',
@@ -395,27 +397,26 @@ export default function PrintingList() {
     },
     {
       key: 'style',
-      header: 'Style',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (item) => {
         const style = item.jobWorkOrder?.style;
-        return (
-          <div>
-            {style ? (
-              <>
-                <div className="text-sm font-medium text-foreground">{style.styleCode}</div>
-                <div className="text-xs text-muted-foreground line-clamp-1">{style.styleName}</div>
-              </>
-            ) : (
-              <span className="text-muted-foreground">-</span>
-            )}
-          </div>
+        return style ? (
+          <StyleIdentity
+            style={style}
+            name={style.styleName}
+            layout="stacked"
+            showStyleCode={false}
+            codeClassName="text-sm text-foreground"
+          />
+        ) : (
+          <span className="text-muted-foreground">-</span>
         );
       },
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (item) => <span className="text-sm">{item.jobWorkOrder?.style?.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (item) => <span className="text-sm">{ourStyleCode(item.jobWorkOrder?.style)}</span>,
     },
     {
       key: 'supplier',
@@ -727,7 +728,7 @@ export default function PrintingList() {
               <FilterBar onClear={clearFilters} hasActiveFilters={activeFilterCount > 0} clearText={clearText}>
                 <SearchInput
                   className="w-80"
-                  placeholder="Search lab dip, style, buyer ref, fabric, design, mill…"
+                  placeholder="Search lab dip, buyer style code, style code, fabric, design, mill…"
                   value={searchQuery}
                   onChange={handleSearchChange}
                 />
@@ -812,7 +813,7 @@ export default function PrintingList() {
               <FilterBar onClear={clearFilters} hasActiveFilters={activeFilterCount > 0} clearText={clearText}>
                 <SearchInput
                   className="w-80"
-                  placeholder="Search order number, style, buyer ref, mill, fabric…"
+                  placeholder="Search order number, buyer style code, style code, mill, fabric…"
                   value={searchQuery}
                   onChange={handleSearchChange}
                 />

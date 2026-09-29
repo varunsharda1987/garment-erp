@@ -107,7 +107,10 @@ export interface LinkableProductionOrder {
   expectedDeliveryDate: string | null;
   customerName: string | null;
   sameCustomer: boolean;
+  /** Raw style codes. */
   styles: string[];
+  /** One `styleCodeLabel` per style (Buyer Style Code first) — the display form of `styles`. */
+  styleLabels?: string[];
   hasSizes: boolean;
 }
 

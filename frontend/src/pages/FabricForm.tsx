@@ -36,7 +36,7 @@ import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
 import AllocateFabricToStyleModal from '../components/fabric/AllocateFabricToStyleModal';
 import { QuickCreateGreigeModal } from '../components/QuickCreateGreigeModal';
 import { StyleCombobox } from '../components/StyleCombobox';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 
 type FabricSource = 'style_linked' | 'stock';
 
@@ -200,9 +200,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const generateFabricName = useCallback(() => {
     const parts: string[] = [];
 
-    // Add style code for style_linked (with buyer style ref, matching backend naming)
+    // Style-linked: the style leads the SAVED name, Buyer Style Code first — 'SP27DR27 (EBWW-021)'
+    // (owner 2026-09-29; mirrors the backend's buildFinishedFabricName in fabric-identity.helper)
     if (fabricSource === 'style_linked' && selectedStyleCode) {
-      parts.push(formatStyleCodeWithRef(selectedStyleCode, selectedStyle?.buyerStyleRef));
+      parts.push(styleCodeLabel({ styleCode: selectedStyleCode, buyerStyleRef: selectedStyle?.buyerStyleRef }));
     }
 
     // Add greige name or generic fabric name
@@ -610,7 +611,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       setSelectedStyleCode(fullStyle.styleCode || '');
       setFormData((prev) => ({
         ...prev,
-        styleReference: fullStyle.styleCode ? formatStyleCodeWithRef(fullStyle.styleCode, fullStyle.buyerStyleRef) : '',
+        // The RAW style code: every backend writer stores it raw and matches on it (fabric-identity.helper,
+        // cad-planning.controller) — never a display label
+        styleReference: fullStyle.styleCode || '',
       }));
     } catch (error) {
       logError('Error loading style detail:', error);

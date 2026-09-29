@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { queryKeys } from '@/lib/query-client';
 import { formatDate } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
 import { isQtyZero, minQty, qtyExceeds } from '@/lib/quantity';
 import { handleApiError } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
@@ -470,7 +471,7 @@ function LineSection({
                       </div>
                     </label>
                   </TableCell>
-                  <TableCell className="text-sm">{c.styleCode ?? '—'}</TableCell>
+                  <TableCell className="text-sm">{styleCodeLabel(c)}</TableCell>
                   <TableCell className="text-sm whitespace-nowrap">
                     {formatDate(c.deliveryDate ?? c.requiredDate)}
                     {c.arrivesLate && (

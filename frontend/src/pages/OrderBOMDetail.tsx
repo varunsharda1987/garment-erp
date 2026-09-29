@@ -26,7 +26,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { extractRateSlabChange } from '../lib/rate-slab-change';
 import { formatCurrency } from '../lib/currency';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import {
   getById,
   updateOrderBOM,
@@ -496,7 +496,7 @@ const OrderBOMDetail = () => {
                 </span>
               </div>
               <p className="text-muted-foreground text-lg">
-                {formatStyleCodeWithRef(bom.style?.styleCode || '', bom.style?.buyerStyleRef)} - {bom.style?.styleName}
+                <StyleIdentity style={bom.style} name={bom.style?.styleName} />
               </p>
               <div className="mt-3 text-sm text-muted-foreground space-y-1">
                 <div>

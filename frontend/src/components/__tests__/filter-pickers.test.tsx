@@ -97,7 +97,7 @@ describe('filter pickers — the "All …" row clears the filter', () => {
       );
     }
     render(<Filter />);
-    await waitFor(() => expect(trigger()).toHaveTextContent('LNG001 (EB-77) - Kurta (Kasya)'));
+    await waitFor(() => expect(trigger()).toHaveTextContent('EB-77 (LNG001) - Kurta (Kasya)'));
     expect(trigger()).toHaveClass('w-[220px]');
     await pickAll('All styles', onValue);
 
@@ -146,8 +146,10 @@ describe('filter pickers — the "All …" row clears the filter', () => {
     expect(getOrderById).not.toHaveBeenCalled(); // on the first page, so no extra fetch
 
     fireEvent.click(trigger());
-    // The styles on the order are its second line
-    expect(await screen.findByRole('option', { name: /ORD2609-0001 — Kasya Retail\s*LNG001/ })).toBeInTheDocument();
+    // The styles on the order are its second line — Buyer Style Code first
+    expect(
+      await screen.findByRole('option', { name: /ORD2609-0001 — Kasya Retail\s*EB-77 \(LNG001\)/ })
+    ).toBeInTheDocument();
     fireEvent.keyDown(screen.getByPlaceholderText('Search by order number, customer, style...'), { key: 'Escape' });
 
     await pickAll('All orders', onValue);

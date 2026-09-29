@@ -4,6 +4,7 @@ import { workOrderService } from '@/services/workOrder.service';
 import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
 import type { OrderStatus, WorkOrder } from '@/types/production.types';
 import { toast } from 'sonner';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface WorkOrderComboboxProps {
   value?: string;
@@ -21,13 +22,10 @@ interface WorkOrderComboboxProps {
   allLabel?: string; // Label of that row (default: "All production runs")
 }
 
-/** "WO2609-0087 — ESSKY082LS (EB-77)": the run, then the style as the Production Runs list shows it. */
+/** "WO2609-0087 — EB-77 (ESSKY082LS)": the run, then the style — Buyer Style Code first (`styleCodeLabel`). */
 function runLabel(run: WorkOrder): string {
-  const style = run.style;
-  if (!style?.styleCode) return run.workOrderNumber;
-  return style.buyerStyleRef
-    ? `${run.workOrderNumber} — ${style.styleCode} (${style.buyerStyleRef})`
-    : `${run.workOrderNumber} — ${style.styleCode}`;
+  const style = styleCodeLabel(run.style, null, '');
+  return style ? `${run.workOrderNumber} — ${style}` : run.workOrderNumber;
 }
 
 /** The Order / Source column of the Production Runs list: the order and its customer, or the stock order. */
@@ -62,7 +60,7 @@ function runOption(run: WorkOrder): ComboboxOption {
 
 /**
  * Picks a PRODUCTION RUN (a work order — the `work_orders` table; the app calls them production runs).
- * Server-searched: GET /work-orders matches the run number, style code / buyer's code / style name, order
+ * Server-searched: GET /work-orders matches the run number, buyer style code / style code / style name, order
  * number and customer, stock-order (SPO) number and location, so typing any of those narrows it. Newest
  * first, as on the Production Runs page.
  *
@@ -135,7 +133,7 @@ function WorkOrderPicker({
       placeholder={
         !initialLoaded ? (loadError ? 'Could not load — open to retry' : 'Loading production runs...') : placeholder
       }
-      searchPlaceholder="Search by run number, style, buyer ref, order..."
+      searchPlaceholder="Search by run number, buyer style code, style code, order..."
       emptyText={orderId ? 'No production runs found for this order.' : 'No production runs found.'}
       disabled={disabled}
       className={className}

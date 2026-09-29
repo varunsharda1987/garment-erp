@@ -100,7 +100,7 @@ export interface BuyerTrf {
   createdAt: string;
   updatedAt: string;
 
-  style?: { id: string; styleCode: string; styleName: string } | null;
+  style?: { id: string; styleCode: string; buyerStyleRef?: string | null; styleName: string } | null;
   customer?: { id: string; name: string; code: string } | null;
   testingLab?: { id: string; labName: string; labCode: string } | null;
   workOrder?: { id: string; workOrderNumber: string } | null;

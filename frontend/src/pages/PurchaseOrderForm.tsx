@@ -83,6 +83,8 @@ import {
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { queryKeys } from '@/lib/query-client';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
@@ -666,6 +668,8 @@ export default function PurchaseOrderForm() {
       customerName?: string;
       styleCodes?: string[];
       buyerStyleRefs?: string[];
+      /** One label per style, Buyer Style Code first — 'SP27DR27 (EBWW-021)'. */
+      styleLabels?: string[];
     }>
   >([]);
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
@@ -824,12 +828,20 @@ export default function PurchaseOrderForm() {
                   .filter((ref): ref is string => !!ref)
                   .filter((ref, index, self) => self.indexOf(ref) === index) || [];
 
+              // One label per style, Buyer Style Code first
+              const styleLabels =
+                o.orderItems
+                  ?.filter((item) => !!item.style?.styleCode)
+                  .map((item) => styleCodeLabel(item.style))
+                  .filter((label, index, self) => self.indexOf(label) === index) || [];
+
               return {
                 id: o.id,
                 orderNumber: o.orderNumber,
                 customerName: o.customer?.name,
                 styleCodes,
                 buyerStyleRefs,
+                styleLabels,
               };
             }
           )
@@ -2408,9 +2420,7 @@ export default function PurchaseOrderForm() {
               <Combobox
                 options={styles.map((s) => ({
                   value: s.id,
-                  label: s.buyerStyleRef
-                    ? `${s.styleCode} (${s.buyerStyleRef}) - ${s.styleName}`
-                    : `${s.styleCode} - ${s.styleName}`,
+                  label: `${styleCodeLabel(s)} - ${s.styleName}`,
                   searchText: `${s.styleCode} ${s.styleName} ${s.buyerStyleRef || ''}`,
                 }))}
                 value={styleId}
@@ -2425,7 +2435,7 @@ export default function PurchaseOrderForm() {
             <div className="flex-1">
               <Combobox
                 options={orders.map((o) => {
-                  const styleDisplay = o.styleCodes?.length ? ` [${o.styleCodes.join(', ')}]` : '';
+                  const styleDisplay = o.styleLabels?.length ? ` [${o.styleLabels.join(', ')}]` : '';
                   return {
                     value: o.id,
                     label: `${o.orderNumber}${styleDisplay}${o.customerName ? ` - ${o.customerName}` : ''}`,
@@ -3455,7 +3465,9 @@ export default function PurchaseOrderForm() {
             {styleId && styles.find((s) => s.id === styleId) && (
               <div>
                 <p className="text-xs text-muted-foreground">Style</p>
-                <p className="font-medium">{styles.find((s) => s.id === styleId)?.styleCode}</p>
+                <p className="font-medium">
+                  <StyleIdentity style={styles.find((s) => s.id === styleId)} />
+                </p>
               </div>
             )}
             {selectedSupplier?.paymentTerms && (

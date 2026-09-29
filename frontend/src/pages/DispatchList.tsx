@@ -491,7 +491,7 @@ export default function DispatchList() {
               >
                 <SearchInput
                   className="min-w-[220px] max-w-md flex-1"
-                  placeholder="Search ASN number, buyer ref, order, customer, style, buyer style…"
+                  placeholder="Search ASN number, buyer reference number, order, customer, style, buyer style code…"
                   value={asnSearch}
                   onChange={(value) => {
                     setAsnSearch(value);

@@ -421,6 +421,8 @@ export interface PurchaseOrder {
   // Computed by getReceivablePurchaseOrders (extracted from requirement_po_links)
   styleCodes?: string[];
   buyerStyleRefs?: string[];
+  /** One label per style, Buyer Style Code first — 'SP27DR27 (EBWW-021)' (styleCodeLabel on the server) */
+  styleLabels?: string[];
   customerNames?: string[];
   approvedBy?: UserSummary | null;
   goodsReceivingNotes?: Array<{

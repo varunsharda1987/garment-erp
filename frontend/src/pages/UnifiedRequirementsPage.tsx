@@ -125,6 +125,15 @@ import { RequirementDecisionActions, RequirementQtyNote } from '@/components/req
 import { isQtyZero, minQty, prefillQty, qtyAtLeast, qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeIfDifferent,
+  styleCodeLabel,
+} from '@/lib/style-code';
 import {
   Info,
   FileText,
@@ -557,14 +566,11 @@ function MaterialRequirementsTab({
   const styleOptions: ComboboxOption[] = useMemo(
     () => [
       { value: '', label: 'All styles', searchText: 'All styles' },
-      ...(stylesForFilter ?? []).map((st) => {
-        const ref = st.buyerStyleRef && st.buyerStyleRef !== st.styleCode ? ` (${st.buyerStyleRef})` : '';
-        return {
-          value: st.id,
-          label: `${st.styleCode}${ref} — ${st.styleName}`,
-          searchText: `${st.styleCode} ${st.buyerStyleRef ?? ''} ${st.styleName}`,
-        };
-      }),
+      ...(stylesForFilter ?? []).map((st) => ({
+        value: st.id,
+        label: `${styleCodeLabel(st)} — ${st.styleName}`,
+        searchText: `${st.styleCode} ${st.buyerStyleRef ?? ''} ${st.styleName}`,
+      })),
     ],
     [stylesForFilter]
   );
@@ -1324,8 +1330,7 @@ function MaterialRequirementsTab({
                                         <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
                                         {req.orderItem?.styleCode && (
                                           <div className="text-xs text-muted-foreground">
-                                            {req.orderItem?.styleCode}
-                                            {req.orderItem?.buyerStyleRef ? ` (${req.orderItem.buyerStyleRef})` : ''}
+                                            {styleCodeLabel(req.orderItem)}
                                           </div>
                                         )}
                                       </div>
@@ -1533,10 +1538,7 @@ function MaterialRequirementsTab({
                           <div>
                             <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
                             {req.orderItem?.styleCode && (
-                              <div className="text-xs text-muted-foreground">
-                                {req.orderItem?.styleCode}
-                                {req.orderItem?.buyerStyleRef ? ` (${req.orderItem.buyerStyleRef})` : ''}
-                              </div>
+                              <div className="text-xs text-muted-foreground">{styleCodeLabel(req.orderItem)}</div>
                             )}
                           </div>
                         </TableCell>
@@ -2379,10 +2381,10 @@ function OutsourcedWorkTab({
           label = row.processor || 'Not Assigned';
           break;
         case 'byStyle':
-          // Group by style
+          // Group by style: keyed on our code, named by the Buyer Style Code (ours beneath when it differs)
           key = row.styleCode || 'unknown';
-          label = row.styleCode || 'Unknown Style';
-          subLabel = row.buyerStyleRef || undefined;
+          label = buyerStyleCode(row, null, 'Unknown Style');
+          subLabel = styleCodeIfDifferent(row) ?? undefined;
           break;
         default:
           continue;
@@ -2500,8 +2502,8 @@ function OutsourcedWorkTab({
   // CSV Export handler
   const handleExport = () => {
     const headers = [
-      'Style',
-      'Buyer Ref',
+      BUYER_STYLE_CODE_LABEL,
+      STYLE_CODE_LABEL,
       'Component',
       'Color',
       'Material',
@@ -2517,8 +2519,8 @@ function OutsourcedWorkTab({
       'Created At',
     ];
     const csvRows = pageRows.map((row) => [
-      row.styleCode,
-      row.buyerStyleRef || '',
+      buyerStyleCode(row, null, ''),
+      ourStyleCode(row, ''),
       row.componentName || '',
       row.colorName || '',
       row.materialName || '',
@@ -2892,10 +2894,9 @@ function OutsourcedWorkTab({
                           {row.source === 'PROCESSING' ? 'Processing' : 'Service'}
                         </Badge>
                       </TableCell>
-                      {/* Style (with Buyer Ref as subtitle) */}
+                      {/* Style: the Buyer Style Code, our Style Code beneath when it differs */}
                       <TableCell>
-                        <div className="text-sm font-medium">{row.styleCode}</div>
-                        {row.buyerStyleRef && <div className="text-xs text-muted-foreground">{row.buyerStyleRef}</div>}
+                        <StyleIdentity style={row} layout="stacked" codeClassName="text-sm" />
                       </TableCell>
                       {/* Material (consolidated: Component + Color + Fabric spec) */}
                       <TableCell>
@@ -3095,10 +3096,7 @@ function OutsourcedWorkTab({
                               </TableCell>
                               {viewMode !== 'byStyle' && (
                                 <TableCell>
-                                  <div className="text-sm font-medium">{row.styleCode}</div>
-                                  {row.buyerStyleRef && (
-                                    <div className="text-xs text-muted-foreground">{row.buyerStyleRef}</div>
-                                  )}
+                                  <StyleIdentity style={row} layout="stacked" codeClassName="text-sm" />
                                 </TableCell>
                               )}
                               {viewMode !== 'byMaterial' && (

@@ -18,7 +18,7 @@ import { customerService } from '@/services/customer.service';
 import type { CreateGarmentPhysicalTestInput } from '@/types/testing.types';
 import type { WorkOrder } from '@/types/production.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface SelectableItem {
   id: string;
@@ -98,7 +98,7 @@ export default function GarmentPhysicalTestForm() {
   const styles: SelectableItem[] = (stylesData?.data || []).map(
     (s: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }) => ({
       id: s.id,
-      code: formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef),
+      code: styleCodeLabel(s),
       name: s.styleName,
     })
   );
@@ -121,7 +121,7 @@ export default function GarmentPhysicalTestForm() {
       setStyleId(fullWO.style.id);
       setSelectedStyle({
         id: fullWO.style.id,
-        code: formatStyleCodeWithRef(fullWO.style.styleCode, fullWO.style.buyerStyleRef),
+        code: styleCodeLabel(fullWO.style),
         name: fullWO.style.styleName,
       });
     }
@@ -199,7 +199,7 @@ export default function GarmentPhysicalTestForm() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput
                   placeholder="Search by work order number..."
                   value={workOrderSearch}
@@ -245,9 +245,9 @@ export default function GarmentPhysicalTestForm() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput
-                  placeholder="Search by style code or name..."
+                  placeholder="Search by buyer style code, style code or name..."
                   value={styleSearch}
                   onValueChange={setStyleSearch}
                 />
@@ -299,7 +299,7 @@ export default function GarmentPhysicalTestForm() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput placeholder="Search labs..." value={labSearch} onValueChange={setLabSearch} />
                 <CommandList>
                   <CommandEmpty>{labsLoading ? 'Searching...' : 'No labs found.'}</CommandEmpty>
@@ -393,7 +393,7 @@ export default function GarmentPhysicalTestForm() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[400px] p-0" align="start">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput
                   placeholder="Search customers..."
                   value={customerSearch}

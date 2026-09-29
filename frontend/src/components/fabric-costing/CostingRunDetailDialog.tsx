@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate, formatDateTime } from '@/lib/date';
 import { formatQuantity } from '@/lib/formatters';
+import { styleCodeLabel } from '@/lib/style-code';
 import { getRunById, type CostingRun, type CostingRunFabric } from '../../services/fabricCostingRun.service';
 import { PRINTING_TYPE_LABELS, type PrintingTypeV2 } from '../../types/processorRateCardV2.types';
 
@@ -250,7 +251,7 @@ export function CostingRunDetailDialog({ runId, onClose }: CostingRunDetailDialo
           </DialogTitle>
           <DialogDescription>
             {run?.style
-              ? `${run.style.styleCode}${run.style.styleName ? ` · ${run.style.styleName}` : ''} — how each fabric was costed when this run was saved`
+              ? `${styleCodeLabel(run.style)}${run.style.styleName ? ` · ${run.style.styleName}` : ''} — how each fabric was costed when this run was saved`
               : 'How each fabric was costed when this run was saved'}
           </DialogDescription>
         </DialogHeader>

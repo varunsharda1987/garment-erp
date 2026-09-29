@@ -57,6 +57,8 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
 import { toDateInputValue } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 interface CatalogueStyle {
   id: string;
@@ -377,8 +379,12 @@ export default function CatalogueGenerator() {
       return;
     }
 
-    // Find matching styles by styleCode (case-insensitive)
-    const matchingStyles = styles.filter((s) => codes.some((code) => s.styleCode.toLowerCase() === code.toLowerCase()));
+    // Find matching styles by either code — the buyer style code or ours (case-insensitive)
+    const wanted = new Set(codes.map((code) => code.toLowerCase()));
+    const matchingStyles = styles.filter(
+      (s) =>
+        wanted.has(s.styleCode.toLowerCase()) || (!!s.buyerStyleRef && wanted.has(s.buyerStyleRef.trim().toLowerCase()))
+    );
 
     if (matchingStyles.length === 0) {
       setBulkParseError(`No styles found matching: ${codes.slice(0, 5).join(', ')}${codes.length > 5 ? '...' : ''}`);
@@ -685,7 +691,9 @@ export default function CatalogueGenerator() {
                     setBulkStyleCodes(e.target.value);
                     setBulkParseError(null);
                   }}
-                  placeholder={'Paste style codes separated by comma or newline:\nKF-001, KF-002\nKF-003'}
+                  placeholder={
+                    'Paste buyer style codes or style codes, separated by comma or newline:\nSP27DR27, KF-002\nKF-003'
+                  }
                   className="h-24 font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">Separate codes with commas, newlines, or tabs</p>
@@ -727,7 +735,7 @@ export default function CatalogueGenerator() {
                   id="search"
                   value={searchTerm}
                   onChange={setSearchTerm}
-                  placeholder="Search style code, buyer's code, name, category, season…"
+                  placeholder="Search buyer style code, style code, name, category, season…"
                 />
               </div>
 
@@ -912,8 +920,8 @@ export default function CatalogueGenerator() {
                             />
                           </TableHead>
                           <TableHead className="w-16">Image</TableHead>
-                          <TableHead>Style Code</TableHead>
-                          <TableHead>Buyer Ref</TableHead>
+                          <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                          <TableHead>{STYLE_CODE_LABEL}</TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Season</TableHead>
@@ -951,8 +959,10 @@ export default function CatalogueGenerator() {
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell className="font-medium">{style.styleCode}</TableCell>
-                            <TableCell>{style.buyerStyleRef || '—'}</TableCell>
+                            <TableCell>
+                              <StyleIdentity style={style} layout="stacked" showStyleCode={false} />
+                            </TableCell>
+                            <TableCell className="text-sm">{ourStyleCode(style)}</TableCell>
                             <TableCell>{style.styleName || '-'}</TableCell>
                             <TableCell>
                               {style.productCategory?.name || style.brandCategories?.category || '-'}

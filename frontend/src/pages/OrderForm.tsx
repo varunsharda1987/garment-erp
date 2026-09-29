@@ -2011,6 +2011,7 @@ export default function OrderForm() {
         onClose={() => setCostSheetDialogOpen(false)}
         costSheets={costSheets}
         selectedStyleCode={selectedStyle?.styleCode}
+        selectedBuyerStyleRef={selectedStyle?.buyerStyleRef}
         selectedStyleName={selectedStyle?.styleName}
         onSelectCostSheet={handleSelectCostSheet}
         loadingCostSheets={loadingCostSheets}

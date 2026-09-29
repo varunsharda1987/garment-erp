@@ -7,6 +7,7 @@ import type { OrderStatusItem } from '@/types/orderProductionStatus.types';
 import type { ProductionStage } from '@/types/style.types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 interface ProductionKanbanProps {
   items: OrderStatusItem[];
@@ -129,7 +130,9 @@ function KanbanCard({ item, onClick }: { item: OrderStatusItem; onClick?: () => 
 
       {/* Style Info */}
       <div className="mb-2">
-        <p className="font-medium text-sm truncate">{item.styleCode}</p>
+        <p className="text-sm truncate">
+          <StyleIdentity style={item} />
+        </p>
         {item.brandName && <span className="text-xs text-muted-foreground">{item.brandName}</span>}
       </div>
 

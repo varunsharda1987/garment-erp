@@ -26,6 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { styleCodeLabel } from '@/lib/style-code';
 import type { CadCostingDependents, CostingInUseErrorDetails } from '../../types/fabricCosting.types';
 
 /**
@@ -88,7 +89,9 @@ export default function UnapproveImpactDialog({
                   {dependents.costSheets.map((sheet) => (
                     <li key={sheet.costSheetId} className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs">{sheet.costSheetId}</span>
-                      {sheet.styleCode && <span className="text-muted-foreground">{sheet.styleCode}</span>}
+                      {(sheet.styleCode || sheet.buyerStyleRef) && (
+                        <span className="text-muted-foreground">{styleCodeLabel(sheet)}</span>
+                      )}
                       <Badge variant="outline">v{sheet.version}</Badge>
                       <Badge variant={sheetStatusVariant(sheet.costSheetApprovalStatus)}>
                         {sheet.costSheetApprovalStatus}

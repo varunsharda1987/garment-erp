@@ -15,6 +15,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AlertOctagon, AlertTriangle, ArrowRight, CheckCircle, Factory, Info } from 'lucide-react';
 import { resolveBlockerRoute } from '@/lib/blocker-routes';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 import type { PipelineBlocker, PipelineOrder, PipelineResponse } from '@/services/manufacturingAlerts.service';
 
 interface PipelineSectionProps {
@@ -131,7 +133,8 @@ export function PipelineSection({ data, isLoading, error, onRetry }: PipelineSec
           <TableHeader>
             <TableRow>
               <TableHead>Order</TableHead>
-              <TableHead>Style</TableHead>
+              <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+              <TableHead>{STYLE_CODE_LABEL}</TableHead>
               <TableHead className="text-right">Qty</TableHead>
               <TableHead>Delivery</TableHead>
               <TableHead>Blocked by</TableHead>
@@ -156,9 +159,9 @@ export function PipelineSection({ data, isLoading, error, onRetry }: PipelineSec
                     {order.customerName && <div className="text-xs text-muted-foreground">{order.customerName}</div>}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{order.styleCode}</div>
-                    {order.styleName && <div className="text-xs text-muted-foreground">{order.styleName}</div>}
+                    <StyleIdentity style={order} name={order.styleName} layout="stacked" showStyleCode={false} />
                   </TableCell>
+                  <TableCell className="text-sm">{ourStyleCode(order)}</TableCell>
                   <TableCell className="text-right tabular-nums">{order.quantity.toLocaleString('en-IN')}</TableCell>
                   <TableCell>
                     <DeliveryCell order={order} />

@@ -352,7 +352,7 @@ export default function InvoiceList() {
                 setSearchQuery(value);
                 setCurrentPage(1);
               }}
-              placeholder="Search invoice number, customer, order, sale order, style, buyer style…"
+              placeholder="Search invoice number, customer, order, sale order, style, buyer style code…"
               className="min-w-[220px] flex-1 max-w-md"
               aria-label="Search invoices"
             />

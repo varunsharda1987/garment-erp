@@ -36,7 +36,8 @@ import type { LabDip, CreateProcessPORequest, ProcessPO } from '@/types/printing
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 type CreateMode = 'lab-dip' | 'style-based';
 
@@ -566,11 +567,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   >
                     {selectedLabDip ? (
                       <span className="truncate">
-                        {selectedLabDip.labDipNumber} -{' '}
-                        {formatStyleCodeWithRef(
-                          selectedLabDip.style?.styleCode || '',
-                          selectedLabDip.style?.buyerStyleRef
-                        )}
+                        {selectedLabDip.labDipNumber} - {styleCodeLabel(selectedLabDip.style, null, '')}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Select approved lab dip...</span>
@@ -609,8 +606,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                             <div className="flex flex-col">
                               <span className="font-medium">{ld.labDipNumber}</span>
                               <span className="text-sm text-muted-foreground">
-                                {formatStyleCodeWithRef(ld.style?.styleCode || '', ld.style?.buyerStyleRef)} -{' '}
-                                {ld.style?.styleName} | {ld.processor?.name}
+                                {styleCodeLabel(ld.style, null, '')} - {ld.style?.styleName} | {ld.processor?.name}
                               </span>
                             </div>
                           </CommandItem>
@@ -626,11 +622,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
                     <p className="text-xs text-muted-foreground">Style</p>
-                    <p className="text-sm font-medium">
-                      {formatStyleCodeWithRef(
-                        selectedLabDip.style?.styleCode || '',
-                        selectedLabDip.style?.buyerStyleRef
-                      )}
+                    <p className="text-sm">
+                      <StyleIdentity style={selectedLabDip.style} />
                     </p>
                   </div>
                   <div>
@@ -679,8 +672,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   >
                     {selectedStyle ? (
                       <span className="truncate">
-                        {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)} -{' '}
-                        {selectedStyle.styleName}
+                        {styleCodeLabel(selectedStyle)} - {selectedStyle.styleName}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Select style...</span>
@@ -718,9 +710,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                               )}
                             />
                             <div className="flex flex-col">
-                              <span className="font-medium">
-                                {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}
-                              </span>
+                              <StyleIdentity style={style} />
                               <span className="text-sm text-muted-foreground">{style.styleName}</span>
                             </div>
                           </CommandItem>
@@ -977,8 +967,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
               <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-xs text-muted-foreground">Style</p>
-                  <p className="text-sm font-medium">
-                    {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)}
+                  <p className="text-sm">
+                    <StyleIdentity style={selectedStyle} />
                   </p>
                 </div>
                 <div>

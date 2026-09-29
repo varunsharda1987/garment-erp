@@ -20,6 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SampleActionMenu } from '@/components/samples/SampleActionMenu';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 type GroupByMode = 'none' | 'type' | 'customer' | 'overdue';
 
@@ -266,23 +268,25 @@ export default function SampleList() {
   // Define columns for DataTable
   const columns: Column<Sample>[] = [
     {
-      key: 'style',
-      header: 'Style',
-      render: (item) => (
-        <div>
-          {item.style ? (
-            <>
-              <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
-              {item.style.buyerStyleRef && (
-                <div className="text-xs text-muted-foreground line-clamp-1">({item.style.buyerStyleRef})</div>
-              )}
-              <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
-            </>
-          ) : (
-            <span className="text-muted-foreground">No style</span>
-          )}
-        </div>
-      ),
+      key: 'buyerStyleCode',
+      header: BUYER_STYLE_CODE_LABEL,
+      render: (item) =>
+        item.style ? (
+          <StyleIdentity
+            style={item.style}
+            name={item.style.styleName}
+            layout="stacked"
+            showStyleCode={false}
+            codeClassName="text-sm text-foreground"
+          />
+        ) : (
+          <span className="text-muted-foreground">No style</span>
+        ),
+    },
+    {
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (item) => <span className="text-sm">{ourStyleCode(item.style)}</span>,
     },
     {
       key: 'sampleNumber',
@@ -484,7 +488,7 @@ export default function SampleList() {
           >
             <SearchInput
               className="flex-1 min-w-[240px]"
-              placeholder="Search sample number, style, buyer's code, style name, customer…"
+              placeholder="Search sample number, buyer style code, style, style name, customer…"
               value={searchQuery}
               onChange={changeFilter(setSearchQuery)}
               // The API refuses a longer search (sampleQuerySchema: max 100)

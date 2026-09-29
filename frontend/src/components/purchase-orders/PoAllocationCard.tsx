@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { queryKeys } from '@/lib/query-client';
 import { formatDate } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
 import { qtyExceeds } from '@/lib/quantity';
 import { groupLabelLines, sumRows } from '@/lib/label-lines';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -256,8 +257,9 @@ export function PoAllocationCard({ allocation, canUndo, onChanged }: PoAllocatio
                   {allocationQty(undoing.link.allocatedQty, undoing.link.unit)} of {allocationLineName(undoing.line)} on{' '}
                   {po.poNumber} will no longer be for{' '}
                   <strong>{undoing.link.orderNumber ?? undoing.link.requirementNumber}</strong>
-                  {undoing.link.styleCode ? ` (${undoing.link.styleCode})` : ''}. {undoing.link.requirementNumber} goes
-                  back to needing a purchase order, and the quantity is free on this line again.
+                  {undoing.link.styleCode ? `, style ${styleCodeLabel(undoing.link)}` : ''}.{' '}
+                  {undoing.link.requirementNumber} goes back to needing a purchase order, and the quantity is free on
+                  this line again.
                 </>
               )}
             </AlertDialogDescription>
@@ -362,7 +364,7 @@ function LinkTable({
                   </div>
                 ))}
               </TableCell>
-              <TableCell className="text-sm">{link.styleCode ?? '—'}</TableCell>
+              <TableCell className="text-sm">{styleCodeLabel(link)}</TableCell>
               <TableCell className="text-sm whitespace-nowrap">
                 {formatDate(link.deliveryDate ?? link.requiredDate)}
               </TableCell>

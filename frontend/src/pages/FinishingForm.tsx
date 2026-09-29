@@ -14,7 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { finishingIssueService, finishingSummaryService } from '@/services/finishing.service';
 import { handleApiSuccess } from '@/lib/api-error-handler';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode, styleCodeIfDifferent, styleCodeLabel } from '@/lib/style-code';
 import type { CreateFinishingIssueRequest, FinishingIncomingTransferSlip } from '@/types/finishing.types';
 import { formatDate, toDateInputValue } from '@/lib/date';
 
@@ -273,8 +273,7 @@ export default function FinishingForm() {
                     ) : (
                       visibleTransferSlips.map((slip) => (
                         <SelectItem key={slip.id} value={slip.id}>
-                          {slip.slipNumber} - {slip.workOrderNumber} (
-                          {formatStyleCodeWithRef(slip.styleCode || slip.styleName, slip.buyerStyleRef)}) -{' '}
+                          {slip.slipNumber} - {slip.workOrderNumber} - {styleCodeLabel(slip, null, slip.styleName)} -{' '}
                           {slip.totalGoodPieces} pcs
                         </SelectItem>
                       ))
@@ -300,11 +299,11 @@ export default function FinishingForm() {
                     <div>
                       <span className="text-muted-foreground">Style:</span>
                       <div className="font-medium">
-                        {selectedTransferSlip.styleCode || selectedTransferSlip.styleName}
+                        {buyerStyleCode(selectedTransferSlip, null, selectedTransferSlip.styleName)}
                       </div>
-                      {selectedTransferSlip.buyerStyleRef && (
+                      {styleCodeIfDifferent(selectedTransferSlip) && (
                         <div className="text-xs text-muted-foreground">
-                          Buyer Ref: {selectedTransferSlip.buyerStyleRef}
+                          {STYLE_CODE_LABEL}: {ourStyleCode(selectedTransferSlip)}
                         </div>
                       )}
                     </div>

@@ -6,6 +6,7 @@ import { AlertCircle, Package, ChevronRight } from 'lucide-react';
 import type { OrderStatusItem } from '@/types/orderProductionStatus.types';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 interface CompactOrderRowProps {
   item: OrderStatusItem;
@@ -101,7 +102,7 @@ export default function CompactOrderRow({ item, onExpand }: CompactOrderRowProps
       {/* Style */}
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm truncate">{item.styleCode}</span>
+          <StyleIdentity style={item} className="text-sm truncate" />
           {item.brandName && (
             <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate">
               {item.brandName}

@@ -50,6 +50,7 @@ import {
 } from '../services/costSheet.service';
 import type { CostSheet } from '../types/costSheet.types';
 import { formatDate } from '@/lib/date';
+import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '@/lib/style-code';
 
 const APPROVAL_FILTER_OPTIONS = [
   { value: 'all', label: 'All statuses' },
@@ -100,7 +101,8 @@ const CostSheetList = () => {
   const [creatingVersion, setCreatingVersion] = useState(false);
   const [costSheetToModify, setCostSheetToModify] = useState<{
     id: string;
-    styleCode: string;
+    /** Names the style in dialogs and toasts — Buyer Style Code first (styleCodeLabel) */
+    label: string;
     action: 'delete' | 'approve' | 'revoke' | 'reject' | 'create-version';
     version?: number;
   } | null>(null);
@@ -131,29 +133,32 @@ const CostSheetList = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, search, approvedFilter, purposeFilter]);
 
-  const handleDeleteClick = (id: string, styleCode: string) => {
-    setCostSheetToModify({ id, styleCode, action: 'delete' });
+  // A cost sheet's style on one line for dialogs and toasts: 'SP27DR27 (EBWW-021)'
+  const sheetLabel = (sheet: CostSheet) => styleCodeLabel(sheet.style, undefined, 'this cost sheet');
+
+  const handleDeleteClick = (id: string, label: string) => {
+    setCostSheetToModify({ id, label, action: 'delete' });
     setDeleteDialogOpen(true);
   };
 
-  const handleApproveClick = (id: string, styleCode: string) => {
-    setCostSheetToModify({ id, styleCode, action: 'approve' });
+  const handleApproveClick = (id: string, label: string) => {
+    setCostSheetToModify({ id, label, action: 'approve' });
     setApproveDialogOpen(true);
   };
 
-  const handleRevokeClick = (id: string, styleCode: string) => {
-    setCostSheetToModify({ id, styleCode, action: 'revoke' });
+  const handleRevokeClick = (id: string, label: string) => {
+    setCostSheetToModify({ id, label, action: 'revoke' });
     setRevokeDialogOpen(true);
   };
 
-  const handleRejectClick = (id: string, styleCode: string) => {
-    setCostSheetToModify({ id, styleCode, action: 'reject' });
+  const handleRejectClick = (id: string, label: string) => {
+    setCostSheetToModify({ id, label, action: 'reject' });
     setRejectionNotes('');
     setRejectDialogOpen(true);
   };
 
-  const handleCreateVersionClick = (id: string, styleCode: string, currentVersion: number) => {
-    setCostSheetToModify({ id, styleCode, action: 'create-version', version: currentVersion });
+  const handleCreateVersionClick = (id: string, label: string, currentVersion: number) => {
+    setCostSheetToModify({ id, label, action: 'create-version', version: currentVersion });
     setCreateVersionDialogOpen(true);
   };
 
@@ -167,7 +172,7 @@ const CostSheetList = () => {
       });
       handleApiSuccess(
         'New version created',
-        `Version ${newVersion.version} created for ${costSheetToModify.styleCode}. You can now edit it.`
+        `Version ${newVersion.version} created for ${costSheetToModify.label}. You can now edit it.`
       );
       setCreateVersionDialogOpen(false);
       // Navigate to edit the new version
@@ -185,7 +190,7 @@ const CostSheetList = () => {
 
     try {
       await deleteCostSheet(costSheetToModify.id);
-      handleApiSuccess('Cost sheet deleted', `Cost sheet for ${costSheetToModify.styleCode} has been deleted.`);
+      handleApiSuccess('Cost sheet deleted', `Cost sheet for ${costSheetToModify.label} has been deleted.`);
       fetchCostSheets();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to delete cost sheet');
@@ -199,7 +204,7 @@ const CostSheetList = () => {
 
     try {
       await approveCostSheet(costSheetToModify.id, true);
-      handleApiSuccess('Cost sheet approved', `Cost sheet for ${costSheetToModify.styleCode} has been approved.`);
+      handleApiSuccess('Cost sheet approved', `Cost sheet for ${costSheetToModify.label} has been approved.`);
       fetchCostSheets();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to approve cost sheet');
@@ -213,7 +218,7 @@ const CostSheetList = () => {
 
     try {
       await approveCostSheet(costSheetToModify.id, false);
-      handleApiSuccess('Approval revoked', `Approval for ${costSheetToModify.styleCode} has been revoked.`);
+      handleApiSuccess('Approval revoked', `Approval for ${costSheetToModify.label} has been revoked.`);
       fetchCostSheets();
     } catch (err: unknown) {
       handleApiError(err, 'Failed to revoke approval');
@@ -233,7 +238,7 @@ const CostSheetList = () => {
     try {
       setRejecting(true);
       await rejectCostSheet(costSheetToModify.id, rejectionNotes.trim());
-      handleApiSuccess('Cost sheet rejected', `Cost sheet for ${costSheetToModify.styleCode} has been rejected.`);
+      handleApiSuccess('Cost sheet rejected', `Cost sheet for ${costSheetToModify.label} has been rejected.`);
       setRejectDialogOpen(false);
       fetchCostSheets();
     } catch (err: unknown) {
@@ -266,7 +271,7 @@ const CostSheetList = () => {
               <Label htmlFor="search">Search</Label>
               <SearchInput
                 id="search"
-                placeholder="Search style code, buyer ref, name, order number…"
+                placeholder="Search buyer style code, style code, name, order number…"
                 value={search}
                 onChange={(value) => {
                   setSearch(value);
@@ -351,7 +356,7 @@ const CostSheetList = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold">{sheet.style?.styleCode || 'N/A'}</h3>
+                        <h3 className="text-xl font-semibold">{buyerStyleCode(sheet.style, undefined, 'N/A')}</h3>
                         <Badge variant="outline" className="text-xs font-medium">
                           <GitBranch className="w-3 h-3 mr-1" />v{sheet.version || 1}
                         </Badge>
@@ -427,10 +432,12 @@ const CostSheetList = () => {
                       )}
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Buyer Ref:</span>
-                          <p className="font-semibold">{sheet.style?.buyerStyleRef || '—'}</p>
-                        </div>
+                        {styleCodeIfDifferent(sheet.style) && (
+                          <div>
+                            <span className="text-muted-foreground">Style Code:</span>
+                            <p className="font-semibold">{styleCodeIfDifferent(sheet.style)}</p>
+                          </div>
+                        )}
                         <div>
                           <span className="text-muted-foreground">Material Cost:</span>
                           <p className="font-semibold">₹{sheet.totalMaterialCost.toFixed(2)}</p>
@@ -553,7 +560,7 @@ const CostSheetList = () => {
                               variant="outline"
                               size="sm"
                               className="bg-success-muted hover:bg-success-muted text-success flex items-center gap-2"
-                              onClick={() => handleApproveClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                              onClick={() => handleApproveClick(sheet.id, sheetLabel(sheet))}
                             >
                               <CheckCircle className="h-4 w-4" />
                               Approve
@@ -562,7 +569,7 @@ const CostSheetList = () => {
                               variant="outline"
                               size="sm"
                               className="text-primary hover:bg-primary/10 flex items-center gap-2"
-                              onClick={() => handleRejectClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                              onClick={() => handleRejectClick(sheet.id, sheetLabel(sheet))}
                             >
                               <XCircle className="h-4 w-4" />
                               Reject
@@ -571,7 +578,7 @@ const CostSheetList = () => {
                               variant="outline"
                               size="sm"
                               className="text-destructive hover:bg-destructive/10 flex items-center gap-2"
-                              onClick={() => handleDeleteClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                              onClick={() => handleDeleteClick(sheet.id, sheetLabel(sheet))}
                             >
                               <Trash2 className="h-4 w-4" />
                               Delete
@@ -585,13 +592,7 @@ const CostSheetList = () => {
                             variant="outline"
                             size="sm"
                             className="text-info hover:bg-info-muted flex items-center gap-2"
-                            onClick={() =>
-                              handleCreateVersionClick(
-                                sheet.id,
-                                sheet.style?.styleCode || 'this cost sheet',
-                                sheet.version || 1
-                              )
-                            }
+                            onClick={() => handleCreateVersionClick(sheet.id, sheetLabel(sheet), sheet.version || 1)}
                           >
                             <Copy className="h-4 w-4" />
                             New Version
@@ -600,7 +601,7 @@ const CostSheetList = () => {
                             variant="outline"
                             size="sm"
                             className="text-primary hover:bg-primary/10 flex items-center gap-2"
-                            onClick={() => handleRevokeClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                            onClick={() => handleRevokeClick(sheet.id, sheetLabel(sheet))}
                           >
                             <RefreshCw className="h-4 w-4" />
                             Revoke
@@ -624,7 +625,7 @@ const CostSheetList = () => {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Cost Sheet"
-        description={`Are you sure you want to delete the cost sheet for "${costSheetToModify?.styleCode}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete the cost sheet for "${costSheetToModify?.label}"? This action cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={confirmDelete}
@@ -636,7 +637,7 @@ const CostSheetList = () => {
         open={approveDialogOpen}
         onOpenChange={setApproveDialogOpen}
         title="Approve Cost Sheet"
-        description={`Are you sure you want to approve the cost sheet for "${costSheetToModify?.styleCode}"? Once approved, it cannot be edited.`}
+        description={`Are you sure you want to approve the cost sheet for "${costSheetToModify?.label}"? Once approved, it cannot be edited.`}
         confirmText="Approve"
         cancelText="Cancel"
         onConfirm={confirmApprove}
@@ -648,7 +649,7 @@ const CostSheetList = () => {
         open={revokeDialogOpen}
         onOpenChange={setRevokeDialogOpen}
         title="Revoke Approval"
-        description={`Are you sure you want to revoke approval for "${costSheetToModify?.styleCode}"? This will allow the cost sheet to be edited again.`}
+        description={`Are you sure you want to revoke approval for "${costSheetToModify?.label}"? This will allow the cost sheet to be edited again.`}
         confirmText="Revoke"
         cancelText="Cancel"
         onConfirm={confirmRevoke}
@@ -660,7 +661,7 @@ const CostSheetList = () => {
         open={createVersionDialogOpen}
         onOpenChange={setCreateVersionDialogOpen}
         title="Create New Version"
-        description={`Create a new version of the cost sheet for "${costSheetToModify?.styleCode}"? This will copy Version ${costSheetToModify?.version || 1} to a new editable draft.`}
+        description={`Create a new version of the cost sheet for "${costSheetToModify?.label}"? This will copy Version ${costSheetToModify?.version || 1} to a new editable draft.`}
         confirmText={creatingVersion ? 'Creating...' : 'Create Version'}
         cancelText="Cancel"
         onConfirm={confirmCreateVersion}
@@ -676,8 +677,7 @@ const CostSheetList = () => {
               Reject Cost Sheet
             </DialogTitle>
             <DialogDescription>
-              Reject the cost sheet for &quot;{costSheetToModify?.styleCode}&quot;? Please provide a reason for
-              rejection.
+              Reject the cost sheet for &quot;{costSheetToModify?.label}&quot;? Please provide a reason for rejection.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

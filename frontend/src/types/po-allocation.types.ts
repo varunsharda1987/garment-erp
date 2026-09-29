@@ -53,6 +53,8 @@ export interface PoAllocationLink {
   orderStatus: string | null;
   customerName: string | null;
   styleCode: string | null;
+  /** The style's Buyer Style Code — show the pair with styleCodeLabel (@/lib/style-code) */
+  buyerStyleRef?: string | null;
   /** The order's expected delivery date */
   deliveryDate: string | null;
   requiredDate: string | null;
@@ -87,6 +89,8 @@ export interface PoAllocationCandidate {
   orderStatus: string | null;
   customerName: string | null;
   styleCode: string | null;
+  /** The style's Buyer Style Code — show the pair with styleCodeLabel (@/lib/style-code) */
+  buyerStyleRef?: string | null;
   deliveryDate: string | null;
   requiredDate: string | null;
   unit: string;

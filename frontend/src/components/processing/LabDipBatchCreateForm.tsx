@@ -21,7 +21,8 @@ import type { SupplierCategory } from '@/types/supplier.types';
 import type { PrintMethod, PrintChemistry } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { toDateInputValue } from '@/lib/date';
 
 // Print method and chemistry options
@@ -236,8 +237,7 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
                   >
                     {selectedStyle ? (
                       <span>
-                        {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)} -{' '}
-                        {selectedStyle.styleName}
+                        {styleCodeLabel(selectedStyle)} - {selectedStyle.styleName}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Search styles...</span>
@@ -272,9 +272,7 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
                               )}
                             />
                             <div className="flex flex-col">
-                              <span className="font-medium">
-                                {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}
-                              </span>
+                              <StyleIdentity style={style} />
                               <span className="text-sm text-muted-foreground">{style.styleName}</span>
                             </div>
                           </CommandItem>

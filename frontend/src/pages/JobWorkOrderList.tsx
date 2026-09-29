@@ -48,6 +48,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import type { JobWorkOrder, JobWorkOrderQueryParams, JobWorkOrderStatus } from '@/types/jobWorkOrder.types';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 const PROCESS_TYPES = [
   { value: 'DYEING', label: 'Dyeing' },
@@ -267,7 +268,7 @@ export default function JobWorkOrderList() {
           >
             <SearchInput
               className="min-w-[220px] max-w-md flex-1"
-              placeholder="Search JWO number, challan, processor, style, buyer style, fabric…"
+              placeholder="Search JWO number, challan, processor, buyer style code, style code, fabric…"
               value={search}
               onChange={(value) => {
                 setSearch(value);
@@ -404,10 +405,7 @@ export default function JobWorkOrderList() {
                         </TableCell>
                         <TableCell>{jwo.processor?.name || '-'}</TableCell>
                         <TableCell>
-                          {jwo.style?.styleCode || '-'}
-                          {jwo.style?.buyerStyleRef && (
-                            <span className="text-xs text-muted-foreground ml-1">({jwo.style.buyerStyleRef})</span>
-                          )}
+                          <StyleIdentity style={jwo.style} fallback="-" />
                         </TableCell>
                         <TableCell className="text-right">
                           {jwo.qtySentMeters.toFixed(2)} {unitShort(jwo.uom)}

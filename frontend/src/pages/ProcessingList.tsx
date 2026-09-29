@@ -56,6 +56,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 type Column<T> = {
   key: string;
@@ -349,18 +351,22 @@ export default function ProcessingList() {
     },
     {
       key: 'style',
-      header: 'Style',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (item) => (
-        <div>
-          <div className="font-medium text-foreground">{item.style?.styleCode || '-'}</div>
-          <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
-        </div>
+        <StyleIdentity
+          style={item.style}
+          name={item.style?.styleName}
+          layout="stacked"
+          showStyleCode={false}
+          fallback="-"
+          codeClassName="text-foreground"
+        />
       ),
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (item) => <span className="text-sm">{item.style?.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (item) => <span className="text-sm">{ourStyleCode(item.style)}</span>,
     },
     {
       key: 'fabric',
@@ -477,21 +483,25 @@ export default function ProcessingList() {
     },
     {
       key: 'style',
-      header: 'Style',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (item) => {
-        const jwo = item.jobWorkOrder;
+        const style = item.jobWorkOrder?.style;
         return (
-          <div>
-            <div className="font-medium text-foreground">{jwo?.style?.styleCode || '-'}</div>
-            <div className="text-xs text-muted-foreground">{jwo?.style?.styleName}</div>
-          </div>
+          <StyleIdentity
+            style={style}
+            name={style?.styleName}
+            layout="stacked"
+            showStyleCode={false}
+            fallback="-"
+            codeClassName="text-foreground"
+          />
         );
       },
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (item) => <span className="text-sm">{item.jobWorkOrder?.style?.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (item) => <span className="text-sm">{ourStyleCode(item.jobWorkOrder?.style)}</span>,
     },
     {
       key: 'processor',
@@ -802,7 +812,7 @@ export default function ProcessingList() {
               <FilterBar onClear={clearFilters} hasActiveFilters={activeFilterCount > 0} clearText={clearText}>
                 <SearchInput
                   className="w-80"
-                  placeholder="Search lab dip, style, buyer ref, fabric, colour, design, processor…"
+                  placeholder="Search lab dip, buyer style code, style code, fabric, colour, design, processor…"
                   value={searchQuery}
                   onChange={handleSearchChange}
                 />
@@ -898,7 +908,7 @@ export default function ProcessingList() {
               <FilterBar onClear={clearFilters} hasActiveFilters={activeFilterCount > 0} clearText={clearText}>
                 <SearchInput
                   className="w-80"
-                  placeholder="Search order number, style, buyer ref, processor, fabric…"
+                  placeholder="Search order number, buyer style code, style code, processor, fabric…"
                   value={searchQuery}
                   onChange={handleSearchChange}
                 />

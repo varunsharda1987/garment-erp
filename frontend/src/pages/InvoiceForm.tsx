@@ -13,7 +13,7 @@ import { createInvoice, getInvoiceById, updateInvoice } from '@/services/invoice
 import type { InvoiceItemInput } from '@/types/invoice.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { formatStyleCodeWithRef } from '@/lib/style-code';
 import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
 import { toDateInputValue } from '@/lib/date';
 
@@ -112,6 +112,7 @@ export default function InvoiceForm() {
           const newItems: InvoiceLineItem[] = order.orderItems.map((oi) => ({
             _key: nextKey(),
             styleId: oi.styleId,
+            // allow-style-code: invoice description is the Tally stock-item name — keep its shape
             description: oi.style
               ? `${formatStyleCodeWithRef(oi.style.styleCode, oi.style.buyerStyleRef)} - ${oi.style.styleName}`
               : oi.itemDescription || 'Item',

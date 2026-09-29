@@ -407,6 +407,8 @@ export interface DispatchableOrder {
   jobWorkNumber: string;
   processType: string;
   styleCode: string | null;
+  /** The style's Buyer Style Code (null when none) — shown first, see `@/lib/style-code`. */
+  buyerStyleRef?: string | null;
   requiredQty: number;
   uom: string;
   fabricType: string | null;

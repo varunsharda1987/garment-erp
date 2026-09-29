@@ -61,6 +61,12 @@ interface StyleWithOptions extends Style {
  */
 export interface SOItemDraft extends SOItemInput {
   styleCode?: string;
+  /**
+   * DISPLAY ONLY — the style's CURRENT buyer style code, shown when the line has no snapshot of its
+   * own (`buyerStyleRef`, an older line). Never sent: `buyerStyleRef` is the payload that stamps the
+   * line, and a fallback put there would re-stamp old lines with today's code.
+   */
+  styleBuyerStyleRef?: string | null;
   styleName?: string;
   colorName?: string;
   sizeName?: string;
@@ -279,6 +285,7 @@ export function SaleOrderItemDialog({
       unitPrice: price,
       buyerStyleRef: buyerStyleRef.trim() || null,
       styleCode: style?.styleCode,
+      styleBuyerStyleRef: style?.buyerStyleRef ?? null,
       styleName: style?.styleName,
       colorName: colorOptions.find((c) => c.id === colorId)?.colorName,
       sizeName: sizeOptions.find((s) => s.id === sizeId)?.sizeName,
@@ -306,6 +313,7 @@ export function SaleOrderItemDialog({
       unitPrice: price,
       buyerStyleRef: buyerStyleRef.trim() || null,
       styleCode: style?.styleCode,
+      styleBuyerStyleRef: style?.buyerStyleRef ?? null,
       styleName: style?.styleName,
       colorName: entry.colorName,
       sizeName: entry.sizeName,
@@ -349,13 +357,17 @@ export function SaleOrderItemDialog({
                 Style <span className="text-destructive">*</span>
               </Label>
               {/* Published styles only — a draft has to be published in Styles before it can be sold */}
-              <StyleCombobox value={styleId} onChange={handleStyleChange} placeholder="Search by style code..." />
+              <StyleCombobox
+                value={styleId}
+                onChange={handleStyleChange}
+                placeholder="Search by buyer style code or style code..."
+              />
               {isLoadingStyle && <p className="text-xs text-muted-foreground">Loading style options...</p>}
             </div>
 
             {/* Buyer's own style code, recorded against this line */}
             <div className="space-y-2">
-              <Label>Buyer Style Ref</Label>
+              <Label>Buyer Style Code</Label>
               <Input
                 value={buyerStyleRef}
                 onChange={(e) => setBuyerStyleRef(e.target.value)}

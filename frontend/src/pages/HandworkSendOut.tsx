@@ -23,7 +23,7 @@ import api from '../lib/api';
 import type { AxiosError } from 'axios';
 import type { CreateExternalProcessSendOutRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 import { toDateInputValue } from '@/lib/date';
 
 // BUG-MFG22 fix: API response types to replace `any` in map callbacks
@@ -114,7 +114,9 @@ export default function HandworkSendOut() {
   // The PENDING / IN_PRODUCTION runs this page loads (all of them — the endpoint is not paged), searchable
   const workOrderOptions: ComboboxOption[] = workOrders.map((wo) => ({
     value: wo.id,
-    label: `${wo.workOrderNumber} — ${formatStyleCodeWithRef(wo.styleCode || '', wo.buyerStyleRef)} ${wo.styleName} (${wo.totalQuantity} pcs)`,
+    label: `${wo.workOrderNumber} — ${[styleCodeLabel(wo, null, ''), wo.styleName].filter(Boolean).join(' - ')} (${wo.totalQuantity} pcs)`,
+    // The label names the style by its Buyer Style Code; typing our Style Code must still find the run
+    searchText: [wo.workOrderNumber, wo.buyerStyleRef, wo.styleCode, wo.styleName].filter(Boolean).join(' '),
   }));
 
   // Load work orders
@@ -308,7 +310,7 @@ export default function HandworkSendOut() {
               setSkuQtys({});
             }}
             placeholder="Select work order..."
-            searchPlaceholder="Search by run number, style, buyer ref..."
+            searchPlaceholder="Search by run number, buyer style code, style code, style name..."
             emptyText="No work orders found."
           />
         </CardContent>

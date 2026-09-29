@@ -38,6 +38,7 @@ import { searchSeasons } from '@/services/season.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode } from '@/lib/style-code';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -59,16 +60,16 @@ const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
-// One entry per distinct style on the order, in line order — the Style and Buyer Style columns
-// both render from this list so a multi-style order's two stacks line up row for row.
-function uniqueStyles(so: SaleOrder): Array<{ code: string; ref?: string | null }> {
-  const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
+// One entry per distinct style on the order, in line order — the Buyer Style Code and Style Code
+// columns both render from this list so a multi-style order's two stacks line up row for row.
+function uniqueStyles(so: SaleOrder): Array<{ code: string; buyer: string }> {
+  const uniqueByCode = new Map<string, { code: string; buyer: string }>();
   for (const item of so.items || []) {
     const code = item.style?.styleCode;
     if (code && !uniqueByCode.has(code)) {
       // The line's captured buyer code first — the style master's copy shows today's value
       // even on an order placed under an older one.
-      uniqueByCode.set(code, { code, ref: item.buyerStyleRef ?? item.style?.buyerStyleRef });
+      uniqueByCode.set(code, { code, buyer: buyerStyleCode(item.style, item.buyerStyleRef) });
     }
   }
   return [...uniqueByCode.values()];
@@ -235,16 +236,16 @@ export default function SaleOrderList() {
       ),
     },
     {
-      key: 'styles',
-      header: 'Style',
+      key: 'buyerStyles',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (so) => {
         const unique = uniqueStyles(so);
         if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
           <div className="flex flex-col items-start gap-1">
-            {unique.map(({ code }) => (
-              <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
-                {code}
+            {unique.map(({ code, buyer }) => (
+              <span key={code} className="text-xs font-medium bg-muted text-foreground px-1.5 py-0.5 rounded">
+                {buyer}
               </span>
             ))}
           </div>
@@ -252,16 +253,16 @@ export default function SaleOrderList() {
       },
     },
     {
-      key: 'buyerStyles',
-      header: 'Buyer Style',
+      key: 'styles',
+      header: STYLE_CODE_LABEL,
       render: (so) => {
         const unique = uniqueStyles(so);
-        if (!unique.some((s) => s.ref)) return <span className="text-xs text-muted-foreground">-</span>;
+        if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
           <div className="flex flex-col items-start gap-1">
-            {unique.map(({ code, ref }) => (
+            {unique.map(({ code }) => (
               <span key={code} className="text-xs text-foreground px-1.5 py-0.5">
-                {ref || '-'}
+                {code}
               </span>
             ))}
           </div>
@@ -401,7 +402,7 @@ export default function SaleOrderList() {
             clearText={`Clear ${activeFilterCount} ${activeFilterCount === 1 ? 'filter' : 'filters'}`}
           >
             <SearchInput
-              placeholder="Search SO number, buyer PO, customer, style, buyer style, season…"
+              placeholder="Search SO number, buyer PO, customer, style, buyer style code, season…"
               value={search}
               onChange={(value) => {
                 setSearch(value);

@@ -455,7 +455,10 @@ export interface CuttingChartData {
   // Header
   buyer: string;
   brand: string;
+  /** Our Style Code (styles.styleCode). */
   style: string;
+  /** The buyer's own style code (styles.buyerStyleRef) — shown first, as the Buyer Style Code. */
+  buyerStyleRef?: string | null;
   styleId: string;
   styleName: string;
   styleImage: string;

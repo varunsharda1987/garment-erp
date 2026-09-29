@@ -14,7 +14,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import workOrderService from '../services/workOrder.service';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { handleApiError } from '../lib/api-error-handler';
 import { toDateInputValue } from '@/lib/date';
 import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
@@ -201,8 +201,7 @@ export default function WorkOrderForm() {
                 <div>
                   <Label className="text-muted-foreground">Style</Label>
                   <div className="font-medium mt-1">
-                    {formatStyleCodeWithRef(workOrder.style?.styleCode || '', workOrder.style?.buyerStyleRef)} -{' '}
-                    {workOrder.style?.styleName}
+                    <StyleIdentity style={workOrder.style} name={workOrder.style?.styleName} />
                   </div>
                 </div>
                 <div>

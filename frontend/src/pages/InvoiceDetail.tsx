@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 export default function InvoiceDetail() {
   const navigate = useNavigate();
@@ -618,10 +619,11 @@ export default function InvoiceDetail() {
                           <div className="font-medium">{item.description}</div>
                           {item.style && (
                             <div className="text-xs text-muted-foreground">
-                              {item.style.styleCode}
-                              {item.style.buyerStyleRef && ` (${item.style.buyerStyleRef})`}
-                              {' - '}
-                              {item.style.styleName}
+                              <StyleIdentity
+                                style={item.style}
+                                lineRef={item.buyerStyleRef}
+                                name={item.style.styleName}
+                              />
                             </div>
                           )}
                         </div>

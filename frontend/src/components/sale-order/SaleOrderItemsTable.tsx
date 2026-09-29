@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { SaleOrderItemDialog, type SOItemDraft } from './SaleOrderItemDialog';
 import { sortSaleOrderLines } from './sale-order-lines';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 export interface DisplayItem extends SOItemDraft {
   id?: string;
@@ -139,13 +140,15 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
               items.map((item, index) => (
                 <TableRow key={item.id || `item-${index}`}>
                   <TableCell>
-                    <div className="font-mono text-sm">
-                      {item.styleCode || item.styleId.slice(0, 8)}
-                      {item.buyerStyleRef && item.buyerStyleRef !== item.styleCode && (
-                        <span className="ml-1 font-sans text-muted-foreground">({item.buyerStyleRef})</span>
-                      )}
-                    </div>
-                    {item.styleName && <div className="text-xs text-muted-foreground">{item.styleName}</div>}
+                    {/* The line's own buyer style code (its snapshot) wins; an older line without one
+                        falls back to the style's current code. Our Style Code shows under it when it differs. */}
+                    <StyleIdentity
+                      style={{ styleCode: item.styleCode, buyerStyleRef: item.styleBuyerStyleRef }}
+                      lineRef={item.buyerStyleRef}
+                      name={item.styleName}
+                      layout="stacked"
+                      codeClassName="font-mono text-sm"
+                    />
                   </TableCell>
                   <TableCell>{item.seasonLabel || '—'}</TableCell>
                   {/*

@@ -12,6 +12,7 @@ import type { StyleStockAvailability } from '../types/style-stock.types';
 import { getAllStyles } from '../services/style.service';
 import { ChevronDown, ChevronRight, Package } from 'lucide-react';
 import { logError } from '../lib/logger';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 interface Style {
   id: string;
@@ -80,7 +81,7 @@ export default function StyleFabricReport() {
   const applyFilters = () => {
     let filtered = [...styles];
 
-    // Search filter — what each row shows: code, buyer ref, name, buyer, season, project
+    // Search filter — what each row shows: buyer style code, style code, name, buyer, season, project
     if (searchTerm) {
       filtered = filtered.filter((style) =>
         matchesSearch(
@@ -196,7 +197,7 @@ export default function StyleFabricReport() {
           >
             <SearchInput
               className="flex-1 min-w-[240px] max-w-md"
-              placeholder="Search style code, buyer ref, name, buyer, season..."
+              placeholder="Search buyer style code, style code, name, buyer, season..."
               value={searchTerm}
               onChange={setSearchTerm}
             />
@@ -272,7 +273,9 @@ export default function StyleFabricReport() {
 
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
-                          <h3 className="font-semibold text-foreground">{style.styleCode}</h3>
+                          <h3 className="text-foreground">
+                            <StyleIdentity style={style} codeClassName="font-semibold" />
+                          </h3>
                           {getStockStatusBadge(style)}
                         </div>
                         <p className="text-sm text-muted-foreground">{style.styleName}</p>

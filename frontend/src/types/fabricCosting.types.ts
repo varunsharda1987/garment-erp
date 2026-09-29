@@ -643,6 +643,8 @@ export interface CadDependentCostSheet {
   purpose: string;
   costSheetApprovalStatus: string;
   styleCode: string | null;
+  /** The buyer's own style code — shown first (see `@/lib/style-code`) */
+  buyerStyleRef?: string | null;
   fabricItemIds: string[];
 }
 

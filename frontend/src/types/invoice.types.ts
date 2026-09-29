@@ -69,6 +69,8 @@ export interface InvoiceItem {
   invoiceId: string;
   styleId?: string | null;
   description: string;
+  /** The buyer's style code as at the day the goods were ordered (the line's own snapshot). */
+  buyerStyleRef?: string | null;
   hsnCode?: string | null;
   quantity: number;
   unitPrice: number;

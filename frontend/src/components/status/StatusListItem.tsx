@@ -6,6 +6,7 @@ import StageProgressBar from './StageProgressBar';
 import BlockerTags from './BlockerTags';
 import QuickActions from './QuickActions';
 import { formatDate } from '@/lib/date';
+import { buyerStyleCode, ourStyleCode, styleCodeIfDifferent } from '@/lib/style-code';
 
 interface StatusListItemProps {
   item: ProductionStatusItem;
@@ -68,7 +69,7 @@ export default function StatusListItem({ item }: StatusListItemProps) {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-2xl font-bold text-foreground">{item.styleCode}</h3>
+                <h3 className="text-2xl font-bold text-foreground">{buyerStyleCode(item)}</h3>
                 {item.internalCode && <span className="text-sm text-muted-foreground">• {item.internalCode}</span>}
                 {item.brandName && (
                   <span className="text-base font-semibold text-info bg-info-muted px-2 py-0.5 rounded">
@@ -77,9 +78,9 @@ export default function StatusListItem({ item }: StatusListItemProps) {
                 )}
               </div>
               {item.customerName && <p className="text-base text-foreground font-medium mt-1">{item.customerName}</p>}
-              {item.buyerStyleRef && (
+              {styleCodeIfDifferent(item) && (
                 <p className="text-sm text-muted-foreground">
-                  Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                  Style Code: <span className="font-medium text-foreground">{ourStyleCode(item)}</span>
                 </p>
               )}
               <p className="text-lg font-medium text-foreground mt-1">{item.styleName}</p>

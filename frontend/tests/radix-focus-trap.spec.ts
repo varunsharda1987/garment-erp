@@ -74,7 +74,7 @@ test.describe('Radix focus-trap singleton', () => {
     // Primary Style — the exact picker reported as untypeable on 2026-09-14.
     await comboboxWithText(sheet, 'Select primary style').click();
 
-    const search = page.getByPlaceholder('Type style code...');
+    const search = page.getByPlaceholder('Type buyer style code or style code...');
     await expect(search).toBeVisible();
 
     // The popover trap must have PAUSED the sheet's trap and taken the caret.
@@ -100,9 +100,9 @@ test.describe('Radix focus-trap singleton', () => {
     const itemDialog = page.getByRole('dialog', { name: 'Add Item' });
     await expect(itemDialog).toBeVisible();
 
-    await comboboxWithText(itemDialog, 'Search by style code').click();
+    await comboboxWithText(itemDialog, 'Search by buyer style code or style code').click();
 
-    const search = page.getByPlaceholder('Type style code...');
+    const search = page.getByPlaceholder('Type buyer style code or style code...');
     await expect(search).toBeVisible();
     await expect(search).toBeFocused();
 

@@ -8,6 +8,7 @@ import { SampleVersionBadge } from './SampleVersionBadge';
 import { SampleSLABadge } from './SampleSLABadge';
 import type { Sample } from '@/types/sample.types';
 import { SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface BlockerResolutionPanelProps {
   sampleId: string;
@@ -86,7 +87,7 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
             </div>
             {sample.style && (
               <p className="text-sm text-muted-foreground">
-                {sample.style.buyerStyleRef || sample.style.styleCode}
+                {styleCodeLabel(sample.style)}
                 {sample.style.styleName && ` - ${sample.style.styleName}`}
               </p>
             )}

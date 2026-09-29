@@ -26,6 +26,7 @@ import { getSPOById, updateSPO, approveSPO, generateWorkOrders } from '@/service
 import { styleService } from '@/services/style.service';
 import type { StockProductionOrderStatus } from '@/types/stockProductionOrder.types';
 import { formatDate, formatDateTime } from '@/lib/date';
+import { STYLE_CODE_LABEL, buyerStyleCode, styleCodeIfDifferent } from '@/lib/style-code';
 
 // Extended style detail with color/size options (returned by API but not in base Style type)
 interface StyleColorOption {
@@ -220,10 +221,12 @@ export default function StockProductionOrderDetail() {
             <CardTitle className="text-sm text-muted-foreground">Style</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-mono font-bold">{spo.style?.styleCode}</div>
+            <div className="font-mono font-bold">{buyerStyleCode(spo.style, null, '')}</div>
             <div className="text-sm text-muted-foreground">{spo.style?.styleName}</div>
-            {spo.style?.buyerStyleRef && (
-              <div className="text-sm text-muted-foreground">Buyer Ref: {spo.style.buyerStyleRef}</div>
+            {styleCodeIfDifferent(spo.style) && (
+              <div className="text-sm text-muted-foreground">
+                {STYLE_CODE_LABEL}: {styleCodeIfDifferent(spo.style)}
+              </div>
             )}
           </CardContent>
         </Card>

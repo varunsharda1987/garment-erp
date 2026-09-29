@@ -58,6 +58,7 @@ import WipSummarySection from '@/components/WipSummarySection';
 import { formatDate } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import { qtyExceeds } from '@/lib/quantity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 
 interface ManufacturingProgress {
   cutting: { batches: number; totalCut: number; pending: boolean };
@@ -945,12 +946,12 @@ export default function WorkOrderDetail() {
                 <span className="font-medium">{workOrder.orders?.customer?.name || '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Style Code</span>
-                <span className="font-medium">{workOrder.style?.styleCode || '-'}</span>
+                <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</span>
+                <span className="font-medium">{buyerStyleCode(workOrder.style, null, '-')}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Buyer Ref</span>
-                <span className="font-medium">{workOrder.style?.buyerStyleRef || '—'}</span>
+                <span className="text-muted-foreground">{STYLE_CODE_LABEL}</span>
+                <span className="font-medium">{ourStyleCode(workOrder.style, '-')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Style Name</span>

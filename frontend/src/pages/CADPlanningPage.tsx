@@ -56,7 +56,7 @@ import {
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import type { CADTableData } from '../types/cad-planning.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
@@ -202,9 +202,7 @@ export default function CADPlanningPage() {
         setStyle({
           id: tableData.style.id,
           styleCode: tableData.style.styleCode,
-          // API returns buyerStyleRef; CADStyleSummary type doesn't declare it yet
-          buyerStyleRef:
-            (tableData.style as typeof tableData.style & { buyerStyleRef?: string | null }).buyerStyleRef ?? null,
+          buyerStyleRef: tableData.style.buyerStyleRef ?? null,
           styleName: tableData.style.styleName,
           cadStatus: tableData.style.cadStatus as 'PENDING' | 'IN_PROGRESS' | 'APPROVED',
           approvedCadDate: tableData.style.approvedCadDate ?? undefined,
@@ -591,7 +589,7 @@ export default function CADPlanningPage() {
           <div>
             <h1 className="text-3xl font-display font-medium">CAD Planning</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
+              <StyleIdentity style={style} name={style.styleName} />
             </p>
           </div>
         </div>

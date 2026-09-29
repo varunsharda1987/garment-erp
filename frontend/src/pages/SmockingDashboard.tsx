@@ -33,6 +33,8 @@ import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, X, XCircle } fr
 import { differenceInCalendarDays } from 'date-fns';
 import type { ExternalProcessSendOut, ExternalProcessStatus } from '../types/external-process.types';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 const STATUS_BADGES: Record<
   ExternalProcessStatus,
@@ -270,8 +272,8 @@ export default function SmockingDashboard() {
               <TableRow>
                 <TableHead>Batch #</TableHead>
                 <TableHead>Work Order</TableHead>
-                <TableHead>Style</TableHead>
-                <TableHead>Buyer Ref</TableHead>
+                <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                <TableHead>{STYLE_CODE_LABEL}</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="text-right">Sent</TableHead>
                 <TableHead className="text-right">Received</TableHead>
@@ -310,8 +312,10 @@ export default function SmockingDashboard() {
                   <TableRow key={s.id} className={isOverdue(s) ? 'bg-destructive/10' : ''}>
                     <TableCell className="font-mono text-sm">{s.batchNumber}</TableCell>
                     <TableCell>{s.workOrder?.workOrderNumber || '—'}</TableCell>
-                    <TableCell>{s.style?.styleCode || '—'}</TableCell>
-                    <TableCell>{s.style?.buyerStyleRef || '—'}</TableCell>
+                    <TableCell>
+                      <StyleIdentity style={s.style} name={s.style?.styleName} layout="stacked" showStyleCode={false} />
+                    </TableCell>
+                    <TableCell className="text-sm">{ourStyleCode(s.style)}</TableCell>
                     <TableCell>{s.supplier?.name || '—'}</TableCell>
                     <TableCell className="text-right">
                       {s.quantitySent} {unitShort(s.unit)}

@@ -91,6 +91,7 @@ import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { section143Days, SECTION_143_CRITICAL_DAYS } from '@/lib/section143';
 import { isQtyZero, prefillQty, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
@@ -1038,10 +1039,7 @@ export default function JobWorkOrderDetail() {
                 <div>
                   <Label className="text-muted-foreground">Style</Label>
                   <p className="font-medium">
-                    {jwo.style?.styleCode || '-'}
-                    {jwo.style?.buyerStyleRef && (
-                      <span className="text-sm text-muted-foreground ml-1">({jwo.style.buyerStyleRef})</span>
-                    )}
+                    <StyleIdentity style={jwo.style} fallback="-" />
                   </p>
                 </div>
                 {colourName && (

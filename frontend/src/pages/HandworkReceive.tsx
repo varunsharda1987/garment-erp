@@ -20,6 +20,13 @@ import { ArrowLeft } from 'lucide-react';
 import type { ExternalProcessReceiveRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeIfDifferent,
+} from '@/lib/style-code';
 
 export default function HandworkReceive() {
   const navigate = useNavigate();
@@ -156,12 +163,13 @@ export default function HandworkReceive() {
                 <strong>{sendOut.workOrder?.workOrderNumber}</strong>
               </div>
               <div>
-                <span className="text-muted-foreground">Style:</span> <strong>{sendOut.style?.styleCode}</strong>
+                <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}:</span>{' '}
+                <strong>{buyerStyleCode(sendOut.style)}</strong>
               </div>
-              {sendOut.style?.buyerStyleRef && (
+              {styleCodeIfDifferent(sendOut.style) && (
                 <div>
-                  <span className="text-muted-foreground">Buyer Ref:</span>{' '}
-                  <strong>{sendOut.style.buyerStyleRef}</strong>
+                  <span className="text-muted-foreground">{STYLE_CODE_LABEL}:</span>{' '}
+                  <strong>{ourStyleCode(sendOut.style)}</strong>
                 </div>
               )}
               <div>

@@ -21,6 +21,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send, ShoppingCart } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { formatDate, formatDateTime } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 export default function QuotationDetail() {
   const navigate = useNavigate();
@@ -335,8 +337,8 @@ export default function QuotationDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[5%]">#</TableHead>
-                  <TableHead className="w-[20%]">Style</TableHead>
-                  <TableHead className="w-[10%]">Buyer Ref</TableHead>
+                  <TableHead className="w-[20%]">{BUYER_STYLE_CODE_LABEL}</TableHead>
+                  <TableHead className="w-[10%]">{STYLE_CODE_LABEL}</TableHead>
                   <TableHead className="w-[10%]">HSN</TableHead>
                   <TableHead className="text-right w-[10%]">Qty</TableHead>
                   <TableHead className="text-right w-[12%]">Unit Price</TableHead>
@@ -354,15 +356,16 @@ export default function QuotationDetail() {
                     <TableRow key={item.id}>
                       <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                       <TableCell>
-                        <div className="font-medium">
-                          {item.style?.styleCode}
-                          {' - '}
-                          {item.style?.styleName}
-                        </div>
+                        <StyleIdentity
+                          style={item.style}
+                          name={item.style?.styleName}
+                          layout="stacked"
+                          showStyleCode={false}
+                        />
                         {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
                         {item.remarks && <div className="text-xs text-muted-foreground italic">{item.remarks}</div>}
                       </TableCell>
-                      <TableCell>{item.style?.buyerStyleRef || '—'}</TableCell>
+                      <TableCell className="text-sm">{ourStyleCode(item.style)}</TableCell>
                       <TableCell className="text-xs">{item.hsnCode || '-'}</TableCell>
                       <TableCell className="text-right">{item.totalQuantity.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>

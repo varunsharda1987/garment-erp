@@ -127,6 +127,8 @@ export interface LaceStockAllocation {
   // Origin tracking
   originalStyleId?: string | null;
   originalStyleCode?: string | null;
+  /** The original style's Buyer Style Code — show the pair with styleCodeLabel (@/lib/style-code) */
+  originalBuyerStyleRef?: string | null;
   originalOrderId?: string | null;
 
   // Transfer info
@@ -174,6 +176,9 @@ export interface LaceStockTransaction {
   toStyleId?: string | null;
   fromStyleCode?: string | null;
   toStyleCode?: string | null;
+  /** Buyer Style Codes of the two styles — show each pair with styleCodeLabel (@/lib/style-code) */
+  fromBuyerStyleRef?: string | null;
+  toBuyerStyleRef?: string | null;
 
   // Reference
   referenceType?: string | null;

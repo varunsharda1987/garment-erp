@@ -22,6 +22,14 @@ import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutt
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeIfDifferent,
+} from '@/lib/style-code';
 
 export default function CuttingList() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -228,7 +236,7 @@ export default function CuttingList() {
               >
                 <SearchInput
                   className="min-w-[220px] max-w-md flex-1"
-                  placeholder="Search batch number, run number, style, buyer style, component…"
+                  placeholder="Search batch number, run number, buyer style code, style, component…"
                   value={search}
                   onChange={(value) => {
                     setSearch(value);
@@ -292,8 +300,8 @@ export default function CuttingList() {
                     <TableRow>
                       <TableHead>Batch #</TableHead>
                       <TableHead>Work Order</TableHead>
-                      <TableHead>Style</TableHead>
-                      <TableHead>Buyer Ref</TableHead>
+                      <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                      <TableHead>{STYLE_CODE_LABEL}</TableHead>
                       <TableHead>Component</TableHead>
                       <TableHead>Start Date</TableHead>
                       <TableHead>End Date</TableHead>
@@ -311,15 +319,16 @@ export default function CuttingList() {
                         <TableCell className="font-medium">{batch.batchNumber}</TableCell>
                         <TableCell>{batch.workOrder?.workOrderNumber || '-'}</TableCell>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{batch.workOrder?.style?.styleCode || '-'}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {batch.workOrder?.style?.styleName || ''}
-                            </div>
-                          </div>
+                          <StyleIdentity
+                            style={batch.workOrder?.style}
+                            name={batch.workOrder?.style?.styleName}
+                            layout="stacked"
+                            showStyleCode={false}
+                            fallback="-"
+                          />
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{batch.workOrder?.style?.buyerStyleRef || '—'}</span>
+                          <span className="text-sm">{ourStyleCode(batch.workOrder?.style)}</span>
                         </TableCell>
                         <TableCell>{batch.component?.componentName || '—'}</TableCell>
                         <TableCell>{batch.startedAt ? formatDate(new Date(batch.startedAt)) : '—'}</TableCell>
@@ -444,10 +453,11 @@ export default function CuttingList() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-base font-semibold">{item.styleCode}</span>
-                        {item.buyerStyleRef && (
+                        <span className="text-base font-semibold">{buyerStyleCode(item)}</span>
+                        {styleCodeIfDifferent(item) && (
                           <span className="text-sm text-muted-foreground">
-                            Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                            {STYLE_CODE_LABEL}:{' '}
+                            <span className="font-medium text-foreground">{ourStyleCode(item)}</span>
                           </span>
                         )}
                         {item.styleName && <span className="text-sm text-muted-foreground">{item.styleName}</span>}

@@ -47,7 +47,8 @@ import { customerService } from '../services/customer.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import SearchInput from '@/components/SearchInput';
 import { divideByShrinkage } from '../utils/math';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { styleCodeLabel } from '@/lib/style-code';
 import {
   resolveGreigeCost,
   isGreigeRateStale,
@@ -1126,10 +1127,7 @@ export default function FabricCostingPage() {
               }
             }
             setSelectedStyleId(preselectedStyleId);
-            setStyleSearchQuery(
-              formatStyleCodeWithRef(response.styleCode, response.buyerStyleRef) +
-                (response.styleName ? ` - ${response.styleName}` : '')
-            );
+            setStyleSearchQuery(styleCodeLabel(response) + (response.styleName ? ` - ${response.styleName}` : ''));
             // Note: Customer auto-selection removed - CustomerCombobox handles selection independently
           }
         } catch {
@@ -1188,9 +1186,7 @@ export default function FabricCostingPage() {
     if (costedPurpose) setPurpose(costedPurpose);
 
     setSelectedStyleId(style.id);
-    setStyleSearchQuery(
-      formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) + (style.styleName ? ` - ${style.styleName}` : '')
-    );
+    setStyleSearchQuery(styleCodeLabel(style) + (style.styleName ? ` - ${style.styleName}` : ''));
     setShowSearchResults(false);
     setStyleSearchResults([]);
     setPreviousQuantity(null); // Reset previous quantity indicator
@@ -2546,7 +2542,7 @@ export default function FabricCostingPage() {
                 half-typed search. Emptying the box by typing only clears the search. */}
             <div className="relative">
               <SearchInput
-                placeholder="Search by style code, buyer ref or name..."
+                placeholder="Search by buyer style code, style code or name..."
                 value={styleSearchQuery}
                 onChange={(query) => void handleStyleSearch(query)}
                 onClear={clearSearch}
@@ -2568,12 +2564,7 @@ export default function FabricCostingPage() {
                       onClick={() => handleSearchResultSelect(style)}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="font-medium text-sm">
-                          {style.styleCode}
-                          {style.buyerStyleRef && (
-                            <span className="ml-1 text-muted-foreground font-normal">({style.buyerStyleRef})</span>
-                          )}
-                        </div>
+                        <StyleIdentity style={style} className="text-sm" />
                         {/* Costing Status Badge */}
                         {status && (
                           <div className="flex items-center gap-1">
@@ -2632,7 +2623,7 @@ export default function FabricCostingPage() {
             <Combobox
               options={styles.map((style) => ({
                 value: style.id,
-                label: `${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName || 'No Name'}`,
+                label: `${styleCodeLabel(style)} - ${style.styleName || 'No Name'}`,
                 searchText: [style.styleCode, style.buyerStyleRef, style.styleName].filter(Boolean).join(' '),
               }))}
               value={selectedStyleId}
@@ -2641,7 +2632,7 @@ export default function FabricCostingPage() {
                 if (styleId) setSelectedStyleId(styleId);
               }}
               placeholder={isLoadingStyles ? 'Loading...' : 'Select style'}
-              searchPlaceholder="Search by style code, buyer ref or name..."
+              searchPlaceholder="Search by buyer style code, style code or name..."
               emptyText="No styles found."
               disabled={!selectedCustomerId || isLoadingStyles}
             />

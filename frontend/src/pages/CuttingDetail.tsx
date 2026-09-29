@@ -49,6 +49,7 @@ import {
 } from 'lucide-react';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
 import { foldActual } from '@/lib/fold-length';
 import { formatQuantity } from '@/lib/formatters';
 import { isQtyZero, qtyExceeds, qtyRemaining } from '@/lib/quantity';
@@ -536,8 +537,7 @@ export default function CuttingDetail() {
                 {batch.workOrder?.styleId && <MiniMarkerBadge styleId={batch.workOrder.styleId} editable={false} />}
               </div>
               <p className="text-muted-foreground">
-                {batch.workOrder?.style?.styleCode}
-                {batch.workOrder?.style?.buyerStyleRef && ` (${batch.workOrder.style.buyerStyleRef})`}
+                {styleCodeLabel(batch.workOrder?.style)}
                 {' - '}
                 {batch.workOrder?.style?.styleName}
                 {' | '}

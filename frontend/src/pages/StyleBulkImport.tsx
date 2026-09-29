@@ -240,6 +240,7 @@ export default function StyleBulkImport() {
                     {errors.map((error, index) => (
                       <tr key={index}>
                         <td className="px-4 py-3 text-sm text-foreground">{error.rowNumber || index + 1}</td>
+                        {/* allow-style-code: echoes the uploaded file */}
                         <td className="px-4 py-3 text-sm text-foreground">{error.styleCode}</td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">{error.componentName}</td>
                         <td className="px-4 py-3 text-sm text-destructive">{error.errorMessage}</td>

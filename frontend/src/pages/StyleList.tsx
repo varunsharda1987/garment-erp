@@ -28,6 +28,8 @@ import ExportButton from '@/components/ExportButton';
 import { Shirt, Archive, RotateCcw, Trash2, AlertTriangle, FileEdit, Send } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -83,15 +85,15 @@ export default function StyleList() {
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [styleToDelete, setStyleToDelete] = useState<{ id: string; styleCode: string } | null>(null);
+  const [styleToDelete, setStyleToDelete] = useState<{ id: string; label: string } | null>(null);
 
   // Permanent delete dialog state
   const [permanentDeleteDialogOpen, setPermanentDeleteDialogOpen] = useState(false);
-  const [styleToPermanentDelete, setStyleToPermanentDelete] = useState<{ id: string; styleCode: string } | null>(null);
+  const [styleToPermanentDelete, setStyleToPermanentDelete] = useState<{ id: string; label: string } | null>(null);
 
   // Restore dialog state
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
-  const [styleToRestore, setStyleToRestore] = useState<{ id: string; styleCode: string } | null>(null);
+  const [styleToRestore, setStyleToRestore] = useState<{ id: string; label: string } | null>(null);
 
   // Deactivation validation state
   const [blockedDialogOpen, setBlockedDialogOpen] = useState(false);
@@ -100,7 +102,7 @@ export default function StyleList() {
 
   // Publish dialog state
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [styleToPublish, setStyleToPublish] = useState<{ id: string; styleCode: string } | null>(null);
+  const [styleToPublish, setStyleToPublish] = useState<{ id: string; label: string } | null>(null);
   const [publishing, setPublishing] = useState(false);
 
   // Permission checks
@@ -172,8 +174,9 @@ export default function StyleList() {
     fetchStyles();
   }, [fetchStyles, location.key]);
 
-  const handleDeleteClick = async (id: string, styleCode: string) => {
-    setStyleToDelete({ id, styleCode });
+  // `label` names the style in toasts and dialogs: Buyer Style Code first (styleCodeLabel)
+  const handleDeleteClick = async (id: string, label: string) => {
+    setStyleToDelete({ id, label });
     setCheckingDeactivation(true);
 
     try {
@@ -199,7 +202,7 @@ export default function StyleList() {
       await styleService.deleteStyle(styleToDelete.id);
       handleApiSuccess(
         'Style archived',
-        `Style ${styleToDelete.styleCode} has been archived. You can restore it from the Inactive tab.`
+        `Style ${styleToDelete.label} has been archived. You can restore it from the Inactive tab.`
       );
       fetchStyles();
       fetchDraftStyles();
@@ -210,8 +213,8 @@ export default function StyleList() {
     }
   };
 
-  const handlePublishClick = (id: string, styleCode: string) => {
-    setStyleToPublish({ id, styleCode });
+  const handlePublishClick = (id: string, label: string) => {
+    setStyleToPublish({ id, label });
     setPublishDialogOpen(true);
   };
 
@@ -223,7 +226,7 @@ export default function StyleList() {
       await styleService.publishDraft(styleToPublish.id);
       handleApiSuccess(
         'Style published',
-        `Style ${styleToPublish.styleCode} has been published and is now available for orders.`
+        `Style ${styleToPublish.label} has been published and is now available for orders.`
       );
       fetchStyles();
       fetchDraftStyles();
@@ -295,8 +298,8 @@ export default function StyleList() {
   }, [activeTab, fetchDeletedStyles]);
 
   // Handle restore click
-  const handleRestoreClick = (id: string, styleCode: string) => {
-    setStyleToRestore({ id, styleCode });
+  const handleRestoreClick = (id: string, label: string) => {
+    setStyleToRestore({ id, label });
     setRestoreDialogOpen(true);
   };
 
@@ -306,7 +309,7 @@ export default function StyleList() {
 
     try {
       await styleService.restoreStyle(styleToRestore.id);
-      handleApiSuccess('Style restored', `Style ${styleToRestore.styleCode} has been restored successfully.`);
+      handleApiSuccess('Style restored', `Style ${styleToRestore.label} has been restored successfully.`);
       fetchDeletedStyles();
       fetchStyles();
       fetchDraftStyles();
@@ -318,8 +321,8 @@ export default function StyleList() {
   };
 
   // Handle permanent delete click
-  const handlePermanentDeleteClick = (id: string, styleCode: string) => {
-    setStyleToPermanentDelete({ id, styleCode });
+  const handlePermanentDeleteClick = (id: string, label: string) => {
+    setStyleToPermanentDelete({ id, label });
     setPermanentDeleteDialogOpen(true);
   };
 
@@ -331,7 +334,7 @@ export default function StyleList() {
       await styleService.permanentDeleteStyle(styleToPermanentDelete.id);
       handleApiSuccess(
         'Style permanently deleted',
-        `Style ${styleToPermanentDelete.styleCode} has been permanently deleted. This cannot be undone.`
+        `Style ${styleToPermanentDelete.label} has been permanently deleted. This cannot be undone.`
       );
       fetchDeletedStyles();
     } catch (err: unknown) {
@@ -414,28 +417,30 @@ export default function StyleList() {
       ),
     },
     {
-      key: 'styleCode',
-      header: 'Style Code',
+      key: 'buyerStyleCode',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (style) => (
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">{style.styleCode}</span>
-            {style.status === 'DRAFT' && (
-              <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
-                Draft
-              </Badge>
-            )}
-          </div>
-          {style.styleName && (
-            <div className="text-xs text-muted-foreground truncate max-w-[150px]">{style.styleName}</div>
+        <div className="flex items-start gap-2">
+          <StyleIdentity
+            style={style}
+            name={style.styleName}
+            layout="stacked"
+            showStyleCode={false}
+            className="max-w-[150px]"
+            codeClassName="text-sm text-foreground"
+          />
+          {style.status === 'DRAFT' && (
+            <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
+              Draft
+            </Badge>
           )}
         </div>
       ),
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (style) => <span className="text-sm text-foreground">{style.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (style) => <span className="text-sm text-foreground">{ourStyleCode(style)}</span>,
     },
     {
       key: 'buyer',
@@ -533,7 +538,7 @@ export default function StyleList() {
               disabled={checkingDeactivation}
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteClick(style.id, style.styleCode);
+                handleDeleteClick(style.id, styleCodeLabel(style));
               }}
             >
               {checkingDeactivation && styleToDelete?.id === style.id ? 'Checking...' : 'Archive'}
@@ -581,7 +586,7 @@ export default function StyleList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                handlePublishClick(style.id, style.styleCode);
+                handlePublishClick(style.id, styleCodeLabel(style));
               }}
               disabled={publishing}
               className="flex items-center gap-1 bg-success hover:bg-success text-white"
@@ -597,7 +602,7 @@ export default function StyleList() {
               disabled={checkingDeactivation}
               onClick={(e) => {
                 e.stopPropagation();
-                handleDeleteClick(style.id, style.styleCode);
+                handleDeleteClick(style.id, styleCodeLabel(style));
               }}
             >
               {checkingDeactivation && styleToDelete?.id === style.id ? 'Checking...' : 'Archive'}
@@ -639,19 +644,26 @@ export default function StyleList() {
       ),
     },
     {
-      key: 'styleCode',
-      header: 'Style Code',
+      key: 'buyerStyleCode',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (style) => (
-        <div>
-          <div className="text-sm font-medium text-muted-foreground">{style.styleCode}</div>
-          {style.internalCode && <div className="text-xs text-muted-foreground">{style.internalCode}</div>}
-        </div>
+        <StyleIdentity
+          style={style}
+          layout="stacked"
+          showStyleCode={false}
+          codeClassName="text-sm text-muted-foreground"
+        />
       ),
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (style) => <span className="text-sm text-muted-foreground">{style.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (style) => (
+        <div>
+          <div className="text-sm text-muted-foreground">{ourStyleCode(style)}</div>
+          {style.internalCode && <div className="text-xs text-muted-foreground">{style.internalCode}</div>}
+        </div>
+      ),
     },
     {
       key: 'styleName',
@@ -697,7 +709,7 @@ export default function StyleList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                handleRestoreClick(style.id, style.styleCode);
+                handleRestoreClick(style.id, styleCodeLabel(style));
               }}
               className="flex items-center gap-1"
             >
@@ -711,7 +723,7 @@ export default function StyleList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                handlePermanentDeleteClick(style.id, style.styleCode);
+                handlePermanentDeleteClick(style.id, styleCodeLabel(style));
               }}
               className="flex items-center gap-1"
             >
@@ -805,7 +817,7 @@ export default function StyleList() {
               >
                 <SearchInput
                   className="min-w-[220px] flex-1"
-                  placeholder="Search style code, buyer ref, name, buyer, brand, category…"
+                  placeholder="Search buyer style code, style code, name, buyer, brand, category…"
                   value={searchQuery}
                   onChange={(value) => {
                     setSearchQuery(value);
@@ -877,7 +889,7 @@ export default function StyleList() {
               >
                 <SearchInput
                   className="min-w-[220px] flex-1"
-                  placeholder="Search style code, buyer ref, name, buyer, brand, category…"
+                  placeholder="Search buyer style code, style code, name, buyer, brand, category…"
                   value={draftSearchQuery}
                   onChange={(value) => {
                     setDraftSearchQuery(value);
@@ -933,7 +945,7 @@ export default function StyleList() {
               >
                 <SearchInput
                   className="min-w-[220px] flex-1"
-                  placeholder="Search style code, internal code, buyer ref, name, buyer, brand…"
+                  placeholder="Search buyer style code, style code, internal code, name, buyer, brand…"
                   value={deletedSearchQuery}
                   onChange={(value) => {
                     setDeletedSearchQuery(value);
@@ -984,7 +996,7 @@ export default function StyleList() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Archive Style"
-        description={`Are you sure you want to archive style ${styleToDelete?.styleCode}? You can restore it later from the Inactive tab.`}
+        description={`Are you sure you want to archive style ${styleToDelete?.label}? You can restore it later from the Inactive tab.`}
         confirmText="Archive"
         cancelText="Cancel"
         onConfirm={confirmDelete}
@@ -996,7 +1008,7 @@ export default function StyleList() {
         open={restoreDialogOpen}
         onOpenChange={setRestoreDialogOpen}
         title="Restore Style"
-        description={`Are you sure you want to restore style ${styleToRestore?.styleCode}? It will be moved back to the Active Styles list.`}
+        description={`Are you sure you want to restore style ${styleToRestore?.label}? It will be moved back to the Active Styles list.`}
         confirmText="Restore"
         cancelText="Cancel"
         onConfirm={confirmRestore}
@@ -1008,7 +1020,7 @@ export default function StyleList() {
         open={permanentDeleteDialogOpen}
         onOpenChange={setPermanentDeleteDialogOpen}
         title="Permanently Delete Style"
-        description={`Are you sure you want to PERMANENTLY delete style ${styleToPermanentDelete?.styleCode}? This action cannot be undone and all associated data will be lost forever.`}
+        description={`Are you sure you want to PERMANENTLY delete style ${styleToPermanentDelete?.label}? This action cannot be undone and all associated data will be lost forever.`}
         confirmText="Delete Forever"
         cancelText="Cancel"
         onConfirm={confirmPermanentDelete}
@@ -1023,7 +1035,7 @@ export default function StyleList() {
           if (!open) setStyleToPublish(null);
         }}
         title="Publish Style"
-        description={`Are you sure you want to publish style ${styleToPublish?.styleCode}? Once published, it will be available for orders and production planning.`}
+        description={`Are you sure you want to publish style ${styleToPublish?.label}? Once published, it will be available for orders and production planning.`}
         confirmText={publishing ? 'Publishing...' : 'Publish'}
         cancelText="Cancel"
         onConfirm={confirmPublish}
@@ -1038,9 +1050,7 @@ export default function StyleList() {
               <AlertTriangle className="h-5 w-5 text-warning" />
               Cannot Archive Style
             </DialogTitle>
-            <DialogDescription>
-              {styleToDelete?.styleCode} cannot be archived due to active dependencies.
-            </DialogDescription>
+            <DialogDescription>{styleToDelete?.label} cannot be archived due to active dependencies.</DialogDescription>
           </DialogHeader>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />

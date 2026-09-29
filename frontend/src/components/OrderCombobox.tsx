@@ -4,6 +4,7 @@ import { getAllOrders, getOrderById } from '@/services/order.service';
 import { usePickerOptions, PICKER_LIMIT, type PickerPage } from '@/hooks/usePickerOptions';
 import type { Order } from '@/types/order.types';
 import { toast } from 'sonner';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface OrderComboboxProps {
   value?: string;
@@ -29,8 +30,9 @@ function styleCodes(order: Order): string[] {
 
 function orderOption(order: Order): ComboboxOption {
   const customer = order.customer?.name;
+  // Each style once, named Buyer Style Code first: 'SP27DR27 (EBWW-021)'
   const styles = [
-    ...new Set((order.orderItems ?? []).map((item) => item.style?.styleCode).filter((code): code is string => !!code)),
+    ...new Set((order.orderItems ?? []).map((item) => styleCodeLabel(item.style, null, '')).filter(Boolean)),
   ];
   return {
     value: order.id,
@@ -46,7 +48,7 @@ function orderOption(order: Order): ComboboxOption {
 
 /**
  * Picks a production ORDER (the orders table — not a sale order). Server-searched: the order list's own
- * search matches the order number, customer, style code / buyer's code / style name and sale order, so
+ * search matches the order number, customer, buyer style code / style code / style name and sale order, so
  * typing any of those narrows it. Newest first, as on the Orders page.
  *
  * A new customer is a new list, so the picker remounts per customer (as SupplierCombobox does per

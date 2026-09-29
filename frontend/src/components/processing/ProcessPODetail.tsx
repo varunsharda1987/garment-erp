@@ -25,7 +25,7 @@ import { processPOService as printProcessPOService } from '@/services/printing.s
 import { ProcessPOStatusLabels, ProcessPOStatusColors } from '@/types/printing.types';
 
 import { cn } from '@/lib/utils';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 import { formatDate } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
@@ -151,10 +151,12 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Style Code</p>
-                <p className="font-medium">
-                  {jwo?.style?.styleCode ? formatStyleCodeWithRef(jwo.style.styleCode, jwo.style.buyerStyleRef) : '-'}
-                </p>
+                <p className="text-sm text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</p>
+                <p className="font-medium">{buyerStyleCode(jwo?.style, null, '-')}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">{STYLE_CODE_LABEL}</p>
+                <p className="font-medium">{ourStyleCode(jwo?.style, '-')}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Style Name</p>

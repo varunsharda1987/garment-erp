@@ -268,6 +268,8 @@ export interface StockPreviewItem {
   style: {
     id: string;
     styleCode: string;
+    /** The line's own buyer style code (its snapshot), else the style's — the server lets the line win. */
+    buyerStyleRef?: string | null;
     styleName: string;
   } | null;
   color: {

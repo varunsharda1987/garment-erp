@@ -36,6 +36,14 @@ import { StitchingIssueStatusLabels, StitchingIssueStatusColors } from '@/types/
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { differenceInCalendarDays } from 'date-fns';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeIfDifferent,
+} from '@/lib/style-code';
 
 export default function StitchingList() {
   const navigate = useNavigate();
@@ -316,7 +324,7 @@ export default function StitchingList() {
               >
                 <SearchInput
                   className="min-w-[220px] max-w-md flex-1"
-                  placeholder="Search issue number, run number, style, buyer style…"
+                  placeholder="Search issue number, run number, buyer style code, style…"
                   value={search}
                   onChange={(value) => {
                     setSearch(value);
@@ -380,8 +388,8 @@ export default function StitchingList() {
                     <TableRow>
                       <TableHead>Issue #</TableHead>
                       <TableHead>Work Order</TableHead>
-                      <TableHead>Style</TableHead>
-                      <TableHead>Buyer Ref</TableHead>
+                      <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                      <TableHead>{STYLE_CODE_LABEL}</TableHead>
                       <TableHead>Contractor</TableHead>
                       <TableHead>Start Date</TableHead>
                       <TableHead>End Date</TableHead>
@@ -397,15 +405,16 @@ export default function StitchingList() {
                         <TableCell className="font-medium">{issue.issueNumber}</TableCell>
                         <TableCell>{issue.workOrder?.workOrderNumber || '-'}</TableCell>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{issue.workOrder?.style?.styleCode || '-'}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {issue.workOrder?.style?.styleName || ''}
-                            </div>
-                          </div>
+                          <StyleIdentity
+                            style={issue.workOrder?.style}
+                            name={issue.workOrder?.style?.styleName}
+                            layout="stacked"
+                            showStyleCode={false}
+                            fallback="-"
+                          />
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm">{issue.workOrder?.style?.buyerStyleRef || '—'}</span>
+                          <span className="text-sm">{ourStyleCode(issue.workOrder?.style)}</span>
                         </TableCell>
                         <TableCell>{issue.contractor?.name || issue.manager?.name || '-'}</TableCell>
                         <TableCell>{issue.startDate ? formatDate(new Date(issue.startDate)) : '—'}</TableCell>
@@ -528,16 +537,7 @@ export default function StitchingList() {
                             <div className="text-sm text-muted-foreground mt-1">
                               <span className="font-medium">{slip.workOrderNumber}</span>
                               {' — '}
-                              <span>{slip.styleCode}</span>
-                              {slip.styleName && ` (${slip.styleName})`}
-                              {slip.buyerStyleRef && (
-                                <>
-                                  {' • '}
-                                  <span>
-                                    Buyer Ref: <span className="font-medium text-foreground">{slip.buyerStyleRef}</span>
-                                  </span>
-                                </>
-                              )}
+                              <StyleIdentity style={slip} name={slip.styleName} codeClassName="text-foreground" />
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                               Transferred: {formatDate(new Date(slip.transferDate))}
@@ -609,10 +609,11 @@ export default function StitchingList() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-base font-semibold">{item.styleCode}</span>
-                        {item.buyerStyleRef && (
+                        <span className="text-base font-semibold">{buyerStyleCode(item)}</span>
+                        {styleCodeIfDifferent(item) && (
                           <span className="text-sm text-muted-foreground">
-                            Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                            {STYLE_CODE_LABEL}:{' '}
+                            <span className="font-medium text-foreground">{ourStyleCode(item)}</span>
                           </span>
                         )}
                         {item.styleName && <span className="text-sm text-muted-foreground">{item.styleName}</span>}

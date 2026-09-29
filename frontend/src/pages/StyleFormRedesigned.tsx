@@ -95,6 +95,7 @@ import api from '../lib/api';
 import { FABRIC_FINISH_TYPES, type FabricFinishType } from '../constants/fabric-finish-types';
 import { MiniMarkerBadge } from '../components/cad/MiniMarkerBadge';
 import { formatTime, formatDateTime } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 // Enums
 type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
@@ -2301,11 +2302,13 @@ export default function StyleFormRedesigned() {
                 {isEditMode ? (
                   <>
                     Edit Style
-                    {styleCode && (
-                      <span className="ml-3 text-xl font-mono text-primary">
-                        {styleCode}
-                        {styleName && <span className="text-muted-foreground font-normal"> - {styleName}</span>}
-                      </span>
+                    {(styleCode || buyerStyleRef) && (
+                      <StyleIdentity
+                        style={{ styleCode, buyerStyleRef }}
+                        name={styleName}
+                        className="ml-3 text-xl"
+                        codeClassName="font-mono text-primary"
+                      />
                     )}
                   </>
                 ) : (
@@ -2671,12 +2674,12 @@ export default function StyleFormRedesigned() {
                   <div>
                     <Label>
                       Style Code{' '}
-                      {isEditMode ? '' : usesBuyerCodeAsStyleCode ? '(From Buyer Reference)' : '(Auto-generated)'}
+                      {isEditMode ? '' : usesBuyerCodeAsStyleCode ? '(From Buyer Style Code)' : '(Auto-generated)'}
                     </Label>
                     <Input
                       value={styleCode}
                       placeholder={
-                        usesBuyerCodeAsStyleCode ? 'Enter Buyer Reference above' : 'Select brand + category above'
+                        usesBuyerCodeAsStyleCode ? 'Enter Buyer Style Code above' : 'Select brand + category above'
                       }
                       readOnly
                       className="bg-muted"
@@ -3809,6 +3812,7 @@ export default function StyleFormRedesigned() {
                 {pendingLocalRestore?.data.styleCode && (
                   <div>
                     <span className="text-muted-foreground">Style Code:</span>
+                    {/* allow-style-code: the saved draft keeps only our Style Code, labelled as such */}
                     <span className="ml-2 font-medium">{pendingLocalRestore.data.styleCode}</span>
                   </div>
                 )}

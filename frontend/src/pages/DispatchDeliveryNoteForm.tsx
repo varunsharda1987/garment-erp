@@ -27,7 +27,7 @@ import { styleService } from '@/services/style.service';
 import type { Order } from '@/types/order.types';
 import type { CreateDeliveryNoteRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { lineBuyerStyleRef, styleCodeLabel } from '@/lib/style-code';
 import { notify } from '@/lib/notify';
 import { logError } from '@/lib/logger';
 import { ArrowLeft, Package, Plus, Save, Trash2, Truck } from 'lucide-react';
@@ -39,6 +39,8 @@ import { useAuthStore } from '@/stores/auth.store';
 /** One size the finished-goods stock could not cover (server details, code FG_STOCK_SHORT) */
 interface StockShortLine {
   styleCode: string;
+  /** The line's Buyer Style Code (null when the style has none). */
+  buyerStyleRef?: string | null;
   colorName: string;
   sizeName: string;
   requested: number;
@@ -306,10 +308,12 @@ export default function DispatchDeliveryNoteForm() {
   const removeRow = (tempId: string) => setItems((prev) => prev.filter((row) => row.tempId !== tempId));
 
   // Deduped styles on the selected order (an order can have multiple items on the same style), or on
-  // the sale order's lines in sale-order mode
+  // the sale order's lines in sale-order mode — there the line's own Buyer Style Code snapshot wins
   const sourceStyles: Array<{ id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }> =
     saleOrder
-      ? (saleOrder.items || []).flatMap((l) => (l.style ? [l.style] : []))
+      ? (saleOrder.items || []).flatMap((l) =>
+          l.style ? [{ ...l.style, buyerStyleRef: lineBuyerStyleRef(l.buyerStyleRef, l.style.buyerStyleRef) }] : []
+        )
       : (selectedOrder?.orderItems || []).flatMap((oi) => (oi.style ? [oi.style] : []));
   const orderStyles = sourceStyles.filter((s, idx, arr) => arr.findIndex((x) => x.id === s.id) === idx);
   const hasSource = Boolean(selectedOrder || saleOrder);
@@ -321,12 +325,14 @@ export default function DispatchDeliveryNoteForm() {
 
   const styleLabel = (styleId: string) => {
     const s = orderStyles.find((st) => st.id === styleId);
-    return s ? `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — ${s.styleName}` : styleId;
+    return s ? `${styleCodeLabel(s)} — ${s.styleName}` : styleId;
   };
   // A row picks only among the styles of the chosen order / sale order — the page's own list
   const orderStyleOptions: ComboboxOption[] = orderStyles.map((s) => ({
     value: s.id,
-    label: `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — ${s.styleName}`,
+    label: `${styleCodeLabel(s)} — ${s.styleName}`,
+    // Either code finds it: the label leads with the buyer's code, the search also takes ours
+    searchText: [s.buyerStyleRef, s.styleCode, s.styleName].filter(Boolean).join(' '),
   }));
 
   // ----- Submit -----
@@ -638,7 +644,8 @@ export default function DispatchDeliveryNoteForm() {
               <ul className="list-disc pl-5 mt-1">
                 {stockShort.map((l, i) => (
                   <li key={i}>
-                    {l.styleCode} {l.colorName} {l.sizeName}: need {l.requested}, in stock {l.deducted}
+                    {styleCodeLabel({ styleCode: l.styleCode, buyerStyleRef: l.buyerStyleRef })} {l.colorName}{' '}
+                    {l.sizeName}: need {l.requested}, in stock {l.deducted}
                   </li>
                 ))}
               </ul>
@@ -699,7 +706,7 @@ export default function DispatchDeliveryNoteForm() {
         action="Create the delivery note past finished-goods stock"
         blockers={(stockShort ?? []).map((l) => ({
           type: 'FG_STOCK_SHORT',
-          message: `${l.styleCode} ${l.colorName} ${l.sizeName}: need ${l.requested}, in stock ${l.deducted}`,
+          message: `${styleCodeLabel({ styleCode: l.styleCode, buyerStyleRef: l.buyerStyleRef })} ${l.colorName} ${l.sizeName}: need ${l.requested}, in stock ${l.deducted}`,
           severity: 'HIGH' as const,
         }))}
       />

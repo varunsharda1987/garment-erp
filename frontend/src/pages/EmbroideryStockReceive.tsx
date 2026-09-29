@@ -16,7 +16,7 @@ import { CheckCircle, XCircle, Package2, ArrowLeft, Sparkles, Clock, AlertTriang
 import type { EmbroiderySendOut, EmbroideryReceiveRequest } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatDate, toDateInputValue } from '@/lib/date';
 import { qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
 
@@ -378,8 +378,8 @@ export default function EmbroideryStockReceive() {
                       {sendOut.forStyle && (
                         <div>
                           <span className="text-muted-foreground">For Style:</span>
-                          <p className="font-medium">
-                            {formatStyleCodeWithRef(sendOut.forStyle.styleCode, sendOut.forStyle.buyerStyleRef)}
+                          <p className="text-foreground">
+                            <StyleIdentity style={sendOut.forStyle} />
                           </p>
                         </div>
                       )}

@@ -16,6 +16,7 @@ import workOrderService from '@/services/workOrder.service';
 import type { Priority } from '@/types/production.types';
 import type { Style } from '@/types/style.types';
 import { toDateInputValue } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 
 // GET /styles/:id returns the style's SKU grid as `styleVariants` with flat colour/size fields
 interface StyleVariantRow {
@@ -224,8 +225,12 @@ export default function WorkOrderCreate() {
                   <div className="p-3 bg-muted rounded-lg text-sm">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <span className="text-muted-foreground">Code:</span>{' '}
-                        <span className="font-medium">{selectedStyle.styleCode}</span>
+                        <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}:</span>{' '}
+                        <span className="font-medium">{buyerStyleCode(selectedStyle)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">{STYLE_CODE_LABEL}:</span>{' '}
+                        <span className="font-medium">{ourStyleCode(selectedStyle)}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Name:</span>{' '}

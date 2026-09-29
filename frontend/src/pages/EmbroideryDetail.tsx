@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Embroidery } from '@/types/embroidery.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatDateTime } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import {
   ArrowLeft,
   Edit,
@@ -283,13 +284,8 @@ export default function EmbroideryDetail() {
                       className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors"
                       onClick={() => navigate(`/styles/${usage.styleId}`)}
                     >
-                      <div className="font-medium text-foreground">
-                        {usage.styleCode}
-                        {usage.buyerStyleRef && (
-                          <span className="ml-1 text-xs font-normal text-muted-foreground">
-                            ({usage.buyerStyleRef})
-                          </span>
-                        )}
+                      <div className="text-foreground">
+                        <StyleIdentity style={usage} />
                       </div>
                       <div className="text-sm text-muted-foreground">{usage.styleName}</div>
                       <div className="text-xs text-muted-foreground mt-1">Component: {usage.componentName}</div>

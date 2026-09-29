@@ -40,7 +40,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsBySupplier, bulkGeneratePOs, previewPOs } from '@/services/mrp.service';
 import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types/mrp.types';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 import { billableFromGreige, greigeFromBillable } from '@/utils/shrinkage';
 import { toDateInputValue } from '@/lib/date';
 import { groupLabelLines, sumRows } from '@/lib/label-lines';
@@ -434,7 +434,7 @@ export default function BulkPOGenerationDialog({
           </div>
           {(item.styleCode || item.orderNumber) && (
             <div className="text-[10px] text-muted-foreground mt-0.5">
-              {item.styleCode && <span>{formatStyleCodeWithRef(item.styleCode, item.buyerStyleRef)}</span>}
+              {item.styleCode && <span>{styleCodeLabel(item)}</span>}
               {item.styleCode && item.orderNumber && <span> | </span>}
               {item.orderNumber && <span>{item.orderNumber}</span>}
             </div>
@@ -621,7 +621,7 @@ export default function BulkPOGenerationDialog({
                                     <span>
                                       Style:{' '}
                                       <span className="text-foreground">
-                                        {formatStyleCodeWithRef(r.orderItem.styleCode, r.orderItem.buyerStyleRef)}
+                                        {styleCodeLabel(r.orderItem)}
                                         {r.orderItem.styleName ? ` - ${r.orderItem.styleName}` : ''}
                                       </span>
                                     </span>

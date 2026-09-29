@@ -332,7 +332,7 @@ export default function QuotationList() {
                 setSearchQuery(value);
                 setCurrentPage(1);
               }}
-              placeholder="Search quotation number, customer, style, buyer style…"
+              placeholder="Search quotation number, customer, style, buyer style code…"
               className="min-w-[220px] flex-1 max-w-md"
               aria-label="Search quotations"
             />

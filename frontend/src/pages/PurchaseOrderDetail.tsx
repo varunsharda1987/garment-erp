@@ -65,7 +65,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DeliveryPlanCard } from '@/components/purchase-orders/DeliveryPlanCard';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { useCompanyProfile } from '@/hooks/useCompanyProfile';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 import { formatDate } from '@/lib/date';
 import { isQtyZero, qtyAtLeast } from '@/lib/quantity';
 import { materialDetailLine } from '@/lib/material-detail';
@@ -134,20 +134,17 @@ interface GRNItem {
 }
 
 /**
- * "Easybuy · Order SO2609-0012" or "Easybuy · Style EBWW-024 (SP27DR46)"
+ * "Easybuy · Order SO2609-0012" or "Easybuy · Style SP27DR46 (EBWW-024)"
  * — the buyer, and the order or style that names them when that is the source.
- * Shows the buyer's own reference in parentheses when it DIFFERS from our style code.
- * Skipped when they match (e.g. ESSKY086LS → ESSKY086LS).
+ * The style is named Buyer Style Code first; our style code follows in brackets only when it
+ * DIFFERS (e.g. ESSKY086LS / ESSKY086LS prints once) — styleCodeLabel (@/lib/style-code).
  */
 function forBuyerText(forBuyer: POForBuyer): string {
   let via: string | null = null;
   if (forBuyer.source === 'ORDER' && forBuyer.orderNumber) {
     via = `Order ${forBuyer.orderNumber}`;
   } else if (forBuyer.source === 'STYLE' && forBuyer.styleCode) {
-    // Only show buyer ref if it differs from our style code
-    const refDiffers = forBuyer.buyerStyleRef && forBuyer.buyerStyleRef !== forBuyer.styleCode;
-    const ref = refDiffers ? ` (${forBuyer.buyerStyleRef})` : '';
-    via = `Style ${forBuyer.styleCode}${ref}`;
+    via = `Style ${styleCodeLabel(forBuyer)}`;
   }
   return [forBuyer.name, via].filter(Boolean).join(' · ');
 }
@@ -736,7 +733,7 @@ export default function PurchaseOrderDetail() {
                   <div className="flex flex-wrap gap-1">
                     {linkedStyles.map((s) => (
                       <Badge key={s.code} variant="outline" className="text-xs">
-                        {formatStyleCodeWithRef(s.code, s.ref)}
+                        {styleCodeLabel({ styleCode: s.code, buyerStyleRef: s.ref })}
                       </Badge>
                     ))}
                   </div>

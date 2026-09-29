@@ -15,6 +15,7 @@ import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { LabResultDialog } from '@/components/samples/LabResultDialog';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 
 /**
  * A sample's garment test (done on the PP sample before it is sent) is recorded on the sample's Lab
@@ -159,7 +160,7 @@ export default function GarmentPhysicalTests() {
         >
           <SearchInput
             className="flex-1 min-w-[240px]"
-            placeholder="Search test, TRF or sample number, work order, style or buyer ref..."
+            placeholder="Search test, TRF or sample number, work order, buyer style code or style..."
             value={search}
             onChange={changeFilter(setSearch)}
           />
@@ -294,12 +295,14 @@ export default function GarmentPhysicalTests() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Style:</span>
-                      <p className="font-medium text-foreground">{test.style?.styleCode || test.styleId}</p>
+                      <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}:</span>
+                      <p className="font-medium text-foreground">
+                        {buyerStyleCode(test.style, null, test.styleId || '—')}
+                      </p>
                     </div>
                     <div>
-                      <span className="text-muted-foreground">Buyer Ref:</span>
-                      <p className="font-medium text-foreground">{test.style?.buyerStyleRef || '—'}</p>
+                      <span className="text-muted-foreground">{STYLE_CODE_LABEL}:</span>
+                      <p className="font-medium text-foreground">{ourStyleCode(test.style)}</p>
                     </div>
                     {test.sampleQuantity && (
                       <div>

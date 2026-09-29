@@ -26,7 +26,7 @@ import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { handleApiError } from '../lib/api-error-handler';
 import { divideByShrinkage } from '../utils/math';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 export default function StyleFabricCostingOptionsPage() {
   const navigate = useNavigate();
@@ -186,9 +186,11 @@ export default function StyleFabricCostingOptionsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-display font-medium">
-              {style
-                ? `${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName}`
-                : 'Loading...'}
+              {style ? (
+                <StyleIdentity style={style} name={style.styleName} codeClassName="font-medium" />
+              ) : (
+                'Loading...'
+              )}
             </h1>
             <p className="text-muted-foreground text-sm">
               {style?.customerName || 'No Customer'} | {componentEntries.length} components | {totalOptions} options |{' '}

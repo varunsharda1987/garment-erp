@@ -29,7 +29,8 @@ import { FilterBar } from '@/components/filters';
 import { StyleCombobox } from '@/components/StyleCombobox';
 import { getAllSPOs, createSPO, deleteSPO } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { formatDate } from '@/lib/date';
 import type {
   StockProductionOrder,
@@ -206,7 +207,7 @@ export default function StockProductionOrderList() {
           >
             <SearchInput
               className="min-w-[220px] max-w-md flex-1"
-              placeholder="Search SPO number, style, buyer style…"
+              placeholder="Search SPO number, style, buyer style code…"
               value={search}
               onChange={(value) => {
                 setSearch(value);
@@ -254,7 +255,8 @@ export default function StockProductionOrderList() {
             <TableHeader>
               <TableRow>
                 <TableHead>SPO Number</TableHead>
-                <TableHead>Style</TableHead>
+                <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                <TableHead>{STYLE_CODE_LABEL}</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Target Date</TableHead>
@@ -266,13 +268,13 @@ export default function StockProductionOrderList() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : !data?.data?.length ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     {activeFilterCount > 0 ? (
                       <div className="flex flex-col items-center gap-2">
                         <p>No stock production orders match these filters.</p>
@@ -295,16 +297,14 @@ export default function StockProductionOrderList() {
                   >
                     <TableCell className="font-mono font-medium">{spo.spoNumber}</TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium">
-                          {spo.style?.styleCode}
-                          {spo.style?.buyerStyleRef && (
-                            <span className="font-normal text-muted-foreground"> ({spo.style.buyerStyleRef})</span>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{spo.style?.styleName}</div>
-                      </div>
+                      <StyleIdentity
+                        style={spo.style}
+                        name={spo.style?.styleName}
+                        layout="stacked"
+                        showStyleCode={false}
+                      />
                     </TableCell>
+                    <TableCell className="text-sm">{ourStyleCode(spo.style)}</TableCell>
                     <TableCell className="text-right font-medium">{spo.totalQuantity.toLocaleString()}</TableCell>
                     <TableCell>
                       <Badge className={STATUS_COLORS[spo.status]} variant="secondary">
@@ -391,14 +391,11 @@ export default function StockProductionOrderList() {
                       className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
                       onClick={() => {
                         setSelectedStyleId(style.id);
-                        setSelectedStyleLabel(
-                          `${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName}`
-                        );
+                        setSelectedStyleLabel(`${styleCodeLabel(style)} - ${style.styleName}`);
                         setStyleSearch('');
                       }}
                     >
-                      <span className="font-mono">{formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}</span>{' '}
-                      — {style.styleName}
+                      <StyleIdentity style={style} name={style.styleName} codeClassName="font-mono font-medium" />
                     </div>
                   ))}
                 </div>

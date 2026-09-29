@@ -39,7 +39,8 @@ import type {
 import { notify } from '../lib/notify';
 import { handleApiError } from '../lib/api-error-handler';
 import { divideByShrinkage } from '../utils/math';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { styleCodeLabel } from '@/lib/style-code';
 
 export default function FabricCostingOptionsPage() {
   const navigate = useNavigate();
@@ -285,7 +286,7 @@ export default function FabricCostingOptionsPage() {
             <h1 className="text-2xl font-display font-medium">
               {filters.styleId
                 ? selectedStyle
-                  ? `Costing Options - ${formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)}`
+                  ? `Costing Options - ${styleCodeLabel(selectedStyle)}`
                   : 'Costing Options'
                 : 'Fabric Costing Options'}
             </h1>
@@ -425,8 +426,8 @@ export default function FabricCostingOptionsPage() {
                 >
                   <div>
                     <div className="flex items-center gap-3">
-                      <h3 className="font-semibold">
-                        {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
+                      <h3>
+                        <StyleIdentity style={style} name={style.styleName} codeClassName="font-semibold" />
                       </h3>
                       {allApproved && (
                         <Badge variant="default" className="bg-success">
@@ -436,9 +437,8 @@ export default function FabricCostingOptionsPage() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {style.customerName || 'No Customer'} |
-                      {style.buyerStyleRef ? ` Buyer Ref: ${style.buyerStyleRef} | ` : ''}
-                      {componentEntries.length} components |{totalOptions} options |{approvedCount} approved
+                      {style.customerName || 'No Customer'} | {componentEntries.length} components |{totalOptions}{' '}
+                      options |{approvedCount} approved
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

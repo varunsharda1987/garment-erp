@@ -39,6 +39,7 @@ import { FinishingStatusLabels, FinishingStatusColors } from '@/types/finishing.
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 
 interface OutputEntry {
   colorId: string | null;
@@ -520,16 +521,16 @@ export default function FinishingDetail() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Style</span>
-                <span className="font-medium">
-                  {issue.workOrder?.style?.styleCode}
-                  {' - '}
-                  {issue.workOrder?.style?.styleName}
-                </span>
+                <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</span>
+                <span className="font-medium">{buyerStyleCode(issue.workOrder?.style)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Buyer Ref</span>
-                <span className="font-medium">{issue.workOrder?.style?.buyerStyleRef || '—'}</span>
+                <span className="text-muted-foreground">{STYLE_CODE_LABEL}</span>
+                <span className="font-medium">{ourStyleCode(issue.workOrder?.style)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Style Name</span>
+                <span className="font-medium">{issue.workOrder?.style?.styleName || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer</span>

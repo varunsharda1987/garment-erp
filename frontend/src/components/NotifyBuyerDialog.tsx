@@ -18,6 +18,7 @@ import { handleApiSuccess, handleApiError } from '@/lib/api-error-handler';
 import { useWhatsappStatus } from '@/hooks/useWhatsapp';
 import type { Sample } from '@/types/sample.types';
 import { formatDate } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface NotifyBuyerDialogProps {
   open: boolean;
@@ -38,10 +39,9 @@ function buildBuyerMessage(
   sentDate?: string | null
 ): string {
   const greet = s.customer?.contactPerson?.trim() || s.customer?.name?.trim() || 'Sir/Madam';
-  const buyerRef = s.style?.buyerStyleRef ? ` [Ref: ${s.style.buyerStyleRef}]` : '';
-  const styleBit = s.style?.styleCode
-    ? ` for style ${s.style.styleCode}${buyerRef}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
-    : '';
+  // The buyer's own code first: "for style SP27DR27 (EBWW-021) (GEMINI)"
+  const styleLabel = styleCodeLabel(s.style, null, '');
+  const styleBit = styleLabel ? ` for style ${styleLabel}${s.style?.styleName ? ` (${s.style.styleName})` : ''}` : '';
   const dateStr = sentDate ? formatDate(new Date(sentDate)) : '';
   return [
     `Dear ${greet},`,

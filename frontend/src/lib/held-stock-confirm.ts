@@ -12,12 +12,15 @@
  * (services/helpers/po-allocation.helper.ts): details `{ code, heldFor: HeldForEntry[] }`.
  */
 import { formatQuantity } from '@/lib/formatters';
+import { styleCodeLabel } from '@/lib/style-code';
 
 export const STOCK_HELD_FOR_ORDER = 'STOCK_HELD_FOR_ORDER';
 
 export interface HeldForEntry {
   orderNumber: string | null;
   styleCode: string | null;
+  /** The style's buyer style code, named first when the server sends it (older servers do not) */
+  buyerStyleRef?: string | null;
   qty: number;
   /** When the server names it; otherwise the caller's unit is used */
   unit?: string | null;
@@ -58,6 +61,7 @@ export function extractHeldStock(error: unknown): HeldStockRefusal | null {
     .map((h) => ({
       orderNumber: typeof h.orderNumber === 'string' ? h.orderNumber : null,
       styleCode: typeof h.styleCode === 'string' ? h.styleCode : null,
+      buyerStyleRef: typeof h.buyerStyleRef === 'string' ? h.buyerStyleRef : null,
       qty: Number(h.qty ?? 0),
       unit: typeof h.unit === 'string' ? h.unit : null,
       requirementNumber: typeof h.requirementNumber === 'string' ? h.requirementNumber : null,
@@ -65,10 +69,11 @@ export function extractHeldStock(error: unknown): HeldStockRefusal | null {
   return { message: data?.message ?? 'These goods are held for another order.', heldFor };
 }
 
-/** "Held for ORD2026080025 (ESSKY085LS): 300 pcs" */
+/** "Held for ORD2026080025 · EB-77 (ESSKY085LS): 300 pcs" — the style by its Buyer Style Code first */
 export function heldForLine(entry: HeldForEntry, unit?: string | null): string {
   const who = entry.orderNumber ?? entry.requirementNumber ?? 'another order';
-  const style = entry.styleCode ? ` (${entry.styleCode})` : '';
+  const label = styleCodeLabel({ styleCode: entry.styleCode, buyerStyleRef: entry.buyerStyleRef }, null, '');
+  const style = label ? ` · ${label}` : '';
   return `Held for ${who}${style}: ${formatQuantity(entry.qty, entry.unit ?? unit ?? null, 3)}`;
 }
 

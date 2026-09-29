@@ -61,7 +61,7 @@ describe('WorkOrderCombobox', () => {
       );
     }
     render(<Filter />);
-    await waitFor(() => expect(trigger()).toHaveTextContent('WO2609-0087 — ESSKY082LS (EB-77)'));
+    await waitFor(() => expect(trigger()).toHaveTextContent('WO2609-0087 — EB-77 (ESSKY082LS)'));
     expect(trigger()).toHaveClass('w-[260px]');
     expect(workOrderService.getAll).toHaveBeenCalledTimes(1);
     expect(workOrderService.getAll).toHaveBeenCalledWith({
@@ -75,7 +75,7 @@ describe('WorkOrderCombobox', () => {
     fireEvent.click(trigger());
     // Second line: the order and its customer, or the stock order for a make-to-stock run
     expect(
-      await screen.findByRole('option', { name: /WO2609-0087 — ESSKY082LS \(EB-77\)\s*ORD2609-0001 · Easybuy/ })
+      await screen.findByRole('option', { name: /WO2609-0087 — EB-77 \(ESSKY082LS\)\s*ORD2609-0001 · Easybuy/ })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('option', { name: /WO2609-0090 — LNG001\s*SPO2609-0003 · Make-to-stock/ })
@@ -100,7 +100,7 @@ describe('WorkOrderCombobox', () => {
     await screen.findByRole('option', { name: /WO2609-0090/ });
 
     mocked(workOrderService.getAll).mockResolvedValue([orderRun]);
-    fireEvent.change(screen.getByPlaceholderText('Search by run number, style, buyer ref, order...'), {
+    fireEvent.change(screen.getByPlaceholderText('Search by run number, buyer style code, style code, order...'), {
       target: { value: 'ORD2609-0001' },
     });
     await settle();
@@ -131,7 +131,7 @@ describe('WorkOrderCombobox', () => {
     mocked(workOrderService.getAll).mockResolvedValue([stockRun]);
     mocked(workOrderService.getById).mockResolvedValue(orderRun);
     render(<WorkOrderCombobox value="wo-1" onValueChange={() => undefined} allowAll status="COMPLETED" />);
-    await waitFor(() => expect(trigger()).toHaveTextContent('WO2609-0087 — ESSKY082LS (EB-77)'));
+    await waitFor(() => expect(trigger()).toHaveTextContent('WO2609-0087 — EB-77 (ESSKY082LS)'));
     expect(workOrderService.getById).toHaveBeenCalledTimes(1);
     expect(workOrderService.getById).toHaveBeenCalledWith('wo-1');
   });

@@ -49,6 +49,7 @@ import {
 import { jobWorkOrderService, type DispatchOrderInput, type DispatchableOrder } from '@/services/jobWorkOrder.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { toDateInputValue } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
 import { formatQuantity } from '@/lib/formatters';
 import { qtyExceeds, snapToLimit } from '@/lib/quantity';
 import { useHeldStockConfirm } from '@/hooks/useHeldStockConfirm';
@@ -473,7 +474,7 @@ export default function DispatchToProcessor() {
                         <span className="font-medium">{order.jobWorkNumber}</span>
                         <Badge variant="outline">{order.processType}</Badge>
                         {order.styleCode ? (
-                          <Badge variant="secondary">{order.styleCode}</Badge>
+                          <Badge variant="secondary">{styleCodeLabel(order)}</Badge>
                         ) : (
                           <Badge variant="secondary">Stock — no style</Badge>
                         )}

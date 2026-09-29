@@ -1235,7 +1235,9 @@ export default function GRNForm() {
                   const materialTypes = [
                     ...new Set((po.items ?? []).map((i) => i.materials?.materialType).filter(Boolean) as string[]),
                   ].join(', ');
-                  const styleInfo = po.styleCodes && po.styleCodes.length > 0 ? po.styleCodes.join(', ') : null;
+                  // Buyer Style Code first; older responses without styleLabels fall back to our codes
+                  const styleNames = po.styleLabels ?? po.styleCodes ?? [];
+                  const styleInfo = styleNames.length > 0 ? styleNames.join(', ') : null;
                   const customerInfo =
                     po.customerNames && po.customerNames.length > 0 ? po.customerNames.join(', ') : null;
                   return (

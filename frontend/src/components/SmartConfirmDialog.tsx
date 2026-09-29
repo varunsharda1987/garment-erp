@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { getStockPreview } from '@/services/saleOrder.service';
 import type { StockPreviewItem, StockStatus } from '@/types/saleOrder.types';
 import { sortSaleOrderLines } from '@/components/sale-order/sale-order-lines';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 interface SmartConfirmDialogProps {
   saleOrderId: string;
@@ -232,18 +233,13 @@ export function SmartConfirmDialog({
                     <h4 className="text-sm font-medium mb-2">Items needing production:</h4>
                     <div className="space-y-3">
                       {[...groupedItems.partial, ...groupedItems.none].map((item) => {
-                        // buyerStyleRef arrives with the saleOrder stock-preview fix;
-                        // StockPreviewItem.style does not declare it yet, so read it defensively.
-                        const buyerRef = (item.style as { buyerStyleRef?: string | null } | null)?.buyerStyleRef;
                         return (
                           <div key={item.id} className="rounded-lg border p-3">
                             <div className="flex items-start justify-between">
                               <div>
                                 <div className="font-mono text-sm font-medium">
-                                  {item.style?.styleCode || 'Unknown'}
-                                  {buyerRef && (
-                                    <span className="ml-1 font-sans text-xs text-muted-foreground">({buyerRef})</span>
-                                  )}
+                                  {/* style.buyerStyleRef is already the line's snapshot (the server lets the line win) */}
+                                  <StyleIdentity style={item.style} fallback="Unknown" />
                                 </div>
                                 <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
                                 <div className="text-xs text-muted-foreground mt-1">

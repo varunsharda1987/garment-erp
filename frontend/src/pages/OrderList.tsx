@@ -32,6 +32,7 @@ import { ShoppingCart, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
 import { formatDate } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode } from '@/lib/style-code';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -45,14 +46,14 @@ type Column<T> = {
 /** Statuses an order does no more BOM / edit work in. */
 const CLOSED_STATUSES: OrderStatus[] = ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'];
 
-// One entry per distinct style on the order, in line order — the Style and Buyer Style columns
-// both render from this list so a multi-style order's two stacks line up row for row.
-function uniqueStyles(order: Order): Array<{ code: string; ref?: string | null }> {
-  const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
+// One entry per distinct style on the order, in line order — the Buyer Style Code and Style Code
+// columns both render from this list so a multi-style order's two stacks line up row for row.
+function uniqueStyles(order: Order): Array<{ code: string; buyer: string }> {
+  const uniqueByCode = new Map<string, { code: string; buyer: string }>();
   for (const item of order.orderItems || []) {
     const code = item.style?.styleCode;
     if (code && !uniqueByCode.has(code)) {
-      uniqueByCode.set(code, { code, ref: item.style?.buyerStyleRef });
+      uniqueByCode.set(code, { code, buyer: buyerStyleCode(item.style) });
     }
   }
   return [...uniqueByCode.values()];
@@ -235,16 +236,16 @@ export default function OrderList() {
       ),
     },
     {
-      key: 'styles',
-      header: 'Style',
+      key: 'buyerStyles',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (order) => {
         const unique = uniqueStyles(order);
         if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
           <div className="flex flex-col items-start gap-1">
-            {unique.map(({ code }) => (
-              <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
-                {code}
+            {unique.map(({ code, buyer }) => (
+              <span key={code} className="text-xs font-medium bg-muted text-foreground px-1.5 py-0.5 rounded">
+                {buyer}
               </span>
             ))}
           </div>
@@ -252,16 +253,16 @@ export default function OrderList() {
       },
     },
     {
-      key: 'buyerStyles',
-      header: 'Buyer Style',
+      key: 'styles',
+      header: STYLE_CODE_LABEL,
       render: (order) => {
         const unique = uniqueStyles(order);
-        if (!unique.some((s) => s.ref)) return <span className="text-xs text-muted-foreground">-</span>;
+        if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
           <div className="flex flex-col items-start gap-1">
-            {unique.map(({ code, ref }) => (
+            {unique.map(({ code }) => (
               <span key={code} className="text-xs text-foreground px-1.5 py-0.5">
-                {ref || '-'}
+                {code}
               </span>
             ))}
           </div>

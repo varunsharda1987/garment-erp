@@ -14,6 +14,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 interface FGStockItem {
   id: string;
@@ -146,7 +148,7 @@ export default function FGStockList() {
           >
             <SearchInput
               className="flex-1 min-w-[240px]"
-              placeholder="Search style, buyer's code, colour, size, work order, location..."
+              placeholder="Search buyer style code, style, colour, size, work order, location..."
               value={search}
               onChange={(v) => {
                 setSearch(v);
@@ -207,7 +209,8 @@ export default function FGStockList() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Style</TableHead>
+                      <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                      <TableHead>{STYLE_CODE_LABEL}</TableHead>
                       <TableHead>Color</TableHead>
                       <TableHead>Size</TableHead>
                       <TableHead className="text-right">Quantity</TableHead>
@@ -222,10 +225,16 @@ export default function FGStockList() {
                     {items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{item.style?.styleCode || '-'}</div>
-                            <div className="text-sm text-muted-foreground">{item.style?.styleName}</div>
-                          </div>
+                          <StyleIdentity
+                            style={item.style}
+                            name={item.style?.styleName}
+                            layout="stacked"
+                            showStyleCode={false}
+                            fallback="-"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">{ourStyleCode(item.style)}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

@@ -13,7 +13,8 @@ import { stageValidationService } from '@/services/stageValidation.service';
 import type { CreateCuttingBatchRequest, CuttingBatch } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode, styleCodeLabel } from '@/lib/style-code';
 import { Scissors, ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -408,16 +409,21 @@ export default function CuttingForm() {
   // The runs still waiting to be cut (the server's own list), searchable by run, style, buyer's code or name
   const workOrderOptions: ComboboxOption[] = availableWorkOrders.map((wo) => ({
     value: wo.id,
-    label: `${wo.workOrderNumber} - ${formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} (${wo.pendingQty} pcs pending)`,
+    label: `${wo.workOrderNumber} - ${styleCodeLabel(wo)} (${wo.pendingQty} pcs pending)`,
     searchText: [wo.workOrderNumber, wo.styleCode, wo.buyerStyleRef, wo.styleName].filter(Boolean).join(' '),
   }));
   if (batchWorkOrder && formData.workOrderId && !workOrderOptions.some((o) => o.value === formData.workOrderId)) {
     workOrderOptions.push({
       value: formData.workOrderId,
-      label: `${batchWorkOrder.workOrderNumber} - ${formatStyleCodeWithRef(
-        batchWorkOrder.style?.styleCode ?? '',
-        batchWorkOrder.style?.buyerStyleRef
-      )}`,
+      label: `${batchWorkOrder.workOrderNumber} - ${styleCodeLabel(batchWorkOrder.style)}`,
+      searchText: [
+        batchWorkOrder.workOrderNumber,
+        batchWorkOrder.style?.styleCode,
+        batchWorkOrder.style?.buyerStyleRef,
+        batchWorkOrder.style?.styleName,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
   }
 
@@ -469,7 +475,7 @@ export default function CuttingForm() {
                     onValueChange={(v) => setFormData({ ...formData, workOrderId: v, fabricStockId: '' })}
                     disabled={isEditing}
                     placeholder="Select a production run"
-                    searchPlaceholder="Search by run number, style, buyer ref..."
+                    searchPlaceholder="Search by run number, buyer style code, style..."
                     emptyText="No production runs waiting to be cut."
                   />
                 </div>
@@ -478,14 +484,14 @@ export default function CuttingForm() {
                   <div className="bg-muted p-4 rounded-lg">
                     <div className="grid grid-cols-3 gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground">Style:</span>
+                        <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}:</span>
                         <div className="font-medium">
-                          {selectedWO.styleCode} - {selectedWO.styleName}
+                          <StyleIdentity style={selectedWO} name={selectedWO.styleName} showStyleCode={false} />
                         </div>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Buyer Ref:</span>
-                        <div className="font-medium">{selectedWO.buyerStyleRef || '—'}</div>
+                        <span className="text-muted-foreground">{STYLE_CODE_LABEL}:</span>
+                        <div className="font-medium">{ourStyleCode(selectedWO)}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Order Qty:</span>

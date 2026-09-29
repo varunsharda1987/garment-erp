@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import type { FabricStyleAllocation } from '@/types/fabric-greige.types';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface AllocatedStylesCardProps {
   allocations: FabricStyleAllocation[];
@@ -116,9 +116,7 @@ export default function AllocatedStylesCard({
                   <Shirt className="h-4 w-4 text-info" />
                   <div>
                     <div className="font-medium">
-                      {group.style?.styleCode
-                        ? formatStyleCodeWithRef(group.style.styleCode, group.style.buyerStyleRef)
-                        : 'Unknown Style'}
+                      {styleCodeLabel(group.style, null, 'Unknown Style')}
                       {!group.style?.isActive && (
                         <Badge variant="outline" className="ml-2 text-xs">
                           Inactive
@@ -203,10 +201,8 @@ export default function AllocatedStylesCard({
                                   <AlertDialogTitle>Remove Allocation</AlertDialogTitle>
                                   <AlertDialogDescription>
                                     Are you sure you want to remove this fabric allocation from{' '}
-                                    <strong>
-                                      {formatStyleCodeWithRef(group.style?.styleCode || '', group.style?.buyerStyleRef)}
-                                    </strong>{' '}
-                                    - {allocation.component?.componentName}? This action cannot be undone.
+                                    <strong>{styleCodeLabel(group.style, null, 'Unknown Style')}</strong> -{' '}
+                                    {allocation.component?.componentName}? This action cannot be undone.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>

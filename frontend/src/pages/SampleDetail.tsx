@@ -25,6 +25,13 @@ type SampleWithRelated = Sample & { relatedSamples?: RelatedSample[] };
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatDate } from '@/lib/date';
 import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeLabel,
+} from '@/lib/style-code';
+import {
   TestTube,
   ArrowLeft,
   Pencil,
@@ -100,9 +107,8 @@ export default function SampleDetail() {
     sentDate?: string | null
   ) => {
     const greet = s.customer?.contactPerson?.trim() || s.customer?.name?.trim() || 'Sir/Madam';
-    const buyerRef = s.style?.buyerStyleRef ? ` [Ref: ${s.style.buyerStyleRef}]` : '';
     const styleBit = s.style?.styleCode
-      ? ` for style ${s.style.styleCode}${buyerRef}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
+      ? ` for style ${styleCodeLabel(s.style)}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
       : '';
     const dateStr = sentDate ? formatDate(new Date(sentDate)) : '';
     return [
@@ -231,10 +237,10 @@ export default function SampleDetail() {
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-6">
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Style</Label>
+                <Label className="text-xs text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</Label>
                 {sample.style ? (
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{sample.style.styleCode}</span>
+                    <span className="font-medium">{buyerStyleCode(sample.style)}</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -250,8 +256,8 @@ export default function SampleDetail() {
                 {sample.style && <p className="text-sm text-muted-foreground">{sample.style.styleName}</p>}
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Buyer Reference</Label>
-                <p className="font-medium">{sample.style?.buyerStyleRef || '—'}</p>
+                <Label className="text-xs text-muted-foreground">{STYLE_CODE_LABEL}</Label>
+                <p className="font-medium">{ourStyleCode(sample.style)}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Customer</Label>

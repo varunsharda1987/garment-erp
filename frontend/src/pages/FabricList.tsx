@@ -9,6 +9,7 @@ import { Card, CardContent } from '../components/ui/card';
 import SearchInput from '../components/SearchInput';
 import DataTable from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { FilterBar, MultiSelectFilter, NumberRangeFilter, SelectFilter } from '../components/filters';
 import { GreigeCombobox } from '../components/GreigeCombobox';
@@ -270,7 +271,10 @@ export default function FabricList() {
         }
 
         // Get unique styles and components
-        const styleComponentMap = new Map<string, { styleName: string; styleCode: string; components: string[] }>();
+        const styleComponentMap = new Map<
+          string,
+          { styleName: string; styleCode: string; buyerStyleRef?: string | null; components: string[] }
+        >();
         allocations.forEach((sf) => {
           const style = sf.components?.style; // styleComponents -> components, styles -> style (serializer mappings)
           if (style) {
@@ -279,6 +283,7 @@ export default function FabricList() {
               styleComponentMap.set(key, {
                 styleName: style.styleName,
                 styleCode: style.styleCode,
+                buyerStyleRef: style.buyerStyleRef,
                 components: [],
               });
             }
@@ -295,7 +300,7 @@ export default function FabricList() {
           <div className="space-y-1">
             {entries.slice(0, 2).map((entry, idx) => (
               <div key={idx} className="text-xs">
-                <span className="font-medium text-info">{entry.styleCode}</span>
+                <StyleIdentity style={entry} codeClassName="text-info" />
                 {entry.components.length > 0 && (
                   <span className="text-muted-foreground ml-1">({entry.components.join(', ')})</span>
                 )}

@@ -85,6 +85,8 @@ import type {
 } from '@/types/saleOrder.types';
 import type { Style } from '@/types/style.types';
 import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 /** A style's colourway row (`color_options`), as `GET /styles/:id` serialises it. */
 interface StyleColourway {
@@ -749,11 +751,14 @@ export default function SaleOrderDetail() {
             <CardTitle className="text-sm text-muted-foreground">Style</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-mono font-bold">
-              {so.style?.styleCode || '-'}
-              {so.style?.buyerStyleRef && (
-                <span className="text-muted-foreground font-normal ml-1">({so.style.buyerStyleRef})</span>
-              )}
+            <div className="font-mono">
+              {/* The primary style's own line snapshot wins, like the items table */}
+              <StyleIdentity
+                style={so.style}
+                lineRef={so.items?.find((i) => i.styleId === so.styleId && i.buyerStyleRef)?.buyerStyleRef}
+                fallback="-"
+                codeClassName="font-bold"
+              />
             </div>
             <div className="text-sm text-muted-foreground truncate">{so.style?.styleName || 'No primary style'}</div>
           </CardContent>
@@ -964,7 +969,8 @@ export default function SaleOrderDetail() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Style</TableHead>
+                <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                <TableHead>{STYLE_CODE_LABEL}</TableHead>
                 <TableHead>Season</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead>Size</TableHead>
@@ -979,7 +985,7 @@ export default function SaleOrderDetail() {
             <TableBody>
               {!so.items?.length ? (
                 <TableRow>
-                  <TableCell colSpan={canAllocate ? 10 : 9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={canAllocate ? 11 : 10} className="text-center py-8 text-muted-foreground">
                     No items yet
                   </TableCell>
                 </TableRow>
@@ -987,18 +993,18 @@ export default function SaleOrderDetail() {
                 so.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <div className="font-mono text-sm">
-                        {item.style?.styleCode}
-                        {/* The code CAPTURED on this line wins over the style master's current one,
-                            so an order keeps showing what the buyer ordered under. */}
-                        {(item.buyerStyleRef ?? item.style?.buyerStyleRef) && (
-                          <span className="text-muted-foreground ml-1">
-                            ({item.buyerStyleRef ?? item.style?.buyerStyleRef})
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
+                      {/* The code CAPTURED on this line wins over the style master's current one,
+                          so an order keeps showing what the buyer ordered under. */}
+                      <StyleIdentity
+                        style={item.style}
+                        lineRef={item.buyerStyleRef}
+                        name={item.style?.styleName}
+                        layout="stacked"
+                        showStyleCode={false}
+                        codeClassName="font-mono text-sm"
+                      />
                     </TableCell>
+                    <TableCell className="font-mono text-sm">{ourStyleCode(item.style)}</TableCell>
                     <TableCell>{styleSeasonLabel(item.style) ?? '—'}</TableCell>
                     <TableCell>{item.color?.colorName || item.style?.color?.colorName || 'N/A'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
@@ -1299,7 +1305,9 @@ export default function SaleOrderDetail() {
                     const tooLow = value !== '' && Number(value) < committed;
                     return (
                       <TableRow key={i.id}>
-                        <TableCell className="font-medium">{i.style?.styleCode ?? '—'}</TableCell>
+                        <TableCell>
+                          <StyleIdentity style={i.style} lineRef={i.buyerStyleRef} />
+                        </TableCell>
                         <TableCell>{i.color?.colorName ?? i.style?.color?.colorName ?? '—'}</TableCell>
                         <TableCell>{i.size?.sizeName ?? '—'}</TableCell>
                         <TableCell className="text-right">
@@ -1408,7 +1416,7 @@ export default function SaleOrderDetail() {
                   <RadioGroupItem id={`link-${o.id}`} value={o.id} disabled={!o.sameCustomer} className="mt-1" />
                   <div className="space-y-0.5 text-sm">
                     <div className="font-medium">
-                      {o.orderNumber} · {o.styles.join(', ')}
+                      {o.orderNumber} · {(o.styleLabels ?? o.styles).join(', ')}
                     </div>
                     <div className="text-muted-foreground">
                       {o.totalQuantity} pcs · {o.status} · due {formatDate(o.expectedDeliveryDate)}
@@ -1453,9 +1461,13 @@ export default function SaleOrderDetail() {
             <div className="space-y-4">
               <div className="p-3 bg-muted rounded-md text-sm">
                 <div>
-                  <strong>Style:</strong> {selectedItem.style?.styleCode}
-                  {selectedItem.style?.buyerStyleRef ? ` (${selectedItem.style.buyerStyleRef})` : ''} -{' '}
-                  {selectedItem.style?.styleName}
+                  <strong>Style:</strong>{' '}
+                  <StyleIdentity
+                    style={selectedItem.style}
+                    lineRef={selectedItem.buyerStyleRef}
+                    name={selectedItem.style?.styleName}
+                    codeClassName="font-normal"
+                  />
                 </div>
                 <div>
                   <strong>Color:</strong>{' '}

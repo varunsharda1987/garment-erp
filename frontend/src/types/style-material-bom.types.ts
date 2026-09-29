@@ -122,6 +122,8 @@ export interface LabelSetLabel {
 export interface StyleLabelSet {
   styleId: string;
   styleCode: string;
+  /** The style's Buyer Style Code — show the pair with styleCodeLabel (@/lib/style-code) */
+  buyerStyleRef?: string | null;
   styleName: string | null;
   source: 'ORDER_BOM' | 'STYLE_BOM';
   orderBom: { id: string; version: number; status: string } | null;

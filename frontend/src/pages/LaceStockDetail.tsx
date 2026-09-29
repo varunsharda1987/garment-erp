@@ -23,7 +23,8 @@ import {
   AGING_BUCKET_COLORS,
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { ArrowLeft, Package, ArrowRightLeft, History, MapPin, DollarSign, Undo2 } from 'lucide-react';
 import { formatDate, formatDateTime } from '@/lib/date';
 import { isQtyZero, qtyExceeds, qtyRemaining, snapToLimit } from '@/lib/quantity';
@@ -337,12 +338,10 @@ export default function LaceStockDetail() {
               {stock.originStyleCode && (
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-muted-foreground">Origin Style</span>
-                  <span className="font-mono">
-                    {stock.originStyleCode}
-                    {stock.originBuyerStyleRef && (
-                      <span className="ml-1 text-xs text-muted-foreground">({stock.originBuyerStyleRef})</span>
-                    )}
-                  </span>
+                  <StyleIdentity
+                    style={{ styleCode: stock.originStyleCode, buyerStyleRef: stock.originBuyerStyleRef }}
+                    className="font-mono"
+                  />
                 </div>
               )}
               {stock.originOrder && (
@@ -433,14 +432,18 @@ export default function LaceStockDetail() {
                     {allocations.map((alloc) => (
                       <tr key={alloc.id} className="hover:bg-muted">
                         <td className="px-4 py-4">
-                          <span className="font-mono">
-                            {alloc.styleCode}
-                            {alloc.style?.buyerStyleRef && (
-                              <span className="ml-1 text-xs text-muted-foreground">({alloc.style.buyerStyleRef})</span>
-                            )}
-                          </span>
+                          <StyleIdentity
+                            style={{ styleCode: alloc.styleCode, buyerStyleRef: alloc.style?.buyerStyleRef }}
+                            className="font-mono"
+                          />
                           {alloc.originalStyleCode && alloc.originalStyleCode !== alloc.styleCode && (
-                            <div className="text-xs text-muted-foreground">From: {alloc.originalStyleCode}</div>
+                            <div className="text-xs text-muted-foreground">
+                              From:{' '}
+                              {styleCodeLabel({
+                                styleCode: alloc.originalStyleCode,
+                                buyerStyleRef: alloc.originalBuyerStyleRef,
+                              })}
+                            </div>
                           )}
                         </td>
                         <td className="px-4 py-4">{alloc.order?.orderNumber || '-'}</td>
@@ -520,7 +523,9 @@ export default function LaceStockDetail() {
                       <div className="mt-2 text-sm text-muted-foreground">
                         {txn.fromStyleCode && txn.toStyleCode && (
                           <span>
-                            Transfer: {txn.fromStyleCode} → {txn.toStyleCode}
+                            Transfer:{' '}
+                            {styleCodeLabel({ styleCode: txn.fromStyleCode, buyerStyleRef: txn.fromBuyerStyleRef })} →{' '}
+                            {styleCodeLabel({ styleCode: txn.toStyleCode, buyerStyleRef: txn.toBuyerStyleRef })}
                           </span>
                         )}
                         {txn.notes && <span className="ml-4">{txn.notes}</span>}
@@ -615,7 +620,10 @@ export default function LaceStockDetail() {
               <div className="text-sm text-muted-foreground">
                 Allocation:{' '}
                 {selectedAllocation.styleCode
-                  ? formatStyleCodeWithRef(selectedAllocation.styleCode, selectedAllocation.style?.buyerStyleRef)
+                  ? styleCodeLabel({
+                      styleCode: selectedAllocation.styleCode,
+                      buyerStyleRef: selectedAllocation.style?.buyerStyleRef,
+                    })
                   : selectedAllocation.styleId}{' '}
                 &middot; Returnable: {getReturnableQty(selectedAllocation).toLocaleString()}m
               </div>

@@ -28,7 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { designerDashboardService } from '@/services/designerDashboard.service';
 import type { DashboardData, RecentStyle, TeamActivity } from '@/types/designerDashboard.types';
 import { formatDistanceToNow } from 'date-fns';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { STYLE_CODE_LABEL, buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '@/lib/style-code';
 
 // Get initials from name
 function getInitials(name: string): string {
@@ -95,9 +95,11 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
         </Badge>
       </div>
       <CardContent className="p-3">
-        <p className="font-medium text-sm truncate">{style.styleCode}</p>
-        {style.buyerStyleRef && (
-          <p className="text-xs text-muted-foreground truncate">Buyer Ref: {style.buyerStyleRef}</p>
+        <p className="font-medium text-sm truncate">{buyerStyleCode(style)}</p>
+        {styleCodeIfDifferent(style) && (
+          <p className="text-xs text-muted-foreground truncate">
+            {STYLE_CODE_LABEL}: {styleCodeIfDifferent(style)}
+          </p>
         )}
         <p className="text-xs text-muted-foreground truncate">{style.styleName}</p>
         {style.season && <p className="text-xs text-muted-foreground mt-1">{style.season}</p>}
@@ -126,7 +128,7 @@ function ActivityItem({ activity }: { activity: TeamActivity }) {
               className="h-auto p-0 text-sm font-medium ml-1"
               onClick={() => navigate(`/styles/${activity.style!.id}`)}
             >
-              {formatStyleCodeWithRef(activity.style.styleCode, activity.style.buyerStyleRef)}
+              {styleCodeLabel(activity.style)}
             </Button>
           )}
         </p>

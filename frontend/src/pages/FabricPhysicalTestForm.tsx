@@ -17,7 +17,7 @@ import { customerService } from '@/services/customer.service';
 import type { CreateFabricPhysicalTestInput } from '@/types/testing.types';
 import type { FabricMaster } from '@/types/fabric-greige.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface SelectableItem {
   id: string;
@@ -101,7 +101,7 @@ export default function FabricPhysicalTestForm() {
   const styles: SelectableItem[] = (stylesData?.data || []).map(
     (s: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }) => ({
       id: s.id,
-      code: formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef),
+      code: styleCodeLabel(s),
       name: s.styleName,
     })
   );
@@ -183,7 +183,7 @@ export default function FabricPhysicalTestForm() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput
                   placeholder="Search by code or name..."
                   value={fabricSearch}
@@ -237,7 +237,7 @@ export default function FabricPhysicalTestForm() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[500px] p-0" align="start">
-              <Command>
+              <Command shouldFilter={false}>
                 <CommandInput placeholder="Search labs..." value={labSearch} onValueChange={setLabSearch} />
                 <CommandList>
                   <CommandEmpty>{labsLoading ? 'Searching...' : 'No labs found.'}</CommandEmpty>
@@ -388,7 +388,7 @@ export default function FabricPhysicalTestForm() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput placeholder="Search styles..." value={styleSearch} onValueChange={setStyleSearch} />
                     <CommandList>
                       <CommandEmpty>{stylesLoading ? 'Searching...' : 'No styles found.'}</CommandEmpty>
@@ -433,7 +433,7 @@ export default function FabricPhysicalTestForm() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command>
+                  <Command shouldFilter={false}>
                     <CommandInput
                       placeholder="Search customers..."
                       value={customerSearch}

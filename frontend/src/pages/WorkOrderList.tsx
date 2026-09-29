@@ -18,6 +18,8 @@ import workOrderService from '@/services/workOrder.service';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
 import { ClipboardList } from 'lucide-react';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -175,19 +177,23 @@ export default function WorkOrderList() {
       ),
     },
     {
-      key: 'style',
-      header: 'Style',
+      key: 'buyerStyleCode',
+      header: BUYER_STYLE_CODE_LABEL,
       render: (wo) => (
-        <div>
-          <div className="font-medium text-foreground">{wo.style?.styleCode || '-'}</div>
-          <div className="text-xs text-muted-foreground">{wo.style?.styleName || ''}</div>
-        </div>
+        <StyleIdentity
+          style={wo.style}
+          name={wo.style?.styleName}
+          layout="stacked"
+          showStyleCode={false}
+          fallback="-"
+          codeClassName="text-foreground"
+        />
       ),
     },
     {
-      key: 'buyerStyleRef',
-      header: 'Buyer Ref',
-      render: (wo) => <span className="text-sm">{wo.style?.buyerStyleRef || '—'}</span>,
+      key: 'styleCode',
+      header: STYLE_CODE_LABEL,
+      render: (wo) => <span className="text-sm">{ourStyleCode(wo.style)}</span>,
     },
     {
       key: 'location',
@@ -308,7 +314,7 @@ export default function WorkOrderList() {
               className="min-w-[220px] max-w-md flex-1"
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder="Search run number, order, customer, SPO, style, buyer style, location…"
+              placeholder="Search run number, order, customer, SPO, buyer style code, style, location…"
               aria-label="Search production runs"
             />
             <Select

@@ -16,6 +16,14 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, Truck, Package, FileText, ClipboardCheck } from 'lucide-react';
 
 import { formatDate, toDateInputValue } from '@/lib/date';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeLabel,
+} from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 export default function DispatchPODForm() {
   const navigate = useNavigate();
@@ -101,7 +109,7 @@ export default function DispatchPODForm() {
         if (received[item.id] === '' || !Number.isInteger(value) || value < 0 || value > item.quantity) {
           handleApiError(
             new Error(
-              `Received on ${item.style?.styleCode ?? 'a line'} ${item.size?.sizeName ?? ''} must be 0 to ${item.quantity}`
+              `Received on ${styleCodeLabel(item.style, null, 'a line')} ${item.size?.sizeName ?? ''} must be 0 to ${item.quantity}`
             ),
             'Validation Error'
           );
@@ -262,7 +270,8 @@ export default function DispatchPODForm() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Style</TableHead>
+                  <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                  <TableHead>{STYLE_CODE_LABEL}</TableHead>
                   <TableHead>Color</TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead className="text-right">Quantity</TableHead>
@@ -272,12 +281,15 @@ export default function DispatchPODForm() {
                 {deliveryNote.items?.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      {item.style?.styleCode || '-'}
-                      {item.style?.buyerStyleRef && (
-                        <span className="text-muted-foreground ml-1">({item.style.buyerStyleRef})</span>
-                      )}
-                      <span className="text-muted-foreground ml-2">{item.style?.styleName}</span>
+                      <StyleIdentity
+                        style={item.style}
+                        name={item.style?.styleName}
+                        layout="stacked"
+                        showStyleCode={false}
+                        fallback="-"
+                      />
                     </TableCell>
+                    <TableCell className="text-sm">{ourStyleCode(item.style, '-')}</TableCell>
                     <TableCell>{item.color?.colorName || '-'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>
@@ -366,7 +378,8 @@ export default function DispatchPODForm() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Style</TableHead>
+                        <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                        <TableHead>{STYLE_CODE_LABEL}</TableHead>
                         <TableHead>Colour</TableHead>
                         <TableHead>Size</TableHead>
                         <TableHead className="text-right">Sent</TableHead>
@@ -376,7 +389,8 @@ export default function DispatchPODForm() {
                     <TableBody>
                       {(deliveryNote?.items ?? []).map((item) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.style?.styleCode || '-'}</TableCell>
+                          <TableCell className="font-medium">{buyerStyleCode(item.style, null, '-')}</TableCell>
+                          <TableCell className="text-sm">{ourStyleCode(item.style, '-')}</TableCell>
                           <TableCell>{item.color?.colorName || '-'}</TableCell>
                           <TableCell>{item.size?.sizeName || '-'}</TableCell>
                           <TableCell className="text-right">{item.quantity}</TableCell>

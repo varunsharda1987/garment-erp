@@ -30,7 +30,8 @@ import {
   AGING_BUCKET_COLORS,
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { RefreshCw, Eye, ArrowRightLeft, Package, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 
 export default function LaceStockList() {
@@ -160,7 +161,9 @@ export default function LaceStockList() {
     const parts = [
       stock.laceMaster?.laceCode || 'Unknown',
       stock.laceMaster?.color || '',
-      stock.originStyleCode ? `-${formatStyleCodeWithRef(stock.originStyleCode, stock.originBuyerStyleRef)}` : '',
+      stock.originStyleCode
+        ? `-${styleCodeLabel({ styleCode: stock.originStyleCode, buyerStyleRef: stock.originBuyerStyleRef })}`
+        : '',
       stock.lotNumber ? `:${stock.lotNumber}` : '',
     ];
     return parts.filter(Boolean).join('');
@@ -244,7 +247,7 @@ export default function LaceStockList() {
       >
         <SearchInput
           className="flex-1 min-w-[200px] max-w-md"
-          placeholder="Search lace, color, lot or dye lot, style or buyer ref..."
+          placeholder="Search lace, color, lot or dye lot, style or buyer style code..."
           value={searchTerm}
           onChange={changeFilter(setSearchTerm)}
           // The API refuses a longer search (laceStockQuerySchema: max 100)
@@ -393,14 +396,10 @@ export default function LaceStockList() {
                         </td>
                         <td className="px-4 py-4">
                           {stock.originStyleCode ? (
-                            <span className="font-mono text-sm">
-                              {stock.originStyleCode}
-                              {stock.originBuyerStyleRef && (
-                                <span className="ml-1 text-xs text-muted-foreground">
-                                  ({stock.originBuyerStyleRef})
-                                </span>
-                              )}
-                            </span>
+                            <StyleIdentity
+                              style={{ styleCode: stock.originStyleCode, buyerStyleRef: stock.originBuyerStyleRef }}
+                              className="font-mono text-sm"
+                            />
                           ) : (
                             <span className="text-muted-foreground text-sm">Generic</span>
                           )}

@@ -40,7 +40,7 @@ import { LabDipStatusLabels, LabDipStatusColors } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
 
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 import { formatDate, formatDateTime24, toDateInputValue } from '@/lib/date';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
@@ -368,14 +368,14 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Style Code</p>
-                <p className="font-medium">
-                  {labDip.style?.styleCode
-                    ? formatStyleCodeWithRef(labDip.style.styleCode, labDip.style.buyerStyleRef)
-                    : '-'}
-                </p>
+                <p className="text-sm text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</p>
+                <p className="font-medium">{buyerStyleCode(labDip.style, null, '-')}</p>
               </div>
               <div>
+                <p className="text-sm text-muted-foreground">{STYLE_CODE_LABEL}</p>
+                <p className="font-medium">{ourStyleCode(labDip.style, '-')}</p>
+              </div>
+              <div className="col-span-2">
                 <p className="text-sm text-muted-foreground">Style Name</p>
                 <p className="font-medium">{labDip.style?.styleName || '-'}</p>
               </div>

@@ -346,6 +346,8 @@ export interface CADSizeOption {
 export interface CADStyleSummary {
   id: string;
   styleCode: string;
+  /** The buyer's own style code — shown first (see `@/lib/style-code`) */
+  buyerStyleRef?: string | null;
   styleName: string;
   cadStatus: CADStatus;
   approvedCadDate?: string | null;

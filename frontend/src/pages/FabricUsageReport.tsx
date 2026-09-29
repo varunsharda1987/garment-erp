@@ -15,6 +15,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import api from '@/lib/api';
 import { logError } from '../lib/logger';
 import { formatDate } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 interface Fabric {
   id: string;
@@ -236,10 +238,10 @@ export default function FabricUsageReport() {
                                   <thead className="bg-muted">
                                     <tr>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                                        Style Code
+                                        {BUYER_STYLE_CODE_LABEL}
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                                        Buyer Ref
+                                        {STYLE_CODE_LABEL}
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                                         Style Name
@@ -261,10 +263,10 @@ export default function FabricUsageReport() {
                                   <tbody className="bg-card divide-y divide-gray-200">
                                     {fabric.styles.map((style, index) => (
                                       <tr key={index}>
-                                        <td className="px-4 py-3 text-sm text-foreground">{style.styleCode}</td>
                                         <td className="px-4 py-3 text-sm text-foreground">
-                                          {style.buyerStyleRef || '—'}
+                                          <StyleIdentity style={style} layout="stacked" showStyleCode={false} />
                                         </td>
+                                        <td className="px-4 py-3 text-sm text-foreground">{ourStyleCode(style)}</td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">{style.styleName}</td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">
                                           {style.componentName}

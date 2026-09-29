@@ -4,6 +4,9 @@
  * A reusable multi-select dropdown for selecting style codes.
  * Used by Lace, Button, and Thread forms to associate trims with styles.
  *
+ * Styles are SHOWN by Buyer Style Code first (`StyleIdentity`, 2026-09-29) — 'SP27DR27 (EBWW-021)'.
+ * The VALUE stays the array of our style codes: that is what the trim masters save.
+ *
  * Features:
  * - Typeahead search for styles
  * - Selected styles displayed as removable badges
@@ -17,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { X, Search, ChevronDown, Loader2 } from 'lucide-react';
 import { styleService } from '@/services/style.service';
 import { cn } from '@/lib/utils';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 interface StyleOption {
   id: string;
@@ -202,8 +206,7 @@ export function StyleCodeMultiSelect({
           {/* Selected style badges */}
           {selectedStyles.map((style) => (
             <Badge key={style.styleCode} variant="secondary" className="flex items-center gap-1 px-2 py-1 text-xs">
-              <span className="font-medium">{style.styleCode}</span>
-              {style.buyerStyleRef && <span className="text-muted-foreground">({style.buyerStyleRef})</span>}
+              <StyleIdentity style={style} />
               {style.styleName && (
                 <span className="text-muted-foreground max-w-[100px] truncate">- {style.styleName}</span>
               )}
@@ -268,10 +271,7 @@ export function StyleCodeMultiSelect({
                     className="px-3 py-2 cursor-pointer hover:bg-muted flex items-center justify-between"
                   >
                     <div>
-                      <span className="font-medium text-sm">{style.styleCode}</span>
-                      {style.buyerStyleRef && (
-                        <span className="text-muted-foreground text-sm ml-1">({style.buyerStyleRef})</span>
-                      )}
+                      <StyleIdentity style={style} className="text-sm" />
                       {style.styleName && (
                         <span className="text-muted-foreground text-sm ml-2">- {style.styleName}</span>
                       )}

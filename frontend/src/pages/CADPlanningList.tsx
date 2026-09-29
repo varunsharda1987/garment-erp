@@ -45,6 +45,8 @@ import { getUploadUrl } from '../config/api.config';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 import { applyUrlUpdates, getUrlLimit, getUrlList, getUrlPage, type FilterUpdate } from '@/lib/url-filters';
 import Pagination from '@/components/Pagination';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 const PAGE_SIZE = 15;
 const PAGE_SIZE_OPTIONS = [15, 30, 50, 100]; // the API takes any limit; 100 is the project cap
@@ -405,7 +407,7 @@ export default function CADPlanningList() {
             <SearchInput
               value={searchQuery}
               onChange={handleSearchChange}
-              placeholder="Search style code, buyer ref, name, buyer, brand, greige…"
+              placeholder="Search buyer style code, style code, name, buyer, brand, greige…"
               aria-label="Search styles"
             />
           </div>
@@ -533,8 +535,8 @@ export default function CADPlanningList() {
                       <TableRow className="bg-muted">
                         <TableHead className="w-10"></TableHead>
                         <TableHead className="w-16">Image</TableHead>
-                        <TableHead>Style Code</TableHead>
-                        <TableHead>Buyer Ref</TableHead>
+                        <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                        <TableHead>{STYLE_CODE_LABEL}</TableHead>
                         <TableHead>Buyer / Brand</TableHead>
                         <TableHead>Greige</TableHead>
                         <TableHead className="text-center w-24">Components</TableHead>
@@ -588,22 +590,21 @@ export default function CADPlanningList() {
                               </div>
                             </TableCell>
 
-                            {/* Style Code */}
+                            {/* Buyer Style Code (style name under it) */}
                             <TableCell>
-                              <div>
-                                <div className="font-medium text-info">{style.styleCode}</div>
-                                <div
-                                  className="text-sm text-muted-foreground truncate max-w-[180px]"
-                                  title={style.styleName}
-                                >
-                                  {style.styleName}
-                                </div>
-                              </div>
+                              <StyleIdentity
+                                style={style}
+                                name={style.styleName}
+                                layout="stacked"
+                                showStyleCode={false}
+                                className="max-w-[180px]"
+                                codeClassName="text-info"
+                              />
                             </TableCell>
 
-                            {/* Buyer Ref */}
+                            {/* Style Code */}
                             <TableCell>
-                              <span className="text-sm">{style.buyerStyleRef || '—'}</span>
+                              <span className="text-sm">{ourStyleCode(style)}</span>
                             </TableCell>
 
                             {/* Buyer / Brand */}

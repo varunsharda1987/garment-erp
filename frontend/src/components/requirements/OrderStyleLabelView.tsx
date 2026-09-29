@@ -18,6 +18,8 @@ import { formatQuantity } from '@/lib/formatters';
 import { formatDate } from '@/lib/date';
 import { unitShort } from '@/lib/units';
 import { isQtyZero } from '@/lib/quantity';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { sumRows, type GroupedLine, type LabelGroup } from '@/lib/label-lines';
 import {
   MaterialRequirementStatusColors,
@@ -358,15 +360,14 @@ export function OrderStyleLabelView({
                 <CardHeader className="cursor-pointer hover:bg-muted/50 py-3 px-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      {renderSelect(group.requirements, `Select the whole set for ${group.styleCode ?? 'this style'}`)}
+                      {renderSelect(
+                        group.requirements,
+                        `Select the whole set for ${styleCodeLabel(group, null, 'this style')}`
+                      )}
                       <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} />
                       <div>
                         <div className="font-medium">
-                          {group.styleCode ?? 'No style'}
-                          {group.buyerStyleRef && group.buyerStyleRef !== group.styleCode
-                            ? ` (${group.buyerStyleRef})`
-                            : ''}
-                          {group.styleName ? ` — ${group.styleName}` : ''}
+                          <StyleIdentity style={group} name={group.styleName} fallback="No style" />
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {group.orderNumber ?? 'No order'}

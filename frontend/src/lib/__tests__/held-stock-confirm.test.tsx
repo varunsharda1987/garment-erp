@@ -25,9 +25,23 @@ const refusal = (
 describe('extractHeldStock', () => {
   it('reads a 409 or 422 with details.code STOCK_HELD_FOR_ORDER', () => {
     expect(extractHeldStock(refusal(409))?.heldFor).toEqual([
-      { orderNumber: 'ORD2026080025', styleCode: 'ESSKY085LS', qty: 300, unit: null, requirementNumber: null },
+      {
+        orderNumber: 'ORD2026080025',
+        styleCode: 'ESSKY085LS',
+        buyerStyleRef: null,
+        qty: 300,
+        unit: null,
+        requirementNumber: null,
+      },
     ]);
     expect(extractHeldStock(refusal(422))).not.toBeNull();
+  });
+
+  it('reads the buyer style code the server sends beside the style code', () => {
+    const held = extractHeldStock(
+      refusal(409, [{ orderNumber: 'ORD2026080025', styleCode: 'ESSKY085LS', buyerStyleRef: 'EB-77', qty: 300 }])
+    );
+    expect(held?.heldFor[0].buyerStyleRef).toBe('EB-77');
   });
 
   it('ignores every other error', () => {
@@ -47,8 +61,12 @@ describe('extractHeldStock', () => {
 describe('wording', () => {
   it('names the order, its style and the quantity', () => {
     expect(heldForLine({ orderNumber: 'ORD2026080025', styleCode: 'ESSKY085LS', qty: 300 }, 'PIECE')).toBe(
-      'Held for ORD2026080025 (ESSKY085LS): 300 pcs'
+      'Held for ORD2026080025 · ESSKY085LS: 300 pcs'
     );
+    // The buyer style code first, ours in brackets when it differs
+    expect(
+      heldForLine({ orderNumber: 'ORD2026080025', styleCode: 'ESSKY085LS', buyerStyleRef: 'EB-77', qty: 300 }, 'PIECE')
+    ).toBe('Held for ORD2026080025 · EB-77 (ESSKY085LS): 300 pcs');
     expect(heldForLine({ orderNumber: 'ORD1', styleCode: null, qty: 12.5, unit: 'METER' })).toBe(
       'Held for ORD1: 12.5 m'
     );
@@ -94,7 +112,7 @@ describe('useHeldStockConfirm', () => {
     render(<Harness send={send} />);
     fireEvent.click(screen.getByText('Issue'));
 
-    expect(await screen.findByText('Held for ORD2026080025 (ESSKY085LS): 300 pcs.')).toBeInTheDocument();
+    expect(await screen.findByText('Held for ORD2026080025 · ESSKY085LS: 300 pcs.')).toBeInTheDocument();
     expect(screen.getByText('Take them anyway? That order will need them bought again.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Take them anyway' }));
 

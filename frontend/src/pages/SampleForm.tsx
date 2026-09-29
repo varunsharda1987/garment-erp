@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { styleCodeLabel } from '@/lib/style-code';
 import api from '@/lib/api';
 import { toDateInputValue } from '@/lib/date';
 
@@ -385,7 +385,8 @@ export default function SampleForm() {
     { value: 'none', label: 'No style' },
     ...styleChoices.map((s) => ({
       value: s.id,
-      label: `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - ${s.styleName}`,
+      label: `${styleCodeLabel(s)} - ${s.styleName}`,
+      searchText: [s.styleCode, s.buyerStyleRef, s.styleName].filter(Boolean).join(' '),
     })),
   ];
 
@@ -470,7 +471,7 @@ export default function SampleForm() {
                       onValueChange={(v) => setFormData({ ...formData, styleId: v === 'none' || !v ? '' : v })}
                       disabled={isEditing || !formData.customerId}
                       placeholder="Select style"
-                      searchPlaceholder="Search style code, buyer's code or name..."
+                      searchPlaceholder="Search buyer style code, style code or name..."
                       emptyText="No styles found for this customer."
                     />
                   </div>

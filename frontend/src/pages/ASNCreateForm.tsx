@@ -19,7 +19,7 @@ import type { Order, OrderItem, OrderItemBreakup } from '@/types/order.types';
 import type { CreateASNRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { queryKeys } from '@/lib/query-client';
 import { formatDate } from '@/lib/date';
 
@@ -357,12 +357,7 @@ export default function ASNCreateForm() {
                     {skuLines.map((line, index) => (
                       <TableRow key={`${line.styleId}-${line.colorId}-${line.sizeId}-${index}`}>
                         <TableCell>
-                          <div>
-                            <p className="font-medium">{line.styleName}</p>
-                            <p className="text-xs text-muted-foreground font-mono">
-                              {formatStyleCodeWithRef(line.styleCode, line.buyerStyleRef)}
-                            </p>
-                          </div>
+                          <StyleIdentity style={line} name={line.styleName} layout="stacked" />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">

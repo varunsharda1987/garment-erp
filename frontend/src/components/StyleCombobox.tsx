@@ -1,10 +1,14 @@
 /**
  * StyleCombobox - Searchable style selector with server-side search
  *
- * Lists up to PICKER_LIMIT styles alphabetically by code and narrows as you type (every typed
- * word must match the code, buyer ref, name or customer). When more styles exist than the box
+ * Lists up to PICKER_LIMIT styles and narrows as you type (every typed word must match the buyer
+ * style code, our style code, the name or the customer). When more styles exist than the box
  * holds it says so — with 1,116 styles the old 50-newest list silently hid everything older than
  * three weeks (2026-09-14).
+ *
+ * Each option names the style the ONE way (`styleCodeLabel`, 2026-09-29): Buyer Style Code first,
+ * our Style Code in brackets when it differs — 'SP27DR27 (EBWW-021) - GEMINI (Easybuy)'. The list
+ * is sorted by that label, so it reads in buyer-style-code order; typing either code still finds it.
  */
 
 import { useCallback, useEffect } from 'react';
@@ -12,6 +16,7 @@ import { Combobox, type ComboboxOption } from './ui/combobox';
 import { styleService } from '@/services/style.service';
 import { usePickerOptions, PICKER_LIMIT, type PickerPage } from '@/hooks/usePickerOptions';
 import type { Style } from '@/types/style.types';
+import { styleCodeLabel } from '@/lib/style-code';
 
 export { PICKER_LIMIT };
 
@@ -33,7 +38,7 @@ interface StyleComboboxProps {
 function styleOption(s: Style): ComboboxOption {
   return {
     value: s.id,
-    label: `${s.styleCode}${s.buyerStyleRef ? ` (${s.buyerStyleRef})` : ''} - ${s.styleName} (${s.customerName || 'No customer'})`,
+    label: `${styleCodeLabel(s)} - ${s.styleName} (${s.customerName || 'No customer'})`,
     searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName} ${s.customerName || ''}`,
   };
 }
@@ -67,9 +72,10 @@ export function StyleCombobox({
   const { options, byId, addItem, isLoading, initialLoaded, loadError, load, footer } = usePickerOptions<Style>({
     fetch,
     toOption: styleOption,
-    // The server already orders by code; keeping the client sort makes a preselected style slot in
+    // Sorted by the label, i.e. by Buyer Style Code (the server orders by our code); the client sort
+    // also makes a preselected style slot in
     sortAlphabetically: true,
-    narrowHint: "type part of the style code, the buyer's code or the customer to narrow",
+    narrowHint: 'type part of the buyer style code, our style code or the customer to narrow',
     onError: (error) => console.error('Failed to load styles:', error),
   });
 
@@ -103,9 +109,11 @@ export function StyleCombobox({
       disabled={disabled}
       className={className}
       placeholder={
-        !initialLoaded && loadError ? 'Could not load — open to retry' : placeholder || 'Search by style code...'
+        !initialLoaded && loadError
+          ? 'Could not load — open to retry'
+          : placeholder || 'Search by buyer style code or style code...'
       }
-      searchPlaceholder="Type style code..."
+      searchPlaceholder="Type buyer style code or style code..."
       emptyText="No styles found"
       onOpenChange={(open) => {
         if (open && !initialLoaded && !isLoading) load('');

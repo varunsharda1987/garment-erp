@@ -16,7 +16,13 @@ import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.s
 import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeLabel,
+} from '@/lib/style-code';
 import { getUploadUrl } from '@/config/api.config';
 import api from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -81,7 +87,7 @@ export default function CuttingChart() {
     () =>
       availableWorkOrders.map((wo) => ({
         value: wo.id,
-        label: `${wo.workOrderNumber} - ${formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} (${wo.pendingQty} pcs pending)`,
+        label: `${wo.workOrderNumber} - ${styleCodeLabel(wo)} (${wo.pendingQty} pcs pending)`,
         searchText: [wo.workOrderNumber, wo.styleCode, wo.buyerStyleRef, wo.styleName].filter(Boolean).join(' '),
       })),
     [availableWorkOrders]
@@ -358,7 +364,7 @@ export default function CuttingChart() {
                   setSelectedLots({});
                 }}
                 placeholder="Select a production run"
-                searchPlaceholder="Search by run number, style, buyer ref..."
+                searchPlaceholder="Search by run number, buyer style code, style..."
                 emptyText="No production runs waiting to be cut."
               />
             </div>
@@ -434,8 +440,14 @@ export default function CuttingChart() {
                     <p className="font-semibold text-foreground">{chartData.brand || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Style</p>
-                    <p className="font-semibold text-foreground">{chartData.style}</p>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{BUYER_STYLE_CODE_LABEL}</p>
+                    <p className="font-semibold text-foreground">
+                      {buyerStyleCode({ styleCode: chartData.style, buyerStyleRef: chartData.buyerStyleRef })}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">{STYLE_CODE_LABEL}</p>
+                    <p className="font-semibold text-foreground">{ourStyleCode({ styleCode: chartData.style })}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide">Style Name</p>

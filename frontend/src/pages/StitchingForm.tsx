@@ -18,6 +18,7 @@ import { stitchingIssueService, stitchingSummaryService } from '@/services/stitc
 import { handleApiSuccess } from '@/lib/api-error-handler';
 import type { CreateStitchingIssueRequest, IncomingTransferSlip } from '@/types/stitching.types';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface SKUEntry {
   colorId: string | null;
@@ -364,10 +365,7 @@ export default function StitchingForm() {
                                 />
                                 <div className="flex-1 flex items-center gap-4 text-sm">
                                   <span className="font-medium">{slip.slipNumber}</span>
-                                  <span className="text-muted-foreground">{slip.styleCode}</span>
-                                  {slip.buyerStyleRef && (
-                                    <span className="text-xs text-muted-foreground">({slip.buyerStyleRef})</span>
-                                  )}
+                                  <span className="text-muted-foreground">{styleCodeLabel(slip)}</span>
                                   <span className="text-muted-foreground">{slip.styleName}</span>
                                   <Badge variant="secondary" className="text-xs">
                                     {slip.totalGoodPieces} pcs

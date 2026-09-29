@@ -18,6 +18,8 @@ import { formatCurrency } from '../lib/currency';
 import { listOrderBOMs, getStatusBadgeColor } from '../services/orderBom.service';
 import type { OrderBOM, OrderBOMStatus } from '../types/orderBom.types';
 import { formatDate } from '@/lib/date';
+import { StyleIdentity } from '@/components/StyleIdentity';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
 
 const OrderBOMList = () => {
   const navigate = useNavigate();
@@ -182,9 +184,11 @@ const OrderBOMList = () => {
                   <thead className="bg-muted">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Order</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Style</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
-                        Buyer Ref
+                        {BUYER_STYLE_CODE_LABEL}
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        {STYLE_CODE_LABEL}
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                         Version
@@ -211,10 +215,15 @@ const OrderBOMList = () => {
                       <tr key={bom.id} className="hover:bg-muted">
                         <td className="px-4 py-3 text-sm font-medium">{bom.order?.orderNumber || '-'}</td>
                         <td className="px-4 py-3 text-sm">
-                          <div className="font-medium">{bom.style?.styleCode || '-'}</div>
-                          <div className="text-muted-foreground text-xs">{bom.style?.styleName}</div>
+                          <StyleIdentity
+                            style={bom.style}
+                            name={bom.style?.styleName}
+                            layout="stacked"
+                            showStyleCode={false}
+                            fallback="-"
+                          />
                         </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">{bom.style?.buyerStyleRef || '—'}</td>
+                        <td className="px-4 py-3 text-sm">{ourStyleCode(bom.style)}</td>
                         <td className="px-4 py-3 text-sm text-center">
                           <Badge variant="outline">v{bom.version}</Badge>
                         </td>

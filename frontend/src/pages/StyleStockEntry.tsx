@@ -13,7 +13,7 @@ import { getStyleById } from '../services/style.service';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { CheckCircle, XCircle, Package, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { FABRIC_FINISH_TYPES } from '@/constants/fabric-finish-types';
 import { toDateInputValue } from '@/lib/date';
 
@@ -202,10 +202,11 @@ export default function StyleStockEntry() {
     <div className="container mx-auto py-8 px-4">
       <Card>
         <CardHeader>
-          <CardTitle>Fabric Stock Entry - {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}</CardTitle>
+          <CardTitle>
+            Fabric Stock Entry - <StyleIdentity style={style} codeClassName="font-semibold" />
+          </CardTitle>
           <div className="text-sm text-muted-foreground mt-2 space-y-1">
             <p>Style Name: {style.styleName}</p>
-            {style.buyerStyleRef && <p>Buyer Ref: {style.buyerStyleRef}</p>}
             {style.customerName && <p>Buyer: {style.customerName}</p>}
             {style.season && <p>Season: {style.season}</p>}
           </div>

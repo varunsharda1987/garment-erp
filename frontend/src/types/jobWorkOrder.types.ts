@@ -162,7 +162,7 @@ export interface JobWorkOrder {
       orderBomItem?: { greige?: { id: string; greigeCode: string; greigeName: string } | null } | null;
     } | null;
   }>;
-  style?: { id: string; styleCode: string; buyerStyleRef?: string };
+  style?: { id: string; styleCode: string; buyerStyleRef?: string | null };
   /** Shade asked on a stock (style-less) job. Order-linked jobs read colour off the chain above. */
   colorMaster?: { id: string; colorCode: string; colorName: string; hexCode?: string | null } | null;
   colorName?: string | null;

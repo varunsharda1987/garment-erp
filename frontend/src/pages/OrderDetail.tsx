@@ -57,6 +57,8 @@ import { queryKeys } from '@/hooks/useQuery';
 import { formatCurrency } from '@/lib/currency';
 import { formatQuantity } from '@/lib/formatters';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 import { isQtyZero } from '@/lib/quantity';
 import { getErrorMessage, handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 
@@ -361,7 +363,7 @@ export default function OrderDetail() {
               const line = pipeline?.orders.find((o) => o.orderItemId === item.id);
               const hasSizes = (item.breakup?.length ?? 0) > 0;
               const bom = bomOf(item.styleId);
-              const label = item.style?.styleCode ?? 'Line';
+              const label = styleCodeLabel(item.style, null, 'Line');
               if (liveRunFor(item.id)) {
                 const itemRuns = runs.filter((wo) => wo.orderItemId === item.id);
                 return (
@@ -573,7 +575,7 @@ export default function OrderDetail() {
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {wo.style?.styleCode} · planned {formatDate(wo.plannedStartDate)} →{' '}
+                          {styleCodeLabel(wo.style, null, '')} · planned {formatDate(wo.plannedStartDate)} →{' '}
                           {formatDate(wo.plannedEndDate)}
                           {wo.warehouse?.warehouseName ? ` · ${wo.warehouse.warehouseName}` : ''}
                         </div>
@@ -651,10 +653,7 @@ export default function OrderDetail() {
               <div className="flex flex-wrap justify-between items-start gap-2 mb-4">
                 <div>
                   <h3 className="font-semibold text-lg">
-                    {item.style?.styleCode}
-                    {item.style?.buyerStyleRef && item.style.buyerStyleRef !== item.style.styleCode && (
-                      <span className="text-muted-foreground font-normal"> ({item.style.buyerStyleRef})</span>
-                    )}
+                    <StyleIdentity style={item.style} fallback="" codeClassName="font-semibold" />
                   </h3>
                   <div className="text-sm text-muted-foreground">{item.style?.styleName}</div>
                 </div>
@@ -723,7 +722,7 @@ export default function OrderDetail() {
               <div key={item.id} className="border rounded-lg p-4 flex flex-wrap justify-between items-center gap-3">
                 <div>
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="font-semibold">{item.style?.styleCode}</span>
+                    <StyleIdentity style={item.style} fallback="" codeClassName="font-semibold" />
                     {bom && <Badge variant="outline">v{bom.version}</Badge>}
                     {bom && <Badge variant={bom.status === 'DRAFT' ? 'secondary' : 'default'}>{bom.status}</Badge>}
                   </div>

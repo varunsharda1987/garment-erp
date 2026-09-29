@@ -28,6 +28,7 @@ import { ArrowLeft, Send, X, ArrowRight, Loader2, Printer, PackageCheck } from '
 
 import { openPDF } from '@/lib/document-utils';
 import { formatDate, toDateInputValue } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode, ourStyleCode } from '@/lib/style-code';
 
 export default function ChallanDetail() {
   const { id } = useParams<{ id: string }>();
@@ -277,15 +278,16 @@ export default function ChallanDetail() {
             )}
             {challan.productionRun?.style && (
               <div>
-                <span className="text-muted-foreground">Style:</span> {challan.productionRun.style.styleCode}
+                <span className="text-muted-foreground">{BUYER_STYLE_CODE_LABEL}:</span>{' '}
+                {buyerStyleCode(challan.productionRun.style)}
                 {' - '}
                 {challan.productionRun.style.styleName}
               </div>
             )}
             {challan.productionRun?.style && (
               <div>
-                <span className="text-muted-foreground">Buyer Ref:</span>{' '}
-                {challan.productionRun.style.buyerStyleRef || '—'}
+                <span className="text-muted-foreground">{STYLE_CODE_LABEL}:</span>{' '}
+                {ourStyleCode(challan.productionRun.style)}
               </div>
             )}
             {challan.order?.customer && (

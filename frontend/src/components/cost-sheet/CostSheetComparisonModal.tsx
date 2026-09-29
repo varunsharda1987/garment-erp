@@ -9,6 +9,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Calculator, GitBranch, Check, ArrowRight, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CostSheet } from '../../types/costSheet.types';
+import { styleCodeLabel } from '@/lib/style-code';
 
 interface CostSheetComparisonModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ interface CostSheetComparisonModalProps {
   costSheets: CostSheet[];
   selectedStyleName?: string;
   selectedStyleCode?: string;
+  /** The picked style's buyer style code — named first when given ('SP27DR27 (EBWW-021)'). */
+  selectedBuyerStyleRef?: string | null;
   onSelectCostSheet: (costSheet: CostSheet) => void;
   loadingCostSheets?: boolean;
 }
@@ -26,6 +29,7 @@ export default function CostSheetComparisonModal({
   costSheets,
   selectedStyleName,
   selectedStyleCode,
+  selectedBuyerStyleRef,
   onSelectCostSheet,
   loadingCostSheets,
 }: CostSheetComparisonModalProps) {
@@ -90,7 +94,8 @@ export default function CostSheetComparisonModal({
             Compare approved cost sheets side-by-side to select the best pricing for your order.
             {selectedStyleCode && (
               <span className="block mt-1 font-medium text-foreground">
-                Style: {selectedStyleCode} {selectedStyleName && `- ${selectedStyleName}`}
+                Style: {styleCodeLabel({ styleCode: selectedStyleCode, buyerStyleRef: selectedBuyerStyleRef })}{' '}
+                {selectedStyleName && `- ${selectedStyleName}`}
               </span>
             )}
           </DialogDescription>

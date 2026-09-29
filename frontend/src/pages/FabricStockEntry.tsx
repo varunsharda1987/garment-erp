@@ -15,6 +15,16 @@ import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { toDateInputValue } from '@/lib/date';
+import { styleCodeLabel } from '@/lib/style-code';
+
+/** A style the selected fabric is allocated to — one per style */
+interface LinkedStyle {
+  styleCode: string;
+  buyerStyleRef: string | null;
+  styleName: string;
+  styleId: string;
+  componentName: string;
+}
 
 export default function FabricStockEntry() {
   const navigate = useNavigate();
@@ -41,9 +51,7 @@ export default function FabricStockEntry() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [styleAllocations, setStyleAllocations] = useState<
-    Array<{ styleCode: string; styleName: string; styleId: string; componentName: string }>
-  >([]);
+  const [styleAllocations, setStyleAllocations] = useState<LinkedStyle[]>([]);
   const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
 
   useEffect(() => {
@@ -102,19 +110,25 @@ export default function FabricStockEntry() {
         width: selectedFabric.actualWidth.toString(),
       }));
 
-      // Fetch style allocations to show warning/info
+      // Fetch style allocations to show warning/info.
+      // The endpoint answers { allocations: [{ component: { componentName, style } }] } at the top level — this
+      // read `data.data.allocations` and `a.style`, so the panel always said "Not linked to any style" (2026-09-29).
       setIsLoadingAllocations(true);
       try {
-        const response = await api.get(`/fabric-management/fabric/${fabricId}/style-allocations`);
-        const allocations = response.data?.data?.allocations || [];
-        setStyleAllocations(
-          allocations.map((a: any) => ({
-            styleCode: a.styleCode || a.style?.styleCode || 'N/A',
-            styleName: a.styleName || a.style?.styleName || 'N/A',
-            styleId: a.styleId || a.style?.id || '',
-            componentName: a.componentName || 'N/A',
-          }))
-        );
+        const { allocations = [] } = await fabricService.getStyleAllocations(fabricId);
+        const byStyle = new Map<string, LinkedStyle>();
+        for (const a of allocations) {
+          const style = a.component?.style;
+          if (!style || byStyle.has(style.id)) continue; // one entry per style: the panel counts styles
+          byStyle.set(style.id, {
+            styleCode: style.styleCode,
+            buyerStyleRef: style.buyerStyleRef ?? null,
+            styleName: style.styleName,
+            styleId: style.id,
+            componentName: a.component.componentName,
+          });
+        }
+        setStyleAllocations([...byStyle.values()]);
       } catch (err) {
         console.error('Failed to fetch style allocations:', err);
         setStyleAllocations([]);
@@ -369,7 +383,7 @@ export default function FabricStockEntry() {
                       {styleAllocations.slice(0, 3).map((a, i) => (
                         <span key={a.styleId}>
                           <Link to={`/styles/${a.styleId}`} className="underline hover:no-underline">
-                            {a.styleCode}
+                            {styleCodeLabel(a)}
                           </Link>
                           {i < Math.min(styleAllocations.length, 3) - 1 ? ', ' : ''}
                         </span>

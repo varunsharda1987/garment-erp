@@ -19,6 +19,8 @@ import { BuyerPoCard } from '@/components/sale-order';
 import { ArrowLeft, Loader2, Truck, Package, ClipboardCheck, CheckCircle, FileText, XCircle } from 'lucide-react';
 
 import { formatDate, formatDateTime, toDateInputValue } from '@/lib/date';
+import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, ourStyleCode } from '@/lib/style-code';
+import { StyleIdentity } from '@/components/StyleIdentity';
 
 /**
  * Read-only Delivery Note detail (finding B10-02, BUG-DASH10 fix: corrected route path).
@@ -364,8 +366,8 @@ export default function DispatchDeliveryNoteDetail() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Style</TableHead>
-                <TableHead>Buyer Ref</TableHead>
+                <TableHead>{BUYER_STYLE_CODE_LABEL}</TableHead>
+                <TableHead>{STYLE_CODE_LABEL}</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
@@ -377,10 +379,15 @@ export default function DispatchDeliveryNoteDetail() {
                 note.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      {item.style?.styleCode || '-'}
-                      <span className="text-muted-foreground ml-2">{item.style?.styleName}</span>
+                      <StyleIdentity
+                        style={item.style}
+                        name={item.style?.styleName}
+                        layout="stacked"
+                        showStyleCode={false}
+                        fallback="-"
+                      />
                     </TableCell>
-                    <TableCell>{item.style?.buyerStyleRef || '—'}</TableCell>
+                    <TableCell className="text-sm">{ourStyleCode(item.style, '-')}</TableCell>
                     <TableCell>{item.color?.colorName || '-'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>
@@ -472,7 +479,9 @@ export default function DispatchDeliveryNoteDetail() {
                 <TableBody>
                   {billable.map(({ item, qty }) => (
                     <TableRow key={item.id}>
-                      <TableCell>{item.style?.styleCode || '-'}</TableCell>
+                      <TableCell>
+                        <StyleIdentity style={item.style} fallback="-" />
+                      </TableCell>
                       <TableCell>{item.color?.colorName || '-'}</TableCell>
                       <TableCell>{item.size?.sizeName || '-'}</TableCell>
                       <TableCell className="text-right">{qty}</TableCell>

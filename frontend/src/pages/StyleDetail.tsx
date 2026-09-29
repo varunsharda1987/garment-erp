@@ -23,6 +23,13 @@ import { updateBOMItem } from '@/services/style-material-bom.service';
 import { notify } from '../lib/notify';
 import { Pencil } from 'lucide-react';
 import { formatDateTime } from '@/lib/date';
+import {
+  BUYER_STYLE_CODE_LABEL,
+  STYLE_CODE_LABEL,
+  buyerStyleCode,
+  ourStyleCode,
+  styleCodeIfDifferent,
+} from '@/lib/style-code';
 
 /**
  * Inline editor for a BOM row's style-specific rate. Lets a price be set even when the
@@ -225,9 +232,9 @@ export default function StyleDetail() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-display font-medium text-foreground">
-              {style.styleCode}
-              {style.buyerStyleRef && (
-                <span className="text-xl text-muted-foreground ml-3">({style.buyerStyleRef})</span>
+              {buyerStyleCode(style)}
+              {styleCodeIfDifferent(style) && (
+                <span className="text-xl text-muted-foreground ml-3">({styleCodeIfDifferent(style)})</span>
               )}
             </h1>
             {style.styleName && <p className="text-lg text-muted-foreground mt-1">{style.styleName}</p>}
@@ -321,15 +328,13 @@ export default function StyleDetail() {
                     <div className={style.imageUrl ? 'lg:col-span-2' : 'lg:col-span-3'}>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
-                          <p className="text-sm font-medium text-muted-foreground">Style Code</p>
-                          <p className="text-base font-semibold">{style.styleCode}</p>
+                          <p className="text-sm font-medium text-muted-foreground">{BUYER_STYLE_CODE_LABEL}</p>
+                          <p className="text-base font-semibold">{buyerStyleCode(style)}</p>
                         </div>
-                        {style.buyerStyleRef && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground">Buyer Reference</p>
-                            <p className="text-base font-semibold">{style.buyerStyleRef}</p>
-                          </div>
-                        )}
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground">{STYLE_CODE_LABEL}</p>
+                          <p className="text-base font-semibold">{ourStyleCode(style)}</p>
+                        </div>
                         {style.styleName && (
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">Style Name</p>

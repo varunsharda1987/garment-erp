@@ -47,6 +47,8 @@ export interface SampleStyle {
   styleName: string;
   buyerStyleRef?: string | null;
   customerName?: string;
+  /** The style's Primary Color (color_master) — a sample records no colour of its own */
+  color?: { id: string; colorCode: string; colorName: string; hexCode?: string | null } | null;
 }
 
 export interface SampleUser {
@@ -296,6 +298,10 @@ export interface SampleQueryParams {
   status?: SampleStatus | SampleStatus[];
   customerId?: string;
   styleId?: string;
+  /** season_master.id — samples whose style carries this season */
+  seasonId?: string;
+  /** color_master.id — samples whose style's Primary Color is this colour */
+  colorId?: string;
   fromDate?: string;
   toDate?: string;
   pendingApproval?: boolean;

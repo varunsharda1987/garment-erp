@@ -34,6 +34,8 @@ export const sampleService = {
     if (params.search) queryParams.append('search', params.search);
     if (params.customerId) queryParams.append('customerId', params.customerId);
     if (params.styleId) queryParams.append('styleId', params.styleId);
+    if (params.seasonId) queryParams.append('seasonId', params.seasonId);
+    if (params.colorId) queryParams.append('colorId', params.colorId);
     if (params.fromDate) queryParams.append('fromDate', params.fromDate);
     if (params.toDate) queryParams.append('toDate', params.toDate);
     if (params.pendingApproval) queryParams.append('pendingApproval', 'true');

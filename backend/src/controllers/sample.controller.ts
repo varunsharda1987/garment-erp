@@ -359,6 +359,8 @@ export const getAllSamples = async (req: Request, res: Response) => {
     status,
     customerId,
     styleId,
+    seasonId,
+    colorId,
     fromDate,
     toDate,
     pendingApproval,
@@ -404,6 +406,36 @@ export const getAllSamples = async (req: Request, res: Response) => {
     where.styleId = styleId as string;
   }
 
+  // Season filter — the style's Season master, or on styles saved before the master their free-text
+  // season (matched the same way as the Sale Orders list)
+  if (seasonId) {
+    const season = await prisma.season_master.findUnique({
+      where: { id: seasonId as string },
+      select: { code: true, name: true },
+    });
+    const styleHasSeason: any[] = [{ seasonId: seasonId as string }];
+    if (season) {
+      styleHasSeason.push(
+        { season: { equals: season.code, mode: 'insensitive' } },
+        { season: { equals: season.name, mode: 'insensitive' } }
+      );
+    }
+    const existing = where.AND;
+    where.AND = [
+      ...(Array.isArray(existing) ? existing : existing ? [existing] : []),
+      { styles: { OR: styleHasSeason } },
+    ];
+  }
+
+  // Colour filter — the style's Primary Color (sample_colorways is never filled)
+  if (colorId) {
+    const existing = where.AND;
+    where.AND = [
+      ...(Array.isArray(existing) ? existing : existing ? [existing] : []),
+      { styles: { colorId: colorId as string } },
+    ];
+  }
+
   // Date range filter
   if (fromDate || toDate) {
     where.requestDate = {};
@@ -431,7 +463,16 @@ export const getAllSamples = async (req: Request, res: Response) => {
     take: limitNum,
     include: {
       customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true, customerName: true } },
+      styles: {
+        select: {
+          id: true,
+          styleCode: true,
+          buyerStyleRef: true,
+          styleName: true,
+          customerName: true,
+          color: { select: { id: true, colorCode: true, colorName: true, hexCode: true } },
+        },
+      },
       users: { select: { id: true, firstName: true, lastName: true } },
       _count: {
         select: {

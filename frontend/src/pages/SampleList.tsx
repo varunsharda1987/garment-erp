@@ -1,5 +1,9 @@
 import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { Combobox } from '@/components/ui/combobox';
+import { ColorCombobox } from '@/components/ColorCombobox';
+import { searchSeasons } from '@/services/season.service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +77,14 @@ export default function SampleList() {
   );
   const [customerFilter, setCustomerFilter] = useState<string>(searchParams.get('customerId') || '');
   const [styleFilter, setStyleFilter] = useState('');
+  // '' = all seasons / all colours — both are the sample's style's
+  const [seasonFilter, setSeasonFilter] = useState('');
+  const [colorFilter, setColorFilter] = useState('');
+
+  const { data: seasons } = useQuery({
+    queryKey: ['seasons', 'search', { limit: 100 }],
+    queryFn: () => searchSeasons({ limit: 100 }),
+  });
 
   // Grouping and view state (not a filter — Clear filters keeps it). The Dashboard's Overdue card opens overdue-first.
   const [groupBy, setGroupBy] = useState<GroupByMode>(urlStatus === 'overdue' ? 'overdue' : 'none');
@@ -83,6 +95,8 @@ export default function SampleList() {
     statusFilter !== 'all',
     customerFilter,
     styleFilter,
+    seasonFilter,
+    colorFilter,
   ].filter(Boolean).length;
 
   // Every filter change goes back to page 1
@@ -100,6 +114,8 @@ export default function SampleList() {
     setStatusFilter('all');
     setCustomerFilter('');
     setStyleFilter('');
+    setSeasonFilter('');
+    setColorFilter('');
     setCurrentPage(1);
     searchParams.delete('type');
     searchParams.delete('status');
@@ -180,7 +196,17 @@ export default function SampleList() {
     fetchSamples();
     fetchSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, typeFilter, statusFilter, customerFilter, styleFilter]);
+  }, [
+    currentPage,
+    pageSize,
+    searchQuery,
+    typeFilter,
+    statusFilter,
+    customerFilter,
+    styleFilter,
+    seasonFilter,
+    colorFilter,
+  ]);
 
   const fetchSamples = async () => {
     try {
@@ -194,6 +220,8 @@ export default function SampleList() {
         status: statusFilter !== 'all' ? (statusFilter as SampleStatus) : undefined,
         customerId: customerFilter || undefined,
         styleId: styleFilter || undefined,
+        seasonId: seasonFilter || undefined,
+        colorId: colorFilter || undefined,
       });
       setSamples(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -287,6 +315,23 @@ export default function SampleList() {
       key: 'styleCode',
       header: STYLE_CODE_LABEL,
       render: (item) => <span className="text-sm">{ourStyleCode(item.style)}</span>,
+    },
+    {
+      // The style's Primary Color — a sample records no colour of its own
+      key: 'color',
+      header: 'Colour',
+      render: (item) => {
+        const color = item.style?.color;
+        if (!color) return <span className="text-sm text-muted-foreground">—</span>;
+        return (
+          <div className="flex items-center gap-2 text-sm">
+            {color.hexCode && (
+              <span className="h-3 w-3 shrink-0 rounded-full border" style={{ backgroundColor: color.hexCode }} />
+            )}
+            <span>{color.colorName}</span>
+          </div>
+        );
+      },
     },
     {
       key: 'sampleNumber',
@@ -537,6 +582,29 @@ export default function SampleList() {
               allowAll
               allLabel="All styles"
               placeholder="All styles"
+              className="w-[220px]"
+            />
+            <Combobox
+              options={[
+                { value: '', label: 'All seasons', searchText: 'all seasons' },
+                ...(seasons ?? []).map((season) => ({
+                  value: season.id,
+                  label: `${season.code} — ${season.name}`,
+                })),
+              ]}
+              value={seasonFilter}
+              onValueChange={(v) => changeFilter(setSeasonFilter)(v || '')}
+              placeholder="All seasons"
+              searchPlaceholder="Search season…"
+              emptyText="No seasons found."
+              className="w-[220px]"
+            />
+            <ColorCombobox
+              value={colorFilter}
+              onValueChange={(v) => changeFilter(setColorFilter)(v || '')}
+              allowAll
+              allLabel="All colours"
+              placeholder="All colours"
               className="w-[220px]"
             />
             {/* A view choice, not a filter: Clear filters keeps it */}

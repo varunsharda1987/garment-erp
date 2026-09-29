@@ -32,7 +32,9 @@ import type {
   TransferFabricStockInput,
   AdjustFabricStockInput,
   RecordFabricPiecesInput,
+  CorrectLotWidthInput,
 } from '../schemas/fabricStock.schema';
+import FabricStockService from '../services/fabric-stock.service';
 import { getLotPieces, lotPiecesSummary, recordLotPieces, settleLotOut } from '../services/fabric-lot-pieces.service';
 import { pieceWord } from '../services/helpers/lot-pieces.helper';
 
@@ -1493,6 +1495,22 @@ export const recordStockPieces = async (req: Request, res: Response) => {
   res.status(201).json({ success: true, message, data: result });
 };
 
+/**
+ * Correct a lot's width (lot-width.helper)
+ * POST /api/stock/:id/correct-width
+ */
+export const correctLotWidth = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new ValidationError('A signed-in user is needed to correct a lot width.');
+  const body = req.body as CorrectLotWidthInput;
+  const result = await FabricStockService.correctLotWidth(req.params.id, body, userId);
+  res.json({
+    success: true,
+    message: `${result.lotLabel}: ${result.finishedWidth}" measured, ${result.cutableWidth}" cutable`,
+    data: result,
+  });
+};
+
 export default {
   createFabricStock,
   listStock,
@@ -1507,4 +1525,5 @@ export default {
   deleteStock,
   getStockPieces,
   recordStockPieces,
+  correctLotWidth,
 };

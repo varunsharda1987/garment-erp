@@ -753,6 +753,7 @@ export default function CADPlanningPage() {
                   stockSummary={cadTableData.stockSummary}
                   styleId={id}
                   onCreateProductionCAD={handleCreateProductionCADFromStock}
+                  onWidthCorrected={() => void loadCADTableData()}
                 />
               )}
 

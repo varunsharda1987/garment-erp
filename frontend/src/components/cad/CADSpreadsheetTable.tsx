@@ -121,6 +121,34 @@ const getFieldClass = (type: keyof typeof FIELD_STYLES, isEditing: boolean) => {
   return isEditing ? FIELD_STYLES[type].cellEdit : FIELD_STYLES[type].cell;
 };
 
+/** Spare above this earns a warning — the backend's MARKER_SPARE_WARN_INCHES (lot-width.helper) */
+const MARKER_SPARE_WARN_INCHES = 2;
+
+/**
+ * Under a Production row's width: its lot's cutable width and what is left over. A marker may be narrower
+ * than its lot (52" on 53" cutable: 1" spare) but never wider — the server refuses that save / approve.
+ */
+function LotFitNote({ width, lotCutable }: { width: number | null; lotCutable: number | null | undefined }) {
+  if (lotCutable == null || width == null || !(width > 0)) return null;
+  const spare = Math.round((lotCutable - width) * 100) / 100;
+  if (spare < -0.005) {
+    return (
+      <div className="text-[10px] text-destructive whitespace-nowrap" title="The marker will not fit this lot">
+        Wider than lot ({lotCutable}")
+      </div>
+    );
+  }
+  const wide = spare > MARKER_SPARE_WARN_INCHES;
+  return (
+    <div
+      className={cn('text-[10px] whitespace-nowrap', wide ? 'text-amber-700' : 'text-muted-foreground')}
+      title={wide ? 'A wider marker may save fabric' : "The lot's cutable width"}
+    >
+      Lot {lotCutable}"{spare > 0.005 ? ` · ${spare}" spare` : ''}
+    </div>
+  );
+}
+
 export interface CADSpreadsheetTableProps {
   styleId: string;
   rows: CADSpreadsheetRow[];
@@ -1763,17 +1791,18 @@ export function CADSpreadsheetTable({
                               <span className="text-xs font-medium">
                                 {row.cutableWidth ? `${row.cutableWidth}"` : '-'}
                               </span>
-                              {/* Stock width indicator - show if width matches stock */}
-                              {row.stockWidths?.includes(row.cutableWidth!) && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] px-1 py-0 h-4 bg-success-muted border-success/20 text-success"
-                                  title="Width matches available stock"
-                                >
-                                  <Package className="h-2 w-2 mr-0.5" />
-                                  Stock
-                                </Badge>
-                              )}
+                              {/* Stock width indicator - show if the width fits a lot in stock (no wider than it) */}
+                              {!!row.cutableWidth &&
+                                row.stockWidths?.some((w) => w >= Number(row.cutableWidth) - 0.005) && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1 py-0 h-4 bg-success-muted border-success/20 text-success"
+                                    title="Width fits available stock"
+                                  >
+                                    <Package className="h-2 w-2 mr-0.5" />
+                                    Stock
+                                  </Badge>
+                                )}
                               {/* Stock info badge for PRODUCTION CAD linked to stock */}
                               {row.purpose === 'PRODUCTION' &&
                                 (row as CADSpreadsheetRowExtended).fabricStockDetails && (
@@ -1786,6 +1815,15 @@ export function CADSpreadsheetTable({
                                   </Badge>
                                 )}
                             </div>
+                          )}
+                          {row.purpose === 'PRODUCTION' && (
+                            <LotFitNote
+                              width={(() => {
+                                const w = getDisplayValue<number | string | null>(row, 'cutableWidth', null);
+                                return w === null || w === '' ? null : Number(w);
+                              })()}
+                              lotCutable={row.lotCutableWidth}
+                            />
                           )}
                         </TableCell>
 

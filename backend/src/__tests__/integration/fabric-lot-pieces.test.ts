@@ -27,6 +27,9 @@ import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
 import { buildChallanDocData } from '../../services/document-data/challan.doc-data';
 
+/** The fabric's measured width on arrival — every fabric job-work receipt needs one (lot-width.helper) */
+const MEASURED_WIDTH = 58;
+
 const RUN = `FLP${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
 
@@ -52,6 +55,7 @@ const receive = (jwoId: string, body: Record<string, unknown>) =>
     .post('/api/grn/jwo/receive')
     .set(authHeader)
     .send({
+      receivedWidthInches: MEASURED_WIDTH,
       jobWorkOrderId: jwoId,
       receivedDate: RECEIVED_ON,
       warehouseId,

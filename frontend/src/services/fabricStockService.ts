@@ -144,7 +144,35 @@ export const fabricStockService = {
     const response = await api.post<{ data: RecordFabricPiecesResult; message: string }>(`/stock/${id}/pieces`, data);
     return { ...response.data.data, message: response.data.message };
   },
+
+  /**
+   * Correct a lot's width after inward: the measured width, and the cutable width (measured − selvedge unless
+   * typed). Refused once the lot has gone to cutting. Backend: POST /api/stock/:id/correct-width
+   */
+  correctWidth: async (id: string, data: CorrectLotWidthPayload): Promise<CorrectLotWidthResult> => {
+    const response = await api.post<{ data: CorrectLotWidthResult; message: string }>(
+      `/stock/${id}/correct-width`,
+      data
+    );
+    return { ...response.data.data, message: response.data.message };
+  },
 };
+
+export interface CorrectLotWidthPayload {
+  measuredWidthInches: number;
+  /** blank = measured − the selvedge setting */
+  cutableWidthInches?: number | null;
+  reason: string;
+}
+
+export interface CorrectLotWidthResult {
+  id: string;
+  lotLabel: string;
+  before: { finishedWidth: number; cutableWidth: number };
+  finishedWidth: number;
+  cutableWidth: number;
+  message?: string;
+}
 
 /** A fabric lot's list at a glance (GET /api/stock rows) */
 export interface FabricLotPiecesSummary {

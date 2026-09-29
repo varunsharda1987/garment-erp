@@ -4,7 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Package2, Plus, ArrowLeft, Download, Tag, Pencil, PackagePlus, AlertTriangle, ListChecks } from 'lucide-react';
+import {
+  Package2,
+  Plus,
+  ArrowLeft,
+  Download,
+  Tag,
+  Pencil,
+  PackagePlus,
+  AlertTriangle,
+  ListChecks,
+  Ruler,
+} from 'lucide-react';
 import SearchInput from '@/components/SearchInput';
 import { FilterBar } from '@/components/filters';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
@@ -17,6 +28,7 @@ import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 import { EditStockModal } from '../components/fabric/EditStockModal';
+import { CorrectLotWidthDialog, type LotForWidthCorrection } from '../components/fabric/CorrectLotWidthDialog';
 import { fabricStockService, type FabricLotPiecesSummary } from '../services/fabricStockService';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
@@ -62,6 +74,9 @@ interface FabricStock {
     };
   };
   width: number;
+  /** the LOT's widths (the fabric master's are under fabric) — a marker for the lot may be no wider than cutable */
+  finishedWidth?: number;
+  cutableWidth?: number;
   quantityAvailable: number;
   quantityReserved: number;
   weightedAvgCost?: number;
@@ -92,6 +107,9 @@ function piecesText(stock: FabricStock): string {
   return piecesSummary(p);
 }
 
+/** The lot's own cutable width (the fabric master's only for a row that has none) */
+const lotCutable = (stock: FabricStock): number | undefined => stock.cutableWidth || stock.fabric?.cutableWidth;
+
 const DEFAULT_STATUS = 'AVAILABLE';
 
 export default function FabricAvailableStock() {
@@ -117,6 +135,8 @@ export default function FabricAvailableStock() {
 
   // Stock adjustment state
   const [adjustingStock, setAdjustingStock] = useState<FabricStock | null>(null);
+  // Correct width on one lot (backend lot-width.helper)
+  const [widthLot, setWidthLot] = useState<LotForWidthCorrection | null>(null);
   const [adjustForm, setAdjustForm] = useState({
     type: 'DECREASE' as 'INCREASE' | 'DECREASE',
     quantity: '',
@@ -332,7 +352,7 @@ export default function FabricAvailableStock() {
       hasFold(stock.foldLengthCm) ? foldCounted(stock.quantityAvailable, stock.foldLengthCm).toFixed(2) : '',
       piecesText(stock),
       `${stock.width}"`,
-      stock.fabric?.cutableWidth ? `${stock.fabric.cutableWidth}"` : '',
+      lotCutable(stock) ? `${lotCutable(stock)}"` : '',
       stock.qualityGrade,
       stock.warehouseLocation || '',
       stock.rackNumber || '',
@@ -642,9 +662,9 @@ export default function FabricAvailableStock() {
                       </td>
                       <td className="px-3 py-3 text-center">
                         <div className="text-foreground">{stock.width}"</div>
-                        {stock.fabric?.cutableWidth && (
+                        {lotCutable(stock) && (
                           <div className="text-xs text-muted-foreground whitespace-nowrap">
-                            ({stock.fabric.cutableWidth}" cut)
+                            ({lotCutable(stock)}" cut)
                           </div>
                         )}
                       </td>
@@ -676,6 +696,22 @@ export default function FabricAvailableStock() {
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => setEditingStock(stock)} title="Edit stock">
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            title="Correct width"
+                            onClick={() =>
+                              setWidthLot({
+                                id: stock.id,
+                                label: stock.fabric?.fabricCode ?? 'this lot',
+                                finishedWidth: stock.finishedWidth ?? stock.width,
+                                cutableWidth: lotCutable(stock) ?? null,
+                              })
+                            }
+                          >
+                            <Ruler className="h-3.5 w-3.5" />
                           </Button>
                           {(stock.pieces?.total ?? 0) > 0 && (
                             <Button
@@ -714,6 +750,12 @@ export default function FabricAvailableStock() {
           )}
         </CardContent>
       </Card>
+
+      <CorrectLotWidthDialog
+        lot={widthLot}
+        onOpenChange={(open) => !open && setWidthLot(null)}
+        onCorrected={() => void loadFabricStock()}
+      />
 
       {/* Edit Stock Modal */}
       {editingStock && (

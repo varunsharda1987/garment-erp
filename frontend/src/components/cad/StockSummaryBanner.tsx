@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Package, Plus, CheckCircle, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { Package, Plus, CheckCircle, Clock, AlertTriangle, Loader2, Ruler } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { CorrectLotWidthDialog, type LotForWidthCorrection } from '@/components/fabric/CorrectLotWidthDialog';
 
 // Local interface to avoid import issues
 interface StockSummaryItem {
@@ -40,10 +41,13 @@ interface Props {
     styleFabricId?: string | null,
     componentId?: string | null
   ) => Promise<void>;
+  /** a lot's width was corrected (Width → Correct width): reload the table */
+  onWidthCorrected?: () => void;
 }
 
-export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Props) {
+export function StockSummaryBanner({ stockSummary, onCreateProductionCAD, onWidthCorrected }: Props) {
   const [creatingCadFor, setCreatingCadFor] = useState<string | null>(null);
+  const [widthLot, setWidthLot] = useState<LotForWidthCorrection | null>(null);
 
   if (!stockSummary || stockSummary.length === 0) return null;
 
@@ -116,7 +120,7 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
       item.fabricName,
       item.grnNumber ? `Received on ${item.grnNumber}` : '',
       item.stockLotNumber ? `Lot: ${item.stockLotNumber}` : '',
-      `Width: ${item.cutableWidth}" (${item.finishedWidth}" finished)`,
+      `Cutable width: ${item.cutableWidth}" (measured ${item.finishedWidth}") — a marker for this lot may be no wider`,
       `Available: ${item.quantityAvailable.toLocaleString()} meters`,
       item.hasProductionCad
         ? `PRODUCTION CAD: ${item.productionCadStatus || 'Created'}`
@@ -177,12 +181,31 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
                       }`}
                     >
                       {item.grnNumber && <span className="mr-1 font-medium">{item.grnNumber} &middot;</span>}
-                      {item.cutableWidth}" &bull; {item.quantityAvailable.toLocaleString()}m
+                      {item.cutableWidth}" cutable &bull; {item.quantityAvailable.toLocaleString()}m
                       {item.qualityGrade && item.qualityGrade !== 'A' && (
                         <span className="ml-1 text-xs opacity-75">({item.qualityGrade})</span>
                       )}
                       {getStatusBadge(item)}
                     </Badge>
+                    {onWidthCorrected && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-muted-foreground"
+                        title="Correct this lot's measured / cutable width"
+                        onClick={() =>
+                          setWidthLot({
+                            id: item.id,
+                            label: [item.fabricCode, item.grnNumber].filter(Boolean).join(' · '),
+                            finishedWidth: item.finishedWidth,
+                            cutableWidth: item.cutableWidth,
+                          })
+                        }
+                      >
+                        <Ruler className="h-3.5 w-3.5 mr-1" />
+                        Width
+                      </Button>
+                    )}
                     <div className="flex-1" />
                     {!item.hasProductionCad && item.productionCadStatus === 'REJECTED' && (
                       <Badge
@@ -220,6 +243,11 @@ export function StockSummaryBanner({ stockSummary, onCreateProductionCAD }: Prop
           ))}
         </div>
       </div>
+      <CorrectLotWidthDialog
+        lot={widthLot}
+        onOpenChange={(open) => !open && setWidthLot(null)}
+        onCorrected={onWidthCorrected}
+      />
     </Card>
   );
 }

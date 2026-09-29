@@ -113,6 +113,7 @@ import { createAuditLog } from './audit.service';
 import { copyReceiptPieces, lotPiecesEverIssued } from './fabric-lot-pieces.service';
 import { applyLineReceipts, assertTrimHoldsCovered, type HoldShortfall } from './helpers/receipt-allocation.helper';
 import { heldForEntries, heldForOtherOrders } from './helpers/po-allocation.helper';
+import { cutableFromMeasured } from './helpers/lot-width.helper';
 
 /**
  * Phase 1b: a greige / fabric receipt line must name its weaver or say "not known" — stock records
@@ -3440,6 +3441,16 @@ class GRNService {
         )
       : null;
 
+    // A fabric lot's widths come from what was MEASURED on arrival (lot-width.helper): the asked width or the
+    // greige band are not the fabric's width (ESSKY076LS: both lots booked at 57", the fabric was 55")
+    if (job && job.fabricType !== 'LACE' && !(Number(data.receivedWidthInches) > 0)) {
+      throw new BusinessError(
+        `Enter the measured width of the fabric received on ${job.jobWorkNumber} — the lot's cutable width is ` +
+          'worked out from it.',
+        { code: 'MEASURED_WIDTH_REQUIRED' }
+      );
+    }
+
     const submissionKey = data.submissionKey || null;
     const alreadyFiled = async (client: Prisma.TransactionClient | typeof prisma) => {
       if (!submissionKey) return null;
@@ -3659,7 +3670,7 @@ class GRNService {
         (jobWorkOrder.greigeStockLot?.purchaseCost ? Number(jobWorkOrder.greigeStockLot.purchaseCost) : 0));
     const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
     const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
-    const cutableWidth = receivedWidth > widthDeduction ? receivedWidth - widthDeduction : receivedWidth;
+    const cutableWidth = cutableFromMeasured(receivedWidth, widthDeduction);
     // The date the user gave at creation (the GRN header), not the moment of approval. Reversal
     // finds the lot by grnItemId; the date match is only the fallback for lots booked before
     // that column existed.

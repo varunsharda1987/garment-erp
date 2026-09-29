@@ -8,8 +8,11 @@ import { DEFAULT_QUALITY_GRADE, getQualityGradeOrDefault } from '../constants/st
 import { systemSettingsService } from './system-settings.service';
 // BUG-FAB5 fix: Use decimal.js for precise valuation calculations
 import { toCurrency, multiplyCurrency, roundToCent, toNumber, Decimal } from '../utils/currency';
-import { isQtyZero } from '../utils/quantity';
+import { isQtyZero, qtyExceeds } from '../utils/quantity';
 import { movePiecesToLot } from './fabric-lot-pieces.service';
+import { BusinessError, NotFoundError, ValidationError } from '../errors';
+import { createAuditLog } from './audit.service';
+import { cutableFromMeasured, lotWidthLabel } from './helpers/lot-width.helper';
 
 export interface CreateStyleStockDTO {
   styleId: string;
@@ -816,6 +819,106 @@ class FabricStockService {
       await movePiecesToLot(tx, p.stockId, storeLot.id);
     }
     return { storeLotId: storeLot.id, remainingAtProcessor };
+  }
+
+  /**
+   * Correct a lot's width after inward (lot-width.helper). The measured width is what the fabric really is;
+   * the cutable width is typed, else measured − the selvedge setting. The receipt line's measured width
+   * follows, so the lot and its receipt agree. Refused once the lot has gone to cutting, and while an
+   * APPROVED Production CAD on it would no longer fit (reject it first). Fabric names are not renamed.
+   */
+  async correctLotWidth(
+    stockId: string,
+    input: { measuredWidthInches: number; cutableWidthInches?: number | null; reason: string },
+    userId: string
+  ) {
+    const lot = await prisma.fabric_stock.findUnique({
+      where: { id: stockId },
+      select: {
+        id: true,
+        finishedWidth: true,
+        cutableWidth: true,
+        grnItemId: true,
+        cuttingBatchFabrics: { select: { batch: { select: { batchNumber: true } } }, take: 1 },
+      },
+    });
+    if (!lot) throw new NotFoundError('Fabric stock', stockId);
+    const label = await lotWidthLabel(prisma, stockId);
+
+    const batch = lot.cuttingBatchFabrics[0]?.batch?.batchNumber;
+    const directBatch = batch
+      ? null
+      : await prisma.cutting_batches.findFirst({ where: { fabricStockId: stockId }, select: { batchNumber: true } });
+    if (batch || directBatch) {
+      throw new BusinessError(
+        `Lot ${label} has already gone to cutting (batch ${batch ?? directBatch?.batchNumber}), so its width can no ` +
+          'longer be corrected.'
+      );
+    }
+
+    const measured = Number(input.measuredWidthInches);
+    const selvedge = await systemSettingsService.getCutableWidthDeductionInches();
+    const cutable =
+      input.cutableWidthInches != null && Number(input.cutableWidthInches) > 0
+        ? Number(input.cutableWidthInches)
+        : cutableFromMeasured(measured, selvedge);
+    if (qtyExceeds(cutable, measured)) {
+      throw new ValidationError(
+        `The cutable width (${cutable}") cannot be more than the measured width (${measured}").`
+      );
+    }
+
+    const tooWide = await prisma.fabric_width_cad.findFirst({
+      where: {
+        fabricStockId: stockId,
+        approvalStatus: 'APPROVED', // allow-cad-approval — the CAD geometry is final
+        cutableWidth: { gt: new Prisma.Decimal(cutable + 0.005) },
+        OR: [{ purposeEnum: 'PRODUCTION' }, { purpose: 'PRODUCTION' }],
+      },
+      select: { cutableWidth: true },
+    });
+    if (tooWide) {
+      throw new BusinessError(
+        `Lot ${label} has an approved Production CAD at ${Number(tooWide.cutableWidth)}", which would not fit ` +
+          `${cutable}" cutable fabric. Reject that CAD first, then correct the width.`
+      );
+    }
+
+    const before = { finishedWidth: Number(lot.finishedWidth), cutableWidth: Number(lot.cutableWidth) };
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.fabric_stock.update({
+          where: { id: stockId },
+          data: { finishedWidth: new Prisma.Decimal(measured), cutableWidth: new Prisma.Decimal(cutable) },
+        });
+        if (lot.grnItemId) {
+          await tx.grn_items.update({
+            where: { id: lot.grnItemId },
+            data: { receivedWidthInches: new Prisma.Decimal(measured) },
+          });
+        }
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BusinessError(
+          `Another lot of this fabric from the same purchase is already recorded at ${measured}" / ${cutable}" — ` +
+            'the two cannot be told apart. Correct that lot instead, or ask for the two to be merged.'
+        );
+      }
+      throw e;
+    }
+
+    await createAuditLog({
+      userId,
+      action: 'CORRECT',
+      entityType: 'STOCK',
+      entityId: stockId,
+      oldValues: { ...before, what: 'lot width' },
+      newValues: { finishedWidth: measured, cutableWidth: cutable, reason: input.reason, selvedgeInches: selvedge },
+    });
+    logInfo(`Lot ${label} width corrected ${before.finishedWidth}"/${before.cutableWidth}" → ${measured}"/${cutable}"`);
+
+    return { id: stockId, lotLabel: label, before, finishedWidth: measured, cutableWidth: cutable };
   }
 }
 

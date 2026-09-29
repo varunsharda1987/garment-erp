@@ -9,6 +9,7 @@ import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 import { checkMarkerOnApprove, copyMarkerImage } from '../services/helpers/cad-marker.helper';
 import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/production-cad-lot.helper';
+import { assertMarkerFitsLot, markerFitsLot } from '../services/helpers/lot-width.helper';
 import {
   EMPTY_CAD_SNAPSHOT,
   cadSnapshot,
@@ -139,6 +140,11 @@ export async function approveCADPurpose(req: Request, res: Response) {
   // Check if already approved
   if (cadRecord.approvalStatus === 'APPROVED') {
     throw new BusinessError('CAD record is already approved');
+  }
+
+  // A Production CAD's marker must fit its lot — no wider than the lot's cutable width (lot-width.helper)
+  if ((cadRecord.purposeEnum ?? cadRecord.purpose) === 'PRODUCTION') {
+    await assertMarkerFitsLot(prisma, Number(cadRecord.cutableWidth), cadRecord.fabricStockId, rowId);
   }
 
   // Its marker image: a Raw Mat / Production row needs one, and values that differ from it need a reason
@@ -697,13 +703,21 @@ export async function linkCADToStock(req: Request, res: Response) {
     variancePercent = (widthVariance / planningCadWidth) * 100;
   }
 
+  // The row keeps its marker's width when that fits the lot (lot-width.helper); a row with no marker
+  // yet takes the lot's width; a marker wider than the lot is refused — it would not fit
+  const rowWidth = Number(cadRecord.cutableWidth);
+  const keepsOwnWidth = rowWidth > 0 && markerFitsLot(rowWidth, Number(fabricStock.cutableWidth)).fits;
+  if (!keepsOwnWidth && cadRecord.cadMeters != null) {
+    await assertMarkerFitsLot(prisma, rowWidth, fabricStockId, cadId);
+  }
+
   // Update CAD with stock linkage
   const updated = await prisma.fabric_width_cad.update({
     where: { id: cadId },
     data: {
       fabricStockId,
       procurementId: procurementId || null,
-      cutableWidth: fabricStock.cutableWidth, // Use actual stock width
+      cutableWidth: keepsOwnWidth ? cadRecord.cutableWidth : fabricStock.cutableWidth,
       planningCadWidth: planningCadWidth || null,
       widthVariance,
       variancePercent,

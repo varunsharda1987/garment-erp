@@ -27,6 +27,7 @@ import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } 
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
 import { recordCadEvent, refuseRejectWhenInUse } from './helpers/cad-history.helper';
 import { checkMarkerOnApprove } from './helpers/cad-marker.helper';
+import { assertMarkerFitsLot } from './helpers/lot-width.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { lineUnit, loadLineUnits } from './helpers/material-unit.helper';
 import { multiplyCurrency, toNumber } from '../utils/currency';
@@ -2638,6 +2639,18 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Every row approved here passes the marker-image rule first (cad-marker.helper) — the plan-level button
     // is not a way around the row-level one
     await checkMarkerOnApprove(this.prisma, mappedCadIds);
+    // ...and a Production marker must fit its lot (lot-width.helper), as on the row's own Approve
+    const productionOnLots = await this.prisma.fabric_width_cad.findMany({
+      where: {
+        id: { in: mappedCadIds },
+        fabricStockId: { not: null },
+        OR: [{ purposeEnum: 'PRODUCTION' }, { purpose: 'PRODUCTION' }],
+      },
+      select: { id: true, cutableWidth: true, fabricStockId: true },
+    });
+    for (const row of productionOnLots) {
+      await assertMarkerFitsLot(this.prisma, Number(row.cutableWidth), row.fabricStockId, row.id);
+    }
     await this.prisma.$transaction(async (tx) => {
       await Promise.all(
         expandedMappings.map((mapping) =>

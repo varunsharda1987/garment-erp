@@ -83,6 +83,17 @@ export const updateFabricStockSchema = z
   });
 
 /**
+ * Correct a lot's width (lot-width.helper)
+ * POST /api/stock/:id/correct-width
+ * The measured width is what the fabric really is; the cutable width defaults to measured − selvedge.
+ */
+export const correctLotWidthSchema = z.object({
+  measuredWidthInches: formNumberRequired(z.number().positive('Enter the measured width').max(200)),
+  cutableWidthInches: formNumber(z.number().positive().max(200)),
+  reason: z.string().trim().min(3, 'Say why the width is being corrected').max(500),
+});
+
+/**
  * Transfer Fabric Stock
  * POST /api/fabric-stock/transfer (or /api/stock/transfer)
  * Single source of truth (controller consumes typed req.body)
@@ -282,6 +293,7 @@ export type AdjustFabricStockInput = z.infer<typeof adjustFabricStockSchema>;
 export type FabricStockQueryInput = z.infer<typeof fabricStockQuerySchema>;
 
 export type RecordFabricPiecesInput = z.infer<typeof recordFabricPiecesSchema>;
+export type CorrectLotWidthInput = z.infer<typeof correctLotWidthSchema>;
 
 export type CreateGreigeStockInput = z.infer<typeof createGreigeStockSchema>;
 export type UpdateGreigeStockInput = z.infer<typeof updateGreigeStockSchema>;

@@ -39,6 +39,9 @@ import { listHeldLots } from '../../services/helpers/held-stock-doors.helper';
 import { toDateInputValue } from '../../utils/date';
 import { RETAINED_BY_SUPPLIER_REASON } from '../../services/helpers/direct-supply-challan.helper';
 
+/** The fabric's measured width on arrival — every fabric job-work receipt needs one (lot-width.helper) */
+const MEASURED_WIDTH = 58;
+
 const RUN = `DDV${Date.now().toString(36).toUpperCase()}`;
 const only = (id: string | undefined) => id ?? '__unset__';
 const DAY = 24 * 60 * 60 * 1000;
@@ -890,6 +893,7 @@ describe('processed goods delivered straight to the next processor (Phase 4d)', 
       .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
+        receivedWidthInches: MEASURED_WIDTH,
         jobWorkOrderId: jwo,
         invoiceToFollow: true,
         qtyReceivedMeters: 376,

@@ -34,6 +34,7 @@ import { toDateInputValue } from '@/lib/date';
 import { foldActual } from '@/lib/fold-length';
 import { FoldActualField } from '@/components/FoldActualField';
 import { generateId } from '@/lib/utils';
+import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 
 interface ReceiveFromProcessorDialogProps {
   open: boolean;
@@ -87,6 +88,8 @@ export default function ReceiveFromProcessorDialog({
   const [rows, setRows] = useState<ReceiptDetailRow[]>([]);
   const [foldLengthCm, setFoldLengthCm] = useState<number>(0);
   const [widthInches, setWidthInches] = useState<number>(0);
+  // Selvedge in inches: the lot's cutable width = measured − this (lot-width.helper on the server)
+  const { cutableWidthDeduction } = useDefaultSettings();
   const [challanRef, setChallanRef] = useState('');
   // The processor's bill for THIS delivery — or "Invoice not received yet" (2026-09-28)
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -334,8 +337,17 @@ export default function ReceiveFromProcessorDialog({
   const dateBeforeSend = !!sentDay && !!receivedDate && receivedDate < sentDay;
   // The processor's invoice number and date — or the tick that it has not come yet
   const invoiceReady = invoiceToFollow || (!!invoiceNumber.trim() && !!invoiceDate);
+  // A fabric lot's widths come from what was measured on arrival — never the asked width (server refuses too)
+  const widthReady = isLace || widthInches > 0;
+  const cutablePreview =
+    widthInches > 0 && cutableWidthDeduction != null
+      ? widthInches > cutableWidthDeduction
+        ? Math.round((widthInches - cutableWidthDeduction) * 100) / 100
+        : widthInches
+      : null;
   const canSubmit =
     effectiveQty > 0 &&
+    widthReady &&
     !!warehouseId &&
     !!receivedDate &&
     !dateBeforeSend &&
@@ -570,16 +582,23 @@ export default function ReceiveFromProcessorDialog({
           <div className="grid grid-cols-2 gap-3">
             {!isLace && (
               <div className="space-y-2">
-                <Label htmlFor="rfp-width">Measured width (inches)</Label>
+                <Label htmlFor="rfp-width">Measured width (inches) *</Label>
                 <Input
                   id="rfp-width"
                   type="number"
                   min={0.01}
-                  step={0.01}
+                  step="any"
                   value={widthInches > 0 ? widthInches : ''}
                   onChange={(e) => setWidthInches(parseFloat(e.target.value) || 0)}
                   placeholder={jwo?.sentWidthInches ? `asked ${jwo.sentWidthInches}"` : undefined}
                 />
+                <p className={`text-xs ${widthInches > 0 ? 'text-muted-foreground' : 'text-amber-700'}`}>
+                  {widthInches > 0
+                    ? cutablePreview != null
+                      ? `Cutable: ${cutablePreview}" (after ${cutableWidthDeduction}" selvedge)`
+                      : 'Cutable width is worked out after saving'
+                    : 'Measure the fabric — the CAD for this lot is made on its cutable width'}
+                </p>
               </div>
             )}
             <div className="space-y-2">

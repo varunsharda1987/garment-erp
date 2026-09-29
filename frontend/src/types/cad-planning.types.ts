@@ -268,6 +268,8 @@ export interface CADSpreadsheetRow {
   costingApprovalStatus?: string | null;
   isLocked?: boolean;
   fabricStockId?: string | null;
+  /** the lot's cutable width — a Production row's marker must be no wider (backend lot-width.helper) */
+  lotCutableWidth?: number | null;
   // Why and by whom a REJECTED row was rejected
   approvalNotes?: string | null;
   rejectedAt?: string | null;

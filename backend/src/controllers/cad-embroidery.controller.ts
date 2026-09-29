@@ -14,6 +14,7 @@ import { ALL_PARTS_CODE, getDefaultLayerMargin } from './cad-planning.utils';
 import { resolveProductionLot } from '../services/helpers/production-cad-lot.helper';
 import { cadMarkerFields, copyCadChildren } from '../services/helpers/cad-copy.helper';
 import { copyMarkerImage } from '../services/helpers/cad-marker.helper';
+import { markerFitsLot } from '../services/helpers/lot-width.helper';
 import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
 // ============================================================================
@@ -458,8 +459,10 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     lotGreigeId,
   } = await resolveProductionLot(styleId, fabricStockId, { styleFabricId, componentId });
 
-  // 3. The marker to start from: the slot's approved planning row, RAW MAT first, same width first
+  // 3. The marker to start from: the slot's approved planning row — RAW MAT first, then one that
+  //    FITS the lot (no wider than its cutable width), then the one with least spare (lot-width.helper)
   const stockWidth = Number(fabricStock.cutableWidth);
+  const fitOf = (c: fabric_width_cad) => markerFitsLot(Number(c.cutableWidth), stockWidth);
   let source: fabric_width_cad | null = null;
   if (basedOnPlanningCadId) {
     source = await prisma.fabric_width_cad.findUnique({ where: { id: basedOnPlanningCadId } });
@@ -473,31 +476,31 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       },
       orderBy: [{ version: 'desc' }, { approvedAt: 'desc' }],
     });
-    const widthRank = (c: fabric_width_cad) => (Number(c.cutableWidth) === stockWidth ? 0 : 1);
     candidates.sort(
       (a, b) =>
         (purposeRank[a.purposeEnum ?? a.purpose ?? ''] ?? 9) - (purposeRank[b.purposeEnum ?? b.purpose ?? ''] ?? 9) ||
-        widthRank(a) - widthRank(b)
+        Number(!fitOf(a).fits) - Number(!fitOf(b).fits) ||
+        Math.abs(fitOf(a).spareInches) - Math.abs(fitOf(b).spareInches)
     );
     source = candidates[0] ?? null;
   }
 
-  // 4. Width variance. A marker planned at another width does not fit this lot: keep its sizes
-  //    and part, drop its layer length and average so the row cannot be approved on them.
+  // 4. Does the marker fit this lot? One that fits is the lot's marker as it stands — at its OWN width,
+  //    with its length, sizes and image (52" on a 53" lot: 1" spare). One wider than the lot keeps its
+  //    sizes and part only: its layer length and average are dropped so it cannot be approved on them.
   const planningWidth = source ? Number(source.cutableWidth) : null;
-  let widthVariance: number | null = null;
-  let variancePercent: number | null = null;
-  if (planningWidth && stockWidth) {
-    widthVariance = stockWidth - planningWidth;
-    variancePercent = (widthVariance / planningWidth) * 100;
-  }
-  const widthMatches = widthVariance === null || Math.abs(widthVariance) < 0.01;
-  const warning =
-    source && !widthMatches
-      ? `This lot is ${stockWidth}" wide but the marker was planned at ${planningWidth}". ` +
-        `The sizes were copied; enter the layer length for ${stockWidth}" before approving.`
-      : !source
-        ? 'No approved planning marker was found for this fabric — enter the layer length and sizes before approving.'
+  const fit = source && planningWidth && stockWidth ? markerFitsLot(planningWidth, stockWidth) : null;
+  const markerFits = !fit || fit.fits;
+  const widthVariance: number | null = fit ? fit.spareInches : null;
+  const variancePercent: number | null = fit && planningWidth ? (fit.spareInches / planningWidth) * 100 : null;
+  const warning = !source
+    ? 'No approved planning marker was found for this fabric — enter the layer length and sizes before approving.'
+    : !markerFits
+      ? `The marker was planned at ${planningWidth}" but this lot is only ${stockWidth}" cutable — it will not fit. ` +
+        `The sizes were copied; make a marker at ${stockWidth}" or less before approving.`
+      : fit?.wideSpare
+        ? `This lot is ${stockWidth}" cutable and the marker is ${planningWidth}" — ${fit.spareInches}" spare. ` +
+          'A wider marker may save fabric.'
         : null;
 
   // 5. Pattern part: request → marker → lot → CAD Planning's auto rule
@@ -530,7 +533,7 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
     const created = await tx.fabric_width_cad.create({
       data: {
         ...(source ? cadMarkerFields(source) : {}),
-        ...(source && !widthMatches
+        ...(source && !markerFits
           ? { cadMeters: null, cadYards: null, cadAverage: null, markerLengthMeters: null, markerEfficiency: null }
           : {}),
         styleFabricId: resolvedStyleFabricId,
@@ -538,7 +541,8 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
         greigeId: greigeId || lotGreigeId || source?.greigeId || null,
         componentName: source?.componentName ?? slot?.style_components?.componentName ?? null,
         patternPartId: finalPatternPartId,
-        cutableWidth: stockWidth,
+        // a fitting marker keeps its own width; otherwise the row starts at the lot's
+        cutableWidth: source && markerFits && planningWidth ? planningWidth : stockWidth,
         widthUnit: 'inches',
         cadWastagePercent: source?.cadWastagePercent ?? defaultWastage,
         printDirection: source?.printDirection ?? 'TWO_WAY',
@@ -557,14 +561,14 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
 
         createdById: userId,
         notes:
-          `Created from stock lot ${lotLabel || fabricStockId}. Stock width: ${stockWidth}".` +
+          `Created from stock lot ${lotLabel || fabricStockId}. Lot cutable width: ${stockWidth}".` +
           (source ? ` Marker from ${source.purposeEnum ?? source.purpose} at ${planningWidth}".` : ''),
       },
     });
     if (source) await copyCadChildren(tx, source.id, created.id);
-    // The planning marker's image comes too — but only when its width fits the lot (its length was copied);
-    // a marker planned at another width is re-made for the lot, with its own image
-    if (source && widthMatches) await copyMarkerImage(tx, source.id, created.id, 'PRODUCTION');
+    // The planning marker's image comes too — but only when the marker fits the lot (its length was copied);
+    // a marker wider than the lot is re-made for it, with its own image
+    if (source && markerFits) await copyMarkerImage(tx, source.id, created.id, 'PRODUCTION');
     await recomputeStyleCadStatus(tx, styleId);
     return created;
   });

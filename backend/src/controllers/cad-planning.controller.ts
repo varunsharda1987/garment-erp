@@ -30,6 +30,7 @@ import { resolveProductionLot, CREATE_CAD_HINT } from '../services/helpers/produ
 import { resolveLiveGreigeRates, greigeRateProvenance } from '../services/helpers/greige-live-rate.helper';
 import { EMPTY_CAD_SNAPSHOT, cadSnapshot, getCadHistory, recordCadEdit } from '../services/helpers/cad-history.helper';
 import { checkMarkerOnSave, recordMarkerOverride } from '../services/helpers/cad-marker.helper';
+import { assertMarkerFitsLot } from '../services/helpers/lot-width.helper';
 import { applySearch } from '../utils/search-filter';
 import {
   applyCadListFilters,
@@ -2160,6 +2161,8 @@ export async function getCADTableData(req: Request, res: Response) {
     costingApprovalStatus: string | null;
     isLocked: boolean;
     fabricStockId: string | null;
+    /** the lot's cutable width — the row's marker must be no wider (lot-width.helper); filled below */
+    lotCutableWidth?: number | null;
     // Why and by whom a REJECTED row was rejected — the table showed none of it
     approvalNotes: string | null;
     rejectedAt: Date | null;
@@ -2513,6 +2516,19 @@ export async function getCADTableData(req: Request, res: Response) {
     const nameOf = new Map(rejectors.map((u) => [u.id, [u.firstName, u.lastName].filter(Boolean).join(' ')]));
     for (const r of cadRows) {
       if (r.rejectedBy) r.rejectedByName = nameOf.get(r.rejectedBy) ?? null;
+    }
+  }
+
+  // Each lot row's cutable width, beside its marker's (one lookup for the whole table)
+  const rowLotIds = [...new Set(cadRows.map((r) => r.fabricStockId).filter((id): id is string => !!id))];
+  if (rowLotIds.length > 0) {
+    const lots = await prisma.fabric_stock.findMany({
+      where: { id: { in: rowLotIds } },
+      select: { id: true, cutableWidth: true },
+    });
+    const cutableOf = new Map(lots.map((l) => [l.id, Number(l.cutableWidth)]));
+    for (const r of cadRows) {
+      r.lotCutableWidth = r.fabricStockId ? (cutableOf.get(r.fabricStockId) ?? null) : null;
     }
   }
 
@@ -3293,6 +3309,11 @@ export async function updateCADTableRow(req: Request, res: Response) {
   let layerMarginMetersValue = existingCad.layerMarginMeters;
   if (effectiveLayerLength !== undefined) {
     layerMarginMetersValue = new Prisma.Decimal(getDefaultLayerMargin(effectiveLayerLength));
+  }
+
+  // A Production CAD's width is its marker's, and a marker wider than its lot will not fit (lot-width.helper)
+  if (currentPurpose === 'PRODUCTION' && validatedWidth !== undefined && validatedWidth !== null) {
+    await assertMarkerFitsLot(prisma, Number(validatedWidth), existingCad.fabricStockId, rowId);
   }
 
   // The row's marker image (cad-marker.helper): a Raw Mat / Production row's CAD values — layer length, width,

@@ -19,6 +19,7 @@ import {
   deleteStock,
   getStockPieces,
   recordStockPieces,
+  correctLotWidth,
 } from '../controllers/fabric-stock.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -31,6 +32,7 @@ import {
   fabricStockQuerySchema,
   fabricStockIdParamSchema,
   recordFabricPiecesSchema,
+  correctLotWidthSchema,
 } from '../schemas/fabricStock.schema';
 
 const router = Router();
@@ -55,6 +57,13 @@ router.post(
   validateParams(fabricStockIdParamSchema),
   validateBody(recordFabricPiecesSchema),
   asyncHandler(recordStockPieces)
+);
+// Correct a lot's measured / cutable width after inward (lot-width.helper) — refused once it has gone to cutting
+router.post(
+  '/:id/correct-width',
+  validateParams(fabricStockIdParamSchema),
+  validateBody(correctLotWidthSchema),
+  asyncHandler(correctLotWidth)
 );
 router.get('/:id', validateParams(fabricStockIdParamSchema), asyncHandler(getStockById));
 

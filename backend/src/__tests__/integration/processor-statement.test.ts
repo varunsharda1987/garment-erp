@@ -19,6 +19,9 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
 
+/** The fabric's measured width on arrival — every fabric job-work receipt needs one (lot-width.helper) */
+const MEASURED_WIDTH = 58;
+
 const RUN = `PST${Date.now().toString(36).toUpperCase()}`;
 
 let userId: string;
@@ -170,6 +173,7 @@ beforeAll(async () => {
   });
 
   const part1 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+    receivedWidthInches: MEASURED_WIDTH,
     jobWorkOrderId: jwoA,
     invoiceToFollow: true,
     qtyReceivedMeters: PART_1,
@@ -182,6 +186,7 @@ beforeAll(async () => {
   }
 
   const part2 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+    receivedWidthInches: MEASURED_WIDTH,
     jobWorkOrderId: jwoA,
     invoiceToFollow: true,
     qtyReceivedMeters: PART_2,

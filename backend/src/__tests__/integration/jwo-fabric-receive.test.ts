@@ -26,6 +26,9 @@ import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { grnService } from '../../services/grn.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../../services/helpers/material-sync.helper';
 
+/** The fabric's measured width on arrival — every fabric job-work receipt needs one (lot-width.helper) */
+const MEASURED_WIDTH = 58;
+
 const RUN = `FRC${Date.now().toString(36).toUpperCase()}`;
 
 let userId: string;
@@ -209,15 +212,19 @@ describe('receiving dyed fabric on a job work order GRN', () => {
   });
 
   it('refuses a return with neither the processor’s invoice nor "Invoice not received yet" — before anything is minted', async () => {
-    const bare = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: jwoId, qtyReceivedMeters: RECEIVE_QTY, receivedDate: RECEIVED_ON, warehouseId });
+    const bare = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: jwoId,
+      qtyReceivedMeters: RECEIVE_QTY,
+      receivedDate: RECEIVED_ON,
+      warehouseId,
+    });
     expect(bare.status).toBe(422);
     expect(bare.body.details?.reason).toBe('GRN_INVOICE_REQUIRED');
     expect(bare.body.message).toMatch(/Invoice not received yet/);
 
     const undated = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
       jobWorkOrderId: jwoId,
       qtyReceivedMeters: RECEIVE_QTY,
       receivedDate: RECEIVED_ON,
@@ -232,11 +239,25 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect((await prisma.job_work_orders.findUnique({ where: { id: jwoId } }))!.finishedFabricId).toBeNull();
   });
 
+  it('refuses a fabric return with no measured width — the lot’s cutable width comes from it (lot-width.helper)', async () => {
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      jobWorkOrderId: jwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: RECEIVE_QTY,
+      receivedDate: RECEIVED_ON,
+      warehouseId,
+    });
+    expect(res.status).toBe(422);
+    expect(res.body.details?.code).toBe('MEASURED_WIDTH_REQUIRED');
+    expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: jwoId } })).toBe(0);
+  });
+
   it('T0-A: one action accepts the fabricId-null job — mints the finished fabric and books it into stock', async () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
+        receivedWidthInches: MEASURED_WIDTH,
         jobWorkOrderId: jwoId,
         // The processor's bill came with the goods — stored on the receipt, trimmed
         invoiceNumber: ` ${RUN}-PINV `,
@@ -333,10 +354,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     // the job received, so a retry after a slow response must be refused, not double-booked.
     const mastersBefore = await prisma.fabric_master.count({ where: { greigeId } });
     const lotsBefore = await prisma.fabric_stock.count({ where: { fabricId: finishedFabricId } });
-    const res = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: jwoId, invoiceToFollow: true, qtyReceivedMeters: 100, warehouseId });
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: jwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 100,
+      warehouseId,
+    });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/already been received/i);
     expect(await prisma.fabric_master.count({ where: { greigeId } })).toBe(mastersBefore);
@@ -383,10 +407,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       data: { jwoStatus: 'AT_PROCESSOR', uom: 'MTR', qtySentMeters: 500 },
     });
 
-    const res = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: orphanJwoId, invoiceToFollow: true, qtyReceivedMeters: 500, warehouseId });
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: orphanJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 500,
+      warehouseId,
+    });
 
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/no greige lineage/i);
@@ -446,10 +473,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(afterRefusal!.jwoStatus).toBe('AT_PROCESSOR');
     expect(afterRefusal!.receivedDate).toBeNull();
 
-    const viaGrn = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: gapJwoId, invoiceToFollow: true, qtyReceivedMeters: 500, warehouseId });
+    const viaGrn = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: gapJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 500,
+      warehouseId,
+    });
     expect(viaGrn.status).toBe(201);
     // Booked. The job carries whichever master the identity ladder resolved — it may mint a
     // properly-identified finished fabric from jwo.fabric's greige rather than reuse fabricId
@@ -525,7 +555,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const res = await request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ jobWorkOrderId: zeroJwoId, invoiceToFollow: true, warehouseId }); // no metres, no than × fold
+      .send({ receivedWidthInches: MEASURED_WIDTH, jobWorkOrderId: zeroJwoId, invoiceToFollow: true, warehouseId }); // no metres, no than × fold
 
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(JSON.stringify(res.body)).toMatch(/quantity/i);
@@ -577,10 +607,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .spyOn(target, 'approvePolessJwoGrnInTx')
       .mockRejectedValueOnce(new Error('simulated failure after create'));
     try {
-      const res = await request(app)
-        .post('/api/grn/jwo/receive')
-        .set(authHeader)
-        .send({ jobWorkOrderId: atomicJwoId, invoiceToFollow: true, qtyReceivedMeters: 500, warehouseId });
+      const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+        receivedWidthInches: MEASURED_WIDTH,
+        jobWorkOrderId: atomicJwoId,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 500,
+        warehouseId,
+      });
       expect(res.status).toBeGreaterThanOrEqual(400);
     } finally {
       spy.mockRestore();
@@ -601,6 +634,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
+        receivedWidthInches: MEASURED_WIDTH,
         jobWorkOrderId: baleJwoId,
         invoiceToFollow: true,
         entryMode: 'BALE_WISE',
@@ -626,17 +660,15 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
   it('a total typed beside a than count keeps both — the count is stored, the metres are the quantity', async () => {
     const countJwoId = await raiseAtProcessorJob();
-    const res = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({
-        jobWorkOrderId: countJwoId,
-        invoiceToFollow: true,
-        qtyReceivedMeters: 500,
-        thanCount: 12,
-        foldLengthCm: 100,
-        warehouseId,
-      });
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: countJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 500,
+      thanCount: 12,
+      foldLengthCm: 100,
+      warehouseId,
+    });
     expect(res.status).toBe(201);
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: countJwoId } });
     expect(Number(jwo!.qtyReceivedMeters)).toBe(500); // not 12 × 100 / 100
@@ -649,16 +681,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       where: { id: earlyJwoId },
       data: { sentDate: new Date('2026-09-19T10:00:00Z') },
     });
-    const res = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({
-        jobWorkOrderId: earlyJwoId,
-        invoiceToFollow: true,
-        qtyReceivedMeters: 450,
-        receivedDate: '2026-08-27',
-        warehouseId,
-      });
+    const res = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: earlyJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 450,
+      receivedDate: '2026-08-27',
+      warehouseId,
+    });
     expect(res.status).toBe(422);
     expect(res.body.message).toMatch(/27-Aug-2026 is before the day the greige was sent \(19-Sep-2026\)/);
     expect(await prisma.goods_receiving_notes.count({ where: { jobWorkOrderId: earlyJwoId } })).toBe(0);
@@ -672,6 +702,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
     // Part 1 — more to come.
     const part1 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
       jobWorkOrderId: partsJwoId,
       invoiceToFollow: true,
       qtyReceivedMeters: 300,
@@ -707,6 +738,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     // Part 2 — the final delivery. 190 brings the total to 490: 2 % short, inside the 3 % tolerance, so
     // it closes without the short-close confirmation (the short cases are pinned further down).
     const part2 = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
       jobWorkOrderId: partsJwoId,
       // This delivery came with the processor's bill; part 1 came without it (ticked above)
       invoiceNumber: 'PINV-497',
@@ -772,10 +804,13 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect(invoicesOf(after.body)).toEqual(['PINV-489', 'PINV-497']);
 
     // A third receipt is refused — the job has been received in full.
-    const third = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: partsJwoId, invoiceToFollow: true, qtyReceivedMeters: 10, warehouseId });
+    const third = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: partsJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 10,
+      warehouseId,
+    });
     expect(third.status).toBe(422);
     expect(third.body.message).toMatch(/already been received/i);
 
@@ -814,10 +849,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     expect((await prisma.challans.findUnique({ where: { id: challan1Id } }))!.status).not.toBe('CANCELLED');
 
     // Receivable again: a new final part closes it on the new total.
-    const again = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: id, invoiceToFollow: true, qtyReceivedMeters: 190, isFinal: true, warehouseId });
+    const again = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: id,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 190,
+      isFinal: true,
+      warehouseId,
+    });
     expect(again.status).toBe(201);
     jwo = await prisma.job_work_orders.findUnique({ where: { id } });
     expect(jwo!.jwoStatus).toBe('STOCK_UPDATED');
@@ -855,16 +894,24 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
   it('caps the parts together: a part that would take the job past the maximum is refused, naming what is already in', async () => {
     const capJwoId = await raiseAtProcessorJob(); // 500 expected back; the cap is that plus the over-receipt tolerance
-    const first = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: capJwoId, invoiceToFollow: true, qtyReceivedMeters: 300, isFinal: false, warehouseId });
+    const first = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: capJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 300,
+      isFinal: false,
+      warehouseId,
+    });
     expect(first.status).toBe(201);
 
-    const tooMuch = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: capJwoId, invoiceToFollow: true, qtyReceivedMeters: 400, isFinal: true, warehouseId });
+    const tooMuch = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: capJwoId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 400,
+      isFinal: true,
+      warehouseId,
+    });
     expect(tooMuch.status).toBe(422);
     expect(tooMuch.body.message).toMatch(/300\.00 MTR already received/);
 
@@ -892,17 +939,15 @@ describe('receiving dyed fabric on a job work order GRN', () => {
   it('files ONE receipt when the same final delivery arrives three times at once — the others find it already received', async () => {
     const jobId = await raiseAtProcessorJob(); // 500 expected back
     const press = () =>
-      request(app)
-        .post('/api/grn/jwo/receive')
-        .set(authHeader)
-        .send({
-          jobWorkOrderId: jobId,
-          invoiceToFollow: true,
-          qtyReceivedMeters: 490,
-          thanCount: 5,
-          isFinal: true,
-          warehouseId,
-        });
+      request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+        receivedWidthInches: MEASURED_WIDTH,
+        jobWorkOrderId: jobId,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 490,
+        thanCount: 5,
+        isFinal: true,
+        warehouseId,
+      });
 
     const results = await Promise.all([press(), press(), press()]);
 
@@ -935,10 +980,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
   it('runs two parts that arrive together one after the other — the second reads the first and the cap refuses it', async () => {
     const jobId = await raiseAtProcessorJob(); // 500 expected; 300 + 300 is over the cap
     const press = () =>
-      request(app)
-        .post('/api/grn/jwo/receive')
-        .set(authHeader)
-        .send({ jobWorkOrderId: jobId, invoiceToFollow: true, qtyReceivedMeters: 300, isFinal: false, warehouseId });
+      request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+        receivedWidthInches: MEASURED_WIDTH,
+        jobWorkOrderId: jobId,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 300,
+        isFinal: false,
+        warehouseId,
+      });
 
     const results = await Promise.all([press(), press()]);
 
@@ -956,10 +1005,14 @@ describe('receiving dyed fabric on a job work order GRN', () => {
 
   it('reverses a job-work receipt without writing a stock movement — its lot was the receipt, and the lot is gone', async () => {
     const jobId = await raiseAtProcessorJob();
-    const received = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({ jobWorkOrderId: jobId, invoiceToFollow: true, qtyReceivedMeters: 490, isFinal: true, warehouseId });
+    const received = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: jobId,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 490,
+      isFinal: true,
+      warehouseId,
+    });
     expect(received.status).toBe(201);
     const grnId = received.body.data.id as string;
 
@@ -981,17 +1034,15 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const jobId = await raiseAtProcessorJob(); // 500 expected; 200 + 200 would both fit under the cap
     const submissionKey = `${RUN}-KEY-${randomUUID()}`;
     const press = () =>
-      request(app)
-        .post('/api/grn/jwo/receive')
-        .set(authHeader)
-        .send({
-          jobWorkOrderId: jobId,
-          invoiceToFollow: true,
-          qtyReceivedMeters: 200,
-          isFinal: false,
-          warehouseId,
-          submissionKey,
-        });
+      request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+        receivedWidthInches: MEASURED_WIDTH,
+        jobWorkOrderId: jobId,
+        invoiceToFollow: true,
+        qtyReceivedMeters: 200,
+        isFinal: false,
+        warehouseId,
+        submissionKey,
+      });
 
     const results = await Promise.all([press(), press(), press()]);
 
@@ -1011,6 +1062,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
       .post('/api/grn/jwo/receive')
       .set(authHeader)
       .send({
+        receivedWidthInches: MEASURED_WIDTH,
         jobWorkOrderId: jobId,
         invoiceToFollow: true,
         qtyReceivedMeters: 200,
@@ -1026,29 +1078,25 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     const jobA = await raiseAtProcessorJob();
     const jobB = await raiseAtProcessorJob();
     const submissionKey = `${RUN}-KEY-${randomUUID()}`;
-    const first = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({
-        jobWorkOrderId: jobA,
-        invoiceToFollow: true,
-        qtyReceivedMeters: 200,
-        isFinal: false,
-        warehouseId,
-        submissionKey,
-      });
+    const first = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: jobA,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 200,
+      isFinal: false,
+      warehouseId,
+      submissionKey,
+    });
     expect(first.status).toBe(201);
-    const other = await request(app)
-      .post('/api/grn/jwo/receive')
-      .set(authHeader)
-      .send({
-        jobWorkOrderId: jobB,
-        invoiceToFollow: true,
-        qtyReceivedMeters: 200,
-        isFinal: false,
-        warehouseId,
-        submissionKey,
-      });
+    const other = await request(app).post('/api/grn/jwo/receive').set(authHeader).send({
+      receivedWidthInches: MEASURED_WIDTH,
+      jobWorkOrderId: jobB,
+      invoiceToFollow: true,
+      qtyReceivedMeters: 200,
+      isFinal: false,
+      warehouseId,
+      submissionKey,
+    });
     expect(other.status).toBe(422);
     expect((await receiptTrail(jobB)).receipts).toBe(0);
   });
@@ -1077,7 +1125,7 @@ describe('receiving dyed fabric on a job work order GRN', () => {
     request(app)
       .post('/api/grn/jwo/receive')
       .set(authHeader)
-      .send({ warehouseId, ...body });
+      .send({ receivedWidthInches: MEASURED_WIDTH, warehouseId, ...body });
 
   it('refuses a final receipt that leaves the total short beyond the tolerance unless the short close is confirmed', async () => {
     const shortJwoId = await raiseAtProcessorJob(); // 500 expected, 3 % tolerance → anything under 485 is a short close

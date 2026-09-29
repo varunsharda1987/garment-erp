@@ -49,6 +49,7 @@ const ROLE_CONFIG: Record<UserRole, { name: string; color: string }> = {
   [UserRole.QUALITY]: { name: 'Quality', color: 'bg-pink-100 text-pink-800' },
   [UserRole.PURCHASE]: { name: 'Purchase', color: 'bg-primary/10 text-primary' },
   [UserRole.FACTORY_SUPERVISOR]: { name: 'Factory Sup.', color: 'bg-teal-100 text-teal-800' },
+  [UserRole.PATTERN_MASTER]: { name: 'Pattern Master', color: 'bg-indigo-100 text-indigo-800' },
 };
 
 export default function PermissionManagement() {

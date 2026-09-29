@@ -9,7 +9,8 @@ import { UserRole } from '@prisma/client';
 import { logWarn } from '../../utils/logger';
 
 // Data access permissions by role
-// Roles: ADMIN, PRODUCTION_MANAGER, SALES, INVENTORY, ACCOUNTS, QUALITY, PURCHASE, FACTORY_SUPERVISOR, MERCHANDISER
+// Roles: ADMIN, PRODUCTION_MANAGER, SALES, INVENTORY, ACCOUNTS, QUALITY, PURCHASE, FACTORY_SUPERVISOR, MERCHANDISER,
+// PATTERN_MASTER
 const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
   // Order & Sales Data
   orders: {
@@ -22,6 +23,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: true,
+    PATTERN_MASTER: false,
   },
   orderFinancials: {
     ADMIN: true,
@@ -33,6 +35,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: true,
+    PATTERN_MASTER: false,
   },
 
   // Pricing Data
@@ -46,6 +49,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: true,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: false,
+    PATTERN_MASTER: false,
   },
   sellingPrices: {
     ADMIN: true,
@@ -57,6 +61,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: true,
+    PATTERN_MASTER: false,
   },
   profitMargins: {
     ADMIN: true,
@@ -68,6 +73,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: false,
+    PATTERN_MASTER: false,
   },
 
   // Customer & Supplier Data
@@ -81,6 +87,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: true,
+    PATTERN_MASTER: false,
   },
   supplierPricing: {
     ADMIN: true,
@@ -92,6 +99,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: true,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: false,
+    PATTERN_MASTER: false,
   },
 
   // Inventory Data
@@ -105,6 +113,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: true,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: false,
+    PATTERN_MASTER: true,
   },
   stockMovements: {
     ADMIN: true,
@@ -116,6 +125,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: true,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: false,
+    PATTERN_MASTER: false,
   },
 
   // Production Data
@@ -129,6 +139,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: true,
+    PATTERN_MASTER: true,
   },
   workOrders: {
     ADMIN: true,
@@ -140,6 +151,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: true,
+    PATTERN_MASTER: true,
   },
 
   // Style & Design Data
@@ -153,6 +165,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: true,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: true,
+    PATTERN_MASTER: true,
   },
   bomDetails: {
     ADMIN: true,
@@ -164,6 +177,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: true,
     FACTORY_SUPERVISOR: true,
     MERCHANDISER: true,
+    PATTERN_MASTER: true,
   },
 
   // Financial Data
@@ -177,6 +191,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: false,
+    PATTERN_MASTER: false,
   },
   userActivity: {
     ADMIN: true,
@@ -188,6 +203,7 @@ const DATA_PERMISSIONS: Record<string, Record<UserRole, boolean>> = {
     PURCHASE: false,
     FACTORY_SUPERVISOR: false,
     MERCHANDISER: false,
+    PATTERN_MASTER: false,
   },
 };
 
@@ -281,6 +297,13 @@ const SUGGESTED_QUESTIONS: Record<UserRole, string[]> = {
     'Style development status',
     'Sample tracking status',
     'Customer communication pending',
+  ],
+  PATTERN_MASTER: [
+    'Styles waiting for a CAD marker',
+    'Fit sample status for [style]',
+    'Size chart for [style]',
+    'Fabric lots received for [style]',
+    'How do I create a Production CAD?',
   ],
 };
 

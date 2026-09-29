@@ -18,6 +18,7 @@ const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
   [UserRole.PURCHASE]: '/dashboard/general', // No dedicated procurement dashboard yet
   [UserRole.QUALITY]: '/dashboard/general', // No dedicated quality dashboard yet
   [UserRole.FACTORY_SUPERVISOR]: '/dashboard/production', // Same as Production Manager
+  [UserRole.PATTERN_MASTER]: '/dashboard/general', // No dedicated pattern dashboard yet
 };
 
 /**

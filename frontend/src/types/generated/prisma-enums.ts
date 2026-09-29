@@ -691,6 +691,7 @@ export const UserRole = {
   PURCHASE: 'PURCHASE',
   FACTORY_SUPERVISOR: 'FACTORY_SUPERVISOR',
   MERCHANDISER: 'MERCHANDISER',
+  PATTERN_MASTER: 'PATTERN_MASTER',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 

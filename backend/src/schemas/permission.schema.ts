@@ -22,6 +22,7 @@ export const UserRoleEnum = z.enum([
   'PURCHASE',
   'FACTORY_SUPERVISOR',
   'MERCHANDISER',
+  'PATTERN_MASTER',
 ]);
 
 // ============================================================================

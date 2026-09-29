@@ -22,6 +22,7 @@ const AVAILABLE_ROLES = [
   { value: 'PRODUCTION_MANAGER', label: 'Production Manager' },
   { value: 'FACTORY_SUPERVISOR', label: 'Factory Supervisor' },
   { value: 'MERCHANDISER', label: 'Merchandiser' },
+  { value: 'PATTERN_MASTER', label: 'Pattern Master' },
 ];
 
 // Password complexity to match backend requirements

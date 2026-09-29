@@ -25,6 +25,7 @@ export const UserRole = {
   QUALITY: 'QUALITY',
   PURCHASE: 'PURCHASE',
   FACTORY_SUPERVISOR: 'FACTORY_SUPERVISOR',
+  PATTERN_MASTER: 'PATTERN_MASTER',
 } as const;
 
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];

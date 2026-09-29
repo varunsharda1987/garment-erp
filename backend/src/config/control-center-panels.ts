@@ -150,6 +150,13 @@ const SCOPE_BY_ROLE: Record<UserRole, ControlCenterScope> = {
     sections: ['pipeline'],
     alerts: [],
   },
+
+  // Pattern Department (2026-09-29). The sample approvals their patterns wait on, and cutting
+  // batches stuck behind a marker.
+  PATTERN_MASTER: {
+    sections: ['pipeline', 'alerts'],
+    alerts: ['pendingApprovals', 'stuckCutting'],
+  },
 };
 
 /**

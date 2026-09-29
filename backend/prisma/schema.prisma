@@ -10468,6 +10468,7 @@ enum UserRole {
   PURCHASE
   FACTORY_SUPERVISOR
   MERCHANDISER
+  PATTERN_MASTER
 }
 
 enum TestTemplateType {

@@ -198,6 +198,7 @@ export default function UserForm({ mode }: UserFormProps) {
                   <option value="QUALITY">Quality</option>
                   <option value="PURCHASE">Purchase</option>
                   <option value="FACTORY_SUPERVISOR">Factory Supervisor</option>
+                  <option value="PATTERN_MASTER">Pattern Master</option>
                 </select>
               </div>
               <div>
@@ -221,6 +222,7 @@ export default function UserForm({ mode }: UserFormProps) {
                   <option value="Accounts">Accounts/Finance</option>
                   <option value="Purchase">Purchase</option>
                   <option value="Design">Design</option>
+                  <option value="Pattern">Pattern</option>
                   <option value="Dispatch">Dispatch</option>
                   <option value="Maintenance">Maintenance</option>
                   <option value="HR">HR/Admin</option>

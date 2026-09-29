@@ -251,7 +251,7 @@ Q: How do I add a new user?
 A: Admin users can go to Settings > Users > Add New User.
 
 Q: What are the user roles?
-A: ADMIN, PRODUCTION_MANAGER, SALES, INVENTORY, ACCOUNTS, QUALITY, PURCHASE, FACTORY_SUPERVISOR, MERCHANDISER
+A: ADMIN, PRODUCTION_MANAGER, SALES, INVENTORY, ACCOUNTS, QUALITY, PURCHASE, FACTORY_SUPERVISOR, MERCHANDISER, PATTERN_MASTER
 
 Q: How do I export data?
 A: Most list pages have an Export button to download data as Excel.

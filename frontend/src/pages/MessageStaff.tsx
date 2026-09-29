@@ -28,6 +28,7 @@ const DEPARTMENTS = [
   'Accounts',
   'Purchase',
   'Design',
+  'Pattern',
   'Dispatch',
   'Maintenance',
   'HR',

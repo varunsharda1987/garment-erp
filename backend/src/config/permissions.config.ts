@@ -17,8 +17,18 @@
 
 import { UserRole } from '@prisma/client';
 
-const { ADMIN, MERCHANDISER, PRODUCTION_MANAGER, SALES, INVENTORY, ACCOUNTS, QUALITY, PURCHASE, FACTORY_SUPERVISOR } =
-  UserRole;
+const {
+  ADMIN,
+  MERCHANDISER,
+  PRODUCTION_MANAGER,
+  SALES,
+  INVENTORY,
+  ACCOUNTS,
+  QUALITY,
+  PURCHASE,
+  FACTORY_SUPERVISOR,
+  PATTERN_MASTER,
+} = UserRole;
 
 // All roles for convenience
 const ALL_ROLES: UserRole[] = [
@@ -31,6 +41,7 @@ const ALL_ROLES: UserRole[] = [
   QUALITY,
   PURCHASE,
   FACTORY_SUPERVISOR,
+  PATTERN_MASTER,
 ];
 
 /**
@@ -49,8 +60,10 @@ export const PERMISSIONS = {
   productionStatus: [ADMIN, PRODUCTION_MANAGER, MERCHANDISER, FACTORY_SUPERVISOR],
 
   // Styles & CAD Planning
-  styles: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, SALES],
-  cadPlanning: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER],
+  // PATTERN_MASTER (Pattern Department): patterns and grading on the style, markers in CAD Planning,
+  // fit samples. Everything else is read-only for them until the Permissions page says otherwise.
+  styles: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, SALES, PATTERN_MASTER],
+  cadPlanning: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, PATTERN_MASTER],
   costSheets: [ADMIN, MERCHANDISER, ACCOUNTS],
 
   // Testing/Quality
@@ -63,7 +76,7 @@ export const PERMISSIONS = {
   mrp: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, INVENTORY, PURCHASE],
 
   // Manufacturing
-  samples: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, QUALITY],
+  samples: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, QUALITY, PATTERN_MASTER],
   manufacturing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
   printing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
   dyeing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
@@ -243,4 +256,5 @@ export const ROLE_CONFIG: Record<UserRole, { name: string; description: string }
   [UserRole.QUALITY]: { name: 'Quality', description: 'Inspections, testing' },
   [UserRole.PURCHASE]: { name: 'Purchase', description: 'POs, suppliers, procurement' },
   [UserRole.FACTORY_SUPERVISOR]: { name: 'Factory Supervisor', description: 'Shop floor operations' },
+  [UserRole.PATTERN_MASTER]: { name: 'Pattern Master', description: 'Patterns, grading, CAD markers, fit samples' },
 };

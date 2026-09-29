@@ -62,48 +62,48 @@
   "cad-approve": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/CADPlanningPage.tsx": "cf9777cc68b0",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "fb0d40b18637",
+      "frontend/src/pages/CADPlanningPage.tsx": "ed97ed8ab925",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d3e3e5396463",
       "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
       "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
-      "frontend/src/components/cad/CorrectCadDialog.tsx": "13426c4355f4",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "8b1b8c472603",
       "frontend/src/components/cad/MarkerImageDialog.tsx": "1763ed983b46"
     },
     "contentHash": "8212a3f481ca",
-    "generatedAt": "2026-09-29T05:36:23.113Z"
+    "generatedAt": "2026-09-29T08:17:42.253Z"
   },
   "cad-costing": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/FabricCostingPage.tsx": "2d25744afbf0",
+      "frontend/src/pages/FabricCostingPage.tsx": "953714e91181",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
       "frontend/src/utils/greigeRate.ts": "cee473a71c54",
-      "frontend/src/pages/CADPlanningPage.tsx": "cf9777cc68b0",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "fb0d40b18637",
-      "frontend/src/components/cad/CorrectCadDialog.tsx": "13426c4355f4",
-      "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": "243289ebc165",
+      "frontend/src/pages/CADPlanningPage.tsx": "ed97ed8ab925",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d3e3e5396463",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "8b1b8c472603",
+      "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": "b4941bc3065b",
       "frontend/src/pages/ProcessorRateCardPage.tsx": "2cb105d4f52c"
     },
-    "contentHash": "d6d5aa653c6e",
-    "generatedAt": "2026-09-29T05:36:23.142Z"
+    "contentHash": "256da41aba4d",
+    "generatedAt": "2026-09-29T08:17:42.419Z"
   },
   "cad-planning-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/CADPlanningPage.tsx": "cf9777cc68b0",
-      "frontend/src/pages/CADPlanningList.tsx": "fc195eda3b73",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "fb0d40b18637",
+      "frontend/src/pages/CADPlanningPage.tsx": "ed97ed8ab925",
+      "frontend/src/pages/CADPlanningList.tsx": "aa7ada796e3a",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d3e3e5396463",
       "frontend/src/components/cad/StockSummaryBanner.tsx": "9585beb1e33a",
       "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
       "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
-      "frontend/src/components/cad/CorrectCadDialog.tsx": "13426c4355f4",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "8b1b8c472603",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
       "frontend/src/components/cad/MarkerImageDialog.tsx": "1763ed983b46",
       "frontend/src/components/cad/MiniMarkerDialog.tsx": "332dc5876250",
       "frontend/src/components/cad/MiniMarkerBadge.tsx": "3c7be92d8f77"
     },
-    "contentHash": "6f0e11cfc0c2",
-    "generatedAt": "2026-09-29T05:36:23.153Z"
+    "contentHash": "64d33f605773",
+    "generatedAt": "2026-09-29T08:17:42.430Z"
   },
   "catalogue-generate": {
     "sources": {
@@ -1868,8 +1868,8 @@
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/pages/CADPlanningPage.tsx": "ed97ed8ab925",
-      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "fb0d40b18637",
-      "frontend/src/components/cad/CorrectCadDialog.tsx": "3ffcd6558d14",
+      "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d3e3e5396463",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "8b1b8c472603",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
       "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
       "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
@@ -1877,11 +1877,11 @@
       "frontend/src/pages/CostSheetDetail.tsx": "400050ef170d",
       "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "166b27ec75d1",
       "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
-      "backend/src/services/cad-correction.service.ts": "b5425704dff5",
+      "backend/src/services/cad-correction.service.ts": "fb87b0b07f9b",
       "backend/src/schemas/cadPlanning.schema.ts": "ebc505673b59"
     },
-    "contentHash": "9ced140988c6",
-    "generatedAt": "2026-09-29T07:36:27.574Z"
+    "contentHash": "5ba4d6773c17",
+    "generatedAt": "2026-09-29T08:17:42.407Z"
   },
   "requirements-extra-decision": {
     "sources": {

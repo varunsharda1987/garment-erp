@@ -89,6 +89,9 @@ function git(args, opts = {}) {
     encoding: 'utf-8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 64 * 1024 * 1024,
+    // The deployer runs under PM2 with no console, so without this every poll (3 s) opens a
+    // console window for git.exe on the owner's desktop.
+    windowsHide: true,
   }).trim();
 }
 
@@ -116,6 +119,7 @@ function isAncestor(ancestor, descendant) {
     execFileSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
       cwd: REPO,
       stdio: 'ignore',
+      windowsHide: true,
     });
     return true;
   } catch {

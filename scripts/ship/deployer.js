@@ -116,7 +116,7 @@ function run(command, { cwd, env, timeoutMs = BUILD_TIMEOUT_MS } = {}) {
     child.stderr.on('data', keep);
     const timer = setTimeout(() => {
       log(`timed out after ${timeoutMs / 60000} min - killing`);
-      try { execSync(`taskkill /T /F /PID ${child.pid}`, { stdio: 'ignore' }); } catch { /* ignore */ }
+      try { execSync(`taskkill /T /F /PID ${child.pid}`, { stdio: 'ignore', windowsHide: true }); } catch { /* ignore */ }
     }, timeoutMs);
     child.on('close', (code) => {
       clearTimeout(timer);
@@ -129,7 +129,7 @@ function run(command, { cwd, env, timeoutMs = BUILD_TIMEOUT_MS } = {}) {
 function pm2VersionsMatch() {
   let cli;
   try {
-    cli = execSync('pm2 -v', { encoding: 'utf-8' }).trim().split('\n').pop().trim();
+    cli = execSync('pm2 -v', { encoding: 'utf-8', windowsHide: true }).trim().split('\n').pop().trim();
   } catch {
     return false;
   }
@@ -144,13 +144,13 @@ function pm2VersionsMatch() {
 
 function pm2Stop(app) {
   try {
-    execSync(`pm2 stop ${app}`, { stdio: 'ignore' });
+    execSync(`pm2 stop ${app}`, { stdio: 'ignore', windowsHide: true });
   } catch { /* already stopped */ }
 }
 
 function pm2Pid(app) {
   try {
-    const out = execSync(`pm2 pid ${app}`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execSync(`pm2 pid ${app}`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
     const line = out.split('\n').map((l) => l.trim()).find((l) => /^\d+$/.test(l));
     return line ? parseInt(line, 10) : 0;
   } catch {
@@ -456,10 +456,25 @@ async function restartWeb() {
   }
 }
 
+// fleet-check is advice AFTER the new build is already live, but spawnSync blocks the whole deployer while it
+// runs: on 2026-09-28 a CPU-starved fleet-check ran 13 min (11:37-11:50) and every queued commit waited behind
+// it. Past this limit it is killed and reported; the next deploy runs it again.
+const FLEET_CHECK_TIMEOUT_MS = 3 * 60 * 1000;
+
 function runFleetCheck() {
-  const r = spawnSync('node', [FLEET_CHECK], { encoding: 'utf-8', windowsHide: true, env: { ...process.env, NO_COLOR: '1' } });
+  const r = spawnSync('node', [FLEET_CHECK], {
+    encoding: 'utf-8',
+    windowsHide: true,
+    timeout: FLEET_CHECK_TIMEOUT_MS,
+    killSignal: 'SIGKILL',
+    env: { ...process.env, NO_COLOR: '1' },
+  });
   const out = `${r.stdout || ''}${r.stderr || ''}`.replace(/\x1b\[[0-9;]*m/g, '');
   try { fs.appendFileSync(S.LOG_FILE, out); } catch { /* ignore */ }
+  if (r.error && r.error.code === 'ETIMEDOUT') {
+    log(`fleet-check did not finish in ${FLEET_CHECK_TIMEOUT_MS / 60000} min - stopped it (the deploy itself is live)`);
+    return false;
+  }
   return r.status === 0;
 }
 

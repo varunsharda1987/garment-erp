@@ -604,8 +604,10 @@ export function CADSpreadsheetTable({
 
     // Check for duplicate Part + Width + Purpose combination in same styleFabric
     // Different purposes (e.g., RAW_MATERIAL_CALCULATION vs COSTING) can have same width
+    // A Production CAD is the marker for ONE received lot: two lots at the same width each get their own
     if (finalWidth !== null) {
       const finalPurpose = changes.purpose !== undefined ? changes.purpose : currentRow.purpose;
+      const currentLotId = (currentRow as CADSpreadsheetRowExtended).fabricStockId ?? null;
 
       const isDuplicate = rows.some((row) => {
         if (row.id === rowId) return false; // Skip current row
@@ -616,6 +618,14 @@ export function CADSpreadsheetTable({
 
         // Different purpose - allowed (e.g., COSTING vs RAW_MATERIAL_CALCULATION)
         if (row.purpose !== finalPurpose) return false;
+
+        // Production CADs on different lots - allowed (the server refuses a second one on the SAME lot)
+        if (
+          finalPurpose === 'PRODUCTION' &&
+          ((row as CADSpreadsheetRowExtended).fabricStockId ?? null) !== currentLotId
+        ) {
+          return false;
+        }
 
         // Same width AND same purpose - check if same part
         if (finalPartCode === ALL_PARTS_CODE && row.partCode === ALL_PARTS_CODE) {

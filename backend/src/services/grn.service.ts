@@ -2820,7 +2820,12 @@ class GRNService {
    * - Processing PO specific: job_work_orders, challans, processor greige_stock
    * - Ledger/transaction entries for audit trail
    */
-  async reverseGRN(id: string, userId: string, reason: string) {
+  /**
+   * @param outerTx — join a caller's transaction (a one-time conversion that must roll back as one, e.g.
+   *   scripts/convert-to-transit-challan.ts). The PO's receiving status is then NOT recomputed here — it would
+   *   read the committed state before the caller commits; the caller runs updateReceivingStatus after its commit.
+   */
+  async reverseGRN(id: string, userId: string, reason: string, outerTx?: Prisma.TransactionClient) {
     const grn = await prisma.goods_receiving_notes.findUnique({
       where: { id },
       include: {
@@ -2913,131 +2918,132 @@ class GRNService {
     }
 
     // Execute reversal in a transaction
-    const reversedGRN = await prisma.$transaction(
-      async (tx) => {
-        // 1. GUARDED status flip - prevent concurrent reversal
-        // BUG-GRN6 fix: Use string literal for REVERSED status (works before/after migration)
-        const flip = await tx.goods_receiving_notes.updateMany({
-          where: { id, status: { in: reversibleStatuses as unknown as GRNStatus[] } },
-          data: {
-            status: 'REVERSED' as GRNStatus, // Type assertion for pre-migration compatibility
-            remarks: grn.remarks
-              ? `${grn.remarks}\n\n[REVERSED ${new Date().toISOString()}] Reason: ${reason}`
-              : `[REVERSED ${new Date().toISOString()}] Reason: ${reason}`,
-          },
-        });
-        if (flip.count === 0) {
-          throw new Error('GRN is no longer in reversible status - it was already reversed or modified');
-        }
+    const runReversal = async (tx: Prisma.TransactionClient) => {
+      // 1. GUARDED status flip - prevent concurrent reversal
+      // BUG-GRN6 fix: Use string literal for REVERSED status (works before/after migration)
+      const flip = await tx.goods_receiving_notes.updateMany({
+        where: { id, status: { in: reversibleStatuses as unknown as GRNStatus[] } },
+        data: {
+          status: 'REVERSED' as GRNStatus, // Type assertion for pre-migration compatibility
+          remarks: grn.remarks
+            ? `${grn.remarks}\n\n[REVERSED ${new Date().toISOString()}] Reason: ${reason}`
+            : `[REVERSED ${new Date().toISOString()}] Reason: ${reason}`,
+        },
+      });
+      if (flip.count === 0) {
+        throw new Error('GRN is no longer in reversible status - it was already reversed or modified');
+      }
 
-        const reversed = await tx.goods_receiving_notes.findUniqueOrThrow({
-          where: { id },
-          include: this.getFullInclude(),
-        });
+      const reversed = await tx.goods_receiving_notes.findUniqueOrThrow({
+        where: { id },
+        include: this.getFullInclude(),
+      });
 
-        // The PO lines whose links are refilled from the receipts still approved (every category but PROCESSING)
-        const receiptLineIds = new Set<string>();
+      // The PO lines whose links are refilled from the receipts still approved (every category but PROCESSING)
+      const receiptLineIds = new Set<string>();
 
-        // 2. Process each GRN item for reversal
-        for (const item of grn.grn_items) {
-          const acceptedQty = grnLineActualQty(item).toNumber();
-          // What approval booked into stock — recorded on the line since 2026-09-26; older lines recompute
-          const stock = grnLineStock(item);
-          const stockQty = item.stockQuantity != null ? Number(item.stockQuantity) : stock.qty;
+      // 2. Process each GRN item for reversal
+      for (const item of grn.grn_items) {
+        const acceptedQty = grnLineActualQty(item).toNumber();
+        // What approval booked into stock — recorded on the line since 2026-09-26; older lines recompute
+        const stock = grnLineStock(item);
+        const stockQty = item.stockQuantity != null ? Number(item.stockQuantity) : stock.qty;
 
-          // 2a. Revert PO item received quantities (the PO unit — gross)
-          if (item.poItemId && acceptedQty > 0) {
-            await tx.purchase_order_items.update({
-              where: { id: item.poItemId },
-              data: {
-                receivedQuantity: { decrement: acceptedQty },
-              },
-            });
+        // 2a. Revert PO item received quantities (the PO unit — gross)
+        if (item.poItemId && acceptedQty > 0) {
+          await tx.purchase_order_items.update({
+            where: { id: item.poItemId },
+            data: {
+              receivedQuantity: { decrement: acceptedQty },
+            },
+          });
 
-            // 2b. A PROCESSING line's links stay pro-rata: take back this receipt's share (stock units)
-            if (po?.poCategory === 'PROCESSING') {
-              await mrpService.updateReceivedQuantity(item.poItemId, -stockQty, tx);
-            }
-          }
-          if (item.poItemId && po?.poCategory !== 'PROCESSING') receiptLineIds.add(item.poItemId);
-
-          // 2c. Create reverse stock movement for audit trail. Not for a job-work return: it wrote no
-          // STOCK_IN — its lot row IS the receipt, and step 4 deletes that lot. An out-row here has no
-          // in-row to cancel, and the fabric Material Ledger folds it into the oldest surviving lot as a
-          // phantom "adjustment out" (found reversing DJ-ESSKY076LS-001's duplicates, 2026-09-25).
-          const isJobWorkReturn = !grn.poId && !!grn.jobWorkOrderId;
-          if (acceptedQty > 0 && !isJobWorkReturn) {
-            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
-            const totalValue = roundToCent(multiplyCurrency(acceptedQty, unitPrice)).toNumber();
-
-            await tx.stock_movements.create({
-              data: {
-                id: randomUUID(),
-                movementType: MovementType.STOCK_OUT,
-                // The row approval booked it on — a packed thread line's pack row
-                materialId: await grnLineStockMaterialId(tx, item),
-                warehouseId: warehouseId,
-                supplierId: grn.supplierId,
-                quantity: stockQty,
-                unit: stock.unit,
-                referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
-                referenceId: grn.id,
-                referenceNumber: grn.grnNumber,
-                rate: stock.rate,
-                value: totalValue,
-                remarks: `Stock reversed from GRN ${grn.grnNumber} - Reason: ${reason}`,
-                performedById: userId,
-                movementDate: new Date(),
-              },
-            });
+          // 2b. A PROCESSING line's links stay pro-rata: take back this receipt's share (stock units)
+          if (po?.poCategory === 'PROCESSING') {
+            await mrpService.updateReceivedQuantity(item.poItemId, -stockQty, tx);
           }
         }
+        if (item.poItemId && po?.poCategory !== 'PROCESSING') receiptLineIds.add(item.poItemId);
 
-        // 2d. Refill every other line's links from the receipts still approved (this GRN is REVERSED already), so
-        // a reversal lands exactly on the state of the receipts that remain (D1). BEFORE the lots are taken back:
-        // the recompute moves the links' holds off this receipt's lots, so what is still reserved on them below is
-        // someone else's hold. Refused (GRN_REVERSAL_ISSUED) when an order already issued goods only this covered.
-        if (receiptLineIds.size > 0) {
-          await applyLineReceipts(tx, [...receiptLineIds].sort(), { event: 'reverse', userId });
+        // 2c. Create reverse stock movement for audit trail. Not for a job-work return: it wrote no
+        // STOCK_IN — its lot row IS the receipt, and step 4 deletes that lot. An out-row here has no
+        // in-row to cancel, and the fabric Material Ledger folds it into the oldest surviving lot as a
+        // phantom "adjustment out" (found reversing DJ-ESSKY076LS-001's duplicates, 2026-09-25).
+        const isJobWorkReturn = !grn.poId && !!grn.jobWorkOrderId;
+        if (acceptedQty > 0 && !isJobWorkReturn) {
+          const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+          const totalValue = roundToCent(multiplyCurrency(acceptedQty, unitPrice)).toNumber();
+
+          await tx.stock_movements.create({
+            data: {
+              id: randomUUID(),
+              movementType: MovementType.STOCK_OUT,
+              // The row approval booked it on — a packed thread line's pack row
+              materialId: await grnLineStockMaterialId(tx, item),
+              warehouseId: warehouseId,
+              supplierId: grn.supplierId,
+              quantity: stockQty,
+              unit: stock.unit,
+              referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
+              referenceId: grn.id,
+              referenceNumber: grn.grnNumber,
+              rate: stock.rate,
+              value: totalValue,
+              remarks: `Stock reversed from GRN ${grn.grnNumber} - Reason: ${reason}`,
+              performedById: userId,
+              movementDate: new Date(),
+            },
+          });
         }
+      }
 
-        // 3. Reverse specialized stock based on PO category
-        await this.reverseSpecializedStockInTx(tx, grn, po, userId, warehouseId, reason);
+      // 2d. Refill every other line's links from the receipts still approved (this GRN is REVERSED already), so
+      // a reversal lands exactly on the state of the receipts that remain (D1). BEFORE the lots are taken back:
+      // the recompute moves the links' holds off this receipt's lots, so what is still reserved on them below is
+      // someone else's hold. Refused (GRN_REVERSAL_ISSUED) when an order already issued goods only this covered.
+      if (receiptLineIds.size > 0) {
+        await applyLineReceipts(tx, [...receiptLineIds].sort(), { event: 'reverse', userId });
+      }
 
-        // 3b. A trim has no lot to refuse on: refuse instead when orders would be left holding more of it (Use
-        // Stock and receipt holds alike) than is still on hand
-        if (po && receivesViaStockLevels(po.poCategory)) {
-          await assertTrimHoldsCovered(
-            tx,
-            grn.grn_items.filter((i) => i.materialId && !threadPackOf(i)).map((i) => i.materialId as string)
+      // 3. Reverse specialized stock based on PO category
+      await this.reverseSpecializedStockInTx(tx, grn, po, userId, warehouseId, reason);
+
+      // 3b. A trim has no lot to refuse on: refuse instead when orders would be left holding more of it (Use
+      // Stock and receipt holds alike) than is still on hand
+      if (po && receivesViaStockLevels(po.poCategory)) {
+        await assertTrimHoldsCovered(
+          tx,
+          grn.grn_items.filter((i) => i.materialId && !threadPackOf(i)).map((i) => i.materialId as string)
+        );
+      }
+
+      // 4. Handle Processing PO specific reversal (Phase 4b: also PO-less JWO GRNs)
+      if (po?.poCategory === 'PROCESSING' || (!grn.poId && grn.jobWorkOrderId)) {
+        await this.reverseProcessingGRNInTx(tx, grn, po ?? null, userId, reason);
+        // Phase 4b: mirror the MRP receipt decrement for JWO-keyed GRNs
+        if (!grn.poId && grn.jobWorkOrderId) {
+          const totalAccepted = (grn.grn_items || []).reduce(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (sum: number, i: any) => sum + grnLineActualQty(i).toNumber(),
+            0
           );
-        }
-
-        // 4. Handle Processing PO specific reversal (Phase 4b: also PO-less JWO GRNs)
-        if (po?.poCategory === 'PROCESSING' || (!grn.poId && grn.jobWorkOrderId)) {
-          await this.reverseProcessingGRNInTx(tx, grn, po ?? null, userId, reason);
-          // Phase 4b: mirror the MRP receipt decrement for JWO-keyed GRNs
-          if (!grn.poId && grn.jobWorkOrderId) {
-            const totalAccepted = (grn.grn_items || []).reduce(
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              (sum: number, i: any) => sum + grnLineActualQty(i).toNumber(),
-              0
-            );
-            if (totalAccepted > 0) {
-              await mrpService.updateJwoReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
-              // Phase 5a: symmetric reversal for service-requirement links (no-op without links)
-              await updateWosrReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
-            }
+          if (totalAccepted > 0) {
+            await mrpService.updateJwoReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
+            // Phase 5a: symmetric reversal for service-requirement links (no-op without links)
+            await updateWosrReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
           }
         }
+      }
 
-        return reversed;
-      },
-      { timeout: 30000, maxWait: 10000 }
-    );
+      return reversed;
+    };
+    const reversedGRN = outerTx
+      ? await runReversal(outerTx)
+      : await prisma.$transaction(runReversal, { timeout: 30000, maxWait: 10000 });
 
-    // Recompute PO receiving status (best-effort post-commit; PO-less GRNs have none)
-    if (grn.poId) {
+    // Recompute PO receiving status (best-effort post-commit; PO-less GRNs have none). Inside a caller's
+    // transaction the caller does it after committing.
+    if (grn.poId && !outerTx) {
       try {
         await purchaseOrderService.updateReceivingStatus(grn.poId);
       } catch (statusErr) {

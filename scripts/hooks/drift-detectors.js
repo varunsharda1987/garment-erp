@@ -1356,6 +1356,85 @@ function ownPager(relFiles) {
   return out;
 }
 
+// Style code display — owner, 2026-09-29: a style is named by its BUYER STYLE CODE first, ours
+// second, through `@/lib/style-code` / `backend/src/utils/style-code.ts` (+ `<StyleIdentity>`). Until
+// then ~120 screens and every printout led with our internal code, and the buyer's code was
+// labelled five different ways. Flags (a) a call of the legacy code-first
+// `formatStyleCodeWithRef(` (it survives only for the invoice description Tally keys on);
+// (b) a hand-typed "Buyer Ref" / "Buyer Reference" / "Buyer Style Ref" / "Buyer Style" label
+// (the one name is "Buyer Style Code" — BUYER_STYLE_CODE_LABEL); (c) JSX that renders a
+// `….styleCode` as text (use `<StyleIdentity>`, `styleCodeLabel()`, or `ourStyleCode()` in a
+// "Style Code" column). Opt out with an `allow-style-code` comment on the line or the 3 above it.
+// The ASN "Buyer Reference Number" and the trims' "Buyer Code" are other fields and never match.
+const STYLE_CODE_EXEMPT = new Set([
+  'backend/src/utils/style-code.ts',
+  'frontend/src/lib/style-code.ts',
+  'frontend/src/components/StyleIdentity.tsx',
+]);
+const LEGACY_STYLE_FORMAT_RE = /\bformatStyleCodeWithRef\s*\(/g;
+const BUYER_REF_LABEL_RE = /\bbuyer\s+(?:ref(?:erence)?|style(?:\s+ref)?)\b(?!\s*(?:code|number|no\b|#))/gi;
+// A `{…styleCode…}` JSX child: right after a tag's `>` (not an arrow `=>`), with only text between.
+const JSX_STYLE_CODE_RE = /(?<![=\-])>([^<>{}=;?&|()`]*)\{([^{}]*\bstyleCode\b[^{}]*)\}/g;
+function styleCodeDisplay(relFiles) {
+  const out = [];
+  const templates = [];
+  try {
+    const dir = path.join(REPO_ROOT, 'backend/templates/kf');
+    for (const f of fs.readdirSync(dir)) if (f.endsWith('.hbs')) templates.push(`backend/templates/kf/${f}`);
+  } catch {
+    /* no templates folder — nothing to scan */
+  }
+  const files = [...new Set([...relFiles.map((r) => r.replace(/\\/g, '/')), ...templates])];
+  for (const rel of files) {
+    const isHbs = rel.endsWith('.hbs');
+    if (!isHbs && !/^(frontend\/src|backend\/src)\/.*\.tsx?$/.test(rel)) continue;
+    if (/\.test\.|__tests__|\.d\.ts$/.test(rel)) continue;
+    if (/^frontend\/src\/types\/generated\//.test(rel)) continue;
+    if (STYLE_CODE_EXEMPT.has(rel)) continue;
+    const raw = readRel(rel);
+    if (raw == null) continue;
+    const content = isHbs ? raw : blankComments(raw);
+    const rawLines = raw.split('\n');
+    const optedOut = (line) =>
+      rawLines.slice(Math.max(0, line - 4), line).some((l) => /allow-style-code/.test(l));
+    const seen = new Map();
+    const push = (idx, what, detail) => {
+      const line = lineOf(content, idx);
+      if (optedOut(line)) return;
+      let key = `${rel} :: style-code :: ${what}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({ key, file: rel, line, detail });
+    };
+    let m;
+    if (!isHbs) {
+      LEGACY_STYLE_FORMAT_RE.lastIndex = 0;
+      while ((m = LEGACY_STYLE_FORMAT_RE.exec(content))) {
+        const call = content.slice(m.index, content.indexOf(')', m.index) + 1).replace(/\s+/g, ' ');
+        push(m.index, `legacy ${call}`, `code-first ${call} — name a style with styleCodeLabel() (Buyer Style Code first)`);
+      }
+    }
+    BUYER_REF_LABEL_RE.lastIndex = 0;
+    while ((m = BUYER_REF_LABEL_RE.exec(content))) {
+      push(m.index, `label "${m[0]}"`, `"${m[0]}" — the one label is "Buyer Style Code" (BUYER_STYLE_CODE_LABEL)`);
+    }
+    if (rel.endsWith('.tsx')) {
+      JSX_STYLE_CODE_RE.lastIndex = 0;
+      while ((m = JSX_STYLE_CODE_RE.exec(content))) {
+        const expr = m[2].trim().replace(/\s+/g, ' ');
+        const at = m.index + m[0].indexOf('{');
+        push(
+          at,
+          `jsx {${expr}}`,
+          `renders {${expr}} — show <StyleIdentity>, styleCodeLabel() or, in a "Style Code" column, ourStyleCode()`
+        );
+      }
+    }
+  }
+  return out;
+}
+
 // ─── List filters (2026-09-28) ───────────────────────────────────────────────────────────────────
 // On 2026-09-28 101 list pages filtered 101 ways: 35 raw search boxes, 28 with no search, 4 used
 // FilterBar, 9 could clear filters — and record filters were plain <Select>s over a fetched list,
@@ -2786,6 +2865,7 @@ module.exports = {
   stockSyncNoWarehouse,
   silentCatchFrontend,
   ownPager,
+  styleCodeDisplay,
   recordSelect,
   rawListSearch,
   numericOrFallback,

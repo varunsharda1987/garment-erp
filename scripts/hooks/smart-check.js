@@ -425,6 +425,18 @@ function checkOwnPager(tsFiles) {
   );
 }
 
+/** Check: a style named by our internal code first / a hand-typed "Buyer Ref" label — BLOCKING new + ratchet. */
+function checkStyleCodeDisplay(tsFiles) {
+  console.log(`
+${c.cyan}Checking styles are named by their Buyer Style Code first...${c.reset}`);
+  return runRatchetedCheck(
+    'style(s) named by our code first / off-name buyer-code label(s)',
+    detectors.styleCodeDisplay(tsFiles),
+    'style-code-display-baseline.json',
+    "Name a style the one way (see CLAUDE.md → Style identity): <StyleIdentity> / styleCodeLabel() from @/lib/style-code (backend: utils/style-code), ourStyleCode() in a 'Style Code' column, and the label 'Buyer Style Code' (BUYER_STYLE_CODE_LABEL). Genuine exception: // allow-style-code: <why> on or just above the line."
+  );
+}
+
 /** Check: a plain <SelectItem value={x.id}> mapped over a growable record list (suppliers, customers, styles, orders…) — BLOCKING new + ratchet. */
 function checkRecordSelect(tsFiles) {
   console.log(`\n${c.cyan}Checking record dropdowns use the searchable pickers...${c.reset}`);
@@ -1370,6 +1382,7 @@ function runAllModeChecks() {
   if (!checkStockSyncNoWarehouse(tsFiles)) ok = false;
   if (!checkSilentCatchFrontend(tsFiles)) ok = false;
   if (!checkOwnPager(tsFiles)) ok = false;
+  if (!checkStyleCodeDisplay(tsFiles)) ok = false;
   if (!checkRecordSelect(tsFiles)) ok = false;
   if (!checkRawListSearch(tsFiles)) ok = false;
   if (!checkNumericOrFallback(tsFiles)) ok = false;
@@ -1500,6 +1513,7 @@ function main() {
     if (!checkStockSyncNoWarehouse(categories.typescript)) allPassed = false;
     if (!checkSilentCatchFrontend(categories.typescript)) allPassed = false;
     if (!checkOwnPager(categories.typescript)) allPassed = false;
+    if (!checkStyleCodeDisplay(categories.typescript)) allPassed = false;
     if (!checkRecordSelect(categories.typescript)) allPassed = false;
     if (!checkRawListSearch(categories.typescript)) allPassed = false;
     if (!checkNumericOrFallback(categories.typescript)) allPassed = false;

@@ -9,6 +9,7 @@ import { UserRole } from '@prisma/client';
 import prisma from '../../config/database';
 import { logError } from '../../utils/logger';
 import { aiPermissionService } from './ai-permission.service';
+import { styleCodeLabel, type StyleCodes } from '../../utils/style-code';
 
 // Context types that can be fetched
 type ContextType = 'orders' | 'styles' | 'inventory' | 'production' | 'customers' | 'suppliers' | 'summary';
@@ -172,6 +173,7 @@ class ERPContextService {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
             status: true,
             createdAt: true,
@@ -265,7 +267,7 @@ class ERPContextService {
             completedQuantity: true,
             plannedStartDate: true,
             plannedEndDate: true,
-            styles: { select: { styleCode: true, styleName: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           },
         }),
         prisma.work_orders.count({
@@ -463,7 +465,9 @@ class ERPContextService {
           lines.push('\nRecent Styles:');
           styles.slice(0, 5).forEach((style) => {
             const customer = style.customers as { name: string } | null;
-            lines.push(`- ${style.styleCode}: ${style.styleName} for ${customer?.name || 'N/A'} - ${style.status}`);
+            lines.push(
+              `- ${styleCodeLabel(style as StyleCodes, null, 'N/A')}: ${style.styleName} for ${customer?.name || 'N/A'} - ${style.status}`
+            );
           });
         }
       }
@@ -473,9 +477,9 @@ class ERPContextService {
         if (workOrders.length > 0) {
           lines.push('\nActive Work Orders:');
           workOrders.slice(0, 5).forEach((wo) => {
-            const style = wo.styles as { styleCode: string; styleName: string } | null;
+            const style = wo.styles as (StyleCodes & { styleName: string }) | null;
             lines.push(
-              `- ${wo.workOrderNumber}: ${style?.styleCode || 'N/A'} - Qty: ${wo.totalQuantity} - ${wo.status}`
+              `- ${wo.workOrderNumber}: ${styleCodeLabel(style, null, 'N/A')} - Qty: ${wo.totalQuantity} - ${wo.status}`
             );
           });
         }

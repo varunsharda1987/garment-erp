@@ -271,7 +271,13 @@ export async function getCadHistory(cadId: string): Promise<CadHistoryEntry[]> {
 
 export interface CadInUseEntry {
   cadId: string;
-  costSheets: Array<{ costSheetId: string; version: number; purpose: string; styleCode: string | null }>;
+  costSheets: Array<{
+    costSheetId: string;
+    version: number;
+    purpose: string;
+    styleCode: string | null;
+    buyerStyleRef: string | null;
+  }>;
   orders: Array<{ orderNumber: string; bomVersion: number; bomStatus: string }>;
 }
 
@@ -290,6 +296,7 @@ export async function findCadsInUse(cadIds: string[]): Promise<CadInUseEntry[]> 
       version: s.version,
       purpose: s.purpose,
       styleCode: s.styleCode,
+      buyerStyleRef: s.buyerStyleRef,
     }));
     const orders = deps.orderBoms.map((b) => ({
       orderNumber: b.orderNumber,

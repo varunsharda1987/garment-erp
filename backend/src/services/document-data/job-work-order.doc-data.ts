@@ -19,6 +19,7 @@ import {
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 import { unitHeader, unitShort, unitWord } from '../../utils/units';
+import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
 
 const jwoDocInclude = {
   processor: {
@@ -152,8 +153,9 @@ export interface JobWorkOrderDocData {
   jobWorkerAddress: string | null;
   jobWorkerGstin: string | null;
   jobWorkerContact: string | null;
-  buyerRef: string | null;
-  /** "ESSKY086LS — PERI" — the style this job work belongs to. */
+  /** The style's Buyer Style Code (our Style Code when it has no separate buyer code) — printed first. */
+  buyerStyleCode: string | null;
+  /** "EBWW-021 — PERI" — our Style Code (only when it differs from the Buyer Style Code) and the style name. */
   styleLine: string | null;
   /** The dye/processing colour ("Beige") — the core instruction on a dyeing order. */
   colourLine: string | null;
@@ -382,11 +384,11 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   const shrinkageColStr = fmtPct(jwo.expectedShrinkage != null ? Number(jwo.expectedShrinkage) : null);
 
   // Colour first — on a dyeing/printing order the shade IS the spec. Falls back to the
-  // embroidery design, then the style code.
+  // embroidery design, then the style (Buyer Style Code first).
   const specStr =
     colourName ??
     (jwo.embroidery ? `${jwo.embroidery.embroideryCode} — ${jwo.embroidery.designName}` : null) ??
-    jwo.style?.styleCode ??
+    (jwo.style ? styleCodeLabel(jwo.style, null, '') || null : null) ??
     EM_DASH;
 
   // On a lace job the output is named before the goods leave: the dyed variant was chosen when
@@ -487,9 +489,11 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     jobWorkerAddress: addressBits.length > 0 ? addressBits.join(', ') : null,
     jobWorkerGstin: p.gst_numbers[0]?.gstNumber ?? null,
     jobWorkerContact: contactBits.length > 0 ? contactBits.join(' · ') : null,
-    // Style gets its own row now — buyerRef only prints a REAL buyer reference
-    buyerRef: jwo.style?.buyerStyleRef ?? null,
-    styleLine: jwo.style ? [jwo.style.styleCode, jwo.style.styleName].filter(Boolean).join(' — ') : null,
+    // Buyer Style Code first; the Style row then carries our code only when it differs, and the name.
+    buyerStyleCode: jwo.style ? buyerStyleCode(jwo.style, null, '') || null : null,
+    styleLine: jwo.style
+      ? [styleCodeIfDifferent(jwo.style), jwo.style.styleName].filter(Boolean).join(' — ') || null
+      : null,
     colourLine: colourName,
     orderDate: fmtDate(jwo.approvedAt ?? jwo.createdAt),
     approvedByName: jwo.approvedBy ? `${jwo.approvedBy.firstName} ${jwo.approvedBy.lastName}`.trim() : null,

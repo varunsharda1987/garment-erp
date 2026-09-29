@@ -95,7 +95,7 @@ export async function createLaceLabDip(input: CreateLabDipInput, userId: string)
         select: { id: true, name: true, code: true },
       },
       style: {
-        select: { id: true, styleCode: true, styleName: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
       },
       createdBy: {
         select: { id: true, firstName: true, lastName: true },
@@ -158,7 +158,7 @@ export async function getLaceLabDips(filters: {
           select: { id: true, name: true, code: true },
         },
         style: {
-          select: { id: true, styleCode: true, styleName: true },
+          select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
         },
         createdBy: {
           select: { id: true, firstName: true, lastName: true },
@@ -204,7 +204,7 @@ export async function getLaceLabDipById(id: string) {
         select: { id: true, name: true, code: true },
       },
       style: {
-        select: { id: true, styleCode: true, styleName: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
       },
       createdBy: {
         select: { id: true, firstName: true, lastName: true },

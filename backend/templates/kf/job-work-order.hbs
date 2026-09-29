@@ -49,12 +49,12 @@
         {{#if ../jobWorkerAddress}}<div class="row"><span class="k">Address</span><span class="v">{{../jobWorkerAddress}}</span></div>{{/if}}
         <div class="row"><span class="k">GSTIN</span><span class="v">{{#if ../jobWorkerGstin}}{{../jobWorkerGstin}} &middot; <span class="muted">Registered</span>{{else}}<span class="muted">Unregistered</span>{{/if}}</span></div>
         {{#if ../jobWorkerContact}}<div class="row"><span class="k">Contact</span><span class="v">{{../jobWorkerContact}}</span></div>{{/if}}
+        {{#if ../buyerStyleCode}}<div class="row"><span class="k">Buyer Style Code</span><span class="v">{{../buyerStyleCode}}</span></div>{{/if}}
         {{#if ../styleLine}}<div class="row"><span class="k">Style</span><span class="v">{{../styleLine}}</span></div>{{/if}}
         {{#if ../colourLine}}<div class="row"><span class="k">Colour</span><span class="v"><strong>{{../colourLine}}</strong></span></div>{{/if}}
       </div>
       <div>
         <div class="row"><span class="k">Order Date</span><span class="v">{{../orderDate}}{{#unless this.processorCopy}}{{#if ../approvedByName}} &middot; <span class="muted">appr. {{../approvedByName}}</span>{{/if}}{{/unless}}</span></div>
-        {{#if ../buyerRef}}<div class="row"><span class="k">Buyer Ref</span><span class="v">{{../buyerRef}}</span></div>{{/if}}
         <div class="row"><span class="k">Challan No.</span><span class="v">{{../challanRef}}</span></div>
         <div class="row"><span class="k">Due Back</span><span class="v">{{../dueBack}}</span></div>
         {{#unless this.processorCopy}}

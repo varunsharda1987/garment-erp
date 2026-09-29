@@ -105,6 +105,7 @@ export async function getPendingCADStyles(req: Request, res: Response) {
     return {
       styleId: style.id,
       styleCode: style.styleCode,
+      buyerStyleRef: style.buyerStyleRef ?? null,
       styleName: style.styleName,
       customerName: style.customerName || '',
       brandName: style.brandName || '',
@@ -410,6 +411,7 @@ export async function getStyleCADSummary(req: Request, res: Response) {
     data: {
       styleId: style.id,
       styleCode: style.styleCode,
+      buyerStyleRef: style.buyerStyleRef ?? null,
       styleName: style.styleName,
       cadStatus: style.cadStatus,
       approvedCadDate: style.approvedCadDate,
@@ -814,6 +816,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
       style: {
         id: style.id,
         styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef ?? null,
         styleName: style.styleName,
         cadStatus: style.cadStatus,
         approvedCadDate: style.approvedCadDate,
@@ -1359,6 +1362,7 @@ export async function getCADGroupDetails(req: Request, res: Response) {
       style: {
         id: style.id,
         styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef ?? null,
         styleName: style.styleName,
         cadStatus: style.cadStatus,
         imageUrl: style.imageUrl,
@@ -1587,6 +1591,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
     select: {
       id: true,
       styleCode: true,
+      buyerStyleRef: true,
       styleName: true,
       cadStatus: true,
       approvedCadDate: true,
@@ -1767,6 +1772,7 @@ export async function getStyleCADHistory(req: Request, res: Response) {
       style: {
         id: style.id,
         styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef ?? null,
         styleName: style.styleName,
         cadStatus: style.cadStatus,
         approvedCadDate: style.approvedCadDate,
@@ -2573,6 +2579,7 @@ export async function getCADTableData(req: Request, res: Response) {
       style: {
         id: style.id,
         styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef ?? null,
         styleName: style.styleName,
         cadStatus: style.cadStatus,
       },

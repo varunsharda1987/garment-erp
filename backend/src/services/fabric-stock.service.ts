@@ -511,6 +511,7 @@ class FabricStockService {
           originStyle: {
             select: {
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               customerName: true,
             },

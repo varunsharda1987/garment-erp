@@ -117,6 +117,7 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },
@@ -157,6 +158,7 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
       ...(approvalStatus === 'PENDING' ? { change: 'Approval revoked' } : {}),
       ...(updateData.rejectionNotes ? { rejectionNotes: updateData.rejectionNotes } : {}),
       styleCode: updatedCostSheet.styles?.styleCode ?? null,
+      buyerStyleRef: updatedCostSheet.styles?.buyerStyleRef ?? null,
       purpose: costSheet.purpose,
       version: costSheet.version,
     },
@@ -273,6 +275,7 @@ export const getCostSheetVersions = async (req: Request, res: Response): Promise
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },
@@ -333,7 +336,7 @@ export const compareCostSheetVersions = async (req: Request, res: Response): Pro
       where: { id: id1 },
       include: {
         styles: {
-          select: { styleCode: true, styleName: true },
+          select: { styleCode: true, buyerStyleRef: true, styleName: true },
         },
       },
     }),
@@ -341,7 +344,7 @@ export const compareCostSheetVersions = async (req: Request, res: Response): Pro
       where: { id: id2 },
       include: {
         styles: {
-          select: { styleCode: true, styleName: true },
+          select: { styleCode: true, buyerStyleRef: true, styleName: true },
         },
       },
     }),
@@ -566,6 +569,7 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },

@@ -53,7 +53,7 @@
     <div class="sec-h"><span>Index{{#if this.continued}} (continued){{/if}}</span><b>{{../styleCount}} style{{#unless ../styleCountIsOne}}s{{/unless}}</b></div>
     <table class="cat-index">
       <thead>
-        <tr><th style="width:34px">#</th><th style="width:150px">Style Code</th><th>Style Name</th><th style="width:130px">Category</th><th class="num" style="width:52px">Page</th></tr>
+        <tr><th style="width:34px">#</th><th style="width:150px">Buyer Style Code</th><th>Style Name</th><th style="width:130px">Category</th><th class="num" style="width:52px">Page</th></tr>
       </thead>
       <tbody>
         {{#each this.rows}}
@@ -87,8 +87,8 @@
       <article class="card">
         <div class="plate{{#unless this.imageUrl}} is-empty{{/unless}}">{{#if this.imageUrl}}<img src="{{this.imageUrl}}" alt="">{{/if}}</div>
         <div class="card-body">
-          <div class="card-code"><span>{{this.code}}</span>{{#if this.seasonLabel}}<em>{{this.seasonLabel}}</em>{{else}}{{#if this.category}}<em>{{this.category}}</em>{{/if}}{{/if}}</div>
-          <div class="card-name">{{this.name}}{{#if this.buyerRef}} <span class="muted">({{this.buyerRef}})</span>{{/if}}</div>
+          <div class="card-code"><span>{{this.code}}{{#if this.ourCode}} <span class="muted">({{this.ourCode}})</span>{{/if}}</span>{{#if this.seasonLabel}}<em>{{this.seasonLabel}}</em>{{else}}{{#if this.category}}<em>{{this.category}}</em>{{/if}}{{/if}}</div>
+          <div class="card-name">{{this.name}}</div>
           <div class="card-spec">
             {{#if this.colours}}<div><span>Colour</span>{{this.colours}}</div>{{/if}}
             {{#if this.sizes}}<div><span>Sizes</span>{{this.sizes}}</div>{{/if}}

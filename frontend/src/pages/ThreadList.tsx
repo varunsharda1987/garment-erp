@@ -182,11 +182,11 @@ export default function ThreadList() {
     },
     {
       key: 'styleCodes',
-      header: 'Style Codes',
+      header: 'Styles',
       render: (thread) => (
         <div className="flex flex-wrap gap-1">
-          {thread.styleCodes && thread.styleCodes.length > 0 ? (
-            thread.styleCodes.slice(0, 2).map((code) => (
+          {(thread.styleLabels ?? thread.styleCodes ?? []).length > 0 ? (
+            (thread.styleLabels ?? thread.styleCodes ?? []).slice(0, 2).map((code) => (
               <Badge key={code} variant="secondary" className="text-xs">
                 {code}
               </Badge>

@@ -711,7 +711,7 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
         include: {
           style_components: {
             include: {
-              styles: { select: { id: true, styleCode: true, styleName: true } },
+              styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
             },
           },
         },
@@ -727,6 +727,7 @@ export async function getPendingVarianceApprovals(req: Request, res: Response) {
       cadId: cad.id,
       styleId: style?.id || null,
       styleCode: style?.styleCode || 'Unknown',
+      buyerStyleRef: style?.buyerStyleRef ?? null,
       styleName: style?.styleName || '',
       greigeName: cad.greige?.greigeName || 'Unknown',
       genericGreigeName: cad.greige?.genericGreigeName || '',

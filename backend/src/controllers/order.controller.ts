@@ -190,9 +190,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       (
         await prisma.styles.findMany({
           where: { id: { in: (items as OrderItem[]).map((i) => i.styleId) } },
-          select: { id: true, styleCode: true },
+          select: { id: true, styleCode: true, buyerStyleRef: true },
         })
-      ).map((st) => [st.id, st.styleCode])
+      ).map((st) => [st.id, st])
     );
     await saleOrderService.assertLinkable(saleOrderId, {
       label: 'This order',
@@ -201,7 +201,8 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         const breakupQty = (item.breakup || []).reduce((sum, b) => sum + b.quantity, 0);
         return {
           styleId: item.styleId,
-          styleCode: styleCodes.get(item.styleId),
+          styleCode: styleCodes.get(item.styleId)?.styleCode,
+          buyerStyleRef: styleCodes.get(item.styleId)?.buyerStyleRef ?? null,
           quantity: breakupQty > 0 ? breakupQty : item.totalQuantity || 0,
           sized: breakupQty > 0,
         };

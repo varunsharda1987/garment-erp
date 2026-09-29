@@ -87,6 +87,7 @@ export interface Lace {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   } | null;
 
   // Finished laces derived from this greige
@@ -112,11 +113,14 @@ export interface Lace {
 
   // Style associations (many-to-many - direct associations)
   styleCodes?: string[];
+  /** Each associated style named buyer style code first ('SP27DR27 (EBWW-021)') — for display. */
+  styleLabels?: string[];
   styleNames?: string[];
   styleAssociations?: StyleAssociation[];
 
   // Cost sheet style associations (more authoritative)
   costingStyleCodes?: string[];
+  costingStyleLabels?: string[];
   costingStyleNames?: string[];
 }
 

@@ -82,6 +82,8 @@ export interface Button {
 
   // Style associations (many-to-many)
   styleCodes?: string[];
+  /** Each associated style named buyer style code first ('SP27DR27 (EBWW-021)') — for display. */
+  styleLabels?: string[];
   styleNames?: string[];
   styleAssociations?: StyleAssociation[];
 }

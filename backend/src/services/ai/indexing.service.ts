@@ -8,6 +8,7 @@
 import prisma from '../../config/database';
 import { logInfo, logError, logWarn } from '../../utils/logger';
 import { embeddingService, DocumentChunk } from './embedding.service';
+import { styleCodeLabel } from '../../utils/style-code';
 
 // Types
 export interface IndexingResult {
@@ -391,7 +392,7 @@ class IndexingService {
           const chunk: DocumentChunk = {
             documentType: 'style',
             sourceId: style.id,
-            title: `Style: ${style.styleCode} - ${style.styleName}`,
+            title: `Style: ${styleCodeLabel(style)} - ${style.styleName}`, // Buyer Style Code first
             content,
             metadata: {
               styleCode: style.styleCode,
@@ -430,11 +431,12 @@ class IndexingService {
    * Format style data into searchable content
    */
   private formatStyleContent(style: Record<string, unknown>): string {
-    const parts = [`Style Code: ${style.styleCode}`];
-
+    // Buyer Style Code first — the code the buyer and the team call the style by.
+    const parts: string[] = [];
     if (style.buyerStyleRef) {
       parts.push(`Buyer Style Code: ${style.buyerStyleRef}`);
     }
+    parts.push(`Style Code: ${style.styleCode}`);
 
     parts.push(
       `Style Name: ${style.styleName}`,

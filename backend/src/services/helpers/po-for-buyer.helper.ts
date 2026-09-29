@@ -15,6 +15,7 @@
 import type { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { loadMaterialBuyers, type MaterialDetailInput } from './material-detail.helper';
+import { styleCodeLabel } from '../../utils/style-code';
 
 export type PoForBuyerSource = 'ORDER' | 'STYLE' | 'LINES';
 
@@ -142,18 +143,16 @@ export async function resolvePoForBuyer(
 }
 
 /**
- * "Easybuy", "Easybuy · Order SO2609-0012", "Easybuy · Style EBWW-024 (SP27DR46)" — the printed PO's "For" row.
- * Shows the buyer's own reference in parentheses when it DIFFERS from our style code, so suppliers
- * (especially label printers) know the buyer's code to use. Skipped when they match (e.g. ESSKY086LS).
+ * "Easybuy", "Easybuy · Order SO2609-0012", "Easybuy · Style SP27DR46 (EBWW-024)" — the printed PO's "For" row.
+ * Names the style Buyer Style Code first, so suppliers (especially label printers) read the buyer's
+ * code; our Style Code follows in brackets only when it DIFFERS (one code for e.g. ESSKY086LS).
  */
 export function poForBuyerLine(forBuyer: PoForBuyer | null): string | null {
   if (!forBuyer) return null;
   if (forBuyer.source === 'ORDER' && forBuyer.orderNumber) return `${forBuyer.name} · Order ${forBuyer.orderNumber}`;
   if (forBuyer.source === 'STYLE' && forBuyer.styleCode) {
-    // Only show buyer ref if it differs from our style code (many Easybuy styles have the same value)
-    const refDiffers = forBuyer.buyerStyleRef && forBuyer.buyerStyleRef !== forBuyer.styleCode;
-    const ref = refDiffers ? ` (${forBuyer.buyerStyleRef})` : '';
-    return `${forBuyer.name} · Style ${forBuyer.styleCode}${ref}`;
+    // Our code in brackets only when it differs (many Easybuy styles carry the same value twice).
+    return `${forBuyer.name} · Style ${styleCodeLabel(forBuyer)}`;
   }
   return forBuyer.name;
 }

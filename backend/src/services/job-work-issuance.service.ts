@@ -49,6 +49,7 @@ import { foldActual, hasFold } from '../utils/fold-length';
 import { formatDate, formatDateTime, toDateInputValue } from '../utils/date';
 import { isQtyZero, qtyExceeds, snapToLimit } from '../utils/quantity';
 import { unitShort } from '../utils/units';
+import { styleCodeLabel } from '../utils/style-code';
 import {
   fabricLotLabel,
   markPiecesOut,
@@ -976,7 +977,9 @@ function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInpu
   const { jwo, lots, laceLots, fabricLotRow } = v;
   const isMeters = jwo.uom === 'MTR';
   const unit = jwoStockUnit(jwo.uom);
-  const description = `${jwo.processType} job work — ${jwo.jobWorkNumber}${jwo.style?.styleCode ? ` (${jwo.style.styleCode})` : ''}`;
+  // The style named Buyer Style Code first: 'DYEING job work — DJ-EBWW-021-001 · SP27DR27 (EBWW-021)'.
+  const styleLabel = styleCodeLabel(jwo.style, null, '');
+  const description = `${jwo.processType} job work — ${jwo.jobWorkNumber}${styleLabel ? ` · ${styleLabel}` : ''}`;
 
   if (laceLots.length > 0) {
     // laceStockId is set for the trail, NOT for deduction: the challan is created DRAFT and

@@ -18,7 +18,7 @@ import prisma from '../../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError } from '../../errors';
 import { addCurrency, toCurrency } from '../../utils/currency';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { styleCodeLabel } from '../../utils/style-code';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtQty } from './format';
 
@@ -184,7 +184,7 @@ export function transformTransferSlip(company: CompanyBlock, slip: TransferSlipW
     transferDate: fmtDate(slip.transferDate),
     statusLabel: humanise(slip.status),
     workOrderNumber: slip.workOrder.workOrderNumber,
-    styleLabel: formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef),
+    styleLabel: styleCodeLabel(style),
     // Many styles are named after their own code — printing "LNG211 · LNG211" says nothing.
     styleName: style.styleName === style.styleCode ? null : style.styleName,
     componentLabel: slip.component

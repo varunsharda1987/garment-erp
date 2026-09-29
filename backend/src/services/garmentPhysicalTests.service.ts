@@ -95,6 +95,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -314,6 +315,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               imageUrl: true,
             },
@@ -415,6 +417,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -495,6 +498,7 @@ class GarmentPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },

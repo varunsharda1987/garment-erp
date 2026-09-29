@@ -24,6 +24,8 @@ interface FabricRequirement {
   orderNumber: string;
   styleId: string;
   styleCode: string;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name the style by it first */
+  buyerStyleRef: string | null;
   materialType: string;
   greigeId: string | null;
   fabricId: string | null;
@@ -98,7 +100,7 @@ export const getProcurements = async (req: Request, res: Response) => {
         processedFabric: true,
         supplier: true,
         styleOrigin: {
-          select: { styleCode: true, styleName: true },
+          select: { styleCode: true, buyerStyleRef: true, styleName: true },
         },
         orderOrigin: {
           select: { orderNumber: true },
@@ -335,6 +337,7 @@ export const planProcurement = async (req: Request, res: Response) => {
             orderNumber: order.orderNumber,
             styleId: item.styles.id,
             styleCode: item.styles.styleCode,
+            buyerStyleRef: item.styles.buyerStyleRef ?? null,
             materialType: material.materialType,
             greigeId: material.greigeId,
             fabricId: material.fabricId,

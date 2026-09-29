@@ -16,6 +16,7 @@ import { deleteBuyerPoDocumentFile } from '../middleware/upload.middleware';
 import { resolveSizeLineColours, skuKey, stockColourMatches, stockColourWhere } from './helpers/sku-colour.helper';
 import { saleOrderSizeSplit } from './helpers/sale-order-sizes.helper';
 import { formatDate, toDateInputValue } from '../utils/date';
+import { lineBuyerStyleRef, styleCodeLabel } from '../utils/style-code';
 
 /** A date as the IST calendar day it falls on, so two dates compare by day, never by clock time. */
 const dayOf = (d: Date) => toDateInputValue(d);
@@ -808,7 +809,7 @@ export class SaleOrderService {
       where: { id },
       include: {
         items: {
-          include: { style: { select: { id: true, styleCode: true } } },
+          include: { style: { select: { id: true, styleCode: true, buyerStyleRef: true } } },
         },
       },
     });
@@ -849,11 +850,14 @@ export class SaleOrderService {
         status: { notIn: ['CANCELLED', 'COMPLETED', 'DISPATCHED', 'SPLIT'] },
         order_items: { some: { styleId: { in: [...new Set(so.items.map((i) => i.styleId))] } } },
       },
-      select: { orderNumber: true, order_items: { select: { styles: { select: { styleCode: true } } } } },
+      select: {
+        orderNumber: true,
+        order_items: { select: { styles: { select: { styleCode: true, buyerStyleRef: true } } } },
+      },
     });
     if (unlinked.length > 0) {
       const names = unlinked
-        .map((o) => `${o.orderNumber} (${[...new Set(o.order_items.map((i) => i.styles.styleCode))].join(', ')})`)
+        .map((o) => `${o.orderNumber} (${[...new Set(o.order_items.map((i) => styleCodeLabel(i.styles)))].join(', ')})`)
         .join(', ');
       throw new ConflictError(
         `Production is already planned for this style on ${names}, which is not linked to a sale order. ` +
@@ -877,7 +881,10 @@ export class SaleOrderService {
     const missingStyles = styleIds.filter((sid) => !approvedStyleIds.has(sid));
     if (missingStyles.length > 0) {
       const codes = missingStyles
-        .map((sid) => so.items.find((i) => i.styleId === sid)?.style?.styleCode ?? sid)
+        .map((sid) => {
+          const line = so.items.find((i) => i.styleId === sid);
+          return line ? styleCodeLabel(line.style, line.buyerStyleRef, sid) : sid;
+        })
         .join(', ');
       throw new ValidationError(`Cannot start production — no approved cost sheet for: ${codes}`);
     }
@@ -900,7 +907,7 @@ export class SaleOrderService {
     // Items without sizeId cannot be converted to production orders - they need size breakdown first.
     const itemsWithoutSize = so.items.filter((i) => !i.sizeId);
     if (itemsWithoutSize.length > 0) {
-      const codes = [...new Set(itemsWithoutSize.map((i) => i.style?.styleCode ?? i.styleId))];
+      const codes = [...new Set(itemsWithoutSize.map((i) => styleCodeLabel(i.style, i.buyerStyleRef, i.styleId)))];
       throw new ValidationError(
         `Cannot start production: ${itemsWithoutSize.length} item(s) have no size specified. ` +
           `Please specify size breakdown for styles: ${codes.slice(0, 3).join(', ')}${codes.length > 3 ? '...' : ''}`
@@ -921,7 +928,7 @@ export class SaleOrderService {
         }
         if (override.quantity > line.quantity) {
           throw new ValidationError(
-            `Cannot produce ${override.quantity} of a line ordered at ${line.quantity} (${line.style?.styleCode ?? line.styleId})`
+            `Cannot produce ${override.quantity} of a line ordered at ${line.quantity} (${styleCodeLabel(line.style, line.buyerStyleRef, line.styleId)})`
           );
         }
         toProduce.set(line.id, override.quantity);
@@ -955,7 +962,9 @@ export class SaleOrderService {
     const lineColour = new Map<string, string | null>();
     for (const group of byStyle.values()) {
       const lines = group.filter((item) => (toProduce.get(item.id) ?? 0) > 0);
-      const settled = await resolveSizeLineColours(prisma, group[0].styleId, lines, group[0].style?.styleCode);
+      // The style named in its messages — Buyer Style Code first (utils/style-code)
+      const styleLabel = group[0].style ? styleCodeLabel(group[0].style, group[0].buyerStyleRef) : undefined;
+      const settled = await resolveSizeLineColours(prisma, group[0].styleId, lines, styleLabel);
       settled.forEach((item) => lineColour.set(item.id, item.colorId));
     }
 
@@ -1143,7 +1152,7 @@ export class SaleOrderService {
           select: {
             id: true,
             totalQuantity: true,
-            styles: { select: { id: true, styleCode: true } },
+            styles: { select: { id: true, styleCode: true, buyerStyleRef: true } },
             _count: { select: { order_item_breakup: true } },
           },
         },
@@ -1159,6 +1168,8 @@ export class SaleOrderService {
       customerName: o.customers?.name ?? null,
       sameCustomer: o.customerId === so.customerId,
       styles: o.order_items.map((i) => i.styles.styleCode),
+      // The same styles named for a screen — Buyer Style Code first, ours in brackets (utils/style-code)
+      styleLabels: o.order_items.map((i) => styleCodeLabel(i.styles)),
       hasSizes: o.order_items.every((i) => i._count.order_item_breakup > 0),
     }));
   }
@@ -1187,7 +1198,13 @@ export class SaleOrderService {
     order: {
       label: string;
       customerId: string;
-      items: Array<{ styleId: string; styleCode?: string; quantity: number; sized: boolean }>;
+      items: Array<{
+        styleId: string;
+        styleCode?: string;
+        buyerStyleRef?: string | null;
+        quantity: number;
+        sized: boolean;
+      }>;
       expectedDeliveryDate?: Date | null;
     }
   ) {
@@ -1233,7 +1250,7 @@ export class SaleOrderService {
     const foreign = order.items.filter((i) => !soStyles.has(i.styleId));
     if (foreign.length > 0) {
       throw new BusinessError(
-        `${order.label} plans ${foreign.map((i) => i.styleCode ?? i.styleId).join(', ')}, which ${so.saleOrderNumber} does not carry.`
+        `${order.label} plans ${foreign.map((i) => styleCodeLabel(i, null, i.styleId)).join(', ')}, which ${so.saleOrderNumber} does not carry.`
       );
     }
     // An item that already has sizes keeps them: it must not plan more than the line has open
@@ -1244,7 +1261,7 @@ export class SaleOrderService {
         .reduce((sum, l) => sum + Math.max(0, l.quantity - (l.allocatedQty ?? 0) - (l.dispatchedQty ?? 0)), 0);
       if (item.quantity > open) {
         throw new BusinessError(
-          `${order.label} plans ${item.quantity} pcs of ${item.styleCode ?? 'a style'}, more than the ${open} pcs ${so.saleOrderNumber} still has open.`
+          `${order.label} plans ${item.quantity} pcs of ${styleCodeLabel(item, null, 'a style')}, more than the ${open} pcs ${so.saleOrderNumber} still has open.`
         );
       }
     }
@@ -1269,7 +1286,7 @@ export class SaleOrderService {
             id: true,
             styleId: true,
             totalQuantity: true,
-            styles: { select: { styleCode: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true } },
             order_item_breakup: { select: { quantity: true } },
           },
         },
@@ -1289,6 +1306,7 @@ export class SaleOrderService {
       items: order.order_items.map((i) => ({
         styleId: i.styleId,
         styleCode: i.styles.styleCode,
+        buyerStyleRef: i.styles.buyerStyleRef,
         quantity: i.totalQuantity,
         sized: i.order_item_breakup.length > 0,
       })),
@@ -1362,8 +1380,9 @@ export class SaleOrderService {
             unitPrice: true,
             allocatedQty: true,
             dispatchedQty: true,
+            buyerStyleRef: true,
             size: { select: { sizeName: true } },
-            style: { select: { styleCode: true } },
+            style: { select: { styleCode: true, buyerStyleRef: true } },
           },
         },
       },
@@ -1390,7 +1409,7 @@ export class SaleOrderService {
       const committed = (item.allocatedQty ?? 0) + (item.dispatchedQty ?? 0);
       if (l.quantity < committed) {
         throw new BusinessError(
-          `${item.style.styleCode} ${item.size?.sizeName ?? '(no size)'} cannot go below ${committed} pcs — ` +
+          `${styleCodeLabel(item.style, item.buyerStyleRef)} ${item.size?.sizeName ?? '(no size)'} cannot go below ${committed} pcs — ` +
             `that much is already allocated or dispatched.`
         );
       }
@@ -1451,7 +1470,7 @@ export class SaleOrderService {
           select: {
             id: true,
             styleId: true,
-            styles: { select: { styleCode: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true } },
             order_item_breakup: { select: { colorId: true, sizeId: true, quantity: true } },
           },
         },
@@ -1473,7 +1492,7 @@ export class SaleOrderService {
       const mirrors =
         current.size === 0 || (current.size === before.size && [...before].every(([k, q]) => current.get(k) === q));
       if (!mirrors) {
-        notFollowed.push(item.styles.styleCode);
+        notFollowed.push(styleCodeLabel(item.styles));
         continue;
       }
       const after = splitOf(item.styleId, (i) => newQty.get(i.id) as number);
@@ -1684,8 +1703,9 @@ export class SaleOrderService {
           sizeId: true,
           quantity: true,
           allocatedQty: true,
+          buyerStyleRef: true,
           saleOrder: { select: { status: true, saleOrderNumber: true } },
-          style: { select: { styleCode: true } },
+          style: { select: { styleCode: true, buyerStyleRef: true } },
         },
       });
       if (!item) throw new NotFoundError('Sale order item', saleOrderItemId);
@@ -1726,7 +1746,7 @@ export class SaleOrderService {
       // stale dialog (or any API caller) could reserve another style's goods against this line.
       if (fgStock.styleId !== item.styleId) {
         throw new ValidationError(
-          `That stock is not for style ${item.style?.styleCode ?? item.styleId} — pick stock for this line's style.`
+          `That stock is not for style ${styleCodeLabel(item.style, item.buyerStyleRef, item.styleId)} — pick stock for this line's style.`
         );
       }
       // Blank-colour stock is the style in whatever colour it is (sku-colour.helper)
@@ -1938,7 +1958,7 @@ export class SaleOrderService {
                 id: item.style.id,
                 // The line's captured code first, so the preview names the style the way the
                 // order does rather than the way the style master reads today.
-                buyerStyleRef: item.buyerStyleRef ?? item.style.buyerStyleRef ?? null,
+                buyerStyleRef: lineBuyerStyleRef(item.buyerStyleRef, item.style.buyerStyleRef),
                 styleCode: item.style.styleCode,
                 styleName: item.style.styleName,
               }

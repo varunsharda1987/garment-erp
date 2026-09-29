@@ -1,8 +1,8 @@
 /**
  * Fabric Identity Helper Unit Tests — the naming convention as a pure function.
  *
- * Convention (user decision 2026-08-18, FabricForm order):
- *   <styleCode (buyerRef)> - <greigeGeneric> - <finishLabel> - <Part> - <Colour> - <Width"> - <Embroidery>
+ * Convention (user decision 2026-08-18, FabricForm order; Buyer Style Code first since 2026-09-29):
+ *   <buyerStyleCode (styleCode)> - <greigeGeneric> - <finishLabel> - <Part> - <Colour> - <Width"> - <Embroidery>
  */
 
 import {
@@ -47,10 +47,22 @@ describe('buildFinishedFabricName', () => {
     );
   });
 
-  it('appends the buyer ref via formatStyleCodeWithRef (ref sanitized)', () => {
+  it('leads with the Buyer Style Code, our code in brackets (styleCodeLabel, " - " tidied)', () => {
     expect(buildFinishedFabricName(identity({ buyerStyleRef: 'ZR - 4087' }))).toBe(
-      'ESSKY086LS (ZR-4087) - Viscose Moss - Solid/Dyed - All Parts - Beige - 54"'
+      'ZR-4087 (ESSKY086LS) - Viscose Moss - Solid/Dyed - All Parts - Beige - 54"'
     );
+  });
+
+  it('prints one code when the buyer code equals ours', () => {
+    expect(buildFinishedFabricName(identity({ buyerStyleRef: 'ESSKY086LS' }))).toBe(
+      'ESSKY086LS - Viscose Moss - Solid/Dyed - All Parts - Beige - 54"'
+    );
+  });
+
+  it('keeps the style segment free of " - " so the width segment can still be found', () => {
+    const segments = buildFinishedFabricName(identity({ buyerStyleRef: 'ZR - 4087' })).split(' - ');
+    expect(segments[0]).toBe('ZR-4087 (ESSKY086LS)');
+    expect(segments).toContain('54"');
   });
 
   it('omits the style segment for STK (no-style) fabrics', () => {

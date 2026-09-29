@@ -7,6 +7,7 @@ import { threadStockService } from '../services/thread-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
 import { applySearch } from '../utils/search-filter';
+import { styleCodeLabel } from '../utils/style-code';
 
 // Type for supplier input
 interface ThreadSupplierInput {
@@ -256,7 +257,7 @@ export const getAllThreads = async (req: Request, res: Response) => {
       thread_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -274,6 +275,8 @@ export const getAllThreads = async (req: Request, res: Response) => {
     materialUnit: item.materials[0]?.unit ?? null,
     styleCodes: item.thread_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: item.thread_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: item.thread_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     thread_style_associations: undefined,
     // Keep threadSuppliers - serializer will rename to 'suppliers'
@@ -322,7 +325,7 @@ export const getThreadById = async (req: Request, res: Response) => {
       thread_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
         orderBy: { isPrimary: 'desc' },
@@ -342,6 +345,8 @@ export const getThreadById = async (req: Request, res: Response) => {
     materialUnit: thread.materials[0]?.unit ?? null,
     styleCodes: thread.thread_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: thread.thread_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: thread.thread_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     thread_style_associations: undefined,
     // Keep threadSuppliers - serializer will rename to 'suppliers'
@@ -517,7 +522,7 @@ export const updateThread = async (req: Request, res: Response) => {
       thread_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -538,6 +543,8 @@ export const updateThread = async (req: Request, res: Response) => {
     materialUnit: updated.materials[0]?.unit ?? null,
     styleCodes: updated.thread_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: updated.thread_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: updated.thread_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     thread_style_associations: undefined,
     // Keep threadSuppliers - serializer will rename to 'suppliers'

@@ -252,7 +252,7 @@ export const createStyleSchema = z.object({
   // styleCode/styleName/brandName/customerName/sellingPrice/status. The 2026-08-04 sweep
   // made this field required, silently breaking that path AND the ERP's own style form
   // (which sends null when the field is empty). Caught by b2b-contract.test.ts 2026-08-24.
-  buyerStyleRef: z.string().max(100, 'Buyer style reference must be at most 100 characters').optional().nullable(),
+  buyerStyleRef: z.string().max(100, 'Buyer Style Code must be at most 100 characters').optional().nullable(),
 
   // Nested arrays
   components: z.array(styleComponentSchema).optional().default([]),
@@ -322,7 +322,7 @@ export const updateStyleSchema = z.object({
   accountingSKU: z.string().optional().nullable(),
   accountingUnit: z.string().optional().nullable(),
   bulletPoints: z.string().optional().nullable(),
-  buyerStyleRef: z.string().max(100, 'Buyer style reference must be at most 100 characters').optional().nullable(),
+  buyerStyleRef: z.string().max(100, 'Buyer Style Code must be at most 100 characters').optional().nullable(),
 
   // Nested arrays - components and processes
   components: z.array(styleComponentSchema).optional(),

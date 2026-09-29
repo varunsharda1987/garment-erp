@@ -246,6 +246,7 @@ class StyleCommentService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },

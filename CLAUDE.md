@@ -337,6 +337,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Quantity exact compare | An exact zero comparison on a quantity-named value (`shortfall` / `remaining` / `pending` / `balance` / `outstanding` / `leftover` with `=== 0`, `<= 0`, `> 0`…; money and count names skipped), or a quantity input pre-filled with `.toFixed()`. Mixed 3dp/2dp storage leaves 0.002 of dust: a requirement read "Partially from Stock" for 2 mm and a dialog refused its own pre-fill (2026-09-24) | Use `isQtyZero` / `qtyAtLeast` / `qtyExceeds` / `qtyRemaining` / `snapToLimit` / `prefillQty` from `utils/quantity` or `@/lib/quantity` (see *Quantities: one tolerance*). A genuine count or money value takes `// allow-exact-qty` |
 | Hand-rolled pager | A list page rendering its own Previous / "Page X of Y" / Next instead of the shared pager: JSX text `Page {x} of {y}`, or a "Previous"/"Prev" label near a page decrement (`page - 1`, `setPage((p) => p - 1)`, `offset - limit`). On 2026-09-28 ~43 pages did, each with its own paging and no page-size choice, and the Requirements page cut a label set across pages and lost ticks on every page turn | `import Pagination from '@/components/Pagination'` (1-based `currentPage`; `itemLabel` / `pageSizeLabel` for the wording). Pass `onPageSizeChange` only where the API's `limit` max allows every option (most cap at 100), and reset to page 1 on a size change. Step / preview navigation that is not a list pager takes `// allow-own-pager: <why>` (or `{/* allow-own-pager: <why> */}` in JSX) within the 10 lines above it |
 | List filters (two checks) | **(a) record-select:** a plain shadcn `<SelectItem value={x.id}>` (also `String(x.id)`, `x.supplierId`) inside a `.map(` over a GROWABLE record list — suppliers, vendors, customers, buyers, styles, orders / sale / work orders, materials, processors, greiges, laces, fabrics, trims, agents, agencies, weavers, colours (incl. `supplierOptions` / `styleList`), anywhere in `frontend/src`. It cannot be searched and silently stops at the records the page fetched (usually the first 100). Small reference lists (warehouses, seasons, categories, size charts, accounts, users, labs, units) are not flagged. **(b) raw-search:** an `<Input>` whose placeholder says "search" on a page in `frontend/src/pages`. On 2026-09-28, 101 list pages filtered 101 different ways: 35 raw search inputs, 28 with no search, 4 used FilterBar and 9 could clear their filters | One filter row: `FilterBar` (`@/components/filters`, `clearText` = "Clear N filters") holding `SearchInput` (`@/components/SearchInput`, debounced, placeholder names what it finds) and the shared `*Combobox` for each record filter (`SupplierCombobox`, `CustomerCombobox`, `StyleCombobox`, `OrderCombobox`, `ProcessorCombobox`, `MaterialCombobox`… with `allowAll`; ''/undefined = all, never send `'all'`). Enums keep a `Select` with an "All …" first item; dates use `DateRangeFilter` (ISO values). Every filter change and Clear reset the page to 1; Clear keeps the tab / view / page size. Search must find what the table shows: widen the backend with `applySearch` (`utils/search-filter.ts`), and a search that covers `styleCode` also covers `buyerStyleRef`. A genuinely small list takes `// allow-plain-select: <why>`; a box filtering a small in-memory list in a dialog/form takes `// allow-raw-search: <why>` (either within the 10 lines above; `{/* … */}` in JSX) |
+| Style code display | A style named by our internal code first: **(a)** a call of the legacy code-first `formatStyleCodeWithRef(`; **(b)** a hand-typed "Buyer Ref" / "Buyer Reference" / "Buyer Style Ref" / "Buyer Style" label (also in `backend/templates/kf/*.hbs`); **(c)** JSX rendering `{….styleCode}` as text. Until 2026-09-29 ~120 screens and every printout led with EBWW-021 while the buyer, the team and the paperwork use SP27DR27, and the buyer's code had five labels | `<StyleIdentity>` / `styleCodeLabel()` / `buyerStyleCode()` from `@/lib/style-code` (backend `utils/style-code`), `ourStyleCode()` in a "Style Code" column, the label `BUYER_STYLE_CODE_LABEL`. See *Style identity*. A genuine exception takes `// allow-style-code: <why>` on or within 3 lines above |
 | Radix singleton split (no baseline) | **(a)** any `@radix-ui/react-*` declared directly in `frontend/package.json` (only `@radix-ui/react-icons` is allowed — it is an icon set, not a primitive); **(b)** two resolved copies of a package holding module-scope state: `react-focus-scope`, `react-dismissable-layer`, `react-focus-guards`, `aria-hidden`, `react-remove-scroll(-bar)`, `react`, `react-dom`. Radix pins its internals to EXACT versions and keeps its focus-trap stack in module scope, so a second copy means a Sheet/Dialog never pauses for a Popover inside it and steals focus back — no combobox inside any dialog could be typed in (Sale Order Primary Style, 2026-09-14; introduced by bumping `react-dialog` alone in `8ca11d39`) | Import the namespace from the meta-package — `import { Dialog as DialogPrimitive } from 'radix-ui'` — and delete the direct entry. To move to a newer generation, bump **`radix-ui`** itself: one version number owns every primitive, so a partial bump is not an operation that exists. Never `resolve.dedupe` or npm `overrides` |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
@@ -523,6 +524,38 @@ stitched). Key SKUs with `skuKey`, match stock with `stockColourMatches` / `stoc
 `addFinishedGoods` (`helpers/finished-goods.helper.ts`). The colour unique indexes on the SKU / FG
 tables are **NULLS NOT DISTINCT** (raw SQL, migration `20260928170000`) — Prisma cannot express it,
 **do not drop or recreate them**. Walk it: `integration/colourless-style-chain.test.ts`.
+
+## Style identity: Buyer Style Code first (one rule)
+
+**A style is named by the buyer's code first, ours second** (owner, 2026-09-29): the buyer, the team
+and the buyer's paperwork say SP27DR27 / IT00254; EBWW-021 / STYFW-002 are ours. ONE label for the
+buyer's code everywhere: **"Buyer Style Code"** (`styles.buyerStyleRef` / `buyer_style_ref`); ours is
+**"Style Code"**. Twin helpers, byte-identical (a test asserts it): `backend/src/utils/style-code.ts`
+and `frontend/src/lib/style-code.ts`, plus `frontend/src/components/StyleIdentity.tsx`.
+
+```ts
+buyerStyleCode(style, lineRef?)   // line snapshot > styles.buyerStyleRef > our styleCode
+styleCodeLabel(style, lineRef?)   // 'SP27DR27 (EBWW-021)' — one code when there is no / the same buyer code
+ourStyleCode(style)               // the "Style Code" column
+lineBuyerStyleRef(lineRef, ref)   // raw value for a sale-order line (payloads / DTOs), null when neither
+```
+
+- **Lists keep two columns:** "Buyer Style Code" first (`<StyleIdentity layout="stacked" showStyleCode={false}>`,
+  name under it), then "Style Code". Headers, cards, dialogs, toasts, pickers and printouts use the
+  one-line label. A style with no separate buyer code (in-house brands type theirs AS the style code)
+  shows its Style Code in both places.
+- **Sale-order contexts pass the LINE's snapshot** (`sale_order_items.buyerStyleRef`, the code as at the
+  day the line was taken) — delivery-note items carry it too (`dispatch.controller`).
+- **Printouts** (kf templates, pdfkit, Excel) lead with the buyer code; the Buyer TRF pre-fills its
+  Style No. with it for NEW TRFs.
+- **Saved values keep the RAW style code:** job-work numbers, lab-dip and fabric codes, SKUs,
+  `fabric_master.styleReference` (identity matching keys on it), lace `originStyleCode` columns. NEW
+  fabric / lace names and new printed line text use `styleCodeLabel` (the style part stays one `' - '`
+  segment); existing names were not renamed. The **invoice line description keeps the old code-first
+  shape** (`formatStyleCodeWithRef`, its only caller) — Tally uses it as the stock-item name.
+
+Enforced by the *style code display* smart-check. Tests: `unit/style-code.test.ts`,
+`components/__tests__/StyleIdentity.test.tsx`, `unit/fabric-identity.test.ts`, `unit/lace-name.helper.test.ts`.
 
 ## CRITICAL: Keep the AI Assistant's Guides in Sync (MANDATORY)
 

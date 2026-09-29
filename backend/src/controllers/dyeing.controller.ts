@@ -8,7 +8,7 @@ import { STOCK_HELD_FOR_ORDER } from '../services/helpers/po-allocation.helper';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { maxNumericSuffix, seedScopedSequenceIfMissing, generateJobWorkNumber } from '../utils/jobWorkNumber';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import {
   getOrCreateFinishedFabricV2,
   rebuildAutoFabricName,
@@ -2008,7 +2008,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
         {
           itemType: 'FABRIC',
           fabricId: job.finishedFabricId || job.fabricId,
-          description: `Dyed fabric received - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
+          description: `Dyed fabric received - ${styleCodeLabel(job.style, null, '')}`,
           quantity: actualMeters,
           unit: Unit.METER,
           jobWorkOrderId: job.id,

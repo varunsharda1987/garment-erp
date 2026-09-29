@@ -26,6 +26,7 @@ import { BusinessError, NotFoundError } from '../../errors';
 import { compareCurrency } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney } from './format';
+import { buyerStyleCode, styleCodeIfDifferent } from '../../utils/style-code';
 import {
   buildStyleWhere,
   docReference,
@@ -52,8 +53,8 @@ const SUMMARY_ROW_COST = 3; // vertical space the closing summary needs, in rows
 export interface LineSheetRow {
   sn: number;
   imageUrl: string | null; // absolute file:// URL, or null → empty plate
-  code: string;
-  buyerRef: string | null;
+  code: string; // Buyer Style Code (our Style Code when the style has no separate buyer code)
+  ourCode: string | null; // our Style Code — only when it differs from `code`
   name: string;
   meta: string | null; // "Dresses · Easybuy · SS26"
   colours: string;
@@ -126,8 +127,8 @@ function buildRow(style: StyleDocRecord, sn: number): LineSheetRow {
   return {
     sn,
     imageUrl: resolveStyleImageUrl(style),
-    code: style.styleCode,
-    buyerRef: style.buyerStyleRef?.trim() ? style.buyerStyleRef.trim() : null,
+    code: buyerStyleCode(style),
+    ourCode: styleCodeIfDifferent(style),
     name: style.styleName,
     meta: styleMetaLine(style),
     colours: colours.text,

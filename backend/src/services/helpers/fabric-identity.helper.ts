@@ -2,9 +2,12 @@
  * Fabric Identity Helper — the single authority for AUTO-created finished fabric_master
  * identity (name, code, colour, pattern part, width) on job-work / processing receipt.
  *
- * Naming convention (user decision 2026-08-18, mirrors FabricForm.generateFabricName):
- *   <styleCode (buyerRef)> - <greigeGeneric> - <finishLabel> - <Part> - <Colour> - <Width"> - <EmbroideryCode>
- * with segments omitted when absent. Identity splits by STYLE: the dedup anchor is the
+ * Naming convention (user decision 2026-08-18, mirrors FabricForm.generateFabricName; style segment
+ * Buyer Style Code first since 2026-09-29 — names saved before keep their old 'CODE (REF)' shape):
+ *   <buyerStyleCode (styleCode)> - <greigeGeneric> - <finishLabel> - <Part> - <Colour> - <Width"> - <EmbroideryCode>
+ * with segments omitted when absent (our code in brackets only when it differs). The NAME is display
+ * only: identity never matches on it (style_fabrics anchor, then the tuple keyed on the RAW style
+ * code in fabric_master.styleReference), and the fabric code keeps the raw style code. Identity splits by STYLE: the dedup anchor is the
  * style_fabrics row (one fabric_master ⇢ one style_fabrics row is the system-wide rule,
  * enforced on manual allocation in fabric.controller.ts), resolved through
  *   material_requirements.orderBomItemId → order_bom_items.selectedCadId → fabric_width_cad.styleFabricId
@@ -20,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { generateStyleLinkedFabricCode } from '../../utils/fabric-code-generator';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { styleCodeLabel } from '../../utils/style-code';
 import { systemSettingsService } from '../system-settings.service';
 import { ensureMaterialRecord, syncMasterToMaterials } from './material-sync.helper';
 import { logInfo, logWarn } from '../../utils/logger';
@@ -411,7 +414,10 @@ export async function resolveFinishedFabricIdentity(
 
 /**
  * The naming convention, as one pure function (FabricForm.generateFabricName order):
- *   style(ref) - greigeGeneric - finishLabel - part - colour/design - width" - embroidery
+ *   buyerStyleCode(styleCode) - greigeGeneric - finishLabel - part - colour/design - width" - embroidery
+ * The style segment is `styleCodeLabel` — 'SP27DR27 (EBWW-021)', or the one code when the style has
+ * no separate buyer code. It never contains ' - ' (the label tidies it), so rebuildAutoFabricName
+ * can still split the name into its segments.
  */
 export function buildFinishedFabricName(identity: FinishedFabricIdentity): string {
   const greigeGeneric =
@@ -419,7 +425,7 @@ export function buildFinishedFabricName(identity: FinishedFabricIdentity): strin
   const colourSegment =
     identity.finishType === 'PRINTED' ? (identity.printDesign ?? identity.colorName) : identity.colorName;
   return [
-    identity.styleCode ? formatStyleCodeWithRef(identity.styleCode, identity.buyerStyleRef) : null,
+    identity.styleCode ? styleCodeLabel(identity) : null,
     greigeGeneric,
     FINISH_LABELS[identity.finishType] ?? identity.finishType,
     identity.patternPartName,

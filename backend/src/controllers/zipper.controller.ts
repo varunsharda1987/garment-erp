@@ -6,6 +6,7 @@ import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
 import { applySearch } from '../utils/search-filter';
+import { styleCodeLabel } from '../utils/style-code';
 
 // Type for supplier input
 interface ZipperSupplierInput {
@@ -294,7 +295,7 @@ export const getZipperById = async (req: Request, res: Response) => {
       zipper_style_associations: {
         include: {
           style: {
-            select: { id: true, styleCode: true, styleName: true },
+            select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
         orderBy: { isPrimary: 'desc' },
@@ -309,6 +310,8 @@ export const getZipperById = async (req: Request, res: Response) => {
   // Transform to match expected format
   // BUG-MM6 FIX: Extract styleCodes from associations
   const styleCodes = zipper.zipper_style_associations?.map((a) => a.style.styleCode) || [];
+  // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+  const styleLabels = zipper.zipper_style_associations?.map((a) => styleCodeLabel(a.style)) || [];
 
   const transformed = {
     ...zipper,
@@ -317,6 +320,7 @@ export const getZipperById = async (req: Request, res: Response) => {
     materialUnit: zipper.materials[0]?.unit ?? null,
     materials: undefined,
     styleCodes, // BUG-MM6 FIX: Include styleCodes in response
+    styleLabels,
     zipper_style_associations: undefined, // Hide raw associations
     // Keep zipperSuppliers - serializer will rename to 'suppliers'
   };

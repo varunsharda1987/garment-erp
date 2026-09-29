@@ -38,6 +38,8 @@ export interface CadDependentCostSheet {
   purpose: string;
   costSheetApprovalStatus: string;
   styleCode: string | null;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name the style by it first */
+  buyerStyleRef: string | null;
   fabricItemIds: string[];
 }
 
@@ -97,7 +99,7 @@ export async function getCadCostingDependents(
             purpose: true,
             approvalStatus: true, // style_costing's own (cost sheet) approval
             supersededById: true,
-            styles: { select: { styleCode: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true } },
           },
         },
       },
@@ -151,6 +153,7 @@ export async function getCadCostingDependents(
         purpose: String(sheet.purpose),
         costSheetApprovalStatus: String(sheet.approvalStatus),
         styleCode: sheet.styles?.styleCode ?? null,
+        buyerStyleRef: sheet.styles?.buyerStyleRef ?? null,
         fabricItemIds: [item.id],
       });
     }

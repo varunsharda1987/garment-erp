@@ -36,6 +36,7 @@ import { recomputeCoveringChallansForJwo } from './jwo-challan-lifecycle.helper'
 import fabricStockService from '../fabric-stock.service';
 import { bringHeldLaceLotToStore } from '../laceStock.service';
 import { settleLotBack } from '../fabric-lot-pieces.service';
+import { styleCodeLabel } from '../../utils/style-code';
 
 export type ReturnedTo = 'GREIGE' | 'LACE' | 'FABRIC' | 'NONE';
 
@@ -167,7 +168,8 @@ export async function returnJobWorkUnprocessed(input: ReturnUnprocessedInput): P
             : 'NONE';
 
       const note = `Unprocessed ${target.toLowerCase()} returned — ${job.jobWorkNumber}${remarks ? ` (${remarks})` : ''}`;
-      const styleLabel = job.style?.styleCode ? ` - ${job.style.styleCode}` : '';
+      const styleCodes = styleCodeLabel(job.style, null, ''); // Buyer Style Code first
+      const styleLabel = styleCodes ? ` - ${styleCodes}` : '';
 
       // --- put the material back where it came from ------------------------------------------
       // …and name that store on the inward challan

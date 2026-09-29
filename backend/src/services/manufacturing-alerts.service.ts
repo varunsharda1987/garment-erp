@@ -7,6 +7,7 @@ import { UNRESOLVED_TEST_FAILURE } from './helpers/test-failure.helper';
 import { toDateInputValue } from '../utils/date';
 import { unitShort } from '../utils/units';
 import { foldActual } from '../utils/fold-length';
+import { styleCodeLabel } from '../utils/style-code';
 
 /**
  * A job that can no longer bring material back. Deliberately "definitively done" rather than the
@@ -642,7 +643,7 @@ class ManufacturingAlertsService {
               select: { id: true, orderNumber: true },
             },
             styles: {
-              select: { styleCode: true },
+              select: { styleCode: true, buyerStyleRef: true },
             },
           },
         },
@@ -657,7 +658,8 @@ class ManufacturingAlertsService {
       if (Math.abs(variancePercent) > varianceThreshold) {
         const orderNumber = costing.order_item?.orders?.orderNumber || 'N/A';
         const orderId = costing.order_item?.orders?.id || '';
-        const styleCode = costing.order_item?.styles?.styleCode || '';
+        // Buyer Style Code first, ours in brackets (utils/style-code)
+        const styleCode = styleCodeLabel(costing.order_item?.styles, null, '');
 
         alerts.push({
           id: costing.id,

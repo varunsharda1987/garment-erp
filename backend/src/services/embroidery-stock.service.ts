@@ -474,7 +474,7 @@ class EmbroideryStockService {
         },
         embroidery: true,
         supplier: true,
-        forStyle: { select: { styleCode: true, styleName: true } },
+        forStyle: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         forOrder: { select: { orderNumber: true } },
         createdBy: { select: { firstName: true, lastName: true } },
       },
@@ -620,7 +620,7 @@ class EmbroideryStockService {
         },
         embroidery: true,
         supplier: true,
-        forStyle: { select: { styleCode: true, styleName: true } },
+        forStyle: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
       },
       orderBy: { expectedReturnDate: 'asc' },
     });

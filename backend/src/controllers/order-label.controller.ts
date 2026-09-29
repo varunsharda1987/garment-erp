@@ -67,6 +67,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           style_material_bom: {
             where: { isActive: true, materialType: 'LABEL' },
@@ -230,6 +231,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
       orderItemId,
       styleId: orderItem.styles.id,
       styleCode: orderItem.styles.styleCode,
+      buyerStyleRef: orderItem.styles.buyerStyleRef ?? null,
       styleName: orderItem.styles.styleName,
       breakup: Object.fromEntries(sizeQuantities),
       labelRequirements,

@@ -51,6 +51,7 @@ import {
 import { foldActual } from '../utils/fold-length';
 import { resolveJwoGreige } from './helpers/jwo-greige.helper';
 import { unitToJwoUom, type JwoUom } from '../utils/units';
+import { styleCodeLabel } from '../utils/style-code';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -863,7 +864,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       greigeLaceId: true,
       fabricId: true,
       fabricStockLotId: true,
-      style: { select: { id: true, styleCode: true, styleName: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       greige: { select: { id: true, greigeCode: true, greigeName: true } },
       greigeLace: { select: { id: true, laceCode: true, laceName: true } },
       fabric: { select: { id: true, fabricCode: true, fabricName: true, greigeId: true } },
@@ -924,7 +925,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       outwardChallanId: true,
       jobWorkOrderId: true,
       styleId: true,
-      style: { select: { id: true, styleCode: true, styleName: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       fabricStock: { select: { fabricMaster: { select: { id: true, fabricCode: true, fabricName: true } } } },
     },
   });
@@ -1071,7 +1072,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
           ? {
               kind: 'GARMENT',
               id: job.style.id,
-              code: job.style.styleCode,
+              code: styleCodeLabel(job.style), // Buyer Style Code first
               name: job.style.styleName ?? job.style.styleCode,
             }
           : null,
@@ -1150,7 +1151,7 @@ export async function loadProcessorStatementSources(processorId: string): Promis
         ? {
             kind: 'GARMENT',
             id: sendOut.style.id,
-            code: sendOut.style.styleCode,
+            code: styleCodeLabel(sendOut.style), // Buyer Style Code first
             name: sendOut.style.styleName ?? sendOut.style.styleCode,
           }
         : { kind: 'GARMENT', id: `UNRESOLVED:${sendOut.id}`, code: '—', name: 'Unidentified style' };

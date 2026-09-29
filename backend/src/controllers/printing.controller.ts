@@ -7,7 +7,7 @@ import { issueJobWorkOrder, issueForSendToMill } from '../services/job-work-issu
 import { STOCK_HELD_FOR_ORDER } from '../services/helpers/po-allocation.helper';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import {
   getOrCreateFinishedFabricV2,
   rebuildAutoFabricName,
@@ -153,6 +153,7 @@ const jobWorkOrderInclude = {
     select: {
       id: true,
       styleCode: true,
+      buyerStyleRef: true,
       styleName: true,
     },
   },
@@ -1137,7 +1138,7 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
     where: { id },
     include: {
       fabricStockLot: true,
-      style: { select: { id: true, styleCode: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
     },
   });
 
@@ -1978,7 +1979,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
         {
           itemType: 'FABRIC',
           fabricId: job.finishedFabricId || job.fabricId,
-          description: `Printed fabric received - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
+          description: `Printed fabric received - ${styleCodeLabel(job.style, null, '')}`,
           quantity: actualMeters,
           unit: Unit.METER,
           jobWorkOrderId: job.id,

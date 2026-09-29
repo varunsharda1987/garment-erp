@@ -55,6 +55,8 @@ export interface ComponentCADSummary {
 export interface StyleCADSummary {
   styleId: string;
   styleCode: string;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name a style by it first. */
+  buyerStyleRef: string | null;
   styleName: string;
   customerName: string;
   brandName: string;

@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import * as wa from '../services/whatsapp.service';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import { applySearch } from '../utils/search-filter';
 import { gateSampleVerdict, logSampleVerdictOverride } from '../services/helpers/sample-verdict.helper';
 import { formatDate } from '../utils/date';
@@ -660,7 +660,7 @@ export const updateSample = async (req: Request, res: Response) => {
       data: updateData,
       include: {
         customers: { select: { id: true, code: true, name: true } },
-        styles: { select: { id: true, styleCode: true, styleName: true } },
+        styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         users: { select: { id: true, firstName: true, lastName: true } },
         measurements: {
           include: {
@@ -760,7 +760,7 @@ export const updateSampleStatus = async (req: Request, res: Response) => {
       data: updateData,
       include: {
         customers: { select: { id: true, code: true, name: true } },
-        styles: { select: { id: true, styleCode: true, styleName: true } },
+        styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         users: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -959,7 +959,7 @@ export const markAsSent = async (req: Request, res: Response) => {
     },
     include: {
       customers: { select: { id: true, code: true, name: true, contactPerson: true, phone: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
+      styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
     },
   });
 
@@ -1007,7 +1007,7 @@ export const notifyBuyer = async (req: Request, res: Response) => {
 
   const greetName = sample.customers?.contactPerson?.trim() || sample.customers?.name?.trim() || 'Sir/Madam';
   const styleBit = sample.styles?.styleCode
-    ? ` for style ${formatStyleCodeWithRef(sample.styles.styleCode, sample.styles.buyerStyleRef)}${sample.styles.styleName ? ` (${sample.styles.styleName})` : ''}`
+    ? ` for style ${styleCodeLabel(sample.styles)}${sample.styles.styleName ? ` (${sample.styles.styleName})` : ''}`
     : '';
   // Goes out to the buyer over WhatsApp — used to read "19/9/2026" (unpadded, ambiguous abroad).
   const sentOn = sample.sentDate ? formatDate(sample.sentDate) : '';
@@ -1061,7 +1061,7 @@ export const recordReceipt = async (req: Request, res: Response) => {
     },
     include: {
       customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
+      styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
     },
   });
 
@@ -1116,7 +1116,7 @@ export const recordFeedback = async (req: Request, res: Response) => {
       },
       include: {
         customers: { select: { id: true, code: true, name: true } },
-        styles: { select: { id: true, styleCode: true, styleName: true } },
+        styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       },
     });
   });
@@ -1210,7 +1210,7 @@ export const createRevision = async (req: Request, res: Response) => {
     },
     include: {
       customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
+      styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       users: { select: { id: true, firstName: true, lastName: true } },
       measurements: true,
     },
@@ -1281,7 +1281,7 @@ export const getSummary = async (req: Request, res: Response) => {
     orderBy: { createdAt: 'desc' },
     include: {
       customers: { select: { name: true } },
-      styles: { select: { styleCode: true, styleName: true } },
+      styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
     },
   });
 
@@ -1379,7 +1379,7 @@ export const searchSamples = async (req: Request, res: Response) => {
       sampleType: true,
       status: true,
       version: true,
-      styles: { select: { styleCode: true, styleName: true } },
+      styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
       customers: { select: { name: true } },
     },
     orderBy: { createdAt: 'desc' },

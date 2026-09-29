@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { toDateInputValue } from '../utils/date';
 import { buildOrderListWhere, orderListOrderBy } from './order.controller';
 import { OrderStatus } from '@prisma/client';
+import { buyerStyleCode } from '../utils/style-code';
 
 /**
  * Validate and sanitize columnConfig from JSON storage.
@@ -212,13 +213,19 @@ async function fetchModuleData(
         orderBy: orderListOrderBy(),
         include: {
           customers: true,
-          order_items: { select: { styles: { select: { styleCode: true } } } },
+          order_items: { select: { styles: { select: { styleCode: true, buyerStyleRef: true } } } },
         },
       });
       result = rows.map((order) => ({
         ...order,
         customerName: order.customers?.name ?? '',
         deliveryDate: order.expectedDeliveryDate,
+        // Buyer Style Code first (our code when a style has none), then our Style Codes.
+        buyerStyleCodes: [
+          ...new Set(
+            order.order_items.map((i) => (i.styles ? buyerStyleCode(i.styles, null, '') : '')).filter(Boolean)
+          ),
+        ].join(', '),
         styleCodes: [...new Set(order.order_items.map((i) => i.styles?.styleCode).filter(Boolean))].join(', '),
       }));
       break;
@@ -276,11 +283,13 @@ async function fetchModuleData(
       if (approvedFilter === 'approved') costingWhere.approvalStatus = 'APPROVED';
       else if (approvedFilter === 'pending') costingWhere.approvalStatus = 'PENDING';
       else if (approvedFilter === 'rejected') costingWhere.approvalStatus = 'REJECTED';
-      result = await prisma.style_costing.findMany({
+      const costings = await prisma.style_costing.findMany({
         where: costingWhere,
         include: { styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } } },
         orderBy: { createdAt: 'desc' },
       });
+      // The "Buyer Style Code" column: the buyer's code, else ours (styles.buyerStyleRef stays for saved templates).
+      result = costings.map((c) => ({ ...c, buyerStyleCode: c.styles ? buyerStyleCode(c.styles, null, '') : '' }));
       break;
     }
 

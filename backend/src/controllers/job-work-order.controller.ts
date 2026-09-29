@@ -1027,7 +1027,7 @@ class JobWorkOrderController {
           sentDate: true,
           expectedReturnDate: true,
           processor: { select: { id: true, name: true } },
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
           fabric: { select: { id: true, fabricCode: true, fabricName: true } },
           // A lace job has no fabric — what is coming back is the dyed variant.
           fabricType: true,
@@ -1476,6 +1476,7 @@ class JobWorkOrderController {
           jobWorkNumber: v.jwo.jobWorkNumber,
           processType: v.jwo.processType,
           styleCode: v.jwo.style?.styleCode ?? null,
+          buyerStyleRef: v.jwo.style?.buyerStyleRef ?? null,
           requiredQty: Number(v.jwo.qtySentMeters),
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,

@@ -10,6 +10,7 @@ import { getDerivedStockDetailed } from './helpers/derived-stock.helper';
 import exportService from './export.service';
 import { notificationService } from './notification.service';
 import { logInfo, logError } from '../utils/logger';
+import { buyerStyleCode, BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL } from '../utils/style-code';
 import fs from 'fs';
 import path from 'path';
 
@@ -308,8 +309,8 @@ class ReportGeneratorService {
     });
 
     const data = costings.map((cs) => ({
+      buyerStyleCode: buyerStyleCode(cs.styles, null, 'N/A'),
       styleCode: cs.styles?.styleCode || 'N/A',
-      buyerStyleRef: cs.styles?.buyerStyleRef ?? '-',
       styleName: cs.styles?.styleName || 'N/A',
       status: cs.isApproved ? 'Approved' : 'Draft',
       fabricCost: Number(cs.fabricCost || 0).toFixed(2),
@@ -320,8 +321,8 @@ class ReportGeneratorService {
     }));
 
     const columns = [
-      { fieldName: 'styleCode', displayName: 'Style Code', width: 15 },
-      { fieldName: 'buyerStyleRef', displayName: 'Buyer Ref', width: 15 },
+      { fieldName: 'buyerStyleCode', displayName: BUYER_STYLE_CODE_LABEL, width: 18 },
+      { fieldName: 'styleCode', displayName: STYLE_CODE_LABEL, width: 15 },
       { fieldName: 'styleName', displayName: 'Style Name', width: 25 },
       { fieldName: 'status', displayName: 'Status', width: 12 },
       { fieldName: 'fabricCost', displayName: 'Fabric Cost', width: 12, format: 'currency' as const },

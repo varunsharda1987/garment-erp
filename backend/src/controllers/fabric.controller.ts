@@ -11,7 +11,7 @@ import { ValidationError, NotFoundError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { generateStyleLinkedFabricCode, peekNextStyleLinkedFabricCode } from '../utils/fabric-code-generator';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import { applySearch } from '../utils/search-filter';
 
 /**
@@ -926,7 +926,8 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
   const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   // buyerStyleRef lookups for auto-generated names, cached per import run
-  // (one query per unique style code; null = style not found → plain code)
+  // (one query per unique style code; null = style not found → plain code). Only the NAME leads
+  // with the Buyer Style Code — styleReference stays the raw style code.
   const buyerRefCache = new Map<string, string | null>();
   const lookupBuyerStyleRef = async (styleCode: string): Promise<string | null> => {
     if (!buyerRefCache.has(styleCode)) {
@@ -990,10 +991,10 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         const greige = await prisma.greige_master.findUnique({ where: { id: greigeId } });
         const parts = [];
 
-        // Add style reference if provided (with buyer style ref appended when the style exists)
+        // Add the style if provided — Buyer Style Code first, our code in brackets when it differs
         if (fabric.styleReference) {
           const buyerRef = await lookupBuyerStyleRef(fabric.styleReference);
-          parts.push(formatStyleCodeWithRef(fabric.styleReference, buyerRef));
+          parts.push(styleCodeLabel({ styleCode: fabric.styleReference, buyerStyleRef: buyerRef }));
         }
 
         // Add generic fabric name or greige name (extract everything before first digit or ×)
@@ -1501,7 +1502,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     where: { id: { in: targetComponentIds } },
     include: {
       styles: {
-        select: { id: true, styleCode: true, styleName: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
       },
     },
   });
@@ -1623,7 +1624,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
           style_components: {
             include: {
               styles: {
-                select: { id: true, styleCode: true, styleName: true },
+                select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
               },
             },
           },
@@ -1662,7 +1663,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
           style_components: {
             include: {
               styles: {
-                select: { id: true, styleCode: true, styleName: true },
+                select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
               },
             },
           },
@@ -1694,7 +1695,7 @@ export const allocateToStyle = async (req: Request, res: Response) => {
     });
 
     logInfo(
-      `Fabric ${fabric.fabricCode} allocated to style ${component.styles?.styleCode}, component ${component.componentName}`
+      `Fabric ${fabric.fabricCode} allocated to style ${styleCodeLabel(component.styles)}, component ${component.componentName}`
     );
   }
 
@@ -1724,7 +1725,7 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
       style_components: {
         include: {
           styles: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -1754,7 +1755,7 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
   ]);
 
   logInfo(
-    `Fabric allocation removed: styleFabricId=${styleFabricId}, style=${styleFabric.style_components?.styles?.styleCode}`
+    `Fabric allocation removed: styleFabricId=${styleFabricId}, style=${styleCodeLabel(styleFabric.style_components?.styles)}`
   );
 
   res.json({
@@ -1762,6 +1763,7 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
     removedAllocation: {
       id: styleFabricId,
       styleCode: styleFabric.style_components?.styles?.styleCode,
+      buyerStyleRef: styleFabric.style_components?.styles?.buyerStyleRef ?? null,
       styleName: styleFabric.style_components?.styles?.styleName,
       componentName: styleFabric.style_components?.componentName,
     },

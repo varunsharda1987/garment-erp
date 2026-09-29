@@ -22,7 +22,7 @@
  */
 import prisma from '../../config/database';
 import { BusinessError, NotFoundError } from '../../errors';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney } from './format';
 import {
@@ -51,8 +51,9 @@ const INDEX_AUTO_THRESHOLD = 12;
 export interface CatalogueCard {
   sn: number;
   imageUrl: string | null; // absolute file:// URL, or null → empty plate
-  code: string;
-  buyerRef: string | null;
+  code: string; // Buyer Style Code (our Style Code when the style has no separate buyer code)
+  ourCode: string | null; // our Style Code — only when it differs from `code`
+  label: string; // 'SP27DR27 (EBWW-021)' — the index line
   name: string;
   seasonLabel: string | null;
   category: string | null;
@@ -72,7 +73,7 @@ export interface CatalogueCardPage {
 
 export interface CatalogueIndexRow {
   sn: number;
-  code: string; // styleCode (buyer ref)
+  code: string; // 'SP27DR27 (EBWW-021)' — Buyer Style Code first
   name: string;
   category: string;
   pageNo: number; // the real sheet the card sits on
@@ -117,8 +118,9 @@ function buildCard(style: StyleDocRecord, sn: number, showPrices: boolean): Cata
   return {
     sn,
     imageUrl: resolveStyleImageUrl(style),
-    code: style.styleCode,
-    buyerRef: style.buyerStyleRef?.trim() ? style.buyerStyleRef.trim() : null,
+    code: buyerStyleCode(style),
+    ourCode: styleCodeIfDifferent(style),
+    label: styleCodeLabel(style),
     name: style.styleName,
     seasonLabel: styleSeason(style),
     category: styleCategory(style),
@@ -183,7 +185,7 @@ export async function buildCatalogueDocData(idArg: string): Promise<CatalogueDoc
 
   const indexRows: CatalogueIndexRow[] = cards.map((card, index) => ({
     sn: card.sn,
-    code: formatStyleCodeWithRef(card.code, card.buyerRef),
+    code: card.label,
     name: card.name,
     category: card.category ?? EM_DASH,
     pageNo: firstCardPageNo + Math.floor(index / CARDS_PER_PAGE),

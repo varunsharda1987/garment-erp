@@ -9,6 +9,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import prisma from '../../config/database';
 import { BusinessError, ConflictError, NotFoundError } from '../../errors';
 import { formatDate } from '../../utils/date';
+import { styleCodeLabel } from '../../utils/style-code';
 
 /**
  * A replaced version is history: nothing edits, approves, rejects, revokes, deletes, re-versions or builds
@@ -22,7 +23,7 @@ export async function assertCostSheetIsLive(
 ): Promise<void> {
   const sheet = await db.style_costing.findUnique({
     where: { id },
-    select: { version: true, supersededById: true, styles: { select: { styleCode: true } } },
+    select: { version: true, supersededById: true, styles: { select: { styleCode: true, buyerStyleRef: true } } },
   });
   if (!sheet?.supersededById) return;
 
@@ -42,7 +43,7 @@ export async function assertCostSheetIsLive(
   const replacedOn = chain[0] ? ` on ${formatDate(chain[0].versionDate)}` : '';
   const live = chain[chain.length - 1];
   throw new ConflictError(
-    `${sheet.styles.styleCode} cost sheet v${sheet.version} was replaced${replacedOn} and is kept as history. ` +
+    `${styleCodeLabel(sheet.styles)} cost sheet v${sheet.version} was replaced${replacedOn} and is kept as history. ` +
       (live ? `Open v${live.version} to make changes.` : 'Open the current version to make changes.'),
     { code: 'COST_SHEET_REPLACED', liveCostSheetId: live?.id ?? null, liveVersion: live?.version ?? null }
   );
@@ -289,6 +290,7 @@ export async function createCostSheetVersionTx(
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },

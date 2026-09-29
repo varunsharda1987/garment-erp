@@ -11,7 +11,7 @@ import QRCode from 'qrcode';
 import { NotFoundError } from '../../errors';
 import { addCurrency, percentOf, roundToCent } from '../../utils/currency';
 import { DEFAULT_HSN_CODES } from '../../config/company.config';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { styleCodeLabel } from '../../utils/style-code';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, inrWords } from './format';
 
@@ -181,12 +181,11 @@ function buildLines(invoice: InvoiceWithDetails): {
       lines.push({
         sn: idx + 1,
         description: item.description,
-        // The line's OWN buyer code wins: it was captured when the goods were ordered, so a style
-        // re-coded since cannot change what an already-issued invoice prints. Falls back to the
-        // style master for invoices raised before the snapshot existed, or with no sale-order origin.
-        subline: item.style
-          ? formatStyleCodeWithRef(item.style.styleCode, item.buyerStyleRef ?? item.style.buyerStyleRef)
-          : null,
+        // The description is printed as SAVED (Tally keys its stock item on it). The subline names
+        // the style Buyer Style Code first — the line's OWN buyer code wins: it was captured when the
+        // goods were ordered, so a style re-coded since cannot change what an already-issued invoice
+        // prints. Falls back to the style master for invoices raised before the snapshot existed.
+        subline: item.style ? styleCodeLabel(item.style, item.buyerStyleRef) : null,
         hsn,
         qty: fmtQty(item.quantity, 'PCS'),
         rate: fmtMoney(Number(item.unitPrice)),
@@ -217,7 +216,7 @@ function buildLines(invoice: InvoiceWithDetails): {
       lines.push({
         sn: idx + 1,
         description: item.itemDescription ?? style?.styleName ?? EM_DASH,
-        subline: style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : null,
+        subline: style ? styleCodeLabel(style) : null,
         hsn,
         qty: fmtQty(item.totalQuantity, 'PCS'),
         rate: fmtMoney(Number(item.unitPrice)),

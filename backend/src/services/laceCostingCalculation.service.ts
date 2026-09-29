@@ -17,6 +17,7 @@
 
 import prisma from '../config/database';
 import { logWarn } from '../utils/logger';
+import { styleCodeLabel } from '../utils/style-code';
 import { lookupLaceRate } from './processor-rate-v2.service';
 import { isLabDipApproved, getApprovedLabDipsForLace } from './laceLabDip.service';
 import { toCurrency, multiplyCurrency, addCurrency, divideCurrency, percentOf, toNumber } from '../utils/currency'; // BUG-FAB12 fix
@@ -44,6 +45,8 @@ export interface LaceStockOption {
   dyeLotNumber: string | null;
   originStyleId: string | null;
   originStyleCode: string | null;
+  /** The origin style's buyer code (styles.buyerStyleRef) — screens name the style by it first */
+  originBuyerStyleRef: string | null;
   totalCost: number | null;
   details: string;
   rateSource: 'STOCK_WAC' | null;
@@ -313,7 +316,7 @@ async function checkLaceStockAvailability(
     },
     include: {
       originStyle: {
-        select: { id: true, styleCode: true, styleName: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
       },
     },
     orderBy: [
@@ -349,6 +352,7 @@ async function checkLaceStockAvailability(
       dyeLotNumber: null,
       originStyleId: null,
       originStyleCode: null,
+      originBuyerStyleRef: null,
       totalCost: null,
       details:
         availableQty > 0
@@ -373,8 +377,9 @@ async function checkLaceStockAvailability(
     dyeLotNumber: stock.dyeLotNumber,
     originStyleId: stock.originStyleId,
     originStyleCode: stock.originStyle?.styleCode || null,
+    originBuyerStyleRef: stock.originStyle?.buyerStyleRef ?? null,
     totalCost,
-    details: `${Number(stock.quantityAvailable).toFixed(2)}m @ ₹${wac.toFixed(2)}/m (WAC)${stock.originStyle ? ` from ${stock.originStyle.styleCode}` : ''}${stock.dyeLotNumber ? ` [Lot: ${stock.dyeLotNumber}]` : ''}`,
+    details: `${Number(stock.quantityAvailable).toFixed(2)}m @ ₹${wac.toFixed(2)}/m (WAC)${stock.originStyle ? ` from ${styleCodeLabel(stock.originStyle)}` : ''}${stock.dyeLotNumber ? ` [Lot: ${stock.dyeLotNumber}]` : ''}`,
     rateSource: 'STOCK_WAC',
     lastUpdated: stock.updatedAt ? new Date(stock.updatedAt).toISOString() : null,
   };
@@ -889,6 +894,7 @@ export async function calculateBatchLaceCost(items: LaceCostOptions[]): Promise<
           dyeLotNumber: null,
           originStyleId: null,
           originStyleCode: null,
+          originBuyerStyleRef: null,
           totalCost: null,
           details: error.message,
           rateSource: null,

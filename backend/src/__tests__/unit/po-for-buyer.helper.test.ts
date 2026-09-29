@@ -63,7 +63,7 @@ describe('resolvePoForBuyers', () => {
     const out = await resolvePoForBuyer(
       bare('po-1', [labelLine('lbl-4'), labelLine('lbl-4'), buttonLine, serviceLine]) // a button names nobody
     );
-    expect(out).toEqual({ name: 'Easybuy', source: 'LINES', orderNumber: null, styleCode: null });
+    expect(out).toEqual({ name: 'Easybuy', source: 'LINES', orderNumber: null, styleCode: null, buyerStyleRef: null });
     // only the buyer-carrying masters are read — never the button master
     expect(db.label_master.findMany).toHaveBeenCalledTimes(1);
   });
@@ -82,14 +82,28 @@ describe('resolvePoForBuyers', () => {
     db.orders.findMany.mockResolvedValue([
       { id: 'ord-1', orderNumber: 'SO2609-0012', customerId: KASYA.id, customers: { name: KASYA.name } },
     ]);
-    db.styles.findMany.mockResolvedValue([{ id: 'sty-1', styleCode: 'ESSKY082LS', customer: { name: 'Easybuy' } }]);
+    db.styles.findMany.mockResolvedValue([
+      { id: 'sty-1', styleCode: 'ESSKY082LS', buyerStyleRef: '14-GC-ESS-ESKY082LS', customer: { name: 'Easybuy' } },
+    ]);
     db.label_master.findMany.mockResolvedValue([label('lbl-e', EASYBUY)]);
     const [byOrder, byStyle] = await resolvePoForBuyers([
       { ...bare('po-o', [labelLine('lbl-e')]), orderId: 'ord-1' },
       { ...bare('po-s', [labelLine('lbl-e')]), styleId: 'sty-1' },
     ]);
-    expect(byOrder).toEqual({ name: KASYA.name, source: 'ORDER', orderNumber: 'SO2609-0012', styleCode: null });
-    expect(byStyle).toEqual({ name: 'Easybuy', source: 'STYLE', orderNumber: null, styleCode: 'ESSKY082LS' });
+    expect(byOrder).toEqual({
+      name: KASYA.name,
+      source: 'ORDER',
+      orderNumber: 'SO2609-0012',
+      styleCode: null,
+      buyerStyleRef: null,
+    });
+    expect(byStyle).toEqual({
+      name: 'Easybuy',
+      source: 'STYLE',
+      orderNumber: null,
+      styleCode: 'ESSKY082LS',
+      buyerStyleRef: '14-GC-ESS-ESKY082LS',
+    });
     // neither fell through to the lines
     expect(db.label_master.findMany).not.toHaveBeenCalled();
   });
@@ -111,7 +125,7 @@ describe('resolvePoForBuyers', () => {
       bare('po-mrp', [labelLine('lbl-e')]),
       bare('po-split', [labelLine('lbl-e')]), // orders of two buyers → nobody, even though the lines agree
     ]);
-    expect(mrp).toEqual({ name: KASYA.name, source: 'ORDER', orderNumber: null, styleCode: null });
+    expect(mrp).toEqual({ name: KASYA.name, source: 'ORDER', orderNumber: null, styleCode: null, buyerStyleRef: null });
     expect(split).toBeNull();
   });
 
@@ -131,12 +145,19 @@ describe('resolvePoForBuyers', () => {
 describe('poForBuyerLine', () => {
   it('names the order or style only when that is the source', () => {
     expect(poForBuyerLine(null)).toBeNull();
-    expect(poForBuyerLine({ name: 'Easybuy', source: 'LINES', orderNumber: null, styleCode: null })).toBe('Easybuy');
-    expect(poForBuyerLine({ name: 'Easybuy', source: 'ORDER', orderNumber: 'SO-1', styleCode: null })).toBe(
+    const none = { orderNumber: null, styleCode: null, buyerStyleRef: null };
+    expect(poForBuyerLine({ ...none, name: 'Easybuy', source: 'LINES' })).toBe('Easybuy');
+    expect(poForBuyerLine({ ...none, name: 'Easybuy', source: 'ORDER', orderNumber: 'SO-1' })).toBe(
       'Easybuy · Order SO-1'
     );
-    expect(poForBuyerLine({ name: 'Easybuy', source: 'STYLE', orderNumber: null, styleCode: 'ESSKY082LS' })).toBe(
+    expect(poForBuyerLine({ ...none, name: 'Easybuy', source: 'STYLE', styleCode: 'ESSKY082LS' })).toBe(
       'Easybuy · Style ESSKY082LS'
     );
+  });
+
+  it('names the style Buyer Style Code first, our code in brackets only when it differs', () => {
+    const style = { name: 'Easybuy', source: 'STYLE' as const, orderNumber: null, styleCode: 'EBWW-024' };
+    expect(poForBuyerLine({ ...style, buyerStyleRef: 'SP27DR46' })).toBe('Easybuy · Style SP27DR46 (EBWW-024)');
+    expect(poForBuyerLine({ ...style, buyerStyleRef: 'EBWW-024' })).toBe('Easybuy · Style EBWW-024');
   });
 });

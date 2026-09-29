@@ -577,7 +577,7 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
   // Get style info
   const style = await prisma.styles.findUnique({
     where: { id: styleId },
-    select: { styleCode: true, styleName: true },
+    select: { styleCode: true, buyerStyleRef: true, styleName: true },
   });
 
   if (!style) {
@@ -685,6 +685,7 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
   // BUG-STY8 fix: Decimal.toFixed() works the same as Number.toFixed()
   res.json({
     styleCode: style.styleCode,
+    buyerStyleRef: style.buyerStyleRef ?? null,
     styleName: style.styleName,
     materialBOM: {
       garmentTrims,

@@ -26,7 +26,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { NotFoundError } from '../../errors';
 import { addCurrency, toCurrency } from '../../utils/currency';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { buyerStyleCode, styleCodeLabel } from '../../utils/style-code';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtPct, fmtQty } from './format';
 
@@ -280,13 +280,14 @@ export interface TechPackSheet {
 
 export interface TechPackDocData {
   company: CompanyBlock;
-  docNo: string; // style code (+ buyer ref)
+  docNo: string; // 'SP27DR27 (EBWW-021)' — Buyer Style Code first
   docPill: string;
   pageTotal: number;
   statusBanner: string;
   // 01 — identity
   styleName: string;
-  buyerRef: string | null;
+  buyerStyleCode: string; // the buyer's code (our Style Code when the style has no separate buyer code)
+  styleCode: string; // our Style Code
   customerName: string;
   brandName: string;
   category: string;
@@ -816,8 +817,7 @@ export async function buildTechPackDocData(styleId: string): Promise<TechPackDoc
   if (!style) throw new NotFoundError('Style', styleId);
 
   // ── 01 — identity ────────────────────────────────────────────────────────
-  const buyerRef = clean(style.buyerStyleRef);
-  const docNo = formatStyleCodeWithRef(style.styleCode, buyerRef);
+  const docNo = styleCodeLabel(style);
   const category =
     joinBits(
       [style.brand_categories?.category, style.brand_categories?.subCategory, style.brand_categories?.subSubCategory],
@@ -999,7 +999,8 @@ export async function buildTechPackDocData(styleId: string): Promise<TechPackDoc
     pageTotal: sheets.length,
     statusBanner: `${humanize(style.status) ?? EM_DASH} · CAD ${humanize(style.cadStatus) ?? EM_DASH}`,
     styleName: clean(style.styleName) ?? style.styleCode,
-    buyerRef,
+    buyerStyleCode: buyerStyleCode(style),
+    styleCode: style.styleCode,
     customerName: clean(style.customerName) ?? EM_DASH,
     brandName: clean(style.brandName) ?? clean(style.brand_categories?.brandName) ?? EM_DASH,
     category,

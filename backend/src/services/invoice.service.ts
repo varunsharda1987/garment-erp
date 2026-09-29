@@ -15,6 +15,7 @@ import { roundToCent, multiplyCurrency, addCurrency, toCurrency } from '../utils
 import { generateAtomicInvoiceNumber } from '../utils/atomicCodeGenerator';
 import { deriveInvoiceStatus } from './helpers/invoice-status.helper';
 import { applySearch } from '../utils/search-filter';
+import { lineBuyerStyleRef, styleCodeLabel } from '../utils/style-code';
 
 // ============================================
 // Types
@@ -544,18 +545,18 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       let unitPrice = dnItem.saleOrderItemId ? 0 : (orderPrices.get(dnItem.styleId) ?? 0);
       // The buyer's code AS ORDERED, not as the style master reads today — this is the hop that
       // keeps a reprinted invoice showing what the buyer actually placed the order under.
-      let buyerStyleRef: string | null = null;
+      let lineRef: string | null = null;
       if (dnItem.saleOrderItemId) {
         const soItem = await this.prisma.sale_order_items.findUnique({
           where: { id: dnItem.saleOrderItemId },
           select: { unitPrice: true, buyerStyleRef: true },
         });
         unitPrice = soItem ? parseFloat(soItem.unitPrice.toString()) : 0;
-        buyerStyleRef = soItem?.buyerStyleRef ?? null;
+        lineRef = soItem?.buyerStyleRef ?? null;
       }
       // Sale orders taken before the snapshot column existed carry nothing; fall back to the
-      // style's current code so the line is not left blank.
-      buyerStyleRef = buyerStyleRef ?? dnItem.styles?.buyerStyleRef ?? null;
+      // style's current code so the line is not left blank (utils/style-code — the one rule).
+      const buyerStyleRef = lineBuyerStyleRef(lineRef, dnItem.styles?.buyerStyleRef);
 
       const description = [
         dnItem.styles?.styleCode || '',
@@ -566,7 +567,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         .filter(Boolean)
         .join(' ');
 
-      if (!(unitPrice > 0)) unpriced.push(dnItem.styles?.styleCode ?? dnItem.styleId);
+      if (!(unitPrice > 0)) unpriced.push(styleCodeLabel(dnItem.styles, buyerStyleRef, dnItem.styleId));
       items.push({
         styleId: dnItem.styleId,
         description,

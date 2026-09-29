@@ -24,7 +24,7 @@ import { StyleVariantData } from '../types/style-variant.types';
 import { randomUUID } from 'crypto';
 import { SeasonService } from './season.service';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import { generateCode } from '../utils/code-generator';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getSizeOrder } from '../utils/sku-generator';
@@ -1051,7 +1051,8 @@ export class StyleImportService {
   }
 
   /**
-   * Generate fabric name
+   * Generate fabric name — the style named Buyer Style Code first ('SP27DR27 (EBWW-021)', or the one
+   * code when the style has no separate buyer code). The fabric CODE keeps the raw style code.
    */
   private generateFabricName(
     fabricDescription: string,
@@ -1059,7 +1060,7 @@ export class StyleImportService {
     componentName: string,
     buyerStyleRef?: string | null
   ): string {
-    return `${fabricDescription} - ${formatStyleCodeWithRef(styleCode, buyerStyleRef)} ${componentName}`;
+    return `${fabricDescription} - ${styleCodeLabel({ styleCode, buyerStyleRef })} ${componentName}`;
   }
 
   /**

@@ -35,6 +35,7 @@
 import prisma from '../config/database';
 import { addCurrency, subtractCurrency, toCurrency, toNumber } from '../utils/currency';
 import type { ThreadPackagingType, ThreadPly } from '../schemas/generated/prisma-enums';
+import { styleCodeLabel } from '../utils/style-code';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -447,14 +448,14 @@ async function resolveReferences(events: LedgerEvent[]): Promise<ReferenceMaps> 
             jobWorkNumber: true,
             processType: true,
             processor: { select: { name: true } },
-            style: { select: { styleCode: true } },
+            style: { select: { styleCode: true, buyerStyleRef: true } },
           },
         })
       : [],
     issueNoteIds.length
       ? prisma.lace_issue_note.findMany({
           where: { id: { in: issueNoteIds } },
-          select: { id: true, issueNumber: true, style: { select: { styleCode: true } } },
+          select: { id: true, issueNumber: true, style: { select: { styleCode: true, buyerStyleRef: true } } },
         })
       : [],
     batchIds.length
@@ -504,12 +505,17 @@ async function resolveReferences(events: LedgerEvent[]): Promise<ReferenceMaps> 
         {
           number: j.jobWorkNumber,
           processor: j.processor?.name ?? null,
-          style: j.style?.styleCode ?? null,
+          style: j.style ? styleCodeLabel(j.style, null, '') || null : null,
           processType: j.processType,
         },
       ])
     ),
-    issueNotes: new Map(issueNotes.map((n) => [n.id, { number: n.issueNumber, style: n.style?.styleCode ?? null }])),
+    issueNotes: new Map(
+      issueNotes.map((n) => [
+        n.id,
+        { number: n.issueNumber, style: n.style ? styleCodeLabel(n.style, null, '') || null : null },
+      ])
+    ),
     batches: new Map(batches.map((b) => [b.id, { number: b.batchNumber }])),
     sendOuts: new Map(sendOuts.map((s) => [s.id, { number: s.batchNumber, supplier: s.supplier?.name ?? null }])),
     users: new Map(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()])),

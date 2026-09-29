@@ -163,11 +163,11 @@ export default function ButtonList() {
     },
     {
       key: 'styleCodes',
-      header: 'Style Codes',
+      header: 'Styles',
       render: (button) => (
         <div className="flex flex-wrap gap-1">
-          {button.styleCodes && button.styleCodes.length > 0 ? (
-            button.styleCodes.map((code) => (
+          {(button.styleLabels ?? button.styleCodes ?? []).length > 0 ? (
+            (button.styleLabels ?? button.styleCodes ?? []).map((code) => (
               <Badge key={code} variant="secondary" className="text-xs">
                 {code}
               </Badge>

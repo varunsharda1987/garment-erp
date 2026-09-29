@@ -22,7 +22,7 @@ import { formatDate, formatDateTime24 } from '../utils/date';
 import path from 'path';
 import fs from 'fs';
 import { logWarn } from '../utils/logger';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { buyerStyleCode, styleCodeLabel } from '../utils/style-code';
 import { unitHeader } from '../utils/units';
 import { plannedCutForSize } from '../utils/cut-allowance';
 import { buildCostSheetDocData, formatPurpose, formatStatus } from './document-data/cost-sheet.doc-data';
@@ -430,11 +430,9 @@ class DocumentGeneratorService {
 
         const rowData = [
           (idx + 1).toString(),
-          // Prefer the line's captured buyer code over the style master's current one, so this
-          // pdfkit fallback prints the same thing the HTML renderer does.
-          item.style
-            ? formatStyleCodeWithRef(item.style.styleCode, item.buyerStyleRef ?? item.style.buyerStyleRef)
-            : '-',
+          // Buyer Style Code first. Prefer the line's captured buyer code over the style master's
+          // current one, so this pdfkit fallback prints the same thing the HTML renderer does.
+          item.style ? styleCodeLabel(item.style, item.buyerStyleRef) : '-',
           item.description || item.style?.styleName || '-',
           item.hsnCode || item.style?.hsnCode || '-',
           qty.toString(),
@@ -486,7 +484,7 @@ class DocumentGeneratorService {
 
         const rowData = [
           (idx + 1).toString(),
-          style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-',
+          style ? styleCodeLabel(style) : '-',
           item.itemDescription || style?.styleName || '-',
           style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
           qty.toString(),
@@ -923,7 +921,7 @@ class DocumentGeneratorService {
       const amount = Number(item.totalPrice);
 
       ws.getCell(row, 1).value = idx + 1;
-      ws.getCell(row, 2).value = style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-';
+      ws.getCell(row, 2).value = style ? styleCodeLabel(style) : '-';
       ws.getCell(row, 3).value = item.itemDescription || style?.styleName || '-';
       ws.getCell(row, 4).value = style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS;
       ws.getCell(row, 5).value = item.totalQuantity;
@@ -1218,7 +1216,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     // Table header
     const columns = [
       { label: '#', width: 25 },
-      { label: 'Style Code', width: 80 },
+      { label: 'Style', width: 80 },
       { label: 'Description', width: 150 },
       { label: 'HSN', width: 60 },
       { label: 'Qty', width: 50 },
@@ -1256,7 +1254,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
 
       const rowData = [
         (idx + 1).toString(),
-        style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-',
+        style ? styleCodeLabel(style) : '-',
         item.description || style?.styleName || '-',
         style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
         qty.toString(),
@@ -1621,7 +1619,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       doc.rect(marginLeft, y, availableWidth, 20).fillAndStroke('#E8E8E8', '#CCC');
       doc.fillColor('#000');
       doc.text(
-        `${idx + 1}. ${style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-'} - ${style?.styleName || item.itemDescription || '-'}`,
+        `${idx + 1}. ${style ? styleCodeLabel(style) : '-'} - ${style?.styleName || item.itemDescription || '-'}`,
         marginLeft + 5,
         y + 6
       );
@@ -1873,7 +1871,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       .fontSize(10)
       .font('Helvetica-Bold')
       .text('#', marginLeft, y, { width: 30 })
-      .text('Style Code', marginLeft + 35, y, { width: 100 })
+      .text('Buyer Style Code', marginLeft + 35, y, { width: 100 })
       .text('Style Name', marginLeft + 140, y, { width: 200 })
       .text('Page', marginLeft + 350, y, { width: 40 });
     y += 15;
@@ -1897,16 +1895,11 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       doc
         .fillColor('#000')
         .text((index + 1).toString(), marginLeft, y, { width: 30 })
-        .text(
-          style.styleCode ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-',
-          marginLeft + 35,
-          y,
-          {
-            width: 100,
-            height: 12,
-            ellipsis: true,
-          }
-        )
+        .text(styleCodeLabel(style, null, '-'), marginLeft + 35, y, {
+          width: 100,
+          height: 12,
+          ellipsis: true,
+        })
         .text(style.styleName || '-', marginLeft + 140, y, { width: 200, ellipsis: true })
         .text(pageNum.toString(), marginLeft + 350, y, { width: 40 });
       y += 14;
@@ -1999,7 +1992,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       .fontSize(11)
       .font('Helvetica-Bold')
       .fillColor('#FFF')
-      .text(formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef), x + 5, y + imageHeight - 20, {
+      .text(styleCodeLabel(style), x + 5, y + imageHeight - 20, {
         width: width - 10,
         height: 14,
         ellipsis: true,
@@ -2163,8 +2156,8 @@ From ${c?.name ?? COMPANY_CONFIG.name}
         const labelWidth = 120;
 
         const infoRows = [
+          ['Buyer Style Code:', buyerStyleCode(style, null, '-')],
           ['Style Code:', style.styleCode || '-'],
-          ['Buyer Ref:', style.buyerStyleRef || '-'],
           ['Style Name:', style.styleName || '-'],
           ['Customer:', style.customerName || '-'],
           ['Brand:', style.brandName || '-'],
@@ -2516,7 +2509,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
             .fontSize(10)
             .font('Helvetica-Bold')
             .fillColor('#333')
-            .text(style.styleCode ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-', infoX, infoY, {
+            .text(styleCodeLabel(style, null, '-'), infoX, infoY, {
               width: cardWidth - 100,
               height: 12,
               ellipsis: true,
@@ -2666,7 +2659,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
 
     // Column headers
     let row = 5;
-    const headers = ['Style Code', 'Buyer Ref', 'Style Name', 'Season', 'Category', 'Colors', 'Sizes'];
+    const headers = ['Buyer Style Code', 'Style Code', 'Style Name', 'Season', 'Category', 'Colors', 'Sizes'];
     if (options.showWholesalePrice) headers.push('Wholesale Price');
     if (options.showRetailPrice) headers.push('MRP');
 
@@ -2707,8 +2700,8 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       const sizeList = sizes.map((s: any) => s.sizeName).join(', ');
 
       let col = 1;
+      ws.getCell(row, col++).value = buyerStyleCode(style, null, '-');
       ws.getCell(row, col++).value = style.styleCode || '-';
-      ws.getCell(row, col++).value = style.buyerStyleRef || '-';
       ws.getCell(row, col++).value = style.styleName || '-';
       ws.getCell(row, col++).value = (style as any).season_master?.code || style.season || '-';
       ws.getCell(row, col++).value = (style as any).brand_categories?.categoryName || '-';
@@ -3313,7 +3306,13 @@ From ${c?.name ?? COMPANY_CONFIG.name}
         let dy = headerY + 2;
         drawField('Buyer:', chartData.buyer || '-', detailX, dy);
         drawField('Brand:', chartData.brand || '-', col2X, dy);
-        drawField('Style:', chartData.style || '-', col3X, dy);
+        drawField(
+          'Buyer Style Code:',
+          buyerStyleCode({ styleCode: chartData.style, buyerStyleRef: chartData.buyerStyleRef }, null, '-'),
+          col3X,
+          dy,
+          80
+        );
         dy += 16;
         drawField('Style Name:', chartData.styleName || '-', detailX, dy, 80);
         drawField('Color:', chartData.color || '-', col2X, dy);
@@ -3345,7 +3344,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
             .text(`(limited by ${chartData.bottleneckFabric})`, col2X, dy + 1);
           doc.fillColor('#000');
         }
-        drawField('Buyer Ref:', chartData.buyerStyleRef || '-', col3X, dy);
+        drawField('Style Code:', chartData.style || '-', col3X, dy, 80);
         dy += 16;
 
         y = Math.max(headerY + imgH + 15, dy + 10);
@@ -3764,11 +3763,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
       doc.font('Helvetica-Bold').text('Style:', marginLeft, y);
       doc
         .font('Helvetica')
-        .text(
-          `${formatStyleCodeWithRef(slip.workOrder.styles.styleCode, slip.workOrder.styles.buyerStyleRef)} - ${slip.workOrder.styles.styleName}`,
-          marginLeft + 75,
-          y
-        );
+        .text(`${styleCodeLabel(slip.workOrder.styles)} - ${slip.workOrder.styles.styleName}`, marginLeft + 75, y);
       y += 12;
     }
 
@@ -4032,8 +4027,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
     // Style, Customer, Pieces
     const details: string[] = [];
     const style = (challan.productionRun as any)?.styles;
-    if (style)
-      details.push(`Style: ${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName}`);
+    if (style) details.push(`Style: ${styleCodeLabel(style)} - ${style.styleName}`);
     const customer = (challan.order as any)?.customers;
     if (customer) details.push(`Customer: ${customer.name}`);
     const totalPcs = challan.productionRun?.totalQuantity || challan.order?.totalQuantity;
@@ -4319,7 +4313,7 @@ From ${c?.name ?? COMPANY_CONFIG.name}
 
     const infoRows: [string, string][] = [
       ['Cost Sheet ID', data.docNo],
-      ['Style', `${data.style.code}${data.style.buyerRef ? ` (${data.style.buyerRef})` : ''}`],
+      ['Style', data.style.label],
       ['Style Name', data.style.name],
       ['Customer', data.customer],
       ['Costing Mode', data.costingModeLabel],

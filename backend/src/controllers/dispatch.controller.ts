@@ -24,6 +24,7 @@ import { settleRowColours, skuKey, stockColourMatches } from '../services/helper
 import { createAuditLog } from '../services/audit.service';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { applySearch } from '../utils/search-filter';
+import { lineBuyerStyleRef, styleCodeLabel } from '../utils/style-code';
 
 // ============================================
 // Helper Functions
@@ -69,13 +70,15 @@ const transformDeliveryNote = ({ users, ...note }: any) => ({
         name: `${users.firstName} ${users.lastName}`,
       }
     : null,
-  items: note.delivery_note_items?.map((item: any) => ({
+  // `sale_order_items` (the line's snapshot) is destructured OUT: it only feeds buyerStyleRef below
+  items: note.delivery_note_items?.map(({ sale_order_items: soLine, ...item }: any) => ({
     ...item,
     style: item.styles
       ? {
           id: item.styles.id,
           styleCode: item.styles.styleCode,
-          buyerStyleRef: item.styles.buyerStyleRef ?? null,
+          // The sale-order line's snapshot (the code as at the day the line was taken), else the style's
+          buyerStyleRef: lineBuyerStyleRef(soLine?.buyerStyleRef, item.styles.buyerStyleRef),
           styleName: item.styles.styleName,
         }
       : null,
@@ -239,6 +242,8 @@ const deliveryNoteIncludeOptions = {
       styles: true,
       color_options: true,
       size_options: true,
+      // The buyer's style code as the sale-order line captured it (transformDeliveryNote)
+      sale_order_items: { select: { buyerStyleRef: true } },
     },
   },
 };
@@ -460,7 +465,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             styleId: true,
             colorId: true,
             sizeId: true,
-            style: { select: { styleCode: true } },
+            buyerStyleRef: true,
+            style: { select: { styleCode: true, buyerStyleRef: true } },
             size: { select: { sizeName: true } },
           },
         },
@@ -479,7 +485,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     lineFor = (items as Array<{ styleId: string; colorId?: string | null; sizeId: string }>).map((item) => {
       const line = matchSaleOrderLine(so.items, { ...item, colorId: item.colorId ?? null });
       if (!line) {
-        const styleCode = so.items.find((l) => l.styleId === item.styleId)?.style.styleCode;
+        const styleLine = so.items.find((l) => l.styleId === item.styleId);
+        const styleCode = styleLine ? styleCodeLabel(styleLine.style, styleLine.buyerStyleRef, '') : '';
         const sizeName = so.items.find((l) => l.sizeId === item.sizeId)?.size?.sizeName;
         throw new ValidationError(
           styleCode
@@ -487,7 +494,10 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             : `${so.saleOrderNumber} does not carry that style.`
         );
       }
-      return { id: line.id, label: `${line.style.styleCode} ${line.size?.sizeName ?? ''}`.trim() };
+      return {
+        id: line.id,
+        label: `${styleCodeLabel(line.style, line.buyerStyleRef, '')} ${line.size?.sizeName ?? ''}`.trim(),
+      };
     });
   }
 
@@ -497,6 +507,8 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   // (finished_goods_stock.colorId is required, so `colorId: undefined` dropped the filter).
   // Shortfalls no longer vanish silently: what exists is deducted, the gap is flagged in the response.
   type FgShortfall = {
+    /** The sale order line it ships (null on a note with no sale order) — names the buyer's code */
+    saleOrderItemId: string | null;
     styleId: string;
     colorId: string | null;
     sizeId: string;
@@ -650,6 +662,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
           fgAllocations.push(...drawn.taken);
           if (drawn.notFound > 0) {
             fgShortfalls.push({
+              saleOrderItemId: lineId,
               styleId: item.styleId,
               colorId: item.colorId ?? null,
               sizeId: item.sizeId,
@@ -1859,7 +1872,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
       customer: { select: { id: true, name: true } },
       items: {
         include: {
-          style: { select: { id: true, styleCode: true, styleName: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           color: { select: { id: true, colorName: true, colorCode: true } },
           size: { select: { id: true, sizeName: true } },
         },
@@ -1889,8 +1902,8 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
         where: { styleId, overallTestResult: { in: ['PASS', 'CONDITIONAL_PASS'] } },
       });
       if (!gptResult) {
-        const style = saleOrder.items.find((i) => i.styleId === styleId)?.style;
-        gptWarnings.push(style?.styleCode || styleId);
+        const line = saleOrder.items.find((i) => i.styleId === styleId);
+        gptWarnings.push(styleCodeLabel(line?.style, line?.buyerStyleRef, styleId));
       }
     }
   }
@@ -1913,7 +1926,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
     }
     if (!soItem.sizeId) {
       throw new ValidationError(
-        `${soItem.style?.styleCode ?? 'A line'} has no size on the sale order — size is required for dispatch.`
+        `${styleCodeLabel(soItem.style, soItem.buyerStyleRef, 'A line')} has no size on the sale order — size is required for dispatch.`
       );
     }
   }
@@ -1937,7 +1950,11 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
           const soItem = soItemMap.get(item.saleOrderItemId)!;
           const colorId = await shippingColourFor(
             tx,
-            { ...soItem, styleCode: soItem.style?.styleCode },
+            {
+              ...soItem,
+              styleCode: soItem.style?.styleCode,
+              buyerStyleRef: lineBuyerStyleRef(soItem.buyerStyleRef, soItem.style?.buyerStyleRef),
+            },
             item.colorId ?? null
           );
           lines.push({ item, soItem, colorId });
@@ -1948,7 +1965,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
             saleOrderItemId: soItem.id,
             quantity: item.quantity,
             label:
-              `${saleOrder.saleOrderNumber} ${soItem.style?.styleCode ?? ''} ${soItem.size?.sizeName ?? ''}`.trim(),
+              `${saleOrder.saleOrderNumber} ${styleCodeLabel(soItem.style, soItem.buyerStyleRef, '')} ${soItem.size?.sizeName ?? ''}`.trim(),
           })),
           await overShipAllowanceOf(tx, saleOrder.customerId)
         );
@@ -1970,6 +1987,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
         // Stock out (the line's reservations first, then free stock) and book the line — the same
         // helper POST /delivery-notes uses, so both routes move dispatchedQty identically.
         const skuShortfalls: Array<{
+          saleOrderItemId: string;
           styleId: string;
           colorId: string | null;
           sizeId: string;
@@ -1991,6 +2009,7 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
               deducted: item.quantity - drawn.notFound,
             });
             skuShortfalls.push({
+              saleOrderItemId: soItem.id,
               styleId: soItem.styleId,
               colorId,
               sizeId: soItem.sizeId!,

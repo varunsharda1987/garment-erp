@@ -121,7 +121,7 @@ export async function createLaceIssueNote(input: CreateLaceIssueNoteInput) {
           include: { laceMaster: true },
         },
         order: { select: { id: true, orderNumber: true } },
-        style: { select: { id: true, styleCode: true, styleName: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         issuedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -209,7 +209,7 @@ export async function recordConsumption(input: RecordConsumptionInput) {
       include: {
         stock: { include: { laceMaster: true } },
         order: { select: { id: true, orderNumber: true } },
-        style: { select: { id: true, styleCode: true, styleName: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         issuedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -313,7 +313,7 @@ export async function returnToStock(input: ReturnToStockInput) {
       include: {
         stock: { include: { laceMaster: true } },
         order: { select: { id: true, orderNumber: true } },
-        style: { select: { id: true, styleCode: true, styleName: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         issuedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     });
@@ -391,7 +391,7 @@ export async function closeIssueNote(issueNoteId: string, userId: string) {
     include: {
       stock: { include: { laceMaster: true } },
       order: { select: { id: true, orderNumber: true } },
-      style: { select: { id: true, styleCode: true, styleName: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       issuedBy: { select: { id: true, firstName: true, lastName: true } },
     },
   });
@@ -410,7 +410,7 @@ export async function getIssueNoteById(id: string) {
     include: {
       stock: { include: { laceMaster: true } },
       order: { select: { id: true, orderNumber: true } },
-      style: { select: { id: true, styleCode: true, styleName: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       issuedBy: { select: { id: true, firstName: true, lastName: true } },
     },
   });
@@ -442,7 +442,7 @@ export async function getIssueNotes(filters: LaceIssueNoteFilters) {
       include: {
         stock: { include: { laceMaster: true } },
         order: { select: { id: true, orderNumber: true } },
-        style: { select: { id: true, styleCode: true, styleName: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         issuedBy: { select: { id: true, firstName: true, lastName: true } },
       },
       skip: (page - 1) * limit,
@@ -471,7 +471,7 @@ export async function getIssueNotesByOrder(orderId: string) {
     where: { orderId },
     include: {
       stock: { include: { laceMaster: true } },
-      style: { select: { id: true, styleCode: true, styleName: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
       issuedBy: { select: { id: true, firstName: true, lastName: true } },
     },
     orderBy: { issuedAt: 'desc' },

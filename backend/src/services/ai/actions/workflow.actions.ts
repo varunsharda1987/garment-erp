@@ -12,6 +12,7 @@ import type { ActionDefinition, Payload, ActionContext, StepResult } from '../ai
 import { internalFetch, resolveEntity } from '../ai-action-types';
 import { UnitEnum } from '../../../schemas/generated/prisma-enums';
 import { formatDate, parseDMY, toDateInputValue } from '../../../utils/date';
+import { styleCodeLabel } from '../../../utils/style-code';
 
 // ── Style ────────────────────────────────────────────────────────────────────
 // customerName is a free-text column on styles, NOT a foreign key — no resolution needed.
@@ -56,7 +57,9 @@ const createStyle: ActionDefinition = {
       },
     },
   },
-  successMessage: (d) => `✅ Created style **${d.styleCode || d.buyerStyleRef}**. [Open it](/styles/${d.id})`,
+  // Buyer Style Code first: 'SP27DR27 (EBWW-021)'.
+  successMessage: (d) =>
+    `✅ Created style **${styleCodeLabel({ styleCode: d.styleCode as string | null, buyerStyleRef: d.buyerStyleRef as string | null })}**. [Open it](/styles/${d.id})`,
 };
 
 // ── Sale order ───────────────────────────────────────────────────────────────
@@ -165,7 +168,7 @@ const createOrder: ActionDefinition = {
         type: 'object',
         properties: {
           customerName: { type: 'string', description: 'Customer name or code' },
-          styleCode: { type: 'string', description: 'Style code or buyer style reference' },
+          styleCode: { type: 'string', description: 'Buyer style code or our style code' },
           quantity: { type: 'number', description: 'Total pieces for this style' },
           unitPrice: { type: 'number', description: 'Price per piece' },
           expectedDeliveryDate: { type: 'string', description: 'YYYY-MM-DD' },
@@ -251,7 +254,7 @@ const createStockProductionOrder: ActionDefinition = {
       parameters: {
         type: 'object',
         properties: {
-          styleCode: { type: 'string', description: 'Style code or buyer style reference' },
+          styleCode: { type: 'string', description: 'Buyer style code or our style code' },
           totalQuantity: { type: 'number', description: 'Total pieces to produce' },
           targetDate: { type: 'string', description: 'YYYY-MM-DD' },
           priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] },

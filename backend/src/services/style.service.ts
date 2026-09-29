@@ -705,7 +705,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
         if (existingBuyerRef) {
           throw new ConflictError(
-            `Buyer reference "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
+            `Buyer Style Code "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
           );
         }
       }
@@ -1280,7 +1280,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
       if (existingBuyerRef) {
         throw new ConflictError(
-          `Buyer reference "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
+          `Buyer Style Code "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
         );
       }
     }
@@ -2518,6 +2518,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       style: {
         id: style.id,
         styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef ?? null,
         styleName: style.styleName,
         cadStatus: style.cadStatus,
         approvedCadDate: style.approvedCadDate,

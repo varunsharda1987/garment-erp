@@ -3,7 +3,9 @@
  *
  * - GREIGE:    {laceCode} | {laceType} | {design} | {composition} | {width}" | GREIGE
  * - READY:     {laceCode} | {laceType} | {design} | {composition} | {width}" | {color}
- * - PROCESSED: {laceCode} | {laceType} | {design} | {composition} | {width}" | {color} | {sourceGreigeCode} → {styleCode}
+ * - PROCESSED: {laceCode} | {laceType} | {design} | {composition} | {width}" | {color} | {sourceGreigeCode} → {style}
+ *   where {style} is the Buyer Style Code first, our code in brackets when it differs ('SP27DR27 (EBWW-021)',
+ *   styleCodeLabel) — since 2026-09-29; names saved before read '→ EBWW-021 (SP27DR27)' and are not renamed.
  *
  * The design ("Scallop", "Triangle", "Kingri") is what people call a lace by. It was left out until
  * 2026-09-27 although the form promised a name "from color, design, composition", so a regenerated name
@@ -11,7 +13,7 @@
  * ("flower" in "Big flower lace") is not repeated.
  */
 import prisma from '../../config/database';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { styleCodeLabel } from '../../utils/style-code';
 
 export interface LaceNameInput {
   laceCode: string;
@@ -78,9 +80,10 @@ export async function generateLaceName(lace: LaceNameInput): Promise<string> {
         where: { styleCode: lace.processedForStyleCode },
         select: { buyerStyleRef: true },
       });
-      const styleCodeDisplay = style
-        ? formatStyleCodeWithRef(lace.processedForStyleCode, style.buyerStyleRef)
-        : lace.processedForStyleCode;
+      const styleCodeDisplay = styleCodeLabel({
+        styleCode: lace.processedForStyleCode,
+        buyerStyleRef: style?.buyerStyleRef,
+      });
       parts.push(`${lace.sourceGreigeLaceCode} → ${styleCodeDisplay}`);
     } else {
       // No style yet (e.g. a dyed variant created from the cost sheet). Printing "→ ?" here

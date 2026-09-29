@@ -6,6 +6,7 @@ import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
 import { applySearch } from '../utils/search-filter';
+import { styleCodeLabel } from '../utils/style-code';
 
 // Type for supplier input
 interface ButtonSupplierInput {
@@ -244,7 +245,7 @@ export const getAllButtons = async (req: Request, res: Response) => {
       button_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -262,6 +263,8 @@ export const getAllButtons = async (req: Request, res: Response) => {
     materialUnit: item.materials[0]?.unit ?? null,
     styleCodes: item.button_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: item.button_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: item.button_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     button_style_associations: undefined,
     // Keep buttonSuppliers - serializer will rename to 'suppliers'
@@ -310,7 +313,7 @@ export const getButtonById = async (req: Request, res: Response) => {
       button_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
         orderBy: { isPrimary: 'desc' },
@@ -330,6 +333,8 @@ export const getButtonById = async (req: Request, res: Response) => {
     materialUnit: button.materials[0]?.unit ?? null,
     styleCodes: button.button_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: button.button_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: button.button_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     button_style_associations: undefined,
     // Keep buttonSuppliers - serializer will rename to 'suppliers'
@@ -489,7 +494,7 @@ export const updateButton = async (req: Request, res: Response) => {
       button_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -510,6 +515,8 @@ export const updateButton = async (req: Request, res: Response) => {
     materialUnit: updated.materials[0]?.unit ?? null,
     styleCodes: updated.button_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: updated.button_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: updated.button_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     button_style_associations: undefined,
     // Keep buttonSuppliers - serializer will rename to 'suppliers'

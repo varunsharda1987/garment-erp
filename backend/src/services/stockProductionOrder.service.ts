@@ -329,7 +329,7 @@ export class StockProductionOrderService {
         },
         include: {
           styles: {
-            select: { id: true, styleCode: true, styleName: true },
+            select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
           },
           work_order_breakup: {
             include: {
@@ -363,7 +363,7 @@ export class StockProductionOrderService {
         totalQuantity: true,
         status: true,
         style: {
-          select: { id: true, styleCode: true, styleName: true },
+          select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
         },
       },
     });

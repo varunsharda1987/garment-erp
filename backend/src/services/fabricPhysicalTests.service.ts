@@ -77,6 +77,7 @@ class FabricPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -207,6 +208,7 @@ class FabricPhysicalTestsService {
               select: {
                 id: true,
                 styleCode: true,
+                buyerStyleRef: true,
                 styleName: true,
               },
             },
@@ -272,6 +274,7 @@ class FabricPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               imageUrl: true,
             },
@@ -358,6 +361,7 @@ class FabricPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -437,6 +441,7 @@ class FabricPhysicalTestsService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },

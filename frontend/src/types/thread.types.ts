@@ -145,6 +145,8 @@ export interface Thread {
 
   // Style associations (from serializer)
   styleCodes?: string[];
+  /** Each associated style named buyer style code first ('SP27DR27 (EBWW-021)') — for display. */
+  styleLabels?: string[];
   styleNames?: string[];
   styleAssociations?: Array<{
     styleId: string;

@@ -77,7 +77,7 @@ import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
 import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
 import { challanDestination } from './helpers/lot-location.helper';
 import { resolveNextProcessorUnit, sendReceiptOnToProcessor } from './helpers/held-stock-doors.helper';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import { BusinessError, NotFoundError, ValidationError } from '../errors';
 import {
   addCurrency,
@@ -653,7 +653,7 @@ class GRNService {
                 {
                   itemType: 'FABRIC',
                   fabricId: processingJob.finishedFabricId || processingJob.fabricId || undefined,
-                  description: `Processed fabric received via GRN - ${formatStyleCodeWithRef(processingJob.style?.styleCode || '', processingJob.style?.buyerStyleRef)}`,
+                  description: `Processed fabric received via GRN - ${styleCodeLabel(processingJob.style, null, '')}`,
                   quantity: actualMeters,
                   unit: Unit.METER,
                 },
@@ -3712,7 +3712,7 @@ class GRNService {
           {
             itemType: 'FABRIC',
             fabricId: finishedFabricId,
-            description: `Processed fabric received via GRN ${grn.grnNumber} - ${formatStyleCodeWithRef(jobWorkOrder.style?.styleCode || '', jobWorkOrder.style?.buyerStyleRef)}`,
+            description: `Processed fabric received via GRN ${grn.grnNumber} - ${styleCodeLabel(jobWorkOrder.style, null, '')}`,
             quantity: qtyReceived,
             unit: Unit.METER,
             ...(hasFold(grnItem?.foldLengthCm) ? { foldLengthCm: Number(grnItem.foldLengthCm) } : {}),

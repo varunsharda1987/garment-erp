@@ -347,6 +347,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
               select: {
                 id: true,
                 styleCode: true,
+                buyerStyleRef: true,
                 styleName: true,
                 image: true,
               },
@@ -625,6 +626,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
               select: {
                 id: true,
                 styleCode: true,
+                buyerStyleRef: true,
                 styleName: true,
               },
             },

@@ -9,6 +9,7 @@ import { generateLaceName } from '../services/helpers/lace-name.helper';
 import { deleteLaceImageFile } from '../middleware/upload.middleware';
 import { logInfo } from '../utils/logger';
 import { applySearch } from '../utils/search-filter';
+import { styleCodeLabel } from '../utils/style-code';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -495,7 +496,7 @@ export const getAllLace = async (req: Request, res: Response) => {
       lace_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -525,6 +526,7 @@ export const getAllLace = async (req: Request, res: Response) => {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },
@@ -536,7 +538,7 @@ export const getAllLace = async (req: Request, res: Response) => {
           costing: {
             select: {
               styles: {
-                select: { styleCode: true, styleName: true },
+                select: { styleCode: true, buyerStyleRef: true, styleName: true },
               },
             },
           },
@@ -549,7 +551,7 @@ export const getAllLace = async (req: Request, res: Response) => {
           costing: {
             select: {
               styles: {
-                select: { styleCode: true, styleName: true },
+                select: { styleCode: true, buyerStyleRef: true, styleName: true },
               },
             },
           },
@@ -571,6 +573,16 @@ export const getAllLace = async (req: Request, res: Response) => {
       ? [...new Set(item.greigeCostingItems?.map((ci: any) => ci.costing?.styles?.styleCode).filter(Boolean) || [])]
       : [...new Set(item.costingItems?.map((ci: any) => ci.costing?.styles?.styleCode).filter(Boolean) || [])];
 
+    // One label per costing style — Buyer Style Code first (utils/style-code); keyed by style code like costingStyleCodes
+    const costingStyleLabels = [
+      ...new Map(
+        ((item.isGreige ? item.greigeCostingItems : item.costingItems) ?? [])
+          .map((ci: any) => ci.costing?.styles)
+          .filter((st: any) => st?.styleCode)
+          .map((st: any) => [st.styleCode, styleCodeLabel(st)] as [string, string])
+      ).values(),
+    ];
+
     const costingStyleNames = item.isGreige
       ? [...new Set(item.greigeCostingItems?.map((ci: any) => ci.costing?.styles?.styleName).filter(Boolean) || [])]
       : [...new Set(item.costingItems?.map((ci: any) => ci.costing?.styles?.styleName).filter(Boolean) || [])];
@@ -582,9 +594,12 @@ export const getAllLace = async (req: Request, res: Response) => {
       materialUnit: item.materials[0]?.unit ?? null,
       styleCodes: item.lace_style_associations.map((sa: any) => sa.style.styleCode),
       styleNames: item.lace_style_associations.map((sa: any) => sa.style.styleName),
+      // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+      styleLabels: item.lace_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
       // Cost sheet style associations (more authoritative)
       costingStyleCodes,
       costingStyleNames,
+      costingStyleLabels,
       // Clean up internal relations
       materials: undefined,
       lace_style_associations: undefined,
@@ -637,7 +652,7 @@ export const getLaceById = async (req: Request, res: Response) => {
       lace_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
         orderBy: { isPrimary: 'desc' },
@@ -681,6 +696,8 @@ export const getLaceById = async (req: Request, res: Response) => {
     materialUnit: lace.materials[0]?.unit ?? null,
     styleCodes: lace.lace_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: lace.lace_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: lace.lace_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     lace_style_associations: undefined,
     // Keep lace_suppliers, sourceGreigeLace, finishedLaces - serializer will transform keys
@@ -908,7 +925,7 @@ export const updateLace = async (req: Request, res: Response) => {
       lace_style_associations: {
         include: {
           style: {
-            select: { styleCode: true, styleName: true },
+            select: { styleCode: true, buyerStyleRef: true, styleName: true },
           },
         },
       },
@@ -948,6 +965,8 @@ export const updateLace = async (req: Request, res: Response) => {
     materialUnit: updated.materials[0]?.unit ?? null,
     styleCodes: updated.lace_style_associations.map((sa: any) => sa.style.styleCode),
     styleNames: updated.lace_style_associations.map((sa: any) => sa.style.styleName),
+    // The same styles named for a screen — Buyer Style Code first (utils/style-code)
+    styleLabels: updated.lace_style_associations.map((sa: any) => styleCodeLabel(sa.style)),
     materials: undefined,
     lace_style_associations: undefined,
     // Keep lace_suppliers - serializer will rename to 'suppliers'

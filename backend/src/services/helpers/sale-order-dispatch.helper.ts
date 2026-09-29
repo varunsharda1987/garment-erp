@@ -14,6 +14,7 @@
 import { Prisma } from '@prisma/client';
 import { BusinessError, ValidationError } from '../../errors';
 import { stockColourWhere } from './sku-colour.helper';
+import { lineBuyerStyleRef, styleCodeLabel } from '../../utils/style-code';
 
 type Tx = Prisma.TransactionClient;
 
@@ -79,12 +80,12 @@ export function matchSaleOrderLine<T extends SaleOrderLineRef>(
  */
 export async function shippingColourFor(
   tx: Tx,
-  line: SaleOrderLineRef & { styleCode?: string },
+  line: SaleOrderLineRef & { styleCode?: string; buyerStyleRef?: string | null },
   requestedColorId?: string | null
 ): Promise<string | null> {
   if (requestedColorId) {
     if (line.colorId && line.colorId !== requestedColorId) {
-      throw new ValidationError(`${line.styleCode ?? 'This line'} was ordered in a different colour.`);
+      throw new ValidationError(`${styleCodeLabel(line, null, 'This line')} was ordered in a different colour.`);
     }
     return requestedColorId;
   }
@@ -98,14 +99,14 @@ export async function shippingColourFor(
  */
 export async function colourForSaleOrderLine(
   tx: Tx,
-  line: SaleOrderLineRef & { styleCode?: string }
+  line: SaleOrderLineRef & { styleCode?: string; buyerStyleRef?: string | null }
 ): Promise<string | null> {
   if (line.colorId) return line.colorId;
   const colours = await tx.color_options.findMany({ where: { styleId: line.styleId }, select: { id: true } });
   if (colours.length === 0) return null;
   if (colours.length === 1) return colours[0].id;
   throw new ValidationError(
-    `${line.styleCode ?? 'This style'} comes in ${colours.length} colours and the sale order line has none — choose the colour on the sale order lines.`
+    `${styleCodeLabel(line, null, 'This style')} comes in ${colours.length} colours and the sale order line has none — choose the colour on the sale order lines.`
   );
 }
 
@@ -280,6 +281,8 @@ export async function recordSaleOrderDispatch(
 }
 
 export interface StockShortfall {
+  /** The sale order line it ships, when there is one — its snapshot names the buyer's style code */
+  saleOrderItemId?: string | null;
   styleId: string;
   colorId: string | null;
   sizeId: string;
@@ -295,10 +298,11 @@ export interface StockShortfall {
  * `details.code` FG_STOCK_SHORT lets the page offer that override.
  */
 export async function refuseShortStock(tx: Tx, shortfalls: StockShortfall[]): Promise<never> {
-  const [styles, colours, sizes] = await Promise.all([
+  const lineIds = shortfalls.flatMap((s) => (s.saleOrderItemId ? [s.saleOrderItemId] : []));
+  const [styles, colours, sizes, soLines] = await Promise.all([
     tx.styles.findMany({
       where: { id: { in: shortfalls.map((s) => s.styleId) } },
-      select: { id: true, styleCode: true },
+      select: { id: true, styleCode: true, buyerStyleRef: true },
     }),
     tx.color_options.findMany({
       where: { id: { in: shortfalls.flatMap((s) => (s.colorId ? [s.colorId] : [])) } },
@@ -308,19 +312,27 @@ export async function refuseShortStock(tx: Tx, shortfalls: StockShortfall[]): Pr
       where: { id: { in: shortfalls.map((s) => s.sizeId) } },
       select: { id: true, sizeName: true },
     }),
+    lineIds.length > 0
+      ? tx.sale_order_items.findMany({ where: { id: { in: lineIds } }, select: { id: true, buyerStyleRef: true } })
+      : Promise.resolve([] as Array<{ id: string; buyerStyleRef: string | null }>),
   ]);
   const name = <T extends { id: string }>(rows: T[], id: string, key: keyof T) =>
     String(rows.find((r) => r.id === id)?.[key] ?? '');
   const lines = shortfalls.map((s) => ({
     ...s,
     styleCode: name(styles, s.styleId, 'styleCode'),
+    // The sale-order line's snapshot, else the style's own buyer code (utils/style-code)
+    buyerStyleRef: lineBuyerStyleRef(
+      soLines.find((l) => l.id === s.saleOrderItemId)?.buyerStyleRef,
+      styles.find((st) => st.id === s.styleId)?.buyerStyleRef
+    ),
     colorName: s.colorId ? name(colours, s.colorId, 'colorName') : '—',
     sizeName: name(sizes, s.sizeId, 'sizeName'),
   }));
   throw new BusinessError(
     'Not enough finished-goods stock for this delivery note — ' +
       lines
-        .map((l) => `${l.styleCode} ${l.colorName} ${l.sizeName}: need ${l.requested}, in stock ${l.deducted}`)
+        .map((l) => `${styleCodeLabel(l)} ${l.colorName} ${l.sizeName}: need ${l.requested}, in stock ${l.deducted}`)
         .join('; ') +
       '. Record finishing (Generate Transfer Slip) first, or an administrator can override with a reason.',
     { code: 'FG_STOCK_SHORT', shortfalls: lines }

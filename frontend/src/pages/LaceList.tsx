@@ -19,6 +19,7 @@ import { Package, ImageOff } from 'lucide-react';
 import { ViewStockButton } from '@/components/ViewStockButton';
 import { getUploadUrl } from '@/config/api.config';
 import stockLevelService from '@/services/stockLevel.service';
+import { styleCodeLabel } from '@/lib/style-code';
 
 // Local type definition to avoid import issues
 type Column<T> = {
@@ -190,7 +191,11 @@ export default function LaceList() {
                   {lace.sourceGreigeLace.laceCode}
                 </button>
                 <span className="mx-1">→</span>
-                <span className="font-mono">{lace.processedForStyleCode || '?'}</span>
+                <span className="font-mono">
+                  {lace.processedForStyle
+                    ? styleCodeLabel(lace.processedForStyle, null, lace.processedForStyleCode || '?')
+                    : lace.processedForStyleCode || '?'}
+                </span>
               </span>
             </div>
           );
@@ -224,9 +229,9 @@ export default function LaceList() {
       key: 'styles',
       header: 'Styles',
       render: (lace) => {
-        // Use cost sheet styles (primary) or fall back to direct associations
-        const codes =
-          lace.costingStyleCodes && lace.costingStyleCodes.length > 0 ? lace.costingStyleCodes : lace.styleCodes || [];
+        // Use cost sheet styles (primary) or fall back to direct associations — named buyer style code first
+        const costing = lace.costingStyleLabels ?? lace.costingStyleCodes ?? [];
+        const codes = costing.length > 0 ? costing : (lace.styleLabels ?? lace.styleCodes ?? []);
 
         if (codes.length === 0) {
           return <span className="text-sm text-muted-foreground">-</span>;

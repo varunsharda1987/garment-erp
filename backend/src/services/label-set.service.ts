@@ -49,6 +49,8 @@ export interface LabelSetLabel {
 export interface StyleLabelSet {
   styleId: string;
   styleCode: string;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name the style by it first */
+  buyerStyleRef: string | null;
   styleName: string | null;
   /** Where labels per garment and extra % came from */
   source: 'ORDER_BOM' | 'STYLE_BOM';
@@ -69,7 +71,7 @@ const OPEN_STATUSES = ['PO_REQUIRED', 'PARTIAL_STOCK', 'SIZE_PENDING'] as const;
 export async function getStyleLabelSet(styleId: string, orderId?: string): Promise<StyleLabelSet> {
   const style = await prisma.styles.findUnique({
     where: { id: styleId },
-    select: { id: true, styleCode: true, styleName: true },
+    select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
   });
   if (!style) throw new NotFoundError('Style', styleId);
 
@@ -227,6 +229,7 @@ export async function getStyleLabelSet(styleId: string, orderId?: string): Promi
   return {
     styleId: style.id,
     styleCode: style.styleCode,
+    buyerStyleRef: style.buyerStyleRef ?? null,
     styleName: style.styleName ?? null,
     source: orderBom ? 'ORDER_BOM' : 'STYLE_BOM',
     orderBom,

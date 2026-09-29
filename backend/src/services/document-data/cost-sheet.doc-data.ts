@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { NotFoundError } from '../../errors';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, fmtPct } from './format';
+import { buyerStyleCode, styleCodeIfDifferent, styleCodeLabel } from '../../utils/style-code';
 
 const costSheetDocInclude = {
   styles: {
@@ -199,9 +200,10 @@ export interface CostSheetDocData {
 
   // Basic Information (matches form's header)
   style: {
-    code: string;
+    code: string; // Buyer Style Code (our Style Code when the style has no separate buyer code)
     name: string;
-    buyerRef: string | null;
+    ourCode: string | null; // our Style Code — only when it differs from `code`
+    label: string; // 'SP27DR27 (EBWW-021)'
   };
   customer: string;
   costingModeLabel: string;
@@ -742,9 +744,10 @@ export async function buildCostSheetDocData(costingId: string): Promise<CostShee
 
     // Basic Information
     style: {
-      code: style?.styleCode || EM_DASH,
+      code: buyerStyleCode(style, null, EM_DASH),
       name: style?.styleName || EM_DASH,
-      buyerRef: style?.buyerStyleRef || null,
+      ourCode: styleCodeIfDifferent(style),
+      label: styleCodeLabel(style, null, EM_DASH),
     },
     customer: style?.customerName || EM_DASH,
     costingModeLabel: formatPurpose(costSheet.purpose),

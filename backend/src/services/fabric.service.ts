@@ -10,7 +10,7 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
 import { syncMasterToMaterials } from './helpers/material-sync.helper';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import { applySearch } from '../utils/search-filter';
 
 // ============================================
@@ -337,6 +337,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
                     select: {
                       id: true,
                       styleCode: true,
+                      buyerStyleRef: true,
                       styleName: true,
                     },
                   },
@@ -724,7 +725,8 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
     });
 
     // buyerStyleRef lookups for auto-generated names, cached per import run
-    // (one query per unique style code; null = style not found → plain code)
+    // (one query per unique style code; null = style not found → plain code). Only the NAME leads
+    // with the Buyer Style Code — styleReference stays the raw style code.
     const buyerRefCache = new Map<string, string | null>();
     const lookupBuyerStyleRef = async (styleCode: string): Promise<string | null> => {
       if (!buyerRefCache.has(styleCode)) {
@@ -790,7 +792,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
 
           if (fabric.styleReference) {
             const buyerRef = await lookupBuyerStyleRef(fabric.styleReference as string);
-            parts.push(formatStyleCodeWithRef(fabric.styleReference as string, buyerRef));
+            parts.push(styleCodeLabel({ styleCode: fabric.styleReference as string, buyerStyleRef: buyerRef }));
           }
 
           // Extract generic fabric name (everything before first digit or × character)

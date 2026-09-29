@@ -19,6 +19,7 @@ import prisma from '../../config/database';
 import { NotFoundError } from '../../errors';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { fmtDate } from './format';
+import { buyerStyleCode } from '../../utils/style-code';
 import {
   TRF_TESTS,
   TRF_BUYING_DEPARTMENTS,
@@ -89,7 +90,7 @@ export async function buildBuyerTrfDocData(trfId: string): Promise<BuyerTrfDocDa
   const trf = await prisma.buyer_test_requirement_forms.findUnique({
     where: { id: trfId },
     include: {
-      style: { select: { styleCode: true, styleName: true } },
+      style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
       customer: { select: { name: true } },
       testingLab: {
         select: { labName: true, address: true, city: true, state: true, pincode: true, contactEmail: true },
@@ -99,6 +100,9 @@ export async function buildBuyerTrfDocData(trfId: string): Promise<BuyerTrfDocDa
     },
   });
   if (!trf) throw new NotFoundError('Test requirement form not found');
+
+  // The Style No. as saved on the form; a form saved without one prints the Buyer Style Code.
+  const styleNo = trf.styleNo ?? (trf.style ? buyerStyleCode(trf.style, trf.buyerStyleRef, '') : null);
 
   const company = await buildCompanyBlock();
 
@@ -128,7 +132,7 @@ export async function buildBuyerTrfDocData(trfId: string): Promise<BuyerTrfDocDa
   const identity: PrintField[] = [
     val('Sample Description', trf.sampleDescription),
     val('BO No', trf.boNumber),
-    val('Style No.', trf.styleNo ?? trf.style?.styleCode),
+    val('Style No.', styleNo),
     val('Color', trf.colour),
     val('Fiber Content', trf.fibreContent),
     val('Age Range/Category', trf.ageRangeCategory),
@@ -197,7 +201,7 @@ export async function buildBuyerTrfDocData(trfId: string): Promise<BuyerTrfDocDa
     merchandiserEmail: val("E-Mail I'd", trf.merchandiserEmail),
     sampleDescription: val('Sample Description', trf.sampleDescription),
     boNumber: val('BO No', trf.boNumber),
-    styleNo: val('Style No.', trf.styleNo ?? trf.style?.styleCode),
+    styleNo: val('Style No.', styleNo),
     colour: val('Color', trf.colour),
     fibreContent: val('Fiber Content', trf.fibreContent),
     ageRangeCategory: val('Age Range/Category', trf.ageRangeCategory),

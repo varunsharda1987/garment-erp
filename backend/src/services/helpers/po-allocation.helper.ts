@@ -543,7 +543,7 @@ const REQ_RELATIONS = {
   orders: {
     select: { orderNumber: true, status: true, expectedDeliveryDate: true, customers: { select: { name: true } } },
   },
-  order_items: { select: { styles: { select: { styleCode: true } } } },
+  order_items: { select: { styles: { select: { styleCode: true, buyerStyleRef: true } } } },
   requirement_po_links: { select: { id: true, purchase_orders: { select: { poNumber: true } } } },
   requirement_jwo_links: { select: { job_work_orders: { select: { jobWorkNumber: true, jwoStatus: true } } } },
 } as const satisfies Prisma.material_requirementsInclude;
@@ -682,6 +682,8 @@ export interface PoAllocationLinkView {
   orderStatus: string | null;
   customerName: string | null;
   styleCode: string | null;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name the style by it first */
+  buyerStyleRef: string | null;
   /** orders.expectedDeliveryDate */
   deliveryDate: Date | null;
   requiredDate: Date | null;
@@ -716,6 +718,8 @@ export interface PoAllocationCandidateView {
   orderStatus: string | null;
   customerName: string | null;
   styleCode: string | null;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name the style by it first */
+  buyerStyleRef: string | null;
   deliveryDate: Date | null;
   requiredDate: Date | null;
   unit: string;
@@ -925,6 +929,7 @@ export async function getPoAllocation(
         orderStatus: l.orderStatus,
         customerName: r?.orders?.customers?.name ?? null,
         styleCode: r?.order_items?.styles?.styleCode ?? null,
+        buyerStyleRef: r?.order_items?.styles?.buyerStyleRef ?? null,
         deliveryDate: r?.orders?.expectedDeliveryDate ?? null,
         requiredDate: r?.requiredDate ?? null,
         unit: r?.unit ?? item.materials?.unit ?? '',
@@ -1013,6 +1018,7 @@ export async function getPoAllocation(
           orderStatus: r.orders?.status ?? null,
           customerName: r.orders?.customers?.name ?? null,
           styleCode: r.order_items?.styles?.styleCode ?? null,
+          buyerStyleRef: r.order_items?.styles?.buyerStyleRef ?? null,
           deliveryDate: r.orders?.expectedDeliveryDate ?? null,
           requiredDate: r.requiredDate ?? null,
           unit: r.unit,
@@ -1879,6 +1885,8 @@ export interface HeldForOther {
   orderId: string | null;
   orderNumber: string | null;
   styleCode: string | null;
+  /** The buyer's own style code (styles.buyerStyleRef) — screens name the style by it first */
+  buyerStyleRef?: string | null;
   /** 'receipt' = arrived on a linked PO line; 'stock' = Use Stock */
   kind: 'receipt' | 'stock';
   poLinkId: string | null;
@@ -1966,6 +1974,7 @@ export async function heldForOtherOrders(
     orderId: req.orderId,
     orderNumber: req.orders?.orderNumber ?? null,
     styleCode: req.order_items?.styles?.styleCode ?? null,
+    buyerStyleRef: req.order_items?.styles?.buyerStyleRef ?? null,
     kind: row.poLinkId ? 'receipt' : 'stock',
     poLinkId: row.poLinkId,
     lotId: row.greigeStockId ?? row.laceStockId ?? row.fabricStockId,
@@ -1982,6 +1991,8 @@ export interface HeldForEntry {
   requirementNumber: string;
   orderNumber: string | null;
   styleCode: string | null;
+  /** The buyer's own style code — the take-held dialog names the style by it first */
+  buyerStyleRef?: string | null;
   qty: number;
   unit: string;
 }
@@ -1997,6 +2008,7 @@ export function heldForEntries(held: readonly HeldForOther[]): HeldForEntry[] {
         requirementNumber: h.requirementNumber,
         orderNumber: h.orderNumber,
         styleCode: h.styleCode,
+        buyerStyleRef: h.buyerStyleRef,
         qty: round3(h.qty),
         unit: h.unit,
       });

@@ -25,6 +25,7 @@ import { washCareService } from './washCare.service';
 import { companyProfileService } from './company-profile.service';
 import { LAB_ROUND_TEST_SELECT, latestRoundForSample, roundResult } from './helpers/lab-round.helper';
 import { weaverLabel, type WeaverShare } from './helpers/weaver-lineage.helper';
+import { buyerStyleCode } from '../utils/style-code';
 
 /** Fields the list screen searches. Registered in listSearchCoverage.test.ts. */
 const TRF_SEARCH_FIELDS = [
@@ -44,7 +45,7 @@ const TRF_SEARCH_FIELDS = [
 ] as const;
 
 const LIST_INCLUDE = {
-  style: { select: { id: true, styleCode: true, styleName: true } },
+  style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
   customer: { select: { id: true, name: true, code: true } },
   testingLab: { select: { id: true, labName: true, labCode: true } },
   workOrder: { select: { id: true, workOrderNumber: true } },
@@ -140,7 +141,15 @@ class BuyerTrfService {
     });
     if (!style) throw new NotFoundError('Style not found');
 
-    note('styleNo', style.styleCode, 'styles.styleCode', 'Style No.');
+    // The buyer's form asks for THEIR style number: the Buyer Style Code (the sale-order line's
+    // snapshot overrides it below), else ours. Only a new form is pre-filled — a saved TRF keeps
+    // the Style No. it was saved with.
+    note(
+      'styleNo',
+      buyerStyleCode(style, null, ''),
+      style.buyerStyleRef?.trim() ? 'styles.buyerStyleRef' : 'styles.styleCode',
+      'Style No.'
+    );
     values.buyerStyleRef = style.buyerStyleRef ?? style.styleCode;
     note('brandName', style.brandName, 'styles.brandName', 'Brand Name');
 
@@ -195,6 +204,10 @@ class BuyerTrfService {
       note('orderNumber', so.buyerPoNumber?.trim(), `sale order ${so.saleOrderNumber}`, 'Order Number');
       const item = so.items[0];
       if (item?.buyerStyleRef) values.buyerStyleRef = item.buyerStyleRef;
+      if (item?.buyerStyleRef?.trim()) {
+        values.styleNo = item.buyerStyleRef.trim();
+        sources.styleNo = `sale order ${so.saleOrderNumber} line`;
+      }
       if (item?.color?.colorName) {
         values.colour = item.color.colorName;
         sources.colour = `sale order ${so.saleOrderNumber} line`;

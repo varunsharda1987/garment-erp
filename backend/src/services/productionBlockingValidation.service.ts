@@ -5,6 +5,7 @@ import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import { latestSampleRoundForStyle } from './helpers/lab-round.helper';
 import { notInProcessorUnitWhere } from './helpers/lot-location.helper';
+import { styleCodeLabel } from '../utils/style-code';
 
 // Shortfall tolerance: ignore shortfalls below 0.5% of required quantity
 // (handles BOM wastage rounding — e.g. need 1670.29m, have 1670.00m → 0.017% short → pass)
@@ -496,9 +497,14 @@ class ProductionBlockingValidationService {
         ...(customerId ? { customerId } : {}),
       },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, sampleNumber: true, status: true, styles: { select: { styleCode: true } } },
+      select: {
+        id: true,
+        sampleNumber: true,
+        status: true,
+        styles: { select: { styleCode: true, buyerStyleRef: true } },
+      },
     });
-    const styleLabel = shipmentSample?.styles?.styleCode ?? 'this style';
+    const styleLabel = styleCodeLabel(shipmentSample?.styles, null, 'this style');
 
     if (!shipmentSample) {
       return {
@@ -763,9 +769,9 @@ class ProductionBlockingValidationService {
 
     const style = await prisma.styles.findUnique({
       where: { id: styleId },
-      select: { styleCode: true, styleName: true },
+      select: { styleCode: true, buyerStyleRef: true, styleName: true },
     });
-    const styleLabel = style ? `${style.styleCode} (${style.styleName})` : styleId;
+    const styleLabel = style ? `${styleCodeLabel(style)} - ${style.styleName}` : styleId;
     const pending = productionCads.filter((c) => c.approvalStatus !== 'APPROVED' && c.approvalStatus !== 'REJECTED'); // allow-cad-approval
 
     let message: string;

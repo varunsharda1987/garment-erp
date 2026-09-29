@@ -16,7 +16,7 @@ import prisma from '../../config/database';
 import { Prisma } from '@prisma/client';
 import { NotFoundError } from '../../errors';
 import { addCurrency, roundToCent, toCurrency } from '../../utils/currency';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { styleCodeLabel } from '../../utils/style-code';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty } from './format';
 
@@ -61,7 +61,7 @@ type OrderItem = OrderWithDetails['order_items'][number];
 
 export interface OrderFormDocItem {
   sn: number;
-  style: string; // "EBEW-001 (ESSKA241CK)"
+  style: string; // "ESSKA241CK (EBEW-001)" — Buyer Style Code first
   styleName: string;
   hsn: string;
   delivery: string;
@@ -79,7 +79,7 @@ export interface OrderFormGridRow {
 }
 
 export interface OrderFormSizeGrid {
-  style: string; // "EBEW-001 (ESSKA241CK)"
+  style: string; // "ESSKA241CK (EBEW-001)" — Buyer Style Code first
   styleName: string;
   sizes: string[];
   rows: OrderFormGridRow[];
@@ -137,7 +137,7 @@ function nonBlank(value: string | null | undefined): string | null {
  */
 function buildGrid(item: OrderItem): OrderFormSizeGrid | null {
   const style = item.styles;
-  const label = style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : EM_DASH;
+  const label = style ? styleCodeLabel(style) : EM_DASH;
   const styleName = nonBlank(style?.styleName) ?? nonBlank(item.itemDescription) ?? EM_DASH;
   const breakup = item.order_item_breakup;
 
@@ -231,7 +231,7 @@ export async function buildOrderFormDocData(orderId: string): Promise<OrderFormD
     qtySum += item.totalQuantity;
     return {
       sn: idx + 1,
-      style: style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : EM_DASH,
+      style: style ? styleCodeLabel(style) : EM_DASH,
       styleName: nonBlank(style?.styleName) ?? nonBlank(item.itemDescription) ?? EM_DASH,
       hsn: style?.hsnCode ?? EM_DASH,
       delivery: item.deliveryDate ? fmtDate(item.deliveryDate) : fmtDate(order.expectedDeliveryDate),

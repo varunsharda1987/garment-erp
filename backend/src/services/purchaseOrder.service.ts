@@ -61,6 +61,7 @@ import { freezeClosedPoLinks, mintBalanceChild, returnDemandAfterUnlink } from '
 import { PO_LINK_REQUIREMENT_STATUSES } from './helpers/receipt-allocation.helper';
 import { releaseLinkHolds } from './helpers/stock-reservation.helper';
 import { isQtyZero } from '../utils/quantity';
+import { styleCodeLabel } from '../utils/style-code';
 
 type Tx = Prisma.TransactionClient;
 
@@ -2167,6 +2168,8 @@ class PurchaseOrderService {
     return purchaseOrders.map((po) => {
       const styleCodes = new Set<string>();
       const buyerStyleRefs = new Set<string>();
+      // One screen label per style, keyed by our code: 'SP27DR27 (EBWW-021)' (utils/style-code)
+      const styleLabels = new Map<string, string>();
       const customerNames = new Set<string>();
 
       for (const item of po.purchase_order_items) {
@@ -2174,6 +2177,7 @@ class PurchaseOrderService {
           const orderItem = link.material_requirements?.order_items;
           if (orderItem?.styles?.styleCode) {
             styleCodes.add(orderItem.styles.styleCode);
+            styleLabels.set(orderItem.styles.styleCode, styleCodeLabel(orderItem.styles));
           }
           if (orderItem?.styles?.buyerStyleRef) {
             buyerStyleRefs.add(orderItem.styles.buyerStyleRef);
@@ -2188,6 +2192,7 @@ class PurchaseOrderService {
         ...po,
         styleCodes: Array.from(styleCodes),
         buyerStyleRefs: Array.from(buyerStyleRefs),
+        styleLabels: Array.from(styleLabels.values()),
         customerNames: Array.from(customerNames),
       };
     });

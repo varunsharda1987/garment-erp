@@ -22,7 +22,7 @@ import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { systemSettingsService } from '../services/system-settings.service';
-import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { styleCodeLabel } from '../utils/style-code';
 import { isQtyZero, qtyAtLeast, qtyExceeds, snapToLimit } from '../utils/quantity';
 import { multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { fmtQty } from '../services/document-data/format';
@@ -338,9 +338,7 @@ export const listStock = async (req: Request, res: Response) => {
       // Get style reference and component type from style_fabrics relation
       const styleFabric = s.fabricMaster.styleFabrics?.[0];
       const linkedStyle = styleFabric?.style_components?.styles;
-      const styleRefFromLink = linkedStyle?.styleCode
-        ? formatStyleCodeWithRef(linkedStyle.styleCode, linkedStyle.buyerStyleRef)
-        : undefined;
+      const styleRefFromLink = linkedStyle?.styleCode ? styleCodeLabel(linkedStyle) : undefined;
       const componentType = styleFabric?.style_components?.componentType;
       const componentName = styleFabric?.style_components?.componentName;
 
@@ -612,6 +610,7 @@ export const getStockById = async (req: Request, res: Response) => {
           style: {
             select: {
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },

@@ -2,7 +2,16 @@
  * The lace name rule carries the design (2026-09-27) — before, a regenerated name dropped it and
  * "White Scallop …" read "LACE-0004 | Poly Lace | …".
  */
+jest.mock('../../config/database', () => ({
+  __esModule: true,
+  default: { styles: { findFirst: jest.fn() } },
+}));
+
+import prisma from '../../config/database';
 import { generateLaceName, isGeneratedLaceName, laceDesignSegment } from '../../services/helpers/lace-name.helper';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = prisma as any;
 
 describe('lace name rule', () => {
   it('puts the design after the type', async () => {
@@ -48,6 +57,39 @@ describe('lace name rule', () => {
     ).resolves.toBe('LACE-0010 | Schiffli | 100% Cotton | 1" | Red | from LACE-0009');
   });
 
+  describe('a dyed variant for a style names the style Buyer Style Code first (2026-09-29)', () => {
+    const dyed = {
+      laceCode: 'LACE-0012',
+      laceType: 'Schiffli',
+      composition: '100% Cotton',
+      width: 1,
+      color: 'Red',
+      isGreige: false,
+      sourceGreigeLaceCode: 'LACE-0009',
+      processedForStyleCode: 'EBWW-021',
+    };
+
+    beforeEach(() => db.styles.findFirst.mockReset());
+
+    it('puts our code in brackets after the buyer code', async () => {
+      db.styles.findFirst.mockResolvedValue({ buyerStyleRef: 'SP27DR27' });
+      await expect(generateLaceName(dyed)).resolves.toBe(
+        'LACE-0012 | Schiffli | 100% Cotton | 1" | Red | LACE-0009 → SP27DR27 (EBWW-021)'
+      );
+      expect(db.styles.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { styleCode: 'EBWW-021' } }));
+    });
+
+    it('prints the one code when the style has no separate buyer code, or is not found', async () => {
+      db.styles.findFirst.mockResolvedValueOnce({ buyerStyleRef: null }).mockResolvedValueOnce(null);
+      await expect(generateLaceName(dyed)).resolves.toBe(
+        'LACE-0012 | Schiffli | 100% Cotton | 1" | Red | LACE-0009 → EBWW-021'
+      );
+      await expect(generateLaceName(dyed)).resolves.toBe(
+        'LACE-0012 | Schiffli | 100% Cotton | 1" | Red | LACE-0009 → EBWW-021'
+      );
+    });
+  });
+
   it('no design, no segment; blank parts fall back as before', async () => {
     await expect(generateLaceName({ laceCode: 'LACE-0016', isGreige: false })).resolves.toBe(
       'LACE-0016 | Lace | Unspecified'
@@ -77,6 +119,9 @@ describe('lace name rule', () => {
 
   it('tells a generated name from a typed one', () => {
     expect(isGeneratedLaceName('LACE-0004', 'LACE-0004 | Poly Lace | White')).toBe(true);
+    // Names saved before 2026-09-29 led with our code — still generated names
+    expect(isGeneratedLaceName('LACE-0012', 'LACE-0012 | Schiffli | Red | LACE-0009 → EBWW-021 (SP27DR27)')).toBe(true);
+    expect(isGeneratedLaceName('LACE-0012', 'LACE-0012 | Schiffli | Red | LACE-0009 → SP27DR27 (EBWW-021)')).toBe(true);
     expect(isGeneratedLaceName('LACE-0034', 'LACE-0034 Golden Zari Loop Lace')).toBe(false);
     expect(isGeneratedLaceName('LACE-0040', 'Golden Samosa Gota Patti Lace')).toBe(false);
   });

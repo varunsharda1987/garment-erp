@@ -28,7 +28,7 @@ import { NotFoundError } from '../../errors';
 import { addCurrency, roundToCent, toCurrency } from '../../utils/currency';
 import { DEFAULT_HSN_CODES } from '../../config/company.config';
 import { companyProfileService } from '../company-profile.service';
-import { formatStyleCodeWithRef } from '../../utils/style-ref-format';
+import { styleCodeLabel } from '../../utils/style-code';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, inrWords } from './format';
 
@@ -56,7 +56,7 @@ export type ProformaQuotationWithDetails = Prisma.quotationsGetPayload<{ include
 export interface ProformaInvoiceDocLine {
   sn: number;
   description: string;
-  subline: string | null; // "EBEW-001 (ESSKA241CK)"
+  subline: string | null; // "ESSKA241CK (EBEW-001)" — Buyer Style Code first
   hsn: string;
   qty: string;
   rate: string;
@@ -179,7 +179,7 @@ export async function buildProformaInvoiceDocData(quotationId: string): Promise<
     return {
       sn: idx + 1,
       description: nonBlank(item.description) ?? nonBlank(style?.styleName) ?? EM_DASH,
-      subline: style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : null,
+      subline: style ? styleCodeLabel(style) : null,
       hsn: item.hsnCode ?? style?.hsnCode ?? DEFAULT_HSN_CODES.GARMENTS,
       qty: fmtQty(item.totalQuantity, 'PCS'),
       rate: fmtMoney(Number(item.unitPrice)),

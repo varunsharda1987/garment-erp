@@ -429,7 +429,8 @@ class TemplateService {
         { fieldName: 'orderNumber', displayName: 'Order Number', type: 'text' },
         { fieldName: 'orderDate', displayName: 'Order Date', type: 'date' },
         { fieldName: 'customerName', displayName: 'Customer Name', type: 'text' },
-        { fieldName: 'styleCodes', displayName: 'Style', type: 'text' },
+        { fieldName: 'buyerStyleCodes', displayName: 'Buyer Style Codes', type: 'text' },
+        { fieldName: 'styleCodes', displayName: 'Style Codes', type: 'text' },
         { fieldName: 'totalQuantity', displayName: 'Quantity (pcs)', type: 'number' },
         { fieldName: 'status', displayName: 'Status', type: 'text' },
         { fieldName: 'totalAmount', displayName: 'Total Amount', type: 'number' },
@@ -444,8 +445,8 @@ class TemplateService {
       ],
       // Cost sheets export (style_costing table). Nested style fields resolve via getNestedValue.
       style_costing: [
+        { fieldName: 'buyerStyleCode', displayName: 'Buyer Style Code', type: 'text' },
         { fieldName: 'styles.styleCode', displayName: 'Style Code', type: 'text' },
-        { fieldName: 'styles.buyerStyleRef', displayName: 'Buyer Style Code', type: 'text' },
         { fieldName: 'styles.styleName', displayName: 'Style Name', type: 'text' },
         { fieldName: 'version', displayName: 'Version', type: 'number' },
         { fieldName: 'approvalStatus', displayName: 'Approval Status', type: 'text' },

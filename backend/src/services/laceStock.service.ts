@@ -18,6 +18,37 @@ import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '..
 import { LOT_WAREHOUSE_SELECT, lotInProcessorUnit, notInProcessorUnitWhere } from './helpers/lot-location.helper';
 import { BusinessError } from '../errors';
 import { unitShort } from '../utils/units';
+import { styleCodeLabel } from '../utils/style-code';
+
+/**
+ * The buyer's style code of styles a lace row names only by its saved code (an allocation's original
+ * style, a transaction's from / to style). Those codes are the raw Style Code as saved and are never
+ * rewritten; the buyer's code is looked up when read — by the style's id where the row kept one,
+ * else by that saved code (an active style wins over an inactive one of the same code).
+ */
+async function buyerRefsForSavedStyles(
+  refs: Array<{ styleId?: string | null; styleCode?: string | null }>
+): Promise<(ref: { styleId?: string | null; styleCode?: string | null }) => string | null> {
+  const ids = [...new Set(refs.flatMap((r) => (r.styleId ? [r.styleId] : [])))];
+  const codes = [...new Set(refs.flatMap((r) => (!r.styleId && r.styleCode ? [r.styleCode] : [])))];
+  const [byIdRows, byCodeRows] = await Promise.all([
+    ids.length > 0
+      ? prisma.styles.findMany({ where: { id: { in: ids } }, select: { id: true, buyerStyleRef: true } })
+      : Promise.resolve([] as Array<{ id: string; buyerStyleRef: string | null }>),
+    codes.length > 0
+      ? prisma.styles.findMany({
+          where: { styleCode: { in: codes } },
+          select: { styleCode: true, buyerStyleRef: true, isActive: true },
+        })
+      : Promise.resolve([] as Array<{ styleCode: string; buyerStyleRef: string | null; isActive: boolean }>),
+  ]);
+  const byId = new Map(byIdRows.map((s) => [s.id, s.buyerStyleRef]));
+  const byCode = new Map<string, string | null>();
+  for (const s of [...byCodeRows].sort((a, b) => Number(a.isActive) - Number(b.isActive))) {
+    byCode.set(s.styleCode, s.buyerStyleRef); // active rows last, so they win
+  }
+  return (ref) => (ref.styleId ? byId.get(ref.styleId) : ref.styleCode ? byCode.get(ref.styleCode) : null) ?? null;
+}
 
 // ============================================================================
 // INTERFACES
@@ -248,7 +279,15 @@ export async function getLaceStockById(id: string) {
   // Derive FIFO aging days from receivedDate so the detail page badge/bucket render
   // real values (previously undefined -> "undefined days old" / wrong bucket color).
   const agingDays = Math.floor((Date.now() - stock.receivedDate.getTime()) / (1000 * 60 * 60 * 24));
-  return { ...stock, originBuyerStyleRef: stock.originStyle?.buyerStyleRef ?? null, agingDays };
+  // Each allocation's original style is saved as a raw code: its buyer code is looked up here
+  const buyerRefOf = await buyerRefsForSavedStyles(
+    stock.allocations.map((a) => ({ styleId: a.originalStyleId, styleCode: a.originalStyleCode }))
+  );
+  const allocations = stock.allocations.map((a) => ({
+    ...a,
+    originalBuyerStyleRef: buyerRefOf({ styleId: a.originalStyleId, styleCode: a.originalStyleCode }),
+  }));
+  return { ...stock, allocations, originBuyerStyleRef: stock.originStyle?.buyerStyleRef ?? null, agingDays };
 }
 
 /**
@@ -701,7 +740,9 @@ export async function allocateStock(input: AllocateStockInput) {
         toStyleCode: input.styleCode,
         referenceType: 'ORDER',
         referenceId: input.orderId,
-        notes: input.notes || `Allocated to ${input.styleCode || input.styleId}`,
+        notes:
+          input.notes ||
+          `Allocated to ${allocation.style ? styleCodeLabel(allocation.style, null, input.styleId) : input.styleCode || input.styleId}`,
         performedById: input.createdById,
       },
     });
@@ -1077,7 +1118,20 @@ export async function getStockTransactionHistory(stockId: string) {
     },
   });
 
-  return transactions;
+  // from / to styles are saved as raw codes: their buyer codes are looked up here
+  const buyerRefOf = await buyerRefsForSavedStyles(
+    transactions.flatMap((t) => [
+      { styleId: t.fromStyleId, styleCode: t.fromStyleCode },
+      { styleId: t.toStyleId, styleCode: t.toStyleCode },
+    ])
+  );
+  return transactions.map((t) => ({
+    ...t,
+    fromBuyerStyleRef:
+      t.fromStyleId || t.fromStyleCode ? buyerRefOf({ styleId: t.fromStyleId, styleCode: t.fromStyleCode }) : null,
+    toBuyerStyleRef:
+      t.toStyleId || t.toStyleCode ? buyerRefOf({ styleId: t.toStyleId, styleCode: t.toStyleCode }) : null,
+  }));
 }
 
 // ============================================================================

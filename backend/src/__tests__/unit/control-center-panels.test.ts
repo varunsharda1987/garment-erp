@@ -72,7 +72,7 @@ describe('Control Center role→panel map', () => {
     it('ADMIN sees everything', () => {
       const scope = scopeForRole(UserRole.ADMIN);
       expect(scope.sections).toEqual(SECTION_RENDER_ORDER);
-      expect(scope.alerts).toHaveLength(8);
+      expect(scope.alerts).toHaveLength(9); // + goodsInTransitLate (2026-09-29)
     });
 
     it('MERCHANDISER leads with ship-date risk, then the approvals they chase daily', () => {

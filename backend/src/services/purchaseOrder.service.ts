@@ -62,6 +62,7 @@ import { PO_LINK_REQUIREMENT_STATUSES } from './helpers/receipt-allocation.helpe
 import { releaseLinkHolds } from './helpers/stock-reservation.helper';
 import { isQtyZero } from '../utils/quantity';
 import { styleCodeLabel } from '../utils/style-code';
+import { assertNoPendingTransit } from './helpers/transit-challan-state';
 
 type Tx = Prisma.TransactionClient;
 
@@ -170,6 +171,8 @@ async function assertNoGrnAwaitingQc(poId: string, poNumber: string, verb: 'shor
       { code: 'PO_GRN_PENDING_QC', grnNumber: pendingGrn.grnNumber }
     );
   }
+  // Goods on the road under our transit challan (2026-09-29): they will arrive and be received against this PO
+  await assertNoPendingTransit(prisma, poId, `${verb} ${poNumber}`);
 }
 
 /** One requirement's share of a PO: all of its links to that PO, summed. */

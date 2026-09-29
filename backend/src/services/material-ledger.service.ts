@@ -36,6 +36,7 @@ import prisma from '../config/database';
 import { addCurrency, subtractCurrency, toCurrency, toNumber } from '../utils/currency';
 import type { ThreadPackagingType, ThreadPly } from '../schemas/generated/prisma-enums';
 import { styleCodeLabel } from '../utils/style-code';
+import { isCoveringChallan } from './helpers/lot-location.helper';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -837,6 +838,9 @@ async function loadFabric(fabricId: string): Promise<{ lots: RawLot[]; txns: Raw
             receivedDate: true,
             jobWorkOrderId: true,
             grnId: true,
+            directSupplyGrnId: true,
+            fromType: true,
+            toType: true,
           },
         },
       },
@@ -845,6 +849,9 @@ async function loadFabric(fabricId: string): Promise<{ lots: RawLot[]; txns: Raw
     for (const line of lines) {
       const belongsToJob = line.jobWorkOrderId != null || line.challan.jobWorkOrderId != null;
       if (belongsToJob) continue;
+      // A covering challan (goods a supplier delivered straight to a processor, or moved between processors)
+      // documents where the lot LIES — nothing left it; its receipt / move is already on the ledger
+      if (isCoveringChallan(line.challan)) continue;
       const lot = line.fabricStockId ? lotById.get(line.fabricStockId) : undefined;
       const common = {
         unit: line.unit,

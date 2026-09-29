@@ -91,6 +91,10 @@ export const createGRNSchema = z
     remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),
     items: z.array(grnItemSchema).min(1, 'At least one item is required'),
     processingData: processingDataSchema.optional(),
+    // Goods-in-transit challan (2026-09-29): the challan our goods travelled to the processor under — this receipt
+    // adopts it. Or, when one is open to this place, say the delivery is not against it (never both silently).
+    transitChallanId: z.string().uuid('Invalid challan').optional().nullable(),
+    notAgainstTransitChallan: z.boolean().optional(),
   })
   .passthrough();
 

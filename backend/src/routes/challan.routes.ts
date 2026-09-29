@@ -11,15 +11,21 @@ import {
   resolveRateController,
   splitProductionRunController,
   getTodaySummaryController,
+  issueTransitChallanController,
+  getTransitChallansController,
+  cancelTransitChallanController,
 } from '../controllers/challan.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
+  cancelTransitChallanSchema,
   createChallanSchema,
+  createTransitChallanSchema,
   issueChallanSchema,
   quickIssueChallanSchema,
   receiveChallanSchema,
   splitProductionRunSchema,
+  transitChallanQuerySchema,
 } from '../schemas/challan.schema';
 import { idParamSchema } from '../schemas/common.schema';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
@@ -48,6 +54,17 @@ router.post('/challans/greige-outward', (_req, res) =>
   })
 );
 router.post('/challans/quick-issue', validateBody(quickIssueChallanSchema), asyncHandler(quickIssueChallanController));
+// Goods-in-transit challan (2026-09-29): issued when the supplier despatches straight to a processor. BEFORE /:id.
+router.get(
+  '/challans/goods-in-transit',
+  validateQuery(transitChallanQuerySchema),
+  asyncHandler(getTransitChallansController)
+);
+router.post(
+  '/challans/goods-in-transit',
+  validateBody(createTransitChallanSchema),
+  asyncHandler(issueTransitChallanController)
+);
 router.get('/challans', asyncHandler(getChallansController));
 router.post('/challans', validateBody(createChallanSchema), asyncHandler(createChallanController));
 router.get('/challans/:id', validateParams(idParamSchema), asyncHandler(getChallanByIdController));
@@ -64,6 +81,12 @@ router.put(
   asyncHandler(receiveChallanController)
 );
 router.put('/challans/:id/cancel', validateParams(idParamSchema), asyncHandler(cancelChallanController));
+router.patch(
+  '/challans/:id/cancel-transit',
+  validateParams(idParamSchema),
+  validateBody(cancelTransitChallanSchema),
+  asyncHandler(cancelTransitChallanController)
+);
 
 // PO rate resolution
 router.get('/po-rates/resolve', asyncHandler(resolveRateController));

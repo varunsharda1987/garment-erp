@@ -12,8 +12,10 @@ import {
 } from '../services/challan.service';
 import { resolveRate } from '../services/po-rate-resolver.service';
 import { buildChallanPackingList } from '../services/document-data/challan.doc-data';
+import { transitStateOf } from '../services/helpers/transit-challan-state';
 import { NotFoundError, ValidationError } from '../errors';
-import type { IssueChallanBody, QuickIssueChallanInput } from '../schemas/challan.schema';
+import type { CreateTransitChallanBody, IssueChallanBody, QuickIssueChallanInput } from '../schemas/challan.schema';
+import { cancelTransitChallan, getTransitChallans, issueTransitChallan } from '../services/transit-challan.service';
 
 /**
  * POST /api/challans
@@ -57,7 +59,9 @@ export async function getChallanByIdController(req: Request, res: Response) {
   }
   // The thans / bales / rolls it moved — the printed challan's packing list, from the same code
   const packingList = await buildChallanPackingList(challan.id);
-  return res.json({ success: true, data: { ...challan, packingList } });
+  // Goods-in-transit challan: OPEN (on the way) / CLAIMED (receipt waiting for QC) / ADOPTED / CANCELLED, or null
+  const transitState = transitStateOf(challan);
+  return res.json({ success: true, data: { ...challan, packingList, transitState } });
 }
 
 /**
@@ -139,6 +143,60 @@ export async function receiveChallanController(req: Request, res: Response) {
 export async function cancelChallanController(req: Request, res: Response) {
   const challan = await cancelChallan(req.params.id);
   return res.json({ success: true, data: challan });
+}
+
+/**
+ * POST /api/challans/goods-in-transit — our Rule 45 challan for goods a supplier despatched straight to a
+ * processor, issued before they arrive (2026-09-29)
+ */
+export async function issueTransitChallanController(req: Request, res: Response) {
+  const userId = req.user?.userId;
+  if (!userId) throw new ValidationError('User not authenticated');
+  const body = req.body as CreateTransitChallanBody;
+  const challan = await issueTransitChallan({
+    poId: body.poId,
+    poDeliveryPointId: body.poDeliveryPointId ?? null,
+    challanDate: body.challanDate ?? null,
+    dispatchedOn: body.dispatchedOn,
+    invoiceNumber: body.invoiceNumber ?? null,
+    invoiceDate: body.invoiceDate ?? null,
+    vehicleNumber: body.vehicleNumber ?? null,
+    lrNumber: body.lrNumber ?? null,
+    ewayBillNumber: body.ewayBillNumber ?? null,
+    ewayBillDate: body.ewayBillDate ?? null,
+    remarks: body.remarks ?? null,
+    lines: body.lines.map((l) => ({
+      poItemId: l.poItemId,
+      quantity: l.quantity,
+      foldLengthCm: l.foldLengthCm ?? null,
+      entryMode: l.entryMode ?? null,
+      pieces: (l.pieces ?? []).map((p) => ({
+        detailType: p.detailType,
+        baleNumber: p.baleNumber ?? null,
+        sequenceNo: p.sequenceNo,
+        meters: p.meters,
+        baleNo: p.baleNo ?? null,
+        thanNo: p.thanNo ?? null,
+      })),
+    })),
+    userId,
+  });
+  return res.status(201).json({ success: true, data: challan, message: `Challan ${challan.challanNumber} issued` });
+}
+
+/** GET /api/challans/goods-in-transit?poId= */
+export async function getTransitChallansController(req: Request, res: Response) {
+  const data = await getTransitChallans(String(req.query.poId));
+  return res.json({ success: true, data });
+}
+
+/** PATCH /api/challans/:id/cancel-transit — the truck never came, or the goods went elsewhere */
+export async function cancelTransitChallanController(req: Request, res: Response) {
+  const userId = req.user?.userId;
+  if (!userId) throw new ValidationError('User not authenticated');
+  const { reason } = req.body as { reason: string };
+  const result = await cancelTransitChallan(req.params.id, userId, reason);
+  return res.json({ success: true, data: result, message: `${result.challanNumber} cancelled` });
 }
 
 /**

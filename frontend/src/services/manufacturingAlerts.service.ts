@@ -39,7 +39,9 @@ export type AlertKey =
   | 'qualityFailures'
   | 'pendingApprovals'
   | 'overdueChallans'
-  | 'poDeliveryUndecided';
+  | 'poDeliveryUndecided'
+  // Goods despatched straight to a processor under our transit challan, not received after N days (2026-09-29)
+  | 'goodsInTransitLate';
 
 /**
  * What this role's page should show, decided by the server (`control-center-panels.ts`).

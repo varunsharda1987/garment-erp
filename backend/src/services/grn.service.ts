@@ -74,7 +74,15 @@ import { stockRate, toStockQty } from './helpers/purchase-unit.helper';
 import { routeToSpecializedStock, trimLotOf } from './helpers/stock-routing.helper';
 import trimStockService from './trim-stock.service';
 import { weaverOfJobSource } from './helpers/weaver-lineage.helper';
-import { createDirectSupplyChallanInTx, type DirectSupplyLine } from './helpers/direct-supply-challan.helper';
+import {
+  adoptTransitChallanInTx,
+  claimTransitChallanInTx,
+  claimedTransitOf,
+  createDirectSupplyChallanInTx,
+  releaseTransitChallanInTx,
+  resolveTransitForReceipt,
+  type DirectSupplyLine,
+} from './helpers/direct-supply-challan.helper';
 import { challanDestination } from './helpers/lot-location.helper';
 import { resolveNextProcessorUnit, sendReceiptOnToProcessor } from './helpers/held-stock-doors.helper';
 import { styleCodeLabel } from '../utils/style-code';
@@ -434,6 +442,18 @@ class GRNService {
       })),
     });
 
+    // Goods-in-transit challan (2026-09-29): a delivery at a processor's unit comes in against the challan our goods
+    // travelled under, or says it does not — two challans for the same goods would count twice in ITC-04.
+    const transit = await resolveTransitForReceipt(prisma, {
+      poId: data.poId,
+      supplierId: po.supplierId,
+      warehouseId: delivery.warehouseId,
+      receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
+      transitChallanId: data.transitChallanId,
+      notAgainstTransitChallan: data.notAgainstTransitChallan === true,
+      lines: data.items.map((i) => ({ poItemId: i.poItemId, receivedAsReadyFabric: i.receivedAsReadyFabric })),
+    });
+
     // The supplier's invoice number + date, or "Invoice not received yet" (2026-09-28) — after every
     // other refusal and before anything is written
     const invoice = resolveReceiptInvoice(data, 'supplier');
@@ -582,6 +602,9 @@ class GRNService {
             }
           }
         }
+
+        // The transit challan is this receipt's now (one challan, one receipt); approval adopts it
+        if (transit) await claimTransitChallanInTx(tx, transit.id, newGRN.id);
 
         // Update PO item received quantities (ACTUAL — the PO is in actual metres)
         for (const item of data.items) {
@@ -1197,6 +1220,16 @@ class GRNService {
       opts?.directDeliveryConfirmed === true,
       opts?.selfSupplyConfirmed === true
     );
+    // A receipt against a goods-in-transit challan books the goods where the challan took them — approving it into
+    // our store or another processor's unit would leave the challan unadopted, or covering goods somewhere else.
+    const claimed = await claimedTransitOf(prisma, grn.id);
+    if (claimed && direct?.processorId !== claimed.toId) {
+      throw new BusinessError(
+        `${grn.grnNumber} is against ${claimed.challanNumber}, which took the goods to ${claimed.toName}. ` +
+          `Approve it into ${claimed.toName}'s unit, or reject it to release the challan.`,
+        { code: 'TRANSIT_CHALLAN_WRONG_PLACE', reason: 'TRANSIT_CHALLAN_WRONG_PLACE' }
+      );
+    }
 
     // Collector for non-critical, best-effort work that must run AFTER the transaction commits — its
     // failure must not roll back a valid receipt, and it must never open a nested tx inside ours.
@@ -2054,6 +2087,7 @@ class GRNService {
             await syncStockLevelQuantity(fabric.id, acceptedQty, warehouseId, undefined, tx);
             if (direct) {
               directLines.push({
+                poItemId: item.poItemId ?? undefined,
                 itemType: 'FABRIC',
                 fabricStockId: overrideFabricLot.id,
                 quantity: acceptedQty,
@@ -2161,6 +2195,7 @@ class GRNService {
           );
           if (direct) {
             directLines.push({
+              poItemId: item.poItemId ?? undefined,
               itemType: 'GREIGE',
               greigeStockId: createdGreige.id,
               quantity: Number(createdGreige.quantityAvailable),
@@ -2299,6 +2334,7 @@ class GRNService {
         await syncStockLevelQuantity(fabric.id, acceptedQty, warehouseId, undefined, tx);
         if (direct) {
           directLines.push({
+            poItemId: item.poItemId ?? undefined,
             itemType: 'FABRIC',
             fabricStockId: fabricLot.id,
             quantity: acceptedQty,
@@ -2370,6 +2406,7 @@ class GRNService {
         await syncStockLevelQuantity(material.lace_master.id, acceptedQty, warehouseId, undefined, tx);
         if (direct) {
           directLines.push({
+            poItemId: item.poItemId ?? undefined,
             itemType: 'LACE',
             laceStockId: laceLot.id,
             quantity: acceptedQty,
@@ -2474,6 +2511,7 @@ class GRNService {
         const stock = grnLineStock(item);
         if (!(stock.qty > 0)) continue;
         directLines.push({
+          poItemId: item.poItemId ?? undefined,
           itemType: 'TRIM',
           materialId: item.materialId,
           quantity: stock.qty,
@@ -2484,10 +2522,28 @@ class GRNService {
       }
     }
 
+    const receivedOn = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
+
+    // Goods-in-transit challan (2026-09-29): the challan our goods travelled under is adopted for the lines it
+    // carries — lots linked, what arrived, the clock from arrival. Only the lines it does not carry get a challan
+    // made at receipt below.
+    const adopted = await adoptTransitChallanInTx(tx, {
+      grnId: grn.id,
+      processorId: direct.processorId,
+      lines: directLines,
+      receivedOn,
+    });
+    if (adopted) {
+      logInfo(
+        `GRN ${grn.grnNumber}: ${adopted.released ? 'nothing accepted — released' : 'adopted'} transit challan ${adopted.challanNumber}`,
+        { grnId: grn.id, challanId: adopted.challanId, uncovered: adopted.uncovered.length }
+      );
+    }
+    const receiptMadeLines = adopted ? adopted.uncovered : directLines;
+
     // Rule 45: ONE challan for everything the supplier delivered straight to the processor — same tx,
     // dated the day the processor got it (the receipt date).
-    if (directLines.length > 0) {
-      const receivedOn = grn.receivingDate ? new Date(grn.receivingDate) : new Date();
+    if (receiptMadeLines.length > 0) {
       const challan = await createDirectSupplyChallanInTx(tx, {
         grnId: grn.id,
         grnNumber: grn.grnNumber,
@@ -2499,7 +2555,7 @@ class GRNService {
         invoiceDate: grn.invoiceDate ? new Date(grn.invoiceDate) : null,
         receivedOn,
         challanDate: receivedOn,
-        lines: directLines,
+        lines: receiptMadeLines,
         userId,
         retainedBySupplier: direct.retainedBySupplier,
       });
@@ -2508,7 +2564,7 @@ class GRNService {
         {
           grnId: grn.id,
           challanId: challan.id,
-          lines: directLines.length,
+          lines: receiptMadeLines.length,
         }
       );
     }
@@ -2553,6 +2609,9 @@ class GRNService {
         where: { id },
         include: this.getFullInclude(),
       });
+
+      // A receipt against a goods-in-transit challan hands it back: the goods are still on the way
+      await releaseTransitChallanInTx(tx, id);
 
       // Revert PO item received quantities (Phase 4b: PO-less GRN items have no poItemId). Same ACTUAL
       // figure createGRN added.
@@ -3995,6 +4054,10 @@ class GRNService {
     reason: string
   ): Promise<void> {
     if (!po) return;
+
+    // A goods-in-transit challan (issued at despatch, adopted by this receipt) is RELEASED, not cancelled: the goods
+    // really travelled under it, so it goes back to "on the way" for the right receipt (2026-09-29).
+    await releaseTransitChallanInTx(tx, grn.id);
 
     // Goods delivered straight to a processor carry a Rule 45 challan filed with this receipt: reversing
     // the receipt cancels it (same transaction — a refusal below rolls this back too). Phase 2.

@@ -631,6 +631,14 @@ class GreigeStockService {
   }
 
   /**
+   * The reverse of linkCoveringChallan: a goods-in-transit challan released by its receipt's reversal (the lots
+   * that receipt booked no longer sit under it). A link only — no quantity moves, so no ledger sync.
+   */
+  async unlinkCoveringChallan(challanId: string, tx: TransactionClient): Promise<void> {
+    await tx.greige_stock.updateMany({ where: { sourceChallanId: challanId }, data: { sourceChallanId: null } });
+  }
+
+  /**
    * Book lots that already sit in a processor's unit as HELD by that processor (sourceType DIRECT) —
    * the one-time conversion of greige received into a unit before such deliveries were booked this
    * way (scripts/backfill-direct-delivery.ts). The lot does not move: it was on the ledger at the unit

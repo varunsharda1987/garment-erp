@@ -8,6 +8,7 @@ import { toDateInputValue } from '../utils/date';
 import { unitShort } from '../utils/units';
 import { foldActual } from '../utils/fold-length';
 import { styleCodeLabel } from '../utils/style-code';
+import { PENDING_TRANSIT_WHERE } from './helpers/transit-challan-state';
 
 /**
  * A job that can no longer bring material back. Deliberately "definitively done" rather than the
@@ -139,10 +140,13 @@ class ManufacturingAlertsService {
     // Both thresholds are Settings values, not literals (defaults.registry.ts rule 1). Note the
     // settings cache is 5 minutes and per-PM2-fork, so a change can take that long to show and two
     // forks may briefly disagree — acceptable for a dashboard count, documented in the setting.
-    const [stuckThresholdDays, graceDays] = await Promise.all([
+    const [stuckThresholdDays, graceDays, transitAlertDays] = await Promise.all([
       systemSettingsService.getNumberDefault('STUCK_PROCESS_THRESHOLD_DAYS'),
       systemSettingsService.getNumberDefault('OVERDUE_NO_DUE_DATE_GRACE_DAYS'),
+      systemSettingsService.getNumberDefault('GOODS_IN_TRANSIT_ALERT_DAYS'),
     ]);
+    const transitCutoff = new Date();
+    transitCutoff.setDate(transitCutoff.getDate() - transitAlertDays);
 
     const stuckThresholdDate = new Date();
     stuckThresholdDate.setDate(stuckThresholdDate.getDate() - stuckThresholdDays);
@@ -162,6 +166,7 @@ class ManufacturingAlertsService {
       pendingApprovals,
       overdueChallans,
       poDeliveryUndecided,
+      goodsInTransitLate,
       vendorData,
       dueThisWeekCounts,
     ] = await Promise.all([
@@ -264,6 +269,9 @@ class ManufacturingAlertsService {
             challanType: 'OUTWARD',
             status: { in: ['ISSUED', 'IN_TRANSIT', 'PARTIALLY_RECEIVED'] },
             receivedDate: null,
+            // Goods still on the way to a processor (transit challan, no return date yet) are not overdue —
+            // they have their own alert below
+            NOT: PENDING_TRANSIT_WHERE,
             AND: [
               overdueOr('expectedDate', ['issuedDate', 'challanDate'], today, graceCutoff),
               {
@@ -295,6 +303,15 @@ class ManufacturingAlertsService {
             expectedDeliveryDate: { lte: new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000) },
           },
           select: { poDate: true },
+        })
+      ),
+
+      // 7c. Goods a supplier despatched straight to a processor under our transit challan, still not received
+      //     after GOODS_IN_TRANSIT_ALERT_DAYS — a lost or diverted truck (2026-09-29).
+      ifWanted('goodsInTransitLate', () =>
+        prisma.challans.findMany({
+          where: { ...PENDING_TRANSIT_WHERE, supplierDispatchedAt: { lt: transitCutoff } },
+          select: { supplierDispatchedAt: true },
         })
       ),
 
@@ -489,6 +506,10 @@ class ManufacturingAlertsService {
       poDeliveryUndecided: poDeliveryUndecided && {
         count: poDeliveryUndecided.length,
         oldestDays: this.oldestDaysAmong(poDeliveryUndecided, ['poDate']),
+      },
+      goodsInTransitLate: goodsInTransitLate && {
+        count: goodsInTransitLate.length,
+        oldestDays: this.oldestDaysAmong(goodsInTransitLate, ['supplierDispatchedAt']),
       },
     };
 

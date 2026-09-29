@@ -59,7 +59,9 @@ export type AlertKey =
   | 'pendingApprovals'
   | 'overdueChallans'
   // A sent PO due within 3 days whose delivery place is still "to be advised" (2026-09-26)
-  | 'poDeliveryUndecided';
+  | 'poDeliveryUndecided'
+  // Goods despatched straight to a processor under our transit challan, not received after N days (2026-09-29)
+  | 'goodsInTransitLate';
 
 export interface ControlCenterScope {
   /** Blocks to render, in the order this role should meet them. */
@@ -77,6 +79,7 @@ const ALL_ALERTS: AlertKey[] = [
   'pendingApprovals',
   'overdueChallans',
   'poDeliveryUndecided',
+  'goodsInTransitLate',
 ];
 
 /**
@@ -102,6 +105,7 @@ const SCOPE_BY_ROLE: Record<UserRole, ControlCenterScope> = {
       'stuckCutting',
       'overdueChallans',
       'poDeliveryUndecided',
+      'goodsInTransitLate',
     ],
   },
 
@@ -132,13 +136,13 @@ const SCOPE_BY_ROLE: Record<UserRole, ControlCenterScope> = {
   // No user yet. What is out of the building and what is owed back.
   INVENTORY: {
     sections: ['alerts', 'vendors'],
-    alerts: ['overdueChallans', 'poDeliveryUndecided'],
+    alerts: ['overdueChallans', 'poDeliveryUndecided', 'goodsInTransitLate'],
   },
 
   // No user yet. Vendor performance and receipt variance.
   PURCHASE: {
     sections: ['alerts', 'vendors', 'variance'],
-    alerts: ['poDeliveryUndecided', 'overdueChallans', 'overdueProcessPOs'],
+    alerts: ['poDeliveryUndecided', 'goodsInTransitLate', 'overdueChallans', 'overdueProcessPOs'],
   },
 
   // No user yet. Delivery risk only — they answer to the customer, not the floor.

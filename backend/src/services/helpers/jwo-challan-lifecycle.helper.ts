@@ -186,7 +186,7 @@ export async function recomputeCoveringChallan(
     }),
     tx.challan_items.findMany({
       where: { challanId },
-      select: { greigeStockId: true, laceStockId: true, fabricStockId: true },
+      select: { greigeStockId: true, laceStockId: true, fabricStockId: true, arrivedQty: true },
     }),
   ]);
   // Only a direct-supply challan COVERS the lace / fabric its lines name — an ordinary job challan's
@@ -204,8 +204,17 @@ export async function recomputeCoveringChallan(
   ]);
   if (lots.length + laceLots.length + fabricLots.length === 0) return null;
   const stillHeld = [...lots, ...laceLots, ...fabricLots].some((lot) => !isQtyZero(Number(lot.quantityAvailable)));
-  // A line naming no lot (trims under a direct-supply challan) is never shown as back
-  const untrackedLine = covers && lines.some((l) => !l.greigeStockId && !l.laceStockId && !l.fabricStockId);
+  // A line naming no lot (trims under a direct-supply challan) is never shown as back. A goods-in-transit line of
+  // which nothing arrived (arrivedQty 0) has nothing to come back, so it does not hold the challan open.
+  const untrackedLine =
+    covers &&
+    lines.some(
+      (l) =>
+        !l.greigeStockId &&
+        !l.laceStockId &&
+        !l.fabricStockId &&
+        !(l.arrivedQty != null && isQtyZero(Number(l.arrivedQty)))
+    );
 
   const [greigeDraws, laceDraws, fabricDraws] = await Promise.all([
     lots.length

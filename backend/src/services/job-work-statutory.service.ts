@@ -20,6 +20,8 @@ import {
   SECTION_143_YEAR_DAYS,
 } from './helpers/section143.helper';
 import { coveringChallanWhere } from './helpers/lot-location.helper';
+import { transitStateOf } from './helpers/transit-challan-state';
+import { isQtyZero } from '../utils/quantity';
 
 // ============================================
 // Section 143 Ageing Report
@@ -471,14 +473,22 @@ class JobWorkStatutoryService {
         gstin: null,
       };
 
+      // A goods-in-transit challan, once its receipt was approved, reports what the job worker actually RECEIVED
+      // (arrivedQty) — a shortage never reached them. Before arrival it reports what was despatched (CA to
+      // confirm). The quarter is always the challan's own date. A line of which none arrived is left out.
+      const adoptedTransit = transitStateOf(challan) === 'ADOPTED';
       for (const item of challan.items) {
+        const arrived = adoptedTransit && item.arrivedQty != null ? Number(item.arrivedQty) : null;
+        if (arrived != null && isQtyZero(arrived)) continue;
         // taxableValue: use declaredValue if present, otherwise quantity × rate
         // BUG FIX: declaredValue is already a monetary value, don't multiply by rate again
         const rate = Number(item.rate ?? item.greigeStock?.purchaseCost ?? item.greigeStock?.weightedAvgCost ?? 0);
         const taxableValue =
-          item.declaredValue !== null
-            ? Number(item.declaredValue)
-            : toNumber(roundToCent(multiplyCurrency(Number(item.quantity), rate)));
+          arrived != null
+            ? toNumber(roundToCent(multiplyCurrency(arrived, rate)))
+            : item.declaredValue !== null
+              ? Number(item.declaredValue)
+              : toNumber(roundToCent(multiplyCurrency(Number(item.quantity), rate)));
 
         tableAItems.push({
           challanId: challan.id,
@@ -491,7 +501,7 @@ class JobWorkStatutoryService {
           description: item.description,
           hsnSac: item.jobWorkOrder?.processTypeMaster?.sacCode || '998821',
           uqc: item.unit,
-          quantity: Number(item.quantity),
+          quantity: arrived ?? Number(item.quantity),
           taxableValue,
           inputType: 'Inputs',
         });

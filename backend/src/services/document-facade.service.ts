@@ -37,7 +37,9 @@ import { buildCostSheetDocData } from './document-data/cost-sheet.doc-data';
 import { buildBuyerTrfDocData } from './document-data/buyer-trf.doc-data';
 import { buildPoDeliveryInstructionDocData } from './document-data/po-delivery-instruction.doc-data';
 import logger from '../utils/logger';
-import { AppError } from '../errors';
+import { AppError, BusinessError } from '../errors';
+import prisma from '../config/database';
+import { isTransitChallan } from './helpers/transit-challan-state';
 
 export interface FacadeOptions {
   /** Force the legacy pdfkit renderer (?legacy=1 escape hatch during burn-in) */
@@ -106,7 +108,21 @@ export const documentFacadeService = {
           copies: CHALLAN_COPY_MARKS,
         });
       },
-      () => documentGeneratorService.generateChallanPDF(challanId),
+      async () => {
+        // The legacy generator knows nothing of a goods-in-transit challan — its despatched than list, the
+        // supplier's invoice, a return clock that starts on arrival — so it never prints one
+        const challan = await prisma.challans.findUnique({
+          where: { id: challanId },
+          select: { supplierDispatchedAt: true },
+        });
+        if (challan && isTransitChallan(challan)) {
+          throw new BusinessError(
+            'This challan prints in the standard layout only, and the print service is not answering — try again in a minute.',
+            { code: 'TRANSIT_CHALLAN_LEGACY_PRINT' }
+          );
+        }
+        return documentGeneratorService.generateChallanPDF(challanId);
+      },
       opts
     );
   },

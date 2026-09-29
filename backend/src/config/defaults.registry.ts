@@ -307,6 +307,20 @@ export const SYSTEM_DEFAULTS = {
     max: 365,
     unit: 'days',
   },
+  GOODS_IN_TRANSIT_ALERT_DAYS: {
+    value: '10',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    group: 'Receiving',
+    label: 'Goods on the way — alert after',
+    description:
+      'Goods a supplier despatched straight to a processor under our challan, still not received after this ' +
+      'many days, are reported on the Control Center (a lost or diverted truck would otherwise go unnoticed). ' +
+      'Changes can take up to 5 minutes to show.',
+    min: 1,
+    max: 90,
+    unit: 'days',
+  },
   STUCK_PROCESS_THRESHOLD_DAYS: {
     value: '7',
     dataType: 'NUMBER',

@@ -9,10 +9,11 @@ import { NotFoundError } from '../../errors';
 import { addCurrency, roundToCent, multiplyCurrency, toCurrency } from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
-import { unitHeader } from '../../utils/units';
+import { unitHeader, unitShort } from '../../utils/units';
 import { foldActual, foldCounted, hasFold } from '../../utils/fold-length';
 import { isQtyZero, qtyRemaining } from '../../utils/quantity';
 import { listStateOf } from '../helpers/lot-pieces.helper';
+import { isTransitChallan, transitStateOf } from '../helpers/transit-challan-state';
 
 const FABRIC_PIECE_SELECT = {
   id: true,
@@ -35,11 +36,26 @@ const challanDocInclude = {
       jobWorkOrderComponent: { select: { hsnCode: true } },
       greigeStock: { select: { id: true, greige: { select: { greigeCode: true, greigeName: true } } } },
       fabricStock: { select: { id: true, fabricMaster: { select: { fabricCode: true, fabricName: true } } } },
+      // A goods-in-transit challan's packing list as despatched (never changed after issue)
+      pieces: {
+        orderBy: [{ baleNumber: 'asc' }, { sequenceNo: 'asc' }],
+        select: {
+          id: true,
+          baleNumber: true,
+          sequenceNo: true,
+          meters: true,
+          baleNo: true,
+          thanNo: true,
+          detailType: true,
+        },
+      },
     },
   },
   jobWorkOrder: {
     select: { jobWorkNumber: true, statutoryDueDate: true },
   },
+  // The receipt a direct-supply challan belongs to — for a transit challan, the one that recorded the arrival
+  directSupplyGrn: { select: { grnNumber: true, receivingDate: true } },
   // Bale/than-level issue details when issued with detail selection
   greigeIssueDetails: {
     include: {
@@ -129,6 +145,19 @@ export interface ChallanDocData {
   thanListTotal: { count: number; metres: string; actualNote: string | null } | null;
   /** The packing list's headings — rolls are rolls (2026-09-28); the template falls back to the than words */
   thanListLabels: { group: string; pieceNo: string; count: string; total: string } | null;
+  /**
+   * A goods-in-transit challan (issued when the supplier despatched, before the goods arrived — 2026-09-29): the
+   * supplier's invoice and despatch day, and once the receipt adopted it, what the job worker actually received.
+   * Null on every other challan.
+   */
+  transit: {
+    supplierInvoice: string | null;
+    dispatchedOn: string;
+    /** "3,550.00 m on 03-Oct-2026 (GRN2610-0012)" — null while the goods are on the way */
+    receivedByJobWorker: string | null;
+  } | null;
+  /** The return clock has not started: the goods have not reached the job worker yet (transit challan) */
+  returnFromReceipt: boolean;
 }
 
 interface PartyDetails {
@@ -274,15 +303,22 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
 
   // Goods a supplier delivered straight to the job worker (Rule 45): the challan's expectedDate is
   // the year from the day the job worker received them — which a late challan is dated after.
-  const isDirectSupply = challan.directSupplyGrnId != null;
-  const receivedByJobWorker =
-    isDirectSupply && challan.expectedDate
-      ? (() => {
-          const d = new Date(challan.expectedDate);
-          d.setFullYear(d.getFullYear() - 1);
-          return d;
-        })()
-      : null;
+  // A goods-in-transit challan (2026-09-29) is checked FIRST: until its receipt is approved there is no arrival —
+  // no return date to print, even while a receipt against it waits for QC (directSupplyGrnId already set).
+  const transitState = transitStateOf(challan);
+  const awaitingArrival = transitState === 'OPEN' || transitState === 'CLAIMED';
+  const isDirectSupply = challan.directSupplyGrnId != null && !awaitingArrival;
+  const receivedByJobWorker = !isDirectSupply
+    ? null
+    : transitState === 'ADOPTED' && challan.directSupplyGrn?.receivingDate
+      ? new Date(challan.directSupplyGrn.receivingDate)
+      : challan.expectedDate
+        ? (() => {
+            const d = new Date(challan.expectedDate);
+            d.setFullYear(d.getFullYear() - 1);
+            return d;
+          })()
+        : null;
 
   // Sec 143 return-by: the date the SYSTEM actually tracks, not a re-derivation of it.
   // A consolidated dispatch leaves the header order null, so without the line fallback this
@@ -304,9 +340,30 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
     ? 'Internal Transfer'
     : isInward
       ? 'Inward · Job Work Return'
-      : isDirectSupply
-        ? 'Outward · Job Work · Delivered direct'
-        : 'Outward · Job Work';
+      : awaitingArrival
+        ? 'Outward · Job Work · On the way direct'
+        : isDirectSupply
+          ? 'Outward · Job Work · Delivered direct'
+          : 'Outward · Job Work';
+
+  // Transit challan: the supplier's paper, and — once the receipt was approved — what actually arrived
+  const transit =
+    transitState == null
+      ? null
+      : {
+          supplierInvoice: challan.supplierInvoiceNumber
+            ? `${challan.supplierInvoiceNumber}${challan.supplierInvoiceDate ? ` · ${fmtDate(challan.supplierInvoiceDate)}` : ''}`
+            : null,
+          dispatchedOn: fmtDate(challan.supplierDispatchedAt),
+          receivedByJobWorker:
+            transitState === 'ADOPTED' && receivedByJobWorker
+              ? `${challan.items
+                  .map((i) => `${fmtQty(Number(i.arrivedQty ?? 0), i.unit)} ${unitShort(i.unit)}`)
+                  .join(' + ')} on ${fmtDate(receivedByJobWorker)}${
+                  challan.directSupplyGrn?.grnNumber ? ` (${challan.directSupplyGrn.grnNumber})` : ''
+                }`
+              : null,
+        };
   // "Main Warehouse" was a name printed on every job challan until 2026-09-25 that exists nowhere
   const despatchedFrom =
     !isInward && challan.fromName && challan.fromName !== 'Main Warehouse' ? challan.fromName : null;
@@ -351,6 +408,8 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
           }))
         : null,
     ...packing.list,
+    transit,
+    returnFromReceipt: awaitingArrival,
   };
 }
 
@@ -362,6 +421,24 @@ type PackingList = Pick<ChallanDocData, 'thanList' | 'thanListTotal' | 'thanList
  */
 async function packingFor(challan: ChallanWithDetails): Promise<{ list: PackingList; countedTagSum: number | null }> {
   const foldedLines = challan.items.filter((i) => hasFold(i.foldLengthCm)).length;
+  // A goods-in-transit challan prints the pieces it was ISSUED with — before arrival, while its receipt waits
+  // for QC, and after (a challan once given never changes; what arrived is on the receipt).
+  if (isTransitChallan(challan)) {
+    const rows: PackedRow[] = challan.items.flatMap((i) =>
+      i.pieces.map((p) => ({ stock: 'DESPATCHED' as const, lotId: i.id, piece: p, metres: Number(p.meters) }))
+    );
+    const folded = challan.items.find((i) => hasFold(i.foldLengthCm));
+    return {
+      list: await thanPackingList(
+        challan.id,
+        rows,
+        foldedLines === 1 ? Number(folded?.foldLengthCm) : null,
+        null,
+        'OUT'
+      ),
+      countedTagSum: foldedLines === 1 && rows.length > 0 ? addCurrency(...rows.map((r) => r.metres)).toNumber() : null,
+    };
+  }
   if (challan.directSupplyGrnId != null) {
     const arrived = await arrivedPieces(challan);
     return {
@@ -490,7 +567,8 @@ async function arrivedPieces(challan: ChallanWithDetails): Promise<{ rows: Packe
 
 /** One piece on the packing list: which lot, the piece, and the COUNTED metres it moved on this challan. */
 interface PackedRow {
-  stock: 'GREIGE' | 'FABRIC';
+  /** DESPATCHED: a goods-in-transit challan's own list (no lot yet) — every bale on it went whole */
+  stock: 'GREIGE' | 'FABRIC' | 'DESPATCHED';
   lotId: string;
   piece: {
     id: string;

@@ -116,6 +116,13 @@ const ALERT_CONFIG: Record<string, { label: string; icon: React.ElementType; rou
     route: '/procurement/purchase-orders?delivery=TO_BE_ADVISED',
     description: 'Sent POs due within 3 days with no delivery place — tell the supplier where',
   },
+  goodsInTransitLate: {
+    label: 'Goods On The Way Too Long',
+    icon: Truck,
+    // ChallanList reads ?status=; IN_TRANSIT lists the transit challans still waiting for their receipt
+    route: '/manufacturing/challans?status=IN_TRANSIT',
+    description: 'Despatched straight to a processor under our challan, not received yet — check with the supplier',
+  },
 };
 
 function AlertRow({ alertKey, alert, onClick }: { alertKey: string; alert: AlertCount; onClick: () => void }) {

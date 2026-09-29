@@ -124,6 +124,10 @@ export interface CreateGRNDTO {
   remarks?: string | null;
   items: GRNItemDTO[];
   processingData?: ProcessingReceiveData;
+  /** Goods-in-transit challan this receipt adopts (direct-supply-challan.helper resolveTransitForReceipt) */
+  transitChallanId?: string | null;
+  /** A transit challan is open to this place, and this delivery is not against it */
+  notAgainstTransitChallan?: boolean;
 }
 
 /**

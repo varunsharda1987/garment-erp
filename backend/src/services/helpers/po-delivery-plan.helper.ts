@@ -28,6 +28,7 @@ import { foldActual } from '../../utils/fold-length';
 import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining } from '../../utils/quantity';
 import { isReceiptComplete } from './receipt-split.helper';
 import { grnLineActualQty } from './grn-line-value.helper';
+import { PENDING_TRANSIT_WHERE, TRANSIT_WHERE } from './transit-challan-state';
 
 export const MAX_DELIVERY_POINTS = 10;
 
@@ -474,6 +475,44 @@ export async function applyDeliveryPlan(
     }
   }
 
+  // Goods on the way under a transit challan (2026-09-29): their place stays in the plan, with room for them.
+  // A claimed challan's receipt is already counted as received above; an open one's goods are counted here.
+  const pendingTransit = await tx.challans.findMany({
+    where: { ...PENDING_TRANSIT_WHERE, purchaseOrderId: poId },
+    select: {
+      challanNumber: true,
+      directSupplyGrnId: true,
+      deliveryPoint: { select: { warehouseId: true } },
+      items: { select: { poItemId: true, quantity: true } },
+    },
+  });
+  for (const c of pendingTransit) {
+    const unitId = c.deliveryPoint?.warehouseId ?? po.deliveryLocationId;
+    const target = unitId ? after.points.find((p) => p.warehouseId === unitId) : undefined;
+    if (!unitId || !target) {
+      throw new BusinessError(
+        `${unitId ? placeName(unitId) : 'Its delivery place'} cannot be removed — goods are on the way there under ${c.challanNumber}. ` +
+          `Receive them, or cancel the challan if they never came.`,
+        { code: 'DELIVERY_PLACE_IN_TRANSIT', warehouseId: unitId, challanNumber: c.challanNumber }
+      );
+    }
+    if (after.mode !== 'SPLIT' || c.directSupplyGrnId) continue;
+    for (const line of c.items) {
+      if (!line.poItemId) continue;
+      const planned = target.lines.find((l) => l.poItemId === line.poItemId)?.quantity ?? 0;
+      const got = received.get(unitId)?.get(line.poItemId) ?? 0;
+      const need = sumQty([got, Number(line.quantity)]);
+      if (!qtyAtLeast(planned, need)) {
+        const item = po.purchase_order_items.find((i) => i.id === line.poItemId);
+        throw new BusinessError(
+          `${target.warehouseName}'s share of ${item ? itemLabel(item) : 'a line'} cannot be less than ${need} — ` +
+            `${got} received and ${Number(line.quantity)} on the way under ${c.challanNumber}.`,
+          { code: 'DELIVERY_POINT_BELOW_TRANSIT', warehouseId: unitId, poItemId: line.poItemId, planned, need }
+        );
+      }
+    }
+  }
+
   // A point a receipt names stays (FK Restrict) — refuse its removal by name
   const keptPlaces = new Set(after.mode === 'SPLIT' ? after.points.map((p) => p.warehouseId) : []);
   for (const point of po.deliveryPoints) {
@@ -490,7 +529,12 @@ export async function applyDeliveryPlan(
   // Write the points
   const existingByPlace = new Map(po.deliveryPoints.map((p) => [p.warehouseId, p]));
   const removed = po.deliveryPoints.filter((p) => !keptPlaces.has(p.warehouseId)).map((p) => p.id);
-  if (removed.length > 0) await tx.po_delivery_points.deleteMany({ where: { id: { in: removed } } });
+  if (removed.length > 0) {
+    // A transit challan names its point (FK Restrict); the checks above left only ones going to the plan's one
+    // place (un-split) or cancelled ones — they read the PO's Deliver To from now on
+    await tx.challans.updateMany({ where: { poDeliveryPointId: { in: removed } }, data: { poDeliveryPointId: null } });
+    await tx.po_delivery_points.deleteMany({ where: { id: { in: removed } } });
+  }
   if (after.mode === 'SPLIT') {
     for (const [index, point] of after.points.entries()) {
       const existing = existingByPlace.get(point.warehouseId);
@@ -516,6 +560,13 @@ export async function applyDeliveryPlan(
         where: { poId, poDeliveryPointId: null, warehouseId: point.warehouseId },
         data: { poDeliveryPointId: pointId },
       });
+      // …and so do transit challans issued while the PO had one place — they travelled to that place
+      if (point.warehouseId === po.deliveryLocationId) {
+        await tx.challans.updateMany({
+          where: { ...TRANSIT_WHERE, purchaseOrderId: poId, poDeliveryPointId: null },
+          data: { poDeliveryPointId: pointId },
+        });
+      }
     }
   }
 

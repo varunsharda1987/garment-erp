@@ -71,8 +71,11 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
 
   challan: {
     DRAFT: ['ISSUED', 'CANCELLED'],
+    // → IN_TRANSIT also when a goods-in-transit challan's receipt is reversed (released back to "on the way")
     ISSUED: ['IN_TRANSIT', 'RECEIVED', 'PARTIALLY_RECEIVED', 'CANCELLED'],
-    IN_TRANSIT: ['RECEIVED', 'PARTIALLY_RECEIVED'],
+    // A goods-in-transit challan (2026-09-29) is filed IN_TRANSIT; its receipt's approval makes it ISSUED, and a
+    // truck that never came cancels it (direct-supply-challan.helper)
+    IN_TRANSIT: ['ISSUED', 'RECEIVED', 'PARTIALLY_RECEIVED', 'CANCELLED'],
     RECEIVED: [], // Terminal
     PARTIALLY_RECEIVED: ['RECEIVED'],
     CANCELLED: [], // Terminal

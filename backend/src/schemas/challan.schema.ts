@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { formNumber, formNumberRequired } from './common.schema';
 
 /**
  * Challan Type Enum - matches Prisma ChallanType
@@ -133,7 +134,56 @@ export const splitProductionRunSchema = z.object({
   splits: z.array(splitEntrySchema).min(2, 'At least 2 splits are required'),
 });
 
+/**
+ * Goods-in-transit challan (2026-09-29) — POST /api/challans/goods-in-transit
+ * Our Rule 45 challan for goods a supplier despatches straight to a processor, issued before they arrive.
+ * Mirrors TransitChallanInput in helpers/direct-supply-challan.helper.ts (the one writer). Quantities are
+ * COUNTED (the supplier's paper); pieces are the than / bale / roll list as despatched.
+ */
+const transitPieceSchema = z.object({
+  detailType: z.enum(['THAN', 'ROLL']),
+  baleNumber: formNumber(z.number().int().positive()),
+  sequenceNo: z.number().int().nonnegative(), // allow-strict-number — typed dialog payload, never blank
+  meters: formNumberRequired(z.number().positive('Every than / roll needs its metres')),
+  baleNo: z.string().max(30).trim().optional().nullable(),
+  thanNo: z.string().max(30).trim().optional().nullable(),
+});
+
+const transitLineSchema = z.object({
+  poItemId: z.string().uuid('Invalid PO line'),
+  quantity: formNumberRequired(z.number().positive('Enter the quantity despatched')),
+  foldLengthCm: formNumber(z.number().positive().max(999.99, 'Fold length is in cm and must be under 1000')),
+  entryMode: z.enum(['TOTAL_METERS', 'THAN_WISE', 'BALE_WISE', 'ROLL_WISE']).optional().nullable(),
+  pieces: z.array(transitPieceSchema).max(2000).optional(),
+});
+
+export const createTransitChallanSchema = z.object({
+  poId: z.string().uuid('Invalid purchase order'),
+  poDeliveryPointId: z.string().uuid('Invalid delivery point').optional().nullable(),
+  challanDate: optionalChallanDate,
+  dispatchedOn: z.coerce.date({ message: 'Enter the day the supplier despatched the goods' }),
+  invoiceNumber: z.string().max(100).trim().optional().nullable(),
+  invoiceDate: optionalChallanDate,
+  vehicleNumber: z.string().max(20).trim().optional().nullable(),
+  lrNumber: z.string().max(50).trim().optional().nullable(),
+  ewayBillNumber: z.string().max(20).trim().optional().nullable(),
+  ewayBillDate: optionalChallanDate,
+  remarks: z.string().max(500).trim().optional().nullable(),
+  lines: z.array(transitLineSchema).min(1, 'Add at least one line'),
+});
+
+/** GET /api/challans/goods-in-transit?poId= */
+export const transitChallanQuerySchema = z.object({
+  poId: z.string().uuid('Invalid purchase order'),
+});
+
+/** PATCH /api/challans/:id/cancel-transit — the truck never came, or the goods went elsewhere */
+export const cancelTransitChallanSchema = z.object({
+  reason: z.string().trim().min(3, 'Say why the challan is cancelled').max(500),
+});
+
 // Type exports for use in controllers
+export type CreateTransitChallanBody = z.infer<typeof createTransitChallanSchema>;
 export type CreateChallanInput = z.infer<typeof createChallanSchema>;
 export type QuickIssueChallanInput = z.infer<typeof quickIssueChallanSchema>;
 export type IssueChallanBody = z.infer<typeof issueChallanSchema>;

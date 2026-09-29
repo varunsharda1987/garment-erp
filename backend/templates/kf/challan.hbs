@@ -35,6 +35,11 @@
         <div class="row"><span class="k">Challan Date</span><span class="v">{{../challanDate}}</span></div>
         <div class="row"><span class="k">Reason</span><span class="v">{{../reason}}</span></div>
         {{#if ../againstOrders}}<div class="row"><span class="k">Against Order</span><span class="v">{{../againstOrders}}</span></div>{{/if}}
+        {{#if ../transit}}
+        {{#if ../transit.supplierInvoice}}<div class="row"><span class="k">Supplier Invoice</span><span class="v">{{../transit.supplierInvoice}}</span></div>{{/if}}
+        <div class="row"><span class="k">Despatched by Supplier</span><span class="v">{{../transit.dispatchedOn}}</span></div>
+        {{#if ../transit.receivedByJobWorker}}<div class="row"><span class="k">Received by Job Worker</span><span class="v">{{../transit.receivedByJobWorker}}</span></div>{{/if}}
+        {{/if}}
         {{#if ../ewayBill}}<div class="row"><span class="k">E-Way Bill</span><span class="v">{{../ewayBill}}</span></div>{{/if}}
         {{#if ../vehicleLr}}<div class="row"><span class="k">Vehicle / LR</span><span class="v">{{../vehicleLr}}</span></div>{{/if}}
       </div>
@@ -86,7 +91,11 @@
     <div class="sec-h"><span>03 &mdash; Return Undertaking</span><b>Sec. 143 &middot; 1 year</b></div>
     <ol class="terms">
       <li>Title to these goods remains with {{../company.name}}. The consignee holds them as bailee and shall create no lien or encumbrance.</li>
+      {{#if ../returnFromReceipt}}
+      <li>Goods must be returned within <strong>one year of the day they reach you</strong>. After that this despatch is deemed a supply from the day you received them, with interest, recoverable from the consignee.</li>
+      {{else}}
       <li>Goods must be returned by <strong>{{../returnByDate}}</strong>. After that date this despatch is deemed a supply from {{../deemedFromDate}}, with interest, recoverable from the consignee.</li>
+      {{/if}}
       <li>Return under the consignee&rsquo;s own challan quoting {{../docNo}}{{#if ../againstOrders}} and order {{../againstOrders}}{{/if}}.</li>
       <li>This challan will be reported in ITC-04 for the relevant period.</li>
     </ol>

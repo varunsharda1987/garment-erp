@@ -52,6 +52,7 @@ import { foldActual } from '../utils/fold-length';
 import { resolveJwoGreige } from './helpers/jwo-greige.helper';
 import { unitToJwoUom, type JwoUom } from '../utils/units';
 import { styleCodeLabel } from '../utils/style-code';
+import { PENDING_TRANSIT_WHERE, isTransitChallan } from './helpers/transit-challan-state';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -944,9 +945,11 @@ export async function loadProcessorStatementSources(processorId: string): Promis
 
   // Goods a supplier delivered straight to this processor: the Rule 45 challan the receipt raised
   // (helpers/direct-supply-challan.helper.ts). A reversed receipt cancels it, so it drops out below.
+  // A goods-in-transit challan counts only once its receipt was approved — on the way, or with the receipt still
+  // waiting for QC (directSupplyGrnId already set), the goods are not with the processor yet.
   const directSupplyChallanIds = (
     await prisma.challans.findMany({
-      where: { directSupplyGrnId: { not: null }, toId: processorId },
+      where: { directSupplyGrnId: { not: null }, toId: processorId, NOT: PENDING_TRANSIT_WHERE },
       select: { id: true },
     })
   ).map((c) => c.id);
@@ -983,10 +986,19 @@ export async function loadProcessorStatementSources(processorId: string): Promis
       id: true,
       challanId: true,
       quantity: true,
+      arrivedQty: true,
       unit: true,
       jobWorkOrderId: true,
       fabricId: true,
-      challan: { select: { challanNumber: true, challanDate: true, toType: true } },
+      challan: {
+        select: {
+          challanNumber: true,
+          challanDate: true,
+          toType: true,
+          supplierDispatchedAt: true,
+          directSupplyGrn: { select: { receivingDate: true } },
+        },
+      },
       greigeStock: {
         select: { receivedDate: true, greige: { select: { id: true, greigeCode: true, greigeName: true } } },
       },
@@ -1104,18 +1116,22 @@ export async function loadProcessorStatementSources(processorId: string): Promis
           ? { kind: 'FABRIC', id: fabric.id, code: fabric.fabricCode, name: fabric.fabricName }
           : null;
 
+    // A goods-in-transit challan's line: SENT is what actually ARRIVED, on the day it arrived (the receipt) —
+    // for lace and fabric lines too, which carry no received date of their own
+    const transitLine = isTransitChallan(line.challan) && line.arrivedQty != null;
     return {
       id: line.id,
       challanId: line.challanId,
       challanNumber: line.challan.challanNumber,
       challanDate: line.challan.challanDate,
       jobWorkOrderId: line.jobWorkOrderId,
-      quantity: num(line.quantity),
+      quantity: transitLine ? num(line.arrivedQty) : num(line.quantity),
       unit: line.unit,
       material,
       isTransfer: line.jobWorkOrderId == null && transferChallanIdSet.has(line.challanId),
       isDirectSupply: line.jobWorkOrderId == null && directSupplyChallanIdSet.has(line.challanId),
-      arrivedOn: line.greigeStock?.receivedDate ?? null,
+      arrivedOn:
+        (transitLine ? line.challan.directSupplyGrn?.receivingDate : null) ?? line.greigeStock?.receivedDate ?? null,
     };
   });
 

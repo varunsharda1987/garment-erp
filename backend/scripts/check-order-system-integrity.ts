@@ -39,6 +39,7 @@
  * D29 cost sheet versions that changed mode or lost the closed cost of the version they replace (until 23-Sep)
  * D30 finished-fabric lots whose roll / than list is out of step with their metres (a door took metres
  *     without naming pieces — fix on the Fabric Stock page with Check / Record rolls & thans; never refused)
+ * D31 goods-in-transit challans in an impossible state (direct-supply-challan.helper is the only writer)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -593,6 +594,45 @@ async function main() {
           pieces_left: s.left,
           state: s.state,
         }));
+    })()
+  );
+
+  // ---- Goods-in-transit challans --------------------------------------------------------------
+
+  // A transit challan (issued when the supplier despatched straight to a processor, 2026-09-29) is open, claimed
+  // by ONE receipt waiting for QC, or adopted by an approved one. Anything else means a writer was bypassed.
+  await run(
+    'D31',
+    'Goods-in-transit challans in an impossible state (claim by a receipt not awaiting QC, arrived with no lot, open on a finished PO)',
+    (async () => {
+      const rows = await prisma.challans.findMany({
+        where: { supplierDispatchedAt: { not: null }, status: { not: 'CANCELLED' } },
+        select: {
+          challanNumber: true,
+          status: true,
+          directSupplyGrn: { select: { grnNumber: true, status: true } },
+          purchaseOrder: { select: { poNumber: true, status: true } },
+          items: { select: { arrivedQty: true, greigeStockId: true, laceStockId: true, fabricStockId: true } },
+        },
+      });
+      const out: Array<{ challan: string; problem: string }> = [];
+      for (const c of rows) {
+        const waiting = c.status === 'IN_TRANSIT';
+        if (waiting && c.directSupplyGrn && c.directSupplyGrn.status !== 'PENDING_QC') {
+          out.push({ challan: c.challanNumber, problem: `claimed by ${c.directSupplyGrn.grnNumber} (${c.directSupplyGrn.status})` });
+        }
+        if (!waiting && !c.directSupplyGrn) out.push({ challan: c.challanNumber, problem: `${c.status} with no receipt` });
+        if (
+          !waiting &&
+          c.items.some((i) => i.arrivedQty != null && Number(i.arrivedQty) > 0 && !i.greigeStockId && !i.laceStockId && !i.fabricStockId)
+        ) {
+          out.push({ challan: c.challanNumber, problem: 'a line arrived but names no lot' });
+        }
+        if (waiting && c.purchaseOrder && ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(c.purchaseOrder.status)) {
+          out.push({ challan: c.challanNumber, problem: `still on the way on ${c.purchaseOrder.poNumber} (${c.purchaseOrder.status})` });
+        }
+      }
+      return out;
     })()
   );
 

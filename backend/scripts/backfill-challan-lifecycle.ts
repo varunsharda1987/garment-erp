@@ -108,7 +108,15 @@ async function main() {
 
   // ── S2 / S4: open OUTWARD challans ──────────────────────────────────────────────────────────
   const openOutward = await prisma.challans.findMany({
-    where: { challanType: 'OUTWARD', status: { in: [...OUTWARD_OPEN] } },
+    // A covering challan (goods delivered straight to a processor, or moved between processors) and a
+    // goods-in-transit challan have no job by design — the jobs that later draw the goods close them
+    where: {
+      challanType: 'OUTWARD',
+      status: { in: [...OUTWARD_OPEN] },
+      directSupplyGrnId: null,
+      supplierDispatchedAt: null,
+      NOT: { fromType: 'VENDOR', toType: 'VENDOR' },
+    },
     select: {
       id: true,
       challanNumber: true,

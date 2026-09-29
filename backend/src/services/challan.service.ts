@@ -24,6 +24,7 @@ import {
 import { heldForOtherOrders, heldStockConflict, takeHeldGoods } from './helpers/po-allocation.helper';
 import { getDerivedOnHandMap } from './helpers/derived-stock.helper';
 import { BusinessError } from '../errors';
+import { isTransitChallan } from './helpers/transit-challan-state';
 
 /** Rule 55 wording on a Stock-Out that sends our goods to a job worker (Phase 4e). */
 export const STOCK_OUT_TO_JOB_WORKER_REASON = 'Inputs sent to a job worker for job work (CGST Rule 45) — not a supply';
@@ -71,6 +72,9 @@ export interface CreateChallanItemInput {
   colorName?: string;
   /** Value for the e-way bill / Rule 45 declaration (material value, never a job-work rate). */
   declaredValue?: number;
+  /** Goods-in-transit challan: the PO line, and how the supplier's paper lists it (direct-supply-challan.helper) */
+  poItemId?: string;
+  entryMode?: string;
 }
 
 export interface CreateChallanInput {
@@ -102,6 +106,13 @@ export interface CreateChallanInput {
   driverName?: string;
   driverPhone?: string;
   lrNumber?: string;
+  ewayBillNumber?: string;
+  ewayBillDate?: Date;
+  /** Goods-in-transit challan (2026-09-29): the day the supplier despatched — THE marker (transit-challan-state) */
+  supplierDispatchedAt?: Date;
+  supplierInvoiceNumber?: string;
+  supplierInvoiceDate?: Date;
+  poDeliveryPointId?: string;
   expectedDate?: Date;
   unit?: string;
   remarks?: string;
@@ -204,6 +215,12 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
         driverName: input.driverName,
         driverPhone: input.driverPhone,
         lrNumber: input.lrNumber,
+        ewayBillNumber: input.ewayBillNumber,
+        ewayBillDate: input.ewayBillDate,
+        supplierDispatchedAt: input.supplierDispatchedAt,
+        supplierInvoiceNumber: input.supplierInvoiceNumber,
+        supplierInvoiceDate: input.supplierInvoiceDate,
+        poDeliveryPointId: input.poDeliveryPointId,
         status: input.status ?? 'DRAFT',
         expectedDate: input.expectedDate,
         // Goods already in hand at filing time carry their arrival facts immediately, so the row is
@@ -246,6 +263,8 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
             foldLengthCm: item.foldLengthCm,
             thanCount: item.thanCount,
             declaredValue: item.declaredValue,
+            poItemId: item.poItemId,
+            entryMode: item.entryMode,
           })),
         },
       },
@@ -969,6 +988,8 @@ export async function getChallanById(id: string) {
       },
       issuedBy: { select: { id: true, firstName: true, lastName: true } },
       receivedBy: { select: { id: true, firstName: true, lastName: true } },
+      // A direct-supply challan's receipt — for a goods-in-transit challan, the one that recorded the arrival
+      directSupplyGrn: { select: { id: true, grnNumber: true, receivingDate: true, status: true } },
     },
   });
 }
@@ -1140,11 +1161,27 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
     // Fetch challan to check status + processing link
     const existingChallan = await tx.challans.findUnique({
       where: { id },
-      select: { challanType: true, fabricProcessingId: true, orderId: true, status: true, directSupplyGrnId: true },
+      select: {
+        challanType: true,
+        fabricProcessingId: true,
+        orderId: true,
+        status: true,
+        directSupplyGrnId: true,
+        supplierDispatchedAt: true,
+      },
     });
 
     if (!existingChallan) {
       throw new Error('Challan not found');
+    }
+    // Goods on the way to a processor (goods-in-transit challan): their arrival is the purchase receipt at the
+    // processor's unit, which adopts this challan — never a hand receive here.
+    if (isTransitChallan(existingChallan)) {
+      throw new BusinessError(
+        'This challan is for goods a supplier despatched straight to the processor. Record their arrival with a receipt ' +
+          '(Receive against this challan from the purchase order); they come back later through the job work order.',
+        { code: 'TRANSIT_CHALLAN_NOT_RECEIVABLE' }
+      );
     }
     // The Rule 45 challan for goods a supplier delivered straight to a processor is closed by the jobs
     // that use them (Receive from processor), never received by hand here.

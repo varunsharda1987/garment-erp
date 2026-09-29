@@ -31,6 +31,7 @@ import {
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { ProcessorCombobox } from '@/components/ProcessorCombobox';
+import { GreigeCombobox } from '@/components/GreigeCombobox';
 import { OrderCombobox } from '@/components/OrderCombobox';
 import SearchInput from '@/components/SearchInput';
 import Pagination from '@/components/Pagination';
@@ -97,12 +98,8 @@ import {
   generateServiceJWOs,
   getDashboardStats as getServiceDashboardStats,
 } from '@/services/serviceRequirement.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import { workOrderService } from '@/services/workOrder.service';
-import { getProcessorSuppliers } from '@/services/vendorSuggestion.service';
 import { useDebounce } from '@/hooks/useDebounce';
-import type { Supplier } from '@/types/supplier.types';
-import api from '@/lib/api';
 
 // Types
 import type { MaterialRequirement, RequirementFilters, MaterialRequirementStatus } from '@/types/mrp.types';
@@ -487,9 +484,7 @@ function MaterialRequirementsTab({
   // Convert to Greige Processing state
   const [convertGreigeDialogOpen, setConvertGreigeDialogOpen] = useState(false);
   const [convertingRequirement, setConvertingRequirement] = useState<MaterialRequirement | null>(null);
-  const [greigeOptions, setGreigeOptions] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [selectedGreigeId, setSelectedGreigeId] = useState('');
-  const [processorOptions, setProcessorOptions] = useState<Array<{ id: string; name: string; code: string }>>([]);
   const [selectedProcessorId, setSelectedProcessorId] = useState('');
   const [processingCostInput, setProcessingCostInput] = useState('');
   const [isConverting, setIsConverting] = useState(false);
@@ -541,12 +536,6 @@ function MaterialRequirementsTab({
     { staleTime: 30 * 1000 }
   );
 
-  const { data: suppliersResponse } = useListQuery(
-    queryKeys.suppliers.list({ limit: 100 }),
-    () => getAllSuppliers({ limit: 100 }),
-    { staleTime: 5 * 60 * 1000 }
-  );
-
   const { data: stylesForFilter } = useQuery({
     queryKey: [...queryKeys.mrp.all, 'requirement-styles', 'MATERIAL'],
     queryFn: () => getRequirementStyles('MATERIAL'),
@@ -563,7 +552,6 @@ function MaterialRequirementsTab({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const requirements = requirementsResponse?.data || [];
   const pagination = requirementsResponse?.pagination || { page: 1, limit: pageSize, total: 0, totalPages: 1 };
-  const suppliers: Supplier[] = suppliersResponse?.data || [];
   const orderIdFilter = filters.orderId;
 
   const styleOptions: ComboboxOption[] = useMemo(
@@ -883,40 +871,13 @@ function MaterialRequirementsTab({
   };
 
   // Convert to Greige Processing handlers
-  const openConvertGreigeDialog = async (req: MaterialRequirement) => {
+  // The dialog's greige and processor pickers load their own lists (GreigeCombobox, ProcessorCombobox)
+  const openConvertGreigeDialog = (req: MaterialRequirement) => {
     setConvertingRequirement(req);
     setSelectedGreigeId('');
     setSelectedProcessorId('');
     setProcessingCostInput('');
     setConvertGreigeDialogOpen(true);
-
-    // Fetch greige options and processors in parallel
-    try {
-      const [greigeRes, processorRes] = await Promise.all([
-        api.get('/fabric-management/greige', { params: { limit: 50 } }),
-        api.get('/mrp/processing-assignment/processors'),
-      ]);
-      setGreigeOptions(
-        // GET /fabric-management/greige returns raw greige_master rows: greigeCode / greigeName /
-        // genericGreigeName (there is no name/code/genericName), so map those actual fields.
-        (greigeRes.data?.data || []).map(
-          (g: { id: string; genericGreigeName?: string; greigeName?: string; greigeCode: string }) => ({
-            id: g.id,
-            name: g.genericGreigeName || g.greigeName || g.greigeCode,
-            code: g.greigeCode,
-          })
-        )
-      );
-      setProcessorOptions(
-        (processorRes.data?.data || []).map((p: { id: string; name: string; code: string }) => ({
-          id: p.id,
-          name: p.name,
-          code: p.code,
-        }))
-      );
-    } catch {
-      // Silently handle — user can still type IDs
-    }
   };
 
   const handleConvertToGreige = async () => {
@@ -1811,18 +1772,17 @@ function MaterialRequirementsTab({
             )}
             <div>
               <Label>Supplier</Label>
-              <Select value={poSupplierId} onValueChange={setPOSupplierId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select supplier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map((s: Supplier) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Every supplier, searched on the server (the old list stopped at the first 100). The vendor pre-filled
+                  from the ticked rows' preferred supplier is pinned so its name shows even outside the first page. */}
+              <SupplierCombobox
+                value={poSupplierId}
+                onValueChange={setPOSupplierId}
+                placeholder="Select supplier"
+                className="mt-1"
+                selectedSupplier={
+                  selectedRequirementRows.find((r) => r.preferredSupplierId === poSupplierId)?.preferredSupplier ?? null
+                }
+              />
             </div>
             <div>
               <Label>Expected Delivery Date</Label>
@@ -1902,33 +1862,23 @@ function MaterialRequirementsTab({
           <div className="space-y-4 py-4">
             <div>
               <Label>Greige Fabric</Label>
-              <Select value={selectedGreigeId} onValueChange={setSelectedGreigeId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select greige fabric" />
-                </SelectTrigger>
-                <SelectContent>
-                  {greigeOptions.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name} ({g.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Every active greige (the old list stopped at the first 50) */}
+              <GreigeCombobox
+                value={selectedGreigeId}
+                onValueChange={setSelectedGreigeId}
+                placeholder="Select greige fabric"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Processor</Label>
-              <Select value={selectedProcessorId} onValueChange={setSelectedProcessorId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select processor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {processorOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} ({p.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* The dye / print / wash / finish roster (GET /mrp/processing-assignment/processors) */}
+              <ProcessorCombobox
+                value={selectedProcessorId}
+                onValueChange={setSelectedProcessorId}
+                placeholder="Select processor"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Processing Cost (per unit, optional)</Label>
@@ -2264,14 +2214,9 @@ function OutsourcedWorkTab({
   }, [serviceFilters]);
 
   // MRP-33: the processor roster (complete, capability-filtered) drives the processor filter and
-  // both manual job-work dialogs. This tab used to load the generic first-100-suppliers list,
-  // which both offered non-processors and hid processor #101; that query is gone with it.
-  const { data: processorListResponse } = useQuery({
-    queryKey: ['mrp', 'processor-list'],
-    queryFn: getProcessorSuppliers,
-    staleTime: 5 * 60 * 1000,
-  });
-  const processors = processorListResponse?.processorList || [];
+  // both manual job-work dialogs — each through ProcessorCombobox, which loads the roster itself.
+  // This tab used to load the generic first-100-suppliers list, which both offered non-processors
+  // and hid processor #101.
 
   const isLoading =
     (sourceFilter !== 'service' && processingLoading) || (sourceFilter !== 'processing' && serviceLoading);
@@ -3292,19 +3237,14 @@ function OutsourcedWorkTab({
             <div>
               <Label>Processor</Label>
               {/* MRP-33: dyeing/printing work can only go to a processor — offering the generic
-                  supplier list invited issuing a job-work order to a button vendor. */}
-              <Select value={procPOSupplierId} onValueChange={setProcPOSupplierId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select processor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {processors.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  supplier list invited issuing a job-work order to a button vendor. ProcessorCombobox
+                  lists the processor roster (GET /mrp/processing-assignment/processors). */}
+              <ProcessorCombobox
+                value={procPOSupplierId}
+                onValueChange={setProcPOSupplierId}
+                placeholder="Select processor"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Expected Delivery Date</Label>
@@ -3368,18 +3308,12 @@ function OutsourcedWorkTab({
             <div>
               <Label>Processor</Label>
               {/* MRP-33: processor roster, not the truncated all-suppliers list. */}
-              <Select value={svcPOProcessorId} onValueChange={setSvcPOProcessorId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select processor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {processors.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <ProcessorCombobox
+                value={svcPOProcessorId}
+                onValueChange={setSvcPOProcessorId}
+                placeholder="Select processor"
+                className="mt-1"
+              />
             </div>
             <div>
               <Label>Expected Delivery Date</Label>

@@ -14,6 +14,8 @@ interface SearchInputProps extends Omit<
   debounceMs?: number;
   /** Styles the wrapper. Any other input attribute (maxLength, aria-label, autoFocus…) goes to the input. */
   className?: string;
+  /** Runs when the ✕ is clicked (after the box reports ''), for a page whose clear does more than empty the text */
+  onClear?: () => void;
 }
 
 export default function SearchInput({
@@ -22,6 +24,7 @@ export default function SearchInput({
   placeholder = 'Search...',
   debounceMs = 300,
   className,
+  onClear,
   ...inputProps
 }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(value);
@@ -58,6 +61,7 @@ export default function SearchInput({
   const handleClear = () => {
     setLocalValue('');
     report('');
+    onClear?.();
   };
 
   return (
@@ -77,6 +81,7 @@ export default function SearchInput({
           variant="ghost"
           size="sm"
           onClick={handleClear}
+          aria-label="Clear search"
           className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
         >
           <X className="h-4 w-4" />

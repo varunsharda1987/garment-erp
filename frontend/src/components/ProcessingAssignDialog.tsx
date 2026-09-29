@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Loader2, CheckCircle, AlertTriangle, HelpCircle, Sparkles } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -87,8 +87,44 @@ export default function ProcessingAssignDialog({
 
   const handleAssignmentChange = (requirementId: string, processorId: string) => {
     const newAssignments = new Map(assignments);
-    newAssignments.set(requirementId, processorId);
+    // Picking the chosen processor again clears it: the requirement is then left out, never sent blank
+    if (processorId) newAssignments.set(requirementId, processorId);
+    else newAssignments.delete(requirementId);
     setAssignments(newAssignments);
+  };
+
+  /**
+   * The roster (the whole list — the endpoint is not paged), with the suggestion pinned first. The processor
+   * a requirement already has is pinned too when the roster leaves it out, so its pre-filled box names it.
+   */
+  const processorOptionsFor = (suggestion: ProcessingSuggestionForRequirement): ComboboxOption[] => {
+    const options: ComboboxOption[] = [];
+    if (suggestion.suggestedProcessorId) {
+      options.push({
+        value: suggestion.suggestedProcessorId,
+        label: `${suggestion.suggestedProcessorName ?? ''} (Suggested)`.trim(),
+      });
+    }
+    if (
+      suggestion.currentProcessorId &&
+      suggestion.currentProcessorId !== suggestion.suggestedProcessorId &&
+      !processors.some((p) => p.id === suggestion.currentProcessorId)
+    ) {
+      options.push({
+        value: suggestion.currentProcessorId,
+        label: suggestion.currentProcessorName || 'Current processor',
+        description: 'Current',
+      });
+    }
+    for (const processor of processors) {
+      if (processor.id === suggestion.suggestedProcessorId) continue;
+      options.push({
+        value: processor.id,
+        label: processor.name,
+        searchText: `${processor.code ?? ''} ${processor.name}`,
+      });
+    }
+    return options;
   };
 
   const handleAutoAssign = async () => {
@@ -243,31 +279,15 @@ export default function ProcessingAssignDialog({
                   {/* Processor Selection */}
                   <div className="flex items-center gap-3">
                     <label className="text-sm font-medium text-foreground min-w-[100px]">Assign to:</label>
-                    <Select
+                    <Combobox
+                      options={processorOptionsFor(suggestion)}
                       value={assignments.get(suggestion.requirementId) || ''}
                       onValueChange={(value) => handleAssignmentChange(suggestion.requirementId, value)}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select processor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {suggestion.suggestedProcessorId && (
-                          <>
-                            <SelectItem value={suggestion.suggestedProcessorId}>
-                              {suggestion.suggestedProcessorName} (Suggested)
-                            </SelectItem>
-                            <div className="border-t my-1" />
-                          </>
-                        )}
-                        {processors
-                          .filter((p) => p.id !== suggestion.suggestedProcessorId)
-                          .map((processor) => (
-                            <SelectItem key={processor.id} value={processor.id}>
-                              {processor.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select processor..."
+                      searchPlaceholder="Search by code or name..."
+                      emptyText="No processors found."
+                      className="flex-1"
+                    />
                   </div>
 
                   {/* Alternatives */}

@@ -400,6 +400,7 @@ export default function StockProductionOrderDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No specific color</SelectItem>
+                  {/* allow-plain-select: the colour options of this SPO's one style — a short, bounded list */}
                   {colors.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.colorName}

@@ -150,3 +150,26 @@ describe('SearchInput — reports only a typed change', () => {
     expect(screen.getByTestId('page')).toHaveTextContent('1');
   });
 });
+
+describe('SearchInput — onClear', () => {
+  it('the ✕ reports an empty search and then calls onClear once; typing the box empty does not', () => {
+    vi.useFakeTimers();
+    const onChange = vi.fn();
+    const onClear = vi.fn();
+    render(<SearchInput value="" onChange={onChange} onClear={onClear} />);
+    fireEvent.change(box(), { target: { value: 'kasya' } });
+    wait(350);
+    expect(onChange).toHaveBeenLastCalledWith('kasya');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(onChange).toHaveBeenLastCalledWith('');
+    expect(onClear).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(box(), { target: { value: 'k' } });
+    wait(350);
+    fireEvent.change(box(), { target: { value: '' } });
+    wait(350);
+    expect(onClear).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+});

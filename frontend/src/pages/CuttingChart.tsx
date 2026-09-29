@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
@@ -73,6 +74,18 @@ export default function CuttingChart() {
       // BUG-MFG11 FIX: Surface error to user instead of silent console.error
       .catch((err) => handleApiError(err, 'Failed to fetch work orders'));
   }, []);
+
+  // The runs still waiting to be cut (PENDING / IN_PRODUCTION with pieces pending) — the server's own
+  // list, so the picker offers exactly those, now searchable by run, style, buyer's code or style name
+  const workOrderOptions = useMemo<ComboboxOption[]>(
+    () =>
+      availableWorkOrders.map((wo) => ({
+        value: wo.id,
+        label: `${wo.workOrderNumber} - ${formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} (${wo.pendingQty} pcs pending)`,
+        searchText: [wo.workOrderNumber, wo.styleCode, wo.buyerStyleRef, wo.styleName].filter(Boolean).join(' '),
+      })),
+    [availableWorkOrders]
+  );
 
   // Load chart data when WO or color changes
   useEffect(() => {
@@ -336,26 +349,18 @@ export default function CuttingChart() {
           <div className="flex gap-4">
             <div className="flex-1 space-y-2">
               <Label>Production Run</Label>
-              <Select
+              <Combobox
+                options={workOrderOptions}
                 value={selectedWorkOrderId}
                 onValueChange={(v) => {
                   setSelectedWorkOrderId(v);
                   setSelectedColorId('');
                   setSelectedLots({});
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a production run" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableWorkOrders.map((wo) => (
-                    <SelectItem key={wo.id} value={wo.id}>
-                      {wo.workOrderNumber} - {formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} ({wo.pendingQty}{' '}
-                      pcs pending)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select a production run"
+                searchPlaceholder="Search by run number, style, buyer ref..."
+                emptyText="No production runs waiting to be cut."
+              />
             </div>
             {chartData && chartData.availableColors.length > 1 && (
               <div className="w-64 space-y-2">
@@ -369,6 +374,7 @@ export default function CuttingChart() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Colors</SelectItem>
+                    {/* allow-plain-select: the colours of the one chosen production run — a short, bounded list */}
                     {chartData.availableColors.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.colorName}

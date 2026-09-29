@@ -6,8 +6,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Search,
-  X,
   Eye,
   ArrowLeft,
   Save,
@@ -47,6 +45,7 @@ import { CostingRunDetailDialog } from '../components/fabric-costing/CostingRunD
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
+import SearchInput from '@/components/SearchInput';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import {
@@ -1017,7 +1016,6 @@ export default function FabricCostingPage() {
   const [styleSearchResults, setStyleSearchResults] = useState<Style[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Loading states
@@ -1142,55 +1140,45 @@ export default function FabricCostingPage() {
     }
   }, [preselectedStyleId, hasExplicitPurpose, pickCostedPurpose]);
 
-  // Style search with debounce
-  const handleStyleSearch = useCallback(
-    (query: string) => {
-      setStyleSearchQuery(query);
+  // Style search — the Quick Search box (SearchInput) debounces the typing, so this runs once per settled text.
+  // Emptying the box by typing only drops the results (the pick stays); its ✕ clears the pick — see the box.
+  const handleStyleSearch = async (query: string) => {
+    setStyleSearchQuery(query);
 
-      // Clear previous timeout
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
+    if (query.length < 2) {
+      setStyleSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // BUG FIX: Respect selected customer filter when searching
+      // Include both ACTIVE and DRAFT styles for costing (no status filter)
+      const response = await styleService.getAllStyles(
+        1,
+        20,
+        query,
+        undefined,
+        undefined,
+        selectedCustomerName || undefined,
+        undefined
+      );
+      setStyleSearchResults(response.data);
+      setShowSearchResults(true);
+
+      // Fetch costing status for search results
+      if (response.data.length > 0) {
+        const styleIds = response.data.map((s: Style) => s.id);
+        const statusMap = await fabricCostingService.getStylesCostingStatus(styleIds);
+        setStyleCostingStatus(statusMap);
       }
-
-      if (query.length < 2) {
-        setStyleSearchResults([]);
-        setShowSearchResults(false);
-        return;
-      }
-
-      // Debounce search
-      searchTimeoutRef.current = setTimeout(async () => {
-        setIsSearching(true);
-        try {
-          // BUG FIX: Respect selected customer filter when searching
-          // Include both ACTIVE and DRAFT styles for costing (no status filter)
-          const response = await styleService.getAllStyles(
-            1,
-            20,
-            query,
-            undefined,
-            undefined,
-            selectedCustomerName || undefined,
-            undefined
-          );
-          setStyleSearchResults(response.data);
-          setShowSearchResults(true);
-
-          // Fetch costing status for search results
-          if (response.data.length > 0) {
-            const styleIds = response.data.map((s: Style) => s.id);
-            const statusMap = await fabricCostingService.getStylesCostingStatus(styleIds);
-            setStyleCostingStatus(statusMap);
-          }
-        } catch {
-          notify.error('Failed to search styles');
-        } finally {
-          setIsSearching(false);
-        }
-      }, 300);
-    },
-    [selectedCustomerName]
-  );
+    } catch {
+      notify.error('Failed to search styles');
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Handle style selection from search
   const handleSearchResultSelect = (style: Style) => {
@@ -1238,15 +1226,6 @@ export default function FabricCostingPage() {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Cleanup search timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
   }, []);
 
   // BUG-FC3 fix: Track changes to fabric rows after initial load
@@ -2563,25 +2542,16 @@ export default function FabricCostingPage() {
         <div className="mb-4" ref={searchContainerRef}>
           <Label className="text-sm font-medium mb-2 block">Quick Search</Label>
           <div className="relative">
+            {/* The box's ✕ resets the picked style, customer and table, as the page's own ✕ did — even on a
+                half-typed search. Emptying the box by typing only clears the search. */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
+              <SearchInput
                 placeholder="Search by style code, buyer ref or name..."
                 value={styleSearchQuery}
-                onChange={(e) => handleStyleSearch(e.target.value)}
+                onChange={(query) => void handleStyleSearch(query)}
+                onClear={clearSearch}
                 onFocus={() => styleSearchResults.length > 0 && setShowSearchResults(true)}
-                className="pl-10 pr-10"
               />
-              {styleSearchQuery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-                  onClick={clearSearch}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
               {isSearching && (
                 <Loader2 className="absolute right-10 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
               )}
@@ -2657,22 +2627,24 @@ export default function FabricCostingPage() {
 
           <div>
             <Label className="text-sm font-medium mb-2 block">Style</Label>
-            <Select
+            {/* The chosen customer's styles, drafts too (fetched above, up to 1,000) — now searchable.
+                Not StyleCombobox: it cannot narrow to one customer. */}
+            <Combobox
+              options={styles.map((style) => ({
+                value: style.id,
+                label: `${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName || 'No Name'}`,
+                searchText: [style.styleCode, style.buyerStyleRef, style.styleName].filter(Boolean).join(' '),
+              }))}
               value={selectedStyleId}
-              onValueChange={setSelectedStyleId}
+              onValueChange={(styleId) => {
+                // Picking the chosen style again keeps it, as the old dropdown did
+                if (styleId) setSelectedStyleId(styleId);
+              }}
+              placeholder={isLoadingStyles ? 'Loading...' : 'Select style'}
+              searchPlaceholder="Search by style code, buyer ref or name..."
+              emptyText="No styles found."
               disabled={!selectedCustomerId || isLoadingStyles}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={isLoadingStyles ? 'Loading...' : 'Select style'} />
-              </SelectTrigger>
-              <SelectContent>
-                {styles.map((style) => (
-                  <SelectItem key={style.id} value={style.id}>
-                    {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName || 'No Name'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           <div>

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { Badge } from '@/components/ui/badge';
 import { createPackaging, getPackagingById, updatePackaging } from '@/services/packaging.service';
 import { getAllCustomers } from '@/services/customer.service';
@@ -157,8 +158,8 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
     setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
-  const handleCustomerChange = (value: string) => {
-    const newCustomerId = value === '_none_' ? '' : value;
+  // '' = No Customer
+  const handleCustomerChange = (newCustomerId: string) => {
     setSelectedCustomerId(newCustomerId);
     // Reset brand when customer changes
     if (newCustomerId !== selectedCustomerId) {
@@ -261,19 +262,22 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                 {/* Customer */}
                 <div>
                   <Label htmlFor="customerId">Customer (Optional)</Label>
-                  <Select value={selectedCustomerId || '_none_'} onValueChange={handleCustomerChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="_none_">No Customer (Generic Packaging)</SelectItem>
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} ({c.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* The page's own customer list: the brand list below is read from the picked customer's record */}
+                  <Combobox
+                    options={[
+                      { value: '', label: 'No Customer (Generic Packaging)', searchText: 'no customer generic' },
+                      ...customers.map((c) => ({
+                        value: c.id,
+                        label: `${c.name} (${c.code})`,
+                        searchText: `${c.code} ${c.name} ${c.brandNames || ''} ${c.billingName || ''}`,
+                      })),
+                    ]}
+                    value={selectedCustomerId}
+                    onValueChange={handleCustomerChange}
+                    placeholder="Select customer..."
+                    searchPlaceholder="Search by code, name, brand..."
+                    emptyText="No customers found."
+                  />
                   <p className="text-xs text-muted-foreground mt-1">
                     Link this packaging to a specific customer for customer-specific pricing/design
                   </p>

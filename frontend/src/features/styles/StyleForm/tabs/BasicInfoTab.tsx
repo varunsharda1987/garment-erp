@@ -11,6 +11,7 @@ import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { Textarea } from '../../../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../components/ui/select';
+import { Combobox } from '../../../../components/ui/combobox';
 import { Checkbox } from '../../../../components/ui/checkbox';
 import { Badge } from '../../../../components/ui/badge';
 import { ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
@@ -82,21 +83,24 @@ export function BasicInfoTab({ onNext, onImageUpload, onDeleteImage, generateSKU
           </div>
           <div>
             <Label>Customer/Buyer *</Label>
-            <Select
+            {/* The form's own customer list (useStyleFormData): picking one derives the customer name, brands and
+                accessory presets from that loaded record, so the options stay that list — now searchable. */}
+            <Combobox
+              options={customers.map((c) => ({
+                value: c.id,
+                label: c.name,
+                searchText: `${c.code} ${c.name} ${c.brandNames || ''} ${c.billingName || ''}`,
+              }))}
               value={selectedCustomerId}
-              onValueChange={(value) => dispatch({ type: 'SET_SELECTED_CUSTOMER', payload: value })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select customer..." />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              onValueChange={(value) => {
+                // Re-picking the chosen customer would clear only the id while the saved customer name stayed —
+                // like the old dropdown, the buyer can be changed but not blanked.
+                if (value) dispatch({ type: 'SET_SELECTED_CUSTOMER', payload: value });
+              }}
+              placeholder="Select customer..."
+              searchPlaceholder="Search by code, name, brand..."
+              emptyText="No customers found."
+            />
           </div>
           <div>
             <Label>Brand</Label>

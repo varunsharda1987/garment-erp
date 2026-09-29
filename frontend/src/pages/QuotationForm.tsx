@@ -5,15 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
-import { styleService } from '@/services/style.service';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import { createQuotation, getQuotationById, updateQuotation } from '@/services/quotation.service';
-import type { Style } from '@/types/style.types';
 import type { QuotationItemInput } from '@/types/quotation.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
 import { toDateInputValue } from '@/lib/date';
 
@@ -29,7 +26,6 @@ export default function QuotationForm() {
   // Pre-selected style when arriving from an approved cost sheet's "Create Quotation" (B14-08)
   const prefillStyleId = searchParams.get('styleId') || '';
 
-  const [styles, setStyles] = useState<Style[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Form state
@@ -51,7 +47,6 @@ export default function QuotationForm() {
   ]);
 
   useEffect(() => {
-    fetchStyles();
     if (isEditMode && id) {
       fetchQuotation(id);
     } else if (prefillStyleId) {
@@ -60,16 +55,6 @@ export default function QuotationForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
-
-  const fetchStyles = async () => {
-    try {
-      // Reduced from 1000 to 200 for performance
-      const response = await styleService.getAllStyles(1, 200, undefined, undefined, undefined, undefined, 'ACTIVE');
-      setStyles(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load styles');
-    }
-  };
 
   const fetchQuotation = async (quotationId: string) => {
     try {
@@ -312,21 +297,12 @@ export default function QuotationForm() {
                     <Label>
                       Style <span className="text-destructive">*</span>
                     </Label>
-                    <Select
+                    {/* ACTIVE styles only — the picker's default */}
+                    <StyleCombobox
                       value={item.styleId}
                       onValueChange={(value) => handleItemChange(item.tempId, 'styleId', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {styles?.map((style) => (
-                          <SelectItem key={style.id} value={style.id}>
-                            {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select style..."
+                    />
                   </div>
 
                   <div className="space-y-2">

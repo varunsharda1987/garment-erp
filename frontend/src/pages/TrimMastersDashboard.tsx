@@ -434,6 +434,8 @@ export default function TrimMastersDashboard() {
             <form onSubmit={handleSearch} className="flex gap-2 w-full md:w-auto">
               <div className="relative flex-1 md:w-80">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* allow-raw-search: not a live search — Enter / Search opens the matching trim list with this text;
+                    a debounced box would submit the text as it was 300 ms earlier */}
                 <Input
                   placeholder="Search trims by name, code, color..."
                   value={searchQuery}

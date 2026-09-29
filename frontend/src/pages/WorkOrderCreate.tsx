@@ -321,6 +321,7 @@ export default function WorkOrderCreate() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="NONE">Any / N/A</SelectItem>
+                          {/* allow-plain-select: the colours of the one chosen style's variants — a short, bounded list */}
                           {colors.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
                               {c.colorName}

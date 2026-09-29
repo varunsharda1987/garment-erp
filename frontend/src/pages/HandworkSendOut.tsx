@@ -12,6 +12,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox, type ComboboxOption } from '../components/ui/combobox';
 import { Textarea } from '../components/ui/textarea';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
@@ -109,6 +110,12 @@ export default function HandworkSendOut() {
   const selectedIssue = stitchingIssues.find((s) => s.id === selectedStitchingIssueId);
 
   const totalQty = Object.values(skuQtys).reduce((s, q) => s + (q || 0), 0);
+
+  // The PENDING / IN_PRODUCTION runs this page loads (all of them — the endpoint is not paged), searchable
+  const workOrderOptions: ComboboxOption[] = workOrders.map((wo) => ({
+    value: wo.id,
+    label: `${wo.workOrderNumber} — ${formatStyleCodeWithRef(wo.styleCode || '', wo.buyerStyleRef)} ${wo.styleName} (${wo.totalQuantity} pcs)`,
+  }));
 
   // Load work orders
   useEffect(() => {
@@ -291,7 +298,8 @@ export default function HandworkSendOut() {
           <CardTitle className="text-base">1. Select Work Order</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select
+          <Combobox
+            options={workOrderOptions}
             value={selectedWorkOrderId}
             onValueChange={(v) => {
               setSelectedWorkOrderId(v);
@@ -299,19 +307,10 @@ export default function HandworkSendOut() {
               setSelectedStitchingIssueId('');
               setSkuQtys({});
             }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select work order..." />
-            </SelectTrigger>
-            <SelectContent>
-              {workOrders.map((wo) => (
-                <SelectItem key={wo.id} value={wo.id}>
-                  {wo.workOrderNumber} — {formatStyleCodeWithRef(wo.styleCode || '', wo.buyerStyleRef)} {wo.styleName} (
-                  {wo.totalQuantity} pcs)
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder="Select work order..."
+            searchPlaceholder="Search by run number, style, buyer ref..."
+            emptyText="No work orders found."
+          />
         </CardContent>
       </Card>
 

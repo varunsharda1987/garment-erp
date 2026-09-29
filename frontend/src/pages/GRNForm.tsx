@@ -1192,6 +1192,7 @@ export default function GRNForm() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Purchase Order *</Label>
+            {/* allow-raw-search: narrows the receivable POs already loaded into the Select below, in memory — no request per keystroke */}
             <Input
               placeholder="Search by PO number, supplier, or material..."
               value={poSearch}

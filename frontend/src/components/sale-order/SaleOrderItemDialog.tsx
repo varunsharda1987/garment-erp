@@ -417,6 +417,7 @@ export function SaleOrderItemDialog({
                   </SelectTrigger>
                   <SelectContent className="z-[9999]">
                     <SelectItem value="none">No color / Any</SelectItem>
+                    {/* allow-plain-select: the active colour options of the one picked style — a short, bounded list */}
                     {colorOptions.map((color) => (
                       <SelectItem key={color.id} value={color.id}>
                         {color.colorName}

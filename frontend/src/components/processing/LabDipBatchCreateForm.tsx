@@ -13,11 +13,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ProcessorCombobox } from '@/components/ProcessorCombobox';
 import { styleService } from '@/services/style.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import { dyeLabDipService } from '@/services/dyeing.service';
 import type { Style } from '@/types/style.types';
-import type { Supplier } from '@/types/supplier.types';
+import type { SupplierCategory } from '@/types/supplier.types';
 import type { PrintMethod, PrintChemistry } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,9 @@ const PRINT_CHEMISTRIES: { value: PrintChemistry; label: string }[] = [
   { value: 'PROCIAN', label: 'Procian' },
   { value: 'DISCHARGE', label: 'Discharge' },
 ];
+
+/** Lab dips go to dyers and printers — the suppliers holding the DYEING_PRINTING category. */
+const LAB_DIP_PROCESSOR_CATEGORIES: SupplierCategory[] = ['DYEING_PRINTING'];
 
 interface FabricRow {
   id: string; // style_fabrics.id
@@ -79,22 +82,12 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
   const [fabricRows, setFabricRows] = useState<FabricRow[]>([]);
   const [isLoadingFabrics, setIsLoadingFabrics] = useState(false);
 
-  // Processors
-  const [processors, setProcessors] = useState<Supplier[]>([]);
-
   // Style search query
   const { data: stylesData, isLoading: stylesLoading } = useQuery({
     queryKey: ['styles-search', styleSearch],
     queryFn: () => styleService.getAllStyles(1, 20, styleSearch),
     enabled: styleOpen || styleSearch.length >= 2,
   });
-
-  // Fetch processors on mount
-  useEffect(() => {
-    getAllSuppliers({ category: 'DYEING_PRINTING', limit: 100 }).then((res) => {
-      setProcessors(res.data || []);
-    });
-  }, []);
 
   const styles = stylesData?.data || [];
 
@@ -415,22 +408,14 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
                           )}
                         </TableCell>
                         <TableCell>
-                          <Select
+                          <ProcessorCombobox
+                            categories={LAB_DIP_PROCESSOR_CATEGORIES}
                             value={row.processorId}
                             onValueChange={(v) => updateRow(index, { processorId: v })}
                             disabled={!row.isIncluded}
-                          >
-                            <SelectTrigger className="w-40">
-                              <SelectValue placeholder="Select processor..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {processors.map((p) => (
-                                <SelectItem key={p.id} value={p.id}>
-                                  {p.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select processor..."
+                            className="w-40"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input

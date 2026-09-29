@@ -5,12 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
-import { getAllOrders, getOrderById } from '@/services/order.service';
+import { OrderCombobox } from '@/components/OrderCombobox';
+import { getOrderById } from '@/services/order.service';
 import { createInvoice, getInvoiceById, updateInvoice } from '@/services/invoice.service';
-import type { Order } from '@/types/order.types';
 import type { InvoiceItemInput } from '@/types/invoice.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
@@ -32,9 +31,7 @@ export default function InvoiceForm() {
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
-  const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
   // Form state
   const [customerId, setCustomerId] = useState('');
@@ -56,28 +53,10 @@ export default function InvoiceForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
-  useEffect(() => {
-    if (customerId) {
-      fetchCustomerOrders(customerId);
-    } else {
-      setOrders([]);
-      setOrderId('');
-    }
-  }, [customerId]);
-
-  const fetchCustomerOrders = async (custId: string) => {
-    try {
-      setIsLoadingOrders(true);
-      const response = await getAllOrders({
-        customerId: custId,
-        limit: 100,
-      });
-      setOrders(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load orders', false);
-    } finally {
-      setIsLoadingOrders(false);
-    }
+  // The Order picker lists the chosen customer's orders itself; no customer, no order
+  const handleCustomerChange = (newCustomerId: string) => {
+    setCustomerId(newCustomerId);
+    if (!newCustomerId) setOrderId('');
   };
 
   const fetchInvoice = async (invoiceId: string) => {
@@ -280,7 +259,7 @@ export default function InvoiceForm() {
                 </Label>
                 <CustomerCombobox
                   value={customerId}
-                  onValueChange={setCustomerId}
+                  onValueChange={handleCustomerChange}
                   placeholder="Select customer..."
                   disabled={isEditMode}
                 />
@@ -290,25 +269,14 @@ export default function InvoiceForm() {
                 <Label htmlFor="orderId">
                   Order <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                {/* Only the chosen customer's orders; "No orders found for this customer." shows in the list */}
+                <OrderCombobox
                   value={orderId}
                   onValueChange={handleOrderChange}
-                  disabled={isEditMode || !customerId || isLoadingOrders}
-                >
-                  <SelectTrigger id="orderId">
-                    <SelectValue placeholder={isLoadingOrders ? 'Loading orders...' : 'Select order'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {orders?.map((order) => (
-                      <SelectItem key={order.id} value={order.id}>
-                        {order.orderNumber} - {formatCurrency(order.totalAmount, { decimals: 0 })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {customerId && orders.length === 0 && !isLoadingOrders && (
-                  <p className="text-xs text-muted-foreground">No orders found for this customer</p>
-                )}
+                  customerId={customerId || undefined}
+                  disabled={isEditMode || !customerId}
+                  placeholder="Select order"
+                />
               </div>
             </div>
 

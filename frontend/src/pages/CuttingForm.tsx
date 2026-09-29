@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import { stageValidationService } from '@/services/stageValidation.service';
-import type { CreateCuttingBatchRequest } from '@/types/cutting.types';
+import type { CreateCuttingBatchRequest, CuttingBatch } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
@@ -84,6 +85,8 @@ export default function CuttingForm() {
   const [embroideryWarning, setEmbroideryWarning] = useState<string | null>(null);
   const [blockers, setBlockers] = useState<string[]>([]);
   const [isCheckingBlockers, setIsCheckingBlockers] = useState(false);
+  // The edited batch's own run — named in the picker even once it no longer waits to be cut
+  const [batchWorkOrder, setBatchWorkOrder] = useState<CuttingBatch['workOrder'] | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -284,6 +287,7 @@ export default function CuttingForm() {
     try {
       setIsLoading(true);
       const batch = await cuttingBatchService.getById(id!);
+      setBatchWorkOrder(batch.workOrder ?? null);
 
       setFormData({
         workOrderId: batch.workOrderId,
@@ -401,6 +405,22 @@ export default function CuttingForm() {
   const selectedFabric = fabricStocks.find((fs) => fs.id === formData.fabricStockId);
   const totalToCut = skuPlans.reduce((sum, s) => sum + s.toCut, 0);
 
+  // The runs still waiting to be cut (the server's own list), searchable by run, style, buyer's code or name
+  const workOrderOptions: ComboboxOption[] = availableWorkOrders.map((wo) => ({
+    value: wo.id,
+    label: `${wo.workOrderNumber} - ${formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} (${wo.pendingQty} pcs pending)`,
+    searchText: [wo.workOrderNumber, wo.styleCode, wo.buyerStyleRef, wo.styleName].filter(Boolean).join(' '),
+  }));
+  if (batchWorkOrder && formData.workOrderId && !workOrderOptions.some((o) => o.value === formData.workOrderId)) {
+    workOrderOptions.push({
+      value: formData.workOrderId,
+      label: `${batchWorkOrder.workOrderNumber} - ${formatStyleCodeWithRef(
+        batchWorkOrder.style?.styleCode ?? '',
+        batchWorkOrder.style?.buyerStyleRef
+      )}`,
+    });
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -443,23 +463,15 @@ export default function CuttingForm() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Production Run *</Label>
-                  <Select
+                  <Combobox
+                    options={workOrderOptions}
                     value={formData.workOrderId}
                     onValueChange={(v) => setFormData({ ...formData, workOrderId: v, fabricStockId: '' })}
                     disabled={isEditing}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a production run" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableWorkOrders.map((wo) => (
-                        <SelectItem key={wo.id} value={wo.id}>
-                          {wo.workOrderNumber} - {formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} (
-                          {wo.pendingQty} pcs pending)
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select a production run"
+                    searchPlaceholder="Search by run number, style, buyer ref..."
+                    emptyText="No production runs waiting to be cut."
+                  />
                 </div>
 
                 {selectedWO && (

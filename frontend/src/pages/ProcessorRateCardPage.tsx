@@ -13,7 +13,7 @@ import { isAxiosError } from 'axios';
 import { Button } from '../components/ui/button';
 import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox } from '../components/ui/combobox';
 import { processorRateCardV2Service } from '../services/processorRateCardV2.service';
 import type {
   ProcessingTypeV2,
@@ -689,6 +689,15 @@ export default function ProcessorRateCardPage() {
 
   const getSlabId = (slab: SlabInput) => slab.id || `temp-${slab.slabOrder}`;
 
+  // The rate-card processors (dyers / printers and anyone already holding a card) as searchable options.
+  // Not ProcessorCombobox: its roster adds washers and finishers and leaves out suppliers that hold a
+  // rate card without the DYEING_PRINTING category.
+  const processorOption = (p: ProcessorInfo) => ({
+    value: p.id,
+    label: `${p.name} (${p.code})`,
+    searchText: `${p.name} ${p.code}`,
+  });
+
   /**
    * What an EMPTY cell is priced at: a row's last filled band carries up to every band after it
    * (the backend rule, rate-slab.helper). Null for a filled cell, a hole between filled bands, or
@@ -906,18 +915,18 @@ export default function ProcessorRateCardPage() {
         ) : (
           // Normal processor dropdown
           <div className="w-64">
-            <Select value={selectedProcessorId} onValueChange={setSelectedProcessorId} disabled={hasUnsavedChanges}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select Processor" />
-              </SelectTrigger>
-              <SelectContent>
-                {processors.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              options={processors.map(processorOption)}
+              value={selectedProcessorId}
+              onValueChange={(v) => {
+                // Picking the open processor again keeps it open (as the old dropdown did)
+                if (v) setSelectedProcessorId(v);
+              }}
+              placeholder="Select Processor"
+              searchPlaceholder="Search processor by name or code..."
+              emptyText="No processors found."
+              disabled={hasUnsavedChanges}
+            />
           </div>
         )}
 
@@ -1277,6 +1286,8 @@ export default function ProcessorRateCardPage() {
             <div className="p-4 border-b">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* allow-raw-search: filters the modal's in-memory greige / greige-lace list (the whole list is
+                    loaded) as each key is typed — a debounce would only make the ticking lag */}
                 <Input
                   placeholder={materialType === 'FABRIC' ? 'Search greige fabrics...' : 'Search greige laces...'}
                   value={greigeSearchTerm}
@@ -1426,20 +1437,14 @@ export default function ProcessorRateCardPage() {
 
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Target Processor *</label>
-                <Select value={copyTargetProcessorId} onValueChange={setCopyTargetProcessorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select target processor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {processors
-                      .filter((p) => p.id !== selectedProcessorId)
-                      .map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.code})
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  options={processors.filter((p) => p.id !== selectedProcessorId).map(processorOption)}
+                  value={copyTargetProcessorId}
+                  onValueChange={setCopyTargetProcessorId}
+                  placeholder="Select target processor"
+                  searchPlaceholder="Search processor by name or code..."
+                  emptyText="No processors found."
+                />
               </div>
 
               <div className="space-y-2">
@@ -1508,6 +1513,8 @@ export default function ProcessorRateCardPage() {
 
             {/* Search input */}
             <div className="p-4 border-b">
+              {/* allow-raw-search: filters the modal's in-memory greige list (the whole list is loaded) as each
+                  key is typed — a debounce would only make the ticking lag */}
               <Input
                 placeholder="Search greige by name or code..."
                 value={greigeSearchTerm}

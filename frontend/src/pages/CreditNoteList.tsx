@@ -36,7 +36,7 @@ import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { FilterBar, DateRangeFilter } from '@/components/filters';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { formatDate } from '@/lib/date';
 
 // ---------------------------------------------------------------------------
@@ -490,7 +490,7 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
     }
   }, [open]);
 
-  // Debounced invoice search
+  // Invoice search — run once typing pauses (the SearchInput below is the one debounce)
   const searchInvoices = useCallback(async (q: string) => {
     if (!q || q.length < 2) {
       setInvoiceResults([]);
@@ -508,11 +508,6 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
       setInvoiceLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => searchInvoices(invoiceSearch), 300);
-    return () => clearTimeout(timer);
-  }, [invoiceSearch, searchInvoices]);
 
   // When an invoice is selected, populate line items
   const handleSelectInvoice = (inv: InvoiceSearchResult) => {
@@ -599,15 +594,17 @@ function CreateCreditNoteDialog({ open, onOpenChange, onSubmit, isSubmitting }: 
               </div>
             ) : (
               <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
+                <SearchInput
                   placeholder="Search by invoice number..."
                   value={invoiceSearch}
-                  onChange={(e) => setInvoiceSearch(e.target.value)}
-                  className="pl-8"
+                  onChange={(q) => {
+                    setInvoiceSearch(q);
+                    searchInvoices(q);
+                  }}
                 />
+                {/* Left of SearchInput's clear (×) button */}
                 {invoiceLoading && (
-                  <div className="absolute right-3 top-2.5">
+                  <div className="pointer-events-none absolute right-9 top-2.5">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
                   </div>
                 )}

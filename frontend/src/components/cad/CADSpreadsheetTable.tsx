@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
@@ -403,6 +404,22 @@ export function CADSpreadsheetTable({
     if (greigeWidth >= 63) return 52;
     if (greigeWidth >= 48) return 40;
     return null; // Let user select for other widths
+  };
+
+  // The greiges a row's Greige cell offers — those of the row's generic greige, searchable — plus the row's
+  // own greige when it is no longer offered (made inactive), so the cell still names it
+  const greigeOptionsFor = (row: CADSpreadsheetRow): ComboboxOption[] => {
+    const options: ComboboxOption[] = availableGreiges
+      .filter((g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName)
+      .map((g) => ({
+        value: g.id,
+        label: g.greigeName,
+        searchText: [g.greigeName, g.genericGreigeName, g.supplierName].filter(Boolean).join(' '),
+      }));
+    if (row.greigeId && row.greigeName && !options.some((o) => o.value === row.greigeId)) {
+      options.unshift({ value: row.greigeId, label: row.greigeName });
+    }
+    return options;
   };
 
   // Get pattern parts for a component
@@ -1600,26 +1617,19 @@ export function CADSpreadsheetTable({
                               {row.readyFabricName || '-'}
                             </span>
                           ) : isEditing ? (
-                            <Select
+                            <Combobox
+                              options={greigeOptionsFor(row)}
                               value={getDisplayValue(row, 'greigeId', '') || ''}
-                              onValueChange={(v) => handleFieldChange(row.id, 'greigeId', v)}
+                              onValueChange={(v) => {
+                                // Picking the chosen greige again keeps it — the cell changes a greige, never clears it
+                                if (v) handleFieldChange(row.id, 'greigeId', v);
+                              }}
                               disabled={isSaving}
-                            >
-                              <SelectTrigger className="h-7 text-xs w-36">
-                                <SelectValue placeholder="Select Greige" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableGreiges
-                                  .filter(
-                                    (g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName
-                                  )
-                                  .map((g) => (
-                                    <SelectItem key={g.id} value={g.id}>
-                                      {g.greigeName}
-                                    </SelectItem>
-                                  ))}
-                              </SelectContent>
-                            </Select>
+                              placeholder="Select Greige"
+                              searchPlaceholder="Search greige..."
+                              emptyText="No greige found."
+                              className="h-7 w-36 px-2 text-xs font-normal"
+                            />
                           ) : (
                             <span className="text-xs whitespace-nowrap">{row.greigeName || '-'}</span>
                           )}

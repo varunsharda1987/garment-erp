@@ -5,7 +5,7 @@
 // A note for a production order linked to a sale order is booked against that sale order by the
 // server (its lines' Dispatched quantity moves); in sale-order mode the page names the sale order.
 // BUG-DASH10 fix: corrected route path - /manufacturing/dispatch/delivery/new
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,11 +17,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import type { ComboboxOption } from '@/components/ui/combobox';
+import { OrderCombobox } from '@/components/OrderCombobox';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { deliveryNoteService, asnService } from '@/services/dispatch.service';
-import { getAllOrders, getOrderById } from '@/services/order.service';
+import { getOrderById } from '@/services/order.service';
 import { getSaleOrderById } from '@/services/saleOrder.service';
 import type { SaleOrder } from '@/types/saleOrder.types';
-import { customerService } from '@/services/customer.service';
 import { styleService } from '@/services/style.service';
 import type { Order } from '@/types/order.types';
 import type { CreateDeliveryNoteRequest } from '@/types/dispatch.types';
@@ -93,12 +94,6 @@ export default function DispatchDeliveryNoteForm() {
   const saleOrderIdParam = searchParams.get('saleOrderId');
   const paramLoadedRef = useRef(false);
 
-  // Lookups
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [ordersTotal, setOrdersTotal] = useState<number | undefined>(undefined);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [customers, setCustomers] = useState<Array<{ id: string; code?: string; name: string }>>([]);
-
   // Selected order detail (with items + breakup)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orderLoading, setOrderLoading] = useState(false);
@@ -121,41 +116,6 @@ export default function DispatchDeliveryNoteForm() {
   const [stockShort, setStockShort] = useState<StockShortLine[] | null>(null);
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<CreateDeliveryNoteRequest | null>(null);
-
-  const orderSearchRef = useRef('');
-
-  // ----- Lookups -----
-
-  const fetchOrders = useCallback(async (search?: string) => {
-    try {
-      setOrdersLoading(true);
-      const res = await getAllOrders({ page: 1, limit: 50, search: search || undefined });
-      setOrders(res.data || []);
-      setOrdersTotal(res.pagination?.total);
-    } catch (err) {
-      logError('Failed to load orders', err);
-    } finally {
-      setOrdersLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOrders();
-    // Customer lookup — editable fallback when the order has no customer attached
-    customerService
-      .getAllCustomers({ page: 1, limit: 100 })
-      .then((res) => setCustomers(res.data || []))
-      .catch((err) => logError('Failed to load customers', err));
-  }, [fetchOrders]);
-
-  const handleOrderSearch = useCallback(
-    (search: string) => {
-      if (search === orderSearchRef.current) return;
-      orderSearchRef.current = search;
-      fetchOrders(search);
-    },
-    [fetchOrders]
-  );
 
   // Color/size options for each style (for manual rows and rows with no color yet).
   // Serializer: color_options → colorOptions, size_options → sizeOptions.
@@ -363,6 +323,11 @@ export default function DispatchDeliveryNoteForm() {
     const s = orderStyles.find((st) => st.id === styleId);
     return s ? `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — ${s.styleName}` : styleId;
   };
+  // A row picks only among the styles of the chosen order / sale order — the page's own list
+  const orderStyleOptions: ComboboxOption[] = orderStyles.map((s) => ({
+    value: s.id,
+    label: `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — ${s.styleName}`,
+  }));
 
   // ----- Submit -----
 
@@ -514,41 +479,17 @@ export default function DispatchDeliveryNoteForm() {
               ) : (
                 <div className="space-y-2">
                   <Label>Order *</Label>
-                  <Combobox
-                    options={orders.map(
-                      (o): ComboboxOption => ({
-                        value: o.id,
-                        label: `${o.orderNumber} — ${o.customer?.name || 'Unknown customer'}`,
-                        searchText: `${o.orderNumber} ${o.customer?.name || ''}`,
-                      })
-                    )}
-                    value={orderId}
-                    onValueChange={handleOrderSelect}
-                    placeholder="Select order..."
-                    searchPlaceholder="Search by order number or customer..."
-                    onSearchChange={handleOrderSearch}
-                    isLoading={ordersLoading}
-                    footer={
-                      ordersTotal !== undefined && ordersTotal > orders.length
-                        ? `Showing the ${orders.length} most recent of ${ordersTotal.toLocaleString('en-IN')} orders — type an order number or customer to narrow`
-                        : undefined
-                    }
-                  />
+                  {/* Every order, newest first, server-searched; an order from ?orderId= / the ASN is named even when older */}
+                  <OrderCombobox value={orderId} onValueChange={handleOrderSelect} placeholder="Select order..." />
                 </div>
               )}
               <div className="space-y-2">
                 <Label>Customer *</Label>
-                <Combobox
-                  options={customers.map(
-                    (c): ComboboxOption => ({
-                      value: c.id,
-                      label: c.code ? `${c.code} — ${c.name}` : c.name,
-                    })
-                  )}
+                {/* Editable fallback when the order has no customer attached */}
+                <CustomerCombobox
                   value={customerId}
                   onValueChange={(v) => setCustomerId(v)}
                   placeholder="Auto-filled from order..."
-                  searchPlaceholder="Search customers..."
                 />
                 <p className="text-xs text-muted-foreground">Auto-filled from the selected order; editable</p>
               </div>
@@ -603,24 +544,17 @@ export default function DispatchDeliveryNoteForm() {
                         return (
                           <TableRow key={row.tempId}>
                             <TableCell>
-                              <Select
+                              <Combobox
+                                options={orderStyleOptions}
                                 value={row.styleId}
                                 onValueChange={(v) =>
                                   // Changing style invalidates color/size picks
                                   updateItem(row.tempId, { styleId: v, colorId: '', sizeId: '' })
                                 }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select style" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {orderStyles.map((s) => (
-                                    <SelectItem key={s.id} value={s.id}>
-                                      {formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — {s.styleName}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                placeholder="Select style"
+                                searchPlaceholder="Search style code or name..."
+                                emptyText="No style on this order matches."
+                              />
                             </TableCell>
                             <TableCell>
                               <Select
@@ -634,6 +568,7 @@ export default function DispatchDeliveryNoteForm() {
                                   />
                                 </SelectTrigger>
                                 <SelectContent>
+                                  {/* allow-plain-select: the row style's own colour options — a short, bounded list */}
                                   {(opts?.colors || []).map((c) => (
                                     <SelectItem key={c.id} value={c.id}>
                                       {c.colorName}

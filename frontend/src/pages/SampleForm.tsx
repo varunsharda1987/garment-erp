@@ -19,11 +19,11 @@ import type {
   SampleSizeSetInput,
 } from '@/types/sample.types';
 import { SampleTypeLabels } from '@/types/sample.types';
-// BUG-CU10 fix: Use shared CustomerLookup type instead of duplicate local interface
-import type { CustomerLookup } from '@/types/customer.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { TestTube, ArrowLeft, Save, Plus, Trash2, Ruler, Palette, Grid3X3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import api from '@/lib/api';
@@ -49,7 +49,6 @@ export default function SampleForm() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Lookup data
-  const [customers, setCustomers] = useState<CustomerLookup[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 
@@ -91,7 +90,6 @@ export default function SampleForm() {
   const [sizeSets, setSizeSets] = useState<SampleSizeSetInput[]>([]);
 
   useEffect(() => {
-    fetchCustomers();
     if (isEditing && id) {
       fetchSample();
     } else {
@@ -124,15 +122,6 @@ export default function SampleForm() {
       setSelectedStyle(null);
     }
   }, [formData.styleId]);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await api.get<{ data: CustomerLookup[] }>('/customers?limit=1000&isActive=true');
-      setCustomers(response.data.data);
-    } catch (err) {
-      console.error('Failed to fetch customers:', err);
-    }
-  };
 
   const fetchStyles = async (customerId: string) => {
     try {
@@ -386,6 +375,20 @@ export default function SampleForm() {
     setSizeSets(sizeSets.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
+  // The chosen customer's ACTIVE styles (the list StyleCombobox cannot scope to a customer), plus the
+  // sample's own style when it is no longer among them, so an existing sample still names it
+  const styleChoices =
+    selectedStyle && selectedStyle.id === formData.styleId && !styles.some((s) => s.id === selectedStyle.id)
+      ? [selectedStyle, ...styles]
+      : styles;
+  const styleOptions: ComboboxOption[] = [
+    { value: 'none', label: 'No style' },
+    ...styleChoices.map((s) => ({
+      value: s.id,
+      label: `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - ${s.styleName}`,
+    })),
+  ];
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -428,22 +431,13 @@ export default function SampleForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Customer *</Label>
-                    <Select
+                    {/* Active customers — the picker's default, as the old list asked for */}
+                    <CustomerCombobox
                       value={formData.customerId}
                       onValueChange={(v) => setFormData({ ...formData, customerId: v, styleId: '' })}
                       disabled={isEditing}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select customer"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Sample Type *</Label>
@@ -469,23 +463,16 @@ export default function SampleForm() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Style (Optional)</Label>
-                    <Select
+                    <Combobox
+                      options={styleOptions}
                       value={formData.styleId || 'none'}
-                      onValueChange={(v) => setFormData({ ...formData, styleId: v === 'none' ? '' : v })}
+                      // '' = "No style" picked again (the combobox clears a re-picked row)
+                      onValueChange={(v) => setFormData({ ...formData, styleId: v === 'none' || !v ? '' : v })}
                       disabled={isEditing || !formData.customerId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No style</SelectItem>
-                        {styles.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - {s.styleName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select style"
+                      searchPlaceholder="Search style code, buyer's code or name..."
+                      emptyText="No styles found for this customer."
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Required By *</Label>
@@ -691,6 +678,7 @@ export default function SampleForm() {
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
                                   <SelectContent>
+                                    {/* allow-plain-select: the chosen style's own colour options — a short, bounded list */}
                                     {selectedStyle?.colorOptions?.map((color) => (
                                       <SelectItem key={color.id} value={color.id}>
                                         {color.colorName}
@@ -803,6 +791,7 @@ export default function SampleForm() {
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
                                   <SelectContent>
+                                    {/* allow-plain-select: the chosen style's own colour options — a short, bounded list */}
                                     {selectedStyle?.colorOptions?.map((color) => (
                                       <SelectItem key={color.id} value={color.id}>
                                         {color.colorName}

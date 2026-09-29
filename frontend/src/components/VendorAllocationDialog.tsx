@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Loader2, CheckCircle, AlertTriangle, HelpCircle, Sparkles } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -123,8 +123,33 @@ export default function VendorAllocationDialog({
 
   const handleAssignmentChange = (requirementId: string, supplierId: string) => {
     const newAssignments = new Map(assignments);
-    newAssignments.set(requirementId, supplierId);
+    // Picking the chosen vendor again clears it: the requirement is then left out, never sent blank
+    if (supplierId) newAssignments.set(requirementId, supplierId);
+    else newAssignments.delete(requirementId);
     setAssignments(newAssignments);
+  };
+
+  /**
+   * The material type's suppliers (the whole list — the endpoint is not paged), the suggestion pinned first.
+   */
+  const supplierOptionsFor = (suggestion: VendorSuggestionForRequirement): ComboboxOption[] => {
+    const options: ComboboxOption[] = [];
+    if (suggestion.suggestedSupplierId) {
+      options.push({
+        value: suggestion.suggestedSupplierId,
+        label: `✨ ${suggestion.suggestedSupplierName ?? ''} (Suggested)`,
+        searchText: `${suggestion.suggestedSupplierName ?? ''} suggested`,
+      });
+    }
+    for (const supplier of getSuppliersForMaterialType(suggestion.materialType)) {
+      if (supplier.id === suggestion.suggestedSupplierId) continue;
+      options.push({
+        value: supplier.id,
+        label: supplier.name,
+        searchText: `${supplier.code ?? ''} ${supplier.name}`,
+      });
+    }
+    return options;
   };
 
   const handleAutoAssign = async () => {
@@ -279,36 +304,20 @@ export default function VendorAllocationDialog({
                   {/* Vendor Selection */}
                   <div className="flex items-center gap-3">
                     <label className="text-sm font-medium text-foreground min-w-[100px]">Assign to:</label>
-                    <Select
+                    <Combobox
+                      options={supplierOptionsFor(suggestion)}
                       value={assignments.get(suggestion.requirementId) || ''}
                       onValueChange={(value) => handleAssignmentChange(suggestion.requirementId, value)}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select vendor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {suggestion.suggestedSupplierId && (
-                          <>
-                            <SelectItem value={suggestion.suggestedSupplierId}>
-                              ✨ {suggestion.suggestedSupplierName} (Suggested)
-                            </SelectItem>
-                            <div className="border-t my-1" />
-                          </>
-                        )}
-                        {getSuppliersForMaterialType(suggestion.materialType)
-                          .filter((s) => s.id !== suggestion.suggestedSupplierId)
-                          .map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
-                        {getSuppliersForMaterialType(suggestion.materialType).length === 0 && (
-                          <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                            No suppliers found for {suggestion.materialType || 'this type'}
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select vendor..."
+                      searchPlaceholder="Search by code or name..."
+                      emptyText="No vendors found."
+                      footer={
+                        getSuppliersForMaterialType(suggestion.materialType).length === 0
+                          ? `No suppliers found for ${suggestion.materialType || 'this type'}`
+                          : undefined
+                      }
+                      className="flex-1"
+                    />
                   </div>
 
                   {/* Alternatives */}

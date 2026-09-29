@@ -6,14 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import { LookupSelect } from '@/components/LookupSelect';
 import ColorPicker from '@/components/ColorPicker';
 import { createLace, getLaceById, updateLace, getGreigeLace, deleteLaceImage } from '@/services/lace.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
-import type { LaceFormData, LaceSupplierInput, Lace } from '@/types/lace.types';
+import { LaceCombobox } from '@/components/LaceCombobox';
+import type { LaceFormData, LaceSupplierInput } from '@/types/lace.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
 
@@ -40,7 +40,8 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
   // Greige lace state
   const [isGreige, setIsGreige] = useState<boolean>(false);
-  const [greigeLaces, setGreigeLaces] = useState<Lace[]>([]);
+  // Whether any greige lace exists: the Source Greige Lace field is offered only then
+  const [hasGreigeLaces, setHasGreigeLaces] = useState<boolean>(false);
   const [sourceGreigeLaceId, setSourceGreigeLaceId] = useState<string>('');
 
   // Image upload state
@@ -53,12 +54,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
   const isNewLace = mode === 'create' || !id;
 
-  // Load greige laces for dropdown (when creating finished lace)
+  // Is there any greige lace to link a finished lace to? (the picker itself searches all of them)
   useEffect(() => {
     const fetchGreigeLaces = async () => {
       try {
-        const response = await getGreigeLace({ limit: 100 });
-        setGreigeLaces(response.data);
+        const response = await getGreigeLace({ limit: 1 });
+        setHasGreigeLaces(response.data.length > 0);
       } catch (err) {
         console.error('Failed to fetch greige laces:', err);
       }
@@ -432,25 +433,16 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                 )}
 
                 {/* Source Greige Lace - Only for finished lace */}
-                {!isGreige && greigeLaces.length > 0 && (
+                {!isGreige && hasGreigeLaces && (
                   <div>
                     <Label>Source Greige Lace (Optional)</Label>
-                    <Select
-                      value={sourceGreigeLaceId || undefined}
-                      onValueChange={(val) => setSourceGreigeLaceId(val === '__none__' ? '' : val)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Link to source greige lace..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {greigeLaces.map((gl) => (
-                          <SelectItem key={gl.id} value={gl.id}>
-                            {gl.laceCode} - {gl.laceName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {/* Picking the linked lace again clears the link (None) */}
+                    <LaceCombobox
+                      kind="greige"
+                      value={sourceGreigeLaceId}
+                      onValueChange={setSourceGreigeLaceId}
+                      placeholder="Link to source greige lace..."
+                    />
                     <p className="text-xs text-muted-foreground mt-1">
                       Link to the greige lace this was dyed from (for traceability)
                     </p>

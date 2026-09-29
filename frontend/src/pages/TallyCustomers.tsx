@@ -319,6 +319,7 @@ export default function TallyCustomersPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
+              {/* allow-raw-search: filters the Tally ledgers already loaded into this dialog, in memory */}
               <Input
                 placeholder="Search ledgers..."
                 value={ledgerSearch}

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Loader2, CheckCircle, AlertTriangle, HelpCircle, Sparkles } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
@@ -103,7 +103,9 @@ export default function ProcessorAllocationDialog({
 
   const handleAssignmentChange = (requirementId: string, processorId: string) => {
     const newAssignments = new Map(assignments);
-    newAssignments.set(requirementId, processorId);
+    // Picking the chosen processor again clears it: the requirement is then left out, never sent blank
+    if (processorId) newAssignments.set(requirementId, processorId);
+    else newAssignments.delete(requirementId);
     setAssignments(newAssignments);
   };
 
@@ -160,6 +162,27 @@ export default function ProcessorAllocationDialog({
     );
 
     return filtered.length > 0 ? filtered : processors;
+  };
+
+  /** The service type's processors (every processor when none holds its category), the suggestion pinned first. */
+  const processorOptionsFor = (suggestion: ProcessorSuggestionForRequirement): ComboboxOption[] => {
+    const options: ComboboxOption[] = [];
+    if (suggestion.suggestedProcessorId) {
+      options.push({
+        value: suggestion.suggestedProcessorId,
+        label: `✨ ${suggestion.suggestedProcessorName ?? ''} (Suggested)`,
+        searchText: `${suggestion.suggestedProcessorName ?? ''} suggested`,
+      });
+    }
+    for (const processor of getProcessorsForServiceType(suggestion.serviceType)) {
+      if (processor.id === suggestion.suggestedProcessorId) continue;
+      options.push({
+        value: processor.id,
+        label: processor.name,
+        searchText: `${processor.code ?? ''} ${processor.name}`,
+      });
+    }
+    return options;
   };
 
   const getConfidenceIcon = (confidence: 'high' | 'medium' | 'low') => {
@@ -265,31 +288,15 @@ export default function ProcessorAllocationDialog({
                   {/* Processor Selection */}
                   <div className="flex items-center gap-3">
                     <label className="text-sm font-medium text-foreground min-w-[100px]">Assign to:</label>
-                    <Select
+                    <Combobox
+                      options={processorOptionsFor(suggestion)}
                       value={assignments.get(suggestion.requirementId) || ''}
                       onValueChange={(value) => handleAssignmentChange(suggestion.requirementId, value)}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select processor..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {suggestion.suggestedProcessorId && (
-                          <>
-                            <SelectItem value={suggestion.suggestedProcessorId}>
-                              ✨ {suggestion.suggestedProcessorName} (Suggested)
-                            </SelectItem>
-                            <div className="border-t my-1" />
-                          </>
-                        )}
-                        {getProcessorsForServiceType(suggestion.serviceType)
-                          .filter((p) => p.id !== suggestion.suggestedProcessorId)
-                          .map((processor) => (
-                            <SelectItem key={processor.id} value={processor.id}>
-                              {processor.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Select processor..."
+                      searchPlaceholder="Search by code or name..."
+                      emptyText="No processors found."
+                      className="flex-1"
+                    />
                   </div>
 
                   {/* Alternatives */}

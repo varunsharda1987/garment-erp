@@ -9,15 +9,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { laceLabDipService } from '../services/laceLabDip.service';
-import { getGreigeLace } from '../services/lace.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { LaceCombobox } from '@/components/LaceCombobox';
 import type { LaceLabDip, LabDipStatus, CreateLabDipInput, UpdateLabDipStatusInput } from '../types/laceLabDip.types';
 import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS, LAB_DIP_STATUS_TRANSITIONS } from '../types/laceLabDip.types';
-import type { Lace } from '../types/lace.types';
 import { notify } from '../lib/notify';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Send, Package, UserCheck } from 'lucide-react';
 import { formatDateTime as formatDate } from '@/lib/date';
@@ -42,23 +40,6 @@ export default function LaceLabDipForm() {
   const [buyerRemarks, setBuyerRemarks] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvalReference, setApprovalReference] = useState('');
-
-  // Dropdown data
-  const [greigeLaces, setGreigeLaces] = useState<Lace[]>([]);
-
-  // Load dropdown data
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const lacesRes = await getGreigeLace({ limit: 100 });
-        setGreigeLaces(lacesRes.data);
-      } catch (error) {
-        console.error('Failed to load dropdown data:', error);
-        notify.error('Failed to load form data');
-      }
-    };
-    loadData();
-  }, []);
 
   // Load lab dip data in edit mode
   useEffect(() => {
@@ -346,18 +327,13 @@ export default function LaceLabDipForm() {
                 <Label>
                   Greige Lace <span className="text-destructive">*</span>
                 </Label>
-                <Select value={greigeLaceId} onValueChange={setGreigeLaceId} disabled={isEditMode}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select greige lace..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {greigeLaces.map((lace) => (
-                      <SelectItem key={lace.id} value={lace.id}>
-                        {lace.laceCode} - {lace.laceName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LaceCombobox
+                  kind="greige"
+                  value={greigeLaceId}
+                  onValueChange={setGreigeLaceId}
+                  placeholder="Select greige lace..."
+                  disabled={isEditMode}
+                />
               </div>
 
               {/* Processor */}

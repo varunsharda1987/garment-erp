@@ -247,6 +247,7 @@ export function SizeBreakupDialog({
                     <SelectValue placeholder="Choose the colour" />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* allow-plain-select: the colour options of this order line's one style — a short, bounded list */}
                     {colours.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.colorName}

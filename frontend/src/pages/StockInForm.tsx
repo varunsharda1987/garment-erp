@@ -851,22 +851,20 @@ export default function StockInForm() {
                 <CardTitle className="text-lg">Step 1: Select Processor</CardTitle>
               </CardHeader>
               <CardContent>
-                <Select value={selectedProcessorId} onValueChange={handleProcessorSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select processor with pending stock" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {processorsWithStock.map((p) => (
-                      <SelectItem key={p.processorId} value={p.processorId}>
-                        <span className="font-medium">{p.processorCode}</span>
-                        <span className="text-muted-foreground"> - {p.processorName}</span>
-                        <span className="text-xs ml-2 text-primary">
-                          ({p.totalQuantity.toLocaleString()} MTR available)
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Only the processors holding our stock — a subset no shared picker lists — now searchable */}
+                <Combobox
+                  options={processorsWithStock.map((p) => ({
+                    value: p.processorId,
+                    label: `${p.processorCode} - ${p.processorName}`,
+                    description: `(${p.totalQuantity.toLocaleString()} MTR available)`,
+                    searchText: `${p.processorCode} ${p.processorName}`,
+                  }))}
+                  value={selectedProcessorId}
+                  onValueChange={handleProcessorSelect}
+                  placeholder="Select processor with pending stock"
+                  searchPlaceholder="Search by code or name..."
+                  emptyText="No processors found."
+                />
               </CardContent>
             </Card>
 

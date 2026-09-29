@@ -399,6 +399,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
                     <SelectValue placeholder="Select fabric from style..." />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* allow-plain-select: the fabrics of the ONE chosen style (a handful of style_fabrics rows); the full fabric list is the searchable "Search other fabrics..." path below */}
                     {styleFabrics.map((sf) => (
                       <SelectItem key={sf.id} value={sf.id}>
                         <div className="flex flex-col">

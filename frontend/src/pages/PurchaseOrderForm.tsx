@@ -3577,6 +3577,7 @@ export default function PurchaseOrderForm() {
             <DialogTitle>Select Material</DialogTitle>
           </DialogHeader>
           <div>
+            {/* allow-raw-search: filters the supplier's materials already loaded into this dialog, in memory */}
             <Input
               placeholder="Search materials..."
               value={materialSearch}

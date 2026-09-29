@@ -21,7 +21,7 @@ import { FilterBar, DateRangeFilter } from '@/components/filters';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import api from '@/lib/api';
-import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 import { formatDate } from '@/lib/date';
 
 // ---- Supplier / PO search types ----
@@ -191,11 +191,9 @@ export default function DebitNoteList() {
         // ignore abort errors
       }
     };
-    const timeout = setTimeout(fetchSuppliers, 300);
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
+    // No timer here: the SearchInput below only reports the text once typing pauses
+    fetchSuppliers();
+    return () => controller.abort();
   }, [supplierSearch]);
 
   // Phase 4a: load the supplier's (processor's) Job Work Orders
@@ -614,16 +612,14 @@ export default function DebitNoteList() {
                 </div>
               ) : (
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
+                  <SearchInput
                     placeholder="Search supplier by name or code..."
                     value={supplierSearch}
-                    onChange={(e) => {
-                      setSupplierSearch(e.target.value);
+                    onChange={(text) => {
+                      setSupplierSearch(text);
                       setSupplierDropdownOpen(true);
                     }}
                     onFocus={() => setSupplierDropdownOpen(true)}
-                    className="pl-9"
                   />
                   {supplierDropdownOpen && supplierOptions.length > 0 && (
                     <div className="absolute z-50 mt-1 w-full bg-card border rounded-md shadow-lg max-h-48 overflow-y-auto">

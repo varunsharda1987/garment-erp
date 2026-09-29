@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Combobox } from '../ui/combobox';
 import LaceCostingRow from './LaceCostingRow';
 import { type LaceStrategySelection } from './LaceSourcingStrategySelector';
 import type { LaceDetail } from '../../types/costSheet.types';
@@ -166,19 +166,24 @@ export default function LaceCostingSection({
           </span>
         </h3>
         <div className="flex items-center gap-2">
-          <Select value={selectedLaceId} onValueChange={setSelectedLaceId} disabled={disabled || isLoadingLaces}>
-            <SelectTrigger className="w-[250px]">
-              <SelectValue placeholder={isLoadingLaces ? 'Loading...' : 'Select lace to add...'} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableLaces.map((lace) => (
-                <SelectItem key={lace.id} value={lace.id}>
-                  {lace.laceName} {lace.color ? `(${lace.color})` : ''}
-                  {lace.isGreige ? ' — Greige' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Every active lace (the costing list has no page cap), now searchable by code, name or colour */}
+          <Combobox
+            options={availableLaces.map((lace) => ({
+              value: lace.id,
+              label: `${lace.laceName}${lace.color ? ` (${lace.color})` : ''}${lace.isGreige ? ' — Greige' : ''}`,
+              description: lace.laceCode,
+              searchText: [lace.laceCode, lace.laceName, lace.color, lace.sourceGreigeLace?.laceCode]
+                .filter(Boolean)
+                .join(' '),
+            }))}
+            value={selectedLaceId}
+            onValueChange={setSelectedLaceId}
+            placeholder={isLoadingLaces ? 'Loading...' : 'Select lace to add...'}
+            searchPlaceholder="Search by lace code, name, colour..."
+            emptyText="No laces found."
+            disabled={disabled || isLoadingLaces}
+            className="w-[250px]"
+          />
           <Button
             type="button"
             variant="outline"

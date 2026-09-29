@@ -5,7 +5,9 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Combobox, type ComboboxOption } from '../components/ui/combobox';
 import { CustomerCombobox } from '../components/CustomerCombobox';
+import { StyleCombobox } from '../components/StyleCombobox';
 import { customerService } from '../services/customer.service';
 import { createOrder, getOrderById, updateOrder } from '../services/order.service';
 import { styleService } from '../services/style.service';
@@ -24,17 +26,7 @@ import { formatCurrency } from '../lib/currency';
 import { toast } from 'sonner';
 import CostSheetComparisonModal from '../components/cost-sheet/CostSheetComparisonModal';
 import { formatDate, toDateInputValue } from '@/lib/date';
-import {
-  Search,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  CheckCircle2,
-  Hash,
-  Sparkles,
-  Calculator,
-} from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, Hash, Sparkles, Calculator } from 'lucide-react';
 
 // Extended Style type with color and size options from API
 // Note: Serializer automatically converts snake_case to camelCase
@@ -70,7 +62,8 @@ export default function OrderForm() {
   const [quotationPrefillProcessed, setQuotationPrefillProcessed] = useState(false);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [styles, setStyles] = useState<Style[]>([]);
+  // The first lookups have settled — the pre-fills below wait for it (the style picker loads its own list)
+  const [lookupsLoaded, setLookupsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,10 +93,6 @@ export default function OrderForm() {
   const [selectedSizePresetId, setSelectedSizePresetId] = useState('');
   const [sizeOverrideActive, setSizeOverrideActive] = useState(false);
 
-  // Style search (with server-side search for large catalogs)
-  const [styleSearch, setStyleSearch] = useState('');
-  const [searchingStyles, setSearchingStyles] = useState(false);
-  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoadingOrderRef = useRef(false); // Prevents handleStyleSelect from resetting state during fetchOrder
 
   // Downstream dependency lock — prevents item editing when BOM/MRP exists
@@ -169,9 +158,10 @@ export default function OrderForm() {
 
   useEffect(() => {
     const loadData = async () => {
-      // Load customers and styles first
-      await Promise.all([fetchCustomers(), fetchStyles()]);
-      // Then load order data if in edit mode (after customers/styles are available)
+      // Load customers first (the style picker searches the server itself)
+      await fetchCustomers();
+      setLookupsLoaded(true);
+      // Then load order data if in edit mode (after customers are available)
       if (isEditMode && id) {
         await fetchOrder(id);
       }
@@ -193,8 +183,8 @@ export default function OrderForm() {
       // Only proceed if we're coming from cost sheet with both IDs
       if (!fromCostSheet || !styleIdParam || !costSheetIdParam) return;
 
-      // Wait for styles to be loaded
-      if (styles.length === 0) return;
+      // Wait for the first lookups (the customer match below needs the customer list)
+      if (!lookupsLoaded) return;
 
       setCostSheetPrefillProcessed(true);
 
@@ -247,7 +237,7 @@ export default function OrderForm() {
     };
 
     handleCostSheetPrefill();
-  }, [searchParams, styles, customers, costSheetPrefillProcessed, isEditMode]);
+  }, [searchParams, lookupsLoaded, customers, costSheetPrefillProcessed, isEditMode]);
 
   // Handle pre-fill from an accepted Quotation (query param: quotationId).
   // Surfaces the documented Quotation → Order conversion (B09-08). An order is
@@ -260,8 +250,8 @@ export default function OrderForm() {
       const quotationIdParam = searchParams.get('quotationId');
       if (!quotationIdParam) return;
 
-      // Wait for styles/customers so selections resolve against loaded lists
-      if (styles.length === 0 || customers.length === 0) return;
+      // Wait for the customer list (the style picker names a preselected style itself)
+      if (!lookupsLoaded || customers.length === 0) return;
 
       setQuotationPrefillProcessed(true);
 
@@ -300,7 +290,7 @@ export default function OrderForm() {
     };
 
     handleQuotationPrefill();
-  }, [searchParams, styles, customers, quotationPrefillProcessed, isEditMode]);
+  }, [searchParams, lookupsLoaded, customers, quotationPrefillProcessed, isEditMode]);
 
   const fetchCustomers = async () => {
     try {
@@ -312,50 +302,6 @@ export default function OrderForm() {
       toast.error('Failed to load customers');
     }
   };
-
-  const fetchStyles = async () => {
-    try {
-      // Load initial batch of ACTIVE styles only (DRAFT styles must be published first)
-      const response = await styleService.getAllStyles(1, 200, undefined, undefined, undefined, undefined, 'ACTIVE');
-      setStyles(response.data);
-    } catch (err) {
-      logError('Failed to fetch styles:', err);
-      toast.error('Failed to load styles');
-    }
-  };
-
-  // Server-side search: when user types 2+ chars, fetch matching styles from API
-  useEffect(() => {
-    if (!styleSearch || styleSearch.length < 2) {
-      setSearchingStyles(false);
-      return;
-    }
-
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
-    setSearchingStyles(true);
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await styleService.getAllStyles(1, 20, styleSearch, undefined, undefined, undefined, 'ACTIVE');
-        // Merge server results with existing styles (deduplicate by id)
-        setStyles((prev) => {
-          const existingIds = new Set(prev.map((s) => s.id));
-          const newStyles = response.data.filter((s) => !existingIds.has(s.id));
-          if (newStyles.length === 0) return prev;
-          return [...prev, ...newStyles];
-        });
-      } catch (err) {
-        logError('Style search failed:', err);
-        toast.warning('Style search failed');
-      } finally {
-        setSearchingStyles(false);
-      }
-    }, 300);
-
-    return () => {
-      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    };
-  }, [styleSearch]);
 
   const fetchOrder = async (orderId: string) => {
     try {
@@ -399,12 +345,6 @@ export default function OrderForm() {
         // Load style details
         const fullStyle = (await styleService.getStyleById(item.styleId)) as StyleWithOptions;
         setSelectedStyle(fullStyle);
-
-        // Always move selected style to front so it's in filteredStyles (first 20)
-        setStyles((prev) => {
-          const withoutStyle = prev.filter((s) => s.id !== fullStyle.id);
-          return [fullStyle as Style, ...withoutStyle];
-        });
 
         // Serializer converts color_options → colorOptions, size_options → sizeOptions
         const styleColors = fullStyle.colorOptions ?? [];
@@ -496,30 +436,6 @@ export default function OrderForm() {
     }
   };
 
-  // Filter styles based on search — always include selected style for Radix Select display
-  const filteredStyles = useMemo(() => {
-    let list: Style[];
-    if (!styleSearch) {
-      list = styles.slice(0, 20);
-    } else {
-      const search = styleSearch.toLowerCase();
-      list = styles
-        .filter(
-          (style) =>
-            style.styleCode.toLowerCase().includes(search) ||
-            style.styleName.toLowerCase().includes(search) ||
-            style.buyerStyleRef?.toLowerCase().includes(search)
-        )
-        .slice(0, 20);
-    }
-    // Always include selected style so Radix Select can resolve display text
-    if (selectedStyleId && !list.some((s) => s.id === selectedStyleId)) {
-      const selected = styles.find((s) => s.id === selectedStyleId);
-      if (selected) list = [selected, ...list];
-    }
-    return list;
-  }, [styles, styleSearch, selectedStyleId]);
-
   // Handle style selection
   const handleStyleSelect = async (styleId: string) => {
     if (isLoadingOrderRef.current) return; // Skip during fetchOrder — it handles its own state
@@ -535,6 +451,13 @@ export default function OrderForm() {
     setHasApprovedCostSheet(null);
     setSelectedCostSheetId(null);
     setCostSheets([]);
+
+    // Picking the chosen style again clears the picker: no style, nothing to load
+    if (!styleId) {
+      setSelectedStyle(null);
+      setDisplayBrandName('');
+      return;
+    }
 
     try {
       const fullStyle = (await styleService.getStyleById(styleId)) as StyleWithOptions;
@@ -1240,42 +1163,14 @@ export default function OrderForm() {
                 <Label className="text-sm font-medium text-foreground">
                   Style <span className="text-destructive">*</span>
                 </Label>
-                <div className="relative mt-1.5">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                  <Select
-                    value={selectedStyleId}
-                    onValueChange={(value) => handleStyleSelect(value)}
-                    disabled={hasDownstreamDeps}
-                  >
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Search & select style..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <div className="px-2 pb-2">
-                        <Input
-                          placeholder="Search styles..."
-                          value={styleSearch}
-                          onChange={(e) => setStyleSearch(e.target.value)}
-                          className="h-8"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                      </div>
-                      {filteredStyles.map((style) => (
-                        <SelectItem key={style.id} value={style.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{style.styleCode}</span>
-                            <span className="text-muted-foreground text-xs">{style.styleName}</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                      {filteredStyles.length === 0 && (
-                        <div className="py-4 text-center text-sm text-muted-foreground">
-                          {searchingStyles ? 'Searching...' : styleSearch ? 'No styles found' : 'Type to search styles'}
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* ACTIVE styles only (a DRAFT style must be published first) — the picker's default */}
+                <StyleCombobox
+                  value={selectedStyleId}
+                  onValueChange={(value) => handleStyleSelect(value)}
+                  disabled={hasDownstreamDeps}
+                  placeholder="Search & select style..."
+                  className="mt-1.5"
+                />
               </div>
 
               {/* Total Quantity Input - Right next to Style */}
@@ -1425,25 +1320,26 @@ export default function OrderForm() {
                       order will be linked to the sale order.
                     </span>
                     {openSaleOrders.length > 1 && (
-                      <Select
+                      // Only this customer's OPEN sale orders carrying this style, with their open lines —
+                      // a subset SaleOrderCombobox cannot list (it has no style scope and no open lines)
+                      <Combobox
+                        options={openSaleOrders.map(
+                          (so): ComboboxOption => ({
+                            value: so.id,
+                            label: `${so.saleOrderNumber}${so.expectedShipDate ? ` · ships ${formatDate(so.expectedShipDate)}` : ''}`,
+                            searchText: `${so.saleOrderNumber} ${so.buyerPoNumber ?? ''} ${so.expectedShipDate ? formatDate(so.expectedShipDate) : ''}`,
+                          })
+                        )}
                         value={linkedSaleOrder.id}
                         onValueChange={(v) => {
                           const so = openSaleOrders.find((o) => o.id === v);
                           if (so) applySaleOrderFill(so);
                         }}
-                      >
-                        <SelectTrigger className="h-8 w-[220px]">
-                          <SelectValue placeholder="Sale order" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {openSaleOrders.map((so) => (
-                            <SelectItem key={so.id} value={so.id}>
-                              {so.saleOrderNumber}
-                              {so.expectedShipDate ? ` · ships ${formatDate(so.expectedShipDate)}` : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Sale order"
+                        searchPlaceholder="Search sale order or buyer PO..."
+                        emptyText="No open sale order found."
+                        className="h-8 w-[220px]"
+                      />
                     )}
                     <Button type="button" variant="outline" size="sm" onClick={undoSaleOrderFill}>
                       Undo

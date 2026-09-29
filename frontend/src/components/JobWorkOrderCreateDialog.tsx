@@ -33,10 +33,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
-import { styleService } from '@/services/style.service';
-import { getGreigeLace, getFinishedLace, createDyedLaceVariant } from '@/services/lace.service';
+import { getLaceById, getFinishedLace, createDyedLaceVariant } from '@/services/lace.service';
+import type { Lace } from '@/types/lace.types';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { GreigeCombobox } from '@/components/GreigeCombobox';
+import { LaceCombobox } from '@/components/LaceCombobox';
+import { StyleCombobox } from '@/components/StyleCombobox';
 import ColorPicker from '@/components/ColorPicker';
 import { billableFromGreige } from '@/utils/shrinkage';
 import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
@@ -128,7 +130,6 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   const [processType, setProcessType] = useState<string>('');
   const [processorId, setProcessorId] = useState<string>('');
   const [styleId, setStyleId] = useState<string>('');
-  const [styleSearch, setStyleSearch] = useState('');
   const [quantity, setQuantity] = useState<string>('');
   const [agreedRate, setAgreedRate] = useState<string>('');
   const [expectedReturnDate, setExpectedReturnDate] = useState<string>('');
@@ -157,6 +158,9 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   // Lace dyeing: greige out, dyed variant back
   const [material, setMaterial] = useState<'FABRIC' | 'LACE'>('FABRIC');
   const [greigeLaceId, setGreigeLaceId] = useState<string>('');
+  const [selectedGreigeLace, setSelectedGreigeLace] = useState<Lace | null>(null);
+  // The greige lace picked last — a lookup that answers for an earlier pick is dropped.
+  const greigeLacePick = useRef('');
   const [finishedLaceId, setFinishedLaceId] = useState<string>('');
   const [newVariantColor, setNewVariantColor] = useState<string>('');
   const [creatingVariant, setCreatingVariant] = useState(false);
@@ -310,23 +314,24 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   });
   const designs: Array<{ id: string; embroideryCode?: string; designName?: string }> = designsResponse?.data || [];
 
-  const { data: stylesResponse } = useQuery({
-    queryKey: ['styles-for-jwo', styleSearch],
-    queryFn: () => styleService.getAllStyles(1, 20, styleSearch || undefined),
-    enabled: open,
-    staleTime: 60 * 1000,
-  });
-  const styles =
-    (stylesResponse as { data?: Array<{ id: string; styleCode: string; styleName?: string }> })?.data || [];
-
-  const { data: greigeLaceResponse } = useQuery({
-    queryKey: ['greige-lace-for-jwo'],
-    queryFn: () => getGreigeLace({ limit: 200 }),
-    enabled: open && isLaceJob,
-    staleTime: 5 * 60 * 1000,
-  });
-  const greigeLaces = greigeLaceResponse?.data || [];
-  const selectedGreigeLace = greigeLaces.find((l) => l.id === greigeLaceId);
+  const handleGreigeLaceChange = (val: string) => {
+    setGreigeLaceId(val);
+    setFinishedLaceId('');
+    setSelectedGreigeLace(null);
+    greigeLacePick.current = val;
+    if (!val) return;
+    // The picker hands back the id; the lace itself carries the master's own expected loss, which is
+    // the starting figure — the operator can still overwrite it with what this dyer has contracted.
+    getLaceById(val)
+      .then((lace) => {
+        if (greigeLacePick.current !== val) return;
+        setSelectedGreigeLace(lace);
+        if (lace?.expectedShrinkagePercent != null) {
+          setExpectedShrinkage(String(lace.expectedShrinkagePercent));
+        }
+      })
+      .catch((error) => console.error('Failed to load the greige lace:', error));
+  };
 
   // Only the dyed variants OF THE CHOSEN GREIGE — the server refuses any other lace, because a
   // variant that did not come from this greige is a different material coming back.
@@ -370,7 +375,6 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     setProcessType('');
     setProcessorId('');
     setStyleId('');
-    setStyleSearch('');
     setQuantity('');
     setAgreedRate('');
     setExpectedReturnDate('');
@@ -392,6 +396,8 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     shrinkageTouched.current = false;
     setMaterial('FABRIC');
     setGreigeLaceId('');
+    setSelectedGreigeLace(null);
+    greigeLacePick.current = '';
     setFinishedLaceId('');
     setNewVariantColor('');
   };
@@ -526,6 +532,8 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                 onValueChange={(val) => {
                   setMaterial(val as 'FABRIC' | 'LACE');
                   setGreigeLaceId('');
+                  setSelectedGreigeLace(null);
+                  greigeLacePick.current = '';
                   setFinishedLaceId('');
                   setNewVariantColor('');
                 }}
@@ -543,33 +551,28 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
 
           {processType && (
             <div className="space-y-2">
-              <Label>Style (optional)</Label>
-              <Input
+              <div className="flex items-center justify-between">
+                <Label>Style (optional)</Label>
+                {/* Leaving the style blank is a real choice here (a stock job), so clearing it is one click */}
+                {styleId && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => setStyleId('')}
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              {/* Drafts included (status null), as the old style search listed every style */}
+              <StyleCombobox
+                value={styleId}
+                onValueChange={setStyleId}
+                status={null}
                 placeholder="Search style code..."
-                value={styleSearch}
-                onChange={(e) => {
-                  setStyleSearch(e.target.value);
-                  setStyleId('');
-                }}
               />
-              {styleSearch && !styleId && styles.length > 0 && (
-                <div className="border rounded-md max-h-36 overflow-y-auto">
-                  {styles.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
-                      onClick={() => {
-                        setStyleId(s.id);
-                        setStyleSearch(`${s.styleCode}${s.styleName ? ` — ${s.styleName}` : ''}`);
-                      }}
-                    >
-                      {s.styleCode}
-                      {s.styleName ? ` — ${s.styleName}` : ''}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
@@ -622,30 +625,12 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                 <div className="border rounded-md p-3 space-y-3">
                   <div className="space-y-2">
                     <Label>Greige Lace *</Label>
-                    <Select
+                    <LaceCombobox
+                      kind="greige"
                       value={greigeLaceId}
-                      onValueChange={(val) => {
-                        setGreigeLaceId(val);
-                        setFinishedLaceId('');
-                        const lace = greigeLaces.find((l) => l.id === val);
-                        // The master's own expected loss is the starting figure; the operator
-                        // can still overwrite it with what this dyer has actually contracted.
-                        if (lace?.expectedShrinkagePercent != null) {
-                          setExpectedShrinkage(String(lace.expectedShrinkagePercent));
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={greigeLaces.length ? 'Select greige lace' : 'No greige lace found'} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {greigeLaces.map((l) => (
-                          <SelectItem key={l.id} value={l.id}>
-                            {l.laceCode} — {l.laceName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      onValueChange={handleGreigeLaceChange}
+                      placeholder="Select greige lace"
+                    />
                     <p className="text-xs text-muted-foreground">This is what goes out on the challan.</p>
                   </div>
 

@@ -180,6 +180,7 @@ export default function MessageStaff() {
                 <Label>Or pick individual staff</Label>
                 {selectedIds.size > 0 && <Badge variant="secondary">{selectedIds.size} selected</Badge>}
               </div>
+              {/* allow-raw-search: filters the staff directory already loaded into this form, in memory */}
               <Input
                 placeholder="Search by name, department or role"
                 value={search}

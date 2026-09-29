@@ -598,6 +598,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                       <span className="text-xs font-medium text-info">GST {hsnRate}% for this code</span>
                     )}
                   </div>
+                  {/* allow-raw-search: this box IS the HSN Code field (its text is saved); the lookup under it has its own single debounce */}
                   <Input
                     id="hsnCode"
                     value={hsnSearch}

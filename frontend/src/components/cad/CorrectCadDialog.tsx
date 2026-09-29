@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { notify } from '@/lib/notify';
 import { getErrorMessage } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
@@ -193,6 +194,19 @@ function CorrectCadForm({
     () => availableGreiges.filter((g) => !row.genericGreigeName || g.genericGreigeName === row.genericGreigeName),
     [availableGreiges, row.genericGreigeName]
   );
+  // The same greiges, searchable — plus the row's own greige when it is no longer offered (made inactive),
+  // so the box still names it
+  const greigeOptions = useMemo(() => {
+    const options: ComboboxOption[] = greiges.map((g) => ({
+      value: g.id,
+      label: g.greigeName,
+      searchText: [g.greigeName, g.genericGreigeName, g.supplierName].filter(Boolean).join(' '),
+    }));
+    if (row.greigeId && row.greigeName && !options.some((o) => o.value === row.greigeId)) {
+      options.unshift({ value: row.greigeId, label: row.greigeName });
+    }
+    return options;
+  }, [greiges, row.greigeId, row.greigeName]);
   const greigeName = (id: string | null) => availableGreiges.find((g) => g.id === id)?.greigeName ?? id ?? '—';
 
   // Only what changed is sent — an omitted field keeps the row's value on the server
@@ -298,24 +312,19 @@ function CorrectCadForm({
             </div>
             <div className="space-y-1.5">
               <Label>Greige</Label>
-              <Select
+              <Combobox
+                options={greigeOptions}
                 value={greigeId ?? ''}
                 onValueChange={(v) => {
+                  // Picking the chosen greige again keeps it — a correction changes the greige, never clears it
+                  if (!v) return;
                   setGreigeId(v);
                   invalidate();
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select greige" />
-                </SelectTrigger>
-                <SelectContent>
-                  {greiges.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.greigeName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="Select greige"
+                searchPlaceholder="Search greige..."
+                emptyText="No greige found."
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="correct-width">Cuttable width (in)</Label>

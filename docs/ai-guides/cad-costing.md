@@ -33,6 +33,10 @@ keywords:
   - production tab missing
   - price approval cleared
   - buyer style code
+  - order quantity empty
+  - order quantity from sale order
+  - sale order quantity not showing
+  - raw mat quantity
   # Hinglish
   - fabric costing karna
   - CAD ki costing
@@ -52,6 +56,9 @@ keywords:
   - production ki costing kaise kare
   - production tab kahan hai
   - buyer ka style code
+  - order quantity nahi aa rahi
+  - sale order ki quantity
+  - raw mat me quantity khali hai
   # Devanagari (MANDATORY)
   - फैब्रिक कॉस्टिंग
   - कैड कॉस्टिंग
@@ -73,10 +80,15 @@ keywords:
   - प्रोडक्शन कॉस्टिंग
   - प्रोडक्शन मोड
   - बायर स्टाइल कोड
+  - ऑर्डर क्वांटिटी
+  - सेल ऑर्डर
+  - सेल ऑर्डर की क्वांटिटी
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
   - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/ui/multi-select.tsx
+  - backend/src/services/helpers/cad-list-filter.helper.ts
   - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/components/cad/CADSpreadsheetTable.tsx
@@ -122,6 +134,15 @@ There is no Production tab. A Production CAD is the marker for one received fabr
 ### 3. Enter Order Quantity (pcs)
 - This quantity is used for rate slab lookup
 - If you change the quantity later, a NEW costing option is created (original preserved)
+- A style costed before opens with its saved quantity
+- **Raw Mat Calculation tab — quantity from sale orders:**
+  1. Under **Order Quantity (pcs)**, the **Sale orders** box lists the style's open sale orders (any buyer; not cancelled, dispatched or delivered), each as `SO number · pieces · ship date`. A draft sale order shows **Draft**
+  2. Every sale order except drafts is ticked. If the style has no saved Raw Mat quantity and you have not typed one, **Order Quantity** fills with the ticked orders' total pieces (all colours and sizes of this style)
+  3. Click the **Sale orders** box and tick or untick an order to cost for a different set. **Order Quantity** changes to the new total
+  4. If the box shows another number (a saved costing, or one you typed), a line **Sale orders: … pcs · Use** appears. Click **Use** to take the sale-order total
+  5. **No open sale order for this style** means nothing to fill from. Type the quantity yourself
+- Rows with no quantity of their own (the **Qty (pcs)** column empty) use **Order Quantity**; rows saved before keep their own quantity
+- The **Costing** tab never fills from sale orders — type the quantity for a quotation
 
 ### 4. Cost each fabric row
 

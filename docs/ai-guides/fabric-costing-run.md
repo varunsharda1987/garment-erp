@@ -54,6 +54,7 @@ sources:
   - frontend/src/pages/ProcessorRateCardPage.tsx
   - frontend/src/components/CustomerCombobox.tsx
   - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/ui/multi-select.tsx
   - frontend/src/components/SearchInput.tsx
 route: /fabric-costing
 ---
@@ -103,6 +104,7 @@ There is no Production mode. A Production CAD (one per received fabric lot) is m
 - This quantity affects processor rate slab lookups
 - Changing quantity from a previous costing creates a NEW option (preserves the original)
 - Each row can also have its own quantity override
+- On **Raw Mat Calculation**, the **Sale orders** box under Order Quantity lists the style's open sale orders. With no saved Raw Mat quantity, Order Quantity fills with the ticked orders' pieces (drafts are not ticked). Tick or untick an order to change the total; when the box holds another number, click **Use** in **Sale orders: … pcs · Use** to take the sale-order total
 
 ### 5. Cost Each Fabric Row
 

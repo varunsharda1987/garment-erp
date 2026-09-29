@@ -133,14 +133,19 @@ interface GRNItem {
   receivedQuantity: number;
 }
 
-/** "Easybuy · Order SO2609-0012" — the buyer, and the order or style that names them when that is the source */
+/**
+ * "Easybuy · Order SO2609-0012" or "Easybuy · Style ESSKY082LS (14-GC-ESS-ESKY082LS)"
+ * — the buyer, and the order or style that names them when that is the source.
+ * Shows the buyer's own reference in parentheses when it exists, so suppliers know the buyer's code.
+ */
 function forBuyerText(forBuyer: POForBuyer): string {
-  const via =
-    forBuyer.source === 'ORDER' && forBuyer.orderNumber
-      ? `Order ${forBuyer.orderNumber}`
-      : forBuyer.source === 'STYLE' && forBuyer.styleCode
-        ? `Style ${forBuyer.styleCode}`
-        : null;
+  let via: string | null = null;
+  if (forBuyer.source === 'ORDER' && forBuyer.orderNumber) {
+    via = `Order ${forBuyer.orderNumber}`;
+  } else if (forBuyer.source === 'STYLE' && forBuyer.styleCode) {
+    const ref = forBuyer.buyerStyleRef ? ` (${forBuyer.buyerStyleRef})` : '';
+    via = `Style ${forBuyer.styleCode}${ref}`;
+  }
   return [forBuyer.name, via].filter(Boolean).join(' · ');
 }
 

@@ -292,6 +292,8 @@ export interface POForBuyer {
   source: 'ORDER' | 'STYLE' | 'LINES';
   orderNumber: string | null;
   styleCode: string | null;
+  /** The buyer's own reference for the style — shown on POs so suppliers know the buyer's code */
+  buyerStyleRef: string | null;
 }
 
 // ============================================

@@ -25,6 +25,8 @@ export interface PoForBuyer {
   orderNumber: string | null;
   /** The style it is for, when that is the source */
   styleCode: string | null;
+  /** The buyer's own reference for the style (e.g. "14-GC-ESS-ESKY082LS") — shown on POs so suppliers know the buyer's code */
+  buyerStyleRef: string | null;
 }
 
 /** What the resolver reads from a PO — its links, and each line's material read with MATERIAL_DETAIL_SELECT */
@@ -80,6 +82,7 @@ export async function resolvePoForBuyers(
             source: 'ORDER',
             orderNumber: found.length === 1 ? found[0].orderNumber : null,
             styleCode: null,
+            buyerStyleRef: null,
           }
         : null; // bought for several buyers' orders
   });
@@ -91,14 +94,20 @@ export async function resolvePoForBuyers(
   const styles = styleIds.length
     ? await db.styles.findMany({
         where: { id: { in: styleIds } },
-        select: { id: true, styleCode: true, customer: { select: { name: true } } },
+        select: { id: true, styleCode: true, buyerStyleRef: true, customer: { select: { name: true } } },
       })
     : [];
   const styleById = new Map(styles.map((s) => [s.id, s]));
   pos.forEach((po, i) => {
     const style = out[i] === undefined && po.styleId ? styleById.get(po.styleId) : undefined;
     if (style?.customer) {
-      out[i] = { name: style.customer.name, source: 'STYLE', orderNumber: null, styleCode: style.styleCode };
+      out[i] = {
+        name: style.customer.name,
+        source: 'STYLE',
+        orderNumber: null,
+        styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef ?? null,
+      };
     }
   });
 
@@ -115,7 +124,10 @@ export async function resolvePoForBuyers(
     const named = buyers.slice(cursor, cursor + count).filter((b): b is NonNullable<typeof b> => !!b);
     cursor += count;
     const ids = new Set(named.map((b) => b.id));
-    out[i] = ids.size === 1 ? { name: named[0].name, source: 'LINES', orderNumber: null, styleCode: null } : null;
+    out[i] =
+      ids.size === 1
+        ? { name: named[0].name, source: 'LINES', orderNumber: null, styleCode: null, buyerStyleRef: null }
+        : null;
   });
 
   return out.map((r) => r ?? null);
@@ -129,10 +141,17 @@ export async function resolvePoForBuyer(
   return (await resolvePoForBuyers([po], tx))[0];
 }
 
-/** "Easybuy", "Easybuy · Order SO2609-0012", "Easybuy · Style ESSKY082LS" — the printed PO's "For" row */
+/**
+ * "Easybuy", "Easybuy · Order SO2609-0012", "Easybuy · Style ESSKY082LS (14-GC-ESS-ESKY082LS)" — the printed PO's "For" row.
+ * Shows the buyer's own reference in parentheses when it exists, so suppliers (especially label printers)
+ * know the buyer's code to use.
+ */
 export function poForBuyerLine(forBuyer: PoForBuyer | null): string | null {
   if (!forBuyer) return null;
   if (forBuyer.source === 'ORDER' && forBuyer.orderNumber) return `${forBuyer.name} · Order ${forBuyer.orderNumber}`;
-  if (forBuyer.source === 'STYLE' && forBuyer.styleCode) return `${forBuyer.name} · Style ${forBuyer.styleCode}`;
+  if (forBuyer.source === 'STYLE' && forBuyer.styleCode) {
+    const ref = forBuyer.buyerStyleRef ? ` (${forBuyer.buyerStyleRef})` : '';
+    return `${forBuyer.name} · Style ${forBuyer.styleCode}${ref}`;
+  }
   return forBuyer.name;
 }

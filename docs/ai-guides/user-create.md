@@ -54,8 +54,9 @@ route: /users/new
    - Quality
    - Purchase
    - Factory Supervisor
+   - Pattern Master (Pattern Department — patterns, CAD markers, fit samples)
 6. Select **Department** from dropdown:
-   - Merchandising, Production, Cutting, Stitching, Finishing, Checking, Packing, Quality Control, Inventory/Stores, Sales/Marketing, Accounts/Finance, Purchase, Design, Dispatch, Maintenance, HR/Admin
+   - Merchandising, Production, Cutting, Stitching, Finishing, Checking, Packing, Quality Control, Inventory/Stores, Sales/Marketing, Accounts/Finance, Purchase, Design, Pattern, Dispatch, Maintenance, HR/Admin
 7. Click **Create User** to save
 
 ## Traps

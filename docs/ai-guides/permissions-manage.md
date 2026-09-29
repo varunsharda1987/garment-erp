@@ -88,7 +88,7 @@ The **Admin** column is always on and cannot be changed. User management, this P
 ## Available roles
 
 - **Admin** — full system access, always
-- **Merchandiser**, **Production Mgr**, **Sales**, **Accounts**, **Inventory**, **Quality**, **Purchase**, **Factory Sup.** — whatever their switches say
+- **Merchandiser**, **Production Mgr**, **Sales**, **Accounts**, **Inventory**, **Quality**, **Purchase**, **Factory Sup.**, **Pattern Master** — whatever their switches say
 
 ## Reset to defaults
 

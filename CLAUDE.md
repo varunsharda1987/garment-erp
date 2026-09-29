@@ -324,6 +324,20 @@ from this folder: an edit is live the moment it is saved.** Develop a change in 
 `backend/uploads/cad-files` (every stored reading unchanged, no wrong sizes), then swap it in by rename and run
 `read_marker.py --selftest`.
 
+### A lot's width vs its marker's width (2026-09-29)
+
+A fabric lot has `finishedWidth` (what it MEASURES) and `cutableWidth` (measured − the selvedge setting
+`GREIGE_CUTABLE_WIDTH_DEDUCTION_CM`, in inches despite the name). A Production CAD's `cutableWidth` is its MARKER's
+width, which may be narrower than its lot but never wider (52" marker on 53" cutable = 1" spare). ONE rule,
+`services/helpers/lot-width.helper.ts`: `cutableFromMeasured`, `markerFitsLot` (fits within 0.005; spare over 2" =
+warning), `assertMarkerFitsLot` (`PRODUCTION_MARKER_WIDER_THAN_LOT` — row save, row Approve, Approve CAD plan, Link to
+Stock). Create CAD on a lot reuses the approved marker that FITS at its own width, with length, sizes and image; a
+wider one keeps sizes only. A wrong lot width is fixed with **Correct width** (`POST /api/stock/:id/correct-width`,
+lot + its receipt line, audit-logged; refused once on a cutting batch or under an approved Production CAD it would
+no longer fit) — never by reversing the receipt. *Receive from processor* refuses a fabric return with no measured
+width (`MEASURED_WIDTH_REQUIRED`). Other stock paths still hard-code their own "− 2" (follow-up). Walk it:
+`integration/lot-width-correction.test.ts`.
+
 ## CRITICAL: Enforced Guardrails (schema-drift + money-math)
 
 The two biggest bug classes from the audit are now **blocked at commit** by `scripts/hooks/smart-check.js` — the live hook run by `.husky/pre-commit` and `.husky/pre-push`, and again in CI via `node scripts/hooks/smart-check.js --all` (so `git commit --no-verify` is caught at the PR).

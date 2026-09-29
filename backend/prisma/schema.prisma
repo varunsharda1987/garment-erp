@@ -1605,6 +1605,7 @@ model purchase_order_items {
   weaver                       weavers?                       @relation("POItemWeaver", fields: [weaverId], references: [id])
   threadRequirements           order_thread_requirements[]    @relation("thread_requirement_po_item")
   deliveryPointLines           po_delivery_point_lines[]      @relation("DeliveryPointLinePOItem")
+  challanItems                 challan_items[]                @relation("ChallanItemPOItem")
 
   @@index([materialId])
   @@index([poId])
@@ -9602,19 +9603,31 @@ model challans {
   challanDate   DateTime    @default(now())
 
   // Source context
-  orderId            String?
-  productionRunId    String? // work_orders.id
-  purchaseOrderId    String? // Linked PO (for outsourced work)
-  jobWorkOrderId     String? // Phase 4a: header-level JWO attribution (JWO IS the PO endgame)
+  orderId               String?
+  productionRunId       String? // work_orders.id
+  purchaseOrderId       String? // Linked PO (for outsourced work)
+  jobWorkOrderId        String? // Phase 4a: header-level JWO attribution (JWO IS the PO endgame)
   /// The cutting batch a fabric movement to or from Cutting is FOR (2026-09-24): the issue that sent it and
   /// any return that brought it back. Deleting the batch returns what is still out, on a return challan.
-  cuttingBatchId     String?
+  cuttingBatchId        String?
   /// INWARD only: the job-work receipt this challan was filed for (goods BACK from a processor) — one per part.
-  grnId              String? // The job-work receipt this INWARD challan was filed for — one challan per part when a return comes in parts (2026-09-19)
+  grnId                 String? // The job-work receipt this INWARD challan was filed for — one challan per part when a return comes in parts (2026-09-19)
   /// OUTWARD only: the PURCHASE receipt whose goods the supplier delivered STRAIGHT to this job worker — the
   /// Rule 45 challan we issue for inputs sent directly (goods OUT to a processor, never back). Not grnId.
-  directSupplyGrnId  String?
-  fabricProcessingId String? // FK to fabric_processing (greige→processor→fabric tracking)
+  directSupplyGrnId     String?
+  fabricProcessingId    String? // FK to fabric_processing (greige→processor→fabric tracking)
+  /// Goods-in-transit challan (2026-09-29): the day the SUPPLIER despatched goods straight to this job worker — a
+  /// challan issued BEFORE they arrived. THE marker of a transit-issued challan (direct-supply-challan.helper
+  /// isTransitChallan): null on a challan made at receipt, kept after the receipt adopts it.
+  supplierDispatchedAt  DateTime?
+  /// The supplier's bill the goods TRAVEL on, as known at despatch (transit challan only) — the challan's own
+  /// record, printed on it. Once the goods arrive the receipt's goods_receiving_notes.invoiceNumber is the home
+  /// (the receipt form pre-fills from this); the two are not kept in step.
+  supplierInvoiceNumber String?
+  supplierInvoiceDate   DateTime?
+  /// Transit challan on a split PO: the delivery point the goods travel to (null on a one-place PO — the PO's
+  /// deliveryLocationId is the place). A point a transit challan names cannot be dropped from the plan.
+  poDeliveryPointId     String?
 
   // From/To
   fromType String // WAREHOUSE, DEPARTMENT, VENDOR
@@ -9664,6 +9677,7 @@ model challans {
   jobWorkOrder         job_work_orders?       @relation("ChallanHeaderJobWorkOrder", fields: [jobWorkOrderId], references: [id])
   grn                  goods_receiving_notes? @relation("ChallanReceipt", fields: [grnId], references: [id])
   directSupplyGrn      goods_receiving_notes? @relation("ChallanDirectSupplyGrn", fields: [directSupplyGrnId], references: [id])
+  deliveryPoint        po_delivery_points?    @relation("ChallanDeliveryPoint", fields: [poDeliveryPointId], references: [id], onDelete: Restrict)
   fabricProcessing     fabric_processing?     @relation("ChallanProcessing", fields: [fabricProcessingId], references: [id])
   issuedBy             users                  @relation("ChallanIssuedBy", fields: [issuedById], references: [id])
   receivedBy           users?                 @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
@@ -9686,6 +9700,7 @@ model challans {
   @@index([jobWorkOrderId])
   @@index([cuttingBatchId])
   @@index([directSupplyGrnId])
+  @@index([poDeliveryPointId])
   @@index([fabricProcessingId])
   @@index([grnId])
   @@index([challanType])
@@ -9741,9 +9756,22 @@ model challan_items {
   jobWorkOrderComponentId String? // FK to job_work_order_components (D5 reconciliation)
   declaredValue           Decimal? @db.Decimal(12, 2) // Value for e-way bill/insurance
 
+  /// Transit challan: the PO line these goods are. The receipt is matched to the challan line by it — never by a
+  /// coincident material or quantity.
+  poItemId   String?
+  /// Transit challan: how the supplier's paper lists the goods — TOTAL_METERS | THAN_WISE | BALE_WISE | ROLL_WISE
+  /// (the GRN line's vocabulary). The pieces are challan_item_pieces.
+  entryMode  String?  @db.VarChar(20)
+  /// Transit challan: what the job worker actually RECEIVED, in the line's (ACTUAL) unit — set when the receipt
+  /// adopts the challan; 0 = none of it came. quantity stays what was DESPATCHED (a challan once given never
+  /// changes, owner 2026-09-29). Null = not arrived yet, or not a transit line. Never receivedQty (INWARD returns).
+  arrivedQty Decimal? @db.Decimal(12, 3)
+
   remarks String?
 
   challan               challans                         @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  poItem                purchase_order_items?            @relation("ChallanItemPOItem", fields: [poItemId], references: [id])
+  pieces                challan_item_pieces[]
   greigeStock           greige_stock?                    @relation(fields: [greigeStockId], references: [id])
   fabricStock           fabric_stock?                    @relation(fields: [fabricStockId], references: [id])
   laceStock             lace_stock?                      @relation(fields: [laceStockId], references: [id])
@@ -9764,7 +9792,32 @@ model challan_items {
   @@index([threadStockId])
   @@index([materialRequirementId])
   @@index([serviceRequirementId])
+  @@index([poItemId])
   @@map("challan_items")
+}
+
+/// The packing list a transit challan was issued with (goods-in-transit challan, 2026-09-29): the thans / rolls
+/// the supplier despatched straight to the processor, as on the supplier's paper, BEFORE any lot exists. Metres
+/// are COUNTED tag figures. Never changed after issue — what arrived is on the receipt's own pieces
+/// (greige_stock_details / fabric_stock_details). Written only by direct-supply-challan.helper.
+model challan_item_pieces {
+  id            String   @id @default(uuid())
+  challanItemId String
+  /// THAN (a folded piece, usually baled) | ROLL
+  detailType    String   @default("THAN") @db.VarChar(10)
+  /// Which bale (1, 2, 3…) — null for loose thans and rolls
+  baleNumber    Int?
+  /// The supplier's bale number as printed (display only)
+  baleNo        String?  @db.VarChar(30)
+  /// The than / roll tag as printed (display only)
+  thanNo        String?  @db.VarChar(30)
+  sequenceNo    Int
+  meters        Decimal  @db.Decimal(10, 3)
+  createdAt     DateTime @default(now())
+
+  challanItem challan_items @relation(fields: [challanItemId], references: [id], onDelete: Cascade)
+
+  @@index([challanItemId])
 }
 
 /// Lab Dip Status for Lace
@@ -11588,10 +11641,12 @@ model po_delivery_points {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  purchaseOrder purchase_orders           @relation("PODeliveryPoints", fields: [poId], references: [id], onDelete: Cascade)
-  warehouse     warehouses                @relation("DeliveryPointWarehouse", fields: [warehouseId], references: [id])
-  lines         po_delivery_point_lines[] @relation("DeliveryPointLines")
-  grns          goods_receiving_notes[]   @relation("GRNDeliveryPoint")
+  purchaseOrder   purchase_orders           @relation("PODeliveryPoints", fields: [poId], references: [id], onDelete: Cascade)
+  warehouse       warehouses                @relation("DeliveryPointWarehouse", fields: [warehouseId], references: [id])
+  lines           po_delivery_point_lines[] @relation("DeliveryPointLines")
+  grns            goods_receiving_notes[]   @relation("GRNDeliveryPoint")
+  /// Goods-in-transit challans travelling to this point (challans.poDeliveryPointId)
+  transitChallans challans[]                @relation("ChallanDeliveryPoint")
 
   @@unique([poId, warehouseId])
   @@index([warehouseId])

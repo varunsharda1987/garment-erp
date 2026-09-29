@@ -46,6 +46,8 @@ export default function ChallanDetail() {
   const [receiveRemarks, setReceiveRemarks] = useState('');
   // Per-item received/damaged quantities keyed by challan_item id (strings for controlled inputs).
   const [receiveRows, setReceiveRows] = useState<Record<string, { receivedQty: string; damagedQty: string }>>({});
+  const [transitCancelOpen, setTransitCancelOpen] = useState(false);
+  const [transitCancelReason, setTransitCancelReason] = useState('');
 
   useEffect(() => {
     if (id) loadChallan();
@@ -74,6 +76,24 @@ export default function ChallanDetail() {
       );
       if (issued === undefined) return; // kept for the other order
       toast({ title: 'Success', description: 'Challan issued' });
+      loadChallan();
+    } catch (error) {
+      handleApiError(error);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
+
+  // A goods-in-transit challan whose truck never came (or the goods went elsewhere)
+  async function handleTransitCancel() {
+    try {
+      setIsProcessing(true);
+      const result = await challanService.cancelTransitChallan(id!, transitCancelReason);
+      toast({
+        title: `${result.challanNumber} cancelled`,
+        description: result.warning ?? 'It is left out of ITC-04.',
+      });
+      setTransitCancelOpen(false);
       loadChallan();
     } catch (error) {
       handleApiError(error);
@@ -159,8 +179,15 @@ export default function ChallanDetail() {
   const canCancel = challan.status === 'DRAFT';
   // ISSUED / IN_TRANSIT / PARTIALLY_RECEIVED challans can be received (backend blocks only RECEIVED &
   // CANCELLED; credit is delta-based so a second/progressive receipt is safe) — finding B10-08.
+  // A goods-in-transit challan is never received by hand: its goods arrive on a purchase receipt that adopts it,
+  // and come back later through the job work order (the server refuses it too).
+  // Nor is a challan for goods a supplier delivered straight to the processor (directSupplyGrnId).
   const canReceive =
-    challan.status === 'ISSUED' || challan.status === 'IN_TRANSIT' || challan.status === 'PARTIALLY_RECEIVED';
+    !challan.transitState &&
+    !challan.directSupplyGrnId &&
+    (challan.status === 'ISSUED' || challan.status === 'IN_TRANSIT' || challan.status === 'PARTIALLY_RECEIVED');
+  const transitOpen = challan.transitState === 'OPEN';
+  const arrivedLines = challan.transitState === 'ADOPTED';
 
   return (
     <div className="space-y-4">
@@ -177,10 +204,42 @@ export default function ChallanDetail() {
             <div className="flex items-center gap-2 mt-1">
               <Badge className={ChallanTypeColors[challan.challanType]}>{ChallanTypeLabels[challan.challanType]}</Badge>
               <Badge className={ChallanStatusColors[challan.status]}>{ChallanStatusLabels[challan.status]}</Badge>
+              {challan.transitState === 'OPEN' && <Badge variant="outline">On the way to {challan.toName}</Badge>}
+              {challan.transitState === 'CLAIMED' && (
+                <Badge variant="outline">Receipt {challan.directSupplyGrn?.grnNumber} waiting for QC</Badge>
+              )}
             </div>
           </div>
         </div>
         <div className="flex gap-2">
+          {transitOpen && challan.purchaseOrderId && (
+            <Button
+              onClick={() =>
+                navigate(
+                  `/procurement/grn/new?poId=${challan.purchaseOrderId}` +
+                    (challan.poDeliveryPointId ? `&pointId=${challan.poDeliveryPointId}` : '') +
+                    `&challanId=${challan.id}`
+                )
+              }
+              disabled={isProcessing}
+            >
+              <PackageCheck className="h-4 w-4 mr-2" />
+              Receive against this challan
+            </Button>
+          )}
+          {transitOpen && (
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setTransitCancelReason('');
+                setTransitCancelOpen(true);
+              }}
+              disabled={isProcessing}
+            >
+              <X className="h-4 w-4 mr-2" />
+              Cancel challan
+            </Button>
+          )}
           {canIssue && (
             <Button onClick={handleIssue} disabled={isProcessing}>
               <Send className="h-4 w-4 mr-2" />
@@ -252,6 +311,25 @@ export default function ChallanDetail() {
                   <span className="text-muted-foreground">Received:</span> {formatDate(new Date(challan.receivedDate))}
                 </div>
               )}
+              {challan.supplierDispatchedAt && (
+                <div>
+                  <span className="text-muted-foreground">Despatched by supplier:</span>{' '}
+                  {formatDate(challan.supplierDispatchedAt)}
+                </div>
+              )}
+              {arrivedLines && challan.directSupplyGrn && (
+                <div>
+                  <span className="text-muted-foreground">Received by job worker:</span>{' '}
+                  {formatDate(challan.directSupplyGrn.receivingDate)} ·{' '}
+                  <button
+                    type="button"
+                    className="text-primary hover:underline"
+                    onClick={() => navigate(`/procurement/grn/${challan.directSupplyGrn!.id}`)}
+                  >
+                    {challan.directSupplyGrn.grnNumber}
+                  </button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -317,6 +395,18 @@ export default function ChallanDetail() {
                 <span className="text-muted-foreground">LR No:</span> {challan.lrNumber}
               </div>
             )}
+            {challan.supplierInvoiceNumber && (
+              <div>
+                <span className="text-muted-foreground">Supplier invoice:</span> {challan.supplierInvoiceNumber}
+                {challan.supplierInvoiceDate ? ` · ${formatDate(challan.supplierInvoiceDate)}` : ''}
+              </div>
+            )}
+            {challan.ewayBillNumber && (
+              <div>
+                <span className="text-muted-foreground">E-way bill:</span> {challan.ewayBillNumber}
+                {challan.ewayBillDate ? ` · ${formatDate(challan.ewayBillDate)}` : ''}
+              </div>
+            )}
             {challan.issuedBy && (
               <div>
                 <span className="text-muted-foreground">Issued By:</span> {challan.issuedBy.firstName}{' '}
@@ -349,7 +439,8 @@ export default function ChallanDetail() {
               <TableRow>
                 <TableHead>Type</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">{challan.transitState ? 'Despatched' : 'Qty'}</TableHead>
+                {arrivedLines && <TableHead className="text-right">Arrived</TableHead>}
                 {challan.challanType === 'INWARD' && (
                   <>
                     <TableHead className="text-right">Received Qty</TableHead>
@@ -367,6 +458,11 @@ export default function ChallanDetail() {
                   </TableCell>
                   <TableCell>{item.description}</TableCell>
                   <TableCell className="text-right">{Number(item.quantity).toLocaleString()}</TableCell>
+                  {arrivedLines && (
+                    <TableCell className="text-right">
+                      {item.arrivedQty != null ? Number(item.arrivedQty).toLocaleString() : '—'}
+                    </TableCell>
+                  )}
                   {challan.challanType === 'INWARD' && (
                     <>
                       <TableCell className="text-right">
@@ -432,6 +528,37 @@ export default function ChallanDetail() {
           </CardContent>
         </Card>
       )}
+
+      {/* Cancel a goods-in-transit challan: only while nothing was received against it */}
+      <Dialog open={transitCancelOpen} onOpenChange={setTransitCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel {challan.challanNumber}?</DialogTitle>
+            <DialogDescription>
+              Only when the goods never went to {challan.toName} — the truck never came, or the supplier sent them
+              elsewhere. A cancelled challan is left out of ITC-04.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={transitCancelReason}
+            onChange={(e) => setTransitCancelReason(e.target.value)}
+            placeholder="Why is it cancelled?"
+            maxLength={500}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransitCancelOpen(false)} disabled={isProcessing}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleTransitCancel}
+              disabled={isProcessing || transitCancelReason.trim().length < 3}
+            >
+              Cancel challan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Receive dialog (finding B10-08) */}
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>

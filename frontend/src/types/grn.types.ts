@@ -303,6 +303,10 @@ export interface CreateGRNRequest {
   remarks?: string;
   items: CreateGRNItemRequest[];
   processingData?: ProcessingReceiveData;
+  /** Goods-in-transit challan this delivery came under — the receipt adopts it (2026-09-29) */
+  transitChallanId?: string | null;
+  /** A transit challan is open to this place and this delivery is not against it */
+  notAgainstTransitChallan?: boolean;
 }
 
 /** PATCH /grn/:id/invoice — the bill that followed the goods (YYYY-MM-DD date) */

@@ -70,6 +70,91 @@ export interface ChallanItem {
   sizeId?: string;
   rate?: number;
   remarks?: string;
+  /** Goods-in-transit challan: the PO line, how the supplier's paper lists it, and what actually arrived */
+  poItemId?: string | null;
+  entryMode?: TransitEntryMode | null;
+  arrivedQty?: number | null;
+}
+
+/**
+ * A goods-in-transit challan's state (2026-09-29): OPEN = on the way, CLAIMED = a receipt against it waits for
+ * QC, ADOPTED = the receipt was approved (the goods are with the processor), CANCELLED = the truck never came.
+ */
+export type TransitState = 'OPEN' | 'CLAIMED' | 'ADOPTED' | 'CANCELLED';
+
+export type TransitEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+
+export interface TransitPiece {
+  detailType: 'THAN' | 'ROLL';
+  baleNumber: number | null;
+  baleNo: string | null;
+  thanNo: string | null;
+  sequenceNo: number;
+  /** COUNTED tag metres */
+  meters: number;
+}
+
+/** GET /challans/goods-in-transit?poId= — one of a PO's transit challans, with its lines and pieces */
+export interface TransitChallan {
+  id: string;
+  challanNumber: string;
+  challanDate: string;
+  status: ChallanStatus;
+  transitState: TransitState;
+  /** The place the goods are headed (the delivery point's, else the PO's one place) */
+  warehouseId: string | null;
+  supplierDispatchedAt: string;
+  supplierInvoiceNumber: string | null;
+  supplierInvoiceDate: string | null;
+  vehicleNumber: string | null;
+  lrNumber: string | null;
+  ewayBillNumber: string | null;
+  ewayBillDate: string | null;
+  toId: string | null;
+  toName: string;
+  poDeliveryPointId: string | null;
+  directSupplyGrnId: string | null;
+  directSupplyGrn: { id: string; grnNumber: string; receivingDate: string; status: string } | null;
+  items: Array<{
+    id: string;
+    poItemId: string | null;
+    description: string;
+    /** ACTUAL — what was despatched */
+    quantity: number;
+    unit: string;
+    foldLengthCm: number | null;
+    entryMode: TransitEntryMode | null;
+    arrivedQty: number | null;
+    pieces: TransitPiece[];
+  }>;
+}
+
+/** POST /challans/goods-in-transit — quantities COUNTED, as on the supplier's paper */
+export interface CreateTransitChallanRequest {
+  poId: string;
+  poDeliveryPointId?: string | null;
+  challanDate?: string;
+  dispatchedOn: string;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
+  vehicleNumber?: string | null;
+  lrNumber?: string | null;
+  ewayBillNumber?: string | null;
+  ewayBillDate?: string | null;
+  remarks?: string | null;
+  lines: Array<{
+    poItemId: string;
+    quantity: number;
+    foldLengthCm?: number | null;
+    entryMode?: TransitEntryMode | null;
+    pieces?: Array<
+      Omit<TransitPiece, 'baleNumber' | 'baleNo' | 'thanNo'> & {
+        baleNumber?: number | null;
+        baleNo?: string | null;
+        thanNo?: string | null;
+      }
+    >;
+  }>;
 }
 
 export interface Challan {
@@ -122,6 +207,18 @@ export interface Challan {
   items: ChallanItem[];
   /** The thans / bales / rolls on this challan — the same list the printed challan carries. Null when none are recorded. */
   packingList?: ChallanPackingList | null;
+  /** Goods-in-transit challan (issued when the supplier despatched straight to a processor); null otherwise */
+  transitState?: TransitState | null;
+  poDeliveryPointId?: string | null;
+  /** A challan for goods a supplier delivered straight to the processor: the receipt it belongs to */
+  directSupplyGrnId?: string | null;
+  supplierDispatchedAt?: string | null;
+  supplierInvoiceNumber?: string | null;
+  supplierInvoiceDate?: string | null;
+  ewayBillNumber?: string | null;
+  ewayBillDate?: string | null;
+  /** The receipt a direct-supply challan belongs to — for a transit challan, the one that recorded the arrival */
+  directSupplyGrn?: { id: string; grnNumber: string; receivingDate: string; status: string } | null;
 }
 
 /** Built by buildChallanPackingList (backend document-data/challan.doc-data.ts). Metres are the TAG (counted) figures. */

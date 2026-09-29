@@ -30,9 +30,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
 import { formatDate, toDateInputValue } from '@/lib/date';
-import { foldActual, foldLabel } from '@/lib/fold-length';
+import { foldActual, foldCounted, foldLabel } from '@/lib/fold-length';
 import { FoldActualField } from '@/components/FoldActualField';
-import { qtyExceeds } from '@/lib/quantity';
+import { prefillQty, qtyExceeds } from '@/lib/quantity';
+import { challanService } from '@/services/challan.service';
+import type { TransitChallan } from '@/types/challan.types';
 import { materialDetailLine } from '@/lib/material-detail';
 
 // ============================================
@@ -96,6 +98,9 @@ interface GRNItemForm {
 
 const isFabricOrGreige = (poCategory?: string | null) => poCategory === 'FABRIC' || poCategory === 'GREIGE';
 
+/** "Not against a challan" in the Against our challan picker */
+const NOT_AGAINST_TRANSIT = '__none__';
+
 const computeDetailSum = (details: DetailRow[]): number =>
   details.reduce((sum, d) => sum + (parseFloat(d.meters) || 0), 0);
 
@@ -139,6 +144,11 @@ export default function GRNForm() {
   // Split delivery (2026-09-26): which of the PO's places this delivery is against (required when split)
   const [deliveryProgress, setDeliveryProgress] = useState<DeliveryProgress | null>(null);
   const [deliveryPointId, setDeliveryPointId] = useState(preselectedPointId || '');
+  // Goods-in-transit challan (2026-09-29): the challan our goods travelled to the processor under — this receipt
+  // picks it up. Pre-selected from the PO page (?challanId=), or when exactly one is open to the chosen place.
+  const [transitChallans, setTransitChallans] = useState<TransitChallan[]>([]);
+  const [transitChoice, setTransitChoice] = useState(searchParams.get('challanId') || '');
+  const [prefilledFrom, setPrefilledFrom] = useState<string | null>(null);
   const [receivingDate, setReceivingDate] = useState(toDateInputValue(new Date()));
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
@@ -184,6 +194,73 @@ export default function GRNForm() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPOId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTransitChallans([]);
+    if (!selectedPOId) return;
+    challanService
+      .getTransitChallans(selectedPOId)
+      .then((list) => {
+        if (!cancelled) setTransitChallans(list);
+      })
+      .catch((err) => {
+        if (!cancelled) handleApiError(err, 'Could not load the challans for goods on the way');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPOId]);
+
+  // The PO's challans for goods still on the way to the place chosen here
+  const openTransit = transitChallans.filter((c) => c.transitState === 'OPEN' && c.warehouseId === warehouseId);
+  const openTransitKey = openTransit.map((c) => c.id).join(',');
+  const chosenTransit = openTransit.find((c) => c.id === transitChoice) ?? null;
+  useEffect(() => {
+    if (openTransit.length === 1 && !transitChoice) setTransitChoice(openTransit[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTransitKey]);
+
+  // Picking a challan fills the receipt with what was despatched — the receiver then enters what actually arrived
+  useEffect(() => {
+    if (!chosenTransit || items.length === 0 || prefilledFrom === chosenTransit.id) return;
+    const piecesOk = isFabricOrGreige(selectedPO?.poCategory);
+    setItems((prev) =>
+      prev.map((item) => {
+        const line = chosenTransit.items.find((l) => l.poItemId === item.poItemId);
+        if (!line) return item;
+        const pieces = piecesOk ? line.pieces : [];
+        const counted =
+          pieces.length > 0
+            ? pieces.reduce((sum, p) => sum + Number(p.meters), 0)
+            : foldCounted(Number(line.quantity), line.foldLengthCm);
+        const q = prefillQty(counted);
+        return {
+          ...item,
+          receivedQuantity: q,
+          acceptedQuantity: q,
+          rejectedQuantity: '0',
+          foldLengthCm: line.foldLengthCm != null ? String(line.foldLengthCm) : item.foldLengthCm,
+          entryMode: pieces.length > 0 && line.entryMode ? line.entryMode : ('TOTAL_METERS' as GRNEntryMode),
+          details: pieces.map((p) => ({
+            detailType: p.detailType,
+            baleNumber: p.baleNumber,
+            sequenceNo: p.sequenceNo,
+            baleNo: p.baleNo ?? undefined,
+            thanNo: p.thanNo ?? undefined,
+            meters: prefillQty(p.meters),
+            remarks: '',
+          })),
+        };
+      })
+    );
+    if (chosenTransit.supplierInvoiceNumber) {
+      setInvoiceToFollow(false);
+      setInvoiceNumber(chosenTransit.supplierInvoiceNumber);
+      setInvoiceDate(chosenTransit.supplierInvoiceDate ? toDateInputValue(chosenTransit.supplierInvoiceDate) : '');
+    }
+    setPrefilledFrom(chosenTransit.id);
+  }, [chosenTransit, items.length, prefilledFrom, selectedPO?.poCategory]);
 
   const splitPoints = deliveryProgress?.mode === 'SPLIT' ? deliveryProgress.points.filter((p) => p.planned) : [];
   const chosenPoint = splitPoints.find((p) => p.id === deliveryPointId) ?? null;
@@ -433,6 +510,16 @@ export default function GRNForm() {
       handleApiError(new Error('Please enter receiving date'), 'Validation Error');
       return false;
     }
+    if (openTransit.length > 0 && !transitChoice) {
+      handleApiError(
+        new Error(
+          `Goods on the way to ${openTransit[0].toName} travelled under our challan — pick it in "Against our challan", ` +
+            `or choose "Not against a challan".`
+        ),
+        'Validation Error'
+      );
+      return false;
+    }
     // Every receipt records the supplier's invoice — or says it has not come yet (the server insists too)
     if (!invoiceToFollow && !invoiceNumber.trim()) {
       handleApiError(
@@ -562,6 +649,11 @@ export default function GRNForm() {
           : { invoiceNumber: invoiceNumber.trim() || undefined, invoiceDate: invoiceDate || undefined }),
         remarks: remarks || undefined,
         items: grnItems,
+        ...(chosenTransit
+          ? { transitChallanId: chosenTransit.id }
+          : openTransit.length > 0 && transitChoice === NOT_AGAINST_TRANSIT
+            ? { notAgainstTransitChallan: true }
+            : {}),
       };
 
       const grn = await createGRN(data);
@@ -1287,6 +1379,40 @@ export default function GRNForm() {
               </Select>
               <p className="text-xs text-muted-foreground">
                 This PO is split across {splitPoints.length} places — one invoice and one e-way bill per delivery.
+              </p>
+            </div>
+          )}
+
+          {/* Goods-in-transit challan: the challan our goods travelled to the processor under */}
+          {openTransit.length > 0 && (
+            <div className="space-y-2">
+              <Label>Against our challan *</Label>
+              <Select value={transitChoice} onValueChange={setTransitChoice}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Which challan did these goods travel under?" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* allow-plain-select: a PO's own challans for goods on the way (a handful) */}
+                  {openTransit.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.challanNumber} — despatched {formatDate(c.supplierDispatchedAt)}
+                      {c.supplierInvoiceNumber ? ` · invoice ${c.supplierInvoiceNumber}` : ''} ·{' '}
+                      {c.items
+                        .map(
+                          (i) =>
+                            `${Number(i.quantity).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${unitShort(i.unit)}`
+                        )
+                        .join(' + ')}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={NOT_AGAINST_TRANSIT}>
+                    Not against a challan (these goods came some other way)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                The goods travelled to {openTransit[0].toName} under our challan. The receipt picks it up — enter what
+                actually arrived; the challan keeps what was despatched.
               </p>
             </div>
           )}

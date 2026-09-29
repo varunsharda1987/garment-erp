@@ -4,8 +4,10 @@ import type {
   ChallanFilters,
   ChallanStats,
   CreateChallanInput,
+  CreateTransitChallanRequest,
   ReceiveChallanInput,
   TodaySummary,
+  TransitChallan,
 } from '@/types/challan.types';
 
 const BASE_URL = '/challans';
@@ -56,6 +58,24 @@ export const challanService = {
   // Receive challan
   async receiveChallan(id: string, input: ReceiveChallanInput): Promise<Challan> {
     const { data } = await api.put(`${BASE_URL}/${id}/receive`, input);
+    return data.data;
+  },
+
+  // Goods-in-transit challan (2026-09-29): our Rule 45 challan for goods a supplier despatched straight to a
+  // processor, issued before they arrive; the receipt adopts it on arrival
+  async issueTransitChallan(input: CreateTransitChallanRequest): Promise<{ id: string; challanNumber: string }> {
+    const { data } = await api.post(`${BASE_URL}/goods-in-transit`, input);
+    return data.data;
+  },
+
+  async getTransitChallans(poId: string): Promise<TransitChallan[]> {
+    const { data } = await api.get(`${BASE_URL}/goods-in-transit`, { params: { poId } });
+    return data.data;
+  },
+
+  // The truck never came / the goods went elsewhere — only while nothing was received against it
+  async cancelTransitChallan(id: string, reason: string): Promise<{ challanNumber: string; warning: string | null }> {
+    const { data } = await api.patch(`${BASE_URL}/${id}/cancel-transit`, { reason });
     return data.data;
   },
 

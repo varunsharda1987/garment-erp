@@ -1356,42 +1356,43 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/pages/SampleDetail.tsx": "0884e4f356a6",
-      "frontend/src/pages/SampleList.tsx": "0eecdfd2fb73",
+      "frontend/src/pages/SampleList.tsx": "0d7f440c0b89",
       "frontend/src/components/samples/SampleActionMenu.tsx": "d794082c085d",
       "frontend/src/components/RecordFeedbackDialog.tsx": "7b835cdca6d4",
       "backend/src/services/productionBlockingValidation.service.ts": "886865d6829d"
     },
     "contentHash": "424eb198eb92",
-    "generatedAt": "2026-09-29T08:02:04.423Z"
+    "generatedAt": "2026-09-29T10:58:43.089Z"
   },
   "sample-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/pages/SampleForm.tsx": "76a75c1ff6dc",
-      "frontend/src/pages/SampleList.tsx": "0eecdfd2fb73",
-      "frontend/src/types/sample.types.ts": "8a91858f1dd2",
+      "frontend/src/pages/SampleList.tsx": "0d7f440c0b89",
+      "frontend/src/types/sample.types.ts": "b63983197df0",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1"
     },
     "contentHash": "e478ef688cec",
-    "generatedAt": "2026-09-29T08:02:04.427Z"
+    "generatedAt": "2026-09-29T10:58:43.246Z"
   },
   "sample-track": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
-      "frontend/src/pages/SampleList.tsx": "0eecdfd2fb73",
+      "frontend/src/pages/SampleList.tsx": "0d7f440c0b89",
       "frontend/src/pages/SampleDetail.tsx": "0884e4f356a6",
       "frontend/src/components/samples/SampleActionMenu.tsx": "d794082c085d",
       "frontend/src/components/samples/SampleTestingPanel.tsx": "6ef40c091ada",
-      "frontend/src/types/sample.types.ts": "8a91858f1dd2",
+      "frontend/src/types/sample.types.ts": "b63983197df0",
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
-      "frontend/src/components/StyleCombobox.tsx": "dcf231b0f103"
+      "frontend/src/components/StyleCombobox.tsx": "dcf231b0f103",
+      "frontend/src/components/ColorCombobox.tsx": "fd5167ca663b"
     },
-    "contentHash": "51b9243c54b2",
-    "generatedAt": "2026-09-29T08:02:04.433Z"
+    "contentHash": "c7dd375f6bfb",
+    "generatedAt": "2026-09-29T10:58:43.253Z"
   },
   "season-create": {
     "sources": {

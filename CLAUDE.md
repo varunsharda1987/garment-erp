@@ -310,7 +310,14 @@ approve Raw Mat / Production values give the row an image with `__tests__/helper
 time), run by `services/marker-reader.service.ts` from `backend/ocr/.venv`. That venv is set up ONCE by hand, like
 `npm ci`: `powershell -ExecutionPolicy Bypass -File backend\ocr\setup.ps1` (again whenever
 `backend/ocr/requirements.txt` changes; it ends with a self-test on the fixtures). Deploys never touch it. Missing or
-broken, every image reads as "not checked" and saves ask for a reason — nothing 500s.
+broken, every image reads as "not checked" and saves ask for a reason — nothing 500s. Sizes come from the title bar
+("… - S-M-L(x2)*"); when the screenshot begins below it (LNG129, 29-Sep) they come from the piece table under the
+toolbar, kept only when every piece column's counts add up exactly to "Placed a/TOTAL" (`decide_piece_sizes`;
+stored with `from: 'pieces'`). Only the models bundled in the rapidocr wheel are used — never `Rec.lang_type`, which
+downloads a model at the first read (owner, 29-Sep: no downloads). ⚠ **The live API runs `read_marker.py` straight
+from this folder: an edit is live the moment it is saved.** Develop a change in a copy, score it on
+`backend/uploads/cad-files` (every stored reading unchanged, no wrong sizes), then swap it in by rename and run
+`read_marker.py --selftest`.
 
 ## CRITICAL: Enforced Guardrails (schema-drift + money-math)
 

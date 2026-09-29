@@ -16,5 +16,13 @@
   "partial-4-of-60.jpeg": {
     "status": "READ", "lengthM": 0.75, "widthIn": 54.0, "efficiencyPct": 75.88, "placed": 4, "total": 60, "pieces": 5
   },
-  "garment-photo-not-a-marker.jpeg": { "status": "UNREADABLE", "lengthM": null }
+  "garment-photo-not-a-marker.jpeg": { "status": "UNREADABLE", "lengthM": null },
+  "lng129-title-cut-off.png": {
+    "status": "READ", "lengthM": 11.05, "widthIn": 52.0, "efficiencyPct": 90.18, "placed": 60, "total": 60, "pieces": 5,
+    "title": null, "sizesFrom": "pieces",
+    "sizes": [
+      { "sizeName": "S", "quantity": 1 }, { "sizeName": "M", "quantity": 1 }, { "sizeName": "L", "quantity": 1 },
+      { "sizeName": "XL", "quantity": 1 }, { "sizeName": "XXL", "quantity": 1 }
+    ]
+  }
 }

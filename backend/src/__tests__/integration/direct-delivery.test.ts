@@ -92,11 +92,20 @@ async function makePo(qty: number, deliveryLocationId: string | null, poSupplier
   return { poId, poItemId };
 }
 
+type ReceiptPiece = {
+  detailType: 'THAN' | 'ROLL';
+  sequenceNo: number;
+  meters: number;
+  baleNumber?: number;
+  thanNo?: string;
+};
+
 async function receiveInto(
   unit: string,
   qty: number,
   deliveryLocationId: string | null = null,
-  poSupplierId: string = supplierId
+  poSupplierId: string = supplierId,
+  pieces?: { entryMode: 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE'; details: ReceiptPiece[] }
 ) {
   const { poId, poItemId } = await makePo(qty, deliveryLocationId, poSupplierId);
   const grn = await grnService.createGRN(
@@ -115,6 +124,7 @@ async function receiveInto(
           rejectedQuantity: 0,
           unit: 'METER',
           weaverNotKnown: true,
+          ...(pieces ?? {}),
         },
       ],
     },
@@ -1050,5 +1060,103 @@ describe('a dyer who also sold us the goods and keeps them to process (Phase 4g)
       .set(authHeader)
       .send({ lots: [{ greigeStockLotId: storeLot.id, qty: 300 }] });
     expect(refused.body.code).toBe('PURCHASED_ITEM_AS_COMPONENT');
+  });
+});
+
+describe('the Rule 45 challan lists the thans / bales / rolls that arrived (2026-09-29)', () => {
+  // CH2609-2129: 3,583 m straight to Shree Bhavya, 10 thans on the receipt, and the challan printed none of them —
+  // its packing list read only pieces ISSUED on it. And a job drawing cloth where it lies names the lot's covering
+  // challan on each than it takes, so CH2609-0996 printed the 7 rolls its jobs drew, not the 14 that arrived.
+
+  it("prints the receipt's bales and thans — and still all of them after a job draws some where they lie", async () => {
+    const { grnId } = await receiveInto(unitB, 330, unitB, supplierId, {
+      entryMode: 'BALE_WISE',
+      details: [
+        { detailType: 'THAN', baleNumber: 1, sequenceNo: 1, meters: 100 },
+        { detailType: 'THAN', baleNumber: 1, sequenceNo: 2, meters: 110 },
+        { detailType: 'THAN', baleNumber: 2, sequenceNo: 3, meters: 120 },
+      ],
+    });
+    await grnService.approveGRN(grnId, userId, unitB); // the PO delivers there: implicit
+    const challan = await prisma.challans.findFirstOrThrow({ where: { directSupplyGrnId: grnId } });
+
+    const expectList = (doc: Awaited<ReturnType<typeof buildChallanDocData>>) => {
+      expect(doc.thanListLabels).toMatchObject({ group: 'Bale', count: 'Thans', total: 'Thans despatched' });
+      expect(doc.thanListTotal).toMatchObject({ count: 3, metres: '330.00' });
+      expect(doc.thanList).toEqual([
+        expect.objectContaining({ bale: '1', baleNote: 'Full bale', thans: 'T1 (100.00), T2 (110.00)', count: 2 }),
+        expect.objectContaining({ bale: '2', baleNote: 'Full bale', thans: 'T3 (120.00)', count: 1 }),
+      ]);
+    };
+    expectList(await buildChallanDocData(challan.id));
+
+    // A job at the same dyer takes bale 1 where it lies
+    const lot = await prisma.greige_stock.findFirstOrThrow({ where: { grnItem: { grnId } } });
+    const bale1 = await prisma.greige_stock_details.findMany({
+      where: { greigeStockId: lot.id, baleNumber: 1 },
+      orderBy: { sequenceNo: 'asc' },
+    });
+    const jwo = await createJwo(dyerB, 210);
+    const drawn = await request(app)
+      .post(`/api/job-work-orders/${jwo}/issue-with-details`)
+      .set(authHeader)
+      .send({
+        lots: [
+          {
+            greigeStockLotId: lot.id,
+            details: bale1.map((d) => ({ greigeStockDetailId: d.id, metersToIssue: Number(d.meters) })),
+          },
+        ],
+      });
+    expect(drawn.status).toBe(200);
+    // The draw names this challan on its than rows — the rows the print used to read as "despatched"
+    expect(await prisma.greige_issue_details.count({ where: { challanId: challan.id } })).toBe(2);
+    expectList(await buildChallanDocData(challan.id));
+
+    // The challan page shows the same list
+    const page = await request(app).get(`/api/challans/${challan.id}`).set(authHeader);
+    expect(page.status).toBe(200);
+    expect(page.body.data.packingList.thanListTotal).toMatchObject({ count: 3, metres: '330.00' });
+    expect(page.body.data.packingList.thanList).toHaveLength(2);
+  });
+
+  it('prints a roll-wise receipt as rolls', async () => {
+    const { grnId } = await receiveInto(unitB, 250, unitB, supplierId, {
+      entryMode: 'ROLL_WISE',
+      details: [
+        { detailType: 'ROLL', sequenceNo: 1, meters: 130, thanNo: 'R-7' },
+        { detailType: 'ROLL', sequenceNo: 2, meters: 120, thanNo: 'R-8' },
+      ],
+    });
+    await grnService.approveGRN(grnId, userId, unitB);
+    const challan = await prisma.challans.findFirstOrThrow({ where: { directSupplyGrnId: grnId } });
+    const doc = await buildChallanDocData(challan.id);
+    expect(doc.thanListLabels).toMatchObject({
+      group: 'Rolls',
+      pieceNo: 'Roll No. (tag metres)',
+      total: 'Rolls despatched',
+    });
+    expect(doc.thanList).toEqual([
+      expect.objectContaining({ bale: 'Rolls', thans: 'R-7 (130.00), R-8 (120.00)', count: 2, metres: '250.00' }),
+    ]);
+  });
+
+  it('prints no list for a lot whose pieces do not add up to what the challan covers', async () => {
+    // A late challan covers only what was left of a lot drawn by quantity (CH2609-0999: 421.5 m of a 4,088 m
+    // roll list) — nothing says which pieces those metres are, so no list beats a wrong one
+    const { grnId } = await receiveInto(unitB, 200, unitB, supplierId, {
+      entryMode: 'THAN_WISE',
+      details: [
+        { detailType: 'THAN', sequenceNo: 1, meters: 100 },
+        { detailType: 'THAN', sequenceNo: 2, meters: 100 },
+      ],
+    });
+    await grnService.approveGRN(grnId, userId, unitB);
+    const challan = await prisma.challans.findFirstOrThrow({ where: { directSupplyGrnId: grnId } });
+    expect((await buildChallanDocData(challan.id)).thanListTotal).toMatchObject({ count: 2, metres: '200.00' });
+    await prisma.challan_items.updateMany({ where: { challanId: challan.id }, data: { quantity: 150 } });
+    const doc = await buildChallanDocData(challan.id);
+    expect(doc.thanList).toBeNull();
+    expect((await request(app).get(`/api/challans/${challan.id}`).set(authHeader)).body.data.packingList).toBeNull();
   });
 });

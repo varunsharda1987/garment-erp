@@ -11,6 +11,8 @@ import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
 import { unitHeader } from '../../utils/units';
 import { foldActual, foldCounted, hasFold } from '../../utils/fold-length';
+import { isQtyZero, qtyRemaining } from '../../utils/quantity';
+import { listStateOf } from '../helpers/lot-pieces.helper';
 
 const FABRIC_PIECE_SELECT = {
   id: true,
@@ -239,11 +241,8 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
 
   // Items — value = declaredValue ?? qty × rate; free issue renders an em-dash.
   let runningTotal = toCurrency(0);
-  const foldedLines = challan.items.filter((i) => hasFold(i.foldLengthCm)).length;
-  const countedTagSum =
-    foldedLines === 1 && challan.greigeIssueDetails && challan.greigeIssueDetails.length > 0
-      ? addCurrency(...challan.greigeIssueDetails.map((d) => Number(d.metersIssued))).toNumber()
-      : null;
+  const packing = await packingFor(challan);
+  const { countedTagSum } = packing;
   const items: ChallanDocItem[] = challan.items.map((item, idx) => {
     let valueStr = EM_DASH;
     if (item.declaredValue != null) {
@@ -351,8 +350,142 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
             metersIssued: fmtQty(Number(d.metersIssued), 'MTR'),
           }))
         : null,
-    ...(await packingListOf(challan, foldedLines)),
+    ...packing.list,
   };
+}
+
+type PackingList = Pick<ChallanDocData, 'thanList' | 'thanListTotal' | 'thanListLabels'>;
+
+/**
+ * The challan's packing list, and the tag total the one folded line's subline refers to ("thans listed below")
+ * — null when there is no list, or no single folded line, and the subline prints the counted figure itself.
+ */
+async function packingFor(challan: ChallanWithDetails): Promise<{ list: PackingList; countedTagSum: number | null }> {
+  const foldedLines = challan.items.filter((i) => hasFold(i.foldLengthCm)).length;
+  if (challan.directSupplyGrnId != null) {
+    const arrived = await arrivedPieces(challan);
+    return {
+      list: await thanPackingList(challan.id, arrived.rows, arrived.foldLengthCm, null, 'OUT'),
+      countedTagSum:
+        foldedLines === 1 && arrived.rows.length > 0
+          ? addCurrency(...arrived.rows.map((r) => r.metres)).toNumber()
+          : null,
+    };
+  }
+  return {
+    list: await packingListOf(challan, foldedLines),
+    countedTagSum:
+      foldedLines === 1 && challan.greigeIssueDetails.length > 0
+        ? addCurrency(...challan.greigeIssueDetails.map((d) => Number(d.metersIssued))).toNumber()
+        : null,
+  };
+}
+
+/**
+ * The packing list alone — what the challan page shows under its items. The same list the print carries,
+ * from the same code.
+ */
+export async function buildChallanPackingList(challanId: string): Promise<PackingList | null> {
+  const challan = await prisma.challans.findUnique({ where: { id: challanId }, include: challanDocInclude });
+  if (!challan) throw new NotFoundError('Challan', challanId);
+  const { list } = await packingFor(challan);
+  return list.thanList ? list : null;
+}
+
+/**
+ * The pieces that ARRIVED at the processor under a direct-supply challan (goods a supplier delivered straight
+ * to the job worker, Rule 45): each lot's pieces as they stood when the challan was made — the receipt's than
+ * / bale / roll list for a live GRN (2026-09-29: CH2609-2129 printed 3,583 m and none of its 10 thans).
+ *
+ * Not the challan's greige_issue_details: those are jobs DRAWING the cloth where it lies (issuance names the
+ * lot's covering challan on each than it takes), not goods that moved on it — CH2609-0996 printed the 7 rolls
+ * its jobs drew as "Rolls despatched" instead of the 14 that arrived. A lot whose pieces do not agree with its
+ * line (listStateOf, ±1%) prints no list rather than a wrong one: CH2609-0999 covers the 421.5 m left of a lot
+ * drawn by quantity before the challan existed, and nothing says which of its 7 rolls those metres are.
+ */
+async function arrivedPieces(challan: ChallanWithDetails): Promise<{ rows: PackedRow[]; foldLengthCm: number | null }> {
+  const madeAt = challan.createdAt;
+  const lineQty = new Map<string, number>();
+  for (const i of challan.items) {
+    const lotId = i.greigeStockId ?? i.fabricStockId;
+    if (lotId) lineQty.set(lotId, addCurrency(lineQty.get(lotId) ?? 0, Number(i.quantity)).toNumber());
+  }
+  const greigeIds = [...new Set(challan.items.map((i) => i.greigeStockId).filter((id): id is string => !!id))];
+  const fabricIds = [...new Set(challan.items.map((i) => i.fabricStockId).filter((id): id is string => !!id))];
+  if (greigeIds.length === 0 && fabricIds.length === 0) return { rows: [], foldLengthCm: null };
+
+  const [greigeLots, greigePieces, takenBefore, fabricLots, fabricPieces] = await Promise.all([
+    greigeIds.length > 0
+      ? prisma.greige_stock.findMany({ where: { id: { in: greigeIds } }, select: { id: true, foldLengthCm: true } })
+      : [],
+    greigeIds.length > 0
+      ? prisma.greige_stock_details.findMany({
+          where: { greigeStockId: { in: greigeIds }, createdAt: { lte: madeAt } },
+          select: {
+            id: true,
+            greigeStockId: true,
+            baleNumber: true,
+            sequenceNo: true,
+            meters: true,
+            baleNo: true,
+            thanNo: true,
+            detailType: true,
+          },
+        })
+      : [],
+    // A late challan (the one-time conversion of lots already at a dyer) covers only what was left: thans or
+    // metres issued before it existed did not arrive under it
+    greigeIds.length > 0
+      ? prisma.greige_issue_details.groupBy({
+          by: ['greigeStockDetailId'],
+          where: { greigeStockDetail: { greigeStockId: { in: greigeIds } }, createdAt: { lt: madeAt } },
+          _sum: { metersIssued: true },
+        })
+      : [],
+    fabricIds.length > 0
+      ? prisma.fabric_stock.findMany({ where: { id: { in: fabricIds } }, select: { id: true, foldLengthCm: true } })
+      : [],
+    // A direct-supply fabric lot is booked in the same transaction as its challan, so its receipt pieces are
+    // all there is to list
+    fabricIds.length > 0
+      ? prisma.fabric_stock_details.findMany({
+          where: { fabricStockId: { in: fabricIds }, source: 'RECEIPT', createdAt: { lte: madeAt } },
+          select: FABRIC_PIECE_SELECT,
+        })
+      : [],
+  ]);
+  const taken = new Map(takenBefore.map((t) => [t.greigeStockDetailId, Number(t._sum.metersIssued ?? 0)]));
+
+  const byLot = new Map<string, PackedRow[]>();
+  const add = (row: PackedRow) => {
+    const lotRows = byLot.get(row.lotId);
+    if (lotRows) lotRows.push(row);
+    else byLot.set(row.lotId, [row]);
+  };
+  for (const p of greigePieces) {
+    const metres = qtyRemaining(Number(p.meters), taken.get(p.id) ?? 0);
+    if (!isQtyZero(metres)) add({ stock: 'GREIGE', lotId: p.greigeStockId, piece: p, metres });
+  }
+  for (const p of fabricPieces) add({ stock: 'FABRIC', lotId: p.fabricStockId, piece: p, metres: Number(p.meters) });
+
+  const lotFold = new Map(
+    [...greigeLots, ...fabricLots].map((l) => [l.id, l.foldLengthCm != null ? Number(l.foldLengthCm) : null])
+  );
+  const rows: PackedRow[] = [];
+  const folds = new Set<number | null>();
+  for (const [lotId, lotRows] of byLot) {
+    // Piece metres are the COUNTED tag figures; the line is ACTUAL metres
+    const listActual = foldActual(addCurrency(...lotRows.map((r) => r.metres)), lotFold.get(lotId) ?? null);
+    const state = listStateOf({
+      piecesRecorded: lotRows.length,
+      listActual: listActual.toNumber(),
+      onHand: lineQty.get(lotId) ?? 0,
+    });
+    if (state !== 'IN_STEP') continue;
+    rows.push(...lotRows);
+    folds.add(lotFold.get(lotId) ?? null);
+  }
+  return { rows, foldLengthCm: folds.size === 1 ? [...folds][0] : null };
 }
 
 /** One piece on the packing list: which lot, the piece, and the COUNTED metres it moved on this challan. */

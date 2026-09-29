@@ -11,6 +11,7 @@ import {
   getTodaySummary,
 } from '../services/challan.service';
 import { resolveRate } from '../services/po-rate-resolver.service';
+import { buildChallanPackingList } from '../services/document-data/challan.doc-data';
 import { NotFoundError, ValidationError } from '../errors';
 import type { IssueChallanBody, QuickIssueChallanInput } from '../schemas/challan.schema';
 
@@ -54,7 +55,9 @@ export async function getChallanByIdController(req: Request, res: Response) {
   if (!challan) {
     throw new NotFoundError('Challan', req.params.id);
   }
-  return res.json({ success: true, data: challan });
+  // The thans / bales / rolls it moved — the printed challan's packing list, from the same code
+  const packingList = await buildChallanPackingList(challan.id);
+  return res.json({ success: true, data: { ...challan, packingList } });
 }
 
 /**

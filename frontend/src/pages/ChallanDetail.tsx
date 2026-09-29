@@ -389,6 +389,50 @@ export default function ChallanDetail() {
         </CardContent>
       </Card>
 
+      {/* The thans / bales / rolls on this challan — the printed challan's packing list */}
+      {challan.packingList && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {challan.packingList.thanListLabels.count} ({challan.packingList.thanListTotal.count})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-40">{challan.packingList.thanListLabels.group}</TableHead>
+                  <TableHead>{challan.packingList.thanListLabels.pieceNo}</TableHead>
+                  <TableHead className="text-right w-24">{challan.packingList.thanListLabels.count}</TableHead>
+                  <TableHead className="text-right w-32">Tag metres</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {challan.packingList.thanList.map((row, idx) => (
+                  <TableRow key={`${row.bale}-${idx}`}>
+                    <TableCell>
+                      <div className="font-medium">{row.bale}</div>
+                      {row.baleNote && <div className="text-xs text-muted-foreground">{row.baleNote}</div>}
+                    </TableCell>
+                    <TableCell>{row.thans}</TableCell>
+                    <TableCell className="text-right">{row.count}</TableCell>
+                    <TableCell className="text-right">{row.metres}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="font-medium">
+                  <TableCell colSpan={2}>{challan.packingList.thanListLabels.total}</TableCell>
+                  <TableCell className="text-right">{challan.packingList.thanListTotal.count}</TableCell>
+                  <TableCell className="text-right">{challan.packingList.thanListTotal.metres}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+            {challan.packingList.thanListTotal.actualNote && (
+              <p className="text-xs text-muted-foreground mt-2">{challan.packingList.thanListTotal.actualNote}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Receive dialog (finding B10-08) */}
       <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
         <DialogContent className="max-w-2xl">

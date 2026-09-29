@@ -120,6 +120,15 @@ export interface Challan {
   issuedBy?: { id: string; firstName: string; lastName: string };
   receivedBy?: { id: string; firstName: string; lastName: string };
   items: ChallanItem[];
+  /** The thans / bales / rolls on this challan — the same list the printed challan carries. Null when none are recorded. */
+  packingList?: ChallanPackingList | null;
+}
+
+/** Built by buildChallanPackingList (backend document-data/challan.doc-data.ts). Metres are the TAG (counted) figures. */
+export interface ChallanPackingList {
+  thanList: Array<{ bale: string; baleNote: string; thans: string; count: number; metres: string }>;
+  thanListTotal: { count: number; metres: string; actualNote: string | null };
+  thanListLabels: { group: string; pieceNo: string; count: string; total: string };
 }
 
 // ============================================

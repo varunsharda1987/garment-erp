@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
-import { Plus, Trash2, ShoppingBag, Eye, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag, Eye, MoreHorizontal, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,17 +37,42 @@ import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/s
 import { searchSeasons } from '@/services/season.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
 import { formatCurrency } from '@/lib/currency';
-import { formatDate } from '@/lib/date';
+import { formatDate, toDateInputValue } from '@/lib/date';
 import { BUYER_STYLE_CODE_LABEL, STYLE_CODE_LABEL, buyerStyleCode } from '@/lib/style-code';
 
 // Local type definition to avoid import issues
 type Column<T> = {
   key: string;
-  header: string;
+  header: ReactNode;
   render?: (item: T) => ReactNode;
   className?: string;
   headerClassName?: string;
 };
+
+type DateSortField = 'expectedShipDate' | 'buyerDeadline';
+
+/** Once these are reached the goods have left, so a passed date is no longer "late". */
+const SHIPPED_STATUSES: SaleOrderStatus[] = ['DISPATCHED', 'DELIVERED', 'CANCELLED'];
+
+/** Whole days a date is behind today (IST calendar days), or 0 when it has not passed. */
+function daysLate(value: string | null | undefined): number {
+  if (!value) return 0;
+  const days = Math.round(
+    (Date.parse(toDateInputValue(new Date())) - Date.parse(toDateInputValue(value))) / 86_400_000
+  );
+  return days > 0 ? days : 0;
+}
+
+function DueDateCell({ value, status }: { value?: string | null; status: SaleOrderStatus }) {
+  if (!value) return <span className="text-xs text-muted-foreground">—</span>;
+  const late = SHIPPED_STATUSES.includes(status) ? 0 : daysLate(value);
+  return (
+    <div className={late > 0 ? 'text-sm text-destructive font-medium' : 'text-sm'}>
+      {formatDate(value)}
+      {late > 0 && <div className="text-xs font-normal">{late === 1 ? '1 day late' : `${late} days late`}</div>}
+    </div>
+  );
+}
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   DRAFT: 'bg-muted text-foreground',
@@ -99,6 +124,7 @@ export default function SaleOrderList() {
   // Sale date range — ISO yyyy-MM-dd, '' = open end
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [sort, setSort] = useState<{ field: DateSortField; order: 'asc' | 'desc' } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [soToDelete, setSoToDelete] = useState<SaleOrder | null>(null);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
@@ -114,6 +140,8 @@ export default function SaleOrderList() {
       seasonId: seasonFilter,
       fromDate,
       toDate,
+      sortBy: sort?.field,
+      sortOrder: sort?.order,
     }),
     queryFn: () =>
       getAllSaleOrders({
@@ -125,6 +153,8 @@ export default function SaleOrderList() {
         seasonId: seasonFilter || undefined,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
+        sortBy: sort?.field,
+        sortOrder: sort?.order,
       }),
   });
 
@@ -181,6 +211,28 @@ export default function SaleOrderList() {
     setFromDate('');
     setToDate('');
     setPage(1);
+  };
+
+  // Click cycles: earliest first → latest first → back to newest orders first
+  const toggleSort = (field: DateSortField) => {
+    setSort((cur) =>
+      cur?.field !== field ? { field, order: 'asc' } : cur.order === 'asc' ? { field, order: 'desc' } : null
+    );
+    setPage(1);
+  };
+  const sortHeader = (field: DateSortField, label: string) => {
+    const Icon = sort?.field !== field ? ArrowUpDown : sort.order === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(field)}
+        className="inline-flex items-center gap-1 hover:text-foreground"
+        title={`Sort by ${label}`}
+      >
+        {label}
+        <Icon className={sort?.field === field ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5 opacity-40'} />
+      </button>
+    );
   };
 
   const columns: Column<SaleOrder>[] = [
@@ -290,14 +342,17 @@ export default function SaleOrderList() {
     {
       key: 'saleDate',
       header: 'Sale Date',
-      render: (so) => (
-        <div className="text-sm">
-          {formatDate(so.saleDate)}
-          {so.expectedShipDate && (
-            <div className="text-xs text-muted-foreground">Ship {formatDate(so.expectedShipDate)}</div>
-          )}
-        </div>
-      ),
+      render: (so) => <div className="text-sm">{formatDate(so.saleDate)}</div>,
+    },
+    {
+      key: 'expectedShipDate',
+      header: sortHeader('expectedShipDate', 'Expected Ship Date'),
+      render: (so) => <DueDateCell value={so.expectedShipDate} status={so.status} />,
+    },
+    {
+      key: 'buyerDeadline',
+      header: sortHeader('buyerDeadline', 'Buyer Deadline'),
+      render: (so) => <DueDateCell value={so.buyerDeadline} status={so.status} />,
     },
     {
       key: 'quantity',

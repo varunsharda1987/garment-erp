@@ -32,6 +32,7 @@ export const SaleOrderSortFieldEnum = z.enum([
   'totalAmount',
   'status',
   'expectedShipDate',
+  'buyerDeadline',
 ]);
 
 // ============================================================================
@@ -142,6 +143,24 @@ export const amendSaleOrderQuantitiesSchema = z.object({
     )
     .min(1, 'Change at least one line'),
   reason: z.string().trim().min(3, 'Say why the quantities are being amended').max(500),
+});
+
+/**
+ * Admin change of a confirmed order's dates (the buyer moved them, or they were never entered).
+ * POST /api/sale-orders/:id/dates — omitted = unchanged, null = cleared.
+ */
+export const changeSaleOrderDatesSchema = z.object({
+  expectedShipDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional()
+    .nullable(),
+  buyerDeadline: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional()
+    .nullable(),
+  reason: z.string().trim().max(500).optional(),
 });
 
 export const startProductionSchema = z.object({
@@ -280,6 +299,7 @@ export const uploadBuyerPoDocumentSchema = z.preprocess(
 export type CreateSaleOrderInput = z.infer<typeof createSaleOrderSchema>;
 export type UpdateSaleOrderInput = z.infer<typeof updateSaleOrderSchema>;
 export type ConfirmSaleOrderInput = z.infer<typeof confirmSaleOrderSchema>;
+export type ChangeSaleOrderDatesInput = z.infer<typeof changeSaleOrderDatesSchema>;
 export type StartProductionInput = z.infer<typeof startProductionSchema>;
 export type AllocateStockInput = z.infer<typeof allocateStockSchema>;
 export type SaleOrderQueryInput = z.infer<typeof saleOrderQuerySchema>;

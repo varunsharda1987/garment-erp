@@ -22,6 +22,7 @@ import {
   Upload,
   ListOrdered,
   Truck,
+  CalendarClock,
 } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
@@ -30,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SmartConfirmDialog } from '@/components/SmartConfirmDialog';
-import { SaleOrderForm, CancelOrderDialog } from '@/components/sale-order';
+import { SaleOrderForm, CancelOrderDialog, ChangeDatesDialog } from '@/components/sale-order';
 import { sortSaleOrderLines, styleSeasonLabel } from '@/components/sale-order/sale-order-lines';
 import {
   Dialog,
@@ -119,6 +120,7 @@ export default function SaleOrderDetail() {
   // Admin correction of a confirmed order's size split
   const { isAdmin } = usePermissions();
   const [amendDialogOpen, setAmendDialogOpen] = useState(false);
+  const [datesDialogOpen, setDatesDialogOpen] = useState(false);
   const [amendQty, setAmendQty] = useState<Record<string, string>>({});
   const [amendReason, setAmendReason] = useState('');
   // Absolute = type pieces per line; Percentage / Ratio = type shares and a total, pieces are worked out
@@ -686,6 +688,12 @@ export default function SaleOrderDetail() {
                 >
                   <ListOrdered className="h-4 w-4 mr-2" />
                   Amend Quantities
+                </DropdownMenuItem>
+              )}
+              {canAmendQuantities && (
+                <DropdownMenuItem onSelect={() => setDatesDialogOpen(true)}>
+                  <CalendarClock className="h-4 w-4 mr-2" />
+                  Change Dates
                 </DropdownMenuItem>
               )}
               {canShowCancelButton && (
@@ -1695,6 +1703,17 @@ export default function SaleOrderDetail() {
       </Dialog>
 
       {/* Cancel Order Dialog */}
+      <ChangeDatesDialog
+        open={datesDialogOpen}
+        onOpenChange={setDatesDialogOpen}
+        saleOrder={so}
+        onSaved={() => {
+          invalidateSaleOrder();
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+          queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+        }}
+      />
+
       <CancelOrderDialog
         open={cancelDialogOpen}
         onOpenChange={setCancelDialogOpen}

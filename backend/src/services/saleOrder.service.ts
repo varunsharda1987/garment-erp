@@ -51,6 +51,28 @@ export function assertDeliveryWithinDeadline(
   }
 }
 
+/**
+ * A linked production order finishes by its sale order's Expected Ship Date: the order takes the date,
+ * and so do its runs still being made (finished / cancelled / split ones are history).
+ * Returns how many runs moved.
+ */
+async function applyShipDateToOrder(tx: Prisma.TransactionClient, orderId: string, shipDate: Date): Promise<number> {
+  await tx.orders.update({ where: { id: orderId }, data: { expectedDeliveryDate: shipDate } });
+  const runs = await tx.work_orders.updateMany({
+    where: { orderId, status: { in: ['PENDING', 'IN_PRODUCTION'] } },
+    data: { plannedEndDate: shipDate },
+  });
+  return runs.count;
+}
+
+/** Sale-order statuses whose quantities (Amend Quantities) and dates (Change Dates) an admin may correct. */
+const CORRECTABLE_STATUSES: SaleOrderStatus[] = [
+  SaleOrderStatus.CONFIRMED,
+  SaleOrderStatus.PARTIALLY_ALLOCATED,
+  SaleOrderStatus.FULLY_ALLOCATED,
+  SaleOrderStatus.PARTIALLY_DISPATCHED,
+];
+
 /** A line as it arrives from the ERP form or the B2B push. */
 interface SOItemInput {
   styleId: string;
@@ -293,6 +315,7 @@ const SORTABLE_FIELDS = new Set([
   'totalAmount',
   'status',
   'expectedShipDate',
+  'buyerDeadline',
 ]);
 
 interface SOQueryParams {
@@ -476,7 +499,11 @@ export class SaleOrderService {
         where,
         skip,
         take: limit,
-        orderBy: { [orderByField]: orderByDirection },
+        // An order with no date sorts after the dated ones, whichever way the column is sorted
+        orderBy:
+          orderByField === 'expectedShipDate' || orderByField === 'buyerDeadline'
+            ? [{ [orderByField]: { sort: orderByDirection, nulls: 'last' } }, { createdAt: 'desc' }]
+            : { [orderByField]: orderByDirection },
         include: {
           customer: {
             select: { id: true, code: true, name: true },
@@ -1319,17 +1346,8 @@ export class SaleOrderService {
       // "24-Sep → 20-Sep".
       await prisma.$transaction(async (tx) => {
         await lockOrder(tx, orderId); // first — linking changes what "shipped" means for the order
-        await tx.orders.update({
-          where: { id: orderId },
-          data: { saleOrderId, ...(so.expectedShipDate ? { expectedDeliveryDate: so.expectedShipDate } : {}) },
-        });
-        if (so.expectedShipDate) {
-          // Runs still being made follow the new date; finished / cancelled / split ones are history
-          await tx.work_orders.updateMany({
-            where: { orderId, status: { in: ['PENDING', 'IN_PRODUCTION'] } },
-            data: { plannedEndDate: so.expectedShipDate },
-          });
-        }
+        await tx.orders.update({ where: { id: orderId }, data: { saleOrderId } });
+        if (so.expectedShipDate) await applyShipDateToOrder(tx, orderId, so.expectedShipDate);
         // The order's price becomes the buyer PO price of each style (owner, 2026-09-28) — a typed-in
         // price kept through the link is how nine orders came to read their Total Product Cost
         await priceOrderFromBuyerPo(tx, orderId, saleOrderId);
@@ -1351,6 +1369,64 @@ export class SaleOrderService {
     );
 
     return { orderId: order.id, orderNumber: order.orderNumber, saleOrderNumber: so.saleOrderNumber, toSize };
+  }
+
+  /**
+   * Admin change of a confirmed order's Expected Ship Date / Buyer Deadline (undefined = unchanged,
+   * null = cleared). A new ship date moves the linked production order and its unfinished runs, as
+   * linking does; with no ship date, the linked order's delivery must still meet the deadline.
+   */
+  async changeDates(saleOrderId: string, data: { expectedShipDate?: Date | null; buyerDeadline?: Date | null }) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      select: { saleOrderNumber: true, status: true, expectedShipDate: true, buyerDeadline: true },
+    });
+    if (!so) throw new NotFoundError('Sale Order', saleOrderId);
+    if (so.status === SaleOrderStatus.DRAFT) {
+      throw new BusinessError(`${so.saleOrderNumber} is still a draft — change its dates with Edit.`);
+    }
+    if (!CORRECTABLE_STATUSES.includes(so.status)) {
+      throw new BusinessError(`The dates of a ${so.status} sale order cannot be changed.`);
+    }
+
+    const ship = data.expectedShipDate !== undefined ? data.expectedShipDate : so.expectedShipDate;
+    const deadline = data.buyerDeadline !== undefined ? data.buyerDeadline : so.buyerDeadline;
+    const sameDay = (a: Date | null, b: Date | null) => (a ? dayOf(a) : null) === (b ? dayOf(b) : null);
+    const shipChanged = !sameDay(ship, so.expectedShipDate);
+    if (shipChanged === false && sameDay(deadline, so.buyerDeadline)) {
+      throw new ValidationError('No date was changed.');
+    }
+    assertShipNotAfterDeadline(ship, deadline);
+
+    const linked = await prisma.orders.findFirst({
+      where: { saleOrderId, status: { not: 'CANCELLED' }, isActive: true },
+      select: { id: true, orderNumber: true, expectedDeliveryDate: true },
+    });
+    const moveLinked = Boolean(linked && ship && shipChanged);
+    if (linked && !moveLinked && linked.expectedDeliveryDate) {
+      assertDeliveryWithinDeadline(linked.expectedDeliveryDate, {
+        saleOrderNumber: so.saleOrderNumber,
+        buyerDeadline: deadline,
+      });
+    }
+
+    let runsMoved = 0;
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.sale_orders.updateMany({
+        where: { id: saleOrderId, status: { in: CORRECTABLE_STATUSES } },
+        data: { expectedShipDate: ship, buyerDeadline: deadline },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictError('This sale order changed while you were editing it. Reload and try again.');
+      }
+      if (moveLinked && linked && ship) runsMoved = await applyShipDateToOrder(tx, linked.id, ship);
+    });
+
+    return {
+      before: { expectedShipDate: so.expectedShipDate, buyerDeadline: so.buyerDeadline },
+      after: { expectedShipDate: ship, buyerDeadline: deadline },
+      productionOrder: moveLinked && linked ? { orderNumber: linked.orderNumber, runsMoved } : null,
+    };
   }
 
   /**
@@ -1391,13 +1467,7 @@ export class SaleOrderService {
     if (so.status === SaleOrderStatus.DRAFT) {
       throw new BusinessError(`${so.saleOrderNumber} is still a draft — change its lines with Edit.`);
     }
-    const amendable: SaleOrderStatus[] = [
-      SaleOrderStatus.CONFIRMED,
-      SaleOrderStatus.PARTIALLY_ALLOCATED,
-      SaleOrderStatus.FULLY_ALLOCATED,
-      SaleOrderStatus.PARTIALLY_DISPATCHED,
-    ];
-    if (!amendable.includes(so.status)) {
+    if (!CORRECTABLE_STATUSES.includes(so.status)) {
       throw new BusinessError(`A ${so.status} sale order cannot be amended.`);
     }
 

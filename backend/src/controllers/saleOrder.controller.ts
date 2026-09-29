@@ -247,6 +247,37 @@ export class SaleOrderController {
     });
   }
 
+  /** POST /api/sale-orders/:id/dates — admin change of a confirmed order's ship date / buyer deadline */
+  async changeDates(req: Request, res: Response) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
+    const { expectedShipDate, buyerDeadline, reason } = req.body;
+    const changed = await saleOrderService.changeDates(req.params.id, {
+      expectedShipDate: toNullableDate(expectedShipDate),
+      buyerDeadline: toNullableDate(buyerDeadline),
+    });
+
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entityType: 'SALE_ORDER',
+      entityId: req.params.id,
+      oldValues: changed.before,
+      newValues: { ...changed.after, ...(reason ? { reason } : {}), productionOrder: changed.productionOrder },
+      ipAddress: req.ip ?? null,
+    });
+
+    const po = changed.productionOrder;
+    res.json({
+      data: changed,
+      message: po
+        ? `Dates saved — ${po.orderNumber} and ${po.runsMoved} unfinished run${po.runsMoved === 1 ? '' : 's'} now deliver on the new ship date.`
+        : 'Dates saved.',
+    });
+  }
+
   /**
    * Admin correction of a confirmed order's size split. The new split is copied onto the linked
    * production order (its PENDING runs follow) where that order still mirrored the old one.

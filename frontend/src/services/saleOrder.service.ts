@@ -153,6 +153,18 @@ export async function amendSaleOrderQuantities(
   return response.data;
 }
 
+/**
+ * Admin only: change a confirmed order's Expected Ship Date / Buyer Deadline (null clears one).
+ * A new ship date also moves the linked production order and its unfinished runs.
+ */
+export async function changeSaleOrderDates(
+  id: string,
+  body: { expectedShipDate?: string | null; buyerDeadline?: string | null; reason?: string }
+): Promise<{ data: { productionOrder: { orderNumber: string; runsMoved: number } | null }; message: string }> {
+  const response = await api.post(`${BASE_URL}/${id}/dates`, body);
+  return response.data;
+}
+
 export async function allocateStock(data: {
   saleOrderItemId: string;
   fgStockId: string;

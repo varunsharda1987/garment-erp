@@ -186,7 +186,10 @@ deliveryDate, isDelayed, stageBreakdown{inCutting,inStitching,inFinishing,readyT
    signal it gets.
 5. **DRAFT-only updates**: the B2B app pre-flights the status and refuses its own re-send with a
    clear message when the order is confirmed. If this rule ever changes (e.g. editable confirmed
-   orders), tell the B2B side so it can relax the pre-flight.
+   orders), tell the B2B side so it can relax the pre-flight. `PUT` is still DRAFT-only, but since
+   2026-09-29 an ERP admin can change a CONFIRMED order's `expectedShipDate` / `buyerDeadline`
+   (`POST /sale-orders/:id/dates`, not a B2B route) — so the `expectedShipDate` the B2B app reads
+   back can move after confirm.
 6. **Status enum values** (§4) — renaming/adding states affects the B2B badge + terminal logic.
 7. **Style identity**: `styleCode` is the join key; colourways stay distinct styles. Renaming a
    pushed style's code doesn't break existing links (they're by id) but breaks future resolution

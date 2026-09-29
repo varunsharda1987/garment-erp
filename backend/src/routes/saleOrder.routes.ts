@@ -9,6 +9,7 @@ import {
   startProductionSchema,
   linkProductionOrderSchema,
   amendSaleOrderQuantitiesSchema,
+  changeSaleOrderDatesSchema,
   allocateStockSchema,
   deallocateStockSchema,
   saleOrderQuerySchema,
@@ -119,6 +120,16 @@ router.post(
   validateParams(idParamSchema),
   validateBody(amendSaleOrderQuantitiesSchema),
   asyncHandler(saleOrderController.amendQuantities.bind(saleOrderController))
+);
+
+// POST /api/sale-orders/:id/dates - change a confirmed order's Expected Ship Date / Buyer Deadline
+// (admin only: the ship date moves the linked production order and its unfinished runs)
+router.post(
+  '/:id/dates',
+  requireAdmin(),
+  validateParams(idParamSchema),
+  validateBody(changeSaleOrderDatesSchema),
+  asyncHandler(saleOrderController.changeDates.bind(saleOrderController))
 );
 
 // POST /api/sale-orders/allocate-stock - Allocate FG stock to sale order item

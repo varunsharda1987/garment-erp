@@ -48,6 +48,9 @@ keywords:
   - not checked
   - save with a reason
   - cad imgae
+  - margin
+  - layer margin
+  - how is CAD average calculated
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -71,6 +74,8 @@ keywords:
   - image se value lena
   - image se match nahi ho raha
   - reason dekar save karna
+  - margin kitna hai
+  - average kaise nikla
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -99,6 +104,8 @@ keywords:
   - स्क्रीनशॉट
   - इमेज से वैल्यू
   - कारण के साथ सेव
+  - मार्जिन
+  - एवरेज कैसे निकला
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -173,7 +180,7 @@ A style must exist with:
 
 ### 5. Fill in CAD row data
 
-The columns, left to right: **Purpose**, **Ver**, **Component**, **Part**, **Finish**, **Emb.**, **Generic Greige**, **Greige / Fabric**, **Design Name**, **Width**, **Print**, **Sizes**, **Pcs**, **Layer(M)**, **CAD Avg**, **CAD Image**, **Actions**.
+The columns, left to right: **Purpose**, **Ver**, **Component**, **Part**, **Finish**, **Emb.**, **Generic Greige**, **Greige / Fabric**, **Design Name**, **Width**, **Print**, **Sizes**, **Pcs**, **Layer(M)**, **Margin**, **CAD Avg**, **CAD Image**, **Actions**.
 
 Open the row menu (three dots) > **Edit** to change a row, then click the save icon (or the cross to cancel).
 
@@ -187,7 +194,7 @@ Open the row menu (three dots) > **Edit** to change a row, then click the save i
 - **Sizes** * - click the calculator button to set the pieces per size
 - **Layer(M)** * - the marker length in metres, as printed on the marker
 
-**Calculated (green):** **Pcs** (total pieces in the marker) and **CAD Avg** (metres per piece).
+**Calculated (green):** **Pcs** (total pieces in the marker), **Margin** (added to the layer length by rule — it reads "auto" while a new Layer(M) is being typed, and is set when you save) and **CAD Avg** (metres per piece). Hover over **CAD Avg** to see the sum, e.g. "(3.85 + 0.05) ÷ 5 = 0.78 m/pc". The margin cannot be typed.
 
 > **Raw Mat and Production rows are filled from their marker image** — see section 6. Their Layer(M), Width and Sizes cannot be saved without it.
 
@@ -199,7 +206,7 @@ Each row's **CAD Image** column shows its marker image state:
 - **Matches** (green) - the row is what its image says
 - **Differs** / **Not checked** (red) - the row differs from its image, or the image could not be read, and no reason was given
 - **Differs · reason given** / **Not checked · reason given** (amber) - saved with a reason
-- **No image** (grey) - an approved row from before images were required. It keeps its values; **Correct…** brings its image
+- **No image** (grey) - an approved row from before images were required. It keeps its values. Click it to attach its marker image: an approved row takes an image only when it says exactly what the row holds (see below)
 
 To attach it:
 1. Make the marker in Nest EXPERT and take a screenshot of the whole window (the title bar with the sizes and the status bar with Placed, Eff, Length and Width must show). A PDF export also works.
@@ -212,6 +219,10 @@ To attach it:
 
 Other buttons in the window: **Replace image** (a new screenshot replaces the old; the old one is kept in the history) and **Read again**.
 
+The table in the window also shows **Margin (by rule)** and **CAD Avg (m/pc)** for the image and for the row — what the marker's length and sizes give by the same formula — so you can see at once whether the average would change.
+
+**An approved row** keeps its values: the window has no **Use these values**. It still takes its marker image — upload it or pick an uploaded one — but only when the image says exactly what the row holds (length, width, sizes, every piece placed). Then the chip turns **Matches**. If the image differs, it is not linked: the window shows "Not linked — it differs from this approved row" with the differences, and the image is kept in the style's images. To change the row's values, use row menu > **Correct…** and pick that image there.
+
 If the marker has a size the style does not offer (e.g. XXL on a style with XS–XL), that size is not put on the row: "The marker has XXL — this style has no such size". Add the size to the style, or save with a reason.
 
 ### 7. Saving values that differ from the image
@@ -222,7 +233,7 @@ If you save a Layer(M), Width or Sizes that differ from the row's image (or the 
 
 A reason covers only those differences. If you later change the values again and they still differ, a new reason is asked for.
 
-**How the average is worked out:** **CAD Avg** = (**Layer(M)** + layer margin) ÷ **Pcs**. The layer margin is added automatically from the length (2 cm up to 1 m, 5 cm up to 5 m, 10 cm up to 10 m, 20 cm up to 20 m, else 30 cm). So Layer(M) must be the marker's own length — never add a margin to it by hand.
+**How the average is worked out:** **CAD Avg** = (**Layer(M)** + **Margin**) ÷ **Pcs**. The margin is added automatically from the length (2 cm up to 1 m, 5 cm up to 5 m, 10 cm up to 10 m, 20 cm up to 20 m, else 30 cm) and shows in the **Margin** column. So Layer(M) must be the marker's own length — never add a margin to it by hand.
 
 > **Important**: CAD Avg is the key output used in cost sheets, MRP and cutting.
 

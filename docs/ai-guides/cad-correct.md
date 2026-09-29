@@ -88,7 +88,7 @@ Reject no longer works once an approved cost sheet or an order's BOM uses the CA
    - **Size breakup** — click the button, set the pieces per size in the popup and click **Save**
    - **Greige** — only greiges of the row's own generic greige are listed
    - **Cuttable width (in)**
-5. **Corrected marker image** — on a **Raw Mat** row, needed when the layer length, sizes or width change (on a Costing row it is optional, and checked when given). Click **Upload** and choose the new Nest EXPERT screenshot (or PDF). It is read — "Reading the marker — about 10 seconds…" — and the values it read show under the heading. Click **Use these values** to put its length, width and sizes into the fields above. A greige-only correction needs no image.
+5. **Corrected marker image** — on a **Raw Mat** row, needed when the layer length, sizes or width change (on a Costing row it is optional, and checked when given). Click **Upload** and choose the new Nest EXPERT screenshot (or PDF), or pick one already uploaded for the style in **…or use an uploaded image** and click **Use** (for example the image the row's **CAD Image** did not take because it differs). It is read — "Reading the marker — about 10 seconds…" — and the values it read show under the heading. Click **Use these values** to put its length, width and sizes into the fields above. A greige-only correction needs no image.
 6. Type the **Reason** * — at least 3 characters. It is kept in the CAD history.
 7. Click **Check impact**. The result appears under the fields (see the next section). If the corrected values differ from the uploaded image, the image box lists each difference ("The corrected values differ from this image:") and asks **Why are these values right although the image says otherwise?** — type that reason too.
 8. Click the last button. Its label tells you what will happen:
@@ -99,7 +99,7 @@ Reject no longer works once an approved cost sheet or an order's BOM uses the CA
 
 ## What Check impact shows
 
-- **CAD average**: old → new
+- **CAD average**: old → new, with its parts under it — (layer length + margin by rule) ÷ pieces, e.g. "(3.85 + 0.05) ÷ 5 → (3.82 + 0.05) ÷ 5"
 - **Greige**: old → new (only when you changed it)
 - **Fabric price** per metre: old → new, with the rate slab it was priced at
 - **Fabric per piece**: old → new

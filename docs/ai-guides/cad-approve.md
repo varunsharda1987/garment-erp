@@ -122,7 +122,7 @@ When you approve a CAD plan:
 - **The green APPROVED badge is not the Production CAD** - It shows once any CAD row is approved. The Production CAD for received fabric is approved row by row: row menu (three dots) > **Approve**. Cutting needs an approved Production CAD with a CAD Average; a pending or rejected one does not count
 - **A Production CAD with no average cannot be approved** - Fill in Layer(M) and the Size Breakdown, save, then Approve
 - **Approve is refused for the CAD image** - A single row: "This Raw Mat CAD has no marker image…" (or Production) — the **CAD image** window opens; attach the image and use its values. Or "…values differ from its marker image: … Correct them, or save them with a reason, then approve." **Approve CAD Plan** names every row that is not ready ("2 CAD rows cannot be approved yet: …")
-- **Approved rows from before 28-Sep-2026 show "No image"** - They keep their values and stay approved. To give one its image, use row menu > **Correct…** (Costing / Raw Mat)
+- **Approved rows from before 28-Sep-2026 show "No image"** - They keep their values and stay approved. Click the chip to attach the marker image: an approved row takes it only when the image says exactly what the row holds. If it differs, the image is kept in the style's images and the row changes only through row menu > **Correct…** (pick the image there)
 - **A Production CAD must be on a received lot** - Approve does not show on a Production row with no lot. Use **Link to Stock** on the row, or delete it and press **Create CAD** on the lot in the **Fabric Stock Available** box
 - **A Production CAD is never corrected** - **Correct…** does not show on Production rows. To change one: row menu > **Reject**, edit the row, then **Approve** it again
 

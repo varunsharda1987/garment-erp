@@ -2069,5 +2069,19 @@
     },
     "contentHash": "7cc47281e3bb",
     "generatedAt": "2026-09-29T12:18:23.618Z"
+  },
+  "style-create-colourway": {
+    "sources": {
+      "frontend/src/config/navigation.ts": "ca630f08ce15",
+      "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
+      "frontend/src/pages/StyleList.tsx": "0e06371609b3",
+      "frontend/src/pages/StyleDetail.tsx": "c004022c5666",
+      "frontend/src/components/styles/CreateColourwayDialog.tsx": "53261958d783",
+      "backend/src/schemas/style.schema.ts": "278581d85ad7",
+      "backend/src/routes/style.routes.ts": "eacf2efe7efd",
+      "backend/src/services/style-colourway.service.ts": "0592f7ff1901"
+    },
+    "contentHash": "c53e1fc68191",
+    "generatedAt": "2026-09-29T16:52:36.609Z"
   }
 }

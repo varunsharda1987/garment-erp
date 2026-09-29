@@ -102,6 +102,7 @@ class ExternalProcessController {
       invoiceDate,
       remarks,
       skus,
+      receivedWidth,
     } = req.body;
 
     if (!sendOutId || quantityReceived === undefined || !actualReturnDate) {
@@ -119,6 +120,7 @@ class ExternalProcessController {
       remarks,
       createdById: userId,
       skus,
+      receivedWidth: receivedWidth ?? undefined,
     });
 
     res.status(200).json({ message: 'Material received successfully', data: result });

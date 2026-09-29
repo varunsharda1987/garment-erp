@@ -40,6 +40,8 @@ interface PatternPart {
 interface FabricStock {
   id: string;
   fabricId: string;
+  /** Fabric back from smocking: its own lot, named by its send-out */
+  processResultOf?: { batchNumber: string; processType: string } | null;
   fabric?: {
     fabricCode: string;
     fabricName: string;
@@ -556,6 +558,12 @@ export default function FabricAvailableStock() {
                         >
                           {stock.fabric?.fabricCode}
                         </Link>
+                        {stock.processResultOf && (
+                          <span className="block text-xs text-muted-foreground whitespace-nowrap">
+                            {stock.processResultOf.processType === 'SMOCKING' ? 'Smocked' : 'Processed'} ·{' '}
+                            {stock.processResultOf.batchNumber}
+                          </span>
+                        )}
                         {stock.needsEmbroidery && (
                           <span className="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent/10 text-accent border border-accent/20">
                             Needs Embroidery

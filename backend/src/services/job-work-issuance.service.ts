@@ -2623,6 +2623,7 @@ export async function getFabricPieceRecordStatus(
         foldLengthCm: true,
         fabricMaster: { select: { fabricCode: true } },
         grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
+        processResultOf: { select: { batchNumber: true, processType: true } },
       },
     }),
     client.fabric_stock_transaction.findFirst({

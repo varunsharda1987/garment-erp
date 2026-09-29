@@ -11,6 +11,7 @@
  *     takes its whole list" — exact, not a guess). A door that takes PART of a lot without naming pieces
  *     leaves the list out of step, and the Fabric Stock page says so (listStateOf);
  *   - every door that puts metres back restores the pieces that went (settleLotBack);
+ *   - fabric back from an outside process (smocking) is its own lot, listed by listProcessedReturn;
  *   - "Record / Check rolls & thans" (recordLotPieces) lists or re-checks what is on the rack.
  *
  * Piece metres are COUNTED at fabric_stock.foldLengthCm; the lot's quantities stay ACTUAL. A piece never
@@ -168,20 +169,33 @@ function pieceName(p: {
   return `Bale ${p.baleNo ?? p.baleNumber} · ${p.thanNo ?? `T${p.sequenceNo}`}`;
 }
 
+/** What fabric back from an outside process is, in words */
+const PROCESSED_WORD: Record<string, string> = {
+  SMOCKING: 'Smocked',
+  EMBROIDERY_PIECE: 'Embroidered',
+  HANDWORK: 'Handwork',
+};
+
 export function fabricLotLabel(lot: {
   id: string;
   fabricMaster?: { fabricCode: string | null } | null;
   grnItem?: { goods_receiving_notes?: { grnNumber: string | null } | null } | null;
+  /** Set on fabric back from smocking — its own lot: "FAB-ESSKY075LS-001 · Smocked SM2609-0001" */
+  processResultOf?: { batchNumber: string; processType: string } | null;
 }): string {
   const code = lot.fabricMaster?.fabricCode ?? 'Fabric lot';
+  if (lot.processResultOf) {
+    return `${code} · ${PROCESSED_WORD[lot.processResultOf.processType] ?? 'Processed'} ${lot.processResultOf.batchNumber}`;
+  }
   const grnNumber = lot.grnItem?.goods_receiving_notes?.grnNumber;
   return `${code} · ${grnNumber ?? `lot ${lot.id.slice(0, 8)}`}`;
 }
 
-const LOT_LABEL_SELECT = {
+export const LOT_LABEL_SELECT = {
   id: true,
   fabricMaster: { select: { fabricCode: true } },
   grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
+  processResultOf: { select: { batchNumber: true, processType: true } },
 } satisfies Prisma.fabric_stockSelect;
 
 // ------------------------------------------------------------------------------------------------
@@ -720,6 +734,83 @@ export async function settleLotBack(
     select: { id: true },
   });
   return { restored, endPieceId: end.id };
+}
+
+// ------------------------------------------------------------------------------------------------
+// Processed fabric back — its own lot (owner, 2026-09-29)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * Fabric sent from a lot to an outside process (smocking) comes back as ITS OWN lot, never into the plain lot it
+ * left — smocked fabric is not the plain fabric (owner, 2026-09-29). This lists the new lot (owner choice 1a):
+ * everything that went came back in this one receipt → the rolls / thans that went out, as they went (tags and
+ * metres); otherwise one piece of the metres this receipt brought back. The plain lot is not touched: its pieces
+ * went and stay gone. A send-out that named no pieces lists nothing — the new lot has no list, as the metres left.
+ * Changes no lot quantity (the caller books the metres). Returns how many pieces were listed.
+ */
+export async function listProcessedReturn(
+  tx: Tx,
+  p: {
+    fromLotId: string;
+    toLotId: string;
+    /** The send-out's outward challan — its issue rows name the pieces that went */
+    sentChallanId: string | null;
+    /** Everything that went came back, in this one receipt */
+    wholeReturn: boolean;
+    /** ACTUAL metres this receipt brought back */
+    returnedActual: number;
+    remarks: string;
+  }
+): Promise<number> {
+  if (!p.sentChallanId || isQtyZero(p.returnedActual)) return 0;
+  const sent = await tx.fabric_issue_details.findMany({
+    where: { challanId: p.sentChallanId, returnedAt: null, piece: { fabricStockId: p.fromLotId } },
+    orderBy: [{ piece: { baleNumber: 'asc' } }, { piece: { sequenceNo: 'asc' } }],
+    select: {
+      metersIssued: true,
+      piece: { select: { baleNumber: true, baleNo: true, thanNo: true, detailType: true } },
+    },
+  });
+  if (sent.length === 0) return 0;
+  const [maxSeq, lot] = await Promise.all([
+    tx.fabric_stock_details.aggregate({ where: { fabricStockId: p.toLotId }, _max: { sequenceNo: true } }),
+    tx.fabric_stock.findUnique({ where: { id: p.toLotId }, select: { foldLengthCm: true } }),
+  ]);
+  let seq = maxSeq._max.sequenceNo ?? 0;
+  if (p.wholeReturn) {
+    await tx.fabric_stock_details.createMany({
+      data: sent.map((row) => ({
+        fabricStockId: p.toLotId,
+        baleNumber: row.piece.baleNumber,
+        baleNo: row.piece.baleNo,
+        thanNo: row.piece.thanNo,
+        sequenceNo: ++seq,
+        meters: row.metersIssued,
+        metersRemaining: row.metersIssued,
+        status: 'AVAILABLE',
+        detailType: row.piece.detailType,
+        source: 'PROCESS',
+        remarks: p.remarks,
+      })),
+    });
+    return sent.length;
+  }
+  const kind = pieceKindOf(sent.map((row) => row.piece.detailType));
+  const counted = foldCounted(p.returnedActual, lot?.foldLengthCm ?? null);
+  await tx.fabric_stock_details.create({
+    data: {
+      fabricStockId: p.toLotId,
+      baleNumber: null,
+      sequenceNo: seq + 1,
+      meters: new Prisma.Decimal(counted.toString()),
+      metersRemaining: new Prisma.Decimal(counted.toString()),
+      status: 'AVAILABLE',
+      detailType: kind === 'ROLL' ? 'ROLL' : 'THAN',
+      source: 'PROCESS',
+      remarks: p.remarks,
+    },
+  });
+  return 1;
 }
 
 // ------------------------------------------------------------------------------------------------

@@ -37,7 +37,13 @@ export interface FabricLotPiecesDialogProps {
   onCheck?: () => void;
 }
 
-const SOURCE_LABEL: Record<string, string> = { RECEIPT: 'Receipt', COUNT: 'Counted', END: 'End piece' };
+const SOURCE_LABEL: Record<string, string> = {
+  RECEIPT: 'Receipt',
+  COUNT: 'Counted',
+  END: 'End piece',
+  // Back from smocking — the smocked fabric's own lot
+  PROCESS: 'Smocking',
+};
 
 /** One move in words: "CH2609-0612 → CB-WO2609-0087-002 · 100.00 m · cut" */
 function moveText(m: LotPieceMove): string {

@@ -24,8 +24,16 @@ import { updateWosrReceivedQuantity } from './work-order-service-requirement.ser
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { setJwoStatus } from './helpers/jwo-status.helper';
 import { applySearch } from '../utils/search-filter';
-import { qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
-import { pickActualQty, settleLotBack, settleLotOut, type FabricPiecePick } from './fabric-lot-pieces.service';
+import { isQtyZero, qtyAtLeast, qtyExceeds, qtyRemaining, snapToLimit } from '../utils/quantity';
+import { multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
+import {
+  listProcessedReturn,
+  pickActualQty,
+  settleLotBack,
+  settleLotOut,
+  type FabricPiecePick,
+} from './fabric-lot-pieces.service';
+import { BusinessError } from '../errors';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -72,8 +80,11 @@ export interface SendOutDTO {
 
 export interface ReceiveDTO {
   sendOutId: string;
+  /** Running totals: what has come back so far, and how much of it is damaged */
   quantityReceived: number;
   quantityDamaged?: number;
+  /** FABRIC_STOCK: the fabric's width after the process, inches (smocked fabric is narrower) — the new lot's width */
+  receivedWidth?: number;
   actualReturnDate: Date;
   actualCost?: number;
   invoiceNumber?: string;
@@ -456,6 +467,99 @@ class ExternalProcessService {
   }
 
   /**
+   * Book fabric back from an outside process as ITS OWN lot (owner, 2026-09-29): the first receipt makes the lot —
+   * the plain lot's fabric, store and fold, at the width after the process — and later receipts add to it. Valued at
+   * the plain fabric's cost: the process charge stays on the job work order, as before. Its list follows owner choice
+   * 1a (listProcessedReturn). Ledger row and stock_levels in this transaction.
+   */
+  private async bookProcessedFabricInTx(
+    tx: Prisma.TransactionClient,
+    sendOut: {
+      id: string;
+      batchNumber: string;
+      processType: ExternalProcessType;
+      fabricStockId: string | null;
+      resultFabricStockId: string | null;
+      outwardChallanId: string | null;
+      styleId: string | null;
+      orderId: string | null;
+    },
+    p: { goodNow: number; wholeReturn: boolean; receivedWidth?: number; returnDate: Date; userId: string }
+  ): Promise<void> {
+    const source = await tx.fabric_stock.findUniqueOrThrow({ where: { id: sendOut.fabricStockId! } });
+    const word = sendOut.processType === 'SMOCKING' ? 'smocking' : sendOut.processType.replace('_', ' ').toLowerCase();
+    const wac = Number(source.weightedAvgCost);
+    let lotId = sendOut.resultFabricStockId;
+    if (!lotId) {
+      const width = p.receivedWidth && p.receivedWidth > 0 ? p.receivedWidth : null;
+      const lot = await tx.fabric_stock.create({
+        data: {
+          fabricId: source.fabricId,
+          finishedWidth: width ?? source.finishedWidth,
+          cutableWidth: width ?? source.cutableWidth,
+          quantityAvailable: new Decimal(p.goodNow),
+          quantityReserved: 0,
+          quantityConsumed: 0,
+          unit: source.unit,
+          procurementId: source.procurementId,
+          originStyleId: sendOut.styleId ?? source.originStyleId,
+          originOrderId: sendOut.orderId ?? source.originOrderId,
+          status: 'AVAILABLE',
+          stockType: source.stockType,
+          weightedAvgCost: source.weightedAvgCost,
+          purchaseCost: source.purchaseCost,
+          qualityGrade: source.qualityGrade,
+          warehouseId: source.warehouseId,
+          receivedDate: p.returnDate,
+          foldLengthCm: source.foldLengthCm,
+          weaverId: source.weaverId,
+          weaverMix: source.weaverMix ?? undefined,
+          createdById: p.userId,
+        },
+        select: { id: true },
+      });
+      lotId = lot.id;
+      await tx.external_process_send_outs.update({ where: { id: sendOut.id }, data: { resultFabricStockId: lotId } });
+    } else {
+      await tx.fabric_stock.update({
+        where: { id: lotId },
+        data: { quantityAvailable: { increment: p.goodNow }, status: 'AVAILABLE' },
+      });
+    }
+    const lotRow = await tx.fabric_stock.findUniqueOrThrow({
+      where: { id: lotId },
+      select: { quantityAvailable: true, warehouseId: true },
+    });
+    const balanceAfter = Number(lotRow.quantityAvailable);
+    await tx.fabric_stock_transaction.create({
+      data: {
+        stockId: lotId,
+        transactionType: 'RECEIPT',
+        quantity: new Decimal(p.goodNow),
+        referenceType: 'EXTERNAL_PROCESS',
+        referenceId: sendOut.id,
+        costPerUnit: new Decimal(wac),
+        weightedAvgCost: new Decimal(wac),
+        totalValue: new Decimal(toNumber(roundToCent(multiplyCurrency(p.goodNow, wac)))),
+        balanceAfter: new Decimal(balanceAfter),
+        valueAfter: new Decimal(toNumber(roundToCent(multiplyCurrency(balanceAfter, wac)))),
+        notes: `Back from ${word} ${sendOut.batchNumber}`,
+        createdById: p.userId,
+      },
+    });
+    const materialId = await ensureMaterialRecord(source.fabricId, 'FABRIC', tx);
+    await syncStockLevelQuantity(materialId, p.goodNow, lotRow.warehouseId ?? undefined, 'METER', tx);
+    await listProcessedReturn(tx, {
+      fromLotId: source.id,
+      toLotId: lotId,
+      sentChallanId: sendOut.outwardChallanId,
+      wholeReturn: p.wholeReturn,
+      returnedActual: p.goodNow,
+      remarks: `Back from ${word} ${sendOut.batchNumber}`,
+    });
+  }
+
+  /**
    * Receive material back from external process
    */
   async receiveSendOut(data: ReceiveDTO) {
@@ -579,39 +683,29 @@ class ExternalProcessService {
         });
       }
 
-      // 7. If fabric stock source was used (smocking on fabric), add stock back
-      // Phase 5b ledger fix: transaction row + stock_levels sync (cost uplift on the
-      // credited lot is explicitly DEFERRED — process cost lives on the JWO side)
-      if (sendOut.sourceType === 'FABRIC_STOCK' && sendOut.fabricStockId && quantityGood > 0) {
-        await tx.fabric_stock.update({
-          where: { id: sendOut.fabricStockId },
-          data: { quantityAvailable: { increment: quantityGood } },
-        });
-        const stockRow = await tx.fabric_stock.findUnique({
-          where: { id: sendOut.fabricStockId },
-          select: { fabricId: true, warehouseId: true, weightedAvgCost: true, quantityAvailable: true },
-        });
-        const wac = Number(stockRow?.weightedAvgCost ?? 0);
-        const balanceAfter = Number(stockRow?.quantityAvailable ?? 0);
-        await tx.fabric_stock_transaction.create({
-          data: {
-            stockId: sendOut.fabricStockId,
-            transactionType: 'RETURN',
-            quantity: new Decimal(quantityGood),
-            referenceType: 'EXTERNAL_PROCESS',
-            referenceId: sendOut.jobWorkOrderId ?? sendOut.id,
-            costPerUnit: new Decimal(wac),
-            weightedAvgCost: new Decimal(wac),
-            totalValue: new Decimal(quantityGood * wac),
-            balanceAfter: new Decimal(balanceAfter),
-            valueAfter: new Decimal(balanceAfter * wac),
-            notes: `External process receive (${sendOut.processType})`,
-            createdById: data.createdById,
-          },
-        });
-        if (stockRow?.fabricId) {
-          const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC');
-          await syncStockLevelQuantity(materialId, quantityGood, stockRow.warehouseId ?? undefined, 'METER', tx);
+      // 7. Fabric sent from stock comes back as ITS OWN lot — smocked fabric is not the plain fabric (owner,
+      //    2026-09-29), so the plain lot it left is never credited. Received and damaged are running totals (the form
+      //    posts what has come back so far), so only this receipt's NEW good metres are booked: before, every receipt
+      //    credited the whole running total again.
+      if (sendOut.sourceType === 'FABRIC_STOCK' && sendOut.fabricStockId) {
+        const goodBefore = Number(sendOut.quantityGood ?? 0);
+        if (qtyExceeds(goodBefore, quantityGood)) {
+          throw new BusinessError(
+            `${sendOut.batchNumber} already has ${goodBefore} m of good fabric back — the total received less damaged ` +
+              `cannot go down to ${quantityGood} m.`,
+            { reason: 'RECEIPT_TOTAL_DOWN', sendOutId: sendOut.id }
+          );
+        }
+        const goodNow = qtyRemaining(quantityGood, goodBefore);
+        if (!isQtyZero(goodNow)) {
+          await this.bookProcessedFabricInTx(tx, sendOut, {
+            goodNow,
+            // Everything that went came back, in this one (first) receipt → its rolls / thans come back as they went
+            wholeReturn: isQtyZero(goodBefore) && qtyAtLeast(quantityGood, quantitySent),
+            receivedWidth: data.receivedWidth,
+            returnDate: data.actualReturnDate,
+            userId: data.createdById,
+          });
         }
       }
 
@@ -917,6 +1011,9 @@ class ExternalProcessService {
           orderBy: { sizeId: 'asc' },
         },
         createdBy: { select: { firstName: true, lastName: true } },
+        // Fabric from stock: the lot it left (its width pre-fills the receipt) and the lot it came back as
+        fabricStock: { select: { cutableWidth: true, fabricMaster: { select: { fabricCode: true } } } },
+        resultFabricStock: { select: { id: true, quantityAvailable: true, cutableWidth: true } },
       },
     });
   }

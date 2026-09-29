@@ -7,6 +7,7 @@
 
 import { z } from 'zod';
 import { fabricPiecePickSchema } from './jobWorkOrder.schema';
+import { formNumber } from './common.schema';
 
 // ============================================================================
 // Enums
@@ -94,6 +95,8 @@ export const receiveSchema = z.object({
   invoiceDate: z.string().or(z.date()).optional(),
   skus: z.array(receiveSkuSchema).optional(),
   remarks: z.string().max(500).optional(),
+  // Fabric from stock: its width after the process (smocked fabric is narrower), inches — the new lot's width
+  receivedWidth: formNumber(z.number().positive().max(200)),
 });
 
 /**

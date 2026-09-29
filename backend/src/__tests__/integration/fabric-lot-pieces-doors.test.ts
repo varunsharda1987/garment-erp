@@ -12,6 +12,9 @@
  *     rolls back on the rack.
  *  4. Smocking send-out from the lot with picks: the quantity sent is what they come to, the challan line
  *     names the lot, a part roll stays PARTIAL; cancelling the send-out restores them.
+ *  5. Smocked fabric comes back as ITS OWN lot (owner, 2026-09-29) — the plain lot is never credited. Everything
+ *     back at once: the rolls that went, at the smocked width and the plain fabric's cost. Part back: one piece of
+ *     what came; a later receipt (the form posts running totals) books only its new metres; a lower total is refused.
  *
  * Tests run on the LIVE DB: every fixture is tagged with RUN and removed by id. Nothing posts {}.
  */
@@ -161,8 +164,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // Per-step teardown by id, never one wrapping try/catch
-  await prisma.fabric_issue_details.deleteMany({ where: { piece: { fabricStockId: only(lotId) } } });
-  await prisma.fabric_stock_details.deleteMany({ where: { fabricStockId: only(lotId) } });
+  const lotIds = (
+    await prisma.fabric_stock.findMany({ where: { fabricId: only(fabricId) }, select: { id: true } })
+  ).map((l) => l.id);
+  await prisma.fabric_issue_details.deleteMany({ where: { piece: { fabricStockId: { in: lotIds } } } });
+  await prisma.fabric_stock_details.deleteMany({ where: { fabricStockId: { in: lotIds } } });
 
   await prisma.external_process_send_outs.deleteMany({ where: { jobWorkOrderId: { in: jobIds } } });
   const challanIds = (
@@ -186,8 +192,8 @@ afterAll(async () => {
   await prisma.work_orders.deleteMany({ where: { id: only(workOrderId) } });
   await prisma.styles.deleteMany({ where: { id: only(styleId) } });
 
-  await prisma.fabric_stock_transaction.deleteMany({ where: { stockId: only(lotId) } });
-  await prisma.fabric_stock.deleteMany({ where: { id: only(lotId) } });
+  await prisma.fabric_stock_transaction.deleteMany({ where: { stockId: { in: lotIds } } });
+  await prisma.fabric_stock.deleteMany({ where: { id: { in: lotIds } } });
   const matWhere = { fabricId: only(fabricId) };
   await prisma.stock_movements.deleteMany({ where: { materials: matWhere } });
   await prisma.stock_levels.deleteMany({ where: { materials: matWhere } });
@@ -377,5 +383,99 @@ describe("a fabric lot's rolls & thans — embroidery and smocking", () => {
     expect(d).toMatchObject({ status: 'AVAILABLE' });
     expect(Number(d.metersRemaining)).toBe(100);
     expect(await lotView()).toMatchObject({ listState: 'IN_STEP', listActual: 400 });
+  });
+
+  describe('smocked fabric comes back as its own lot', () => {
+    const smockingSend = async (quantity: number, picks: Array<{ roll: number; metres: number }>) => {
+      const job = await createJob('SMOCKING', quantity);
+      const pieces = await Promise.all(picks.map((p) => roll(p.roll)));
+      return externalProcessService.createSendOut({
+        processType: 'SMOCKING',
+        sourceType: 'FABRIC_STOCK',
+        workOrderId,
+        fabricStockId: lotId,
+        supplierId: vendorId,
+        quantitySent: quantity,
+        unit: 'METER',
+        agreedRate: 3,
+        sendDate: new Date(),
+        jobWorkOrderId: job,
+        createdById: userId,
+        fabricDetails: pieces.map((p, i) => ({ fabricStockDetailId: p.id, metersToIssue: picks[i].metres })),
+      });
+    };
+    const receive = (
+      sendOutId: string,
+      quantityReceived: number,
+      extra: { quantityDamaged?: number; receivedWidth?: number } = {}
+    ) =>
+      externalProcessService.receiveSendOut({
+        sendOutId,
+        quantityReceived,
+        actualReturnDate: new Date(),
+        createdById: userId,
+        ...extra,
+      });
+    const smockedLotOf = async (sendOutId: string) =>
+      (await prisma.external_process_send_outs.findUniqueOrThrow({ where: { id: sendOutId } })).resultFabricStockId!;
+    const qtyOf = async (id: string) =>
+      Number((await prisma.fabric_stock.findUniqueOrThrow({ where: { id } })).quantityAvailable);
+    const piecesOn = (id: string) =>
+      prisma.fabric_stock_details.findMany({ where: { fabricStockId: id }, orderBy: { sequenceNo: 'asc' } });
+
+    it('everything back at once: its own lot at the smocked width, with the rolls that went — the plain lot untouched', async () => {
+      const sendOut = await smockingSend(200, [
+        { roll: 1, metres: 100 },
+        { roll: 2, metres: 100 },
+      ]);
+      expect(await lotQty()).toBe(200);
+      await receive(sendOut.id, 200, { receivedWidth: 40 });
+      expect(await lotQty()).toBe(200); // the plain lot is never credited
+
+      const smockedId = await smockedLotOf(sendOut.id);
+      expect(smockedId).not.toBe(lotId);
+      const smocked = await prisma.fabric_stock.findUniqueOrThrow({ where: { id: smockedId } });
+      expect(smocked.fabricId).toBe(fabricId);
+      expect(Number(smocked.quantityAvailable)).toBe(200);
+      expect(Number(smocked.cutableWidth)).toBe(40);
+      expect(Number(smocked.weightedAvgCost)).toBe(60); // the plain fabric's cost — smocking is billed on the job
+      const pieces = await piecesOn(smockedId);
+      expect(pieces.map((p) => [p.thanNo, Number(p.meters), p.source, p.status])).toEqual([
+        ['R-1', 100, 'PROCESS', 'AVAILABLE'],
+        ['R-2', 100, 'PROCESS', 'AVAILABLE'],
+      ]);
+      const view = await request(app).get(`/api/stock/${smockedId}/pieces`).set(authHeader);
+      expect(view.status).toBe(200);
+      expect(view.body.data).toMatchObject({ listState: 'IN_STEP', listActual: 200, totalAvailable: 200 });
+      expect(view.body.data.lotLabel).toMatch(new RegExp(`Smocked ${sendOut.batchNumber}$`));
+      // The plain lot's list is in step: R-1 and R-2 went and stay gone
+      expect(await lotView()).toMatchObject({ listState: 'IN_STEP', listActual: 200, totalAvailable: 200 });
+      const ledger = await prisma.fabric_stock_transaction.findFirstOrThrow({
+        where: { stockId: smockedId, transactionType: 'RECEIPT', referenceId: sendOut.id },
+      });
+      expect(Number(ledger.quantity)).toBe(200);
+    });
+
+    it('part back: one piece of what came; a later receipt books only its new metres; the total cannot go down', async () => {
+      const sendOut = await smockingSend(100, [{ roll: 4, metres: 100 }]);
+      await receive(sendOut.id, 60);
+      const smockedId = await smockedLotOf(sendOut.id);
+      expect(await qtyOf(smockedId)).toBe(60);
+      let pieces = await piecesOn(smockedId);
+      expect(pieces).toHaveLength(1);
+      expect(Number(pieces[0].meters)).toBe(60);
+      expect(pieces[0].remarks).toBe(`Back from smocking ${sendOut.batchNumber}`);
+
+      // Running totals: 90 back so far, 5 of it damaged → 25 m more good fabric, nothing counted twice
+      await receive(sendOut.id, 90, { quantityDamaged: 5 });
+      expect(await qtyOf(smockedId)).toBe(85);
+      pieces = await piecesOn(smockedId);
+      expect(pieces.map((p) => Number(p.meters))).toEqual([60, 25]);
+
+      await expect(receive(sendOut.id, 80)).rejects.toMatchObject({ details: { reason: 'RECEIPT_TOTAL_DOWN' } });
+      expect(await qtyOf(smockedId)).toBe(85);
+      expect(await lotQty()).toBe(100); // the plain lot keeps only R-5
+      expect(await lotView()).toMatchObject({ listState: 'IN_STEP', listActual: 100 });
+    });
   });
 });

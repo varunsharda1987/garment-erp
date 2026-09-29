@@ -5533,6 +5533,8 @@ model fabric_stock {
   fabricCostingItemsAsStockLot style_costing_fabric_items[] @relation("fabric_costing_stock_lot")
   challanItems                 challan_items[]
   external_process_send_outs   external_process_send_outs[] @relation("ExternalProcessFabricStock")
+  /// The send-out whose processed (smocked) fabric came back as this lot
+  processResultOf              external_process_send_outs?  @relation("ExternalProcessResultLot")
   jwoComponentsStock           job_work_order_components[]  @relation("JWOComponentFabricStock")
 
   @@unique([fabricId, procurementId, finishedWidth, cutableWidth, qualityGrade, embroideryId])
@@ -10975,9 +10977,13 @@ model external_process_send_outs {
   styleId     String?
 
   // Source references (only one populated per record based on sourceType)
-  cuttingBatchId   String?
-  fabricStockId    String?
-  stitchingIssueId String?
+  cuttingBatchId      String?
+  /// The fabric lot the metres were SENT from (FABRIC_STOCK source)
+  fabricStockId       String?
+  stitchingIssueId    String?
+  /// The lot the processed fabric came BACK as (FABRIC_STOCK source) — its own lot, never the plain lot it left:
+  /// smocked fabric is not the plain fabric (owner, 2026-09-29). Made by the first receipt; later receipts add to it.
+  resultFabricStockId String? @unique
 
   // Vendor
   supplierId String
@@ -11031,6 +11037,7 @@ model external_process_send_outs {
   style              styles?                          @relation("ExternalProcessStyle", fields: [styleId], references: [id])
   cuttingBatch       cutting_batches?                 @relation("ExternalProcessCuttingBatch", fields: [cuttingBatchId], references: [id])
   fabricStock        fabric_stock?                    @relation("ExternalProcessFabricStock", fields: [fabricStockId], references: [id])
+  resultFabricStock  fabric_stock?                    @relation("ExternalProcessResultLot", fields: [resultFabricStockId], references: [id], onDelete: SetNull)
   stitchingIssue     stitching_issues?                @relation("ExternalProcessStitchingIssue", fields: [stitchingIssueId], references: [id])
   supplier           suppliers                        @relation("ExternalProcessSupplier", fields: [supplierId], references: [id])
   purchaseOrder      purchase_orders?                 @relation("ExternalProcessPO", fields: [purchaseOrderId], references: [id])

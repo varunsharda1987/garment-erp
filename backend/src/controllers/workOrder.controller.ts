@@ -28,7 +28,12 @@ import {
 // (bug-hunt production-26)
 import prisma from '../config/database';
 import { lockOrder, syncOrderStatus } from '../services/helpers/order-status.helper';
-import { lotPiecesSummary, pickActualQty, type FabricPiecePick } from '../services/fabric-lot-pieces.service';
+import {
+  fabricLotLabel,
+  lotPiecesSummary,
+  pickActualQty,
+  type FabricPiecePick,
+} from '../services/fabric-lot-pieces.service';
 import { notInProcessorUnitWhere } from '../services/helpers/lot-location.helper';
 import { qtyExceeds } from '../utils/quantity';
 import { fmtQty } from '../services/document-data/format';
@@ -464,6 +469,7 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       foldLengthCm: true,
       fabricMaster: { select: { fabricCode: true } },
       grnItem: { select: { goods_receiving_notes: { select: { grnNumber: true } } } },
+      processResultOf: { select: { batchNumber: true, processType: true } },
     },
     orderBy: { receivedDate: 'desc' },
   });
@@ -487,10 +493,9 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
         return {
           lotId: s.id,
           lotNumber: idx + 1,
-          // "FAB-ESSKY075LS-001 · GRN2609-1228" — how the pickers and notes name the lot
-          lotLabel: `${s.fabricMaster?.fabricCode ?? 'Fabric lot'} · ${
-            s.grnItem?.goods_receiving_notes?.grnNumber ?? `lot ${s.id.slice(0, 8)}`
-          }`,
+          // "FAB-ESSKY075LS-001 · GRN2609-1228" ("· Smocked SMK-…" for fabric back from smocking) — how the
+          // pickers and notes name the lot
+          lotLabel: fabricLotLabel(s),
           rollNumbers: s.rollNumbers || '',
           actualWidth: Number(s.cutableWidth),
           quantityAvailable: Number(s.quantityAvailable),

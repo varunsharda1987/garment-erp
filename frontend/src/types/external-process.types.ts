@@ -69,6 +69,10 @@ export interface ExternalProcessSendOut {
   serviceRequirement?: { serviceType: string; status: string; quantityRequired: number };
   skuBreakdown?: ExternalProcessSendOutSku[];
   createdBy?: { firstName: string; lastName: string };
+  /** Fabric from stock: the lot it left, and the lot it came back as (its own lot — smocked is not plain fabric) */
+  fabricStock?: { cutableWidth: number | string; fabricMaster?: { fabricCode: string } | null } | null;
+  resultFabricStockId?: string | null;
+  resultFabricStock?: { id: string; quantityAvailable: number | string; cutableWidth: number | string } | null;
 }
 
 export interface CreateExternalProcessSendOutRequest {
@@ -102,8 +106,11 @@ export interface CreateExternalProcessSendOutRequest {
 
 export interface ExternalProcessReceiveRequest {
   sendOutId: string;
+  /** Running totals: what has come back so far, and how much of it is damaged */
   quantityReceived: number;
   quantityDamaged?: number;
+  /** Fabric from stock: its width after the process, inches — the width of the lot it comes back as */
+  receivedWidth?: number;
   actualReturnDate: string;
   actualCost?: number;
   invoiceNumber?: string;

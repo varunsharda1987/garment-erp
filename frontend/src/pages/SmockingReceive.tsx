@@ -32,6 +32,8 @@ export default function SmockingReceive() {
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState('');
   const [remarks, setRemarks] = useState('');
+  // Fabric from stock: its width after smocking — the smocked lot's width (blank = the width it was sent at)
+  const [receivedWidth, setReceivedWidth] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [skuReceived, setSkuReceived] = useState<Record<string, { received: number; damaged: number }>>({});
 
@@ -109,8 +111,12 @@ export default function SmockingReceive() {
       invoiceDate: invoiceDate || undefined,
       remarks: remarks || undefined,
       skus,
+      receivedWidth: receivedWidth ? parseFloat(receivedWidth) : undefined,
     });
   };
+
+  const isFabric = sendOut?.sourceType === 'FABRIC_STOCK';
+  const receivedSoFar = Number(sendOut?.quantityReceived ?? 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -295,7 +301,36 @@ export default function SmockingReceive() {
                 <Label>Quantity Damaged ({unitShort(sendOut.unit)})</Label>
                 <Input id="qty-damaged" type="number" step="0.01" defaultValue="0" />
               </div>
+              {isFabric && (
+                <div>
+                  <Label>Width after smocking (inches)</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={receivedWidth}
+                    onChange={(e) => setReceivedWidth(e.target.value)}
+                    placeholder={
+                      sendOut.fabricStock?.cutableWidth
+                        ? `${Number(sendOut.fabricStock.cutableWidth)} before smocking`
+                        : ''
+                    }
+                  />
+                </div>
+              )}
             </div>
+            {receivedSoFar > 0 && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Already received: {receivedSoFar} {unitShort(sendOut.unit)}. Enter the total received so far, not just
+                this delivery.
+              </p>
+            )}
+            {isFabric && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                The smocked fabric is booked as its own lot ({sendOut.fabricStock?.fabricMaster?.fabricCode ?? 'Fabric'}{' '}
+                · Smocked {sendOut.batchNumber}), not back into the lot it was sent from. If all of it comes back at
+                once, its rolls / thans come back as they went; otherwise it comes back as one piece.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

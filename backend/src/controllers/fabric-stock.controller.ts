@@ -319,6 +319,8 @@ export const listStock = async (req: Request, res: Response) => {
             designName: true,
           },
         },
+        // Fabric back from smocking: its own lot, named by its send-out ("Smocked · SM2609-0001")
+        processResultOf: { select: { batchNumber: true, processType: true } },
       },
       orderBy: { receivedDate: 'desc' },
     }),
@@ -400,6 +402,8 @@ export const listStock = async (req: Request, res: Response) => {
         // The fold the lot's rolls / thans are counted at, and the list at a glance (fabric-lot-pieces.service)
         foldLengthCm: s.foldLengthCm != null ? Number(s.foldLengthCm) : null,
         pieces: piecesByLot.get(s.id) ?? null,
+        // Fabric back from smocking is its own lot — the page names it "Smocked · SM2609-0001"
+        processResultOf: s.processResultOf ?? null,
         receivedDate: s.receivedDate,
         agingDays: s.agingDays,
         defectValue: s.defectValue ? Number(s.defectValue) : null,

@@ -142,15 +142,17 @@ export async function resolvePoForBuyer(
 }
 
 /**
- * "Easybuy", "Easybuy · Order SO2609-0012", "Easybuy · Style ESSKY082LS (14-GC-ESS-ESKY082LS)" — the printed PO's "For" row.
- * Shows the buyer's own reference in parentheses when it exists, so suppliers (especially label printers)
- * know the buyer's code to use.
+ * "Easybuy", "Easybuy · Order SO2609-0012", "Easybuy · Style EBWW-024 (SP27DR46)" — the printed PO's "For" row.
+ * Shows the buyer's own reference in parentheses when it DIFFERS from our style code, so suppliers
+ * (especially label printers) know the buyer's code to use. Skipped when they match (e.g. ESSKY086LS).
  */
 export function poForBuyerLine(forBuyer: PoForBuyer | null): string | null {
   if (!forBuyer) return null;
   if (forBuyer.source === 'ORDER' && forBuyer.orderNumber) return `${forBuyer.name} · Order ${forBuyer.orderNumber}`;
   if (forBuyer.source === 'STYLE' && forBuyer.styleCode) {
-    const ref = forBuyer.buyerStyleRef ? ` (${forBuyer.buyerStyleRef})` : '';
+    // Only show buyer ref if it differs from our style code (many Easybuy styles have the same value)
+    const refDiffers = forBuyer.buyerStyleRef && forBuyer.buyerStyleRef !== forBuyer.styleCode;
+    const ref = refDiffers ? ` (${forBuyer.buyerStyleRef})` : '';
     return `${forBuyer.name} · Style ${forBuyer.styleCode}${ref}`;
   }
   return forBuyer.name;

@@ -219,7 +219,7 @@ export function LabelSetDialog({
                   {openRequirements === 1 ? '' : 's'} from MRP. A PO made here does not close them — to order them and
                   keep MRP linked, use{' '}
                   <Link to={requirementsHref} className="underline font-medium">
-                    Requirements → By Order &amp; Style
+                    Requirements → Order &amp; Style
                   </Link>
                   .
                 </AlertDescription>

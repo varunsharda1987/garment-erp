@@ -53,8 +53,14 @@ export default function FabricStockEntry() {
   const loadFabricList = async () => {
     try {
       setIsLoading(true);
-      const fabricResponse = await fabricService.getAll({ limit: 200, isActive: 'true' });
-      const loadedList = fabricResponse.data || [];
+      // The fabric list API takes at most 100 per page — asking for 200 was a 400, so this page never loaded
+      // (found 2026-09-29). Read every page, so no fabric is missing from the picker.
+      const loadedList: FabricMaster[] = [];
+      for (let page = 1; page <= 20; page++) {
+        const fabricResponse = await fabricService.getAll({ page, limit: 100, isActive: 'true' });
+        loadedList.push(...(fabricResponse.data || []));
+        if (page >= (fabricResponse.pagination?.totalPages ?? 1)) break;
+      }
       setFabricList(loadedList);
 
       // Auto-select fabric if passed via URL query param (from FabricDetail "Add Stock")

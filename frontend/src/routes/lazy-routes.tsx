@@ -345,8 +345,6 @@ export const EmbroideryDetail = lazy(() => import('../pages/EmbroideryDetail'));
 // ============================================================================
 // Embroidery Stock Management
 // ============================================================================
-export const EmbroideryAvailableStock = lazy(() => import('../pages/EmbroideryAvailableStock'));
-export const EmbroideryStockSendOut = lazy(() => import('../pages/EmbroideryStockSendOut'));
 export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStockReceive'));
 
 // ============================================================================

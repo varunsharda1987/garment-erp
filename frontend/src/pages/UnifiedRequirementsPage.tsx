@@ -1133,6 +1133,8 @@ function MaterialRequirementsTab({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All materials</SelectItem>
+                {/* Accessories = labels + packaging, as on Purchase Orders (owner, 2026-09-28) */}
+                <SelectItem value="LABEL,PACKAGING">Accessories (labels + packaging)</SelectItem>
                 {materialTypeOptions.map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}

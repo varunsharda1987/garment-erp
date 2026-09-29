@@ -121,15 +121,17 @@
       "frontend/src/pages/ChallanForm.tsx": "e2131c87cfb8",
       "frontend/src/pages/ChallanList.tsx": "346cb267f2a2",
       "frontend/src/components/WorkOrderCombobox.tsx": "d1807e6119d5",
-      "frontend/src/types/challan.types.ts": "14af129091fa"
+      "frontend/src/types/challan.types.ts": "3e4d5ccdad48"
     },
     "contentHash": "dc8059404ac4",
-    "generatedAt": "2026-09-29T08:02:03.972Z"
+    "generatedAt": "2026-09-29T09:09:39.344Z"
   },
   "challan-receive": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/ChallanDetail.tsx": "7c9893d09a1d",
+      "frontend/src/pages/ChallanDetail.tsx": "640fe5e934e0",
+      "frontend/src/types/challan.types.ts": "3e4d5ccdad48",
+      "backend/src/services/document-data/challan.doc-data.ts": "3760f20a11d8",
       "frontend/src/pages/ChallanList.tsx": "346cb267f2a2",
       "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
       "frontend/src/lib/held-stock-confirm.ts": "1fffe3fae934",
@@ -137,8 +139,8 @@
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "backend/src/services/challan.service.ts": "5f24c75b7fc6"
     },
-    "contentHash": "08bb82be50c8",
-    "generatedAt": "2026-09-29T08:02:03.977Z"
+    "contentHash": "be5e44a4a7a1",
+    "generatedAt": "2026-09-29T09:09:39.350Z"
   },
   "chart-of-accounts": {
     "sources": {
@@ -1989,7 +1991,7 @@
       "frontend/src/components/BulkPOGenerationDialog.tsx": "03900f650a76",
       "frontend/src/hooks/useHeldStockConfirm.tsx": "af814e9283db",
       "frontend/src/lib/held-stock-confirm.ts": "1fffe3fae934",
-      "frontend/src/pages/ChallanDetail.tsx": "7c9893d09a1d",
+      "frontend/src/pages/ChallanDetail.tsx": "640fe5e934e0",
       "frontend/src/pages/StockOutForm.tsx": "6e412b8d58dc",
       "frontend/src/components/processing/SendToMillDialog.tsx": "ee0fe927c988",
       "frontend/src/components/TrimIssuanceSection.tsx": "9ea302356fa2",
@@ -2000,6 +2002,6 @@
       "backend/src/services/mrp.service.ts": "7152ab7af8f3"
     },
     "contentHash": "7203bda0f4e0",
-    "generatedAt": "2026-09-29T08:02:03.937Z"
+    "generatedAt": "2026-09-29T09:09:39.190Z"
   }
 }

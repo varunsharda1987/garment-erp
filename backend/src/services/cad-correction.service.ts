@@ -181,8 +181,20 @@ export interface CorrectionImpact {
     totalCostPerMeter: number | null;
     greigeId: string | null;
     width: number | null;
+    /** Layer length and the margin the length rule adds (shown so the average can be checked by hand) */
+    layerLengthMeters: number | null;
+    layerMarginMeters: number | null;
+    pieces: number | null;
   };
-  after: { cadAverage: number | null; totalCostPerMeter: number | null; greigeId: string | null; width: number | null };
+  after: {
+    cadAverage: number | null;
+    totalCostPerMeter: number | null;
+    greigeId: string | null;
+    width: number | null;
+    layerLengthMeters: number | null;
+    layerMarginMeters: number | null;
+    pieces: number | null;
+  };
   costing: { slabLabel: string | null; slabMetres: number | null; priceChanged: boolean; notes: string[] };
   fabricCostPerPiece: { before: number | null; after: number | null };
   costSheets: Array<{
@@ -284,12 +296,18 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
       totalCostPerMeter: oldRate,
       greigeId: cad.greigeId,
       width: num(cad.cutableWidth),
+      layerLengthMeters: num(cad.cadMeters),
+      layerMarginMeters: num(cad.layerMarginMeters),
+      pieces: cad.sizeBreakdowns.reduce((n, s) => n + s.quantity, 0) || cad.piecesPerMarker,
     },
     after: {
       cadAverage: after.cadAverage,
       totalCostPerMeter: newRate,
       greigeId: after.greigeId,
       width: after.cutableWidth,
+      layerLengthMeters: after.cadMeters,
+      layerMarginMeters: after.layerMarginMeters,
+      pieces: after.piecesPerMarker,
     },
     costing: {
       slabLabel: recost.slabLabel,

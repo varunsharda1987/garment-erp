@@ -13,6 +13,7 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
 import { markerFilePath } from '../../services/marker-reader.service';
+import { giveMarkerImage } from '../helpers/marker-fixture';
 
 const RUN = `CMI${Date.now().toString(36).toUpperCase()}`;
 const FIXTURES = path.join(__dirname, '../fixtures/markers');
@@ -26,6 +27,7 @@ let styleId: string;
 let componentId: string;
 let styleFabricId: string;
 let rowCount = 0;
+const S_TO_XXL = ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ sizeName, quantity: 1 }));
 
 async function createRow(overrides: Record<string, unknown> = {}, sizes: string[] = []) {
   const row = await prisma.fabric_width_cad.create({
@@ -133,6 +135,9 @@ describe('CAD row marker image — endpoints', () => {
       expect(summary.reading.sizes.map((s: any) => s.sizeName)).toEqual(['S', 'M', 'L', 'XL', 'XXL']);
       expect(summary.state).toBe('DIFFERS');
       expect(summary.differences.map((d: any) => d.field)).toEqual(['length', 'sizes']);
+      // What the image implies by the row's own formula: (8.29 + 0.1 margin) ÷ 5
+      expect(summary.imageMarginM).toBe(0.1);
+      expect(summary.imageAverage).toBeCloseTo((8.29 + 0.1) / 5, 4);
 
       const history = await prisma.audit_logs.findFirst({
         where: { entityType: 'fabric_width_cad', entityId: row.id, action: 'MARKER_IMAGE' },
@@ -221,13 +226,65 @@ describe('CAD row marker image — endpoints', () => {
     120_000
   );
 
-  it('an approved row is not given a new image (Correct CAD does that), and the upload is not left behind', async () => {
-    const row = await createRow({ cadMeters: 8.29, approvalStatus: 'APPROVED' }, ['S']);
-    const before = fs.readdirSync(path.join(__dirname, '../../../uploads/cad-files')).length;
-    const res = await attach(row.id);
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(fs.readdirSync(path.join(__dirname, '../../../uploads/cad-files')).length).toBe(before);
-    expect(await prisma.cad_purpose_files.count({ where: { cadId: row.id } })).toBe(0);
+  it("an approved row refuses an image that differs from it — the image stays in the style's images", async () => {
+    process.env.MARKER_READER_DISABLED = '1'; // not readable = not a match
+    try {
+      const row = await createRow({ cadMeters: 8.29, approvalStatus: 'APPROVED' }, ['S']);
+      const res = await attach(row.id);
+      expect(res.status).toBe(409);
+      expect(res.body.details?.code).toBe('CAD_MARKER_APPROVED_DIFFERS');
+      expect(await prisma.cad_purpose_files.count({ where: { cadId: row.id } })).toBe(0);
+      const kept = await prisma.cad_purpose_files.findUnique({ where: { id: res.body.details.fileId } });
+      expect(kept).toMatchObject({ cadId: null });
+      expect(fs.existsSync(markerFilePath(kept!.fileUrl)!)).toBe(true);
+      // the row itself is untouched
+      expect(Number((await prisma.fabric_width_cad.findUnique({ where: { id: row.id } }))!.cadMeters)).toBe(8.29);
+    } finally {
+      delete process.env.MARKER_READER_DISABLED;
+    }
+  });
+
+  it("an approved row takes an image that says exactly what it holds (linked from the style's images)", async () => {
+    const row = await createRow({ cadMeters: 3.82, approvalStatus: 'APPROVED' }, ['S', 'M', 'L', 'XL', 'XXL']);
+    const image = await giveMarkerImage(prisma, {
+      cadId: null,
+      styleId,
+      lengthM: 3.82,
+      widthIn: 52,
+      sizes: S_TO_XXL,
+    });
+    await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${row.id}/marker/link`)
+      .set(authHeader)
+      .send({ fileId: image.id })
+      .expect(200);
+    expect((await rowMarkers()).get(row.id).state).toBe('MATCHES');
+    const saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
+    expect(saved?.approvalStatus).toBe('APPROVED');
+    expect(saved?.markerOverrideReason).toBeNull();
+  });
+
+  it("Correct… can use an uploaded image: another row's image gets a record of its own with no row", async () => {
+    const other = await createRow({ cadMeters: 3.82 }, ['S']);
+    const onOther = await giveMarkerImage(prisma, {
+      cadId: other.id,
+      styleId,
+      lengthM: 3.82,
+      widthIn: 52,
+      sizes: [{ sizeName: 'S', quantity: 1 }],
+    });
+    const approvedRow = await createRow({ cadMeters: 3.85, approvalStatus: 'APPROVED' }, ['S']);
+    const res = await request(app)
+      .post(`/api/cad-planning/${styleId}/row/${approvedRow.id}/correction/marker/link`)
+      .set(authHeader)
+      .send({ fileId: onOther.id })
+      .expect(200);
+    expect(res.body.data.reading.lengthM).toBe(3.82);
+    expect(res.body.data.file.id).not.toBe(onOther.id);
+    expect(res.body.data.file.cadId).toBeNull();
+    expect(res.body.data.file.fileUrl).toBe(onOther.fileUrl);
+    // the other row keeps its own image
+    expect((await prisma.cad_purpose_files.findUnique({ where: { id: onOther.id } }))?.cadId).toBe(other.id);
   });
 
   it("delete: a Raw Mat row's marker is replaced, not deleted; a shared file stays on disk", async () => {
@@ -266,7 +323,6 @@ const put = (rowId: string, body: Record<string, unknown>) =>
 const approve = (rowId: string) =>
   request(app).post(`/api/cad-planning/${styleId}/row/${rowId}/approve`).set(authHeader).send({});
 const codeOf = (res: request.Response) => res.body?.details?.code;
-const S_TO_XXL = ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ sizeName, quantity: 1 }));
 
 describe('CAD values are saved from the marker image', () => {
   it('a Raw Mat row with no image cannot take a layer length; a Costing row can', async () => {

@@ -23,6 +23,7 @@
 
 import { Prisma, PrismaClient, cad_purpose_files } from '@prisma/client';
 import { BusinessError, ConflictError } from '../../errors';
+import { cadAverageFromMarker } from '../../controllers/cad-planning.utils';
 import { isQtyZero } from '../../utils/quantity';
 import type { MarkerReadStatus, MarkerReading, MarkerSize } from '../marker-reader.service';
 import { recordCadEvent } from './cad-history.helper';
@@ -304,6 +305,21 @@ export interface MarkerSummary {
   reading: StoredReading | null;
   differences: MarkerDifference[];
   overrideReason: string | null;
+  /** What the image implies, by the same formula as the row: the margin the length rule adds, and
+   *  (image length + that margin) ÷ image pieces — so a person compares "image 0.774 m/pc, row 0.780" */
+  imageMarginM: number | null;
+  imageAverage: number | null;
+}
+
+/** The margin and average an image's length and sizes give (cadAverageFromMarker — the row's own formula) */
+function imageAverageOf(reading: StoredReading | null): { imageMarginM: number | null; imageAverage: number | null } {
+  if (!reading || reading.lengthM === null || reading.sizes.length === 0)
+    return { imageMarginM: null, imageAverage: null };
+  const { layerMarginMeters, cadAverage } = cadAverageFromMarker(reading.lengthM, reading.sizes);
+  return {
+    imageMarginM: layerMarginMeters,
+    imageAverage: cadAverage === null ? null : Math.round(cadAverage * 10000) / 10000,
+  };
 }
 
 export interface MarkerRowInput {
@@ -329,6 +345,8 @@ export function summarizeMarker(
       reading: null,
       differences: [],
       overrideReason: null,
+      imageMarginM: null,
+      imageAverage: null,
     };
   }
   const reading = storedReading(file);
@@ -341,7 +359,22 @@ export function summarizeMarker(
     reading,
     differences,
     overrideReason: explained ? row.markerOverrideReason : null,
+    ...imageAverageOf(reading),
   };
+}
+
+/**
+ * How one image differs from one row's stored values — what decides whether an APPROVED row may take it
+ * (it keeps its values, so only an image that says exactly what it holds is linked; cad-file.service)
+ */
+export async function rowDifferencesFromImage(
+  db: Db,
+  cadId: string,
+  file: ReadingColumns
+): Promise<MarkerDifference[]> {
+  const row = await loadRow(db, cadId);
+  if (!row) return [];
+  return markerDifferences(rowMarkerValues(row), storedReading(file), await styleSizeNames(db, rowStyleId(row)));
 }
 
 // ---------------------------------------------------------------------------

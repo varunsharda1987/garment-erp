@@ -240,6 +240,9 @@ describe('Correct a CAD nothing approved is built on', () => {
       .expect(200);
     expect(preview.body.data.needsApproval).toBe(false);
     expect(preview.body.data.after.cadAverage).toBeCloseTo(NEW_AVG, 4);
+    // …shown with its parts: (4.17 + 0.05 margin by rule) ÷ 5
+    expect(preview.body.data.after).toMatchObject({ layerLengthMeters: 4.17, layerMarginMeters: 0.05, pieces: 5 });
+    expect(preview.body.data.before).toMatchObject({ layerLengthMeters: 3.4665, layerMarginMeters: 0.05, pieces: 5 });
     // A Raw Mat marker that changes needs the corrected marker's image (cad-marker.helper)
     expect(preview.body.data.markerCheck).toMatchObject({ required: true, fileId: null });
     const noImage = await request(app)

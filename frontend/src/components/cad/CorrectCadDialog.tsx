@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Calculator, CheckCircle2, Loader2, PencilLine, Upload } from 'lucide-react';
 import {
   Dialog,
@@ -36,6 +37,16 @@ const sizesLabel = (sizes: CADSizeBreakdown[]) =>
   sizes.length === 0
     ? 'Not set'
     : `${sizes.map((s) => `${s.sizeName}×${s.quantity}`).join(', ')} (${sizes.reduce((n, s) => n + s.quantity, 0)} pcs)`;
+
+/** "(3.82 + 0.05) ÷ 5" — the average's parts, so it can be checked by hand */
+const averageParts = (side: {
+  layerLengthMeters?: number | null;
+  layerMarginMeters?: number | null;
+  pieces?: number | null;
+}) =>
+  side.layerLengthMeters != null && side.pieces
+    ? `(${Number(side.layerLengthMeters.toFixed(3))} + ${Number((side.layerMarginMeters ?? 0).toFixed(3))}) ÷ ${side.pieces}`
+    : '—';
 
 const money = (v: number | null | undefined) => (v === null || v === undefined ? '—' : formatCurrency(v));
 const avg = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${v.toFixed(4)} m/pc`);
@@ -104,6 +115,33 @@ function CorrectCadForm({
   const [markerReason, setMarkerReason] = useState('');
   const markerInput = useRef<HTMLInputElement>(null);
   const markerRequiredHere = row.purpose === 'RAW_MATERIAL_CALCULATION';
+
+  // …or an image already uploaded for the style (e.g. one an approved row did not take because it differs)
+  const [pickedImageId, setPickedImageId] = useState('');
+  const { data: styleImages } = useQuery({
+    queryKey: ['miniMarkers', styleId],
+    queryFn: () => miniMarkerService.getAll(styleId),
+  });
+  const pickableImages = (styleImages?.files ?? []).filter((f) => !f.replacedAt && f.id !== markerFile?.id);
+  const onPickImage = async () => {
+    if (!pickedImageId) return;
+    setUploadingMarker(true);
+    try {
+      const res = await miniMarkerService.linkForCorrection(styleId, row.id, pickedImageId);
+      setMarkerFile({ id: res.file.id, fileName: res.file.fileName, reading: res.reading });
+      setPickedImageId('');
+      invalidate();
+      if (res.reading.status === 'READ' || res.reading.status === 'PARTIAL') {
+        notify.success('Marker read — use its values, then check the impact');
+      } else {
+        notify.warning('This image could not be read — submitting will ask for a reason');
+      }
+    } catch (error) {
+      notify.error(getErrorMessage(error));
+    } finally {
+      setUploadingMarker(false);
+    }
+  };
 
   const onMarkerFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const chosen = event.target.files?.[0];
@@ -333,6 +371,31 @@ function CorrectCadForm({
                   )}
                 </div>
               </div>
+              {pickableImages.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <Select value={pickedImageId} onValueChange={setPickedImageId} disabled={uploadingMarker}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="…or use an uploaded image" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pickableImages.map((f) => (
+                        <SelectItem key={f.id} value={f.id} className="text-xs">
+                          {f.fileName ?? 'image'}
+                          {f.cadRow ? ` — on ${f.cadRow.label}` : ' — not on a row'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!pickedImageId || uploadingMarker}
+                    onClick={onPickImage}
+                  >
+                    Use
+                  </Button>
+                </div>
+              )}
               {uploadingMarker && (
                 <p className="text-xs text-muted-foreground">Reading the marker — about 10 seconds…</p>
               )}
@@ -447,6 +510,11 @@ function ImpactPanel({
       <div className="grid gap-1 sm:grid-cols-2">
         <p>
           CAD average: {avg(impact.before.cadAverage)} → <strong>{avg(impact.after.cadAverage)}</strong>
+          {impact.after.layerLengthMeters != null && impact.after.pieces ? (
+            <span className="block text-xs text-muted-foreground">
+              {averageParts(impact.before)} → {averageParts(impact.after)} (layer + margin by rule) ÷ pieces
+            </span>
+          ) : null}
         </p>
         {greigeChanged && (
           <p>

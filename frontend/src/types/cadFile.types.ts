@@ -78,6 +78,10 @@ export interface CadRowMarker {
   reading: MarkerReading | null;
   differences: MarkerDifference[];
   overrideReason: string | null;
+  /** What the image implies by the row's own formula: the margin the length rule adds, and
+   *  (image length + that margin) ÷ image pieces */
+  imageMarginM: number | null;
+  imageAverage: number | null;
 }
 
 export interface MarkerImageResult {

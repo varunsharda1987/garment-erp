@@ -3,11 +3,10 @@
  * Manages mini marker file attachments per style + purpose
  */
 import prisma from '../config/database';
-import { BusinessError, NotFoundError } from '../errors';
+import { BusinessError, ConflictError, NotFoundError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { CadPurpose, Prisma, cad_purpose_files } from '@prisma/client';
 import { deleteCadFile } from '../middleware/upload.middleware';
-import { validateCADModification } from '../controllers/cad-planning.utils';
 import { markerFilePath, normalizeReading, readMarkerFile } from './marker-reader.service';
 import {
   currentMarkerFile,
@@ -15,6 +14,7 @@ import {
   markerSummaryForRow,
   readingColumns,
   recordMarkerImage,
+  rowDifferencesFromImage,
   storedReading,
   type MarkerSummary,
 } from './helpers/cad-marker.helper';
@@ -270,24 +270,101 @@ class CadFileService {
     return (maxSort._max.sortOrder ?? -1) + 1;
   }
 
-  /** Read the image, store what was read, record it on the row's History, and return the row's state */
-  private async readAndRecord(
-    file: cad_purpose_files,
-    cadId: string,
-    userId: string | undefined
-  ): Promise<MarkerImageResult> {
+  /** Read an image and keep what was read on its record */
+  private async readFile(file: cad_purpose_files): Promise<cad_purpose_files> {
     const fullPath = markerFilePath(file.fileUrl);
     const reading = fullPath
       ? await readMarkerFile(fullPath)
       : normalizeReading({ status: 'UNREADABLE', error: 'The image file is not in the uploads folder' });
-    const updated = await prisma.cad_purpose_files.update({ where: { id: file.id }, data: readingColumns(reading) });
-    await recordMarkerImage(cadId, userId, updated);
-    return { file: updated, summary: await markerSummaryForRow(prisma, cadId) };
+    return prisma.cad_purpose_files.update({ where: { id: file.id }, data: readingColumns(reading) });
+  }
+
+  /** A row whose CAD values are approved — or whose price is — keeps its values (validateCADModification's lock) */
+  private async isLocked(cadId: string): Promise<boolean> {
+    const row = await prisma.fabric_width_cad.findUnique({
+      where: { id: cadId },
+      // allow-cad-approval: the CAD-side lock, together with the price lock
+      select: { approvalStatus: true, costingApprovalStatus: true },
+    });
+    return (
+      row?.approvalStatus === 'APPROVED' ||
+      row?.costingApprovalStatus === 'APPROVED' ||
+      row?.costingApprovalStatus === 'ALTERNATE_APPROVED'
+    );
   }
 
   /**
-   * Upload an image as the row's marker. The previous one stays on the row as history (replacedAt set).
-   * An approved row is changed through Correct CAD, never here.
+   * An approved row takes an image only when the image says exactly what the row holds — its values never move
+   * here (owner, 28-Sep: approved rows stay as they are). Anything else is refused, and the image stays in the
+   * style's images for Correct… to use.
+   */
+  private async assertApprovedRowMatches(cadId: string, file: cad_purpose_files): Promise<void> {
+    const differences = await rowDifferencesFromImage(prisma, cadId, file);
+    if (differences.length > 0) {
+      throw new ConflictError(
+        `This row is approved, so it keeps its values — and this image differs from them: ${differences
+          .map((d) => d.label)
+          .join('; ')}. The image is kept in the style's images: to change the row, use Correct… and pick it there.`,
+        { code: 'CAD_MARKER_APPROVED_DIFFERS', cadId, fileId: file.id, differences }
+      );
+    }
+  }
+
+  /**
+   * Make an image the row's current marker; the previous one stays on the row as history (replacedAt set).
+   * A gallery image (no row) — or an earlier image of this row — is linked; one that is another row's marker
+   * gets a record of its own pointing at the same file.
+   */
+  private async makeCurrent(
+    styleId: string,
+    cadId: string,
+    purpose: CadPurpose,
+    source: cad_purpose_files,
+    userId: string | undefined
+  ): Promise<cad_purpose_files> {
+    return prisma.$transaction(async (tx) => {
+      await tx.cad_purpose_files.updateMany({
+        where: { cadId, replacedAt: null, NOT: { id: source.id } },
+        data: { replacedAt: new Date() },
+      });
+      if (source.cadId === null || source.cadId === cadId) {
+        return tx.cad_purpose_files.update({ where: { id: source.id }, data: { cadId, purpose, replacedAt: null } });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, createdAt, readSizes, replacedAt, sortOrder, ...rest } = source;
+      return tx.cad_purpose_files.create({
+        data: {
+          ...rest,
+          purpose,
+          readSizes: readSizes === null ? Prisma.DbNull : (readSizes as Prisma.InputJsonValue),
+          sortOrder: await this.nextSortOrder(tx, styleId, purpose),
+          uploadedById: userId ?? rest.uploadedById,
+          cadId,
+        },
+      });
+    });
+  }
+
+  /** A new upload, kept in the style's images (no row yet) */
+  private async storeUpload(styleId: string, purpose: CadPurpose, upload: CreateCadFileDTO, userId?: string) {
+    return prisma.$transaction(async (tx) =>
+      tx.cad_purpose_files.create({
+        data: {
+          styleId,
+          purpose,
+          fileUrl: upload.fileUrl,
+          fileName: upload.fileName,
+          fileSize: upload.fileSize,
+          sortOrder: await this.nextSortOrder(tx, styleId, purpose),
+          uploadedById: userId,
+        },
+      })
+    );
+  }
+
+  /**
+   * Upload an image as the row's marker. It is stored and read first, then made the row's marker — on an
+   * approved row only when it matches the row exactly (otherwise it stays in the style's images).
    */
   async attachToRow(
     styleId: string,
@@ -295,72 +372,40 @@ class CadFileService {
     upload: CreateCadFileDTO,
     userId?: string
   ): Promise<MarkerImageResult> {
-    await validateCADModification(cadId, 'update');
     const row = await this.rowOfStyle(styleId, cadId);
-    const file = await prisma.$transaction(async (tx) => {
-      await tx.cad_purpose_files.updateMany({ where: { cadId, replacedAt: null }, data: { replacedAt: new Date() } });
-      return tx.cad_purpose_files.create({
-        data: {
-          styleId,
-          purpose: row.purpose,
-          fileUrl: upload.fileUrl,
-          fileName: upload.fileName,
-          fileSize: upload.fileSize,
-          sortOrder: await this.nextSortOrder(tx, styleId, row.purpose),
-          uploadedById: userId,
-          cadId,
-        },
-      });
-    });
+    const read = await this.readFile(await this.storeUpload(styleId, row.purpose, upload, userId));
+    if (await this.isLocked(cadId)) await this.assertApprovedRowMatches(cadId, read);
+    const file = await this.makeCurrent(styleId, cadId, row.purpose, read, userId);
+    await recordMarkerImage(cadId, userId, file);
     logInfo('Marker image attached to CAD row', { cadId, fileId: file.id });
-    return this.readAndRecord(file, cadId, userId);
+    return { file, summary: await markerSummaryForRow(prisma, cadId) };
   }
 
   /**
-   * Use an image already uploaded for the style as the row's marker. A gallery image (no row) is linked;
-   * one that is already another row's marker gets a record of its own pointing at the same file.
+   * Use an image already uploaded for the style as the row's marker (read first if it never was). On an
+   * approved row only when it matches the row exactly.
    */
   async linkToRow(styleId: string, cadId: string, fileId: string, userId?: string): Promise<MarkerImageResult> {
-    await validateCADModification(cadId, 'update');
     const row = await this.rowOfStyle(styleId, cadId);
-    const source = await prisma.cad_purpose_files.findFirst({ where: { id: fileId, styleId } });
+    let source = await prisma.cad_purpose_files.findFirst({ where: { id: fileId, styleId } });
     if (!source) throw new NotFoundError('CAD image', fileId);
+    if (!source.readStatus) source = await this.readFile(source);
 
     const current = await currentMarkerFile(prisma, cadId);
     if (current && current.id === source.id) {
-      return current.readStatus
-        ? { file: current, summary: await markerSummaryForRow(prisma, cadId) }
-        : this.readAndRecord(current, cadId, userId);
+      return { file: source, summary: await markerSummaryForRow(prisma, cadId) };
     }
-
-    const file = await prisma.$transaction(async (tx) => {
-      await tx.cad_purpose_files.updateMany({ where: { cadId, replacedAt: null }, data: { replacedAt: new Date() } });
-      if (source.cadId === null) {
-        return tx.cad_purpose_files.update({ where: { id: source.id }, data: { cadId, purpose: row.purpose } });
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { id, createdAt, readSizes, replacedAt, sortOrder, ...rest } = source;
-      return tx.cad_purpose_files.create({
-        data: {
-          ...rest,
-          purpose: row.purpose,
-          readSizes: readSizes === null ? Prisma.DbNull : (readSizes as Prisma.InputJsonValue),
-          sortOrder: await this.nextSortOrder(tx, styleId, row.purpose),
-          uploadedById: userId ?? rest.uploadedById,
-          cadId,
-        },
-      });
-    });
+    if (await this.isLocked(cadId)) await this.assertApprovedRowMatches(cadId, source);
+    const file = await this.makeCurrent(styleId, cadId, row.purpose, source, userId);
+    await recordMarkerImage(cadId, userId, file);
     logInfo('Existing CAD image linked to CAD row', { cadId, fileId: file.id, from: source.id });
-    return file.readStatus
-      ? (await recordMarkerImage(cadId, userId, file), { file, summary: await markerSummaryForRow(prisma, cadId) })
-      : this.readAndRecord(file, cadId, userId);
+    return { file, summary: await markerSummaryForRow(prisma, cadId) };
   }
 
   /**
    * The corrected marker's image for Correct CAD: stored and read, but NOT the row's marker yet — it becomes
    * the row's current image when the correction applies (cad-correction.service), possibly after an admin
-   * approves. Until then it sits in the style's gallery with no row.
+   * approves. Until then it sits in the style's images with no row.
    */
   async uploadForCorrection(
     styleId: string,
@@ -369,33 +414,46 @@ class CadFileService {
     userId?: string
   ): Promise<{ file: cad_purpose_files; reading: ReturnType<typeof storedReading> }> {
     const row = await this.rowOfStyle(styleId, cadId);
-    const created = await prisma.$transaction(async (tx) =>
-      tx.cad_purpose_files.create({
-        data: {
-          styleId,
-          purpose: row.purpose,
-          fileUrl: upload.fileUrl,
-          fileName: upload.fileName,
-          fileSize: upload.fileSize,
-          sortOrder: await this.nextSortOrder(tx, styleId, row.purpose),
-          uploadedById: userId,
-        },
-      })
-    );
-    const fullPath = markerFilePath(created.fileUrl);
-    const reading = fullPath
-      ? await readMarkerFile(fullPath)
-      : normalizeReading({ status: 'UNREADABLE', error: 'The image file is not in the uploads folder' });
-    const file = await prisma.cad_purpose_files.update({ where: { id: created.id }, data: readingColumns(reading) });
+    const file = await this.readFile(await this.storeUpload(styleId, row.purpose, upload, userId));
     return { file, reading: storedReading(file) };
+  }
+
+  /**
+   * Correct CAD with an image already uploaded for the style. The correction takes an image with no row, or
+   * this row's own; another row's image gets a record of its own (no row) pointing at the same file.
+   */
+  async linkForCorrection(
+    styleId: string,
+    cadId: string,
+    fileId: string,
+    userId?: string
+  ): Promise<{ file: cad_purpose_files; reading: ReturnType<typeof storedReading> }> {
+    await this.rowOfStyle(styleId, cadId);
+    let source = await prisma.cad_purpose_files.findFirst({ where: { id: fileId, styleId } });
+    if (!source) throw new NotFoundError('CAD image', fileId);
+    if (source.cadId !== null && source.cadId !== cadId) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { id, createdAt, readSizes, replacedAt, cadId: otherRow, ...rest } = source;
+      source = await prisma.cad_purpose_files.create({
+        data: {
+          ...rest,
+          readSizes: readSizes === null ? Prisma.DbNull : (readSizes as Prisma.InputJsonValue),
+          uploadedById: userId ?? rest.uploadedById,
+        },
+      });
+    }
+    if (!source.readStatus) source = await this.readFile(source);
+    return { file: source, reading: storedReading(source) };
   }
 
   /** Read the row's current marker image again (after the reader was installed or updated) */
   async rereadForRow(styleId: string, cadId: string, userId?: string): Promise<MarkerImageResult> {
     await this.rowOfStyle(styleId, cadId);
-    const file = await currentMarkerFile(prisma, cadId);
-    if (!file) throw new BusinessError('This CAD row has no marker image to read');
-    return this.readAndRecord(file, cadId, userId);
+    const current = await currentMarkerFile(prisma, cadId);
+    if (!current) throw new BusinessError('This CAD row has no marker image to read');
+    const file = await this.readFile(current);
+    await recordMarkerImage(cadId, userId, file);
+    return { file, summary: await markerSummaryForRow(prisma, cadId) };
   }
 
   /**

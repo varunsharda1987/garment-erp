@@ -1222,6 +1222,12 @@ export function CADSpreadsheetTable({
               <TableHead className="px-2 py-2 text-center whitespace-nowrap">Sizes</TableHead>
               <TableHead className="px-2 py-2 text-right whitespace-nowrap">Pcs</TableHead>
               <TableHead className="px-2 py-2 text-right whitespace-nowrap">Layer(M)</TableHead>
+              <TableHead
+                className="px-2 py-2 text-right whitespace-nowrap"
+                title="Added to the layer length by rule: 2 cm up to 1 m, 5 cm up to 5 m, 10 cm up to 10 m, 20 cm up to 20 m, else 30 cm"
+              >
+                Margin
+              </TableHead>
               <TableHead className="px-2 py-2 text-right whitespace-nowrap">CAD Avg</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">CAD Image</TableHead>
               <TableHead className="px-2 py-2 whitespace-nowrap">Actions</TableHead>
@@ -1230,7 +1236,7 @@ export function CADSpreadsheetTable({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={17} className="text-center py-6 text-muted-foreground text-sm">
+                <TableCell colSpan={18} className="text-center py-6 text-muted-foreground text-sm">
                   No CAD entries yet. Click "Add Row" to create one.
                 </TableCell>
               </TableRow>
@@ -1241,7 +1247,7 @@ export function CADSpreadsheetTable({
                   <TableRow
                     className={cn('bg-slate-200 hover:bg-slate-200', groupIndex > 0 && 'border-t-2 border-gray-400')}
                   >
-                    <TableCell colSpan={17} className="py-3 px-4">
+                    <TableCell colSpan={18} className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-slate-700">
                           {CAD_PURPOSE_LABELS[group.purpose as CADPurpose]}
@@ -1858,9 +1864,38 @@ export function CADSpreadsheetTable({
                           })()}
                         </TableCell>
 
-                        {/* CAD Average - Calculated */}
+                        {/* Margin - Calculated: added to the layer length by rule on save (never typed) */}
+                        {(() => {
+                          const lengthPending =
+                            !!pendingChanges[row.id] && 'layerLengthMeters' in pendingChanges[row.id];
+                          return (
+                            <TableCell
+                              className={cn('px-2 py-1.5 text-right text-xs', FIELD_STYLES.calculated.cell)}
+                              title={
+                                lengthPending
+                                  ? 'Set from the new layer length when you save'
+                                  : 'Added to the layer length by rule (2 cm up to 1 m, 5 cm up to 5 m, 10 cm up to 10 m, 20 cm up to 20 m, else 30 cm)'
+                              }
+                            >
+                              {lengthPending ? (
+                                <span className="italic text-muted-foreground">auto</span>
+                              ) : row.layerMarginMeters != null && row.layerLengthMeters != null ? (
+                                Number(row.layerMarginMeters.toFixed(3))
+                              ) : (
+                                '-'
+                              )}
+                            </TableCell>
+                          );
+                        })()}
+
+                        {/* CAD Average - Calculated: (layer + margin) ÷ pieces, the sum on hover */}
                         <TableCell
                           className={cn('px-2 py-1.5 text-right text-xs font-medium', FIELD_STYLES.calculated.cell)}
+                          title={
+                            row.cadAverage != null && row.layerLengthMeters != null && totalPcs > 0
+                              ? `(${Number(row.layerLengthMeters.toFixed(3))} + ${Number((row.layerMarginMeters ?? 0).toFixed(3))}) ÷ ${totalPcs} = ${Number(row.cadAverage.toFixed(4))} m/pc`
+                              : undefined
+                          }
                         >
                           {row.cadAverage?.toFixed(2) || '-'}
                         </TableCell>
@@ -1885,7 +1920,7 @@ export function CADSpreadsheetTable({
                                   : isRowLocked
                                     ? marker?.file
                                       ? 'The CAD image of this approved row'
-                                      : 'Approved without a CAD image — Correct… brings one'
+                                      : 'Approved without a CAD image — attach one that matches it exactly'
                                     : 'Attach the CAD image (Nest EXPERT screenshot or PDF)';
                             return (
                               <Button
@@ -2704,7 +2739,8 @@ export function CADSpreadsheetTable({
             row={markerRow}
             marker={markerRow ? markerByRow.get(markerRow.id) : undefined}
             sizeOptions={sizeOptions}
-            readOnly={locked || disabled}
+            approved={locked}
+            readOnly={disabled}
             onClose={() => setMarkerRowId(null)}
             onChanged={() => void refetchMarkers()}
             onUseValues={(values) => markerRow && handleUseMarkerValues(markerRow.id, values)}

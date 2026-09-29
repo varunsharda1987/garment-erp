@@ -77,6 +77,7 @@ import {
   rereadMarkerImage,
   getRowMarkers,
   attachCorrectionMarker,
+  linkCorrectionMarker,
 } from '../controllers/cad-file.controller';
 import {
   authenticateToken as authenticate,
@@ -754,6 +755,18 @@ router.post(
   uploadCadFile,
   validateBody(attachMarkerImageSchema),
   asyncHandler(attachCorrectionMarker)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/row/:rowId/correction/marker/link
+ * @desc    Correct CAD with an image already uploaded for the style (read if it never was)
+ * @access  cadPlanning write permission
+ */
+router.post(
+  '/:styleId/row/:rowId/correction/marker/link',
+  validateParams(styleIdAndRowIdParamSchema),
+  validateBody(linkMarkerImageSchema),
+  asyncHandler(linkCorrectionMarker)
 );
 
 /**

@@ -205,8 +205,20 @@ export interface CadCorrectionImpact {
     totalCostPerMeter: number | null;
     greigeId: string | null;
     width: number | null;
+    /** Layer length, the margin the length rule adds, and pieces — the average's own parts */
+    layerLengthMeters?: number | null;
+    layerMarginMeters?: number | null;
+    pieces?: number | null;
   };
-  after: { cadAverage: number | null; totalCostPerMeter: number | null; greigeId: string | null; width: number | null };
+  after: {
+    cadAverage: number | null;
+    totalCostPerMeter: number | null;
+    greigeId: string | null;
+    width: number | null;
+    layerLengthMeters?: number | null;
+    layerMarginMeters?: number | null;
+    pieces?: number | null;
+  };
   costing: { slabLabel: string | null; slabMetres: number | null; priceChanged: boolean; notes: string[] };
   fabricCostPerPiece: { before: number | null; after: number | null };
   costSheets: Array<{

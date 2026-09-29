@@ -117,6 +117,14 @@ export const getRowMarkers = async (req: Request, res: Response): Promise<void> 
   res.status(200).json({ data: await markerSummariesForStyle(prisma, styleId) });
 };
 
+/**
+ * A refused upload leaves no file on disk — unless it was stored first: an image an approved row did not take
+ * (it differs from the row) stays in the style's images for Correct… to use.
+ */
+async function dropOrphanUpload(fileUrl: string): Promise<void> {
+  if ((await prisma.cad_purpose_files.count({ where: { fileUrl } })) === 0) deleteCadFile(fileUrl);
+}
+
 function markerMessage(result: MarkerImageResult): string {
   switch (result.summary?.state) {
     case 'MATCHES':
@@ -150,7 +158,7 @@ export const attachMarkerImage = async (req: MulterRequest, res: Response): Prom
       req.user?.userId
     );
   } catch (error) {
-    deleteCadFile(fileUrl); // refused (approved row, other style…) — do not keep an orphan upload
+    await dropOrphanUpload(fileUrl); // refused before it was stored (other style…) — no orphan file on disk
     throw error;
   }
   res.status(201).json({ data: result, message: markerMessage(result) });
@@ -175,9 +183,19 @@ export const attachCorrectionMarker = async (req: MulterRequest, res: Response):
     );
     res.status(201).json({ data: result, message: 'Marker image read' });
   } catch (error) {
-    deleteCadFile(fileUrl);
+    await dropOrphanUpload(fileUrl);
     throw error;
   }
+};
+
+/**
+ * Correct CAD with an image already uploaded for the style — read if it never was
+ * POST /api/cad-planning/:styleId/row/:rowId/correction/marker/link
+ */
+export const linkCorrectionMarker = async (req: Request, res: Response): Promise<void> => {
+  const { styleId, rowId } = req.params;
+  const result = await cadFileService.linkForCorrection(styleId, rowId, req.body.fileId, req.user?.userId);
+  res.status(200).json({ data: result, message: 'Marker image read' });
 };
 
 /**

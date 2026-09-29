@@ -115,6 +115,20 @@ export const miniMarkerService = {
     return response.data.data;
   },
 
+  /** Correct CAD with an image already uploaded for the style (read if it never was) */
+  linkForCorrection: async (
+    styleId: string,
+    rowId: string,
+    fileId: string
+  ): Promise<{ file: MiniMarkerFile; reading: MarkerReading }> => {
+    const response = await api.post(
+      `/cad-planning/${styleId}/row/${rowId}/correction/marker/link`,
+      { fileId },
+      { timeout: MARKER_READ_TIMEOUT }
+    );
+    return response.data.data;
+  },
+
   /** Read the row's marker image again */
   reread: async (styleId: string, rowId: string): Promise<MarkerImageResult> => {
     const response = await api.post(`/cad-planning/${styleId}/row/${rowId}/marker/reread`, undefined, {

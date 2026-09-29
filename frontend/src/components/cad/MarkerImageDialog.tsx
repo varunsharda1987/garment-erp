@@ -55,7 +55,12 @@ interface MarkerImageDialogProps {
   marker: CadRowMarker | undefined;
   /** The style's sizes — a marker size the style does not offer is never put on the row */
   sizeOptions: CADSizeOption[];
-  /** An approved row shows its image but takes a new one only through Correct… */
+  /**
+   * An approved (or price-approved) row keeps its values: it takes an image only when the image says exactly
+   * what it holds, and "Use these values" is not offered. To change its values: Correct…
+   */
+  approved: boolean;
+  /** Nothing can be changed at all (the table is disabled) */
   readOnly: boolean;
   onClose: () => void;
   /** The row's image or reading changed — refresh the table's image states */
@@ -87,6 +92,7 @@ function MarkerImageBody({
   row,
   marker,
   sizeOptions,
+  approved,
   readOnly,
   onClose,
   onChanged,
@@ -96,11 +102,15 @@ function MarkerImageBody({
   const [busy, setBusy] = useState<'upload' | 'link' | 'reread' | null>(null);
   const [result, setResult] = useState<MarkerImageResult['summary']>(null);
   const [pickedFileId, setPickedFileId] = useState<string>('');
+  // An approved row refused an image that differs from it — the image stays in the style's images
+  const [approvedRefusal, setApprovedRefusal] = useState<{ message: string; differences: MarkerDifference[] } | null>(
+    null
+  );
 
   // The latest answer from an upload / link / reread wins over the table's copy until the table refreshes.
   // An approved row with no image is left as it is (owner, 28-Sep) — shown plainly, not as "Needs image".
   const latest = result ?? marker ?? null;
-  const summary = latest && readOnly && latest.state === 'NEEDS_IMAGE' ? { ...latest, state: 'NONE' as const } : latest;
+  const summary = latest && approved && latest.state === 'NEEDS_IMAGE' ? { ...latest, state: 'NONE' as const } : latest;
   const reading: MarkerReading | null = summary?.reading ?? null;
   const file = summary?.file ?? null;
   const differences: MarkerDifference[] = summary?.differences ?? [];
@@ -118,6 +128,7 @@ function MarkerImageBody({
 
   const run = async (kind: 'upload' | 'link' | 'reread', call: () => Promise<MarkerImageResult>) => {
     setBusy(kind);
+    setApprovedRefusal(null);
     try {
       const res = await call();
       setResult(res.summary);
@@ -129,7 +140,17 @@ function MarkerImageBody({
         notify.warning('The image was kept, but it could not be read — saving will ask for a reason');
       }
     } catch (error) {
-      notify.error(getErrorMessage(error));
+      const details = (error as { response?: { data?: any } })?.response?.data?.details;
+      if (details?.code === 'CAD_MARKER_APPROVED_DIFFERS') {
+        setApprovedRefusal({
+          message: getErrorMessage(error),
+          differences: Array.isArray(details.differences) ? details.differences : [],
+        });
+        notify.warning("The image differs from this approved row — it was kept in the style's images");
+        onChanged();
+      } else {
+        notify.error(getErrorMessage(error));
+      }
     } finally {
       setBusy(null);
     }
@@ -148,7 +169,7 @@ function MarkerImageBody({
   const offered = useMemo(() => new Map(sizeOptions.map((s) => [s.name.trim().toUpperCase(), s])), [sizeOptions]);
   const notOffered = (reading?.sizes ?? []).filter((s) => offered.size > 0 && !offered.has(s.sizeName.toUpperCase()));
 
-  const canUse = !readOnly && !!reading && (reading.status === 'READ' || reading.status === 'PARTIAL');
+  const canUse = !readOnly && !approved && !!reading && (reading.status === 'READ' || reading.status === 'PARTIAL');
   const useValues = () => {
     if (!reading) return;
     const sizes =
@@ -166,7 +187,13 @@ function MarkerImageBody({
   };
 
   const rowSizes = sizesText(row.sizeBreakdowns ?? []);
-  const lines: Array<{ label: string; image: string | null; row: string | null; field?: MarkerDifference['field'] }> = [
+  const lines: Array<{
+    label: string;
+    image: string | null;
+    row: string | null;
+    field?: MarkerDifference['field'];
+    calculated?: boolean;
+  }> = [
     { label: 'Layer length', image: num(reading?.lengthM, 'm'), row: num(row.layerLengthMeters, 'm'), field: 'length' },
     {
       label: 'Width',
@@ -187,6 +214,19 @@ function MarkerImageBody({
       field: 'placed',
     },
     { label: 'Efficiency', image: reading?.efficiencyPct != null ? `${reading.efficiencyPct} %` : null, row: null },
+    // Not on the marker: the margin the length rule adds, and the average both give by the same formula
+    {
+      label: 'Margin (by rule)',
+      image: num(summary?.imageMarginM, 'm'),
+      row: num(row.layerMarginMeters, 'm'),
+      calculated: true,
+    },
+    {
+      label: 'CAD Avg (m/pc)',
+      image: summary?.imageAverage != null ? String(summary.imageAverage) : null,
+      row: row.cadAverage != null ? String(Number(row.cadAverage.toFixed(4))) : null,
+      calculated: true,
+    },
   ];
 
   const isPdf = file?.fileName?.toLowerCase().endsWith('.pdf');
@@ -203,10 +243,10 @@ function MarkerImageBody({
           <DialogDescription>
             {PURPOSE_LABEL[row.purpose ?? ''] ?? row.purpose} · {row.componentName ?? '—'}
             {row.partName ? ` · ${row.partName}` : ''} · {row.cutableWidth ? `${row.cutableWidth}"` : 'no width yet'}.{' '}
-            {readOnly
+            {approved
               ? file
                 ? 'The marker image of this approved row.'
-                : 'Approved before CAD images were required — it keeps its values. Correct… brings its marker image.'
+                : 'Approved before CAD images were required — it keeps its values. Attach its marker image: an approved row takes one only when it says exactly what the row holds.'
               : summary?.required
                 ? 'This row is saved from its marker: attach the Nest EXPERT screenshot (or its PDF) and use its values.'
                 : 'A Costing row may keep its marker image; when it has one, its values are checked against it.'}
@@ -269,7 +309,12 @@ function MarkerImageBody({
               </TableHeader>
               <TableBody>
                 {lines.map((l) => (
-                  <TableRow key={l.label} className={l.field && differs(l.field) ? 'bg-warning/10' : undefined}>
+                  <TableRow
+                    key={l.label}
+                    className={
+                      l.field && differs(l.field) ? 'bg-warning/10' : l.calculated ? 'bg-success-muted/40' : undefined
+                    }
+                  >
                     <TableCell className="py-1.5 text-muted-foreground">{l.label}</TableCell>
                     <TableCell className="py-1.5 font-medium">{l.image ?? '—'}</TableCell>
                     <TableCell className="py-1.5">{l.row ?? '—'}</TableCell>
@@ -308,9 +353,27 @@ function MarkerImageBody({
                 not put on the row. Add the size to the style, or save with a reason.
               </p>
             )}
-            {readOnly && (
+            {approvedRefusal && (
+              <Alert className="border-warning/40 bg-warning/5">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <AlertTitle>Not linked — it differs from this approved row</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc pl-4 space-y-0.5 text-xs">
+                    {approvedRefusal.differences.map((d) => (
+                      <li key={`${d.field}-${d.label}`}>{d.label}</li>
+                    ))}
+                  </ul>
+                  <p className="text-xs mt-1">
+                    The image is kept in the style's images. To change the row's values, use Correct… from the row menu
+                    and pick it there.
+                  </p>
+                </AlertDescription>
+              </Alert>
+            )}
+            {approved && !readOnly && (
               <p className="text-xs text-muted-foreground">
-                This row is approved. To change its marker, use Correct… from the row menu.
+                This row is approved and keeps its values: it takes an image only when the image says exactly what the
+                row holds. To change the values, use Correct… from the row menu.
               </p>
             )}
           </div>
@@ -376,7 +439,7 @@ function MarkerImageBody({
             <Button variant="ghost" onClick={onClose}>
               Close
             </Button>
-            {!readOnly && (
+            {!readOnly && !approved && (
               <Button onClick={useValues} disabled={!canUse || !!busy || summary?.state === 'MATCHES'}>
                 Use these values
               </Button>

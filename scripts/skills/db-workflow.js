@@ -299,9 +299,24 @@ ${colors.bright}Important:${colors.reset}
 /**
  * Main execution
  */
+// Dev and live share ONE database on this PC (CLAUDE.md), and garment_erp was wiped on 2026-09-29.
+// --reset (migrate reset), --setup / --migrate (migrate dev) and --seed (reseeds) would all run against
+// the LIVE data, and a Claude session running this script is invisible to the database guard
+// (~/.claude/hooks/block-prod-db.js) — so they refuse here. Migrations: see CLAUDE.md "How changes go live" 7.
+const LIVE_DATA_MODES = ['--setup', '--migrate', '--reset', '--seed'];
+
 function main() {
   const args = process.argv.slice(2);
   const mode = args[0] || '--migrate';
+
+  if (LIVE_DATA_MODES.includes(mode)) {
+    console.error(`${colors.red}Refused: ${mode} would run against the LIVE garment_erp database (dev and live are one database here).${colors.reset}`);
+    console.error('  - New migration: write backend/prisma/migrations/<timestamp>_<name>/migration.sql, then follow');
+    console.error('    CLAUDE.md "How changes go live" step 7 (ship pause -> pm2 stop -> npx prisma migrate deploy -> start -> resume).');
+    console.error('  - Restore data: docs/runbooks/POSTGRES_POINT_IN_TIME_RESTORE.md (restore into a NEW database, then rename).');
+    console.error('  --docs still works.');
+    return 1;
+  }
 
   switch (mode) {
     case '--setup':

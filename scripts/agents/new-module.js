@@ -246,14 +246,11 @@ step('Run Prisma migration', (opts) => {
     return 'skip';
   }
 
-  const result = exec(
-    `npx prisma migrate dev --name add_${opts.name}`,
-    { cwd: path.join(process.cwd(), 'backend') }
-  );
-
-  if (!result.success) {
-    throw new Error('Migration failed. Fix schema errors and re-run.');
-  }
+  // Never `migrate dev` here: dev and live share ONE database on this PC (garment_erp was wiped on
+  // 2026-09-29), and a command run inside this script is invisible to the database guard.
+  console.log(`  ${c('yellow', 'Migration NOT run: write backend/prisma/migrations/<timestamp>_add_' + opts.name + '/migration.sql,')}`);
+  console.log(`  ${c('yellow', 'then apply it by CLAUDE.md "How changes go live" step 7 (npx prisma migrate deploy with deploys paused).')}`);
+  return 'skip';
 });
 
 step('Generate Prisma client', (opts) => {

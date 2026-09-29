@@ -744,6 +744,23 @@ hook prints a WARNING and fleet-check raises it) — tell the owner; restarting 
 Still NOT isolated (known): the live API reads PDF templates (`backend/templates/kf`), `node_modules`
 and the Prisma client straight from this folder, and dev and live share one database.
 
+### The database is live — it has been wiped twice (2026-07-29, 2026-09-29)
+
+Dev and live are ONE Postgres server on localhost:5432, shared with every business on this PC. On
+2026-09-29 `prisma migrate diff --from-migrations … --shadow-database-url <the .env URL>` emptied
+garment_erp — Prisma RESETS the database given as a shadow — and a day's work was lost.
+
+- **Never** `--shadow-database-url`, `migrate diff --from/--to-migrations`, `migrate reset`,
+  `db push --force-reset` / `--accept-data-loss`, `dropdb`, `pg_restore --clean`, DROP, TRUNCATE. The user-level
+  guard `~/.claude/hooks/block-prod-db.js` refuses them in every project; `migrate dev` / `db push` /
+  `migrate deploy` / ALTER DATABASE / restarting Postgres ask the owner first. A script that runs them
+  inside itself is invisible to the guard — don't write one (`db-workflow.js` now refuses).
+- **Check a migration** by reading its SQL against `git diff prisma/schema.prisma`, or diff two schema
+  FILES (`migrate diff --from-schema-datamodel <old> --to-schema-datamodel <new> --script`) — no database.
+- **Backups:** hourly dump (`scripts/backup-hourly.ps1` → `F:\garment-erp-hourly-backups`, 48 h), nightly
+  19:00, and change-log archiving for point-in-time restore once `scripts/pg-enable-wal-archive.ps1` has been
+  run. Restore: `docs/runbooks/POSTGRES_POINT_IN_TIME_RESTORE.md` — always into a NEW database, check, rename.
+
 ⚠ **The PM2 daemon on this PC is SHARED with three other businesses** (kasya-b2b, harleen-b2b,
 thar-coal, plus inward-web/ucip/redis — 13 processes). Never run `pm2 restart all`, `pm2 reload all`,
 `pm2 kill`, `pm2 update` or `npm install -g pm2`: each one bounces or drops every business at once,
@@ -757,7 +774,7 @@ When creating a new CRUD module end-to-end, follow this exact order (9 files min
 
 ### Backend (5 files + 1 registration)
 1. Add model to `backend/prisma/schema.prisma`
-2. Run migration: `cd backend && npx prisma migrate dev --name add_<module>`
+2. Write the migration by hand: `backend/prisma/migrations/<timestamp>_add_<module>/migration.sql` (compare with `git diff prisma/schema.prisma`), then apply it by *How changes go live* step 7 (`migrate deploy`). **Never `migrate dev` / `migrate reset` / `db push` / `--shadow-database-url` here** — see *The database is live* below.
 3. **Create `backend/src/schemas/<module>.schema.ts`** — Zod schemas for create/update (SINGLE SOURCE OF TRUTH)
 4. Create `backend/src/services/<module>.service.ts` — copy pattern from `agency.service.ts`
 5. Create `backend/src/controllers/<module>.controller.ts` — copy pattern from `agency.controller.ts`
@@ -917,33 +934,12 @@ Serializer Mappings:
 
 ### `/db-workflow` - Database Workflow Automation
 
-Unified database operations: migrate, seed, reset, and documentation generation.
+**Only `--docs` works** (generates schema documentation). `--setup`, `--migrate`, `--reset` and `--seed`
+REFUSE since 2026-09-29: dev and live are one database here, so they migrated, reseeded or wiped the LIVE data.
 
-**Usage:**
 ```bash
-node scripts/skills/db-workflow.js [--setup|--migrate|--reset|--seed|--docs|--help]
+node scripts/skills/db-workflow.js --docs
 ```
-
-**Modes:**
-- `--setup` - Full first-time setup (migrate + seed + docs)
-- `--migrate` (default) - Run migration + generate docs
-- `--reset` - Reset database + migrate + seed (⚠ deletes all data!)
-- `--seed` - Run all seed scripts only
-- `--docs` - Generate schema documentation only
-
-**What it replaces:**
-```bash
-# Before (4+ manual commands)
-npx prisma migrate dev
-npx ts-node scripts/seed-all-modules.ts
-npx ts-node scripts/seed-production-data.ts
-node scripts/generate-schema-docs.js
-
-# After (1 command)
-node scripts/skills/db-workflow.js --setup
-```
-
-**5x speedup** on database operations
 
 ### `/test-all` - Unified Test Orchestration
 
@@ -1342,7 +1338,7 @@ node scripts/agents/new-module.js --name <module> --fields "<fields>" [--prefix 
 **9 automated steps:**
 1. Scaffold backend + frontend files (uses `/scaffold-module`)
 2. Add Prisma model to schema.prisma
-3. Run `prisma migrate dev`
+3. Migration — NOT run; it prints what to write (never `migrate dev` against the live database)
 4. Generate Prisma client
 5. Generate frontend types (uses `/generate-types`)
 6. Register frontend routes (uses `/register-route`)

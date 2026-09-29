@@ -14,6 +14,7 @@ import {
   deallocateStockSchema,
   saleOrderQuerySchema,
   openForStyleQuerySchema,
+  forStyleQuerySchema,
   addBuyerPoSchema,
   updateBuyerPoSchema,
   uploadBuyerPoDocumentSchema,
@@ -37,6 +38,14 @@ router.get(
   '/open-for-style',
   validateQuery(openForStyleQuerySchema),
   asyncHandler(saleOrderController.getOpenForStyle.bind(saleOrderController))
+);
+
+// GET /api/sale-orders/for-style - open sale orders of ANY customer carrying a style, with its pieces
+// on each, for the Fabric Costing Raw Mat "Sale orders" picker (must be before /:id)
+router.get(
+  '/for-style',
+  validateQuery(forStyleQuerySchema),
+  asyncHandler(saleOrderController.getForStyle.bind(saleOrderController))
 );
 
 // GET /api/sale-orders/available-stock - Get available FG stock for allocation

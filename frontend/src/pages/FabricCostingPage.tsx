@@ -3,7 +3,7 @@
  * Focus on greige processing workflow with transportation costs and processor rate card integration
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Eye,
@@ -24,6 +24,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Combobox } from '../components/ui/combobox';
+import { MultiSelect } from '../components/ui/multi-select';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
@@ -44,6 +45,7 @@ import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../servic
 import { CostingRunDetailDialog } from '../components/fabric-costing/CostingRunDetailDialog';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
+import { getSaleOrdersForStyle, type SaleOrderForStyle } from '../services/saleOrder.service';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import SearchInput from '@/components/SearchInput';
 import { divideByShrinkage } from '../utils/math';
@@ -987,6 +989,18 @@ function FabricRowCells({
 // marker for one received fabric lot, made and approved in CAD Planning, and it is never costed.
 type FabricCostingMode = Exclude<CostingPurpose, 'PRODUCTION'>;
 
+/** A "Sale orders" option: `SO2609-1593 · 2,600 pcs · ship 15-Oct-2026`, with `· Draft` on a draft. */
+function saleOrderOptionLabel(so: SaleOrderForStyle): string {
+  return [
+    so.saleOrderNumber,
+    formatQuantity(so.quantity, 'PIECE'),
+    so.expectedShipDate ? `ship ${formatDate(so.expectedShipDate)}` : null,
+    so.status === 'DRAFT' ? 'Draft' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
 export default function FabricCostingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1008,6 +1022,15 @@ export default function FabricCostingPage() {
   const [orderQuantity, setOrderQuantity] = useState<number>(0);
   const [previousQuantity, setPreviousQuantity] = useState<number | null>(null);
   const [purpose, setPurpose] = useState<FabricCostingMode>(initialPurpose);
+
+  // The style's open sale orders. On Raw Mat Calculation the ticked ones' pieces fill Order Quantity.
+  const [styleSaleOrders, setStyleSaleOrders] = useState<SaleOrderForStyle[]>([]);
+  const [saleOrdersLoadedFor, setSaleOrdersLoadedFor] = useState<string | null>(null);
+  const [pickedSaleOrderIds, setPickedSaleOrderIds] = useState<string[]>([]);
+  // `${styleId}:${purpose}` whose fabrics — and so any saved quantity — have finished loading
+  const [fabricsLoadedKey, setFabricsLoadedKey] = useState<string | null>(null);
+  const userTypedQtyRef = useRef(false); // the user typed an Order Quantity for this style
+  const saleOrderFilledKeyRef = useRef<string | null>(null); // fill from sale orders once per style + tab
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
@@ -1189,13 +1212,22 @@ export default function FabricCostingPage() {
     setStyleSearchQuery(styleCodeLabel(style) + (style.styleName ? ` - ${style.styleName}` : ''));
     setShowSearchResults(false);
     setStyleSearchResults([]);
+    resetQuantityForNewStyle();
+
+    // Note: Customer auto-selection removed - CustomerCombobox handles selection independently
+  };
+
+  // A newly picked style starts with no quantity: it loads from the saved costing, else (Raw Mat)
+  // from the style's sale orders.
+  const resetQuantityForNewStyle = () => {
     setPreviousQuantity(null); // Reset previous quantity indicator
-    setOrderQuantity(0); // Reset order quantity for new style (will be loaded from saved data)
+    setOrderQuantity(0);
+    setFabricsLoadedKey(null);
+    userTypedQtyRef.current = false;
+    saleOrderFilledKeyRef.current = null;
     // BUG-FC3 fix: Reset dirty tracking for new style
     setInternalDirty(false);
     initialLoadRef.current = true;
-
-    // Note: Customer auto-selection removed - CustomerCombobox handles selection independently
   };
 
   // Clear search
@@ -1206,11 +1238,7 @@ export default function FabricCostingPage() {
     setSelectedStyleId('');
     setSelectedCustomerId('');
     setFabricRows([]);
-    setPreviousQuantity(null); // Reset previous quantity indicator
-    setOrderQuantity(0); // Reset order quantity
-    // BUG-FC3 fix: Reset dirty tracking when clearing
-    setInternalDirty(false);
-    initialLoadRef.current = true;
+    resetQuantityForNewStyle();
   };
 
   // Close search results when clicking outside
@@ -1583,6 +1611,7 @@ export default function FabricCostingPage() {
         } else {
           setPreviousQuantity(null);
         }
+        setFabricsLoadedKey(`${selectedStyleId}:${purpose}`);
 
         notify.success(`Loaded ${rowsWithTotals.length} fabrics from style`);
       } catch {
@@ -1628,6 +1657,57 @@ export default function FabricCostingPage() {
       fetchStyleFabrics(false);
     }
   }, [selectedStyleId, purpose]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The style's open sale orders. Ticked by default: every one but a DRAFT (Raw Mat is MRP for
+  // confirmed orders) — a draft is listed so it can be ticked.
+  useEffect(() => {
+    setStyleSaleOrders([]);
+    setPickedSaleOrderIds([]);
+    setSaleOrdersLoadedFor(null);
+    if (!selectedStyleId) return;
+    let cancelled = false;
+    getSaleOrdersForStyle(selectedStyleId)
+      .then((orders) => {
+        if (cancelled) return;
+        setStyleSaleOrders(orders);
+        setPickedSaleOrderIds(orders.filter((so) => so.status !== 'DRAFT').map((so) => so.id));
+        setSaleOrdersLoadedFor(selectedStyleId);
+      })
+      .catch((error) => {
+        if (!cancelled) notify.error(`Failed to load the sale orders for this style: ${getErrorMessage(error)}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStyleId]);
+
+  const pickedSaleOrderQty = useMemo(
+    () => styleSaleOrders.filter((so) => pickedSaleOrderIds.includes(so.id)).reduce((sum, so) => sum + so.quantity, 0),
+    [styleSaleOrders, pickedSaleOrderIds]
+  );
+
+  // Raw Mat Calculation: once the fabrics (and so any saved quantity) and the sale orders are in, a
+  // style with no saved Raw Mat quantity takes the ticked sale orders' pieces — once per style + tab.
+  // A quantity the user typed is kept; a saved one wins (the box then offers "Use").
+  useEffect(() => {
+    if (purpose !== 'RAW_MATERIAL_CALCULATION' || !selectedStyleId) return;
+    const key = `${selectedStyleId}:${purpose}`;
+    if (fabricsLoadedKey !== key || saleOrdersLoadedFor !== selectedStyleId) return;
+    if (saleOrderFilledKeyRef.current === key) return;
+    saleOrderFilledKeyRef.current = key;
+    if (previousQuantity == null && !userTypedQtyRef.current && pickedSaleOrderQty > 0) {
+      // The rows recalculate at the new quantity; that is still the load, not an unsaved edit
+      initialLoadRef.current = true;
+      setOrderQuantity(pickedSaleOrderQty);
+    }
+  }, [purpose, selectedStyleId, fabricsLoadedKey, saleOrdersLoadedFor, previousQuantity, pickedSaleOrderQty]);
+
+  // Ticking / unticking sale orders is a choice of what to cost for: the box follows the new total
+  const handlePickSaleOrders = (ids: string[]) => {
+    setPickedSaleOrderIds(ids);
+    const total = styleSaleOrders.filter((so) => ids.includes(so.id)).reduce((sum, so) => sum + so.quantity, 0);
+    setOrderQuantity(total);
+  };
 
   // Fetch existing costing runs when style and purpose change
   useEffect(() => {
@@ -2629,7 +2709,9 @@ export default function FabricCostingPage() {
               value={selectedStyleId}
               onValueChange={(styleId) => {
                 // Picking the chosen style again keeps it, as the old dropdown did
-                if (styleId) setSelectedStyleId(styleId);
+                if (!styleId || styleId === selectedStyleId) return;
+                setSelectedStyleId(styleId);
+                resetQuantityForNewStyle();
               }}
               placeholder={isLoadingStyles ? 'Loading...' : 'Select style'}
               searchPlaceholder="Search by buyer style code, style code or name..."
@@ -2651,7 +2733,10 @@ export default function FabricCostingPage() {
               type="number"
               min="1"
               value={orderQuantity || ''}
-              onChange={(e) => setOrderQuantity(parseInt(e.target.value) || 0)}
+              onChange={(e) => {
+                userTypedQtyRef.current = true;
+                setOrderQuantity(parseInt(e.target.value) || 0);
+              }}
               placeholder="e.g., 1000"
               className="w-full"
             />
@@ -2666,6 +2751,35 @@ export default function FabricCostingPage() {
                 preserved.
               </p>
             )}
+            {purpose === 'RAW_MATERIAL_CALCULATION' &&
+              !!selectedStyleId &&
+              saleOrdersLoadedFor === selectedStyleId &&
+              (styleSaleOrders.length === 0 ? (
+                <p className="text-xs text-muted-foreground mt-1">No open sale order for this style</p>
+              ) : (
+                <div className="mt-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Sale orders</Label>
+                  <MultiSelect
+                    options={styleSaleOrders.map((so) => ({ value: so.id, label: saleOrderOptionLabel(so) }))}
+                    value={pickedSaleOrderIds}
+                    onValueChange={handlePickSaleOrders}
+                    placeholder="No sale order ticked"
+                    className="h-8 text-xs"
+                  />
+                  {pickedSaleOrderQty > 0 && orderQuantity !== pickedSaleOrderQty && (
+                    <p className="text-xs text-muted-foreground">
+                      Sale orders: {formatQuantity(pickedSaleOrderQty, 'PIECE')} ·{' '}
+                      <button
+                        type="button"
+                        className="font-medium text-primary hover:underline"
+                        onClick={() => setOrderQuantity(pickedSaleOrderQty)}
+                      >
+                        Use
+                      </button>
+                    </p>
+                  )}
+                </div>
+              ))}
           </div>
 
           <div className="flex flex-col justify-end">

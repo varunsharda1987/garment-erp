@@ -7,6 +7,7 @@ import type {
   PaginatedSaleOrders,
   AvailableFGStock,
   StockPreviewResponse,
+  SaleOrderStatus,
 } from '@/types/saleOrder.types';
 
 const BASE_URL = '/sale-orders';
@@ -95,6 +96,26 @@ export interface OpenSaleOrderForStyle {
 
 export async function getOpenSaleOrdersForStyle(customerId: string, styleId: string): Promise<OpenSaleOrderForStyle[]> {
   const response = await api.get(`${BASE_URL}/open-for-style`, { params: { customerId, styleId } });
+  return response.data.data;
+}
+
+/**
+ * An open sale order (not cancelled, dispatched or delivered — a DRAFT is included) of any customer
+ * carrying the style. `quantity` is the pieces of THIS style on it, all colours and sizes added up.
+ */
+export interface SaleOrderForStyle {
+  id: string;
+  saleOrderNumber: string;
+  buyerPoNumber: string | null;
+  status: SaleOrderStatus;
+  customerName: string | null;
+  expectedShipDate: string | null;
+  quantity: number;
+}
+
+/** The style's open sale orders — Fabric Costing Raw Mat fills its Order Quantity from these. */
+export async function getSaleOrdersForStyle(styleId: string): Promise<SaleOrderForStyle[]> {
+  const response = await api.get(`${BASE_URL}/for-style`, { params: { styleId } });
   return response.data.data;
 }
 

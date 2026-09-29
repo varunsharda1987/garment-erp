@@ -205,6 +205,11 @@ export class SaleOrderController {
     res.json({ data });
   }
 
+  async getForStyle(req: Request, res: Response) {
+    const data = await saleOrderService.getForStyle(String(req.query.styleId));
+    res.json({ data });
+  }
+
   async getLinkableProductionOrders(req: Request, res: Response) {
     const data = await saleOrderService.getLinkableProductionOrders(req.params.id);
     res.json({ data });

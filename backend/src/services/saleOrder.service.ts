@@ -15,6 +15,7 @@ import { applySearch } from '../utils/search-filter';
 import { deleteBuyerPoDocumentFile } from '../middleware/upload.middleware';
 import { resolveSizeLineColours, skuKey, stockColourMatches, stockColourWhere } from './helpers/sku-colour.helper';
 import { saleOrderSizeSplit } from './helpers/sale-order-sizes.helper';
+import { CLOSED_SALE_ORDER_STATUSES } from './helpers/cad-list-filter.helper';
 import { formatDate, toDateInputValue } from '../utils/date';
 import { lineBuyerStyleRef, styleCodeLabel } from '../utils/style-code';
 
@@ -1161,6 +1162,42 @@ export class SaleOrderService {
           open: Math.max(0, i.quantity - (i.allocatedQty ?? 0) - (i.dispatchedQty ?? 0)),
           unitPrice: Number(i.unitPrice),
         })),
+    }));
+  }
+
+  /**
+   * Every open sale order carrying the style, of ANY customer, with how many pieces of THIS style it
+   * orders (all its colour / size lines added up) — the Fabric Costing Raw Mat "Sale orders" picker.
+   * Open = the CAD Planning Orders filter's definition (not cancelled, dispatched or delivered; a DRAFT
+   * is listed and the page decides whether to count it). Unlike getOpenForStyle, an order that already
+   * has a production order stays in: its raw material is still costed. Earliest ship date first.
+   */
+  async getForStyle(styleId: string) {
+    const rows = await prisma.sale_orders.findMany({
+      where: {
+        isActive: true,
+        status: { notIn: [...CLOSED_SALE_ORDER_STATUSES] },
+        items: { some: { styleId } },
+      },
+      select: {
+        id: true,
+        saleOrderNumber: true,
+        buyerPoNumber: true,
+        status: true,
+        expectedShipDate: true,
+        customer: { select: { name: true } },
+        items: { where: { styleId }, select: { quantity: true } },
+      },
+      orderBy: [{ expectedShipDate: { sort: 'asc', nulls: 'last' } }, { saleOrderNumber: 'asc' }],
+    });
+    return rows.map((so) => ({
+      id: so.id,
+      saleOrderNumber: so.saleOrderNumber,
+      buyerPoNumber: so.buyerPoNumber,
+      status: so.status,
+      customerName: so.customer?.name ?? null,
+      expectedShipDate: so.expectedShipDate,
+      quantity: so.items.reduce((sum, i) => sum + i.quantity, 0),
     }));
   }
 

@@ -35,9 +35,10 @@ export interface CadListFilters {
 
 /**
  * Sale orders that no longer need anything from CAD. DRAFT stays open: a draft order is the
- * earliest signal that a style is about to be cut.
+ * earliest signal that a style is about to be cut. Also read by GET /sale-orders/for-style (the
+ * Fabric Costing Raw Mat "Sale orders" picker), so both agree on which orders are still open.
  */
-const CLOSED_SALE_ORDER_STATUSES = ['CANCELLED', 'DISPATCHED', 'DELIVERED'] as const;
+export const CLOSED_SALE_ORDER_STATUSES = ['CANCELLED', 'DISPATCHED', 'DELIVERED'] as const;
 
 /**
  * Production orders that are finished. Read from the ORDER (orders.status, derived by

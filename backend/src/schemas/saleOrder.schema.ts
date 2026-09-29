@@ -196,6 +196,14 @@ export const openForStyleQuerySchema = z.object({
 });
 
 /**
+ * Open sale orders of any customer carrying a style (Fabric Costing Raw Mat "Sale orders")
+ * GET /api/sale-orders/for-style
+ */
+export const forStyleQuerySchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+});
+
+/**
  * Allocate Stock
  * POST /api/sale-orders/allocate-stock
  */

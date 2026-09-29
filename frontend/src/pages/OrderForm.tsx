@@ -227,12 +227,13 @@ export default function OrderForm() {
         const filteredSheets = costSheetsData.filter(
           (cs: CostSheet) =>
             (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+            !cs.supersededById && // a replaced version is history — no new order is built on it
             (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION')
         );
         setCostSheets(filteredSheets);
 
         // Find and select the cost sheet from params
-        const targetCostSheet = costSheetsData.find((cs) => cs.id === costSheetIdParam);
+        const targetCostSheet = filteredSheets.find((cs) => cs.id === costSheetIdParam);
         if (targetCostSheet) {
           setSelectedCostSheetId(targetCostSheet.id);
           // The buyer's agreed price (Closed Cost per Piece, excl. GST) — not the Total Product Cost
@@ -565,6 +566,7 @@ export default function OrderForm() {
         const approvedSheets = sheetsArray.filter(
           (s: CostSheet) =>
             (s.approvalStatus === 'APPROVED' || s.isApproved) &&
+            !s.supersededById && // a replaced version is history — no new order is built on it
             (s.purpose === 'RAW_MATERIAL_CALCULATION' || s.purpose === 'PRODUCTION')
         );
         setHasApprovedCostSheet(approvedSheets.length > 0);
@@ -639,6 +641,7 @@ export default function OrderForm() {
       const filteredSheets = sheets.filter(
         (cs: CostSheet) =>
           (cs.approvalStatus === 'APPROVED' || cs.isApproved) &&
+          !cs.supersededById && // a replaced version is history — no new order is built on it
           (cs.purpose === 'RAW_MATERIAL_CALCULATION' || cs.purpose === 'PRODUCTION')
       );
       setCostSheets(filteredSheets);

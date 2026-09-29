@@ -14,7 +14,9 @@ import {
   FileText,
   Download,
   FileSpreadsheet,
+  History,
 } from 'lucide-react';
+import { formatDate } from '@/lib/date';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -55,6 +57,8 @@ const CostSheetDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [costSheet, setCostSheet] = useState<CostSheet | null>(null);
+  // The version that replaced this one, when it is history (its number and date for the banner)
+  const [newerVersion, setNewerVersion] = useState<Pick<CostSheet, 'id' | 'version' | 'versionDate'> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,6 +98,7 @@ const CostSheetDetail = () => {
         setError(null);
         const data = await getCostSheetById(id);
         setCostSheet(data);
+        setNewerVersion(data.supersededById ? await getCostSheetById(data.supersededById) : null);
       } catch (err: unknown) {
         const errorMessage = handleApiError(err, 'Failed to fetch cost sheet', false);
         setError(errorMessage);
@@ -211,6 +216,8 @@ const CostSheetDetail = () => {
   const isApproved = costSheet.approvalStatus === 'APPROVED' || costSheet.isApproved;
   const isRejected = costSheet.approvalStatus === 'REJECTED';
   const isPending = costSheet.approvalStatus === 'PENDING';
+  // A replaced version is history: the server refuses every change to it, so none is offered
+  const isReplaced = Boolean(costSheet.supersededById);
 
   return (
     <>
@@ -222,7 +229,7 @@ const CostSheetDetail = () => {
           </Button>
 
           {/* Edit button - only for pending/rejected */}
-          {(isPending || isRejected) && (
+          {!isReplaced && (isPending || isRejected) && (
             <Button onClick={() => navigate(`/cost-sheets/${costSheet.id}/edit`)}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
@@ -230,7 +237,7 @@ const CostSheetDetail = () => {
           )}
 
           {/* Create new version - only for approved */}
-          {isApproved && (
+          {!isReplaced && isApproved && (
             <Button
               variant="outline"
               className="text-info hover:bg-info-muted"
@@ -300,6 +307,12 @@ const CostSheetDetail = () => {
                     Locked
                   </Badge>
                 )}
+                {isReplaced && (
+                  <Badge variant="outline" className="text-muted-foreground">
+                    <History className="w-3 h-3 mr-1" />
+                    Replaced — kept as history
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground text-lg">{costSheet.style?.styleName}</p>
               {costSheet.widthCombinationDescription && (
@@ -319,7 +332,7 @@ const CostSheetDetail = () => {
             {/* Action Buttons */}
             <div className="flex flex-col gap-2">
               {/* Pending/Rejected - Can Approve/Reject */}
-              {(isPending || isRejected) && (
+              {!isReplaced && (isPending || isRejected) && (
                 <>
                   <Button className="bg-success hover:bg-success" onClick={() => setApproveDialogOpen(true)}>
                     <CheckCircle className="h-4 w-4 mr-2" />
@@ -339,7 +352,7 @@ const CostSheetDetail = () => {
               )}
 
               {/* Approved - Can Revoke */}
-              {isApproved && (
+              {!isReplaced && isApproved && (
                 <>
                   <Button
                     variant="outline"
@@ -397,12 +410,28 @@ const CostSheetDetail = () => {
         </CardContent>
       </Card>
 
+      {isReplaced && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/20 bg-info-muted px-4 py-3 text-sm text-info">
+          <p className="flex items-center gap-2">
+            <History className="h-4 w-4 flex-shrink-0" />
+            {newerVersion
+              ? `v${costSheet.version || 1} was replaced by v${newerVersion.version} on ${formatDate(newerVersion.versionDate)}.`
+              : `v${costSheet.version || 1} was replaced by a newer version.`}{' '}
+            It is kept as history: it can be viewed, downloaded and compared, not changed.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => navigate(`/cost-sheets/${costSheet.supersededById}`)}>
+            {newerVersion ? `Open v${newerVersion.version}` : 'Open newer version'}
+          </Button>
+        </div>
+      )}
+
       {/* A version made by a CAD correction: what approving it does (cad-correction.service) */}
       {id && <CadCorrectionBanner costSheetId={id} />}
 
       {/* Source-costing drift: the fabric costing this sheet was built from has
           changed (re-priced, unapproved or cleared) since the snapshot was taken. */}
-      {costSheet.sourceCostingDrift?.hasDrift && (
+      {/* A replaced version always differs from today's costing — its "create a new version" advice does not apply */}
+      {!isReplaced && costSheet.sourceCostingDrift?.hasDrift && (
         <div className="mb-6 p-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />

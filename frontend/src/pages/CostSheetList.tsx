@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Package,
   Calendar,
+  History,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -399,6 +400,12 @@ const CostSheetList = () => {
                             Locked
                           </Badge>
                         )}
+                        {sheet.supersededById && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            <History className="w-3 h-3 mr-1" />
+                            Replaced — kept as history
+                          </Badge>
+                        )}
                         {sheet.costVariancePercent !== undefined && sheet.costVariancePercent !== null && (
                           <Badge
                             variant="outline"
@@ -516,49 +523,63 @@ const CostSheetList = () => {
                         View
                       </Button>
 
-                      {/* Pending/Rejected - Can Edit */}
-                      {(sheet.approvalStatus === 'PENDING' || sheet.approvalStatus === 'REJECTED') && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/cost-sheets/${sheet.id}/edit`)}
-                            className="flex items-center gap-2"
-                          >
-                            <Edit className="h-4 w-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-success-muted hover:bg-success-muted text-success flex items-center gap-2"
-                            onClick={() => handleApproveClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Approve
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-primary hover:bg-primary/10 flex items-center gap-2"
-                            onClick={() => handleRejectClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
-                          >
-                            <XCircle className="h-4 w-4" />
-                            Reject
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive hover:bg-destructive/10 flex items-center gap-2"
-                            onClick={() => handleDeleteClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Delete
-                          </Button>
-                        </>
+                      {/* A replaced version is history: the server refuses every change to it */}
+                      {sheet.supersededById && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate(`/cost-sheets/${sheet.supersededById}`)}
+                          className="flex items-center gap-2"
+                        >
+                          <History className="h-4 w-4" />
+                          Open newer version
+                        </Button>
                       )}
 
-                      {(sheet.isApproved || sheet.approvalStatus === 'APPROVED') && (
+                      {/* Pending/Rejected - Can Edit */}
+                      {!sheet.supersededById &&
+                        (sheet.approvalStatus === 'PENDING' || sheet.approvalStatus === 'REJECTED') && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/cost-sheets/${sheet.id}/edit`)}
+                              className="flex items-center gap-2"
+                            >
+                              <Edit className="h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-success-muted hover:bg-success-muted text-success flex items-center gap-2"
+                              onClick={() => handleApproveClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              Approve
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-primary hover:bg-primary/10 flex items-center gap-2"
+                              onClick={() => handleRejectClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                            >
+                              <XCircle className="h-4 w-4" />
+                              Reject
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10 flex items-center gap-2"
+                              onClick={() => handleDeleteClick(sheet.id, sheet.style?.styleCode || 'this cost sheet')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Delete
+                            </Button>
+                          </>
+                        )}
+
+                      {!sheet.supersededById && (sheet.isApproved || sheet.approvalStatus === 'APPROVED') && (
                         <>
                           <Button
                             variant="outline"

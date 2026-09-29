@@ -1352,12 +1352,13 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/pages/SmockingDashboard.tsx": "b3bfc5ef5ad2",
       "frontend/src/pages/SmockingSendOut.tsx": "e04dccaf09d8",
-      "frontend/src/pages/SmockingReceive.tsx": "6c22303c002a",
+      "frontend/src/pages/SmockingReceive.tsx": "d2f0b8f421f9",
+      "frontend/src/pages/FabricAvailableStock.tsx": "0074ae8d553c",
       "frontend/src/components/job-work/ThanPicker.tsx": "20dda4f2ee97",
-      "backend/src/services/external-process.service.ts": "086ffa00389f"
+      "backend/src/services/external-process.service.ts": "2c54a6d8aa5c"
     },
-    "contentHash": "528db4c2a69c",
-    "generatedAt": "2026-09-28T16:02:11.772Z"
+    "contentHash": "16a8664218c6",
+    "generatedAt": "2026-09-29T03:07:29.006Z"
   },
   "stitching-entry": {
     "sources": {
@@ -1872,8 +1873,8 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/FabricAvailableStock.tsx": "d42f71441d0e",
-      "frontend/src/components/fabric/FabricLotPiecesDialog.tsx": "814b8c9c4bbf",
+      "frontend/src/pages/FabricAvailableStock.tsx": "0074ae8d553c",
+      "frontend/src/components/fabric/FabricLotPiecesDialog.tsx": "dce37762c327",
       "frontend/src/components/job-work/RecordLotPiecesDialog.tsx": "5595fc2e1e7c",
       "frontend/src/components/job-work/ReceiptDetailRows.tsx": "bbef124287de",
       "frontend/src/components/job-work/lot-rows.ts": "1abce27f96fb",
@@ -1881,12 +1882,12 @@
       "frontend/src/services/fabricStockService.ts": "7145dc9f8d59",
       "backend/src/schemas/fabricStock.schema.ts": "b24f3a4e867a",
       "backend/src/routes/fabric-stock.routes.ts": "81757f8fa3e9",
-      "backend/src/controllers/fabric-stock.controller.ts": "7f9aa2c531c5",
-      "backend/src/services/fabric-lot-pieces.service.ts": "b950476767da",
+      "backend/src/controllers/fabric-stock.controller.ts": "50754e03b713",
+      "backend/src/services/fabric-lot-pieces.service.ts": "3ef4d20f0ef5",
       "backend/src/services/helpers/lot-pieces.helper.ts": "a4ae3db2a405"
     },
-    "contentHash": "d5334bd7c318",
-    "generatedAt": "2026-09-28T19:05:38.644Z"
+    "contentHash": "970280960e7b",
+    "generatedAt": "2026-09-29T03:07:28.871Z"
   },
   "allocate-po-to-orders": {
     "sources": {

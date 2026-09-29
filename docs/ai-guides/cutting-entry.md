@@ -47,6 +47,7 @@ sources:
   - frontend/src/pages/WorkOrderDetail.tsx
   - frontend/src/components/FabricIssuanceSection.tsx
   - frontend/src/components/job-work/ThanPicker.tsx
+  - frontend/src/components/ui/combobox.tsx
   - backend/src/schemas/production.schema.ts
   - backend/src/routes/cutting.routes.ts
   - backend/src/services/productionBlockingValidation.service.ts
@@ -64,7 +65,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 ## Create the batch
 1. Open **Manufacturing → Cutting** in the sidebar.
 2. Click **New Batch**. The **Cutting Chart** page opens.
-3. Pick the **Production Run**. If the style has more than one colour, also pick **Color** or leave **All Colors**.
+3. Click **Production Run** ("Select a production run") and type part of the run number, style code, buyer ref or style name, then pick it. Only runs still waiting to be cut are listed (each shows its pieces pending); if none are, it says "No production runs waiting to be cut." If the style has more than one colour, also pick **Color** from its dropdown or leave **All Colors**.
 4. Check **Cutting Date** in the Order Details card.
 5. In **Size Breakup**, set **Extra %**. The **Cut Qty** row fills automatically. You can type over any size's Cut Qty.
 6. If stock is short, click **Fill to Max** to spread the cuttable quantity across sizes by ratio.

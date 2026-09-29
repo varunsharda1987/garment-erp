@@ -115,6 +115,7 @@ sources:
   - frontend/src/components/cad/CadInUseNotice.tsx
   - frontend/src/components/cad/CadHistoryDialog.tsx
   - frontend/src/components/cad/CorrectCadDialog.tsx
+  - frontend/src/components/ui/combobox.tsx
   - frontend/src/components/cad/MarkerImageDialog.tsx
   - frontend/src/components/cad/MiniMarkerDialog.tsx
   - frontend/src/components/cad/MiniMarkerBadge.tsx
@@ -167,12 +168,12 @@ A style must exist with:
 
 ### 4. Add a CAD row
 
-1. On the CAD Spreadsheet tab, click **+ Add Row** button.
-2. In the dialog:
-   - Select **Purpose** *: Costing, Raw Mat (RAW_MATERIAL_CALCULATION), or Production
-   - Select **Style Fabric(s)**: Choose which fabric(s) this CAD row covers
-   - For **Production** purpose: You must also pick the received lot in **Select stock...**
-3. Click **Add** to create the row.
+1. On the CAD Spreadsheet tab, click the **Add Row** button.
+2. In the **Add CAD Rows** dialog:
+   - Pick the **CAD Purpose**: COSTING, RAW MAT, or PRODUCTION
+   - Tick the component-fabric pairs this CAD covers
+   - For **PRODUCTION**: you must also pick the received lot in **Select stock...**
+3. Click **Add N … Rows** (e.g. **Add 1 COSTING Row**) to create the rows.
 
 > **Received fabric?** For a Production CAD, use **Create CAD** on the lot in the **Fabric Stock Available** box instead (section 10) — it fills the marker in for you.
 
@@ -188,7 +189,7 @@ Open the row menu (three dots) > **Edit** to change a row, then click the save i
 
 **Editable (blue):**
 - **Part** * - the pattern part (e.g. All Parts, Body, Sleeve)
-- **Greige / Fabric** * - the exact greige (or ready fabric)
+- **Greige / Fabric** * - the exact greige (or ready fabric). Click **Select Greige** and type part of the greige name (or its generic greige or supplier) to search; only greiges of the row's generic greige are listed
 - **Width** * - cuttable width in inches, as on the marker
 - **Print** - 1-Way or 2-Way
 - **Sizes** * - click the calculator button to set the pieces per size

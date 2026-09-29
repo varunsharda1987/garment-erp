@@ -36,6 +36,8 @@ sources:
   - frontend/src/pages/StyleFormRedesigned.tsx
   - frontend/src/pages/StyleList.tsx
   - frontend/src/components/filters/FilterBar.tsx
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/SearchInput.tsx
   - backend/src/schemas/style.schema.ts
   - backend/src/services/style.service.ts
   - backend/src/services/helpers/material-unit.helper.ts
@@ -56,32 +58,26 @@ route: /styles
 1. The style opens in edit mode at `/styles/{id}/edit`
 2. The **Style Code** cannot be changed after creation
 3. You can modify:
+   - **Customer/Buyer** - click the box and type part of the customer's name to pick another; changing customer resets brand and brand category
+   - **Brand** - select from the customer's configured brands
+   - **Brand Category** - select from the brand's categories
+   - **Product Category** - 3-level hierarchy (a **Type** box appears for the third level)
+   - **Buyer Style Code** - the customer's own reference
    - **Style Name** - descriptive name for the style
-   - **Buyer's Style Ref** - customer's own reference number
-   - **Customer** - changing customer resets brand and category
-   - **Brand** - select from customer's configured brands
-   - **Category** - select from brand's categories
-   - **Season** - collection/season assignment
-   - **Color** - primary color
-   - **Product Category** - 3-level hierarchy (L1 > L2 > L3)
-4. Expand **Additional Details** for:
-   - Cost Price (MRP)
-   - Selling Price
-   - Expected Order Qty
-   - HSN Code
-   - Remarks
+   - **Primary Color** and **Season**
+4. Expand **Additional Details (Optional)** for **HSN Code (6-8 digits)**, **Tax Rate (2 digits %)**, **Accounting Unit**, **Description**, **Bullet Points** and **Remarks**
 5. Adjust **Number of Components** if the garment structure changed
-6. Select or change components from the dropdown (filtered by product category)
+6. Under **Component Selection**, click a component box (**Search component...**) and type to find the component (the list is filtered by product category)
 
 ### Editing Fabrics (Tab 2)
 
 1. Each component section shows its assigned fabrics
-2. Click **+ Add Fabric** to add a new fabric to a component
+2. Click **Add Fabric** (or **Add First Fabric**) to add a new fabric to a component
 3. For each fabric, choose:
-   - **Sourcing Mode**: GREIGE (generic greige name) or READY_FABRIC (select from fabric master)
-   - **Fabric Finish Type**: DYED, PRINTED, YARN_DYED, or RAW
-   - **Color** (for DYED) or **Print Design** (for PRINTED/YARN_DYED)
-4. Toggle **Embroidery** on to attach an embroidery design
+   - **Source:** **Greige / Process** (fill **Generic Greige Name**) or **Ready Fabric** (type part of the fabric's code or name in **Search fabric master...** and pick it; the **×** clears the box)
+   - **Fabric Finish Type**: **Solid/Dyed**, **Printed**, **Yarn Dyed** or **Raw/Unfinished**
+   - **Color** (for Solid/Dyed) or **Design Name** (for Printed / Yarn Dyed)
+4. Tick **Has Embroidery** and click **Select Design** to attach an embroidery design
 5. Click the trash icon to remove a fabric
 
 ### Editing Trims & Materials (Tab 3)
@@ -126,7 +122,7 @@ route: /styles
 - **Published styles with orders** cannot be archived - check for active dependencies first
 - **CAD approval is separate** - CAD Planning approval (geometry) is different from Fabric Costing approval (price)
 - **Changing a fabric's greige or finish drops its received fabric** - Once dyed or printed fabric has been received, the fabric row is linked to it, and saving the style keeps that link. Changing that row's **Generic Greige Name** or **Fabric Finish Type**, or switching **Ready Fabric** back to **Greige / Process**, removes the link — CAD Planning then cannot match the received lots to the style until it is linked again
-- **Buyer Style Ref for in-house brands** - for Kasya/Nihsamah, the buyer code IS the style code
+- **Buyer Style Code for in-house brands** - for Kasya/Nihsamah, the buyer code IS the style code (fixed at the first save; editing it later changes only the buyer reference)
 
 ## After saving
 

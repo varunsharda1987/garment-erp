@@ -34,6 +34,7 @@ sources:
   - frontend/src/pages/ProcessingList.tsx
   - frontend/src/pages/processing/UnifiedLabDipCreate.tsx
   - frontend/src/components/processing/LabDipBatchCreateForm.tsx
+  - frontend/src/components/ProcessorCombobox.tsx
 route: /manufacturing/dyeing/lab-dips/new
 ---
 
@@ -63,7 +64,7 @@ route: /manufacturing/dyeing/lab-dips/new
    - **Color/Design** - Target color for dyed fabrics, or print design for printed fabrics
    - **Print Method** - For PRINTED fabrics only: Select Screen Machine, Screen Hand, Rotary, or Block
    - **Chemistry** - For PRINTED fabrics only: Select Pigment, Procian, or Discharge
-   - **Processor** * - Select the dyeing/printing mill from the dropdown
+   - **Processor** * - Click **Select processor...** and type part of the dyeing/printing mill's code or name, then pick it. Only dyeing & printing suppliers are listed
    - **Expected Date** - Optional target completion date
 
 5. Use the **Select All** checkbox at the top-right of the Fabrics card to toggle all rows.
@@ -82,7 +83,7 @@ route: /manufacturing/dyeing/lab-dips/new
 ## After saving
 
 - Each included fabric creates a separate lab dip record with status PENDING
-- Lab dips appear in the **Lab Dips** tab of the Dyeing & Printing page. To find one, type in the search box (it matches lab dip number, style, buyer ref, fabric, colour, design or processor), or narrow the list with **All types** (Dyeing / Printing), **All processors** and **All statuses**. **Clear filters** resets them
+- Lab dips appear in the **Lab Dips** tab of the Dyeing & Printing page. To find one, type in the search box (it matches lab dip number, style, buyer ref, fabric, colour, design or processor), or narrow the list with **All types** (Dyeing / Printing), **All processors** and **All statuses**. **Clear N filters** (e.g. "Clear 2 filters") resets them
 - Send physical fabric swatches to the processor for shade matching
 - When samples return, update the lab dip status to SUBMITTED and record the color match rating
 - Approved lab dips can proceed to bulk dyeing via Job Work Orders

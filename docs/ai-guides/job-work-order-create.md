@@ -101,6 +101,9 @@ sources:
   - frontend/src/pages/ProcessingList.tsx
   - frontend/src/pages/DispatchToProcessor.tsx
   - frontend/src/components/GreigeCombobox.tsx
+  - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/LaceCombobox.tsx
+  - frontend/src/components/SupplierCombobox.tsx
   - frontend/src/services/processorRateCardV2.service.ts
   - backend/src/schemas/jobWorkOrder.schema.ts
   - backend/src/controllers/job-work-order.controller.ts
@@ -121,8 +124,8 @@ The processor must exist as a supplier. To actually send greige, the greige must
 2. Click **New Job Work Order**. The **New Job Work Order** dialog opens.
 3. Pick **Process Type *** — Dyeing, Printing, Embroidery, Washing, Finishing, Cutting, Stitching / CMT, Handwork, Smocking, Kaaj-Button, Transportation.
 4. On **Dyeing**, pick **Material *** — **Fabric (cloth)** or **Lace**. Lace is only offered on Dyeing.
-5. **Style (optional)** — type the style code and click it in the list.
-6. **Processor *** — select the supplier doing the work.
+5. **Style (optional)** — click the box (**Search style code...**), type part of the style code and pick it from the list. Click **Clear** beside the label to go back to no style (a stock job).
+6. **Processor *** — click **Select processor...** and type part of the supplier's code or name, then pick the one doing the work. Only suppliers of that process's category are listed.
 7. **Quantity *** — in the unit shown (MTR, PCS or TRIP). Must be more than zero. On a lace job this is the **greige lace being sent**, not what comes back.
 8. **Rate *** — must be more than zero. Not shown for Kaaj-Button. Dyers are paid per metre **returned**. On a Dyeing or Printing stock job it fills in from the processor's rate card once you have picked the greige (see below) — overwrite it if this processor agreed something else.
 9. **Expected Return** — the date you need it back.
@@ -130,7 +133,7 @@ The processor must exist as a supplier. To actually send greige, the greige must
 11. Click **Create Draft JWO**.
 
 ## Extra fields by process type
-- **Dyeing with Material = Lace**: pick the **Greige Lace *** you are sending and the **Dyed Variant Expected Back ***. If the shade does not exist yet, type it in the box under the dropdown and click **Create** — the variant is created (or reused if someone already made it) and selected for you. **Expected Shrinkage (%)** is filled from the greige lace master; leave it as is unless this dyer contracted something else. The line under it shows the dyed lace expected back, which is also what the dyer bills for.
+- **Dyeing with Material = Lace**: click **Greige Lace *** (**Select greige lace**), type part of the lace code or name and pick the lace you are sending; then choose the **Dyed Variant Expected Back *** from its dropdown (**Select the shade coming back**). If the shade does not exist yet, type it in the **Or type a new shade** box under it and click **Create** — the variant is created (or reused if someone already made it) and selected for you. **Expected Shrinkage (%)** is filled from the greige lace master; leave it as is unless this dyer contracted something else. The line under it shows the dyed lace expected back, which is also what the dyer bills for.
 - **Dyeing / Printing / Finishing with no style** (a cloth stock job): pick **Greige (cloth going out) *** first, then fill **Colour**, **Finished Width (inches)** and **Expected Shrinkage (%)**. Colour is required for Dyeing and Printing. On **Printing** also pick **Print type *** — Pigment, Procian, Discharge or Pigment + Discharge — because printers quote each separately.
 
 ### The rate and the shrinkage fill themselves in

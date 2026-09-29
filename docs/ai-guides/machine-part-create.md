@@ -74,7 +74,7 @@ route: /materials/machine-part/new
 ### Adding Suppliers
 1. Click **Add Supplier** to link a supplier
 2. For each supplier row:
-   - Select the **Supplier** from the dropdown (filtered to machine parts suppliers)
+   - Click **Supplier** and type part of the supplier's code or name, then pick it (only machine parts suppliers are listed)
    - Enter **Price Per Unit** from this supplier
    - Check **Preferred** if this is the primary supplier (first one is preferred by default)
    - Check **Active** to mark supplier as currently usable
@@ -93,6 +93,6 @@ route: /materials/machine-part/new
 ## Traps
 - **Part Name is required** - the form will not save without it
 - **Supplier must be selected** - if you add a supplier row, you must choose a supplier or remove the row
-- **Machine Parts Supplier category** - the supplier dropdown only shows suppliers with MACHINE_PARTS_SUPPLIER category; add this category to the supplier first if they don't appear
+- **Machine Parts Supplier category** - the **Supplier** picker only lists suppliers with MACHINE_PARTS_SUPPLIER category; add this category to the supplier first if they don't appear
 - **First supplier is preferred by default** - uncheck if you want to set a different supplier as preferred later
 - **Import/Export available** - use the Import and Export buttons on the list page for bulk operations

@@ -26,6 +26,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/EmbroideryPieceSendOut.tsx
   - frontend/src/pages/EmbroideryPieceDashboard.tsx
+  - frontend/src/components/ui/combobox.tsx
 route: /embroidery-stock/piece-send-out
 ---
 
@@ -45,8 +46,8 @@ route: /embroidery-stock/piece-send-out
 2. Click **New Piece Send-Out** button (top right)
 
 3. **Step 1 - Select Work Order:**
-   - Click the **Select work order...** dropdown
-   - Choose the work order (shows: WO number, style code, style name, quantity)
+   - Click **Select work order...** and type part of the run number, style code, buyer ref or style name
+   - Pick the work order (shows: WO number, style code, style name, quantity)
 
 4. **Step 2 - Select Job Work Order & Design:**
    - **Job Work Order (Required):** Select from dropdown (shows: JWO number, vendor name, status)

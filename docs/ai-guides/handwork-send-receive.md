@@ -30,6 +30,7 @@ sources:
   - frontend/src/pages/HandworkSendOut.tsx
   - frontend/src/pages/HandworkReceive.tsx
   - frontend/src/components/SupplierCombobox.tsx
+  - frontend/src/components/ui/combobox.tsx
 route: /manufacturing/handwork
 ---
 
@@ -48,7 +49,7 @@ Handwork is an external process done after stitching (post-stitching, pre-finish
 
 1. Go to **Manufacturing > Handwork**
 2. Click **New Send-Out** button (top right)
-3. **Step 1 - Select Work Order**: Choose a work order (PENDING or IN_PRODUCTION status)
+3. **Step 1 - Select Work Order**: Click **Select work order...** and type part of the run number, style code or buyer ref, then pick the work order (only PENDING or IN_PRODUCTION runs are listed)
 4. **Step 2 - Select Job Work Order**: Choose a HANDWORK-type job work order for that work order
    - If no job work order exists, create one first from the work order's service requirements
 5. **Step 3 - Select Stitching Issue**: Choose which stitching issue to send pieces from

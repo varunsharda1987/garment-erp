@@ -61,6 +61,7 @@ sources:
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/components/cad/CADSpreadsheetTable.tsx
   - frontend/src/components/cad/CorrectCadDialog.tsx
+  - frontend/src/components/ui/combobox.tsx
   - frontend/src/components/cad/CadInUseNotice.tsx
   - frontend/src/components/cad/CadHistoryDialog.tsx
   - frontend/src/pages/CostSheetList.tsx
@@ -86,7 +87,7 @@ Reject no longer works once an approved cost sheet or an order's BOM uses the CA
 4. Change only what is wrong:
    - **Layer length (m)**
    - **Size breakup** — click the button, set the pieces per size in the popup and click **Save**
-   - **Greige** — only greiges of the row's own generic greige are listed
+   - **Greige** — click it and type part of the greige name (or its generic greige or supplier) to search; only greiges of the row's own generic greige are listed
    - **Cuttable width (in)**
 5. **Corrected marker image** — on a **Raw Mat** row, needed when the layer length, sizes or width change (on a Costing row it is optional, and checked when given). Click **Upload** and choose the new Nest EXPERT screenshot (or PDF), or pick one already uploaded for the style in **…or use an uploaded image** and click **Use** (for example the image the row's **CAD Image** did not take because it differs). It is read — "Reading the marker — about 10 seconds…" — and the values it read show under the heading. Click **Use these values** to put its length, width and sizes into the fields above. A greige-only correction needs no image.
 6. Type the **Reason** * — at least 3 characters. It is kept in the CAD history.

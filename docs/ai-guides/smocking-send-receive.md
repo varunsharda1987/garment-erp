@@ -37,6 +37,9 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/SmockingDashboard.tsx
   - frontend/src/pages/SmockingSendOut.tsx
+  - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/SupplierCombobox.tsx
+  - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/pages/SmockingReceive.tsx
   - frontend/src/pages/FabricAvailableStock.tsx
   - frontend/src/components/job-work/ThanPicker.tsx
@@ -55,14 +58,14 @@ route: /manufacturing/smocking
    - **Overdue** - past expected return date
 3. A **By Vendor** table shows pending/received/overdue counts per vendor
 4. The main table lists all smocking send-outs with status badges
-5. Use the search box to find by batch number, vendor, or work order
-6. Use the status dropdown to filter: Sent, Partially Received, Received, Cancelled
+5. Use the search box (**Search batch number, vendor, work order…**) to find a send-out
+6. Narrow the list with **All vendors** (click it and type part of the vendor's code or name) and **All statuses** (Sent, Partial, Received, Cancelled). **Clear N filters** resets them
 
 ## Send out for smocking
 
 1. Go to **Manufacturing** > **Smocking**
 2. Click **New Send-Out** button (top right)
-3. **Step 1 - Select Work Order**: Choose a work order (shows PENDING or IN_PRODUCTION orders)
+3. **Step 1 - Select Work Order**: click **Select work order...** and type part of the run number, style code or buyer's style ref (**Search by run number, style, buyer ref...**), then pick it. Only runs in PENDING or IN_PRODUCTION status are listed
 4. **Step 2 - Select Job Work Order**: Select the SMOCKING job work order linked to this work order
    - If none exist, first generate one from the work order's service requirements
 5. **Step 3 - Select Source**: Choose where the material comes from:

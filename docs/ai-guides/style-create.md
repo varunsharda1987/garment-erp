@@ -67,6 +67,8 @@ sources:
   - frontend/src/App.tsx
   - frontend/src/pages/StyleList.tsx
   - frontend/src/pages/StyleFormRedesigned.tsx
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/SearchInput.tsx
   - frontend/src/components/GenericGreigeSelector.tsx
   - frontend/src/constants/fabric-finish-types.ts
   - backend/src/schemas/style.schema.ts
@@ -86,7 +88,7 @@ The customer must already exist in the Customers master, and the customer needs 
 1. Open **Styles** in the sidebar. This is a top-level item, not inside a group.
 2. On the **Style Master** page, click **+ Create New Style**.
 3. The page opens as **Create New Style** with a **DRAFT** badge and four tabs: **1. Basic Info**, **2. Fabrics**, **3. Trims & Materials**, **4. Accessories**.
-4. In **Basic Information**, pick **Customer/Buyer** first. It is required and it unlocks the **Brand** list.
+4. In **Basic Information**, fill **Customer/Buyer** first: click the box (**Select customer...**), type part of the customer's name and pick it. It is required and it unlocks the **Brand** list.
 5. Pick **Brand**, then **Brand Category**. **Product Category** usually fills itself to match the brand category. If that category has sub-types, the dropdown asks you to pick one, and a **Type** box appears when there is a third level. Picking a product category can also auto-fill the component count and the components.
 6. Fill **Buyer Style Code**. It shows on documents, and it must be unique — a code already used on another active style is rejected. For an in-house brand (customer name containing "Kasya" or "Nihsamah") this box is also the Style Code: type the final code here, **2 to 50 characters**, before you save or click any **Next: ...** button.
 7. **Style Code** sits in the row below and stays read-only. For a normal buyer it is labelled **Style Code (Auto-generated)** and fills itself once Brand Category and Product Category are both set (hint: **Generated from brand prefix + category prefix**). For an in-house brand it is labelled **Style Code (From Buyer Reference)** and mirrors what you type in Buyer Style Code; the hint under Buyer Style Code reads **Will be used as Style Code**. That mirrored code is what gets saved as the Style Code.
@@ -96,7 +98,7 @@ The customer must already exist in the Customers master, and the customer needs 
 11. Optional: expand **Additional Details (Optional)** for **HSN Code (6-8 digits)**, **Accounting Unit**, **Description**, **Bullet Points** and **Remarks**.
 12. Scroll to **Size Variants & SKUs**. If the customer has size presets, **Size Category Preset (Optional)** appears above it and the default preset is applied automatically. Pick another preset, or **None (Manual Sizes)** for the standard XS–XXXL list. Sizes that came from the preset show a small **\*** and the line **size(s) from preset - you can add more sizes manually**. Untick sizes you do not need. Click **Auto-Generate SKUs** to fill SKU codes (empty SKUs are also filled when you save).
 13. Click **Next: Fabrics & Trims**. Under **Fabrics by Component**, each component shows as a collapsible bar. Click **Add Fabric** (or **Add First Fabric**) on the component.
-14. For each fabric, pick **Source:** — **Greige / Process** (then fill **Generic Greige Name**) or **Ready Fabric** (then search the fabric master under **Ready Fabric**; **Create New Fabric** opens the fabric form in a new tab). Picking a ready fabric copies its finish type, design and colour into the row.
+14. For each fabric, pick **Source:** — **Greige / Process** (then fill **Generic Greige Name**) or **Ready Fabric** (then type part of the fabric's code or name in **Search fabric master...** under **Ready Fabric** and pick it from the list — the **×** clears the box; **Create New Fabric** opens the fabric form in a new tab). Picking a ready fabric copies its finish type, design and colour into the row.
 15. Choose **Fabric Finish Type**: **Solid/Dyed**, **Printed**, **Yarn Dyed** or **Raw/Unfinished**. **Printed** and **Yarn Dyed** show **Design Name** (required) and **Color (Optional)**; **Solid/Dyed** shows **Color** (required).
 16. Tick **Has Embroidery** and click **Select Design** if the fabric is embroidered.
 17. Click **Next: Trims & Materials**. Under **Trims & Materials**, select the trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically when the style is saved — you will see it appear in the cost sheet. Each trim is counted in its master's own unit — metres for lace, elastic, interlining (fusing) and drawstring; pieces for buttons and zippers — and the style's BOM takes that unit automatically.

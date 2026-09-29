@@ -56,6 +56,7 @@ sources:
   - frontend/src/types/packaging.types.ts
   - frontend/src/types/supplier.types.ts
   - frontend/src/components/SupplierCombobox.tsx
+  - frontend/src/components/ui/combobox.tsx
   - frontend/src/services/packaging.service.ts
   - frontend/src/lib/api-error-handler.ts
   - backend/src/controllers/masterDataDashboard.controller.ts
@@ -77,7 +78,7 @@ Packaging is an **Accessory**: labels and packaging together are Accessories eve
 3. Click **+ Add New Packaging**. The form opens with the heading **Create New Packaging**; the fields sit under **Packaging Information**.
 4. **Packaging Name** is optional. The box says "Leave empty to auto-generate from attributes", and the hint under it reads: If left empty, the name is built from the attributes as [buyer code] material type size (e.g., "Corrugated Carton Box 12x10"). Leave it blank and the system joins **Material**, **Packaging Type** and **Size** in that order — for example Material "Corrugated", Packaging Type "Carton Box" and Size "12x10" become "Corrugated Carton Box 12x10". (There is no buyer-code box on this form, so the "[buyer code]" part is never added.) If all three are blank, the name becomes "Packaging" plus the new code, for example "Packaging PKG-0001". Type a name only when you want something different, such as "Poly Bag 12x18 inch Transparent".
 5. There is no code box on the create form. The system assigns the code on save (PKG-0001, PKG-0002 …) and shows it as **Packaging Code (Auto-generated)** when you re-open the item.
-6. **Customer (Optional)**: choose a customer only if this packing is made for that buyer. Select **No Customer (Generic Packaging)** to leave it unlinked. The **Brand (Optional)** dropdown appears only after a customer is chosen — pick a brand or **No Brand (Customer-Generic)**. If that customer has no brands, the dropdown is disabled and shows "No brands available"; add brands in the Customer form first.
+6. **Customer (Optional)**: choose a customer only if this packing is made for that buyer. Click the box (it reads "Select customer...") and type part of the customer's code, name or brand to find them. Pick **No Customer (Generic Packaging)** to leave it unlinked. The **Brand (Optional)** dropdown appears only after a customer is chosen — pick a brand or **No Brand (Customer-Generic)**. If that customer has no brands, the dropdown is disabled and shows "No brands available"; add brands in the Customer form first.
 7. **Packaging Type**: pick from the list — Poly Bag, Zip Lock Bag, Garment Cover, Dust Cover, Carton Box, Gift Box, Shoe Box, Inner Box, Plastic Hanger, Wooden Hanger, Velvet Hanger, Clip Hanger, Wire Hanger, Packing Tape, Barcode Sticker, Size Sticker, Tissue Paper, Silica Gel, Insert Card. Choose **Other** and a box "Enter custom packaging type..." appears for a type not on the list; whatever you type there is what goes into the auto-built name.
 8. **Size** is free text for the dimensions, for example "12x18 inches". It is the last part of the auto-built name.
 9. **Material** is what it is made of, for example LDPE or corrugated cardboard. It is the first part of the auto-built name.

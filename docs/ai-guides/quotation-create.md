@@ -30,6 +30,8 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/QuotationForm.tsx
   - frontend/src/pages/QuotationList.tsx
+  - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/CustomerCombobox.tsx
 route: /quotations/new
 ---
 
@@ -43,13 +45,13 @@ route: /quotations/new
 1. Open **Orders & Sales → Quotations** in the sidebar.
 2. Click **New Quotation** button (top right).
 3. Fill in the **Quotation Details** section:
-   - **Customer** * — Select the customer from the dropdown (required)
+   - **Customer** * — Click **Select customer...** and type part of the customer's code or name, then pick it (required)
    - **Quotation Date** — Defaults to today; change if needed
    - **Valid Until** * — Set the expiry date for this quotation (required)
    - **Remarks** — Optional notes about the quotation
    - **Terms and Conditions** — Payment terms, delivery conditions, etc.
 4. Add items in the **Quotation Items** section:
-   - **Style** * — Select the style being quoted (required)
+   - **Style** * — Click **Select style...** and type part of the style code, then pick the style being quoted (required; only ACTIVE styles are listed)
    - **Quantity** * — Enter number of pieces (must be greater than 0)
    - **Unit Price** * — Enter the price per piece in Rupees (required)
    - **Delivery Days** — Expected delivery timeline (defaults to 30 days)

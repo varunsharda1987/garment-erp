@@ -34,6 +34,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/InvoiceForm.tsx
   - frontend/src/pages/InvoiceList.tsx
+  - frontend/src/components/OrderCombobox.tsx
   - frontend/src/components/filters/DateRangeFilter.tsx
   - backend/src/schemas/invoice.schema.ts
 route: /invoices/new
@@ -53,7 +54,7 @@ route: /invoices/new
 
 3. Fill in the **Invoice Details** section:
    - **Customer** * - Select the customer from the dropdown (type to search)
-   - **Order** * - Once customer is selected, choose the order to invoice (shows order number and total amount)
+   - **Order** * - Once customer is selected, click **Select order** and type part of the order number (or style) to find the order to invoice. Only that customer's orders are listed; if there are none the list says "No orders found for this customer."
    - **Invoice Date** - Defaults to today; change if needed
    - **Due Date** * - Select when payment is expected
    - **Remarks** - Optional notes (max 500 characters)

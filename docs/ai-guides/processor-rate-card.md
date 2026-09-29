@@ -37,6 +37,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ProcessorRateCardPage.tsx
+  - frontend/src/components/ui/combobox.tsx
   - frontend/src/components/processor-rate-card/ProcessorRateCardSummary.tsx
   - frontend/src/types/processorRateCardV2.types.ts
 route: /processor-rate-cards
@@ -77,7 +78,7 @@ For fabric, choose:
 
 ### Step 3: Select processor
 
-Choose a processor (mill) from the dropdown. The summary dashboard shows all processors with their configuration status:
+Click the **Select Processor** box and type part of the processor's (mill's) name or code, then pick it. The summary dashboard shows all processors with their configuration status:
 - **Complete** - fully configured with rates
 - **Partial** - some rates configured
 - **Not Configured** - no rates set
@@ -115,7 +116,7 @@ Click "Save Changes" to persist all entries.
 
 1. Configure rates for one processor
 2. Click "Copy to Another Processor"
-3. Select target processor
+3. In **Target Processor**, click the box and type part of the processor's name or code to pick it
 4. Optionally check "Copy rates" (slabs always copy)
 5. Click "Copy Structure"
 

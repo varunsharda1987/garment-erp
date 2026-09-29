@@ -35,6 +35,7 @@ sources:
   - frontend/src/pages/printing/PrintLabDipCreate.tsx
   - frontend/src/pages/PrintingList.tsx
   - frontend/src/components/processing/LabDipBatchCreateForm.tsx
+  - frontend/src/components/ProcessorCombobox.tsx
 route: /manufacturing/printing/lab-dips/new
 ---
 
@@ -51,7 +52,7 @@ route: /manufacturing/printing/lab-dips/new
 2. Click the **Lab Dips** tab if not already selected.
 3. Click **New Lab Dip** button in the header.
 4. In the **Style & Submission** card:
-   - Click the **Style** dropdown and search for the style by code or name.
+   - Click the **Style** box (it reads "Search styles...") and type part of the style code or name.
    - Select the style from the results.
    - Set the **Submission Date** (defaults to today).
 5. The system loads all fabrics from the style. A table appears showing:
@@ -63,7 +64,7 @@ route: /manufacturing/printing/lab-dips/new
 6. For each printed fabric row:
    - Select a **Print Method**: Screen Machine, Screen Hand, Rotary, or Block.
    - Select a **Chemistry**: Pigment, Procian, or Discharge.
-   - Select a **Processor** (the printing mill).
+   - Pick a **Processor** (the printing mill): click the box (it reads "Select processor...") and type part of the processor's code or name. Only suppliers in the Dyeing & Printing category are listed.
    - Optionally set an **Expected Date** for the lab dip return.
 7. Use the **Select All** checkbox to include or exclude all rows at once.
 8. Review the count at the bottom (e.g., "3 fabric(s) selected (0 dyeing, 3 printing)").

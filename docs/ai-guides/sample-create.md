@@ -56,6 +56,8 @@ sources:
   - frontend/src/pages/SampleForm.tsx
   - frontend/src/pages/SampleList.tsx
   - frontend/src/types/sample.types.ts
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/ui/combobox.tsx
 route: /samples/new
 ---
 
@@ -71,7 +73,7 @@ route: /samples/new
 1. Open **Manufacturing → Sample Tracking** in the sidebar.
 2. Click **New Sample** (top-right button).
 3. Fill in the **Basic Information** card:
-   - **Customer** * — Select the customer requesting the sample.
+   - **Customer** * — Click **Select customer** and type part of the customer's code or name, then pick the customer requesting the sample.
    - **Sample Type** * — Choose from:
      - Original Sample
      - Look Sample
@@ -81,7 +83,7 @@ route: /samples/new
      - Shipment Sample
      - Photoshoot Sample
      - Production Sample
-   - **Style** — Optional. Select a style from the customer's styles if applicable.
+   - **Style (Optional)** — Opens once a customer is chosen. Click **Select style** and type part of the style code, the buyer's code or the style name to pick one of the chosen customer's styles, or pick **No style**. If nothing matches it says "No styles found for this customer."
    - **Required By** * — Date when the sample is needed (defaults to 7 days from today).
    - **Notes** — Any special instructions or remarks.
 

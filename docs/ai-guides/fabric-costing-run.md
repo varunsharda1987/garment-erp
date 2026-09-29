@@ -49,6 +49,9 @@ sources:
   - frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx
   - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/ProcessorRateCardPage.tsx
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/SearchInput.tsx
 route: /fabric-costing
 ---
 
@@ -71,14 +74,14 @@ route: /fabric-costing
 Two ways to find a style:
 
 **Quick Search (recommended):**
-- Type in the "Quick Search" box
-- Search by style code, buyer reference, or style name
+- Type in the "Quick Search" box (**Search by style code, buyer ref or name...**)
 - Results show costing status (Approved/Pending) and option count
 - Click a result to select
+- Click the ✕ in the box to clear the search and the selected style
 
-**Or Customer > Style dropdown:**
-- Select Customer first
-- Then select Style from the filtered dropdown
+**Or Customer > Style pickers:**
+- Click **Select customer...** and type part of the customer's name
+- Then click **Select style** and type part of the style code, buyer ref or name — only that customer's styles are listed
 
 ### 3. Choose the Mode
 
@@ -119,8 +122,8 @@ The table shows all fabrics from CAD Planning. For each row:
    - Edit if different
 
 3. **Select Processor:**
-   - Click the Processor dropdown
-   - Select a processor (dyer/printer)
+   - Click the Processor box (**Select**) and type part of the processor's name
+   - Pick the processor (dyer/printer)
    - Rate auto-looks up from Rate Cards based on:
      - Processor
      - Greige type

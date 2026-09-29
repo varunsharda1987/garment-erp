@@ -35,6 +35,8 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/StockInForm.tsx
+  - frontend/src/components/ui/combobox.tsx
+  - frontend/src/components/SupplierCombobox.tsx
   - frontend/src/pages/StockMovementList.tsx
   - backend/src/services/helpers/held-stock-doors.helper.ts
 route: /inventory/movements/stock-in
@@ -67,8 +69,8 @@ Choose one of two modes:
 
 ### Step 1: Select Supplier
 
-1. In **Supplier**, search by name or code using the dropdown.
-2. Optionally filter by **Category** (Greige Supplier, Fabric Supplier, Trim Supplier, etc.) to narrow the list.
+1. Click **Supplier** (**Search by name or code...**), type part of the supplier's name or code and pick it.
+2. Optionally set **Filter by Category** (**All Categories**, Greige Supplier, Fabric Supplier, Trim Supplier, etc.) to narrow the list.
 3. Once selected, the system shows the supplier's name and allowed material types.
 
 ### Step 2: Warehouse & Reference
@@ -83,7 +85,7 @@ Choose one of two modes:
 ### Step 3: Add Items
 
 1. If the supplier handles multiple material types, select the **Material Type** tile (Greige Fabric, Finished Fabric, Lace, Buttons, etc.).
-2. Search and select the **Material** from the dropdown.
+2. Click the material box — it is labelled with the type, for example **Greige Fabric** (**Search greige fabric...**) — type part of the material's code or name and pick it.
 3. Enter **Quantity** and select the **Unit** (Meter, Gross, Cone, Piece, etc.).
 4. Optionally fill in:
    - **Rate** - Cost per unit
@@ -107,7 +109,7 @@ Use this when goods of ours that a processor is holding come back to our store u
 
 ### Step 1: Select Processor
 
-1. Choose the **Processor** from the dropdown (only processors holding something of ours appear, with how much).
+1. Click **Select processor with pending stock**, type part of the processor's code or name (**Search by code or name...**) and pick it. Only processors holding something of ours appear, each with how much.
 
 ### Step 2: Select what came back
 

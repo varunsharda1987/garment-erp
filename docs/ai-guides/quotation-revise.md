@@ -27,6 +27,7 @@ sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/QuotationForm.tsx
   - frontend/src/pages/QuotationDetail.tsx
+  - frontend/src/components/StyleCombobox.tsx
 route: /quotations
 ---
 
@@ -55,7 +56,7 @@ route: /quotations
    - **Terms and Conditions** - payment terms, delivery conditions
 
 7. Modify quotation items:
-   - Change the **Style** selection from the dropdown
+   - To change the **Style**, click the style field and type part of the style code, then pick the new style
    - Update **Quantity** (must be greater than 0)
    - Adjust **Unit Price** 
    - Set **Delivery Days** for lead time

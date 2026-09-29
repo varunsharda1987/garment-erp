@@ -83,7 +83,7 @@ Requirements that are already on a PO, received or cancelled are hidden until yo
    - **All orders** — type the order number or the buyer's name; it lists only orders that have requirements.
    - **All styles** — type the style code, buyer style or name.
    - **All vendors** — the preferred vendor on the requirement; a searchable picker, type the vendor's name.
-   - **All materials** — the material type (Label, Button, Greige…).
+   - **All materials** — the material type (Label, Button, Greige…), or **Accessories (labels + packaging)** for both together.
 3. Choose how to see it in the **Show:** row:
    - **Order & Style** — cards per order + style (use this to order a style's labels as a set).
    - **Material** — one group per material across orders.

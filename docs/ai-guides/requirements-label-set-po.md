@@ -69,6 +69,7 @@ sources:
   - frontend/src/components/requirements/open-po-supply.ts
   - frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx
   - backend/src/services/helpers/po-line-category.helper.ts
+  - frontend/src/components/SupplierCombobox.tsx
 route: /procurement/requirements
 ---
 
@@ -78,7 +79,7 @@ For each style you order its labels together — main-cum-size, traceability, wa
 ## Steps
 1. Open **Procurement → Requirements** in the sidebar and stay on the **Material Requirements** tab.
 2. The page opens on **Show: Order & Style** with the status box on **Needs action** — every order + style that still has something to order, soonest-needed first. (If another view is chosen, click **Order & Style** in the **Show:** row.)
-3. Narrow it down if you like: pick the order in **All orders** (type the order number or the buyer's name), pick a style in **All styles**, or choose **Label** in **All materials** to see only labels. From a purchase order's **Order label set…** box, the warning link **Requirements → By Order & Style** opens this view already filtered to that order and style.
+3. Narrow it down if you like: pick the order in **All orders** (type the order number or the buyer's name), pick a style in **All styles**, or choose **Label** in **All materials** to see only labels. From a purchase order's **Order label set…** box, the warning link **Requirements → Order & Style** opens this view already filtered to that order and style.
 4. Each **order + style** is one card: the style code and name, the order number and customer, and on the right its statuses (for example "PO Required ×28"), the vendor (**Several vendors** or **No vendor yet** when not one), **Needed** with the earliest required date, and a badge like "5 labels · 24 sizes". Click the card to open or close it.
 5. Inside, each label is one heading row — its name, code, type and "6 sizes", with the total **Required** and **Shortfall** of all its sizes, a status summary (for example "PO Required ×6"), the **Vendor** (or **Mixed** when the sizes have different vendors) and any **PO** numbers. Click the heading to show its sizes: one row per size (**Size XS**, **Size S** …), in size order. When an order has two colours, both colours of a size are added into one size row (it lists both requirement numbers and "2 colours"). Other materials of the style (buttons, fusing, interlining…) are single rows in the same card.
 6. Tick what you want to order:
@@ -104,7 +105,7 @@ A PO that was already sent (for example one raised for another order, or bought 
 ## Validation traps
 - Only rows with status **PO Required** or **Partially from Stock** can be ticked. Rows already on a PO, received or cancelled have no box.
 - A row that reads **All sizes — waiting for the size split** (status **Size Split Pending**) cannot be ordered yet: the order has no size breakup. Add the sizes to the order first; MRP then makes one row per size.
-- **Manual PO** with rows of different vendors (or **Not Assigned**) shows "Preferred vendors in this selection: …" and leaves the supplier for you to pick. A label with no vendor (such as a Liva tag with no supplier on its Label page) can still be ordered: tick it, click **Manual PO** and choose the supplier there. **Bulk Generate POs** needs a vendor on every row — set one with **Assign Vendors**, or add the supplier on the label's page so MRP picks it up next time.
+- **Manual PO** with rows of different vendors (or **Not Assigned**) shows "Preferred vendors in this selection: …" and leaves the supplier for you to pick: click **Select supplier** and type part of the supplier's name, then pick it. A label with no vendor (such as a Liva tag with no supplier on its Label page) can still be ordered: tick it, click **Manual PO** and pick the supplier in **Select supplier** (type part of its name). **Bulk Generate POs** needs a vendor on every row — set one with **Assign Vendors**, or add the supplier on the label's page so MRP picks it up next time.
 - The cards come 10 to a page (**Sets per page** at the bottom: 10, 25 or 50). A set is never split across two pages, and your ticks stay when you turn the page — but changing any filter unticks everything.
 - After the PO is made the rows leave **Needs action**. To see them again choose **On order** in the status box.
 - Thread cannot be ordered from here; order it from Purchase Orders, in cones / tubes.

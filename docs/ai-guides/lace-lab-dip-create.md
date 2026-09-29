@@ -31,6 +31,7 @@ sources:
   - frontend/src/pages/LaceLabDipList.tsx
   - frontend/src/components/ProcessorCombobox.tsx
   - frontend/src/components/LaceCombobox.tsx
+  - frontend/src/components/SupplierCombobox.tsx
 route: /lace-lab-dips/new
 ---
 
@@ -44,8 +45,8 @@ route: /lace-lab-dips/new
 1. Open **Materials & Masters -> Lace Lab Dips** in the sidebar.
 2. Click **+ New Lab Dip** at the top right.
 3. Fill in the required fields:
-   - **Greige Lace** - Select the base greige lace to be dyed (dropdown).
-   - **Processor** - Select the dyeing processor who will create the lab dip sample.
+   - **Greige Lace** - Click **Select greige lace...** and type part of the lace code, name or colour, then pick the base greige lace to be dyed. Only greige laces are listed.
+   - **Processor** - Click **Select processor...** and type part of the processor's code or name, then pick the dyeing processor who will create the lab dip sample. Only processors tagged with the dyeing/printing category are listed.
    - **Target Color** - Enter the desired color name (e.g., "Red", "Navy Blue", "Maroon").
 4. Fill in optional fields as needed:
    - **Sample Quantity (meters)** - Quantity of sample fabric (default: 1 meter).

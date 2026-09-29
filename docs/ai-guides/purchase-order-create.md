@@ -143,6 +143,7 @@ sources:
   - backend/src/controllers/material.controller.ts
   - frontend/src/components/purchase-orders/DeliverySplitEditor.tsx
   - frontend/src/components/purchase-orders/LabelSetDialog.tsx
+  - frontend/src/components/requirements/requirement-list-options.ts
   - frontend/src/lib/label-materials.ts
   - frontend/src/lib/label-lines.ts
   - backend/src/services/label-set.service.ts
@@ -195,7 +196,7 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
    - Each label's boxes = garments × labels per garment, plus the extra % from the BOM, rounded up. Change any box you like; a box you typed in keeps your number.
    - Untick a label to leave it out. A greyed-out label says why: "Not supplied by … (supplied by …)" — it is set up for another supplier on its Label page. A label with no supplier on its Label page yet is NOT greyed out: it reads "No supplier on its Label page yet — bought from …" and is bought from this PO's supplier. "—" means that label has no such size.
    - If no supplier is chosen yet, the box first asks you to pick one (it shows how many of the labels each supplier makes).
-   - If the order already has open label requirements from MRP, a warning says a PO made here does not close them and links to **Requirements → By Order & Style** — order from there to keep MRP linked.
+   - If the order already has open label requirements from MRP, a warning says a PO made here does not close them and links to **Requirements → Order & Style** — order from there to keep MRP linked.
    - The footer counts labels · lines · pcs. Click **Put on the PO**: each size becomes its own PO line. Opening it again shows the PO's current quantities, and a size set to 0 is removed.
    **Order label set…** makes an **Accessories** PO. An empty PO of another category switches to Accessories for you; a PO that already has lines of another category is refused ("Labels go on an Accessories PO — this PO already has other lines. Start a new PO for the labels.").
    **Labels that come in sizes** can also be added from **Quick Add Material** or **Browse All Materials**: they are listed ONCE, marked "· 7 sizes". Picking one opens a size box with one quantity per size and a **Total**; click **Add N lines** (or **Update lines** when it is already on the PO).

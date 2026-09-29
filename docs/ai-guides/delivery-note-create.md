@@ -68,6 +68,9 @@ sources:
   - frontend/src/components/AdminOverrideModal.tsx
   - frontend/src/pages/DispatchList.tsx
   - backend/src/services/helpers/sku-colour.helper.ts
+  - frontend/src/components/OrderCombobox.tsx
+  - frontend/src/components/CustomerCombobox.tsx
+  - frontend/src/components/ui/combobox.tsx
 route: /manufacturing/dispatch/delivery/new
 ---
 
@@ -85,14 +88,14 @@ route: /manufacturing/dispatch/delivery/new
    From a sale order you can also open **Actions** → **Create Delivery Note** on the sale order page (see *Dispatching a sale order* below).
 
 3. In the **Delivery Details** card:
-   - Select the **Order *** by searching with order number or customer name. The box lists the 50 most recent orders; if it says **Showing the 50 most recent of …**, type part of the order number or the customer name to bring up an older one.
-   - The **Customer *** auto-fills from the selected order. You can change it if needed.
+   - Click **Order *** ("Select order...") and type part of the order number, customer or style code, then pick the order. Newest orders come first; if the list says **Showing … of …**, keep typing to bring up an older one.
+   - The **Customer *** auto-fills from the selected order. To change it, click the box and type part of the customer code or name.
    - Set the **Delivery Date *** (defaults to today).
 
 4. In the **Items** card:
    - The system pre-fills items from the order's SKU breakup.
    - For each row, verify or select:
-     - **Style** (from styles on the order)
+     - **Style** — click the box ("Select style") and type part of the style code or name; only the styles on the order are listed
      - **Color** (from the selected style's colours). A style with no colour shows **—** here and the box is greyed out — leave it. A style that comes in several colours must have one chosen.
      - **Size** (from the selected style's size options)
      - **Quantity** (number of pieces to dispatch)

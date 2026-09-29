@@ -73,6 +73,7 @@ keywords:
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/FabricCostingPage.tsx
+  - frontend/src/components/ui/combobox.tsx
   - frontend/src/utils/greigeRate.ts
   - frontend/src/pages/CADPlanningPage.tsx
   - frontend/src/components/cad/CADSpreadsheetTable.tsx
@@ -99,13 +100,14 @@ route: /fabric-costing
 **Option 2: Direct navigation**
 1. Go to **Pre-Production > Fabric Costing**
 2. Search for the style using the **Quick Search** box
-3. Or select **Customer** first, then pick the **Style**
+3. Or select **Customer** first, then click **Style** and type part of the style code, buyer ref or name to pick it
 
 ## Steps
 
 ### 1. Select the style
 - Use the **Quick Search** box to find by style code, buyer ref, or name
-- Or pick **Customer** from the dropdown, then select the **Style**
+- Or pick **Customer** first, then click **Style** (**Select style**) and type part of the style code, buyer ref or name to pick it. It lists that customer's styles only
+- The **✕** in the Quick Search box clears the search and the picked customer and style
 
 ### 2. Choose the costing mode (tabs)
 - **Costing** - For quotation pricing (default)
@@ -159,7 +161,7 @@ Fill in these fields:
 
 #### Landed Price Mode (L) - Single price
 
-- Enter the final **Landed Price per meter** directly
+- Enter the final landed price per metre directly in the **Landed ₹** box
 - Use when you have an all-inclusive fabric price
 - Processor and processing fields are disabled
 

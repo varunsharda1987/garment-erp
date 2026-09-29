@@ -31,6 +31,7 @@ sources:
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
   - frontend/src/pages/TrimMastersDashboard.tsx
   - frontend/src/components/SupplierCombobox.tsx
+  - frontend/src/components/LaceCombobox.tsx
 route: /materials/lace
 ---
 
@@ -54,7 +55,7 @@ Use this when you want to pre-create dyed variants before costing.
    - **Lace Type**: Select from dropdown (e.g., Chantilly, Guipure)
    - **Color**: Select from Color Master (required for finished lace)
    - **Width**: Enter width in inches
-   - **Source Greige Lace**: Select the greige lace this was dyed from
+   - **Source Greige Lace (Optional)**: Click **Link to source greige lace...** and type part of the greige lace's code, name or colour, then pick the greige lace this was dyed from (the field appears once at least one greige lace exists)
    - **Price per Meter**: Enter the ready lace rate
 5. Optionally add suppliers with their prices under the **Suppliers** section
 6. Click **Create Lace** to save

@@ -26,8 +26,15 @@ keywords:
   - बुनकर
   - deliver to
   - delivery location
+  - default delivery location
+  - kashaya fabs
+  - delivery location har baar
+  - godown par delivery
   - baad mein batayenge
   - डिलीवरी कहाँ
+  - डिलीवरी लोकेशन
+  - गोदाम
+  - काशाया फैब्स
   - size wise label
   - label sizes
   - main cum size label
@@ -167,6 +174,8 @@ sources:
   - backend/templates/kf/purchase-order.hbs
   - frontend/src/components/purchase-orders/PoAllocationCard.tsx
   - frontend/src/lib/po-allocation-view.ts
+  - frontend/src/components/WarehouseCombobox.tsx
+  - backend/src/services/helpers/po-default-delivery.helper.ts
 route: /procurement/purchase-orders/new
 ---
 
@@ -179,7 +188,7 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 3. Optional but recommended: in the **Link to Style** card, pick a style, and link an order if this PO is for a specific order. Linking a style shows the **Materials Required** card, where you can add the style's materials straight to the PO (see *Adding from a style* below).
 4. In the **PO Details** card, choose **PO Category ***. The options are material categories only: **Fabric**, **Greige**, **Trims**, **Accessories**, **Thread**, **Lace**, **Greige Lace**, **Machine Parts**, **General**. **Accessories** means a style's labels and packaging (the same split as the Style Form's **4. Accessories** tab); **Trims** is every other trim (the Style Form's **3. Trims & Materials** tab). There is no separate Packaging category any more — packaging and labels both go on an Accessories PO. An older PO saved as Packaging still shows that name when you edit it. The category cannot be changed later while editing a saved PO. If the PO already has lines and you pick another category, a box **Change category?** says the lines on this PO will be removed — click **Change to <category>** to go ahead, or **Cancel** to keep everything. If you added a line from **Materials Required**, the category shows a **Set by material** lock — click **Clear Style** to change it.
 5. Choose **Supplier ***. The list is filtered by the category, so select the category first — the box stays disabled until you do. Accessories shows suppliers saved as **Trims Supplier** or **Packaging Supplier** (label makers are Trims suppliers, carton and polybag makers Packaging suppliers), Machine Parts shows machine-part suppliers, and General shows every supplier. If nobody fits, the list says "No suppliers found for this category." Changing the supplier keeps the lines already on the PO. If the supplier has no GSTIN or billing state on file, the totals say "Supplier's state is not on file — tax shown as CGST + SGST. Add the supplier's GSTIN or billing state."
-6. Set **Delivery Location** — the warehouse or processor's unit the goods should reach. If the place will be decided at dispatch, leave it empty (the box reads **Decide at dispatch (to be advised)**): the PO then prints "To be advised before dispatch", and you set the place later from the PO page. Choosing your own store prints your address from Company Profile. If part goes to one place and part to another (for example some greige straight to a dyer, the rest to Kashaya Fabs), switch on **Split delivery across locations**: the Delivery Location box gives way to "Split across places — choose them in the Split delivery card below. Place 1 is the PO's delivery location." Pick each place in the **Split delivery** card below the items and type how much of each item goes there; every item must be fully placed before you can save (**Put the balance into place 1** fills what is left). The **Delivery Details** card and **Preview** then list every place with its quantities. Switching the split off makes place 1 the Delivery Location again. The PO prints every place under **Delivery Points**, and the supplier sends one invoice and one e-way bill per delivery.
+6. Check **Delivery Location** — the warehouse or processor's unit the goods should reach. It is filled in for you once you pick the category: **Kashaya Fabs** (your own store) for every category except **Greige** and **Greige Lace**, with the note "Kashaya Fabs is filled in for every PO except Greige and Greige Lace — pick another place if the goods go elsewhere." Until you pick a place yourself it follows the category. A **Greige** or **Greige Lace** PO starts with no place, because that cloth usually goes straight to a dyer — pick the dyer's **… - Processing Unit** if you know it. To decide the place at dispatch on any PO, pick **To be advised — decide at dispatch** at the top of the list: the PO then prints "To be advised before dispatch", and you set the place later from the PO page. Your own store prints your address from Company Profile. If part goes to one place and part to another (for example some greige straight to a dyer, the rest to Kashaya Fabs), switch on **Split delivery across locations**: the Delivery Location box gives way to "Split across places — choose them in the Split delivery card below. Place 1 is the PO's delivery location." Pick each place in the **Split delivery** card below the items and type how much of each item goes there; every item must be fully placed before you can save (**Put the balance into place 1** fills what is left). The **Delivery Details** card and **Preview** then list every place with its quantities. Switching the split off makes place 1 the Delivery Location again. The PO prints every place under **Delivery Points**, and the supplier sends one invoice and one e-way bill per delivery.
 7. Check **PO Date ***. It is today by default. If the order was placed earlier and you are only entering it now, set the day it was really placed — the list and the printed PO show this date. A date after today is not allowed.
 8. Set **Expected Delivery Date *** (required). It cannot be before the PO Date — the same day is fine.
 9. In the **Order Items** card, use **Quick Add Material** to search and add a material, or click **Browse All Materials** (or **Or Browse All**). For a **Greige** PO with no style linked, use **Add Greige Fabric** instead; you can add several greige types. A **Fabric** PO lists fabrics in Quick Add.

@@ -58,6 +58,7 @@ import {
   updatePurchaseOrder,
   sendPurchaseOrder,
   amendDeliveryLocation,
+  getPoDeliveryDefault,
   checkForDuplicates,
   type DuplicateCheckResult,
 } from '@/services/purchaseOrder.service';
@@ -576,6 +577,26 @@ export default function PurchaseOrderForm() {
   // What the server had when this PO was loaded. Needed to tell "unchanged" from "changed": without
   // it we would stamp an amendment (and its audit trail) on every save.
   const [loadedDeliveryLocationId, setLoadedDeliveryLocationId] = useState('');
+  // A NEW PO delivers to its category's default place until the user picks one (owner 2026-09-29): our store —
+  // Kashaya Fabs — for everything but greige and greige lace, which start "to be advised". The server holds the
+  // rule (GET /purchase-orders/delivery-default). The place shown is DERIVED from it, never copied into state,
+  // so a category change moves it until a place (or "To be advised") is picked. A saved PO shows its own place.
+  const { data: deliveryDefault } = useQuery({
+    queryKey: ['po-delivery-default'],
+    queryFn: getPoDeliveryDefault,
+    enabled: !isEditMode,
+    staleTime: 5 * 60 * 1000,
+  });
+  const [deliveryChosen, setDeliveryChosen] = useState(false);
+  const categoryDefaultPlace =
+    poCategory && deliveryDefault?.warehouse && !deliveryDefault.exceptCategories.includes(poCategory)
+      ? deliveryDefault.warehouse
+      : null;
+  const shownDeliveryId = isEditMode || deliveryChosen ? deliveryLocationId : (categoryDefaultPlace?.id ?? '');
+  const chooseDelivery = (warehouseId: string) => {
+    setDeliveryChosen(true);
+    setDeliveryLocationId(warehouseId);
+  };
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
   // Split delivery (2026-09-26): several places, each with its share of each line. Keyed on the line's
   // tempId, so lines added in this session can be placed before they have a server id.
@@ -898,15 +919,16 @@ export default function PurchaseOrderForm() {
     }
   }, [poCategory, styleId, token]);
 
-  // Fetch warehouse details when delivery location changes
+  // Fetch warehouse details when delivery location changes (the default place too — the Delivery Details card
+  // and the preview show it)
   useEffect(() => {
     const fetchWarehouse = async () => {
-      if (!deliveryLocationId) {
+      if (!shownDeliveryId) {
         setSelectedWarehouse(null);
         return;
       }
       try {
-        const warehouse = await warehouseService.getById(deliveryLocationId);
+        const warehouse = await warehouseService.getById(shownDeliveryId);
         setSelectedWarehouse(warehouse);
       } catch (err) {
         console.error('Failed to fetch warehouse:', err);
@@ -914,7 +936,7 @@ export default function PurchaseOrderForm() {
       }
     };
     fetchWarehouse();
-  }, [deliveryLocationId]);
+  }, [shownDeliveryId]);
 
   // A split place picked in this session gets its name too — the Delivery Details card, the preview and the
   // split checks name every place. Keyed on the chosen places, not on every quantity typed.
@@ -2103,7 +2125,8 @@ export default function PurchaseOrderForm() {
         orderId: orderId || null,
         // Delivery location (points to any warehouse, including processor locations). A split names its
         // places per line; the header then mirrors place 1.
-        deliveryLocationId: splitDelivery ? splitPoints[0]?.warehouseId || null : deliveryLocationId || null,
+        // Always sent — null is "to be advised", chosen on purpose (a place left out would get the server's default)
+        deliveryLocationId: splitDelivery ? splitPoints[0]?.warehouseId || null : shownDeliveryId || null,
       };
 
       if (isEditMode && id) {
@@ -2815,15 +2838,26 @@ export default function PurchaseOrderForm() {
               <Label>Delivery Location</Label>
               {!splitDelivery && (
                 <WarehouseCombobox
-                  value={deliveryLocationId}
-                  onValueChange={setDeliveryLocationId}
+                  value={shownDeliveryId}
+                  onValueChange={chooseDelivery}
                   placeholder="Decide at dispatch (to be advised)"
+                  // "To be advised" is a choice of its own while the place may still be cleared — a saved place
+                  // cannot be removed here (Change delivery on the PO page can)
+                  allowAll={!loadedDeliveryLocationId}
+                  allLabel="To be advised — decide at dispatch"
                 />
               )}
-              {!deliveryLocationId && !splitDelivery && (
+              {!shownDeliveryId && !splitDelivery && (
                 <p className="text-xs text-muted-foreground">
                   Leave it empty to decide at dispatch — the PO prints "to be advised before dispatch", and you can set
                   it later from the PO page.
+                </p>
+              )}
+              {categoryDefaultPlace && !isEditMode && !deliveryChosen && !splitDelivery && (
+                <p className="text-xs text-muted-foreground">
+                  {categoryDefaultPlace.warehouseName} is filled in for every PO except{' '}
+                  {deliveryDefault?.exceptCategories.map((c) => PO_CATEGORY_LABELS[c] ?? c).join(' and ')} — pick
+                  another place if the goods go elsewhere.
                 </p>
               )}
               {splitDelivery && (
@@ -2838,6 +2872,9 @@ export default function PurchaseOrderForm() {
                     checked={splitDelivery}
                     onCheckedChange={(on) => {
                       setSplitDelivery(on);
+                      // The places are the user's from here: the category default stops following
+                      setDeliveryChosen(true);
+                      if (on) setDeliveryLocationId(shownDeliveryId);
                       // Back to one place: place 1 becomes the delivery location again
                       if (!on && splitPoints[0]?.warehouseId) setDeliveryLocationId(splitPoints[0].warehouseId);
                       if (on && splitPoints.length === 0) {
@@ -2845,7 +2882,7 @@ export default function PurchaseOrderForm() {
                         setSplitPoints([
                           {
                             ...emptyPoint(),
-                            warehouseId: deliveryLocationId,
+                            warehouseId: shownDeliveryId,
                             qty: Object.fromEntries(splitLines.map((l) => [l.id, prefillQty(l.ordered)])),
                           },
                           emptyPoint(),

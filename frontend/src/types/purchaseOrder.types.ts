@@ -515,6 +515,17 @@ export interface DeliveryProgress {
   unplaced: Array<{ poItemId: string; received: number }>;
 }
 
+/**
+ * Where a NEW PO delivers when nobody picks a place (GET /purchase-orders/delivery-default, owner 2026-09-29):
+ * our store — Kashaya Fabs — for every category except `exceptCategories` (greige, greige lace), which start
+ * "to be advised".
+ */
+export interface PoDeliveryDefault {
+  /** null when there is no store to name — every new PO then starts "to be advised" */
+  warehouse: { id: string; warehouseCode: string; warehouseName: string } | null;
+  exceptCategories: string[];
+}
+
 // ============================================
 // CREATE/UPDATE REQUEST TYPES
 // ============================================

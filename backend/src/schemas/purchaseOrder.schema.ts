@@ -161,7 +161,8 @@ export const createPurchaseOrderSchema = z.object({
   styleId: z.string().uuid('Invalid style ID').nullish(),
   orderId: z.string().uuid('Invalid order ID').nullish(),
   cadId: z.string().uuid('Invalid CAD ID').nullish(),
-  // Delivery location (warehouse ID - type is derived from warehouse)
+  // Delivery location (warehouse ID - type is derived from warehouse). Omitted = the category's default place
+  // (our store for all but greige / greige lace — po-default-delivery.helper); null = "to be advised".
   deliveryLocationId: z.string().uuid('Invalid delivery location ID').nullish(),
 });
 

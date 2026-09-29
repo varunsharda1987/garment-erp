@@ -172,7 +172,8 @@ export interface CreatePurchaseOrderDTO {
   styleId?: string | null;
   orderId?: string | null;
   cadId?: string | null;
-  // Delivery location (warehouse ID - type is derived from warehouse)
+  // Delivery location (warehouse ID - type is derived from warehouse). Omitted = the category's default place
+  // (our store for all but greige / greige lace — po-default-delivery.helper); null = "to be advised".
   deliveryLocationId?: string | null;
 }
 

@@ -19,6 +19,7 @@ import type {
   AmendDeliveryLocationRequest,
   AmendDeliveryPlanRequest,
   DeliveryProgress,
+  PoDeliveryDefault,
   PendingItemsResponse,
   PurchaseOrderItem,
   POStats,
@@ -237,6 +238,14 @@ export const amendDeliveryPlan = async (id: string, request: AmendDeliveryPlanRe
  */
 export const getDeliveryProgress = async (id: string): Promise<DeliveryProgress> => {
   const { data } = await api.get<{ success: boolean; data: DeliveryProgress }>(`${BASE_URL}/${id}/delivery-progress`);
+  return data.data;
+};
+
+/**
+ * Where a new PO delivers when nobody picks a place — the Create PO page shows it before the PO is saved
+ */
+export const getPoDeliveryDefault = async (): Promise<PoDeliveryDefault> => {
+  const { data } = await api.get<{ success: boolean; data: PoDeliveryDefault }>(`${BASE_URL}/delivery-default`);
   return data.data;
 };
 

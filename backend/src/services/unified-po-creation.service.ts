@@ -31,6 +31,7 @@ import prisma from '../config/database';
 import { generateUnifiedPONumberInTransaction } from '../utils/po-number-generator';
 import { resolvePoLineUnits, toStockQty } from './helpers/purchase-unit.helper';
 import { assertPoLinesFitCategory, linesOutsideCategory } from './helpers/po-line-category.helper';
+import { defaultDeliveryLocationId } from './helpers/po-default-delivery.helper';
 import { CREATABLE_PO_CATEGORIES, isPoDateAfterToday } from '../types/purchaseOrder.types';
 import { roundToCent } from '../utils/currency';
 import { isQtyZero, qtyRemaining } from '../utils/quantity';
@@ -571,6 +572,10 @@ export async function createUnifiedPO(
     });
     const totalAmount = roundToCent(priced.reduce((sum, p) => sum.plus(p.totalPrice), roundToCent(0))).toNumber();
 
+    // Where it delivers: this path takes no place, so the category's default — our store for all but greige and
+    // greige lace, which stay "to be advised" (po-default-delivery.helper, owner 2026-09-29)
+    const deliveryLocationId = await defaultDeliveryLocationId(tx, input.poCategory);
+
     // Create PO header
     const po = await tx.purchase_orders.create({
       data: {
@@ -590,6 +595,10 @@ export async function createUnifiedPO(
         remarks: input.remarks,
         createdById: input.createdById,
         totalAmount,
+        // Our store is never a processor's unit
+        deliveryLocationId,
+        deliveryLocationType: deliveryLocationId ? 'WAREHOUSE' : null,
+        originalDeliveryLocationId: deliveryLocationId,
       },
     });
 

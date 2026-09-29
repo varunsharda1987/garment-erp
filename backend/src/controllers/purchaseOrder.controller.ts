@@ -448,3 +448,13 @@ export const getDeliveryProgress = async (req: Request, res: Response) => {
   const progress = await purchaseOrderService.getDeliveryProgress(req.params.id);
   res.json({ success: true, data: progress });
 };
+
+/**
+ * @route   GET /api/purchase-orders/delivery-default
+ * @desc    Where a new PO delivers when nobody picks a place: our store (Kashaya Fabs), except for the
+ *          categories listed, which start "to be advised"
+ */
+export const getDeliveryDefault = async (_req: Request, res: Response) => {
+  const deliveryDefault = await purchaseOrderService.getDeliveryDefault();
+  res.json({ success: true, data: deliveryDefault });
+};

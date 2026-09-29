@@ -77,6 +77,7 @@ import { NOT_ORDERED, reconcileRequirementLineage } from './helpers/requirement-
 import { createAuditLog } from './audit.service';
 import { BASE_MATERIAL_ROW, MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
+import { defaultDeliveryLocationId } from './helpers/po-default-delivery.helper';
 import { fillMaterialHsnIfBlank } from './helpers/material-hsn.helper';
 import { loadLineUnits, requirementLineUnit } from './helpers/material-unit.helper';
 import { purchaseUnitFor, purchaseUnitPrices, toPurchaseLine, toStockQty } from './helpers/purchase-unit.helper';
@@ -3610,11 +3611,13 @@ async function greigeRequirementUnits(requirementIds: string[]): Promise<Map<str
 }
 
 /**
- * Where an MRP-raised greige / greige-lace PO delivers (direct-to-processor plan, Phase 3 + 4f):
- *  - every requirement on it processed at ONE dyer → straight to that dyer's unit (`oneUnit`);
- *  - at SEVERAL dyers → split, one delivery point per dyer (`split`), built from the requirement links once
+ * Where an MRP-raised PO delivers, from each requirement's place (direct-to-processor plan, Phase 3 + 4f; our
+ * store for everything else since 2026-09-29 — see generatePOFromRequirements):
+ *  - every requirement at ONE place (a dyer's unit, or our store) → that place (`oneUnit`);
+ *  - at SEVERAL places → split, one delivery point per place (`split`), built from the requirement links once
  *    the lines exist — see `deliveryPointsByDyer`;
- *  - any requirement with no dyer decided (or a dyer with no unit) → "to be advised", for a person to decide.
+ *  - any requirement with no place (greige / greige lace whose dyer is not decided, or a dyer with no unit) →
+ *    "to be advised", for a person to decide.
  */
 function greigeDeliveryDefault(units: Map<string, string | null>): { oneUnit: string | null; split: boolean } {
   const all = [...units.values()];
@@ -3625,9 +3628,9 @@ function greigeDeliveryDefault(units: Map<string, string | null>): { oneUnit: st
 }
 
 /**
- * One delivery point per dyer for an MRP-raised PO over several dyers (Phase 4f). Each line is shared among
- * the dyers of the requirements it covers, in proportion to what each requirement was allocated on it; the
- * last dyer of a line takes the rounding so every line adds up exactly to what it orders.
+ * One delivery point per place (a dyer's unit, or our store) for an MRP-raised PO over several (Phase 4f). Each
+ * line is shared among the places of the requirements it covers, in proportion to what each requirement was
+ * allocated on it; the last place of a line takes the rounding so every line adds up exactly to what it orders.
  */
 function deliveryPointsByDyer(
   lines: Array<{ poItemId: string; ordered: number; allocations: Array<{ requirementId: string; quantity: number }> }>,
@@ -4173,15 +4176,20 @@ export async function generatePOFromRequirements(
   }
   // The one category this PO goes on (none for PROCESSING — those return below with a job work order)
   const poCategory = [...byCategory.keys()][0] ?? null;
-  // Greige (or greige lace — a GREIGE_LACE PO) is delivered straight to the dyer that processes it: one dyer →
-  // its unit; several dyers → one delivery point each (4f); a requirement with no dyer yet → "to be advised".
-  // The PO page can change it.
-  const requirementUnits =
+  // Where it delivers, one place per requirement: greige, greige lace and lace go straight to the dyer that
+  // processes them (its unit) when that is known; any other requirement goes to our store — except greige and
+  // greige lace, whose undecided dyer leaves the PO "to be advised" (po-default-delivery.helper, owner 2026-09-29).
+  // One place → that place; several (dyers, or dyers and our store) → one delivery point each (4f). The PO page
+  // can change it.
+  const materialRequirementIds = requirements.filter((r) => r.requirementType !== 'PROCESSING').map((r) => r.id);
+  const requirementPlaces =
     poCategory === POCategory.GREIGE || poCategory === POCategory.GREIGE_LACE || poCategory === POCategory.LACE
-      ? await greigeRequirementUnits(requirements.filter((r) => r.requirementType !== 'PROCESSING').map((r) => r.id))
-      : new Map<string, string | null>();
-  const deliveryDefault = greigeDeliveryDefault(requirementUnits);
-  const defaultDeliveryUnitId = deliveryDefault.oneUnit;
+      ? await greigeRequirementUnits(materialRequirementIds)
+      : new Map<string, string | null>(materialRequirementIds.map((id) => [id, null]));
+  const storeId = poCategory ? await defaultDeliveryLocationId(prisma, poCategory) : null;
+  if (storeId) for (const [reqId, place] of requirementPlaces) if (!place) requirementPlaces.set(reqId, storeId);
+  const deliveryDefault = greigeDeliveryDefault(requirementPlaces);
+  const defaultDeliveryPlaceId = deliveryDefault.oneUnit;
 
   // Check if these are PROCESSING requirements
   const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
@@ -4637,12 +4645,14 @@ export async function generatePOFromRequirements(
         isInterstate,
         remarks,
         createdById: userId,
-        // One dyer for every requirement → straight to its unit; else "to be advised"
-        ...(defaultDeliveryUnitId
+        // One place for every requirement → that place: a dyer's unit, or our store. Else "to be advised", or a
+        // split written below.
+        ...(defaultDeliveryPlaceId
           ? {
-              deliveryLocationId: defaultDeliveryUnitId,
-              deliveryLocationType: 'PROCESSOR' as const,
-              originalDeliveryLocationId: defaultDeliveryUnitId,
+              deliveryLocationId: defaultDeliveryPlaceId,
+              deliveryLocationType:
+                defaultDeliveryPlaceId === storeId ? ('WAREHOUSE' as const) : ('PROCESSOR' as const),
+              originalDeliveryLocationId: defaultDeliveryPlaceId,
             }
           : {}),
       },
@@ -4750,10 +4760,10 @@ export async function generatePOFromRequirements(
       lineAllocations.map((l) => l.poItemId)
     );
 
-    // Several dyers (Phase 4f): one delivery point each, through the one writer of delivery plans. Composing
-    // the PO, so no revision is written.
+    // Several places (Phase 4f — dyers, or dyers and our store): one delivery point each, through the one writer
+    // of delivery plans. Composing the PO, so no revision is written.
     if (deliveryDefault.split) {
-      const points = deliveryPointsByDyer(lineAllocations, requirementUnits);
+      const points = deliveryPointsByDyer(lineAllocations, requirementPlaces);
       await applyDeliveryPlan(
         tx,
         po.id,

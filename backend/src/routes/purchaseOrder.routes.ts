@@ -23,6 +23,7 @@ import {
   amendDeliveryLocation,
   amendDeliveryPlan,
   getDeliveryProgress,
+  getDeliveryDefault,
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -90,6 +91,13 @@ router.get('/stats', asyncHandler(getPOStatsController));
  * @access  Private (ADMIN, PURCHASE, PRODUCTION_MANAGER, MERCHANDISER, ACCOUNTS)
  */
 router.get('/by-source/:source', validateParams(sourceParamSchema), asyncHandler(getPOsBySourceController));
+
+/**
+ * @route   GET /api/purchase-orders/delivery-default
+ * @desc    Where a new PO delivers when nobody picks a place (the Create PO page shows it) — before /:id
+ * @access  Private
+ */
+router.get('/delivery-default', asyncHandler(getDeliveryDefault));
 
 /**
  * @route   GET /api/purchase-orders/:id

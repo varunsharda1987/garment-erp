@@ -38,6 +38,7 @@ import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
 import { resolvePoLineUnits } from './helpers/purchase-unit.helper';
 import { assertPoLinesFitCategory } from './helpers/po-line-category.helper';
+import { defaultDeliveryLocationId, getPoDeliveryDefault } from './helpers/po-default-delivery.helper';
 import { applySearch } from '../utils/search-filter';
 import { LABEL_LINE_MATERIAL_SELECT, PO_LINE_ORDER } from './helpers/label-line.helper';
 import {
@@ -430,22 +431,30 @@ class PurchaseOrderService {
 
     const totals = poTotalsOf(itemsWithTotals);
 
+    // Split delivery: per-line places → one plan, written by the ONE plan writer in the same transaction
+    const deliveryPlan = planFromItemDeliveries(
+      itemsWithTotals.map((item, i) => ({ id: item.id, deliveries: data.items[i].deliveries }))
+    );
+
+    // Where it delivers: the place sent (null = "to be advised", chosen on purpose). A place LEFT OUT is the
+    // category's default — our store for everything but greige and greige lace (po-default-delivery.helper,
+    // owner 2026-09-29). A split plan sets the header itself.
+    const deliveryLocationId =
+      data.deliveryLocationId !== undefined || deliveryPlan
+        ? data.deliveryLocationId || null
+        : await defaultDeliveryLocationId(prisma, data.poCategory);
+
     // Derive delivery location type from warehouse if provided
     let deliveryLocationType: 'WAREHOUSE' | 'PROCESSOR' | null = null;
-    if (data.deliveryLocationId) {
+    if (deliveryLocationId) {
       const warehouse = await prisma.warehouses.findUnique({
-        where: { id: data.deliveryLocationId },
+        where: { id: deliveryLocationId },
       });
       if (warehouse) {
         // JOB_WORK warehouses are processor locations
         deliveryLocationType = warehouse.warehouseType === 'JOB_WORK' ? 'PROCESSOR' : 'WAREHOUSE';
       }
     }
-
-    // Split delivery: per-line places → one plan, written by the ONE plan writer in the same transaction
-    const deliveryPlan = planFromItemDeliveries(
-      itemsWithTotals.map((item, i) => ({ id: item.id, deliveries: data.items[i].deliveries }))
-    );
 
     // Create PO with items in transaction
     const poId = randomUUID();
@@ -475,8 +484,8 @@ class PurchaseOrderService {
           cadId: data.cadId || null,
           // Delivery location (type derived from warehouse)
           deliveryLocationType,
-          deliveryLocationId: data.deliveryLocationId || null,
-          originalDeliveryLocationId: data.deliveryLocationId || null, // Same as initial
+          deliveryLocationId,
+          originalDeliveryLocationId: deliveryLocationId, // Same as initial
           purchase_order_items: {
             create: itemsWithTotals,
           },
@@ -2256,6 +2265,11 @@ class PurchaseOrderService {
   async getDeliveryProgress(poId: string) {
     const underTolerance = await systemSettingsService.getNumberDefault('GRN_UNDER_RECEIPT_TOLERANCE_PERCENT');
     return loadDeliveryProgress(prisma, poId, underTolerance);
+  }
+
+  /** Where a new PO delivers when nobody picks a place — the Create PO page shows it before the PO is saved. */
+  async getDeliveryDefault() {
+    return getPoDeliveryDefault(prisma);
   }
 }
 

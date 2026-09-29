@@ -33,6 +33,11 @@ keywords:
   - allocate to orders
   - kis dyer par rangai
   - रंगाई कहाँ
+  - default delivery
+  - kashaya fabs
+  - apne godown par
+  - काशाया फैब्स
+  - अपने गोदाम पर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -53,16 +58,20 @@ sources:
   - backend/src/services/helpers/po-allocation.helper.ts
   - frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx
   - frontend/src/components/purchase-orders/PoAllocationCard.tsx
+  - frontend/src/pages/PurchaseOrderForm.tsx
+  - backend/src/services/helpers/po-default-delivery.helper.ts
 route: /procurement/purchase-orders
 ---
 
 ## When to use this
 A purchase order delivers to **one place**, to **several places** with a quantity for each (for example part of the greige straight to a dyer and the rest to Kashaya Fabs), or it is **to be advised** — sent without a place, decided before the supplier dispatches. You can change it until the order is fully received, closed short or cancelled.
 
-A greige, greige-lace or lace PO made from **Requirements** starts with its delivery already filled in from the dyers its requirements are processed at:
-- every requirement at **one dyer** → **One place**: that dyer's **… - Processing Unit**;
-- requirements at **several dyers** → **Split**: one place per dyer, each getting the metres of its own requirements;
-- any requirement whose dyer is not decided yet → **To be advised**.
+A new PO starts with its delivery already filled in:
+- Made on the **Create Purchase Order** page: **Kashaya Fabs** for every category except **Greige** and **Greige Lace**, which start **To be advised** (see the guide "Raise a Purchase Order (PO)").
+- Made from **Requirements**: a requirement processed at a dyer goes to that dyer's **… - Processing Unit**; every other requirement goes to **Kashaya Fabs** — except greige and greige lace, where a dyer not decided yet leaves the PO **To be advised**. So:
+  - every requirement at **one place** → **One place**: the dyer's unit, or Kashaya Fabs;
+  - requirements at **several places** (several dyers, or a dyer and Kashaya Fabs) → **Split**: one place each, each getting the quantity of its own requirements;
+  - a greige or greige-lace requirement whose dyer is not decided yet → **To be advised**.
 Check it on the PO's **Deliver To** card and change it there if needed.
 
 ## Steps

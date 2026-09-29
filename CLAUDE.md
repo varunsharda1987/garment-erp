@@ -757,6 +757,12 @@ garment_erp — Prisma RESETS the database given as a shadow — and a day's wor
   inside itself is invisible to the guard — don't write one (`db-workflow.js` now refuses).
 - **Check a migration** by reading its SQL against `git diff prisma/schema.prisma`, or diff two schema
   FILES (`migrate diff --from-schema-datamodel <old> --to-schema-datamodel <new> --script`) — no database.
+  Then TRY it on the test copy first: `DATABASE_URL="postgresql://…/garment_erp_test" npx prisma migrate deploy`
+  (the guard lets a command whose every URL names a `_test` database through).
+- **Tests run on `garment_erp_test`, never live** (`src/__tests__/setup.ts` swaps the database name and REFUSES
+  any name not ending in `_test`). It is a copy of live, rebuilt nightly 02:15 (task `GarmentERP_RefreshTestDb`)
+  and on demand: `powershell -ExecutionPolicy Bypass -File scripts\refresh-test-db.ps1` — a rebuild throws away
+  whatever was written to it. `ts-node` repair scripts still use `backend/.env` = LIVE, by design.
 - **Backups:** hourly dump (`scripts/backup-hourly.ps1` → `F:\garment-erp-hourly-backups`, 48 h), nightly
   19:00, and change-log archiving for point-in-time restore once `scripts/pg-enable-wal-archive.ps1` has been
   run. Restore: `docs/runbooks/POSTGRES_POINT_IN_TIME_RESTORE.md` — always into a NEW database, check, rename.

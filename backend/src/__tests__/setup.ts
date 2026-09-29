@@ -15,7 +15,26 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 // Set test environment variables
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+// Tests run against the TEST database, never live (2026-09-29): garment_erp_test, a copy of live rebuilt
+// nightly and on demand by scripts/refresh-test-db.ps1. Until then every test wrote into the team's
+// data (78 blank trims, 2026-09-26). TEST_DATABASE_URL overrides; otherwise the live URL's database name
+// is swapped for garment_erp_test. Any database whose name does not end in _test is REFUSED.
+process.env.DATABASE_URL = testDatabaseUrl();
+
+function testDatabaseUrl(): string {
+  const base = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
+  if (!base) throw new Error('No DATABASE_URL / TEST_DATABASE_URL for the tests');
+  const url = new URL(base);
+  if (!process.env.TEST_DATABASE_URL) url.pathname = '/garment_erp_test';
+  const dbName = decodeURIComponent(url.pathname.replace(/^\//, ''));
+  if (!/_test$/.test(dbName)) {
+    throw new Error(
+      `Refusing to run tests against "${dbName}": tests may only use a database whose name ends in _test. ` +
+        'Rebuild the copy with: powershell -ExecutionPolicy Bypass -File scripts\\refresh-test-db.ps1'
+    );
+  }
+  return url.toString();
+}
 
 // Mock logger to avoid console output during tests.
 // __esModule is required: without it esModuleInterop hands `import logger from '../utils/logger'`

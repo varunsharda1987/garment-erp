@@ -38,16 +38,24 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $target 'base.tar.gz'))) 
     Log "FAILED: base backup to $target (exit $LASTEXITCODE) - nothing cleaned up"
     exit 1
 }
-& "$PgBin\pg_verifybackup.exe" -n $target 2>&1 | ForEach-Object { Log "verify: $_" }
-if ($LASTEXITCODE -ne 0) {
-    Log "FAILED: $target did not verify - kept for inspection, nothing cleaned up"
+# Check: both archives read end to end and the manifest is there. (pg_verifybackup cannot check a
+# compressed TAR backup before Postgres 18 - it reported every file "missing" on 2026-09-29.)
+$tarExe = "$env:SystemRoot\System32\tar.exe"
+$baseCount = (& $tarExe -tzf (Join-Path $target 'base.tar.gz') 2>$null | Measure-Object).Count
+$baseOk = $LASTEXITCODE -eq 0
+$walCount = (& $tarExe -tzf (Join-Path $target 'pg_wal.tar.gz') 2>$null | Measure-Object).Count
+$walOk = $LASTEXITCODE -eq 0
+if (-not $baseOk -or -not $walOk -or $baseCount -lt 100 -or $walCount -lt 1 -or -not (Test-Path (Join-Path $target 'backup_manifest'))) {
+    Log "FAILED: $target did not check out (base: $baseCount files, ok=$baseOk; wal: $walCount, ok=$walOk) - kept, nothing cleaned up"
     exit 1
 }
+Log "checked: base.tar.gz $baseCount files, pg_wal.tar.gz $walCount files, manifest present"
 $sizeMb = [math]::Round(((Get-ChildItem $target -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB)
 Log "OK: base backup $(Split-Path $target -Leaf) ($sizeMb MB)"
 
 # 2. Keep the newest $KeepBase base backups
-$bases = Get-ChildItem -Path $BaseRoot -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'base.tar.gz') } |
+$bases = Get-ChildItem -Path $BaseRoot -Directory |
+    Where-Object { (Test-Path (Join-Path $_.FullName 'base.tar.gz')) -and (Test-Path (Join-Path $_.FullName 'backup_manifest')) } |
     Sort-Object Name -Descending
 $bases | Select-Object -Skip $KeepBase | ForEach-Object {
     Remove-Item -LiteralPath $_.FullName -Recurse -Force

@@ -1105,15 +1105,15 @@
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
-      "frontend/src/pages/PermissionManagement.tsx": "22e573311cb2",
+      "frontend/src/pages/PermissionManagement.tsx": "850bde428778",
       "frontend/src/config/permissions.config.ts": "f311b82d6016",
       "frontend/src/hooks/usePermissions.ts": "419bf572e183",
       "frontend/src/services/permission.service.ts": "e7637624fc98",
-      "backend/src/config/permissions.config.ts": "941268ca1d86",
+      "backend/src/config/permissions.config.ts": "19df441a0db9",
       "backend/src/middleware/auth.middleware.ts": "7fc618f7d9bf"
     },
-    "contentHash": "194d9c4f9bec",
-    "generatedAt": "2026-09-28T16:06:33.419Z"
+    "contentHash": "77fc31001f10",
+    "generatedAt": "2026-09-29T11:35:20.020Z"
   },
   "print-lab-dip-create": {
     "sources": {
@@ -1709,10 +1709,10 @@
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/pages/Users.tsx": "93ed5cea695c",
-      "frontend/src/pages/UserForm.tsx": "7bb268d21433"
+      "frontend/src/pages/UserForm.tsx": "1be8506b3509"
     },
-    "contentHash": "c8571ff286e3",
-    "generatedAt": "2026-09-28T16:06:33.544Z"
+    "contentHash": "c01f6792cce1",
+    "generatedAt": "2026-09-29T11:35:20.174Z"
   },
   "warehouse-create": {
     "sources": {

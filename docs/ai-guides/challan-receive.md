@@ -34,9 +34,25 @@ keywords:
   - dusre order ka maal
   - चालान इश्यू
   - दूसरे ऑर्डर का माल
+  - than list
+  - thans on challan
+  - rolls on challan
+  - bale list
+  - than wise quantity
+  - packing list
+  - challan mein than
+  - challan mein roll
+  - than wise qty
+  - थान
+  - थान लिस्ट
+  - रोल
+  - गांठ
+  - चालान में थान
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ChallanDetail.tsx
+  - frontend/src/types/challan.types.ts
+  - backend/src/services/document-data/challan.doc-data.ts
   - frontend/src/pages/ChallanList.tsx
   - frontend/src/hooks/useHeldStockConfirm.tsx
   - frontend/src/lib/held-stock-confirm.ts
@@ -69,6 +85,7 @@ route: /manufacturing/challans
 4. Verify the challan details:
    - Check the **Movement Details** card showing **From → To** locations.
    - Review the **Items** table showing all materials with their sent quantities.
+   - If the challan carries named thans, bales or rolls, a card under **Items** lists them. It is titled **Thans (N)** or **Rolls (N)**, and **Pieces (N)** when it has both. Each row shows the bale (or **Rolls**), every than / roll number with its tag metres, the count and the **Tag metres**. The last row is the total (**Thans despatched** / **Rolls despatched**). This is the same list the printed challan carries. When a supplier delivered goods straight to a processor, the challan lists the thans / rolls that arrived on the receipt. Thans a job later takes at the processor do not change this list.
    - For a challan linked to a production run, the **References & Transport** card shows the **Production Run**, the **Buyer Style Code** (with the style name) and our **Style Code**.
 
 5. Click the **Receive** button in the top-right action bar.

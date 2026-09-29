@@ -60,12 +60,13 @@ A dyed or printed fabric lot keeps the list of its rolls or thans. A lot receive
    - "12 of 20 thans left" — the rest went out (to cutting, an embroidery job or a smocking send-out);
    - "All 12 thans gone" — the list is used up but metres are still on hand;
    - "No list" — the lot never had one (received as Total Meters, or entered by hand);
+   - a lot with "Smocked · SM2609-0001" under its fabric code is smocked fabric back from the smocker — its own lot, separate from the plain lot it was sent from;
    - amber "List out of step — … m listed, … m on hand" — metres left the lot without naming pieces.
 3. When a lot was counted at a fold length, **L (cm)** and **Counted @ L** sit beside **Quantity (actual)**: roll and than tags are counted metres, the lot is in actual metres.
 
 ## See where each roll went
 1. Click **View** on the lot's row.
-2. The **Rolls & thans** dialog lists every piece: **Metres left**, **Status** (**On the rack**, **Part left** or **Gone**), **Where it went** (the challan and the cutting batch or job, with the metres, and "cut", "at cutting" or "back … on <challan>") and **From** (**Receipt**, **Counted** or **End piece**).
+2. The **Rolls & thans** dialog lists every piece: **Metres left**, **Status** (**On the rack**, **Part left** or **Gone**), **Where it went** (the challan and the cutting batch or job, with the metres, and "cut", "at cutting" or "back … on <challan>") and **From** (**Receipt**, **Counted**, **End piece** or **Smocking** — a smocked lot's rolls, back from the smocker).
 3. An **End piece** ("End · CB-…") is what a cutting batch sent back that was not a whole roll.
 
 ## Record rolls & thans (a lot with no list)

@@ -38,6 +38,7 @@ sources:
   - frontend/src/pages/SmockingDashboard.tsx
   - frontend/src/pages/SmockingSendOut.tsx
   - frontend/src/pages/SmockingReceive.tsx
+  - frontend/src/pages/FabricAvailableStock.tsx
   - frontend/src/components/job-work/ThanPicker.tsx
   - backend/src/services/external-process.service.ts
 route: /manufacturing/smocking
@@ -101,8 +102,10 @@ route: /manufacturing/smocking
    - **Good** column shows received minus damaged
    - Total row shows overall counts
 3. **Receive Quantities** (if fabric was sent):
-   - **Quantity Received** - actual meters returned
-   - **Quantity Damaged** - damaged meters (if any)
+   - **Quantity Received** - the metres received **so far** (a total, not just this delivery). A send-out that already had a receipt says "Already received: … Enter the total received so far, not just this delivery."
+   - **Quantity Damaged** - damaged metres so far (if any)
+   - **Width after smocking (inches)** - the smocked fabric's width (it is narrower than the plain fabric). Leave it blank to keep the width it was sent at.
+   - **Smocked fabric is its own lot.** It is booked as a separate lot named "<fabric code> · Smocked <batch number>" — never back into the plain lot it was sent from. On **Inventory → Fabric Stock** it shows "Smocked · <batch number>" under the fabric code. If all of it comes back at once, the rolls / thans that went come back on the smocked lot as they went; otherwise what came back is one piece ("Back from smocking <batch number>"), and each later receipt adds one more piece for its new metres. The smocked lot is valued at the plain fabric's cost — the smocking charge stays on the smocking job work order.
 4. **Receipt Details**:
    - **Return Date** - actual date received (required)
    - **Actual Cost** - leave blank to use agreed rate, or enter actual cost
@@ -129,5 +132,6 @@ route: /manufacturing/smocking
 - **A ticked roll with a blank or too-large metres** blocks the send-out — fix the metres or untick it
 - **Quantity limits**: When entering SKU quantities, you cannot exceed the available count from the cutting batch
 - **Overdue tracking**: Send-outs past their expected return date are highlighted in red on the dashboard
-- **Partial receives**: If you receive less than sent, status becomes **Partially Received** and you can receive more later
+- **Partial receives**: If you receive less than sent, status becomes **Partially Received** and you can receive more later — enter the new **total** received, not just the latest delivery
+- **The total cannot go down**: a later receipt with less good fabric (received less damaged) than already recorded is refused
 - **Cancel only SENT**: You can only cancel send-outs that are still in SENT status - once any quantity is received, cancellation is blocked

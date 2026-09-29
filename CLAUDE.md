@@ -299,7 +299,10 @@ drifted (IT00254 Top 52": marker 3.82 m, saved 3.85 m). ONE rule, `services/help
 **Raw Mat and Production rows** need their marker image before those values are saved or the row approved
 (Costing rows may have one; when they do it is checked too); values that differ from the image — length/width
 beyond 0.005, sizes, pieces left unplaced, an image that could not be read — are saved only with a reason
-(`markerOverrideReason`, kept on the row + History). Every writer and approver calls it:
+(`markerOverrideReason`, kept on the row + History). A row is a marker only once it has a layer length or sizes
+(`describesMarker`; a width alone is a new row's default): a blank row with its image is **UNUSED** ("Not used yet"
+— nothing listed, no reason asked on a save that leaves it blank) and approve refuses it (`CAD_MARKER_NOT_USED`)
+until "Use these values" + Save fill it. Every writer and approver calls it:
 `checkMarkerOnSave` (CAD table row save), `checkMarkerOnApprove` (row Approve, Approve CAD plan), the Correct CAD
 flow (its own corrected-marker image), and `copyMarkerImage` for rows made from others (Copy to Raw Mat, Create CAD
 on a lot when the width matches, Fabric Costing clone / promote). Enforced by the *CAD marker rule bypass*

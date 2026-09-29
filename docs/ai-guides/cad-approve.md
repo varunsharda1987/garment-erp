@@ -74,7 +74,7 @@ The CAD plan must be complete before you can approve it:
 1. **All rows must have a Part assigned** - Each CAD row needs a pattern part selected
 2. **All rows must have CAD values** - The CAD Average (m/pc) must be calculated and greater than zero
 3. **All fabric groups must be covered** - Every style fabric must have at least one CAD row with values
-4. **Every Raw Mat and Production row must have its marker image** - The **CAD Image** column must not say **Needs image**, and a row that differs from its image (**Differs** / **Not checked**) must first be saved with a reason. Costing rows need no image (when they have one, it is checked the same way). See the guide "Create a CAD Plan (Marker)" for attaching the image
+4. **Every Raw Mat and Production row must have its marker image** - The **CAD Image** column must not say **Needs image** or **Not used yet** (a row with its image but no values — open the image, click **Use these values**, save), and a row that differs from its image (**Differs** / **Not checked**) must first be saved with a reason. Costing rows need no image (when they have one, it is checked the same way). See the guide "Create a CAD Plan (Marker)" for attaching the image
 
 If any of these are missing, you will see an error when trying to approve.
 

@@ -1917,7 +1917,7 @@ export function CADSpreadsheetTable({
                             // An approved row is left as it is (owner, 28-Sep): no image is not an alarm there —
                             // a correction (Correct…) brings its marker image
                             const marker =
-                              found && isRowLocked && found.state === 'NEEDS_IMAGE'
+                              found && isRowLocked && (found.state === 'NEEDS_IMAGE' || found.state === 'UNUSED')
                                 ? { ...found, state: 'NONE' as const }
                                 : found;
                             const tip = marker?.differences.length
@@ -1925,13 +1925,15 @@ export function CADSpreadsheetTable({
                                 (marker.overrideReason ? `\nReason: ${marker.overrideReason}` : '')
                               : marker?.state === 'MATCHES'
                                 ? 'The row matches its CAD image'
-                                : marker?.state === 'NEEDS_IMAGE'
-                                  ? 'This row is saved from its marker — attach the CAD image'
-                                  : isRowLocked
-                                    ? marker?.file
-                                      ? 'The CAD image of this approved row'
-                                      : 'Approved without a CAD image — attach one that matches it exactly'
-                                    : 'Attach the CAD image (Nest EXPERT screenshot or PDF)';
+                                : marker?.state === 'UNUSED'
+                                  ? 'The CAD image is attached — open it and click Use these values to fill the row'
+                                  : marker?.state === 'NEEDS_IMAGE'
+                                    ? 'This row is saved from its marker — attach the CAD image'
+                                    : isRowLocked
+                                      ? marker?.file
+                                        ? 'The CAD image of this approved row'
+                                        : 'Approved without a CAD image — attach one that matches it exactly'
+                                      : 'Attach the CAD image (Nest EXPERT screenshot or PDF)';
                             return (
                               <Button
                                 variant="ghost"
@@ -2019,11 +2021,13 @@ export function CADSpreadsheetTable({
                                         onClick={() => {
                                           // The CAD image rule refuses these on the server too — send the user to the image
                                           const state = markerByRow.get(row.id)?.state;
-                                          if (state === 'NEEDS_IMAGE' || state === 'DIFFERS') {
+                                          if (state === 'NEEDS_IMAGE' || state === 'DIFFERS' || state === 'UNUSED') {
                                             notify.warning(
                                               state === 'NEEDS_IMAGE'
                                                 ? "Attach this row's CAD image before approving"
-                                                : 'The values differ from the CAD image — correct them, or save them with a reason, before approving',
+                                                : state === 'UNUSED'
+                                                  ? 'This row has no values yet — click Use these values in its CAD image, save the row, then approve'
+                                                  : 'The values differ from the CAD image — correct them, or save them with a reason, before approving',
                                               { duration: 6000 }
                                             );
                                             setMarkerRowId(row.id);
@@ -2767,29 +2771,62 @@ export function CADSpreadsheetTable({
         }}
       >
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>These values differ from the CAD image</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <ul className="list-disc pl-5 text-sm space-y-1">
-              {markerReasonPrompt?.differences.map((d) => (
-                <li key={`${d.field}-${d.label}`}>{d.label}</li>
-              ))}
-            </ul>
-            <p className="text-sm text-muted-foreground">
-              Correct them to match the marker (CAD image → Use these values), or say why they are right and save.
-            </p>
-            <div className="space-y-1.5">
-              <Label htmlFor="marker-reason">Reason</Label>
-              <Textarea
-                id="marker-reason"
-                value={markerReason}
-                onChange={(e) => setMarkerReason(e.target.value)}
-                placeholder="e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow"
-                rows={3}
-              />
-            </div>
-          </div>
+          {(() => {
+            // A difference with neither an image nor a row value is one the image could not check (unreadable,
+            // or its sizes / width not shown) — nothing to correct, only to explain
+            const all = markerReasonPrompt?.differences ?? [];
+            const unchecked = all.filter((d) => d.image === null && d.row === null);
+            const differing = all.filter((d) => !(d.image === null && d.row === null));
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {differing.length === 0
+                      ? 'The CAD image could not check these values'
+                      : 'These values differ from the CAD image'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  {differing.length > 0 && (
+                    <ul className="list-disc pl-5 text-sm space-y-1">
+                      {differing.map((d) => (
+                        <li key={`${d.field}-${d.label}`}>{d.label}</li>
+                      ))}
+                    </ul>
+                  )}
+                  {unchecked.length > 0 && (
+                    <div className="space-y-1">
+                      {differing.length > 0 && <p className="text-sm font-medium">Not checked:</p>}
+                      <ul className="list-disc pl-5 text-sm space-y-1">
+                        {unchecked.map((d) => (
+                          <li key={`${d.field}-${d.label}`}>{d.label}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {differing.length === 0
+                      ? 'The image does not show these clearly enough to check them. Say where the values come from, and save.'
+                      : 'Correct them to match the marker (CAD image → Use these values), or say why they are right and save.'}
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="marker-reason">Reason</Label>
+                    <Textarea
+                      id="marker-reason"
+                      value={markerReason}
+                      onChange={(e) => setMarkerReason(e.target.value)}
+                      placeholder={
+                        differing.length === 0
+                          ? "e.g. sizes counted from the piece list in Nest EXPERT; the screenshot's title bar was cut off"
+                          : 'e.g. the marker was re-made at 3.85 m after the fit sample; new screenshot to follow'
+                      }
+                      rows={3}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
           <DialogFooter>
             <Button
               variant="outline"

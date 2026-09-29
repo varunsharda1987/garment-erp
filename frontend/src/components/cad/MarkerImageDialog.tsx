@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
   FileText,
   ImageIcon,
+  Info,
   Loader2,
   RefreshCw,
   Upload,
@@ -101,7 +102,7 @@ function MarkerImageBody({
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<'upload' | 'link' | 'reread' | null>(null);
   const [result, setResult] = useState<MarkerImageResult['summary']>(null);
-  const [pickedFileId, setPickedFileId] = useState<string>('');
+  const queryClient = useQueryClient();
   // An approved row refused an image that differs from it — the image stays in the style's images
   const [approvedRefusal, setApprovedRefusal] = useState<{ message: string; differences: MarkerDifference[] } | null>(
     null
@@ -110,7 +111,10 @@ function MarkerImageBody({
   // The latest answer from an upload / link / reread wins over the table's copy until the table refreshes.
   // An approved row with no image is left as it is (owner, 28-Sep) — shown plainly, not as "Needs image".
   const latest = result ?? marker ?? null;
-  const summary = latest && approved && latest.state === 'NEEDS_IMAGE' ? { ...latest, state: 'NONE' as const } : latest;
+  const summary =
+    latest && approved && (latest.state === 'NEEDS_IMAGE' || latest.state === 'UNUSED')
+      ? { ...latest, state: 'NONE' as const }
+      : latest;
   const reading: MarkerReading | null = summary?.reading ?? null;
   const file = summary?.file ?? null;
   const differences: MarkerDifference[] = summary?.differences ?? [];
@@ -121,10 +125,19 @@ function MarkerImageBody({
     queryFn: () => miniMarkerService.getAll(styleId),
     enabled: !readOnly,
   });
+  // The style's images, and this row's earlier ones — picking uses an image at once, so a wrong pick is undone
+  // by picking the earlier image again
   const pickable = useMemo(
-    () => (gallery?.files ?? []).filter((f) => f.id !== file?.id && !f.replacedAt),
-    [gallery, file?.id]
+    () => (gallery?.files ?? []).filter((f) => f.id !== file?.id && (!f.replacedAt || f.cadRow?.id === row.id)),
+    [gallery, file?.id, row.id]
   );
+  // Only a choice made in the open list counts: a closed Select still picks an item when a letter is typed on
+  // it (typeahead), which would replace the row's image with one the user never chose
+  const pickerOpen = useRef(false);
+  const onPick = (fileId: string) => {
+    if (!fileId || !pickerOpen.current || busy) return;
+    void run('link', () => miniMarkerService.linkToRow(styleId, row.id, fileId));
+  };
 
   const run = async (kind: 'upload' | 'link' | 'reread', call: () => Promise<MarkerImageResult>) => {
     setBusy(kind);
@@ -133,9 +146,16 @@ function MarkerImageBody({
       const res = await call();
       setResult(res.summary);
       onChanged();
+      void queryClient.invalidateQueries({ queryKey: ['miniMarkers', styleId] });
       const state = res.summary?.state;
       if (res.file.readStatus === 'READ' || res.file.readStatus === 'PARTIAL') {
-        notify.success(state === 'MATCHES' ? 'Marker read — the row matches it' : 'Marker read — check the values');
+        notify.success(
+          state === 'MATCHES'
+            ? 'Marker read — the row matches it'
+            : state === 'UNUSED'
+              ? 'Marker read — click Use these values to fill the row'
+              : 'Marker read — check the values'
+        );
       } else {
         notify.warning('The image was kept, but it could not be read — saving will ask for a reason');
       }
@@ -148,6 +168,7 @@ function MarkerImageBody({
         });
         notify.warning("The image differs from this approved row — it was kept in the style's images");
         onChanged();
+        void queryClient.invalidateQueries({ queryKey: ['miniMarkers', styleId] });
       } else {
         notify.error(getErrorMessage(error));
       }
@@ -218,7 +239,8 @@ function MarkerImageBody({
     {
       label: 'Margin (by rule)',
       image: num(summary?.imageMarginM, 'm'),
-      row: num(row.layerMarginMeters, 'm'),
+      // no layer length = no margin yet (not "0 m")
+      row: row.layerLengthMeters != null ? num(row.layerMarginMeters, 'm') : null,
       calculated: true,
     },
     {
@@ -329,6 +351,34 @@ function MarkerImageBody({
                 <AlertTitle>The row matches its marker</AlertTitle>
               </Alert>
             )}
+            {summary?.state === 'UNUSED' && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>Not used yet</AlertTitle>
+                <AlertDescription className="text-xs space-y-0.5">
+                  {reading && (reading.status === 'READ' || reading.status === 'PARTIAL') ? (
+                    <>
+                      <p>
+                        Click <strong>Use these values</strong> to fill this row from its image, then save the row.
+                      </p>
+                      {reading.sizes.length === 0 && (
+                        <p>
+                          The image gives no sizes — enter them in the row's Sizes cell; saving will ask for a reason.
+                        </p>
+                      )}
+                      {reading.widthIn === null && <p>The image gives no width — enter it in the row.</p>}
+                    </>
+                  ) : (
+                    <p>The image could not be read — enter the row's values; saving will ask for a reason.</p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+            {reading?.sizesFrom === 'pieces' && (
+              <p className="text-xs text-muted-foreground">
+                Sizes read from the piece list under the toolbar — the title bar is not in the screenshot.
+              </p>
+            )}
             {differences.length > 0 && (
               <Alert className="border-warning/40 bg-warning/5">
                 <AlertTriangle className="h-4 w-4 text-warning" />
@@ -396,29 +446,30 @@ function MarkerImageBody({
                   {file ? 'Replace image' : 'Upload image'}
                 </Button>
                 {pickable.length > 0 && (
-                  <div className="flex items-center gap-1.5">
-                    <Select value={pickedFileId} onValueChange={setPickedFileId} disabled={!!busy}>
-                      <SelectTrigger className="h-8 w-56 text-xs">
-                        <SelectValue placeholder="…or use an uploaded image" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {pickable.map((f) => (
-                          <SelectItem key={f.id} value={f.id} className="text-xs">
-                            {f.fileName ?? 'image'}
-                            {f.cadRow ? ` — on ${f.cadRow.label}` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={!pickedFileId || !!busy}
-                      onClick={() => run('link', () => miniMarkerService.linkToRow(styleId, row.id, pickedFileId))}
-                    >
-                      Use
-                    </Button>
-                  </div>
+                  <Select
+                    value=""
+                    onValueChange={onPick}
+                    onOpenChange={(open) => {
+                      pickerOpen.current = open;
+                    }}
+                    disabled={!!busy}
+                  >
+                    <SelectTrigger className="h-8 w-56 text-xs">
+                      <SelectValue placeholder="…or use an uploaded image" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pickable.map((f) => (
+                        <SelectItem key={f.id} value={f.id} className="text-xs">
+                          {f.fileName ?? 'image'}
+                          {f.cadRow?.id === row.id && !f.cadRow.current
+                            ? " — this row's earlier image"
+                            : f.cadRow
+                              ? ` — on ${f.cadRow.label}`
+                              : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </>
             )}
@@ -459,8 +510,15 @@ export function MarkerStateBadge({
   state: CadRowMarker['state'];
   differences: MarkerDifference[];
 }) {
-  const notChecked = differences.length === 1 && differences[0].field === 'image';
+  // "Not checked": every difference is one the image could not check (unreadable, or sizes / width not read)
+  const notChecked = differences.length > 0 && differences.every((d) => d.image === null && d.row === null);
   switch (state) {
+    case 'UNUSED':
+      return (
+        <Badge className="bg-muted text-muted-foreground border-border" variant="outline">
+          Not used yet
+        </Badge>
+      );
     case 'MATCHES':
       return (
         <Badge className="bg-success/10 text-success border-success/30" variant="outline">

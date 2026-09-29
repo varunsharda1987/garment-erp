@@ -4,12 +4,16 @@
  */
 import type { cad_purpose_files } from '@prisma/client';
 import {
+  describesMarker,
   markerDifferences,
   markerRequired,
+  readingColumns,
+  storedReading,
   summarizeMarker,
   type MarkerValues,
   type StoredReading,
 } from '../../services/helpers/cad-marker.helper';
+import type { MarkerReading } from '../../services/marker-reader.service';
 
 const S_TO_XXL = ['S', 'M', 'L', 'XL', 'XXL'].map((sizeName) => ({ sizeName, quantity: 1 }));
 
@@ -22,6 +26,7 @@ const ip00138: StoredReading = {
   placed: 135,
   total: 135,
   sizes: S_TO_XXL,
+  sizesFrom: 'title',
   pieces: 5,
   title: 'Nest EXPERT - IP00138 PANT - S-M-L-XL-XXL*',
   error: null,
@@ -138,5 +143,110 @@ describe('summarizeMarker', () => {
     expect(summarizeMarker(row({ ...matching, layerLengthM: 8.4 }, 'rounded', differs.differences), file).state).toBe(
       'DIFFERS'
     );
+  });
+});
+
+describe('describesMarker — is the row a marker yet?', () => {
+  it("a layer length or any size makes it one; a width alone (a new row's default) does not", () => {
+    expect(describesMarker({ layerLengthM: null, sizes: [] })).toBe(false);
+    expect(describesMarker({ layerLengthM: 0, sizes: [{ sizeName: 'S', quantity: 0 }] })).toBe(false);
+    expect(describesMarker({ layerLengthM: 11.05, sizes: [] })).toBe(true);
+    expect(describesMarker({ layerLengthM: null, sizes: [{ sizeName: 'S', quantity: 1 }] })).toBe(true);
+  });
+});
+
+// LNG129 (29-Sep): a new Raw Mat row showed a red "Differs" ("Layer length: image 11.05 m, row blank") the moment
+// its image was attached — nothing on the row differed, it was simply empty
+describe('summarizeMarker — a row with its image but no values yet is UNUSED', () => {
+  const lng129 = {
+    id: 'f2',
+    fileUrl: '/uploads/cad-files/lng129.png',
+    fileName: 'LNG129.png',
+    createdAt: new Date(),
+    readStatus: 'READ',
+    readLengthM: 11.05,
+    readWidthIn: 52,
+    readEfficiencyPct: 90.18,
+    readPlaced: 60,
+    readTotal: 60,
+    readSizes: S_TO_XXL.map((s) => ({ ...s, from: 'pieces' })),
+    readTitle: null,
+    readError: null,
+    readAt: new Date(),
+  } as unknown as cad_purpose_files;
+  const row = (values: MarkerValues, purpose = 'RAW_MATERIAL_CALCULATION', reason: string | null = null) => ({
+    purpose,
+    values,
+    markerOverrideReason: reason,
+    markerOverrideDifferences: reason ? JSON.stringify([{ field: 'sizes', image: null, row: null }]) : null,
+  });
+  const blank: MarkerValues = { layerLengthM: null, widthIn: null, sizes: [] };
+
+  it('a blank row, or one with only a width, is UNUSED with nothing listed — the image average still shows', () => {
+    for (const values of [blank, { ...blank, widthIn: 52 }]) {
+      const summary = summarizeMarker(row(values), lng129);
+      expect(summary).toMatchObject({ state: 'UNUSED', differences: [], overrideReason: null });
+      expect(summary.file?.id).toBe('f2');
+      expect(summary.imageAverage).toBeCloseTo((11.05 + 0.2) / 5, 4);
+    }
+  });
+
+  it('a Costing row and an unreadable image are UNUSED too while the row is blank', () => {
+    expect(summarizeMarker(row(blank, 'COSTING'), lng129).state).toBe('UNUSED');
+    const unreadable = { ...lng129, readStatus: 'UNREADABLE', readLengthM: null } as unknown as cad_purpose_files;
+    expect(summarizeMarker(row(blank), unreadable)).toMatchObject({ state: 'UNUSED', differences: [] });
+  });
+
+  it('a reason left from earlier values does not carry over to a blank row', () => {
+    expect(
+      summarizeMarker(row(blank, 'RAW_MATERIAL_CALCULATION', 'counted by hand'), lng129).overrideReason
+    ).toBeNull();
+  });
+
+  it('sizes alone make it a marker: the image length it lacks is a difference', () => {
+    const sizesOnly = summarizeMarker(row({ ...blank, sizes: S_TO_XXL }), lng129);
+    expect(sizesOnly.state).toBe('DIFFERS');
+    expect(sizesOnly.differences.map((d) => d.field)).toEqual(['length', 'width']);
+  });
+
+  it('the image values on the row match', () => {
+    expect(summarizeMarker(row({ layerLengthM: 11.05, widthIn: 52, sizes: S_TO_XXL }), lng129).state).toBe('MATCHES');
+  });
+});
+
+describe('where the sizes came from', () => {
+  it("sizes read from the piece table are stored with from: 'pieces' and read back as sizesFrom", () => {
+    const reading: MarkerReading = {
+      status: 'READ',
+      lengthM: 11.05,
+      widthIn: 52,
+      efficiencyPct: 90.18,
+      placed: 60,
+      total: 60,
+      sizes: S_TO_XXL,
+      sizesFrom: 'pieces',
+      pieces: 5,
+      title: null,
+      text: null,
+      ms: 1,
+      readerVersion: 'test',
+    };
+    const columns = readingColumns(reading);
+    expect(columns.readSizes).toEqual(S_TO_XXL.map((s) => ({ ...s, from: 'pieces' })));
+    const back = storedReading({
+      readStatus: 'READ',
+      readLengthM: null,
+      readWidthIn: null,
+      readEfficiencyPct: null,
+      readPlaced: null,
+      readTotal: null,
+      readSizes: columns.readSizes as never,
+      readTitle: null,
+      readError: null,
+      readAt: null,
+    });
+    expect(back.sizesFrom).toBe('pieces');
+    expect(back.sizes).toEqual(S_TO_XXL);
+    expect(readingColumns({ ...reading, sizesFrom: 'title' }).readSizes).toEqual(S_TO_XXL);
   });
 });

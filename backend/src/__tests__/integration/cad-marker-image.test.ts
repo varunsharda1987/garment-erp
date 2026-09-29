@@ -18,6 +18,7 @@ import { giveMarkerImage } from '../helpers/marker-fixture';
 const RUN = `CMI${Date.now().toString(36).toUpperCase()}`;
 const FIXTURES = path.join(__dirname, '../fixtures/markers');
 const IP00138 = path.join(FIXTURES, 'ip00138-pant-s-to-xxl.png');
+const LNG129 = path.join(FIXTURES, 'lng129-title-cut-off.png');
 const READER_INSTALLED = fs.existsSync(path.join(__dirname, '../../../ocr/.venv/Scripts/python.exe'));
 const itRead = READER_INSTALLED ? it : it.skip;
 
@@ -162,9 +163,9 @@ describe('CAD row marker image — endpoints', () => {
       expect(images.map((i) => i.id)).toEqual([first.id, second.id]);
       expect(images[0].replacedAt).not.toBeNull();
       expect(images[1].replacedAt).toBeNull();
-      // the reader was off: kept, not read, and the row reads "not checked"
+      // the reader was off: kept, not read — and the row, still blank, is "Not used yet" (nothing to compare)
       expect(images[1].readStatus).toBe('READER_UNAVAILABLE');
-      expect((await rowMarkers()).get(row.id).differences[0].field).toBe('image');
+      expect((await rowMarkers()).get(row.id)).toMatchObject({ state: 'UNUSED', differences: [] });
     } finally {
       delete process.env.MARKER_READER_DISABLED;
     }
@@ -450,6 +451,83 @@ describe('CAD values are saved from the marker image', () => {
       await approve(row.id).expect(200);
       saved = await prisma.fabric_width_cad.findUnique({ where: { id: row.id } });
       expect(saved?.approvalStatus).toBe('APPROVED');
+    },
+    180_000
+  );
+
+  // LNG129 (29-Sep): a new row with its image showed a red "Differs" ("row blank"), and saves that did not make
+  // it a marker yet asked for a reason
+  it('a blank row with its image is "Not used yet": no reason for saves that leave it blank, no approval', async () => {
+    const row = await createRow();
+    const image = await giveMarkerImage(prisma, {
+      cadId: row.id,
+      styleId,
+      lengthM: 11.05,
+      widthIn: 52,
+      sizes: S_TO_XXL,
+    });
+    expect((await rowMarkers()).get(row.id)).toMatchObject({ state: 'UNUSED', differences: [] });
+
+    // approve is refused until the row has its values
+    const notApproved = await approve(row.id);
+    expect(notApproved.status).toBe(422);
+    expect(codeOf(notApproved)).toBe('CAD_MARKER_NOT_USED');
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: row.id } }))?.approvalStatus).toBe('PENDING');
+
+    // a width-only save leaves it blank: nothing to check, no reason asked
+    await put(row.id, { cutableWidth: 50 }).expect(200);
+    expect((await prisma.fabric_width_cad.findUnique({ where: { id: row.id } }))?.markerOverrideReason).toBeNull();
+    await put(row.id, { cutableWidth: 52 }).expect(200);
+
+    // sizes alone make it a marker: the image's length it lacks is a difference
+    const sizesOnly = await put(row.id, { sizeBreakdowns: S_TO_XXL });
+    expect(sizesOnly.status).toBe(409);
+    expect(sizesOnly.body.details.differences).toEqual([
+      expect.objectContaining({ field: 'length', image: '11.05 m', row: null }),
+    ]);
+
+    // the image's values save clean
+    await put(row.id, {
+      layerLengthMeters: 11.05,
+      cutableWidth: 52,
+      sizeBreakdowns: S_TO_XXL,
+      piecesPerMarker: 5,
+    }).expect(200);
+    expect((await rowMarkers()).get(row.id)).toMatchObject({
+      state: 'MATCHES',
+      file: expect.objectContaining({ id: image.id }),
+    });
+  });
+
+  (READER_INSTALLED && fs.existsSync(LNG129) ? it : it.skip)(
+    'LNG129: a screenshot that begins below the title bar gives its sizes from the piece table',
+    async () => {
+      const row = await createRow({ cutableWidth: 0 });
+      const res = await attach(row.id, LNG129).expect(201);
+      const { summary } = res.body.data;
+      expect(summary.state).toBe('UNUSED');
+      expect(summary.reading).toMatchObject({
+        lengthM: 11.05,
+        widthIn: 52,
+        placed: 60,
+        total: 60,
+        sizesFrom: 'pieces',
+      });
+      expect(summary.reading.title).toBeNull();
+      expect(summary.reading.sizes.map((s: any) => `${s.sizeName}x${s.quantity}`)).toEqual([
+        'Sx1',
+        'Mx1',
+        'Lx1',
+        'XLx1',
+        'XXLx1',
+      ]);
+      await put(row.id, {
+        layerLengthMeters: 11.05,
+        cutableWidth: 52,
+        sizeBreakdowns: S_TO_XXL,
+        piecesPerMarker: 5,
+      }).expect(200);
+      expect((await rowMarkers()).get(row.id).state).toBe('MATCHES');
     },
     180_000
   );

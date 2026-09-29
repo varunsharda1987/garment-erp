@@ -24,6 +24,14 @@ describe('normalizeReading', () => {
     });
     expect(r).toMatchObject({ status: 'READ', lengthM: 3.59, widthIn: 52, placed: 26, total: 26, pieces: 2 });
     expect(r.sizes).toEqual([{ sizeName: 'L', quantity: 2 }]);
+    expect(r.sizesFrom).toBe('title');
+  });
+
+  it('says where the sizes came from: the piece table only when the reader says so, none without sizes', () => {
+    const sizes = [{ sizeName: 'S', quantity: 1 }];
+    expect(normalizeReading({ status: 'READ', sizes, sizesFrom: 'pieces' }).sizesFrom).toBe('pieces');
+    expect(normalizeReading({ status: 'READ', sizes, sizesFrom: 'somewhere' }).sizesFrom).toBe('title');
+    expect(normalizeReading({ status: 'PARTIAL', sizes: [], sizesFrom: 'pieces' }).sizesFrom).toBeNull();
   });
 
   it('never trusts what it cannot check', () => {
@@ -72,6 +80,20 @@ describe('readMarkerFile', () => {
       expect(marker.sizes.map((s) => s.sizeName)).toEqual(['S', 'M', 'L', 'XL', 'XXL']);
       expect(photo.status).toBe('UNREADABLE');
       expect(photo.lengthM).toBeNull();
+    },
+    120_000
+  );
+
+  // LNG129 (29-Sep): the screenshot begins below the title bar — the sizes come from the piece table
+  (readerInstalled && fs.existsSync(path.join(FIXTURES, 'lng129-title-cut-off.png')) ? it : it.skip)(
+    'reads the sizes from the piece table when the title bar is not in the screenshot',
+    async () => {
+      delete process.env.MARKER_READER_DISABLED;
+      const r = await readMarkerFile(path.join(FIXTURES, 'lng129-title-cut-off.png'));
+      expect(r).toMatchObject({ status: 'READ', lengthM: 11.05, widthIn: 52, placed: 60, total: 60, pieces: 5 });
+      expect(r.sizes.map((s) => s.sizeName)).toEqual(['S', 'M', 'L', 'XL', 'XXL']);
+      expect(r.sizesFrom).toBe('pieces');
+      expect(r.title).toBeNull();
     },
     120_000
   );

@@ -129,6 +129,10 @@ function markerMessage(result: MarkerImageResult): string {
   switch (result.summary?.state) {
     case 'MATCHES':
       return 'Marker image read — the row matches it';
+    case 'UNUSED':
+      return result.file.readStatus === 'READ' || result.file.readStatus === 'PARTIAL'
+        ? 'Marker image read — click Use these values to fill the row'
+        : 'The image was kept, but it could not be read — type the values; saving will ask for a reason';
     case 'DIFFERS':
     case 'EXPLAINED':
       return result.file.readStatus === 'READ' || result.file.readStatus === 'PARTIAL'

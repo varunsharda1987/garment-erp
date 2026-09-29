@@ -724,7 +724,7 @@ router.post(
 
 /**
  * @route   GET /api/cad-planning/:styleId/row-markers
- * @desc    Every CAD row of the style with its marker image state (MATCHES / DIFFERS / NEEDS_IMAGE …)
+ * @desc    Every CAD row of the style with its marker image state (MATCHES / DIFFERS / NEEDS_IMAGE / UNUSED …)
  * @access  All authenticated users
  */
 router.get('/:styleId/row-markers', validateParams(styleIdParamSchema), asyncHandler(getRowMarkers));

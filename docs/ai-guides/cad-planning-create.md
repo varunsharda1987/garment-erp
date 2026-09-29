@@ -52,6 +52,10 @@ keywords:
   - layer margin
   - how is CAD average calculated
   - buyer style code
+  - not used yet
+  - sizes could not be read
+  - title bar cut off
+  - piece list sizes
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -78,6 +82,8 @@ keywords:
   - margin kitna hai
   - average kaise nikla
   - buyer ka style code
+  - size nahi padha
+  - screenshot kata hua
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -108,6 +114,8 @@ keywords:
   - कारण के साथ सेव
   - मार्जिन
   - एवरेज कैसे निकला
+  - साइज नहीं पढ़ा
+  - अभी इस्तेमाल नहीं
   - बायर स्टाइल कोड
 sources:
   - frontend/src/config/navigation.ts
@@ -208,17 +216,18 @@ Open the row menu (three dots) > **Edit** to change a row, then click the save i
 Each row's **CAD Image** column shows its marker image state:
 - **Needs image** (red) - a Raw Mat or Production row with values but no image. It cannot be saved or approved like this
 - **Add** - no image yet (a Costing row may have one; it is optional there)
+- **Not used yet** (grey) - the row has its image but no values yet (a new row). Open it and click **Use these values**, then save the row. It cannot be approved before that
 - **Matches** (green) - the row is what its image says
 - **Differs** / **Not checked** (red) - the row differs from its image, or the image could not be read, and no reason was given
 - **Differs · reason given** / **Not checked · reason given** (amber) - saved with a reason
 - **No image** (grey) - an approved row from before images were required. It keeps its values. Click it to attach its marker image: an approved row takes an image only when it says exactly what the row holds (see below)
 
 To attach it:
-1. Make the marker in Nest EXPERT and take a screenshot of the whole window (the title bar with the sizes and the status bar with Placed, Eff, Length and Width must show). A PDF export also works.
+1. Make the marker in Nest EXPERT and take a screenshot of the whole window (the title bar with the sizes, the piece list under the toolbar, and the status bar with Placed, Eff, Length and Width). A PDF export also works. If the title bar is cut off, the sizes are read from the piece list instead — the window then says "Sizes read from the piece list under the toolbar — the title bar is not in the screenshot".
 2. Click the row's **CAD Image** cell. The **CAD image** window opens.
-3. Click **Upload image** (JPG, PNG or PDF, up to 10 MB). Or pick one already uploaded for the style in **…or use an uploaded image** and click **Use**.
+3. Click **Upload image** (JPG, PNG or PDF, up to 10 MB). Or choose one already uploaded for the style in **…or use an uploaded image** — choosing it uses it at once. The list also shows this row's earlier images ("this row's earlier image"), so a wrong choice is undone by choosing the earlier one again.
 4. Wait while it reads: "Reading the marker — about 10 seconds…".
-5. The window shows the image and a table: **Image** against **Row** for **Layer length**, **Width**, **Sizes**, **Pieces**, **Placed** and **Efficiency**. Lines that differ are highlighted.
+5. The window shows the image and a table: **Image** against **Row** for **Layer length**, **Width**, **Sizes**, **Pieces**, **Placed** and **Efficiency**. Lines that differ are highlighted. On a new row with no values yet the window says **Not used yet** — nothing differs, the row is simply empty.
 6. Click **Use these values**. The row opens for editing with Layer(M), Width and Sizes filled from the marker ("Values from the CAD image are filled in — check them and click Save").
 7. Click the save icon on the row. The chip turns **Matches**.
 
@@ -232,7 +241,7 @@ If the marker has a size the style does not offer (e.g. XXL on a style with XS�
 
 ### 7. Saving values that differ from the image
 
-If you save a Layer(M), Width or Sizes that differ from the row's image (or the image could not be read), the window **These values differ from the CAD image** lists each difference (e.g. "Layer length: image 3.82 m, row 3.85 m"). Either:
+If you save a Layer(M), Width or Sizes that differ from the row's image, the window **These values differ from the CAD image** lists each difference (e.g. "Layer length: image 3.82 m, row 3.85 m"). If the image could not show a value at all (e.g. no sizes could be read), the window is called **The CAD image could not check these values** instead. Either:
 - click **Open CAD image** and use the marker's values, or
 - type the **Reason** and click **Save with this reason**. The reason is kept on the row (hover the chip) and in its **History**.
 
@@ -291,7 +300,9 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
 - **Zero size breakdown**: If no sizes are entered, Pcs = 0 and CAD Avg cannot be calculated.
 - **"Attach this Raw Mat CAD's marker image first"** (or Production): the row's Layer(M), Width or Sizes cannot be saved without its image. The **CAD image** window opens — upload the screenshot and click **Use these values**. Changing only the greige, part, print or notes needs no image.
 - **Approve refused — "Attach this row's CAD image before approving"** or **"The values differ from the CAD image — correct them, or save them with a reason, before approving"**: attach the image, or save the values with a reason, then approve.
+- **Approve refused — "This row has no values yet — click Use these values in its CAD image, save the row, then approve"**: the chip says **Not used yet**. Open the CAD image, click **Use these values**, save the row, then approve.
 - **"The image was kept, but it could not be read"**: a phone photo, another CAD program or a cut-off screenshot. The chip says **Not checked**. Upload a clear screenshot of the whole Nest EXPERT window, or save with a reason.
+- **"The sizes could not be read from the image — not checked"**: neither the title bar nor the piece list gave the sizes (both cut off, or the piece list scrolled). Upload a screenshot that shows the title bar, or enter the sizes and save with a reason (e.g. "sizes counted from the piece list").
 - **"Only 4 of the marker's 60 pieces are placed"**: the marker was not finished in Nest EXPERT. Finish it and upload a new screenshot, or save with a reason (e.g. an embroidery-panel marker).
 - **Wrong cutable width**: Using greige width instead of cutable width leads to wrong fabric consumption. Cutable width is typically 1-2 inches less than greige width due to selvedge.
 - **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but cutting needs an APPROVED Production CAD made from the received lot.

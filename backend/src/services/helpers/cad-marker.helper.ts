@@ -8,7 +8,10 @@
  *
  *  - Raw Mat and Production rows need their marker image (cad_purpose_files.cadId, current = replacedAt
  *    null) before their CAD values are saved or approved. Costing rows may have one; when they do it is
- *    checked the same way. A row with no layer length and no sizes is not a marker yet.
+ *    checked the same way. A row with no layer length and no sizes is not a marker yet (`describesMarker`):
+ *    with an image it is UNUSED ("Not used yet") — nothing to compare, nothing to save a reason for — and it
+ *    cannot be approved until its values are filled from the image (LNG129, 29-Sep: a new row showed a red
+ *    "Differs" with "row blank" lines the moment its image was attached).
  *  - The image is read (services/marker-reader.service.ts) and a save whose values differ from it — length,
  *    width, sizes, or a marker with pieces left unplaced — is refused unless a reason is given. An image that
  *    could not be read counts as a difference ("not checked"). The reason and the differences it covers are
@@ -56,6 +59,8 @@ export interface StoredReading {
   placed: number | null;
   total: number | null;
   sizes: MarkerSize[];
+  /** 'title', or 'pieces' when the screenshot began below the title bar and the piece table gave them */
+  sizesFrom: 'title' | 'pieces' | null;
   pieces: number | null;
   title: string | null;
   error: string | null;
@@ -92,6 +97,15 @@ function sizesOf(json: Prisma.JsonValue | null | undefined): MarkerSize[] {
     .map((s) => ({ sizeName: s.sizeName.toUpperCase(), quantity: s.quantity }));
 }
 
+/** Sizes read from the piece table are stored with `from: 'pieces'` on each entry (no column of their own) */
+function sizesFromOf(json: Prisma.JsonValue | null | undefined, sizes: MarkerSize[]): StoredReading['sizesFrom'] {
+  if (sizes.length === 0) return null;
+  const fromPieces =
+    Array.isArray(json) &&
+    json.some((s) => !!s && typeof s === 'object' && (s as Record<string, unknown>).from === 'pieces');
+  return fromPieces ? 'pieces' : 'title';
+}
+
 export function storedReading(file: ReadingColumns): StoredReading {
   const sizes = sizesOf(file.readSizes);
   return {
@@ -102,6 +116,7 @@ export function storedReading(file: ReadingColumns): StoredReading {
     placed: file.readPlaced ?? null,
     total: file.readTotal ?? null,
     sizes,
+    sizesFrom: sizesFromOf(file.readSizes, sizes),
     pieces: sizes.length > 0 ? sizes.reduce((sum, s) => sum + s.quantity, 0) : null,
     title: file.readTitle ?? null,
     error: file.readError ?? null,
@@ -118,7 +133,12 @@ export function readingColumns(reading: MarkerReading): Prisma.cad_purpose_files
     readEfficiencyPct: reading.efficiencyPct,
     readPlaced: reading.placed,
     readTotal: reading.total,
-    readSizes: reading.sizes.length > 0 ? (reading.sizes as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+    readSizes:
+      reading.sizes.length > 0
+        ? ((reading.sizesFrom === 'pieces'
+            ? reading.sizes.map((s) => ({ ...s, from: 'pieces' }))
+            : reading.sizes) as unknown as Prisma.InputJsonValue)
+        : Prisma.DbNull,
     readTitle: reading.title,
     readText: reading.text,
     readError: reading.error ?? null,
@@ -258,6 +278,15 @@ export function markerDifferences(
   return out;
 }
 
+/**
+ * Is the row a marker yet? It is once it has a layer length or any size — a width alone is not (a new row gets a
+ * default width). Before that there is nothing to compare with an image, nothing to save a reason for, and
+ * nothing to approve.
+ */
+export function describesMarker(values: Pick<MarkerValues, 'layerLengthM' | 'sizes'>): boolean {
+  return (values.layerLengthM !== null && values.layerLengthM > 0) || values.sizes.some((s) => s.quantity > 0);
+}
+
 const differenceKey = (d: Pick<MarkerDifference, 'field' | 'image' | 'row'>) => `${d.field}|${d.image}|${d.row}`;
 
 /** Does a stored reason still cover exactly these differences? (A new image or new values need a new one.) */
@@ -292,11 +321,13 @@ function reasonCovers(storedText: string | null | undefined, differences: Marker
 /**
  * NONE        no image, and none needed (Costing, or a row that is not a marker yet)
  * NEEDS_IMAGE a Raw Mat / Production row with CAD values and no image
+ * UNUSED      an image, but the row is not a marker yet (no length, no sizes): "Use these values" fills it;
+ *             approve is refused until it is filled and saved
  * MATCHES     the values are what the image says
  * EXPLAINED   they differ (or the image could not be read) and a reason covers exactly that
  * DIFFERS     they differ and nothing explains it — approve is refused
  */
-export type MarkerState = 'NONE' | 'NEEDS_IMAGE' | 'MATCHES' | 'EXPLAINED' | 'DIFFERS';
+export type MarkerState = 'NONE' | 'NEEDS_IMAGE' | 'UNUSED' | 'MATCHES' | 'EXPLAINED' | 'DIFFERS';
 
 export interface MarkerSummary {
   state: MarkerState;
@@ -336,10 +367,10 @@ export function summarizeMarker(
   styleSizes?: string[]
 ): MarkerSummary {
   const required = markerRequired(row.purpose);
-  const describesMarker = row.values.layerLengthM !== null || row.values.sizes.length > 0;
+  const isMarker = describesMarker(row.values);
   if (!file) {
     return {
-      state: required && describesMarker ? 'NEEDS_IMAGE' : 'NONE',
+      state: required && isMarker ? 'NEEDS_IMAGE' : 'NONE',
       required,
       file: null,
       reading: null,
@@ -350,12 +381,25 @@ export function summarizeMarker(
     };
   }
   const reading = storedReading(file);
+  const fileSummary = { id: file.id, fileUrl: file.fileUrl, fileName: file.fileName, uploadedAt: file.createdAt };
+  if (!isMarker) {
+    // Nothing on the row yet to compare: its image waits to be used
+    return {
+      state: 'UNUSED',
+      required,
+      file: fileSummary,
+      reading,
+      differences: [],
+      overrideReason: null,
+      ...imageAverageOf(reading),
+    };
+  }
   const differences = markerDifferences(row.values, reading, styleSizes);
   const explained = !!row.markerOverrideReason && reasonCovers(row.markerOverrideDifferences, differences);
   return {
     state: differences.length === 0 ? 'MATCHES' : explained ? 'EXPLAINED' : 'DIFFERS',
     required,
-    file: { id: file.id, fileUrl: file.fileUrl, fileName: file.fileName, uploadedAt: file.createdAt },
+    file: fileSummary,
     reading,
     differences,
     overrideReason: explained ? row.markerOverrideReason : null,
@@ -530,11 +574,11 @@ export async function checkMarkerOnSave(
     sizes: args.after.sizes !== undefined ? args.after.sizes : stored.sizes,
   };
   const purpose = args.purpose !== undefined ? args.purpose : rowPurpose(row);
-  const describesMarker = values.layerLengthM !== null || values.sizes.length > 0;
+  const isMarker = describesMarker(values);
   const [file, styleSizes] = await Promise.all([currentMarkerFile(db, row.id), styleSizeNames(db, rowStyleId(row))]);
 
   if (!file) {
-    if (markerRequired(purpose) && describesMarker) {
+    if (markerRequired(purpose) && isMarker) {
       throw new BusinessError(
         `Attach this ${PURPOSE_LABEL[purpose ?? ''] ?? ''} CAD's marker image first — its values are saved from ` +
           "the marker. Open the row's CAD image, upload the Nest EXPERT screenshot (or PDF) and its values fill in.",
@@ -542,6 +586,20 @@ export async function checkMarkerOnSave(
       );
     }
     return none;
+  }
+
+  // Still not a marker after this save (e.g. a new row's greige, notes or default width): its image has nothing
+  // to check yet, so no reason is asked for, and a reason left from earlier values no longer applies
+  if (!isMarker) {
+    return {
+      patch: {
+        markerOverrideReason: null,
+        markerOverrideById: null,
+        markerOverrideAt: null,
+        markerOverrideDifferences: null,
+      },
+      override: null,
+    };
   }
 
   const reading = storedReading(file);
@@ -633,7 +691,8 @@ export async function checkMarkerOnApprove(db: Db, cadIds: string[]): Promise<vo
     const row = await loadRow(db, cadId);
     if (!row) continue;
     const summary = await markerSummaryForRow(db, cadId);
-    if (!summary || (summary.state !== 'NEEDS_IMAGE' && summary.state !== 'DIFFERS')) continue;
+    if (!summary || (summary.state !== 'NEEDS_IMAGE' && summary.state !== 'DIFFERS' && summary.state !== 'UNUSED'))
+      continue;
     const width = dec(row.cutableWidth);
     refusals.push({
       cadId,
@@ -651,6 +710,13 @@ export async function checkMarkerOnApprove(db: Db, cadIds: string[]): Promise<vo
         { code: 'CAD_MARKER_IMAGE_REQUIRED', cadId }
       );
     }
+    if (summary.state === 'UNUSED') {
+      throw new BusinessError(
+        `This ${label} CAD has its marker image but no values yet. Open its CAD image, click Use these values, ` +
+          'save the row, then approve.',
+        { code: 'CAD_MARKER_NOT_USED', cadId }
+      );
+    }
     throw new ConflictError(
       `This ${label} CAD's values differ from its marker image: ${summary.differences.map((d) => d.label).join('; ')}. ` +
         'Correct them, or save them with a reason, then approve.',
@@ -659,7 +725,14 @@ export async function checkMarkerOnApprove(db: Db, cadIds: string[]): Promise<vo
   }
 
   const lines = refusals.map(
-    (r) => `${r.label} — ${r.summary.state === 'NEEDS_IMAGE' ? 'no marker image' : 'differs from its marker image'}`
+    (r) =>
+      `${r.label} — ${
+        r.summary.state === 'NEEDS_IMAGE'
+          ? 'no marker image'
+          : r.summary.state === 'UNUSED'
+            ? 'its marker image is not used yet (no values)'
+            : 'differs from its marker image'
+      }`
   );
   throw new BusinessError(
     `${refusals.length} CAD rows cannot be approved yet: ${lines.join('; ')}. Attach each row's marker image, and ` +

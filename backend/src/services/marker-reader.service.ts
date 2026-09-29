@@ -7,7 +7,8 @@
  *
  * This service never throws for a bad image or a missing reader: it answers READER_UNAVAILABLE or
  * UNREADABLE, and the marker rule (helpers/cad-marker.helper.ts) turns that into "not checked — give a
- * reason". A marker is read in ~5–10 s; reads run ONE AT A TIME because the PC also serves other apps.
+ * reason". A marker is read in ~5–10 s (up to ~25 s when its sizes have to come from the piece table because
+ * the screenshot begins below the title bar); reads run ONE AT A TIME because the PC also serves other apps.
  */
 import { execFile } from 'child_process';
 import fs from 'fs';
@@ -32,8 +33,11 @@ export interface MarkerReading {
   /** "Placed 135/135" — pieces placed / pieces in the marker */
   placed: number | null;
   total: number | null;
-  /** From the title's size list; "L(x2)" is one entry with quantity 2 */
+  /** From the title's size list ("L(x2)" is one entry with quantity 2) — or, when the screenshot begins below
+   *  the title bar, from the piece table under the toolbar (kept only when it adds up to the piece total) */
   sizes: MarkerSize[];
+  /** Where the sizes were read: 'title', 'pieces' (the piece table), null = none read */
+  sizesFrom: 'title' | 'pieces' | null;
   /** Garments in the marker (sum of the size quantities), null when no sizes were read */
   pieces: number | null;
   title: string | null;
@@ -65,6 +69,7 @@ function unavailable(error: string): MarkerReading {
     placed: null,
     total: null,
     sizes: [],
+    sizesFrom: null,
     pieces: null,
     title: null,
     text: null,
@@ -96,6 +101,7 @@ export function normalizeReading(raw: unknown): MarkerReading {
     placed: int(r.placed),
     total: int(r.total),
     sizes,
+    sizesFrom: sizes.length === 0 ? null : r.sizesFrom === 'pieces' ? 'pieces' : 'title',
     pieces,
     title: typeof r.title === 'string' ? r.title.slice(0, 500) : null,
     text: typeof r.text === 'string' ? r.text.slice(0, 2000) : null,

@@ -18,7 +18,7 @@ const MARKER_READ_TIMEOUT = 120_000;
 
 /** A save or approve refused by the marker rule — 409 CAD_MARKER_MISMATCH / 422 CAD_MARKER_IMAGE_REQUIRED */
 export interface MarkerRefusal {
-  code: 'CAD_MARKER_MISMATCH' | 'CAD_MARKER_IMAGE_REQUIRED';
+  code: 'CAD_MARKER_MISMATCH' | 'CAD_MARKER_IMAGE_REQUIRED' | 'CAD_MARKER_NOT_USED';
   message: string;
   differences: MarkerDifference[];
 }
@@ -27,7 +27,8 @@ export function markerRefusalFromError(error: unknown): MarkerRefusal | null {
   const res = (error as { response?: { data?: any } })?.response;
   const details = res?.data?.details ?? res?.data?.error?.details;
   const code = details?.code;
-  if (code !== 'CAD_MARKER_MISMATCH' && code !== 'CAD_MARKER_IMAGE_REQUIRED') return null;
+  if (code !== 'CAD_MARKER_MISMATCH' && code !== 'CAD_MARKER_IMAGE_REQUIRED' && code !== 'CAD_MARKER_NOT_USED')
+    return null;
   return {
     code,
     message: res?.data?.message ?? 'The CAD image does not allow this',

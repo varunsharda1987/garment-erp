@@ -49,6 +49,8 @@ export interface MarkerReading {
   placed: number | null;
   total: number | null;
   sizes: MarkerSize[];
+  /** 'pieces' = read from the piece table because the screenshot begins below the title bar */
+  sizesFrom?: 'title' | 'pieces' | null;
   pieces: number | null;
   title: string | null;
   error: string | null;
@@ -65,9 +67,10 @@ export interface MarkerDifference {
 
 /**
  * NONE — no image, none needed · NEEDS_IMAGE — Raw Mat / Production row with values and no image ·
+ * UNUSED — an image, but the row has no length or sizes yet ("Use these values" fills it) ·
  * MATCHES · EXPLAINED — differs (or not readable) and a reason covers it · DIFFERS — nothing explains it
  */
-export type MarkerState = 'NONE' | 'NEEDS_IMAGE' | 'MATCHES' | 'EXPLAINED' | 'DIFFERS';
+export type MarkerState = 'NONE' | 'NEEDS_IMAGE' | 'UNUSED' | 'MATCHES' | 'EXPLAINED' | 'DIFFERS';
 
 export interface CadRowMarker {
   cadId: string;

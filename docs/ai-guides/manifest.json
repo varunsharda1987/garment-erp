@@ -1325,29 +1325,31 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/SaleOrderList.tsx": "6e7a7a204ac3",
+      "frontend/src/pages/SaleOrderList.tsx": "022d274bcf72",
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "frontend/src/components/filters/DateRangeFilter.tsx": "d50739883fae",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
-      "frontend/src/pages/SaleOrderDetail.tsx": "ee843f88e82f",
+      "frontend/src/pages/SaleOrderDetail.tsx": "14272f4d5bfb",
       "frontend/src/components/sale-order/SaleOrderForm.tsx": "a7bebea47106",
       "frontend/src/components/sale-order/SaleOrderItemsTable.tsx": "5b1c4e241aab",
       "frontend/src/components/sale-order/SaleOrderItemDialog.tsx": "198bb0e9bf3a",
       "frontend/src/components/sale-order/SizeBreakdownDialog.tsx": "aacb25829026",
+      "frontend/src/components/sale-order/ChangeDatesDialog.tsx": "b7bb9f7e7fde",
+      "frontend/src/components/DataTable.tsx": "3f941d111764",
       "frontend/src/components/sale-order/sale-order-lines.ts": "55db918c430a",
-      "frontend/src/services/saleOrder.service.ts": "64e96e910f32",
-      "backend/src/schemas/saleOrder.schema.ts": "2ad17ed485b5",
-      "backend/src/routes/saleOrder.routes.ts": "19c6022f348a",
-      "backend/src/services/saleOrder.service.ts": "e391029cbe36",
-      "backend/src/controllers/saleOrder.controller.ts": "914ae2585e6e",
+      "frontend/src/services/saleOrder.service.ts": "9c8dffa30ed5",
+      "backend/src/schemas/saleOrder.schema.ts": "7deaab9940a8",
+      "backend/src/routes/saleOrder.routes.ts": "594a5d992718",
+      "backend/src/services/saleOrder.service.ts": "58815654bf3a",
+      "backend/src/controllers/saleOrder.controller.ts": "f7fedb8d2fb8",
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa",
       "backend/src/services/helpers/sale-order-sizes.helper.ts": "fd5e76a76277",
       "backend/src/services/helpers/buyer-po-price.helper.ts": "a9b660c2bd05",
       "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "543bba33453d"
     },
-    "contentHash": "b99a4b12be47",
-    "generatedAt": "2026-09-29T08:02:04.415Z"
+    "contentHash": "c478f7d60f42",
+    "generatedAt": "2026-09-29T09:39:58.738Z"
   },
   "sample-approve": {
     "sources": {
@@ -1740,7 +1742,7 @@
       "frontend/src/components/StyleCombobox.tsx": "dcf231b0f103",
       "frontend/src/lib/style-code.ts": "dc4d8aefd161",
       "frontend/src/components/SplitProductionModal.tsx": "a347eb0bfe6d",
-      "frontend/src/pages/SaleOrderDetail.tsx": "ee843f88e82f",
+      "frontend/src/pages/SaleOrderDetail.tsx": "14272f4d5bfb",
       "frontend/src/pages/OrderDetail.tsx": "86686aea2901",
       "backend/src/controllers/order.controller.ts": "0495e351e949",
       "backend/src/services/helpers/order-status.helper.ts": "32c6b6699441",
@@ -1749,11 +1751,11 @@
       "backend/src/services/workOrder.service.ts": "6a1e1c17a287",
       "backend/src/services/helpers/material-sync.helper.ts": "3e1f1d5ddbef",
       "backend/src/services/productionBlockingValidation.service.ts": "886865d6829d",
-      "backend/src/services/saleOrder.service.ts": "e391029cbe36",
+      "backend/src/services/saleOrder.service.ts": "58815654bf3a",
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa"
     },
-    "contentHash": "3d59045a47bf",
-    "generatedAt": "2026-09-29T08:02:04.508Z"
+    "contentHash": "33ca560870d7",
+    "generatedAt": "2026-09-29T09:39:58.925Z"
   },
   "zipper-create": {
     "sources": {

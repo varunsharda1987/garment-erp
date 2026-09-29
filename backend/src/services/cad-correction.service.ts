@@ -195,7 +195,14 @@ export interface CorrectionImpact {
     layerMarginMeters: number | null;
     pieces: number | null;
   };
-  costing: { slabLabel: string | null; slabMetres: number | null; priceChanged: boolean; notes: string[] };
+  costing: {
+    slabLabel: string | null;
+    slabMetres: number | null;
+    /** The parts priced together with this row (same greige, processor and colour), null = on its own */
+    batch: { metres: number; members: Array<{ id: string; label: string; metres: number; thisRow: boolean }> } | null;
+    priceChanged: boolean;
+    notes: string[];
+  };
   fabricCostPerPiece: { before: number | null; after: number | null };
   costSheets: Array<{
     costSheetId: string;
@@ -312,6 +319,12 @@ async function buildImpact(cad: LoadedCad, after: CadMarker, recost: RecostResul
     costing: {
       slabLabel: recost.slabLabel,
       slabMetres: recost.slabMetres === null ? null : round2(recost.slabMetres),
+      batch: recost.batch
+        ? {
+            metres: round2(recost.batch.metres),
+            members: recost.batch.members.map((m) => ({ ...m, metres: round2(m.metres), thisRow: m.id === cad.id })),
+          }
+        : null,
       priceChanged: recost.priceChanged,
       notes: recost.notes,
     },
@@ -371,6 +384,7 @@ async function writeCad(
             screenCostPerMeter: c.screenCostPerMeter,
             totalCostPerMeter: c.totalCostPerMeter,
             costedAtQuantityMeters: c.costedAtQuantityMeters,
+            costedRateIsBatch: c.costedRateIsBatch,
             ...(c.greigeProvenance ?? {}),
           }
         : {}),

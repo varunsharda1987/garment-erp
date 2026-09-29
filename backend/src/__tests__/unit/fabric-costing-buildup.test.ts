@@ -49,11 +49,14 @@ function pageTotal(row: {
 }
 
 // Plain functions, not jest.fn: the jest config resets mock implementations before every test
-const db = {
+const baseDb = {
   processor_rate_card: { findUnique: async () => ({ processingType: 'PRINTING', printingType: 'PIGMENT' }) },
   suppliers: { findUnique: async () => ({ name: 'Test Printers' }) },
   greige_master: { findUnique: async () => ({ greigeCode: 'GRG-T2' }) },
-} as never;
+  // Not on a style fabric → never batched
+  fabric_width_cad: { findUnique: async () => null, findMany: async () => [] },
+};
+const db = baseDb as never;
 
 const OLD = { avg: 0.7033, pcs: 2760, screenPerMeter: 1.25 };
 const baseRow: CostedCadRow = {
@@ -72,7 +75,6 @@ const baseRow: CostedCadRow = {
   totalCostPerMeter: 70,
   costedAtQuantityMeters: OLD.avg * OLD.pcs,
   costedRateIsBatch: false,
-  processingBatchGroupColorId: null,
 };
 const screenTotal = OLD.screenPerMeter * OLD.avg * OLD.pcs;
 
@@ -153,5 +155,160 @@ describe('recostCadRow — same ₹/m as the Fabric Costing page', () => {
     const result = await recostCadRow(db, uncosted, { cadAverage: 0.9, greigeId: 'g-2' }, 'u-1');
     expect(result.costing.totalCostPerMeter).toBeNull();
     expect(result.priceChanged).toBe(false);
+  });
+});
+
+/**
+ * ESSKY084LS (29-Sep): the 48″ and 52″ Shirt parts are GRG-0038 dyed by one processor in one colour, so Fabric
+ * Costing priced them on their combined metres. Correcting the 52″ row to 0.3335 was refused "no rate at 767 m"
+ * because the stored costedRateIsBatch was false; the batch is 0.8133 × 2300 + 0.3335 × 2300 m.
+ */
+describe('recostCadRow — a part processed with the style’s other parts is priced on the whole batch', () => {
+  const PCS = 2300;
+  const t0 = new Date('2026-08-01T00:00:00Z');
+  const cadRow = (over: Record<string, unknown>) => ({
+    styleFabricId: 'sf-1',
+    cutableWidth: 52,
+    createdAt: t0,
+    greigeId: 'g-1',
+    processorId: 'p-1',
+    cadAverage: 0.4,
+    cadMeters: 1.95,
+    layerMarginMeters: 0.05,
+    orderQuantityPcs: PCS,
+    processingPricePerMeter: 10,
+    rateCardId: 'card-1',
+    clonedFromCadId: null,
+    clonedFromOrderId: null,
+    sizeBreakdowns: [],
+    styleFabric: { colorMasterId: 'col-1', style_components: { componentName: 'Shirt' } },
+    ...over,
+  });
+  const batchDb = (rows: ReturnType<typeof cadRow>[]) =>
+    ({
+      ...baseDb,
+      processor_rate_card: { findUnique: async () => ({ processingType: 'DYEING', printingType: null }) },
+      suppliers: { findUnique: async () => ({ name: 'Aryan Dyeing' }) },
+      greige_master: { findUnique: async () => ({ greigeCode: 'GRG-0038' }) },
+      fabric_width_cad: {
+        findUnique: async () => ({
+          purpose: 'RAW_MATERIAL_CALCULATION',
+          styleFabric: { style_components: { styleId: 's-1' } },
+        }),
+        findMany: async () => rows,
+      },
+    }) as never;
+  const row52: CostedCadRow = {
+    ...baseRow,
+    id: 'cad-52',
+    cadAverage: 0.4,
+    orderQuantityPcs: PCS,
+    processingPricePerMeter: 10,
+    shrinkagePercent: 0,
+    screenCostPerMeter: null,
+    greigeCostPerMeter: 40,
+    transportCostPerMeter: 2,
+    totalCostPerMeter: 52,
+    costedAtQuantityMeters: null,
+    costedRateIsBatch: false,
+  };
+  const siblings = [
+    cadRow({ id: 'cad-52' }),
+    cadRow({ id: 'cad-48', cutableWidth: 48, cadAverage: 0.8133, cadMeters: 4.83 }),
+  ];
+  const card = (rate: number) =>
+    ({
+      id: 'card-1',
+      ratePerMeter: rate,
+      shrinkagePercent: null,
+      slabLabel: '1000-1500m',
+      minQuantity: 1000,
+      maxQuantity: 1500,
+    }) as never;
+
+  it('looks the rate up on the combined metres even when the stored flags say "not a batch"', async () => {
+    mockedLookup.mockResolvedValue(card(10));
+    const result = await recostCadRow(batchDb(siblings), row52, { cadAverage: 0.3335, greigeId: 'g-1' }, 'u-1');
+    const metres = 0.8133 * PCS + 0.3335 * PCS;
+    expect(mockedLookup).toHaveBeenCalledWith(expect.objectContaining({ quantityMeters: metres }));
+    expect(result.slabMetres).toBeCloseTo(metres, 6);
+    expect(result.batch?.members.map((m) => m.label).sort()).toEqual(['Shirt 48″', 'Shirt 52″']);
+    expect(result.costing.costedRateIsBatch).toBe(true);
+    expect(result.costing.costedAtQuantityMeters).toBeCloseTo(metres, 6);
+    expect(result.priceChanged).toBe(false); // ₹10 before and after
+    expect(result.notes).toEqual([]);
+  });
+
+  it('refuses naming the batch metres and each part', async () => {
+    mockedLookup.mockResolvedValue(null);
+    await expect(
+      recostCadRow(batchDb(siblings), row52, { cadAverage: 0.3335, greigeId: 'g-1' }, 'u-1')
+    ).rejects.toThrow(
+      'Aryan Dyeing has no DYEING rate for GRG-0038 at 2638 m (this row 767 m + Shirt 48″ 1871 m, processed together)'
+    );
+  });
+
+  it('counts neither a superseded quantity-change clone nor an older row of the same fabric and width', async () => {
+    mockedLookup.mockResolvedValue(card(10));
+    const rows = [
+      ...siblings,
+      // the 48″ row's older copy at the same width: only the newest of a slot counts
+      cadRow({ id: 'cad-48-old', cutableWidth: 48, cadAverage: 0.9, createdAt: new Date('2026-07-01T00:00:00Z') }),
+      // a superseded ancestor (another width, so only the clone rule can drop it): a later row of the same
+      // fabric names it as clonedFromCadId
+      cadRow({ id: 'cad-anc', styleFabricId: 'sf-2', cutableWidth: 58, cadAverage: 5 }),
+      cadRow({
+        id: 'cad-tip',
+        styleFabricId: 'sf-2',
+        cutableWidth: 60,
+        cadAverage: 0.1,
+        clonedFromCadId: 'cad-anc',
+        createdAt: new Date('2026-08-02T00:00:00Z'),
+      }),
+    ];
+    const result = await recostCadRow(batchDb(rows), row52, { cadAverage: 0.3335, greigeId: 'g-1' }, 'u-1');
+    expect(result.batch?.members.map((m) => m.id).sort()).toEqual(['cad-48', 'cad-52', 'cad-tip']);
+  });
+
+  it('leaves out parts of another greige, processor or colour — a greige change joins the new greige’s batch', async () => {
+    mockedLookup.mockResolvedValue(card(10));
+    mockedLive.mockResolvedValue(new Map([['g-2', { rate: 40 }]]) as never);
+    const rows = [
+      ...siblings,
+      cadRow({ id: 'x-greige', styleFabricId: 'sf-3', greigeId: 'g-2', cadAverage: 1 }),
+      cadRow({ id: 'x-proc', styleFabricId: 'sf-4', processorId: 'p-2', cadAverage: 1 }),
+      cadRow({
+        id: 'x-col',
+        styleFabricId: 'sf-5',
+        styleFabric: { colorMasterId: 'col-2', style_components: { componentName: 'Pant' } },
+      }),
+    ];
+    const same = await recostCadRow(batchDb(rows), row52, { cadAverage: 0.3335, greigeId: 'g-1' }, 'u-1');
+    expect(same.batch?.members.map((m) => m.id).sort()).toEqual(['cad-48', 'cad-52']);
+
+    const moved = await recostCadRow(batchDb(rows), row52, { cadAverage: 0.3335, greigeId: 'g-2' }, 'u-1');
+    expect(moved.batch?.members.map((m) => m.id).sort()).toEqual(['cad-52', 'x-greige']);
+  });
+
+  it('prices a lone part on its own metres', async () => {
+    mockedLookup.mockResolvedValue(card(10));
+    const result = await recostCadRow(
+      batchDb([cadRow({ id: 'cad-52' })]),
+      row52,
+      { cadAverage: 0.3335, greigeId: 'g-1' },
+      'u-1'
+    );
+    expect(result.batch).toBeNull();
+    expect(result.slabMetres).toBeCloseTo(0.3335 * PCS, 6);
+    expect(result.costing.costedRateIsBatch).toBe(false);
+  });
+
+  it('keeps the other parts’ price and says when the batch now prices differently', async () => {
+    mockedLookup.mockResolvedValue(card(12));
+    const result = await recostCadRow(batchDb(siblings), row52, { cadAverage: 0.3335, greigeId: 'g-1' }, 'u-1');
+    expect(result.costing.processingPricePerMeter).toBe(12);
+    expect(result.notes).toEqual([
+      'Shirt 48″ is priced at ₹10/m; the 2638 m batch now prices at ₹12/m — re-cost it in Fabric Costing.',
+    ]);
   });
 });

@@ -219,7 +219,14 @@ export interface CadCorrectionImpact {
     layerMarginMeters?: number | null;
     pieces?: number | null;
   };
-  costing: { slabLabel: string | null; slabMetres: number | null; priceChanged: boolean; notes: string[] };
+  costing: {
+    slabLabel: string | null;
+    slabMetres: number | null;
+    /** The parts priced together with this row (same greige, processor and colour); null = on its own */
+    batch?: { metres: number; members: Array<{ id: string; label: string; metres: number; thisRow: boolean }> } | null;
+    priceChanged: boolean;
+    notes: string[];
+  };
   fabricCostPerPiece: { before: number | null; after: number | null };
   costSheets: Array<{
     costSheetId: string;

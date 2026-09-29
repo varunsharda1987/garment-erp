@@ -103,6 +103,7 @@ Reject no longer works once an approved cost sheet or an order's BOM uses the CA
 - **CAD average**: old → new, with its parts under it — (layer length + margin by rule) ÷ pieces, e.g. "(3.85 + 0.05) ÷ 5 → (3.82 + 0.05) ÷ 5"
 - **Greige**: old → new (only when you changed it)
 - **Fabric price** per metre: old → new, with the rate slab it was priced at
+- **Priced with the rest of its batch** (only for a part dyed or printed together with the style's other parts — same greige, processor and colour): the combined metres and each part's share, e.g. "2,638 m = this row 767 m + Shirt 48″ 1,871 m". The rate is looked up on the combined metres, exactly as Fabric Costing does. The other parts keep their price; if the batch now prices differently, a line says which part to re-cost in Fabric Costing.
 - **Fabric per piece**: old → new
 - Whether the price per metre changes
 - **Cost sheets**: each version, its purpose and status, and what happens to it — "a new version is made for the admin to approve" (approved sheets) or "updated in place" (sheets not approved yet)

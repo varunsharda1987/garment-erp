@@ -7,8 +7,11 @@
  *
  *   total ₹/m = greige + transport + (divideByShrinkage(greige, %) − greige) + processing + screen
  *
- *   - the processing rate is looked up again at the NEW metres (average × order pcs; a batch-grouped row
- *     keeps the rest of its batch), because a correction can move the row into another rate slab;
+ *   - the processing rate is looked up again at the NEW metres (average × order pcs), because a correction
+ *     can move the row into another rate slab. A part dyed / printed together with the style's other parts
+ *     is looked up on the whole batch's metres — worked out from the rows (utils/fabric-batch.ts, the page's
+ *     own rule), never from the row's stored costedRateIsBatch, which a save without a fresh lookup leaves
+ *     false (ESSKY084LS, 29-Sep: refused "no rate at 767 m" for a row whose batch is 2,638 m);
  *   - a new greige takes its live rate (greige-live-rate.helper) and needs a rate card of its own;
  *   - screen cost is a fixed total spread over the metres, so it is re-spread over the new metres;
  *   - transport is stored per metre only (a fixed transport amount is not saved), so it is kept.
@@ -20,6 +23,7 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 import { BusinessError } from '../../errors';
 import { divideByShrinkage, toCurrency, toNumber } from '../../utils/currency';
+import { batchGroupMetres, type BatchRow, type FabricBatch } from '../../utils/fabric-batch';
 import { lookupRate } from '../processor-rate-v2.service';
 import { greigeRateProvenance, resolveLiveGreigeRates, type GreigeRateProvenance } from './greige-live-rate.helper';
 
@@ -42,7 +46,6 @@ export interface CostedCadRow {
   totalCostPerMeter: Prisma.Decimal | number | null;
   costedAtQuantityMeters: Prisma.Decimal | number | null;
   costedRateIsBatch: boolean | null;
-  processingBatchGroupColorId: string | null;
 }
 
 export interface RecostedCosting {
@@ -55,6 +58,8 @@ export interface RecostedCosting {
   transportCostPerMeter: number | null;
   totalCostPerMeter: number | null;
   costedAtQuantityMeters: number | null;
+  /** The rate was looked up on the batch's combined metres */
+  costedRateIsBatch: boolean;
   /** Set only when the greige changed (a new live rate and its label) */
   greigeProvenance: GreigeRateProvenance | null;
 }
@@ -64,6 +69,8 @@ export interface RecostResult {
   /** Metres the slab lookup ran on (batch total for a batch-grouped row) */
   slabMetres: number | null;
   slabLabel: string | null;
+  /** The parts priced together with this row (null = priced on its own metres) */
+  batch: FabricBatch | null;
   /** ₹/m moved by more than half a paisa → the price approval must be given again */
   priceChanged: boolean;
   notes: string[];
@@ -73,6 +80,96 @@ const num = (v: Prisma.Decimal | number | null | undefined): number | null =>
   v === null || v === undefined ? null : Number(v);
 const money = (n: number) => toNumber(toCurrency(n).toDecimalPlaces(2));
 const PRICE_EPSILON = 0.005;
+
+interface LoadedBatchRow {
+  row: BatchRow;
+  processingPricePerMeter: number | null;
+  rateCardId: string | null;
+}
+
+/**
+ * The style's rows for this row's purpose, exactly as Fabric Costing loads them (getStyleFabrics in
+ * fabric-costing.controller.ts): rows with an average or a layer length, COSTING also taking rows with no
+ * purpose, less rows superseded by a quantity-change clone. Rows not on a style fabric are not listed there,
+ * so they are never batched.
+ */
+async function loadBatchRows(db: Db, cadId: string): Promise<LoadedBatchRow[]> {
+  const self = await db.fabric_width_cad.findUnique({
+    where: { id: cadId },
+    select: { purpose: true, styleFabric: { select: { style_components: { select: { styleId: true } } } } },
+  });
+  const styleId = self?.styleFabric?.style_components?.styleId;
+  if (!self || !styleId) return [];
+  const purpose = self.purpose ?? 'COSTING';
+
+  const rows = await db.fabric_width_cad.findMany({
+    where: {
+      styleFabric: { style_components: { styleId } },
+      AND: [
+        { OR: [{ cadAverage: { not: null } }, { cadMeters: { not: null } }] },
+        { OR: [{ purpose }, ...(purpose === 'COSTING' ? [{ purpose: null }] : [])] },
+      ],
+    },
+    select: {
+      id: true,
+      styleFabricId: true,
+      cutableWidth: true,
+      createdAt: true,
+      greigeId: true,
+      processorId: true,
+      cadAverage: true,
+      cadMeters: true,
+      layerMarginMeters: true,
+      orderQuantityPcs: true,
+      processingPricePerMeter: true,
+      rateCardId: true,
+      clonedFromCadId: true,
+      clonedFromOrderId: true,
+      sizeBreakdowns: { select: { quantity: true } },
+      styleFabric: { select: { colorMasterId: true, style_components: { select: { componentName: true } } } },
+    },
+  });
+
+  // Only the tip of a quantity-change clone chain is live; order clones are per-order copies, not successors
+  const superseded = new Set(
+    rows.filter((r) => !r.clonedFromOrderId && r.clonedFromCadId).map((r) => `${r.styleFabricId}|${r.clonedFromCadId}`)
+  );
+  return rows
+    .filter((r) => !superseded.has(`${r.styleFabricId}|${r.id}`))
+    .map((r) => {
+      // Per-piece average as the page gets it: the stored average, else layer + margin (3 % when unset) ÷ pieces
+      let average = r.cadAverage ? Number(r.cadAverage) : 0;
+      if (!r.cadAverage && r.cadMeters) {
+        const layer = Number(r.cadMeters);
+        const margin = r.layerMarginMeters ? Number(r.layerMarginMeters) : layer * 0.03;
+        const pieces = r.sizeBreakdowns.reduce((n, b) => n + (b.quantity || 0), 0);
+        average = pieces > 0 ? (layer + margin) / pieces : 0;
+      }
+      const width = r.cutableWidth === null ? null : Number(r.cutableWidth);
+      const part = r.styleFabric?.style_components?.componentName || 'Fabric';
+      return {
+        row: {
+          id: r.id,
+          styleFabricId: r.styleFabricId,
+          width,
+          greigeId: r.greigeId,
+          processorId: r.processorId,
+          colourId: r.styleFabric?.colorMasterId ?? null,
+          average,
+          pieces: r.orderQuantityPcs ?? 0,
+          createdAt: r.createdAt.getTime(),
+          label: width ? `${part} ${width}″` : part,
+        },
+        processingPricePerMeter: num(r.processingPricePerMeter),
+        rateCardId: r.rateCardId,
+      };
+    });
+}
+
+/** "this row 767 m + Shirt 48″ 1871 m" */
+function describeBatch(batch: FabricBatch, cadId: string): string {
+  return batch.members.map((m) => `${m.id === cadId ? 'this row' : m.label} ${Math.round(m.metres)} m`).join(' + ');
+}
 
 export async function recostCadRow(
   db: Db,
@@ -92,12 +189,13 @@ export async function recostCadRow(
     transportCostPerMeter: num(cad.transportCostPerMeter),
     totalCostPerMeter: oldTotal,
     costedAtQuantityMeters: num(cad.costedAtQuantityMeters),
+    costedRateIsBatch: cad.costedRateIsBatch ?? false,
     greigeProvenance: null,
   };
 
   // Not costed yet: nothing to re-price (Fabric Costing will cost it at the corrected average)
   if (oldTotal === null) {
-    return { costing: unchanged, slabMetres: null, slabLabel: null, priceChanged: false, notes };
+    return { costing: unchanged, slabMetres: null, slabLabel: null, batch: null, priceChanged: false, notes };
   }
 
   const greigeChanged = after.greigeId !== cad.greigeId;
@@ -110,22 +208,28 @@ export async function recostCadRow(
       );
     }
     notes.push('Landed price kept — an average change does not change a typed landed price.');
-    return { costing: unchanged, slabMetres: null, slabLabel: null, priceChanged: false, notes };
+    return { costing: unchanged, slabMetres: null, slabLabel: null, batch: null, priceChanged: false, notes };
   }
 
-  // Metres for the slab: the corrected average × the pieces it was costed at. A batch-grouped row was
-  // priced on its whole batch — swap only this row's share.
+  // Metres for the slab: the corrected average × the pieces it was costed at — or, for a part processed
+  // together with the style's other parts, the whole batch with this row at its corrected average and greige
   const pcs = cad.orderQuantityPcs ?? 0;
   const oldAverage = num(cad.cadAverage) ?? 0;
   const oldRowMetres = oldAverage * pcs;
   const newRowMetres = after.cadAverage * pcs;
-  const costedAt = num(cad.costedAtQuantityMeters);
-  const slabMetres =
-    pcs > 0
-      ? cad.costedRateIsBatch && cad.processingBatchGroupColorId && costedAt !== null
-        ? Math.max(0, costedAt - oldRowMetres + newRowMetres)
-        : newRowMetres
-      : null;
+  let batch: FabricBatch | null = null;
+  let batchRows: LoadedBatchRow[] = [];
+  if (pcs > 0 && cad.processorId) {
+    batchRows = await loadBatchRows(db, cad.id);
+    const rows = batchRows.map(({ row }) =>
+      row.id === cad.id
+        ? { ...row, greigeId: after.greigeId, average: after.cadAverage, pieces: pcs }
+        : { ...row, pieces: row.pieces || pcs }
+    );
+    const grouped = batchGroupMetres(rows, cad.id);
+    batch = grouped && grouped.members.length > 1 ? grouped : null;
+  }
+  const slabMetres = pcs > 0 ? (batch?.metres ?? newRowMetres) : null;
 
   // Greige: kept, or the live rate of the new greige
   let greigeCost = num(cad.greigeCostPerMeter) ?? 0;
@@ -170,14 +274,28 @@ export async function recostCadRow(
       ]);
       throw new BusinessError(
         `${processor?.name ?? 'The processor'} has no ${card?.printingType ?? card?.processingType ?? ''} rate for ` +
-          `${greige?.greigeCode ?? 'this greige'} at ${Math.round(slabMetres)} m. Add it on the Processor Rate ` +
-          'Card page first, then correct again.'
+          `${greige?.greigeCode ?? 'this greige'} at ${Math.round(slabMetres)} m` +
+          (batch ? ` (${describeBatch(batch, cad.id)}, processed together)` : '') +
+          '. Add it on the Processor Rate Card page first, then correct again.'
       );
     }
     processing = found.ratePerMeter;
     if (found.shrinkagePercent != null) shrinkagePct = found.shrinkagePercent;
     rateCardId = found.id;
     slabLabel = found.slabLabel || `${found.minQuantity}-${found.maxQuantity}m`;
+
+    // The other parts of the batch keep their price — a correction re-prices only its own row
+    for (const member of batch?.members ?? []) {
+      if (member.id === cad.id) continue;
+      const other = batchRows.find((r) => r.row.id === member.id);
+      const price = other?.rateCardId ? other.processingPricePerMeter : null;
+      if (price !== null && price !== undefined && Math.abs(price - found.ratePerMeter) > PRICE_EPSILON) {
+        notes.push(
+          `${member.label} is priced at ₹${price}/m; the ${Math.round(batch!.metres)} m batch now prices at ` +
+            `₹${found.ratePerMeter}/m — re-cost it in Fabric Costing.`
+        );
+      }
+    }
   } else if (cad.processorId && !cad.rateCardId) {
     notes.push('No rate card on this row — its processing price is kept as typed.');
   }
@@ -202,8 +320,9 @@ export async function recostCadRow(
     transportCostPerMeter: num(cad.transportCostPerMeter),
     totalCostPerMeter: money(total),
     costedAtQuantityMeters: slabMetres,
+    costedRateIsBatch: batch !== null,
     greigeProvenance,
   };
   const priceChanged = Math.abs(total - oldTotal) > PRICE_EPSILON;
-  return { costing, slabMetres, slabLabel, priceChanged, notes };
+  return { costing, slabMetres, slabLabel, batch, priceChanged, notes };
 }

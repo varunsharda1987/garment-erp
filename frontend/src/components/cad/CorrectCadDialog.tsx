@@ -542,6 +542,15 @@ function ImpactPanel({
             </span>
           )}
         </p>
+        {impact.costing.batch && (
+          <p className="text-muted-foreground">
+            Priced with the rest of its batch (same greige, processor and colour):{' '}
+            {formatQuantity(impact.costing.batch.metres, 'METER', 0)} ={' '}
+            {impact.costing.batch.members
+              .map((m) => `${m.thisRow ? 'this row' : m.label} ${formatQuantity(m.metres, 'METER', 0)}`)
+              .join(' + ')}
+          </p>
+        )}
         <p>
           Fabric per piece: {money(impact.fabricCostPerPiece.before)} →{' '}
           <strong>{money(impact.fabricCostPerPiece.after)}</strong>

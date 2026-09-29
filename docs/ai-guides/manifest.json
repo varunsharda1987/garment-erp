@@ -77,8 +77,10 @@
   "cad-costing": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/FabricCostingPage.tsx": "953714e91181",
+      "frontend/src/pages/FabricCostingPage.tsx": "ae95349314c4",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
+      "frontend/src/components/ui/multi-select.tsx": "3a4a101cd365",
+      "backend/src/services/helpers/cad-list-filter.helper.ts": "67e1b7bd1054",
       "frontend/src/utils/greigeRate.ts": "cee473a71c54",
       "frontend/src/pages/CADPlanningPage.tsx": "9b51bc16152a",
       "frontend/src/components/cad/CADSpreadsheetTable.tsx": "d38c57983673",
@@ -86,8 +88,8 @@
       "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": "b4941bc3065b",
       "frontend/src/pages/ProcessorRateCardPage.tsx": "2cb105d4f52c"
     },
-    "contentHash": "256da41aba4d",
-    "generatedAt": "2026-09-29T12:17:46.333Z"
+    "contentHash": "83b7a9ba946b",
+    "generatedAt": "2026-09-29T13:59:37.792Z"
   },
   "cad-planning-create": {
     "sources": {
@@ -445,13 +447,13 @@
   "fabric-costing-approve": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/FabricCostingPage.tsx": "953714e91181",
+      "frontend/src/pages/FabricCostingPage.tsx": "ae95349314c4",
       "frontend/src/pages/FabricCostingOptionsPage.tsx": "d3e45176924b",
       "frontend/src/components/StyleCombobox.tsx": "dcf231b0f103",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff"
     },
     "contentHash": "fbfd3883b90d",
-    "generatedAt": "2026-09-29T08:02:04.071Z"
+    "generatedAt": "2026-09-29T13:59:38.063Z"
   },
   "fabric-costing-options": {
     "sources": {
@@ -470,16 +472,17 @@
   "fabric-costing-run": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/FabricCostingPage.tsx": "953714e91181",
+      "frontend/src/pages/FabricCostingPage.tsx": "ae95349314c4",
       "frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx": "cc2fa42a711f",
       "frontend/src/utils/greigeRate.ts": "cee473a71c54",
       "frontend/src/pages/ProcessorRateCardPage.tsx": "2cb105d4f52c",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
+      "frontend/src/components/ui/multi-select.tsx": "3a4a101cd365",
       "frontend/src/components/SearchInput.tsx": "9d64f1605ae0"
     },
-    "contentHash": "756cde294512",
-    "generatedAt": "2026-09-29T08:02:04.085Z"
+    "contentHash": "e1d51d3ee59c",
+    "generatedAt": "2026-09-29T13:59:38.070Z"
   },
   "fabric-create": {
     "sources": {
@@ -1019,8 +1022,8 @@
       "backend/src/schemas/order.schema.ts": "8409330520f3",
       "backend/src/controllers/order.controller.ts": "0495e351e949",
       "backend/src/services/order-bom.service.ts": "8ad4ff8eac26",
-      "frontend/src/services/saleOrder.service.ts": "64e96e910f32",
-      "backend/src/services/saleOrder.service.ts": "e391029cbe36",
+      "frontend/src/services/saleOrder.service.ts": "4ec514b5c59c",
+      "backend/src/services/saleOrder.service.ts": "7584c4ea984d",
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa",
       "frontend/src/components/cost-sheet/CostSheetComparisonModal.tsx": "88ba997be9fb",
       "frontend/src/components/CustomerCombobox.tsx": "96c6cf20beff",
@@ -1028,7 +1031,7 @@
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1"
     },
     "contentHash": "332d4c5d1674",
-    "generatedAt": "2026-09-29T08:02:04.286Z"
+    "generatedAt": "2026-09-29T13:59:38.083Z"
   },
   "order-track-status": {
     "sources": {
@@ -1346,18 +1349,18 @@
       "frontend/src/components/sale-order/ChangeDatesDialog.tsx": "b7bb9f7e7fde",
       "frontend/src/components/DataTable.tsx": "3f941d111764",
       "frontend/src/components/sale-order/sale-order-lines.ts": "55db918c430a",
-      "frontend/src/services/saleOrder.service.ts": "9c8dffa30ed5",
-      "backend/src/schemas/saleOrder.schema.ts": "f87ba95130d1",
-      "backend/src/routes/saleOrder.routes.ts": "594a5d992718",
-      "backend/src/services/saleOrder.service.ts": "0fd02e8b425f",
-      "backend/src/controllers/saleOrder.controller.ts": "5983d0fe7315",
+      "frontend/src/services/saleOrder.service.ts": "4ec514b5c59c",
+      "backend/src/schemas/saleOrder.schema.ts": "84cc80ec5ad1",
+      "backend/src/routes/saleOrder.routes.ts": "93f75137f0e4",
+      "backend/src/services/saleOrder.service.ts": "7584c4ea984d",
+      "backend/src/controllers/saleOrder.controller.ts": "6ee4d039500d",
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa",
       "backend/src/services/helpers/sale-order-sizes.helper.ts": "fd5e76a76277",
       "backend/src/services/helpers/buyer-po-price.helper.ts": "a9b660c2bd05",
       "frontend/src/pages/DispatchDeliveryNoteForm.tsx": "543bba33453d"
     },
     "contentHash": "001191fe736d",
-    "generatedAt": "2026-09-29T10:46:18.201Z"
+    "generatedAt": "2026-09-29T13:59:38.094Z"
   },
   "sample-approve": {
     "sources": {
@@ -1760,11 +1763,11 @@
       "backend/src/services/workOrder.service.ts": "6a1e1c17a287",
       "backend/src/services/helpers/material-sync.helper.ts": "3e1f1d5ddbef",
       "backend/src/services/productionBlockingValidation.service.ts": "886865d6829d",
-      "backend/src/services/saleOrder.service.ts": "58815654bf3a",
+      "backend/src/services/saleOrder.service.ts": "7584c4ea984d",
       "backend/src/services/helpers/sku-colour.helper.ts": "4265621210fa"
     },
     "contentHash": "33ca560870d7",
-    "generatedAt": "2026-09-29T09:39:58.925Z"
+    "generatedAt": "2026-09-29T13:59:38.112Z"
   },
   "zipper-create": {
     "sources": {

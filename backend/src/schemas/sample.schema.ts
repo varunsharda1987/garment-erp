@@ -257,8 +257,8 @@ export const sampleQuerySchema = z.object({
   search: z.string().max(100).optional(),
   styleId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
-  // season_master.id — a sample has no season of its own; it is its style's
-  seasonId: z.string().uuid().optional(),
+  // season_master.id (cuid) — a sample has no season of its own; it is its style's
+  seasonId: z.string().min(1).max(50).optional(),
   // color_master.id (cuid) — the style's Primary Color; samples record no colour of their own
   colorId: z.string().min(1).max(50).optional(),
   // Single value or array — the controller supports type/status arrays (sample.controller.ts ~324)

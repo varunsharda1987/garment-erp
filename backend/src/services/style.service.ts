@@ -34,6 +34,7 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { systemSettingsService } from './system-settings.service';
 import { applySearch } from '../utils/search-filter';
 import { syncStyleColourway } from './helpers/style-colour.helper';
+import { buyerStyleCodeOwner, buyerStyleCodeTakenMessage } from './helpers/buyer-style-code.helper';
 
 // ============================================
 // Deduplicate Style Fabrics Helper
@@ -690,24 +691,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         throw new ConflictError('Style code already exists');
       }
 
-      // Check for duplicate buyer style reference (only among active styles)
-      if (data.buyerStyleRef?.trim()) {
-        const existingBuyerRef = await this.prisma.styles.findFirst({
-          where: {
-            buyerStyleRef: data.buyerStyleRef.trim(),
-            isActive: true,
-          },
-          select: {
-            id: true,
-            styleCode: true,
-          },
-        });
-
-        if (existingBuyerRef) {
-          throw new ConflictError(
-            `Buyer Style Code "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
-          );
-        }
+      // A Buyer Style Code belongs to one active style (shared with the style import)
+      const existingBuyerRef = await buyerStyleCodeOwner(data.buyerStyleRef, null, this.prisma);
+      if (existingBuyerRef && data.buyerStyleRef) {
+        throw new ConflictError(buyerStyleCodeTakenMessage(data.buyerStyleRef, existingBuyerRef));
       }
 
       return this.prisma.styles.create({
@@ -1264,25 +1251,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Verify style exists
     await this.findByIdOrThrow(id);
 
-    // Check for duplicate buyer style reference (only among OTHER active styles)
-    if (data.buyerStyleRef?.trim()) {
-      const existingBuyerRef = await this.prisma.styles.findFirst({
-        where: {
-          buyerStyleRef: data.buyerStyleRef.trim(),
-          isActive: true,
-          id: { not: id }, // Exclude current style
-        },
-        select: {
-          id: true,
-          styleCode: true,
-        },
-      });
-
-      if (existingBuyerRef) {
-        throw new ConflictError(
-          `Buyer Style Code "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
-        );
-      }
+    // A Buyer Style Code belongs to one active style — this one excluded (shared with the style import)
+    const existingBuyerRef = await buyerStyleCodeOwner(data.buyerStyleRef, id, this.prisma);
+    if (existingBuyerRef && data.buyerStyleRef) {
+      throw new ConflictError(buyerStyleCodeTakenMessage(data.buyerStyleRef, existingBuyerRef));
     }
 
     // Identity key used to match a pre-edit style_fabric to its recreated twin

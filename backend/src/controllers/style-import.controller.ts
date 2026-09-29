@@ -97,6 +97,7 @@ class StyleImportController {
       { header: 'Size', required: true },
       // Optional fields
       { header: 'StyleName', required: false },
+      { header: 'BuyerStyleCode', required: false },
       { header: 'Season', required: false },
       { header: 'Gender', required: false },
       { header: 'BuyerCategory', required: false },
@@ -120,6 +121,7 @@ class StyleImportController {
         'Fabindia',
         'S',
         'Kurta Set Blue',
+        'FB-KS-101',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -133,6 +135,7 @@ class StyleImportController {
         'Fabindia',
         'M',
         'Kurta Set Blue',
+        'FB-KS-101',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -146,6 +149,7 @@ class StyleImportController {
         'Fabindia',
         'L',
         'Kurta Set Blue',
+        'FB-KS-101',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -159,6 +163,7 @@ class StyleImportController {
         'Fabindia',
         'XL',
         'Kurta Set Blue',
+        'FB-KS-101',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -173,6 +178,7 @@ class StyleImportController {
         'Fabindia',
         'S',
         'Kurta Set Mustard',
+        'FB-KS-102',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -186,6 +192,7 @@ class StyleImportController {
         'Fabindia',
         'M',
         'Kurta Set Mustard',
+        'FB-KS-102',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -199,6 +206,7 @@ class StyleImportController {
         'Fabindia',
         'L',
         'Kurta Set Mustard',
+        'FB-KS-102',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -212,6 +220,7 @@ class StyleImportController {
         'Fabindia',
         'XL',
         'Kurta Set Mustard',
+        'FB-KS-102',
         'Summer 2025',
         'WOMEN',
         'Ethnic Wear',
@@ -246,6 +255,10 @@ class StyleImportController {
       [''],
       ['OPTIONAL FIELDS:'],
       ['StyleName', 'Display name (defaults to StyleCode if not provided)'],
+      [
+        'BuyerStyleCode',
+        "The buyer's own code for this style (e.g. SP27DR27) - every screen and printout shows it first, our StyleCode second. Put the same code on every size row of the style; it must not already be on another active style. Leave empty when the StyleCode already is the buyer's code (House of Kasya / Nihsamah).",
+      ],
       ['Season', 'Season identifier (e.g., Summer 2025, Winter 2024)'],
       ['Gender', 'MEN, WOMEN, KIDS, or UNISEX (defaults to UNISEX)'],
       ['BuyerCategory', "Buyer's category (e.g., Ethnic Wear)"],
@@ -425,6 +438,11 @@ class StyleImportController {
 
       // New optional fields
       stylename: 'styleName',
+      buyerstylecode: 'buyerStyleRef',
+      buyerstyleref: 'buyerStyleRef',
+      buyerstyleno: 'buyerStyleRef',
+      buyerref: 'buyerStyleRef',
+      buyerreference: 'buyerStyleRef',
       season: 'season',
       gender: 'gender',
       buyercategory: 'buyerCategory',
@@ -473,7 +491,7 @@ class StyleImportController {
       materialtype: 'materialType',
     };
 
-    const normalized = header.toLowerCase().replace(/\s+/g, '').replace(/-/g, '').replace(/_/g, '');
+    const normalized = header.toLowerCase().replace(/\s+/g, '').replace(/[-_.]/g, '');
     return mapping[normalized] || header;
   }
 }

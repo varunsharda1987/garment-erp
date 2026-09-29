@@ -2,5 +2,5 @@
   "backend/src/controllers/fabric-cad.controller.ts :: fabric_width_cad.create :: L133",
   "backend/src/controllers/fabric-cad.controller.ts :: fabric_width_cad.update :: L213",
   "backend/src/scripts/migrate-cad-averages-to-fabric-width-cad.ts :: fabric_width_cad.create :: L150",
-  "backend/src/services/style-import.service.ts :: fabric_width_cad.create :: L746"
+  "backend/src/services/style-import.service.ts :: fabric_width_cad.create :: L806"
 ]

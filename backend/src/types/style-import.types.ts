@@ -21,6 +21,7 @@ export interface StyleImportCSVRow {
 
   // Optional Style Information
   styleName?: string; // Display name (defaults to styleCode if not provided)
+  buyerStyleRef?: string; // The buyer's own code for the style (column BuyerStyleCode) — shown first everywhere
   season?: string; // Season identifier (e.g., "Summer 2025")
   gender?: string; // MEN, WOMEN, KIDS, UNISEX (defaults to UNISEX)
 
@@ -86,6 +87,7 @@ export interface StyleImportRow {
 
   // Optional fields (from CSV)
   styleName?: string;
+  buyerStyleRef?: string;
   season?: string;
   gender?: Gender;
   buyerCategory?: string;

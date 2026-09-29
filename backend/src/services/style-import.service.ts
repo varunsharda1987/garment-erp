@@ -28,6 +28,7 @@ import { styleCodeLabel } from '../utils/style-code';
 import { generateCode } from '../utils/code-generator';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
 import { getSizeOrder } from '../utils/sku-generator';
+import { buyerStyleCodeOwner, buyerStyleCodeTakenMessage } from './helpers/buyer-style-code.helper';
 
 export class StyleImportService {
   /**
@@ -292,12 +293,44 @@ export class StyleImportService {
       // Step 2: Group rows by style code
       const styleGroups = this.groupRowsByStyle(validRows);
 
+      // A Buyer Style Code names ONE style: collect each style's code and which styles in this file
+      // claim the same one (buyer-style-code.helper holds the rule against the database).
+      const buyerCodeOf = new Map<string, string[]>(); // group key → distinct codes on its rows
+      const groupsByBuyerCode = new Map<string, string[]>(); // code → group keys claiming it
+      for (const [key, rows] of Object.entries(styleGroups)) {
+        const codes = [...new Set(rows.map((r) => r.buyerStyleRef).filter((c): c is string => !!c))];
+        buyerCodeOf.set(key, codes);
+        if (codes.length === 1) groupsByBuyerCode.set(codes[0], [...(groupsByBuyerCode.get(codes[0]) ?? []), key]);
+      }
+
       // Step 3: Process each style
-      for (const [, rows] of Object.entries(styleGroups)) {
+      for (const [groupKey, rows] of Object.entries(styleGroups)) {
         // Declared before the try so the catch block can still reference them on failure.
         const firstRow = rows[0];
         const styleCode = firstRow.styleCode;
         try {
+          const buyerCodes = buyerCodeOf.get(groupKey) ?? [];
+          const buyerCodeProblem =
+            buyerCodes.length > 1
+              ? `Style ${styleCode} has different Buyer Style Codes on its rows (${buyerCodes.join(', ')}) — use one`
+              : buyerCodes.length === 1 && (groupsByBuyerCode.get(buyerCodes[0])?.length ?? 0) > 1
+                ? `Buyer Style Code "${buyerCodes[0]}" is given to more than one style in this file`
+                : null;
+          if (buyerCodeProblem) {
+            errors.push({
+              rowNumber: 0,
+              styleCode,
+              componentName: '',
+              fabricDescription: '',
+              errorMessage: buyerCodeProblem,
+              errorType: 'VALIDATION',
+            });
+            summary.errorCount += rows.length;
+            await this.updateStagingRecords(rows, 'ERROR', undefined, buyerCodeProblem);
+            continue;
+          }
+          const buyerStyleRef = buyerCodes[0] ?? null;
+
           // Check if style exists — scope by customer so a different buyer that reused this styleCode
           // is not matched and silently overwritten (bug-hunt BH-0261).
           const existingStyle = await prisma.styles.findFirst({
@@ -325,8 +358,31 @@ export class StyleImportService {
             }
           }
 
+          // The buyer code may not already name another active style (the same rule as the Style form)
+          const buyerCodeOwner = await buyerStyleCodeOwner(buyerStyleRef, existingStyle?.id);
+          if (buyerStyleRef && buyerCodeOwner) {
+            const message = buyerStyleCodeTakenMessage(buyerStyleRef, buyerCodeOwner);
+            errors.push({
+              rowNumber: 0,
+              styleCode,
+              componentName: '',
+              fabricDescription: '',
+              errorMessage: message,
+              errorType: 'BUSINESS_LOGIC',
+            });
+            summary.errorCount += rows.length;
+            await this.updateStagingRecords(rows, 'ERROR', undefined, message);
+            continue;
+          }
+
           // Create or update style
-          const style = await this.createOrUpdateStyle(firstRow, rows, userId, existingStyle ? true : false);
+          const style = await this.createOrUpdateStyle(
+            firstRow,
+            rows,
+            userId,
+            existingStyle?.id ?? null,
+            buyerStyleRef
+          );
 
           if (existingStyle) {
             summary.stylesUpdated++;
@@ -397,6 +453,8 @@ export class StyleImportService {
       const brandName = (row.brandName || row.brand || '').trim();
       const size = (row.size || '').trim();
       const styleCode = (row.styleCode || '').trim();
+      // The buyer's own code (column BuyerStyleCode) — the style's main name on every screen and printout
+      const buyerStyleRef = (row.buyerStyleRef ?? '').toString().trim() || undefined;
 
       // Run validation rules
       for (const rule of STYLE_IMPORT_VALIDATION_RULES) {
@@ -410,6 +468,10 @@ export class StyleImportService {
         if (!rule.validate(fieldValue, rowRecord)) {
           validationErrors.push(rule.message);
         }
+      }
+
+      if (buyerStyleRef && buyerStyleRef.length > 100) {
+        validationErrors.push('Buyer Style Code must be at most 100 characters');
       }
 
       // Validate customer exists in master (only if basic validation passed)
@@ -460,7 +522,7 @@ export class StyleImportService {
       const componentName = (row.componentName || 'Main Component').trim();
       const fabricDescription = (row.fabricDescription || 'Fabric Not Specified').trim();
       const generatedFabricCode = this.generateFabricCode(styleCode, componentName, 1);
-      const generatedFabricName = this.generateFabricName(fabricDescription, styleCode, componentName);
+      const generatedFabricName = this.generateFabricName(fabricDescription, styleCode, componentName, buyerStyleRef);
 
       const validatedRow: StyleImportRow = {
         // Required fields
@@ -471,6 +533,7 @@ export class StyleImportService {
 
         // Optional fields
         styleName,
+        buyerStyleRef,
         season: row.season?.trim(),
         gender,
         buyerCategory: row.buyerCategory?.trim(),
@@ -565,7 +628,8 @@ export class StyleImportService {
     row: StyleImportRow,
     rows: StyleImportRow[], // All rows for this style (to get unique sizes)
     userId: string,
-    isUpdate: boolean
+    existingStyleId: string | null, // the style matched by code AND customer — the one an overwrite updates
+    buyerStyleRef: string | null
   ) {
     // Get customer ID (already validated)
     const customerId = row.customerId;
@@ -616,17 +680,12 @@ export class StyleImportService {
       createdById: userId,
     };
 
-    if (isUpdate) {
-      // For update, need to find by ID not styleCode
-      const existingStyle = await prisma.styles.findFirst({
-        where: { styleCode: row.styleCode, isActive: true },
-      });
-      if (!existingStyle) {
-        throw new Error(`Style not found: ${row.styleCode}`);
-      }
+    if (existingStyleId) {
+      // Update the style matched by code + customer (a code-only lookup here could pick another
+      // buyer's style that reuses the code — BH-0261). An empty BuyerStyleCode cell keeps the saved one.
       return await prisma.styles.update({
-        where: { id: existingStyle.id },
-        data: styleData,
+        where: { id: existingStyleId },
+        data: { ...styleData, ...(buyerStyleRef ? { buyerStyleRef } : {}) },
       });
     } else {
       // Generate internal code for new styles
@@ -635,6 +694,7 @@ export class StyleImportService {
       return await prisma.styles.create({
         data: {
           ...styleData,
+          buyerStyleRef,
           id: randomUUID(),
           internalCode,
           createdAt: new Date(),

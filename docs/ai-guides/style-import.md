@@ -30,6 +30,7 @@ sources:
   - backend/src/services/style-import.service.ts
   - backend/src/types/style-import.types.ts
   - backend/src/schemas/styleImport.schema.ts
+  - backend/src/services/helpers/buyer-style-code.helper.ts
 route: /styles/import
 ---
 
@@ -44,16 +45,16 @@ Every customer named in your file must already exist in the Customers master. Th
 3. Click **Download Template** first. You get `style_import_template.xlsx` with a sample sheet and an **Instructions** sheet.
 4. Fill the template. Use **one row per size**, so a style with four sizes needs four rows with the same **StyleCode**.
 5. Required columns are **StyleCode**, **CustomerName**, **BrandName** and **Size**. The second row of the template marks each column Required or Optional.
-6. Optional columns are **StyleName**, **Season**, **Gender**, **BuyerCategory**, **BuyerSubCategory**, **BuyerSubSubCategory** and **InternalCategory**.
-7. Save the file as CSV or XLSX. Maximum size is 10MB.
-8. Back on the page, click the dashed upload box, or drag the file onto it. The file name and size appear below.
-9. Set **Import Options**. **Skip duplicate style codes (recommended)** is ticked by default and skips any style code already in the system.
-10. Tick **Overwrite existing styles with same code** only if you want existing basic details updated.
-11. Click **Import Styles** and wait. The button shows **Processing...**.
-12. Read the **Import Summary**: Total Rows, Success, Skipped, Errors, and Time, plus Styles Created, Styles Updated and SKUs Created.
-13. If an **Errors** table appears, it lists Row, Style Code, Component and the error message. Fix those rows in your file.
-14. Click **Import Another File** to try the corrected rows. When the import had no errors, a **View Styles** button also appears — it opens the Style Master list.
-15. Add each style's **Buyer Style Code** by hand afterwards: on the Style Master list click **Edit** on the style, fill **Buyer Style Code** and click **Update Style**. The import does not set it. (For an in-house brand — Kasya or Nihsamah — the Style Code in your file already is the buyer's code, so there is nothing to add.)
+6. Optional columns are **StyleName**, **BuyerStyleCode**, **Season**, **Gender**, **BuyerCategory**, **BuyerSubCategory**, **BuyerSubSubCategory** and **InternalCategory**.
+7. Put the buyer's own code for the style (for example SP27DR27) in **BuyerStyleCode**, the same on every size row of that style. Every screen and printout then names the style by it first, with our Style Code second. A column headed **Buyer Style Code**, **Buyer Style Ref** or **Buyer Style No.** is read the same way. Leave it empty for an in-house brand (Kasya, Nihsamah): there the StyleCode already is the buyer's code.
+8. Save the file as CSV or XLSX. Maximum size is 10MB.
+9. Back on the page, click the dashed upload box, or drag the file onto it. The file name and size appear below.
+10. Set **Import Options**. **Skip duplicate style codes (recommended)** is ticked by default and skips any style code already in the system.
+11. Tick **Overwrite existing styles with same code** only if you want existing basic details updated.
+12. Click **Import Styles** and wait. The button shows **Processing...**.
+13. Read the **Import Summary**: Total Rows, Success, Skipped, Errors, and Time, plus Styles Created, Styles Updated and SKUs Created.
+14. If an **Errors** table appears, it lists Row, Style Code, Component and the error message. Fix those rows in your file.
+15. Click **Import Another File** to try the corrected rows. When the import had no errors, a **View Styles** button also appears — it opens the Style Master list.
 
 ## Traps
 
@@ -63,6 +64,8 @@ Every customer named in your file must already exist in the Customers master. Th
 - Gender must read MEN, WOMEN, KIDS or UNISEX. MALE and FEMALE are also accepted. Anything else falls back to UNISEX.
 - Style-level details are read from the first row of each style code. Later rows only add sizes.
 - Sizes may be in any row order — the style stores them smallest first (XS, S, M, L, XL, XXL, XXXL, then 4XL, 5XL; kids sizes by age; plain numbers like 28, 30, 32 in number order), and that is the order sale orders and every size list show them in. A size the import lists again on an existing style is switched back on if it had been unticked on the style's form.
-- The template has no Buyer Style Code column and the import never sets one. Until you add it on the Style form, the Style Master list shows the style's Style Code in both the **Buyer Style Code** and **Style Code** columns, and every screen names the style by its Style Code.
+- A style is refused when its rows give different **BuyerStyleCode** values, when two styles in the file give the same one, or when the code is already on another active style ('Buyer Style Code "…" already exists on style …' — the same rule as the Style form).
+- With **Overwrite**, a filled **BuyerStyleCode** replaces the style's saved code; an empty cell keeps the saved one.
+- A style imported without a **BuyerStyleCode** shows its Style Code in both the **Buyer Style Code** and **Style Code** columns. Add the code later with **Edit** on the Style Master list, or import the style again with **Overwrite** ticked.
 - The internal code, SKU and barcode are generated by the system. Do not add columns for them.
 - Only .csv and .xlsx are accepted. Any other file type is refused before upload.

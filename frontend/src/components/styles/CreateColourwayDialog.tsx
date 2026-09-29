@@ -111,7 +111,8 @@ export function CreateColourwayDialog({
         <DialogHeader>
           <DialogTitle>Create Colourway</DialogTitle>
           <DialogDescription>
-            A new style copied from <StyleIdentity style={style} name={style.styleName} /> in another colour.
+            A new style copied from <StyleIdentity style={style} name={namedByCode ? null : style.styleName} /> in
+            another colour.
           </DialogDescription>
         </DialogHeader>
 
@@ -181,7 +182,8 @@ export function CreateColourwayDialog({
                 <div key={fab.id} className="flex items-center gap-2">
                   <Swatch hex={colour?.hex ?? null} />
                   <span>
-                    {component} — {fab.fabricName}:{' '}
+                    {component} — {fab.fabricName}
+                    {fab.hasEmbroidery ? ' (embroidered)' : ''}:{' '}
                     <span className="font-medium">
                       {fab.colorMaster?.colorName} → {colour?.name ?? 'the new colour'}
                     </span>
@@ -192,7 +194,9 @@ export function CreateColourwayDialog({
                 <div key={fab.id} className="flex items-center gap-2 text-muted-foreground">
                   <Swatch hex={fab.colorMaster?.hexCode ?? null} />
                   <span>
-                    {component} — {fab.fabricName}: stays {fab.colorMaster?.colorName ?? fab.printDesign ?? 'as it is'}
+                    {component} — {fab.fabricName}
+                    {fab.hasEmbroidery ? ' (embroidered)' : ''}: stays{' '}
+                    {fab.colorMaster?.colorName ?? fab.printDesign ?? 'as it is'}
                   </span>
                 </div>
               ))}

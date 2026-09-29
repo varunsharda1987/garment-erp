@@ -1840,21 +1840,21 @@
   "cad-correct": {
     "sources": {
       "frontend/src/config/navigation.ts": "ca630f08ce15",
-      "frontend/src/pages/CADPlanningPage.tsx": "cf9777cc68b0",
+      "frontend/src/pages/CADPlanningPage.tsx": "ed97ed8ab925",
       "frontend/src/components/cad/CADSpreadsheetTable.tsx": "fb0d40b18637",
-      "frontend/src/components/cad/CorrectCadDialog.tsx": "13426c4355f4",
+      "frontend/src/components/cad/CorrectCadDialog.tsx": "3ffcd6558d14",
       "frontend/src/components/ui/combobox.tsx": "d1b66a9f97a1",
       "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
       "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
-      "frontend/src/pages/CostSheetList.tsx": "abe8c4eb5bfb",
-      "frontend/src/pages/CostSheetDetail.tsx": "f3a8a63d192d",
+      "frontend/src/pages/CostSheetList.tsx": "6275b918ff84",
+      "frontend/src/pages/CostSheetDetail.tsx": "400050ef170d",
       "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "166b27ec75d1",
       "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
-      "backend/src/services/cad-correction.service.ts": "527e47e3a23c",
+      "backend/src/services/cad-correction.service.ts": "b5425704dff5",
       "backend/src/schemas/cadPlanning.schema.ts": "ebc505673b59"
     },
-    "contentHash": "622542d02cff",
-    "generatedAt": "2026-09-29T05:36:23.120Z"
+    "contentHash": "9ced140988c6",
+    "generatedAt": "2026-09-29T07:36:27.574Z"
   },
   "requirements-extra-decision": {
     "sources": {

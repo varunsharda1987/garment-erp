@@ -176,6 +176,17 @@ describe('changing a confirmed sale order’s dates', () => {
     expect(done.plannedEndDate.toISOString()).toBe(DONE_RUN_END.toISOString());
   });
 
+  it('the list filters by Expected Ship Date and Buyer Deadline, both ends inclusive', async () => {
+    const ids = async (q: string) =>
+      (
+        await request(app).get(`/api/sale-orders?customerId=${customerId}&${q}`).set(adminHeader).expect(200)
+      ).body.data.map((o: { id: string }) => o.id);
+    expect(await ids(`shipFrom=${day(3, 8)}&shipTo=${day(3, 8)}`)).toEqual([soId]);
+    expect(await ids(`shipFrom=${day(3, 9)}`)).toEqual([]);
+    expect(await ids(`deadlineTo=${day(3, 10)}`)).toEqual([soId]);
+    expect(await ids(`deadlineTo=${day(3, 9)}`)).toEqual([]);
+  });
+
   it('with no ship date, refuses a deadline before the linked order’s delivery', async () => {
     const res = await post(soId, adminHeader, { expectedShipDate: null, buyerDeadline: day(3, 5) });
     expect(res.status).toBe(400);

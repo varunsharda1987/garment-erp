@@ -210,6 +210,11 @@ export interface SOQueryParams {
   fromDate?: string;
   /** yyyy-MM-dd — filters on saleDate, inclusive */
   toDate?: string;
+  /** yyyy-MM-dd — Expected Ship Date / Buyer Deadline ranges, inclusive */
+  shipFrom?: string;
+  shipTo?: string;
+  deadlineFrom?: string;
+  deadlineTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

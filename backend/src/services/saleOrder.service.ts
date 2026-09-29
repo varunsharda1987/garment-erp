@@ -329,6 +329,10 @@ interface SOQueryParams {
   isActive?: boolean;
   fromDate?: string;
   toDate?: string;
+  shipFrom?: string;
+  shipTo?: string;
+  deadlineFrom?: string;
+  deadlineTo?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -445,6 +449,10 @@ export class SaleOrderService {
       isActive,
       fromDate,
       toDate,
+      shipFrom,
+      shipTo,
+      deadlineFrom,
+      deadlineTo,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = params;
@@ -483,16 +491,24 @@ export class SaleOrderService {
       ];
     }
 
-    if (fromDate || toDate) {
-      where.saleDate = {};
-      if (fromDate) where.saleDate.gte = new Date(fromDate);
-      if (toDate) {
-        // saleDate is a timestamp (@default(now())) — bump to next day so the whole toDate day is included
-        const end = new Date(toDate);
+    // Inclusive day ranges: the end is bumped to the next day so the whole `to` day is included
+    const dayRange = (from?: string, to?: string): Prisma.DateTimeNullableFilter | undefined => {
+      if (!from && !to) return undefined;
+      const range: Prisma.DateTimeNullableFilter = {};
+      if (from) range.gte = new Date(from);
+      if (to) {
+        const end = new Date(to);
         end.setDate(end.getDate() + 1);
-        where.saleDate.lt = end;
+        range.lt = end;
       }
-    }
+      return range;
+    };
+    const saleDateRange = dayRange(fromDate, toDate);
+    if (saleDateRange) where.saleDate = saleDateRange as Prisma.DateTimeFilter;
+    const shipRange = dayRange(shipFrom, shipTo);
+    if (shipRange) where.expectedShipDate = shipRange;
+    const deadlineRange = dayRange(deadlineFrom, deadlineTo);
+    if (deadlineRange) where.buyerDeadline = deadlineRange;
 
     const [data, total] = await Promise.all([
       prisma.sale_orders.findMany({

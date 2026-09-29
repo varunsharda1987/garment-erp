@@ -29,6 +29,10 @@ export class SaleOrderController {
       sortOrder,
       fromDate,
       toDate,
+      shipFrom,
+      shipTo,
+      deadlineFrom,
+      deadlineTo,
     } = req.query;
 
     const result = await saleOrderService.getAll({
@@ -41,6 +45,10 @@ export class SaleOrderController {
       isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
       fromDate: fromDate as string | undefined,
       toDate: toDate as string | undefined,
+      shipFrom: shipFrom as string | undefined,
+      shipTo: shipTo as string | undefined,
+      deadlineFrom: deadlineFrom as string | undefined,
+      deadlineTo: deadlineTo as string | undefined,
       sortBy: sortBy as string | undefined,
       sortOrder: sortOrder as 'asc' | 'desc' | undefined,
     });

@@ -124,6 +124,8 @@ export default function SaleOrderList() {
   // Sale date range — ISO yyyy-MM-dd, '' = open end
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [shipRange, setShipRange] = useState({ from: '', to: '' });
+  const [deadlineRange, setDeadlineRange] = useState({ from: '', to: '' });
   const [sort, setSort] = useState<{ field: DateSortField; order: 'asc' | 'desc' } | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [soToDelete, setSoToDelete] = useState<SaleOrder | null>(null);
@@ -140,6 +142,8 @@ export default function SaleOrderList() {
       seasonId: seasonFilter,
       fromDate,
       toDate,
+      shipRange,
+      deadlineRange,
       sortBy: sort?.field,
       sortOrder: sort?.order,
     }),
@@ -153,6 +157,10 @@ export default function SaleOrderList() {
         seasonId: seasonFilter || undefined,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
+        shipFrom: shipRange.from || undefined,
+        shipTo: shipRange.to || undefined,
+        deadlineFrom: deadlineRange.from || undefined,
+        deadlineTo: deadlineRange.to || undefined,
         sortBy: sort?.field,
         sortOrder: sort?.order,
       }),
@@ -197,9 +205,15 @@ export default function SaleOrderList() {
     createMutation.mutate(data as CreateSORequest);
   };
 
-  const activeFilterCount = [search, statusFilter !== 'all', customerFilter, seasonFilter, fromDate || toDate].filter(
-    Boolean
-  ).length;
+  const activeFilterCount = [
+    search,
+    statusFilter !== 'all',
+    customerFilter,
+    seasonFilter,
+    fromDate || toDate,
+    shipRange.from || shipRange.to,
+    deadlineRange.from || deadlineRange.to,
+  ].filter(Boolean).length;
   const filtersActive = activeFilterCount > 0;
 
   // Clears every filter; page size stays as chosen
@@ -210,6 +224,8 @@ export default function SaleOrderList() {
     setSeasonFilter('');
     setFromDate('');
     setToDate('');
+    setShipRange({ from: '', to: '' });
+    setDeadlineRange({ from: '', to: '' });
     setPage(1);
   };
 
@@ -521,6 +537,24 @@ export default function SaleOrderList() {
               onChange={({ from, to }) => {
                 setFromDate(from);
                 setToDate(to);
+                setPage(1);
+              }}
+            />
+            <DateRangeFilter
+              label="Expected ship date"
+              from={shipRange.from}
+              to={shipRange.to}
+              onChange={(range) => {
+                setShipRange(range);
+                setPage(1);
+              }}
+            />
+            <DateRangeFilter
+              label="Buyer deadline"
+              from={deadlineRange.from}
+              to={deadlineRange.to}
+              onChange={(range) => {
+                setDeadlineRange(range);
                 setPage(1);
               }}
             />

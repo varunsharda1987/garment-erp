@@ -230,6 +230,11 @@ export const saleOrderQuerySchema = z.object({
   seasonId: z.string().min(1).max(50).optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
+  // Expected Ship Date / Buyer Deadline ranges (yyyy-MM-dd, both ends inclusive)
+  shipFrom: z.coerce.date().optional(),
+  shipTo: z.coerce.date().optional(),
+  deadlineFrom: z.coerce.date().optional(),
+  deadlineTo: z.coerce.date().optional(),
   // Whitelisted: sortBy lands in a Prisma `orderBy` key, so an arbitrary string reaches the
   // database and comes back as an opaque "Invalid data provided to database" 400.
   sortBy: SaleOrderSortFieldEnum.optional(),

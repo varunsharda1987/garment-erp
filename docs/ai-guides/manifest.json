@@ -1218,12 +1218,12 @@
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
       "frontend/src/pages/PurchaseOrderList.tsx": "ea2b5cfbc1b0",
-      "frontend/src/pages/PurchaseOrderForm.tsx": "49aa4f61f321",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
-      "frontend/src/types/purchaseOrder.types.ts": "aad024de4757",
-      "backend/src/schemas/purchaseOrder.schema.ts": "e9e23d008435",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "a3f24134f0bb",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "809765c3e654",
+      "frontend/src/types/purchaseOrder.types.ts": "456063df28e5",
+      "backend/src/schemas/purchaseOrder.schema.ts": "05249b6838be",
       "backend/src/services/helpers/po-line-category.helper.ts": "8aba609442ca",
-      "backend/src/services/unified-po-creation.service.ts": "fa1b41babc05",
+      "backend/src/services/unified-po-creation.service.ts": "f7c9803a2414",
       "backend/src/services/document-data/po-deliver-to.ts": "0f4991e62da9",
       "frontend/src/components/WeaverCombobox.tsx": "0e7f4818b828",
       "frontend/src/components/purchase-orders/LabelSizeQtyDialog.tsx": "127c69d8cc71",
@@ -1250,13 +1250,15 @@
       "frontend/src/components/filters/FilterBar.tsx": "4863a4852b38",
       "frontend/src/components/SearchInput.tsx": "9d64f1605ae0",
       "frontend/src/lib/material-detail.ts": "77100f987a05",
-      "backend/src/services/helpers/po-for-buyer.helper.ts": "6f1d2aacd17b",
+      "backend/src/services/helpers/po-for-buyer.helper.ts": "08ddf8ddaf9a",
       "backend/templates/kf/purchase-order.hbs": "33f559d8a131",
       "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8",
-      "frontend/src/lib/po-allocation-view.ts": "2eef61732395"
+      "frontend/src/lib/po-allocation-view.ts": "2eef61732395",
+      "frontend/src/components/WarehouseCombobox.tsx": "800e7631b4cb",
+      "backend/src/services/helpers/po-default-delivery.helper.ts": "f2f4eebc6ac1"
     },
-    "contentHash": "84a865fc635f",
-    "generatedAt": "2026-09-29T05:36:23.374Z"
+    "contentHash": "85ed25365791",
+    "generatedAt": "2026-09-29T06:53:26.621Z"
   },
   "quotation-convert": {
     "sources": {
@@ -1774,25 +1776,27 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/PurchaseOrderDetail.tsx": "07169f090970",
+      "frontend/src/pages/PurchaseOrderDetail.tsx": "809765c3e654",
       "frontend/src/pages/PurchaseOrderList.tsx": "ea2b5cfbc1b0",
       "frontend/src/pages/GRNForm.tsx": "d5b3d14cde5d",
       "frontend/src/components/purchase-orders/DeliveryPlanCard.tsx": "e1b42b32a86f",
       "frontend/src/components/purchase-orders/DeliveryPlanDialog.tsx": "7d740a2f76d0",
       "frontend/src/components/purchase-orders/DeliverySplitEditor.tsx": "89de498ab76e",
       "frontend/src/lib/delivery-plan.ts": "7bf73b97ab8d",
-      "backend/src/schemas/purchaseOrder.schema.ts": "e9e23d008435",
+      "backend/src/schemas/purchaseOrder.schema.ts": "05249b6838be",
       "backend/src/services/helpers/po-delivery-plan.helper.ts": "60d14cc62c8e",
       "backend/src/services/document-data/po-ship-to.ts": "a728edc8d87f",
-      "backend/src/services/purchaseOrder.service.ts": "0d8a873de79f",
-      "backend/src/services/mrp.service.ts": "014ac5a3cfa8",
+      "backend/src/services/purchaseOrder.service.ts": "623361559778",
+      "backend/src/services/mrp.service.ts": "7152ab7af8f3",
       "frontend/src/pages/ManufacturingControlCenter.tsx": "f61b9e1a2ff0",
       "backend/src/services/helpers/po-allocation.helper.ts": "695e79f3ef8a",
       "frontend/src/components/purchase-orders/AllocateToOrdersDialog.tsx": "e1fbde072eec",
-      "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8"
+      "frontend/src/components/purchase-orders/PoAllocationCard.tsx": "e9fcb7dc69b8",
+      "frontend/src/pages/PurchaseOrderForm.tsx": "a3f24134f0bb",
+      "backend/src/services/helpers/po-default-delivery.helper.ts": "f2f4eebc6ac1"
     },
-    "contentHash": "8da4aa445189",
-    "generatedAt": "2026-09-29T05:36:23.389Z"
+    "contentHash": "7951039dc99b",
+    "generatedAt": "2026-09-29T06:53:26.788Z"
   },
   "held-stock-move": {
     "sources": {

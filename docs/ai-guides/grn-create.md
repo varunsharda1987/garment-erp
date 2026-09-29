@@ -2,6 +2,10 @@
 slug: grn-create
 title: Create a GRN (Goods Receipt)
 keywords:
+  - against our challan
+  - receive against challan
+  - challan ke against receive
+  - चालान के खिलाफ रिसीव
   - delivery point
   - split delivery
   - receive here
@@ -73,6 +77,7 @@ keywords:
   - buyer ka style code
   - बायर स्टाइल कोड
 sources:
+  - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
@@ -105,6 +110,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 3. Under **Purchase Order Selection**, type in the **Search by PO number, supplier, material, buyer style code or style code...** box — it also finds a PO by the buyer's name — or click a category chip — **All (N)** plus one chip for each category that has POs waiting, named as on the PO page (Greige, Greige Lace, Trims, Accessories, Machine Parts…) — then pick the PO in **Purchase Order ***. Each PO reads its number, supplier, material type, the styles it is for (Buyer Style Code first, our Style Code in brackets when different, e.g. SP27DR27 (EBWW-021)) and the buyer. Labels and packaging are bought on an **Accessories** PO; an older PO may still show the retired **Packaging** chip.
 4. If you came here to receive from a processor, stop: under the PO list the form says **Receiving from a processor? Open the job work order and click Receive from processor**. There is no job work box on this form any more.
 5. If the PO is **split across several places**, a **Delivery point *** box appears: pick which of the PO's places this delivery is for. Each option shows that place's planned, received and still-to-come quantity, and picking it fills the Warehouse.
+   If our challan went with these goods to a processor (issued on the PO page with **Issue challan — goods on the way**), an **Against our challan *** box appears for that place: pick the challan (it is already picked when there is only one, or when you came from the challan) and the form fills the invoice, each line's quantity, fold and the than / bale / roll list as despatched — then change them to what actually arrived. Choose **Not against a challan** only if these goods came some other way. See *Issue a challan for goods on the way to a processor*.
 6. Choose **Warehouse *** and confirm **Receiving Date *** (defaults to today). On a PO that delivers to one place, the Warehouse is pre-filled with that place ("The PO delivers here."). If the goods actually arrived somewhere else, change it — an amber note says "The PO plans this delivery for …. Book it here only if the goods actually arrived here." If the supplier delivered straight to a dyer, pick that dyer's **<Dyer> - Processing Unit** as the Warehouse and the day the dyer received it as the Receiving Date. On approval the greige is booked as ours, held at the dyer, with a job-work challan (see *Approve a GRN*).
 7. Under **Invoice Details**, fill **Invoice Number *** and **Invoice Date *** from the supplier's bill — every receipt records the invoice the goods came on. If the goods came on a delivery challan and the bill has not arrived yet, tick **Invoice not received yet** instead: both boxes clear and the GRN is saved with its invoice "To follow". When the bill arrives, open the GRN and click **Add invoice** (see *Approve a GRN*).
 8. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
@@ -119,6 +125,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 
 ## Validation traps
 - PO, Warehouse and Receiving Date are required, and at least one item must have a received quantity. On a split PO the **Delivery point** is required too: "This PO is split across several places — pick which delivery this is".
+- While our challan for goods on the way to that processor is open, the **Against our challan** choice is required ("Goods on the way to … travelled under our challan — pick it…"). The receipt cannot be dated before the challan, a second receipt against the same challan is refused, and its lines cannot be received as ready fabric.
 - The invoice is required: "Enter the supplier's invoice number — or tick "Invoice not received yet"", and a number needs its date: "Enter the date of invoice …". A page left open from before this rule may be refused with the same words — reload it.
 - On a split PO, receiving more than a place's share, or booking it at a different warehouse, is allowed — after saving, a warning names the place and its planned quantity. One invoice and one e-way bill per delivery, so make one GRN per delivery.
 - The PO quantity is in actual metres, so over-receipt is checked on the actual metres, not the counted figure — a delivery counted at L=98 that matches the PO after conversion is not an over-receipt.

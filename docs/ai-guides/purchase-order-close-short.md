@@ -49,6 +49,7 @@ keywords:
   - order se juda po
   - ऑर्डर से जुड़ा पीओ
 sources:
+  - backend/src/services/helpers/transit-challan-state.ts
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/PurchaseOrderDetail.tsx
@@ -121,6 +122,7 @@ Only to correct a genuine mistake on a PO goods have already been received again
 - **Close Short only appears on a Partially Received order.** A Draft, Sent or fully Received order does not offer it, and the server refuses it too.
 - **A reason is required** for Close Short, Cancel and Force cancel. The button stays disabled until you type one.
 - **Finish QC first.** If a GRN for this order is still awaiting QC, both Close Short and every cancel (forced or not) are refused and name the GRN. Approve or reject it first, so the delivered quantity is final.
+- **Goods on the way.** If our challan for goods on the way to a processor is open on this order ("goods are on the way under CH…"), Close Short and every cancel are refused. Receive the goods against it, or cancel the challan if they never came.
 - **Close the job work order first.** If an open job work order is linked to this PO, closing short is refused and names it. Short-returned material must be settled there.
 - **Orders linked to the PO do not block it.** You do not need to undo allocations first — Close Short and Cancel settle the links themselves.
 - **A plain cancel is refused once goods have arrived**: "Goods have been received against … — use Close Short to end it at what arrived." A fully received PO "cannot be cancelled".

@@ -2,6 +2,10 @@
 slug: purchase-order-delivery-plan
 title: Change where a Purchase Order is delivered (one place, split, or to be advised)
 keywords:
+  - goods on the way
+  - issue challan goods on the way
+  - maal raste mein
+  - माल रास्ते में
   - change delivery
   - delivery place
   - deliver to
@@ -39,6 +43,8 @@ keywords:
   - काशाया फैब्स
   - अपने गोदाम पर
 sources:
+  - frontend/src/components/purchase-orders/TransitChallanDialog.tsx
+  - backend/src/services/helpers/direct-supply-challan.helper.ts
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
@@ -86,6 +92,7 @@ Check it on the PO's **Deliver To** card and change it there if needed.
 6. Click **Save delivery**. The history under **Changes so far** lists every change with who, when and why.
 7. Tell the supplier: on the **Deliver To** card click **Delivery instruction** — a one-page PDF with each place's address, GSTIN and quantity, and the rule "one tax invoice and one e-way bill per delivery". Or share the whole PO again: its printout lists every place under **03 — Delivery Points** and says "Amendment N — supersedes earlier copies".
 8. When a delivery arrives, click **Receive here** on that place in the **Deliver To** card. The GRN form opens with the PO and the place chosen.
+9. Goods going straight to a processor that needs our challan before they arrive: click **Issue challan — goods on the way** on that processor's place (guide *Issue a challan for goods on the way to a processor*). The challan then shows under the place — **On the way since …**, **Receipt … waiting for QC**, or **Arrived …** — with **Print**, **Receive** and **Cancel**.
 
 ## Finding POs with no place yet
 - On **Purchase Orders**, change the delivery filter from **Any delivery place** to **Delivery: to be advised**. It lists only POs still waiting for goods — Received, Closed Short and Cancelled POs are left out. Each such row carries a **Delivery: to be advised** badge under its expected delivery date, amber when the PO is due within 3 days.
@@ -96,5 +103,6 @@ Check it on the PO's **Deliver To** card and change it there if needed.
 - A place that has already received goods cannot be removed or given less than it received; its column says "Has received goods — it stays". Metres already received cannot be moved to another place.
 - Once anything has arrived, the PO cannot go back to **To be advised**, and a split PO cannot be turned back into **One place**.
 - On a split PO, each GRN must say which place it is for (**Delivery point**). Receiving more than a place's share, or booking it at another warehouse, is allowed but shows a warning after saving.
+- A place with goods on the way under our challan cannot be removed from the plan, nor given less than it has received plus what is on the way ("goods are on the way there under CH…").
 - Goods delivered straight to a processor's unit are booked as ours, held by that processor, with a job-work challan dated the receipt day — no "delivered straight there?" question when the PO already names that unit.
 - Where a greige, greige-lace or lace line goes decides which orders it can be linked to (guide "Allocate a sent PO to running orders"). The **Allocate to orders** box and the **Allocated to orders** card show **Delivers to …** (or **Delivery place to be advised**) under each such line, and each order's **Dyed at**. An order dyed at a processor the line does not deliver to cannot be linked ("is dyed at …, but this line delivers to …"); a line to your own store, or still to be advised, can take any order. Changing the delivery later does not unlink anyone — the card then warns "This line no longer delivers to …".

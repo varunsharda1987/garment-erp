@@ -2,6 +2,9 @@
 slug: manufacturing-control-center
 title: Use the Manufacturing Control Center
 keywords:
+  - goods on the way too long
+  - maal raste mein atka
+  - रास्ते में माल
   - control center
   - control centre
   - manufacturing alerts
@@ -40,7 +43,7 @@ The Control Center is a read-only overview page. It shows what is late or stuck,
 3. **Total Alerts**, **Items with Vendors**, **Due This Week** and **Overdue**. They turn red or amber only when the count is above zero.
 
 ## Alerts Requiring Action
-4. This list shows only alert types that currently have items, and only the ones your role works on. Possible rows are **Overdue Lab Dips**, **Overdue Job Work Orders**, **Overdue Smocking / Handwork**, **Stuck Cutting Batches**, **Quality Failures**, **Pending Buyer Approvals**, **Overdue Challans** and **PO Delivery Place Not Decided** — a sent purchase order due within 3 days whose delivery place is still "to be advised", so the supplier is about to dispatch with nowhere to deliver.
+4. This list shows only alert types that currently have items, and only the ones your role works on. Possible rows are **Overdue Lab Dips**, **Overdue Job Work Orders**, **Overdue Smocking / Handwork**, **Stuck Cutting Batches**, **Quality Failures**, **Pending Buyer Approvals**, **Overdue Challans**, **PO Delivery Place Not Decided** — a sent purchase order due within 3 days whose delivery place is still "to be advised", so the supplier is about to dispatch with nowhere to deliver — and **Goods On The Way Too Long** — our challan for goods a supplier despatched straight to a processor, still not received 10 days after despatch (a lost or diverted truck; Settings "Goods on the way — alert after"). It opens Challans filtered to **In Transit**; goods on the way are never counted as Overdue Challans.
 5. Each row shows the count and **Oldest: N days**. Red means the oldest item is 14 days or more, amber means 7 to 13 days.
 6. Click any row. It opens the matching list, for example **Overdue Job Work Orders** opens Job Work Orders and **PO Delivery Place Not Decided** opens Purchase Orders filtered to **Delivery: to be advised**. Open the PO and use **Set delivery** on its **Deliver To** card; the alert clears as soon as a place is set.
 7. If nothing is pending the card shows **All Clear!**.

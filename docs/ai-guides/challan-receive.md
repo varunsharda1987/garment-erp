@@ -49,6 +49,7 @@ keywords:
   - गांठ
   - चालान में थान
 sources:
+  - backend/src/services/helpers/transit-challan-state.ts
   - frontend/src/config/navigation.ts
   - frontend/src/pages/ChallanDetail.tsx
   - frontend/src/types/challan.types.ts
@@ -102,6 +103,8 @@ route: /manufacturing/challans
 8. A success toast "Challan received" confirms the action.
 
 ## Traps
+
+- **No Receive button on a challan for goods a supplier delivered straight to a processor**, or on our challan for goods on the way there (badge **On the way to …** / **Receipt … waiting for QC**). Their arrival is the purchase receipt: click **Receive against this challan** (guide *Issue a challan for goods on the way to a processor*); their return comes back through the job work order. Such a page shows **Despatched by supplier**, **Supplier invoice**, **E-way bill**, and once received **Received by job worker** with the GRN, plus **Despatched** and **Arrived** columns. **Cancel challan** appears while it is still on the way.
 
 - **Receive button not visible**: The challan status must be Issued, In Transit, or Partially Received. Draft challans must be issued first (**Issue Challan**); Received or Cancelled challans cannot be received again.
 - **Issuing asks about goods held for another order**: when you click **Issue Challan** on a draft and some of the goods are held for another order (they arrived on a PO linked to that order, or were taken for it with Use Stock), a box **These goods are held for another order** lists "Held for ORD… · SP27DR27 (EBWW-021): N" (the order, then the style by its Buyer Style Code) and asks "Take them anyway? That order will need them bought again." **No, keep them** issues nothing; **Take them anyway** issues the challan and that order's requirement goes back to needing the goods bought.

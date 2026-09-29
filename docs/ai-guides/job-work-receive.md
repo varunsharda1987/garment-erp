@@ -34,6 +34,14 @@ keywords:
   - receiving date
   - than count
   - fold length
+  - measured width
+  - width required
+  - cutable width
+  - selvedge
+  - chaudai
+  - arz
+  - चौड़ाई
+  - कटेबल चौड़ाई
   - roll wise
   - roll-wise receive
   - roll number
@@ -157,14 +165,14 @@ Any of these opens the same dialog, titled **Receive from** followed by the proc
 2. Choose the **Entry mode**: **Total metres**, **Than-wise**, **Bale-wise** or **Roll-wise**.
 3. **Total metres** — type **How much came back (MTR) \*** exactly as the processor counted it. **Than count** and **Fold length L (cm)** can be recorded alongside it and are stored with the receipt. Beside them, **Actual metres (after L)** fills itself and cannot be typed into: with a fold length under 100 cm it is counted × L/100 (10,011 at L=98 reads 9,810.78 m); with no fold it is the counted figure. Stock, shrinkage, the loss split and the "final delivery" check all use the actual metres.
 4. **Than-wise** — click **Add than** for every than that came back and type its metres; the **Detail sum** shows the running total. **Bale-wise** — click **Add bale**, then **Add than** inside each bale, and type each than's metres; every bale shows its own subtotal. **Roll-wise** — click **Add roll** for every roll and type its metres. Beside each piece you can type the processor's tag — **Than No.** or **Roll No.** — and each bale's **Bale No.**; they are optional. In every piece-wise mode the count is the number of rows, and **Fold length L (cm)** and **Actual metres (after L)** sit under the rows, working on the Detail sum. The finished fabric lot keeps this roll / than list: cutting picks from it later, and **Inventory → Fabric Stock** shows it (see "Record or check the rolls & thans of a fabric lot"). With **Total metres** the lot has no list.
-5. **Measured width (inches)** — the finished width you measured. It is stamped onto the finished fabric. (Not shown for lace — lace width lives on the master.)
+5. **Measured width (inches) \*** — measure the fabric that came back and type its full width. It is required for fabric: the **asked** width shown in the box is only a hint, not the fabric's width. Under the box the dialog shows the width a marker may use, e.g. **Cutable: 53" (after 2" selvedge)** — the lot is booked with both, and its Production CAD is made on the cutable width. (Not shown for lace — lace width lives on the master.)
 6. **Their challan no.** — the processor's challan number.
    **Processor's invoice no. \*** and **Invoice date \*** — the processor's bill for this delivery. If the bill has not come with the goods, tick **Invoice not received yet** instead (both boxes clear); add the bill later on the receipt with **Add invoice**, or type it when you close the job. The button stays disabled until one or the other is done.
 7. **Into warehouse \*** — only physical stores are listed; a processor's own location or "in transit" is never a place to book stock. When the company has a single store it is already filled in. **Date received \*** defaults to today and cannot be before the day the greige was sent. If the processor sent the goods straight on to another processor instead of to us, tick **Delivered straight to another processor** first — see below.
 8. **Quality (optional)** — **A - Good**, **B - Minor Defects** or **Reject** — and **Defect metres** if any.
 9. **This is the final delivery — nothing more is expected from …** — ticks itself once what you are receiving, together with any earlier parts, reaches the expected quantity (less the processor's tolerance). Untick it if more is still to come: this part is booked into stock and the job stays open as **Partial Receipt**. If you tick it while the total is short, the line under it turns red: **Short by … Only tick this if nothing more is coming from …**.
 10. If the total is short beyond the job's tolerance and the box is ticked, a warning names the metres beyond the allowance and the debit note that will be needed against the processor before the job can close.
-11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked) — once. The button stays disabled until you have a quantity, a warehouse, a valid date and the processor's invoice (or **Invoice not received yet** ticked). When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
+11. Click **Receive & add to stock** (it reads **Receive part & add to stock** while the box is unticked) — once. The button stays disabled until you have a quantity, the measured width (fabric), a warehouse, a valid date and the processor's invoice (or **Invoice not received yet** ticked). When the total is short beyond the tolerance and the box is ticked, a confirmation titled **Close … short?** appears first: it states the total received against the expected quantity, how many metres short, how many beyond the allowance, and the debit note that is due. Click **Yes — nothing more is coming, close it short** only if you do not expect anything more from the processor on this job. Otherwise click **Go back**, untick the box and receive this delivery as a part.
 
 ### What that one click does
 - Files the receipt, already accepted. It appears on **Procurement → GRN (Goods Receipt)** badged **Job work return**, and the job lists it under **Return receipts** in its Actions card with its date, metres and invoice ("· Inv …", or "· invoice to follow" in amber).
@@ -237,6 +245,8 @@ A job that has already been received cannot be received again: a second click is
 - A final delivery that leaves the total short beyond the tolerance cannot go in quietly. If the confirmation was somehow skipped (an old browser tab, for instance), the server refuses it with "This would close … short: … received in total against … expected back from … If more is still to come, receive this as a part. If nothing more is expected, confirm the short close." — reload the page and the confirmation appears.
 - **Close short — nothing more is coming** only appears on a job at **Partial Receipt**. A job with nothing received yet has nothing to close on, and a job already at **Stock Updated** is already closed.
 - A receipt with no quantity is refused with "Received quantity must be greater than 0" — nothing is written.
+- A fabric receipt with no measured width is refused: "Enter the measured width of the fabric received on … — the lot's cutable width is worked out from it." — nothing is written. A page opened before this rule may hit it: reload it and the box shows as required.
+- If a lot was booked at the wrong width, do not reverse the receipt for it: open **Inventory → Fabric Stock** and use **Correct width** on the lot (see *Correct a fabric lot's width*).
 - A receipt with neither the processor's invoice nor **Invoice not received yet** is refused: "Enter the processor's invoice number and date — or tick "Invoice not received yet" …" — nothing is written. A page opened before this rule may hit it: reload it and the box appears.
 - A return dated before the day the greige was sent is refused: "Date received 27-Aug-2026 is before the day the greige was sent (19-Sep-2026)". The date field will not go earlier than the send day.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.

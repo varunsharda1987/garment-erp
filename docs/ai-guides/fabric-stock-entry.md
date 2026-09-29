@@ -55,6 +55,7 @@ route: /fabric-stock
 - The **Save Stock Entry** button stays disabled until both a fabric and a quantity are entered.
 - If you pick a fabric that belongs to a specific style, the page jumps straight to that style's own stock entry screen. That is expected — finish the entry there.
 - Quantity and width must both be positive numbers; purchase cost cannot be negative. **Notes** is limited to 500 characters.
+- The lot is booked with the width from the Fabric Master and a cutable width 2" less (the selvedge). If a lot in the list turns out to measure differently, do not re-enter it — click the ruler icon (**Correct width**) on its row (see "Correct a fabric lot's width"). The **Width** column shows the lot's measured width with its own cutable width under it, e.g. **55"** and **(53" cut)**.
 - **Warehouse Location** starts empty. It is a searchable dropdown — search by warehouse code, name or city and pick from the list; it cannot be typed in free-form.
 - If the warehouse box reads **Could not load — open to retry** (the server was busy for a moment), open it again — the list is fetched afresh. It is never stuck.
 - To book stock directly against a style instead, press **Add Stock Against Style** on the **Finished Fabric Stock** page. In **Select Style for Fabric Stock Entry** type the buyer style code or our style code (the list is sorted by buyer style code), pick the style and press **Continue**.

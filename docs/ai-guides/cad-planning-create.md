@@ -56,6 +56,13 @@ keywords:
   - sizes could not be read
   - title bar cut off
   - piece list sizes
+  - lot width
+  - wrong width
+  - correct width
+  - spare width
+  - wider than lot
+  - marker fits the lot
+  - cutable width of lot
   # Hinglish
   - CAD banana
   - marker banane ka tarika
@@ -84,6 +91,10 @@ keywords:
   - buyer ka style code
   - size nahi padha
   - screenshot kata hua
+  - lot ki width galat hai
+  - chaudai galat
+  - 52 ka marker 53 pe
+  - width sahi karna
   # Devanagari (MANDATORY)
   - कैड
   - कैड प्लानिंग
@@ -117,6 +128,10 @@ keywords:
   - साइज नहीं पढ़ा
   - अभी इस्तेमाल नहीं
   - बायर स्टाइल कोड
+  - चौड़ाई
+  - कटेबल चौड़ाई
+  - लॉट की चौड़ाई
+  - चौड़ाई सही करना
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/pages/CADPlanningPage.tsx
@@ -130,6 +145,9 @@ sources:
   - frontend/src/components/cad/MarkerImageDialog.tsx
   - frontend/src/components/cad/MiniMarkerDialog.tsx
   - frontend/src/components/cad/MiniMarkerBadge.tsx
+  - frontend/src/components/fabric/CorrectLotWidthDialog.tsx
+  - backend/src/services/helpers/lot-width.helper.ts
+  - backend/src/controllers/cad-embroidery.controller.ts
 route: /cad-planning
 ---
 
@@ -202,7 +220,7 @@ Open the row menu (three dots) > **Edit** to change a row, then click the save i
 **Editable (blue):**
 - **Part** * - the pattern part (e.g. All Parts, Body, Sleeve)
 - **Greige / Fabric** * - the exact greige (or ready fabric). Click **Select Greige** and type part of the greige name (or its generic greige or supplier) to search; only greiges of the row's generic greige are listed
-- **Width** * - cuttable width in inches, as on the marker
+- **Width** * - cuttable width in inches, as on the marker. On a Production row it may be narrower than its lot, never wider (the line under it shows **Lot …" · …" spare**, or **Wider than lot** in red)
 - **Print** - 1-Way or 2-Way
 - **Sizes** * - click the calculator button to set the pieces per size
 - **Layer(M)** * - the marker length in metres, as printed on the marker
@@ -284,11 +302,14 @@ After approval, to create fabric costing records:
 
 ### 10. Make the Production CAD for received fabric
 
-When processed fabric has been received for the style, a green **Fabric Stock Available** box appears above the spreadsheet. It lists every lot with its GRN number, cutable width and metres, e.g. `GRN2609-0080 · 52" • 852.1m`, and a badge such as **2 need CAD**.
+When processed fabric has been received for the style, a green **Fabric Stock Available** box appears above the spreadsheet. It lists every lot with its GRN number, **cutable** width and metres, e.g. `GRN2609-0080 · 53" cutable • 852.1m`, and a badge such as **2 need CAD**. Hover a lot to see its measured width too. The cutable width is the measured width less the selvedge (2") — the widest a marker for that lot may be.
 
-1. Click **Create CAD** next to a lot. There is one Production CAD per lot.
-2. A new **Production** row appears, already filled from the approved Raw Mat (or Costing) marker: Sizes, Pcs, Layer(M) and CAD Avg, at the lot's width — with that marker's image when it has one.
-   - If the lot's width differs from the planned marker, a warning says so. The sizes are copied, but **Layer(M)** and **CAD Avg** are left empty and no image comes with it — make the marker for the lot's width, then attach its image in the **CAD Image** column and use its values (section 6).
+**Check the lot's width first.** If the fabric measures differently from what was recorded at receipt (e.g. recorded 57", the fabric is 55"), click **Width** next to the lot and correct it before making its CAD (see *Correct a fabric lot's width*).
+
+1. Click **Create CAD** next to a lot. There is one Production CAD per lot; two lots of the same width each get their own.
+2. A new **Production** row appears, filled from the approved Raw Mat (or Costing) marker when that marker **fits** the lot — no wider than the lot's cutable width. It keeps the marker's own width (a 52" marker on a 53" lot stays 52"), with Sizes, Pcs, Layer(M), CAD Avg and the marker's image.
+   - Under **Width** the row shows the lot and what is left over, e.g. **Lot 53" · 1" spare**. It turns amber when more than 2" is spare, and Create CAD warns: "This lot is 56" cutable and the marker is 52" — 4" spare. A wider marker may save fabric."
+   - If the approved marker is **wider** than the lot, it cannot be used: a warning says "…it will not fit". The sizes are copied, but **Layer(M)** and **CAD Avg** are left empty and no image comes with it — make a marker at the lot's cutable width or less, then attach its image in the **CAD Image** column and use its values (section 6).
 3. Check the row and its **CAD Image** chip (it must not say **Needs image** or **Differs**). Then open the row menu (three dots) > **Approve**.
 4. Repeat for every lot in the box.
 
@@ -305,6 +326,8 @@ When processed fabric has been received for the style, a green **Fabric Stock Av
 - **"The sizes could not be read from the image — not checked"**: neither the title bar nor the piece list gave the sizes (both cut off, or the piece list scrolled). Upload a screenshot that shows the title bar, or enter the sizes and save with a reason (e.g. "sizes counted from the piece list").
 - **"Only 4 of the marker's 60 pieces are placed"**: the marker was not finished in Nest EXPERT. Finish it and upload a new screenshot, or save with a reason (e.g. an embroidery-panel marker).
 - **Wrong cutable width**: Using greige width instead of cutable width leads to wrong fabric consumption. Cutable width is typically 1-2 inches less than greige width due to selvedge.
+- **"This marker is 54" but lot … is 53" cutable — it will not fit"**: a Production CAD cannot be saved or approved wider than its lot. Make a marker at the lot's cutable width or less — or, if the lot was recorded at the wrong width, click **Width** on the lot in the **Fabric Stock Available** box and correct it.
+- **The lot's width was recorded wrong at receipt** (e.g. 57" instead of 55"): click **Width** next to the lot and correct it. Do not reverse the receipt for this. A lot whose approved Production CAD would no longer fit cannot be narrowed — reject that CAD first.
 - **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but cutting needs an APPROVED Production CAD made from the received lot.
 - **"Cannot tell which fabric of … this lot belongs to"**: Create CAD could not match the lot to one of the style's fabrics (same greige and finish). Check the style's fabrics, then press **Create CAD** again. Nothing was created.
 - **"This lot already has a Production CAD"**: each lot gets one. Find it in the Production section of the table.

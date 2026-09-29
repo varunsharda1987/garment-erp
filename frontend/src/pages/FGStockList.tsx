@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import SearchInput from '@/components/SearchInput';
 import { FilterBar } from '@/components/filters';
 import { StyleCombobox } from '@/components/StyleCombobox';
+import { StyleColourCombobox } from '@/components/StyleColourCombobox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Pagination from '@/components/Pagination';
@@ -75,24 +76,27 @@ interface FGStockResponse {
 export default function FGStockList() {
   const [search, setSearch] = useState('');
   const [styleId, setStyleId] = useState('');
+  const [colorId, setColorId] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
-  const activeFilterCount = [search, styleId].filter(Boolean).length;
+  const activeFilterCount = [search, styleId, colorId].filter(Boolean).length;
   const clearFilters = () => {
     setSearch('');
     setStyleId('');
+    setColorId('');
     setPage(1);
   };
 
   const { data, isLoading } = useQuery<FGStockResponse>({
-    queryKey: ['fg-stock', { page, pageSize, search, styleId }],
+    queryKey: ['fg-stock', { page, pageSize, search, styleId, colorId }],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('limit', String(pageSize));
       if (search) params.set('search', search);
       if (styleId) params.set('styleId', styleId);
+      if (colorId) params.set('colorId', colorId);
       const response = await api.get(`/fg-stock?${params.toString()}`);
       return response.data;
     },
@@ -154,12 +158,26 @@ export default function FGStockList() {
               value={styleId}
               onValueChange={(v) => {
                 setStyleId(v);
+                // A colour option belongs to one style: the old style's colour cannot filter the new one
+                setColorId('');
                 setPage(1);
               }}
               status={null}
               allowAll
               placeholder="All styles"
               className="w-[260px]"
+            />
+            {/* FG stock's colour is the style's colour option, so the list is the chosen style's colours */}
+            <StyleColourCombobox
+              styleId={styleId}
+              value={colorId}
+              onValueChange={(v) => {
+                setColorId(v);
+                setPage(1);
+              }}
+              allowAll
+              placeholder="All colours"
+              className="w-[200px]"
             />
           </FilterBar>
 

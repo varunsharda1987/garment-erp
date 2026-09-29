@@ -9,6 +9,7 @@ import Pagination from '@/components/Pagination';
 import SearchInput from '@/components/SearchInput';
 import { FilterBar } from '@/components/filters';
 import { StyleCombobox } from '@/components/StyleCombobox';
+import { WorkOrderCombobox } from '@/components/WorkOrderCombobox';
 import { garmentPhysicalTestsService } from '@/services/testing.service';
 import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
@@ -34,6 +35,7 @@ export default function GarmentPhysicalTests() {
   );
   const [pendingBuyerApproval, setPendingBuyerApproval] = useState(searchParams.get('pendingBuyerApproval') === 'true');
   const [styleFilter, setStyleFilter] = useState('');
+  const [workOrderFilter, setWorkOrderFilter] = useState(searchParams.get('workOrderId') || '');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -50,11 +52,14 @@ export default function GarmentPhysicalTests() {
       setPage(1);
     };
 
-  const activeFilterCount = [search, statusFilter !== 'all', styleFilter, pendingBuyerApproval].filter(Boolean).length;
+  const activeFilterCount = [search, statusFilter !== 'all', styleFilter, workOrderFilter, pendingBuyerApproval].filter(
+    Boolean
+  ).length;
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('all');
     setStyleFilter('');
+    setWorkOrderFilter('');
     setPendingBuyerApproval(false);
     setPage(1);
   };
@@ -62,7 +67,7 @@ export default function GarmentPhysicalTests() {
   useEffect(() => {
     fetchTests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, search, statusFilter, styleFilter, pendingBuyerApproval]);
+  }, [page, pageSize, search, statusFilter, styleFilter, workOrderFilter, pendingBuyerApproval]);
 
   const fetchTests = async () => {
     try {
@@ -73,6 +78,7 @@ export default function GarmentPhysicalTests() {
         search: search || undefined,
         overallTestResult: statusFilter === 'all' ? undefined : statusFilter,
         styleId: styleFilter || undefined,
+        workOrderId: workOrderFilter || undefined,
         pendingBuyerApproval: pendingBuyerApproval ? 'true' : undefined,
       });
       setTests(result.data);
@@ -180,6 +186,13 @@ export default function GarmentPhysicalTests() {
             allowAll
             placeholder="All styles"
             className="w-[220px]"
+          />
+          <WorkOrderCombobox
+            value={workOrderFilter}
+            onValueChange={changeFilter(setWorkOrderFilter)}
+            allowAll
+            placeholder="All production runs"
+            className="w-[260px]"
           />
           {pendingBuyerApproval && (
             <Badge className="h-9 bg-info-muted text-info border-info/30 gap-1">

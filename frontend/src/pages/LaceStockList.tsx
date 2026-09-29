@@ -13,6 +13,7 @@ import Pagination from '../components/Pagination';
 import SearchInput from '../components/SearchInput';
 import { FilterBar } from '../components/filters';
 import { StyleCombobox } from '../components/StyleCombobox';
+import { LaceCombobox } from '../components/LaceCombobox';
 import { laceStockService } from '../services/laceStock.service';
 import type {
   LaceStock,
@@ -44,6 +45,7 @@ export default function LaceStockList() {
   });
 
   // Filters
+  const [laceFilter, setLaceFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<LaceStockStatus | ''>('');
   const [stockTypeFilter, setStockTypeFilter] = useState<LaceStockType | ''>('');
   const [qualityFilter, setQualityFilter] = useState<LaceQualityGrade | ''>('');
@@ -58,11 +60,12 @@ export default function LaceStockList() {
       setPagination((prev) => ({ ...prev, page: 1 }));
     };
 
-  const activeFilterCount = [searchTerm, statusFilter, stockTypeFilter, qualityFilter, styleFilter].filter(
+  const activeFilterCount = [searchTerm, laceFilter, statusFilter, stockTypeFilter, qualityFilter, styleFilter].filter(
     Boolean
   ).length;
   const clearFilters = () => {
     setSearchTerm('');
+    setLaceFilter('');
     setStatusFilter('');
     setStockTypeFilter('');
     setQualityFilter('');
@@ -85,6 +88,7 @@ export default function LaceStockList() {
         page: pagination.page,
         limit: pagination.limit,
       };
+      if (laceFilter) filters.laceId = laceFilter;
       if (statusFilter) filters.status = statusFilter;
       if (stockTypeFilter) filters.stockType = stockTypeFilter;
       if (qualityFilter) filters.qualityGrade = qualityFilter;
@@ -125,7 +129,16 @@ export default function LaceStockList() {
   useEffect(() => {
     fetchStocks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, searchTerm, statusFilter, stockTypeFilter, qualityFilter, styleFilter]);
+  }, [
+    pagination.page,
+    pagination.limit,
+    searchTerm,
+    laceFilter,
+    statusFilter,
+    stockTypeFilter,
+    qualityFilter,
+    styleFilter,
+  ]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -236,6 +249,15 @@ export default function LaceStockList() {
           onChange={changeFilter(setSearchTerm)}
           // The API refuses a longer search (laceStockQuerySchema: max 100)
           maxLength={100}
+        />
+
+        <LaceCombobox
+          value={laceFilter}
+          onValueChange={changeFilter(setLaceFilter)}
+          allowAll
+          allLabel="All laces"
+          placeholder="All laces"
+          className="w-[220px]"
         />
 
         <Select

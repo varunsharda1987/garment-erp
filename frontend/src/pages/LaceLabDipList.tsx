@@ -13,6 +13,7 @@ import Pagination from '../components/Pagination';
 import SearchInput from '../components/SearchInput';
 import { FilterBar } from '../components/filters';
 import { ProcessorCombobox } from '../components/ProcessorCombobox';
+import { LaceCombobox } from '../components/LaceCombobox';
 import { laceLabDipService } from '../services/laceLabDip.service';
 import type { LaceLabDip, LabDipStatus, LabDipListFilters } from '../types/laceLabDip.types';
 import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS } from '../types/laceLabDip.types';
@@ -34,6 +35,7 @@ export default function LaceLabDipList() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<LabDipStatus | ''>('');
   const [processorFilter, setProcessorFilter] = useState('');
+  const [laceFilter, setLaceFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Every filter change goes back to page 1 (set together, so the old page is never fetched with the new filter)
@@ -44,10 +46,11 @@ export default function LaceLabDipList() {
       setPagination((prev) => ({ ...prev, page: 1 }));
     };
 
-  const activeFilterCount = [searchTerm, statusFilter, processorFilter].filter(Boolean).length;
+  const activeFilterCount = [searchTerm, statusFilter, laceFilter, processorFilter].filter(Boolean).length;
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
+    setLaceFilter('');
     setProcessorFilter('');
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
@@ -73,6 +76,7 @@ export default function LaceLabDipList() {
       if (statusFilter) {
         filters.status = statusFilter;
       }
+      if (laceFilter) filters.greigeLaceId = laceFilter;
       if (processorFilter) filters.processorId = processorFilter;
       if (searchTerm) filters.search = searchTerm;
 
@@ -104,7 +108,7 @@ export default function LaceLabDipList() {
   useEffect(() => {
     fetchLabDips();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.limit, statusFilter, processorFilter, searchTerm]);
+  }, [pagination.page, pagination.limit, statusFilter, laceFilter, processorFilter, searchTerm]);
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this lab dip request?')) {
@@ -180,6 +184,15 @@ export default function LaceLabDipList() {
             ))}
           </SelectContent>
         </Select>
+        <LaceCombobox
+          kind="greige"
+          value={laceFilter}
+          onValueChange={changeFilter(setLaceFilter)}
+          allowAll
+          allLabel="All greige laces"
+          placeholder="All greige laces"
+          className="w-[220px]"
+        />
         <ProcessorCombobox
           value={processorFilter}
           onValueChange={changeFilter(setProcessorFilter)}

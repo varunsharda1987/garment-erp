@@ -31,7 +31,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import SearchInput from '@/components/SearchInput';
 import Pagination from '@/components/Pagination';
 import { FilterBar } from '@/components/filters';
-import { SupplierCombobox } from '@/components/SupplierCombobox';
+import { ProcessorCombobox } from '@/components/ProcessorCombobox';
+import { PROCESSOR_CATEGORIES } from '@/lib/supplier-material-mapping';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -313,15 +314,15 @@ export default function JobWorkOrderList() {
                 ))}
               </SelectContent>
             </Select>
-            {/* Any supplier: embroiderers, stitching and transport contractors hold jobs too, not only dyers */}
-            <SupplierCombobox
+            {/* Every job-work processor — embroiderers, smockers, CMT units, other services — not only the dyers */}
+            <ProcessorCombobox
               value={processorFilter}
               onValueChange={(v) => {
                 setProcessorFilter(v || '');
                 setPage(1);
               }}
+              categories={PROCESSOR_CATEGORIES}
               allowAll
-              allLabel="All processors"
               placeholder="All processors"
               className="w-[220px]"
             />

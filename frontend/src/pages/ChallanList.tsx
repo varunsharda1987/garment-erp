@@ -19,8 +19,9 @@ import DataTable, { type Column } from '@/components/DataTable';
 import Pagination from '@/components/Pagination';
 import SearchInput from '@/components/SearchInput';
 import { FilterBar, DateRangeFilter } from '@/components/filters';
+import { WorkOrderCombobox } from '@/components/WorkOrderCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
-import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw, X } from 'lucide-react';
+import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw } from 'lucide-react';
 
 import { formatDate } from '@/lib/date';
 
@@ -205,6 +206,15 @@ export default function ChallanList() {
     const next = new URLSearchParams(searchParams);
     keys.forEach((key) => next.delete(key));
     setSearchParams(next, { replace: true });
+  };
+
+  // The run filter lives in the URL (?productionRunId=), so drill-down links keep landing here scoped
+  const setProductionRunFilter = (id: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) next.set('productionRunId', id);
+    else next.delete('productionRunId');
+    setSearchParams(next, { replace: true });
+    setPage(1);
   };
 
   // Clears every filter; page size stays as chosen
@@ -403,24 +413,13 @@ export default function ChallanList() {
               <Calendar className="h-4 w-4 mr-1" />
               Today only
             </Button>
-            {/* Scoped to one production run by a drill-down link — say so, and let it be removed on its own */}
-            {productionRunId && (
-              <Badge variant="secondary" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
-                Run: {challans.find((c) => c.productionRun)?.productionRun?.workOrderNumber ?? 'this run'}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0"
-                  aria-label="Remove the run filter"
-                  onClick={() => {
-                    clearUrlFilters('productionRunId');
-                    setPage(1);
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </Badge>
-            )}
+            <WorkOrderCombobox
+              value={productionRunId}
+              onValueChange={setProductionRunFilter}
+              allowAll
+              placeholder="All production runs"
+              className="w-[260px]"
+            />
           </FilterBar>
         </CardHeader>
         <CardContent>

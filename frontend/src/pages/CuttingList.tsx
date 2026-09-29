@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Pagination from '@/components/Pagination';
 import SearchInput from '@/components/SearchInput';
 import { FilterBar } from '@/components/filters';
+import { WorkOrderCombobox } from '@/components/WorkOrderCombobox';
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type {
   CuttingBatch,
@@ -85,9 +86,11 @@ export default function CuttingList() {
   // Filters: search, status, and the run a work-order drill-down link scoped the list to (?workOrderId=)
   const activeFilterCount = [search, statusFilter, workOrderId].filter(Boolean).length;
 
-  const clearWorkOrderFilter = () => {
+  // The run filter lives in the URL (?workOrderId=), so the work-order page's links keep landing here scoped
+  const setWorkOrderFilter = (id: string) => {
     const next = new URLSearchParams(searchParams);
-    next.delete('workOrderId');
+    if (id) next.set('workOrderId', id);
+    else next.delete('workOrderId');
     setSearchParams(next, { replace: true });
     setPage(1);
   };
@@ -96,7 +99,7 @@ export default function CuttingList() {
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('');
-    if (workOrderId) clearWorkOrderFilter();
+    if (workOrderId) setWorkOrderFilter('');
     setPage(1);
   };
 
@@ -253,21 +256,13 @@ export default function CuttingList() {
                     <SelectItem value="ON_HOLD">{CuttingBatchStatusLabels.ON_HOLD}</SelectItem>
                   </SelectContent>
                 </Select>
-                {/* Scoped to one production run by a drill-down link — say so, and let it be removed on its own */}
-                {workOrderId && (
-                  <Badge variant="secondary" className="h-9 gap-1 pl-3 pr-1 text-sm font-normal">
-                    Run: {batches.find((row) => row.workOrder)?.workOrder?.workOrderNumber ?? 'this run'}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      aria-label="Remove the run filter"
-                      onClick={clearWorkOrderFilter}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </Badge>
-                )}
+                <WorkOrderCombobox
+                  value={workOrderId}
+                  onValueChange={setWorkOrderFilter}
+                  allowAll
+                  placeholder="All production runs"
+                  className="w-[260px]"
+                />
               </FilterBar>
             </CardContent>
           </Card>

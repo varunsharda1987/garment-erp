@@ -39,6 +39,15 @@ keywords:
   - buyer style code
   - buyer ka style code
   - बायर स्टाइल कोड
+  - sample by season
+  - sample by colour
+  - sample by color
+  - season wise sample
+  - colour wise sample
+  - सीज़न वाइज़ सैंपल
+  - कलर वाइज़ सैंपल
+  - सैंपल सीज़न
+  - सैंपल कलर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -50,6 +59,7 @@ sources:
   - frontend/src/components/filters/FilterBar.tsx
   - frontend/src/components/CustomerCombobox.tsx
   - frontend/src/components/StyleCombobox.tsx
+  - frontend/src/components/ColorCombobox.tsx
 route: /samples
 ---
 
@@ -68,12 +78,15 @@ route: /samples
    - **All types** dropdown — FIT Sample, PP Sample (Pre-Production), Size Set Sample, Photoshoot Sample, Production Sample or Shipment Sample
    - **All statuses** dropdown — Requested, In Progress, Submitted, Approved, Rejected, Sent to Buyer, Awaiting Feedback, Revision Needed or Approved (with comments)
    - **All customers** and **All styles** — searchable pickers; type to find one, or pick the "All …" row to see everything. In **All styles**, type the buyer style code or our style code — each style reads buyer style code first, our Style Code in brackets
+   - **All seasons** — pick a season (code — name) to see only samples whose style is in that season. A sample has no season of its own: it is the season set on its style
+   - **All colours** — pick a colour (type its code or name) to see only samples whose style's Primary Color is that colour
    - **Group by** dropdown — **No grouping**, **By sample type**, **By customer** or **Overdue first**
    - Click **Clear N filters** to remove every filter and go back to page 1. It keeps your **Group by** choice. If nothing matches, the list says "No samples match these filters." with a **Clear filters** button.
 
 4. The table shows each sample with:
    - **Buyer Style Code** — the buyer's code for the style, with the style name under it ("No style" when the sample has none)
    - **Style Code** — our style code
+   - **Colour** — the style's Primary Color with a colour dot ("—" when the style has none)
    - **Sample #** — sample number with version badge and overdue indicator (red alert icon)
    - **Type** — FIT Sample, PP Sample, Size Set Sample, etc.
    - **Customer** — customer name
@@ -170,6 +183,8 @@ Note: Your WhatsApp must be linked in **Team & Settings → My WhatsApp** for th
 - **Actions are behind the ⋯ menu** — there are no one-click status buttons on the row. Open the ⋯ menu at the end of the row and pick the step from there.
 
 - **Delete restrictions** — you cannot delete samples that are already Approved or Approved (with comments); the Delete item does not appear in the menu for those.
+
+- **Season and colour come from the style** — a sample whose style has no season or no Primary Color never appears under a season or colour filter. Set them on the style (Style form → Season / Primary Color) and the sample follows.
 
 - **SLA colors** — green = on time, yellow = approaching deadline, red = delayed, gray = completed.
 

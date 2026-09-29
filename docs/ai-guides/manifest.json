@@ -190,10 +190,10 @@
       "frontend/src/config/navigation.ts": "ca630f08ce15",
       "frontend/src/components/Sidebar.tsx": "204b138b6ab0",
       "frontend/src/App.tsx": "0a8b3e8b7696",
-      "frontend/src/pages/CostSheetList.tsx": "f02302716c98",
+      "frontend/src/pages/CostSheetList.tsx": "abe8c4eb5bfb",
       "frontend/src/pages/CostSheetForm.tsx": "413c78b2b9e0",
       "frontend/src/components/fabric-costing/CostingRunDetailDialog.tsx": "0cbd69cc2bec",
-      "frontend/src/pages/CostSheetDetail.tsx": "0c3928b3429a",
+      "frontend/src/pages/CostSheetDetail.tsx": "f3a8a63d192d",
       "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "166b27ec75d1",
       "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "55edbaaaaba1",
@@ -207,8 +207,8 @@
       "backend/src/services/helpers/cost-sheet-version.helper.ts": "74fb1ee4b7d3",
       "backend/src/controllers/style-costing-approval.controller.ts": "0e09881e4d26"
     },
-    "contentHash": "e97387533c44",
-    "generatedAt": "2026-09-28T16:48:05.633Z"
+    "contentHash": "cbde3c17a795",
+    "generatedAt": "2026-09-29T02:43:16.910Z"
   },
   "credit-note-create": {
     "sources": {
@@ -1792,15 +1792,15 @@
       "frontend/src/components/cad/CorrectCadDialog.tsx": "5a305d358ddd",
       "frontend/src/components/cad/CadInUseNotice.tsx": "cdbfe6410f0c",
       "frontend/src/components/cad/CadHistoryDialog.tsx": "19e05eda575a",
-      "frontend/src/pages/CostSheetList.tsx": "f02302716c98",
-      "frontend/src/pages/CostSheetDetail.tsx": "0c3928b3429a",
+      "frontend/src/pages/CostSheetList.tsx": "abe8c4eb5bfb",
+      "frontend/src/pages/CostSheetDetail.tsx": "f3a8a63d192d",
       "frontend/src/components/cost-sheet/CadCorrectionBanner.tsx": "166b27ec75d1",
       "frontend/src/components/requirements/RequirementDecision.tsx": "71a110d23b21",
       "backend/src/services/cad-correction.service.ts": "8a0d2cb35107",
       "backend/src/schemas/cadPlanning.schema.ts": "ebc505673b59"
     },
     "contentHash": "a8ea23996baf",
-    "generatedAt": "2026-09-28T16:39:08.115Z"
+    "generatedAt": "2026-09-29T02:43:16.759Z"
   },
   "requirements-extra-decision": {
     "sources": {
